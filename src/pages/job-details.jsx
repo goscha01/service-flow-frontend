@@ -1,0 +1,2069 @@
+import React, { useState, useEffect } from "react"
+import { useParams, useNavigate } from "react-router-dom"
+import { 
+  ArrowLeft, 
+  Edit, 
+  Save, 
+  X, 
+  Calendar, 
+  Clock, 
+  MapPin, 
+  Users, 
+  Phone, 
+  Mail, 
+  FileText, 
+  CheckCircle, 
+  XCircle, 
+  PlayCircle, 
+  PauseCircle,
+  AlertCircle,
+  Check,
+  DollarSign,
+  User,
+  Building,
+  ChevronDown,
+  ChevronUp,
+  Settings,
+  CreditCard,
+  Truck,
+  Clipboard,
+  Home,
+  Plus,
+  Tag,
+  Star,
+  MessageSquare,
+  Bell,
+  Zap,
+  Shield,
+  Award,
+  Target,
+  Navigation,
+  Package,
+  Tool,
+  Wrench,
+  Paintbrush,
+  Leaf,
+  Sparkles,
+  MoreVertical,
+  ExternalLink,
+  Printer,
+  Send,
+  Edit3,
+  MapPin as LocationIcon,
+  Calendar as CalendarIcon,
+  Copy,
+  Trash2,
+  Menu
+} from "lucide-react"
+import { jobsAPI, notificationAPI, territoriesAPI, teamAPI, invoicesAPI } from "../services/api"
+import Sidebar from "../components/sidebar"
+import AddressAutocomplete from "../components/address-autocomplete"
+import IntakeAnswersDisplay from "../components/intake-answers-display"
+import { formatPhoneNumber } from "../utils/phoneFormatter"
+
+const JobDetails = () => {
+  const { jobId } = useParams();
+  const navigate = useNavigate();
+  const [job, setJob] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [successMessage, setSuccessMessage] = useState("")
+  const [error, setError] = useState("")
+
+  // Google Places Autocomplete state (now handled by AddressAutocomplete component)
+
+  // Form data for editing
+  const [formData, setFormData] = useState({
+    service_name: "",
+    bathroom_count: "",
+    duration: 0,
+    workers_needed: 1,
+    skills: [],
+    notes: "",
+    internal_notes: "",
+    serviceAddress: {
+      street: "",
+      city: "",
+      state: "",
+      zipCode: ""
+    },
+    scheduledDate: "",
+    scheduledTime: "",
+    offer_to_providers: false
+  })
+
+  // UI state
+  const [editing, setEditing] = useState(false)
+  const [editingField, setEditingField] = useState(null)
+  const [showActionMenu, setShowActionMenu] = useState(false)
+  const [showRescheduleModal, setShowRescheduleModal] = useState(false)
+  const [showCancelModal, setShowCancelModal] = useState(false)
+  const [showEditServiceModal, setShowEditServiceModal] = useState(false)
+  const [showEditAddressModal, setShowEditAddressModal] = useState(false)
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false)
+  const [showSendInvoiceModal, setShowSendInvoiceModal] = useState(false)
+  const [showAddPaymentModal, setShowAddPaymentModal] = useState(false)
+
+  // Data state
+  const [territories, setTerritories] = useState([])
+  const [teamMembers, setTeamMembers] = useState([])
+  const [assigning, setAssigning] = useState(false)
+  const [selectedTeamMember, setSelectedTeamMember] = useState(null)
+  const [invoice, setInvoice] = useState(null)
+  const [emailNotifications, setEmailNotifications] = useState(true)
+  const [smsNotifications, setSmsNotifications] = useState(false)
+
+  // For address modal mapping
+  useEffect(() => {
+    if (showEditAddressModal && job) {
+      setFormData(prev => ({
+        ...prev,
+        serviceAddress: {
+          street: job.service_address_street || "",
+          city: job.service_address_city || "",
+          state: job.service_address_state || "",
+          zipCode: job.service_address_zip || ""
+        }
+      }))
+    }
+  }, [showEditAddressModal, job])
+
+  // For reschedule modal mapping
+  useEffect(() => {
+    if (showRescheduleModal && job) {
+      // Extract date and time directly from the string (format: "2024-01-15 10:00:00")
+      const datePart = job.scheduled_date ? job.scheduled_date.split(' ')[0] : new Date().toISOString().split('T')[0]
+      const timePart = job.scheduled_date ? job.scheduled_date.split(' ')[1]?.substring(0, 5) : '09:00'
+      
+      setFormData(prev => ({
+        ...prev,
+        scheduledDate: datePart,
+        scheduledTime: timePart
+      }))
+    }
+  }, [showRescheduleModal, job])
+
+  // Fetch job data
+  useEffect(() => {
+    const fetchJob = async () => {
+      setLoading(true)
+      try {
+        const jobData = await jobsAPI.getById(jobId)
+        console.log('🔄 Job data received:', jobData)
+        console.log('🔄 Team assignments in job data:', jobData.team_assignments)
+        setJob(jobData)
+        
+        // Initialize form data
+        setFormData({
+          service_name: jobData.service_name || "",
+          bathroom_count: jobData.bathroom_count || "",
+          duration: jobData.duration || 0,
+          workers_needed: jobData.workers_needed || 1,
+          skills: jobData.skills || [],
+          notes: jobData.notes || "",
+          internal_notes: jobData.internal_notes || "",
+          serviceAddress: {
+            street: jobData.service_address_street || "",
+            city: jobData.service_address_city || "",
+            state: jobData.service_address_state || "",
+            zipCode: jobData.service_address_zip || ""
+          },
+          scheduledDate: jobData.scheduled_date ? jobData.scheduled_date.split(' ')[0] : "",
+          scheduledTime: jobData.scheduled_date ? jobData.scheduled_date.split(' ')[1]?.substring(0, 5) : "",
+          offer_to_providers: jobData.offer_to_providers || false
+        })
+
+        // Fetch notification preferences
+        if (jobData.customer_id) {
+          try {
+            const prefs = await notificationAPI.getPreferences(jobData.customer_id)
+            console.log('Notification preferences loaded:', prefs)
+            setEmailNotifications(!!prefs.email_notifications)
+            setSmsNotifications(!!prefs.sms_notifications)
+          } catch (e) {
+            console.error('Failed to load notification preferences:', e)
+            // Use defaults
+          }
+        }
+      } catch (err) {
+        setError("Failed to load job details")
+      } finally {
+        setLoading(false)
+      }
+    }
+    if (jobId) fetchJob()
+  }, [jobId])
+
+  // Fetch supporting data
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const user = JSON.parse(localStorage.getItem('user') || '{}')
+        if (user.id) {
+          const [territoriesData, teamData] = await Promise.all([
+            territoriesAPI.getAll(user.id),
+            teamAPI.getAll(user.id)
+          ])
+          setTerritories(territoriesData.territories || territoriesData)
+          setTeamMembers(teamData.teamMembers || teamData)
+        }
+      } catch (e) {
+        console.error('Failed to fetch supporting data:', e)
+      }
+    }
+    fetchData()
+  }, [])
+
+  // Fetch invoice data
+  useEffect(() => {
+    const fetchInvoice = async () => {
+      if (!job || !job.invoice_id) return
+      try {
+        const data = await invoicesAPI.getById(job.invoice_id, job.user_id)
+        setInvoice(data)
+      } catch (e) {
+        setInvoice(null)
+      }
+    }
+    fetchInvoice()
+  }, [job])
+
+  const statusOptions = [
+    { key: 'pending', label: 'Pending', color: 'bg-gray-400' },
+    { key: 'confirmed', label: 'Confirmed', color: 'bg-blue-500' },
+    { key: 'in_progress', label: 'In Progress', color: 'bg-orange-500' },
+    { key: 'completed', label: 'Completed', color: 'bg-purple-500' },
+    { key: 'cancelled', label: 'Cancelled', color: 'bg-red-500' }
+  ]
+
+  const handleStatusChange = async (newStatus) => {
+    if (!job) return
+    try {
+      setLoading(true)
+      await jobsAPI.updateStatus(job.id, newStatus)
+      setJob(prev => ({ ...prev, status: newStatus }))
+      setSuccessMessage(`Job marked as ${newStatus}`)
+      setTimeout(() => setSuccessMessage(""), 3000)
+    } catch (error) {
+      setError('Failed to update status')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSave = async () => {
+    if (!job) return
+    try {
+      setLoading(true)
+      const updatedJob = {
+        service_name: formData.service_name,
+        bathroom_count: formData.bathroom_count,
+        duration: formData.duration,
+        workers_needed: formData.workers_needed,
+        skills: formData.skills,
+        notes: formData.notes,
+        internal_notes: formData.internal_notes,
+        service_address_street: formData.serviceAddress.street,
+        service_address_city: formData.serviceAddress.city,
+        service_address_state: formData.serviceAddress.state,
+        service_address_zip: formData.serviceAddress.zipCode,
+        offer_to_providers: formData.offer_to_providers
+      }
+      await jobsAPI.update(job.id, updatedJob)
+      setSuccessMessage('Job updated successfully!')
+      setTimeout(() => setSuccessMessage(""), 3000)
+      setEditing(false)
+      setEditingField(null)
+      // Reload job data to get updated values
+      const jobData = await jobsAPI.getById(jobId)
+      setJob(jobData)
+    } catch (error) {
+      setError('Failed to update job')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleReschedule = async () => {
+    if (!job) return
+    try {
+      setLoading(true)
+      const scheduledDate = formData.scheduledDate && formData.scheduledTime 
+        ? `${formData.scheduledDate}T${formData.scheduledTime}:00.000Z`
+        : job.scheduled_date
+      
+      await jobsAPI.update(job.id, {
+        scheduled_date: scheduledDate
+      })
+      setSuccessMessage('Job rescheduled successfully!')
+      setTimeout(() => setSuccessMessage(""), 3000)
+      setShowRescheduleModal(false)
+      // Reload job data
+      const jobData = await jobsAPI.getById(jobId)
+      setJob(jobData)
+    } catch (error) {
+      setError('Failed to reschedule job')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleTerritoryChange = async (territoryId) => {
+    if (!job) return
+    console.log('Updating territory for job:', job.id, 'to territory:', territoryId)
+    try {
+      setLoading(true)
+      const updateData = {
+        territoryId: territoryId
+      }
+      console.log('Sending update data:', updateData)
+      await jobsAPI.update(job.id, updateData)
+      console.log('Territory update successful')
+      setJob(prev => ({ ...prev, territory_id: territoryId }))
+      setSuccessMessage('Territory updated successfully!')
+      setTimeout(() => setSuccessMessage(""), 3000)
+    } catch (error) {
+      console.error('Territory update failed:', error)
+      setError('Failed to update territory')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSendInvoice = async (emailData) => {
+    if (!job) return
+    try {
+      setLoading(true)
+      // Update invoice status to 'invoiced'
+      await jobsAPI.update(job.id, {
+        invoice_status: 'invoiced'
+      })
+      setJob(prev => ({ ...prev, invoice_status: 'invoiced' }))
+      setSuccessMessage('Invoice sent successfully!')
+      setTimeout(() => setSuccessMessage(""), 3000)
+      setShowSendInvoiceModal(false)
+    } catch (error) {
+      setError('Failed to send invoice')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleTeamAssignment = async (teamMemberId, specificMemberId = null, makePrimary = false) => {
+    if (!job) return
+    try {
+      setLoading(true)
+      console.log('🔄 Team assignment request:', { teamMemberId, specificMemberId, makePrimary, jobId: job.id })
+      
+      if (specificMemberId) {
+        // Remove specific team member
+        console.log('🔄 Removing team member:', specificMemberId)
+        await jobsAPI.removeTeamMember(job.id, specificMemberId)
+        setJob(prev => ({
+          ...prev,
+          team_assignments: prev.team_assignments.filter(ta => ta.team_member_id !== specificMemberId)
+        }))
+        setSuccessMessage('Team member removed!')
+      } else if (teamMemberId) {
+        // Add new team member
+        console.log('🔄 Assigning team member:', teamMemberId)
+        await jobsAPI.assignToTeamMember(job.id, teamMemberId)
+        
+        // Refresh job data to get updated team assignments
+        console.log('🔄 Refreshing job data...')
+        const updatedJob = await jobsAPI.getById(job.id)
+        console.log('🔄 Updated job data:', updatedJob)
+        console.log('🔄 Team assignments in updated job:', updatedJob.team_assignments)
+        
+        setJob(updatedJob)
+        setSuccessMessage('Team member assigned!')
+      } else {
+        // Remove all team members
+        console.log('🔄 Removing all team members')
+        await jobsAPI.assignToTeamMember(job.id, null)
+        setJob(prev => ({ ...prev, team_assignments: [] }))
+        setSuccessMessage('All team members unassigned!')
+      }
+      
+      setAssigning(false)
+      setSelectedTeamMember(null)
+      setTimeout(() => setSuccessMessage(""), 3000)
+    } catch (error) {
+      console.error('Team assignment error:', error)
+      setError('Failed to assign team member')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleNotificationToggle = async (type, value) => {
+    if (!job || !job.customer_id) return
+    try {
+      setLoading(true)
+      console.log(`Toggling ${type} notifications to:`, value)
+      
+      if (type === 'email') {
+        setEmailNotifications(value)
+      } else if (type === 'sms') {
+        setSmsNotifications(value)
+      }
+      
+      // Update notification preferences in backend
+      const preferences = {
+        email_notifications: type === 'email' ? value : emailNotifications,
+        sms_notifications: type === 'sms' ? value : smsNotifications
+      }
+      console.log('Updating notification preferences:', preferences)
+      
+      await notificationAPI.updatePreferences(job.customer_id, preferences)
+      
+      setSuccessMessage(`${type === 'email' ? 'Email' : 'SMS'} notifications ${value ? 'enabled' : 'disabled'}`)
+      setTimeout(() => setSuccessMessage(""), 3000)
+    } catch (error) {
+      console.error('Failed to update notification preferences:', error)
+      setError('Failed to update notification preferences')
+      // Revert the toggle if update failed
+      if (type === 'email') {
+        setEmailNotifications(!value)
+      } else if (type === 'sms') {
+        setSmsNotifications(!value)
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Date placeholder'
+    // Extract date part directly from the string (format: "2024-01-15 10:00:00")
+    const datePart = dateString.split(' ')[0]
+    if (!datePart) return 'Date placeholder'
+    
+    const [year, month, day] = datePart.split('-')
+    if (!year || !month || !day) return 'Date placeholder'
+    
+    const date = new Date(year, month - 1, day) // month is 0-indexed
+    if (isNaN(date.getTime())) return 'Date placeholder'
+    
+    return date.toLocaleDateString('en-US', {
+      weekday: 'long',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    })
+  }
+
+  const formatTime = (dateString) => {
+    if (!dateString) return 'Time placeholder'
+    // Extract time part directly from the string (format: "2024-01-15 10:00:00")
+    const timePart = dateString.split(' ')[1]
+    if (!timePart) return 'Time placeholder'
+    
+    const [hours, minutes] = timePart.split(':')
+    const hour = parseInt(hours, 10)
+    const minute = parseInt(minutes, 10)
+    
+    if (isNaN(hour) || isNaN(minute)) return 'Time placeholder'
+    
+    // Convert to 12-hour format
+    const ampm = hour >= 12 ? 'PM' : 'AM'
+    const displayHour = hour % 12 || 12
+    const displayMinute = minute.toString().padStart(2, '0')
+    
+    return `${displayHour}:${displayMinute} ${ampm}`
+  }
+
+  // Calculate total price including modifiers
+  const calculateTotalPrice = () => {
+    try {
+      // Use the total price that was calculated and saved during job creation
+      const savedTotal = parseFloat(job.total) || 0;
+      const basePrice = parseFloat(job.service_price) || 0;
+      
+      console.log('🔄 Price calculation:', { 
+        savedTotal, 
+        basePrice, 
+        serviceModifiers: job.service_modifiers,
+        serviceIntakeQuestions: job.service_intake_questions
+      });
+      
+      return savedTotal;
+    } catch (error) {
+      console.error('Error calculating total price:', error);
+      return parseFloat(job.service_price) || 0;
+    }
+  }
+
+  // Parse service modifiers from JSON
+  const getServiceModifiers = () => {
+    try {
+      if (!job.service_modifiers) return [];
+      if (typeof job.service_modifiers === 'string') {
+        return JSON.parse(job.service_modifiers);
+      }
+      return Array.isArray(job.service_modifiers) ? job.service_modifiers : [];
+    } catch (error) {
+      console.error('Error parsing service modifiers:', error);
+      return [];
+    }
+  }
+
+  // Parse service intake questions from JSON
+  const getServiceIntakeQuestions = () => {
+    try {
+      if (!job.service_intake_questions) return [];
+      if (typeof job.service_intake_questions === 'string') {
+        console.log('🔄 Parsing intake questions string:', job.service_intake_questions);
+        try {
+          const firstParse = JSON.parse(job.service_intake_questions);
+          console.log('🔄 First parse result:', firstParse);
+          
+          // Check if it's double-encoded
+          if (typeof firstParse === 'string') {
+            console.log('🔄 First parse is string, attempting second parse...');
+            const secondParse = JSON.parse(firstParse);
+            console.log('🔄 Second parse result:', secondParse);
+            return Array.isArray(secondParse) ? secondParse : [];
+          }
+          
+          return Array.isArray(firstParse) ? firstParse : [];
+        } catch (firstError) {
+          console.log('🔄 First parse failed:', firstError.message);
+          return [];
+        }
+      }
+      return Array.isArray(job.service_intake_questions) ? job.service_intake_questions : [];
+    } catch (error) {
+      console.error('Error parsing service intake questions:', error);
+      return [];
+    }
+  }
+
+  // Format duration for display
+  const formatDuration = (minutes) => {
+    if (!minutes) return '0h';
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+  }
+
+  const getCustomerInitials = () => {
+    const firstName = job?.customer_first_name || ''
+    const lastName = job?.customer_last_name || ''
+    return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase()
+  }
+
+  if (loading || !job) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <span className="text-gray-500 text-lg">Loading job details...</span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* Sidebar */}
+      <Sidebar />
+      
+      <div className="flex-1 lg:ml-64">
+        {/* Header */}
+        <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2 sm:space-x-4 min-w-0 flex-1">
+              <button
+                className="flex items-center text-blue-600 hover:text-blue-700 flex-shrink-0"
+                onClick={() => navigate('/jobs')}
+              >
+                <ArrowLeft className="w-4 h-4 mr-1" />
+                <span className="text-sm hidden sm:inline">All Jobs</span>
+              </button>
+              
+              <div className="min-w-0 flex-1">
+                <h1 className="text-lg sm:text-xl font-semibold text-gray-900 truncate">
+                  {job.service_name} for {job.customer_first_name} {job.customer_last_name}
+                </h1>
+                <p className="text-xs sm:text-sm text-gray-600">Job #{job.id}</p>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
+              {/* Mobile sidebar toggle */}
+              <button
+                onClick={() => setShowMobileSidebar(true)}
+                className="lg:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                <Menu className="w-5 h-5 text-gray-600" />
+              </button>
+
+              <div className="hidden sm:flex items-center space-x-2 relative">
+                <span className="text-sm text-gray-600">Territory</span>
+                <div className="flex items-center bg-gray-100 px-2 py-1 rounded cursor-pointer relative"
+                  onClick={() => setEditingField('territory')}
+                >
+                  <MapPin className="w-3 h-3 text-gray-500 mr-1" />
+                  <span className="text-sm font-medium mr-1">
+                    {territories.find(t => t.id === job.territory_id)?.name || 'Unassigned'}
+                  </span>
+                  <ChevronDown className="w-3 h-3 text-gray-500" />
+                </div>
+                {editingField === 'territory' && (
+                  <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-gray-200 rounded shadow z-50">
+                    {territories.map(t => (
+                      <button
+                        key={t.id}
+                        className={`w-full text-left px-4 py-2 hover:bg-gray-100 ${job.territory_id === t.id ? 'font-semibold bg-gray-100' : ''}`}
+                        onClick={() => {
+                          handleTerritoryChange(t.id)
+                          setEditingField(null)
+                        }}
+                      >
+                        {t.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              
+              {/* Action Menu */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowActionMenu(!showActionMenu)}
+                  className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  <MoreVertical className="w-5 h-5 text-gray-600" />
+                </button>
+                
+                {showActionMenu && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-40" 
+                      onClick={() => setShowActionMenu(false)}
+                    />
+                    <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+                      <button
+                        onClick={() => {
+                          setShowEditServiceModal(true)
+                          setShowActionMenu(false)
+                        }}
+                        className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center space-x-2"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                        <span>Edit Service</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowEditAddressModal(true)
+                          setShowActionMenu(false)
+                        }}
+                        className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center space-x-2"
+                      >
+                        <MapPin className="w-4 h-4" />
+                        <span>Edit Address</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowRescheduleModal(true)
+                          setShowActionMenu(false)
+                        }}
+                        className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center space-x-2"
+                      >
+                        <Calendar className="w-4 h-4" />
+                        <span>Reschedule</span>
+                      </button>
+                      <hr className="my-1" />
+                      <button
+                        onClick={() => {
+                          setShowCancelModal(true)
+                          setShowActionMenu(false)
+                        }}
+                        className="w-full text-left px-4 py-2 hover:bg-gray-50 text-red-600 flex items-center space-x-2"
+                      >
+                        <X className="w-4 h-4" />
+                        <span>Cancel Job</span>
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Status Bar */}
+          <div className="mt-4 sm:mt-6">
+            <div className="flex items-center space-x-3">
+              <label className="text-sm font-medium text-gray-700">Status:</label>
+              <div className="relative">
+                <button
+                  className="flex items-center border border-gray-300 rounded px-3 py-1 text-sm bg-white hover:bg-gray-50 focus:outline-none"
+                  onClick={() => setEditingField('status')}
+                  style={{ minWidth: 140 }}
+                >
+                  <span className={`inline-block w-2 h-2 rounded-full mr-2 ${statusOptions.find(s => s.key === job.status)?.color || 'bg-gray-300'}`}></span>
+                                          <span>{statusOptions.find(s => s.key === job.status)?.label || job.status || 'Status placeholder'}</span>
+                  <ChevronDown className="w-4 h-4 ml-2 text-gray-400" />
+                </button>
+                {editingField === 'status' && (
+                  <div className="absolute z-50 mt-1 w-48 bg-white border border-gray-200 rounded shadow-lg">
+                    {statusOptions.map(status => (
+                      <button
+                        key={status.key}
+                        className={`w-full flex items-center px-4 py-2 text-left hover:bg-gray-50 ${job.status === status.key ? 'font-semibold bg-gray-100' : ''}`}
+                        onClick={() => {
+                          handleStatusChange(status.key)
+                          setEditingField(null)
+                        }}
+                      >
+                        <span className={`inline-block w-2 h-2 rounded-full mr-2 ${status.color}`}></span>
+                        {status.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Success/Error Messages */}
+        {successMessage && (
+          <div className="mx-4 sm:mx-6 mt-4 bg-green-50 border border-green-200 rounded-lg p-4 flex items-center space-x-3">
+            <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
+            <p className="text-green-700 font-medium">{successMessage}</p>
+          </div>
+        )}
+
+        {error && (
+          <div className="mx-4 sm:mx-6 mt-4 bg-red-50 border border-red-200 rounded-lg p-4 flex items-center space-x-3">
+            <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+            <p className="text-red-700 font-medium">{error}</p>
+          </div>
+        )}
+
+        {/* Main Content */}
+        <div className="flex flex-col lg:flex-row">
+          {/* Left Column */}
+          <div className="flex-1 p-4 sm:p-6">
+            {/* Map Section */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-4 sm:mb-6">
+              <div className="relative">
+                {/* Google Maps Integration */}
+                <div className="w-full h-80 sm:h-96 bg-gradient-to-br from-green-100 to-blue-100 rounded-t-lg flex items-center justify-center">
+                  {job.service_address_street && job.service_address_city ? (
+                    <iframe
+                      width="100%"
+                      height="100%"
+                      style={{ border: 0, borderRadius: '8px 8px 0 0' }}
+                      loading="lazy"
+                      allowFullScreen
+                      referrerPolicy="no-referrer-when-downgrade"
+                      src={`https://www.google.com/maps/embed/v1/place?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&q=${encodeURIComponent(
+                        `${job.service_address_street}, ${job.service_address_city}, ${job.service_address_state || ''} ${job.service_address_zip || ''}`
+                      )}`}
+                      onError={(e) => {
+                        console.error('Map iframe failed to load:', e);
+                        e.target.style.display = 'none';
+                        e.target.nextSibling.style.display = 'flex';
+                      }}
+                      onLoad={() => {
+                        console.log('Map loaded successfully for address:', `${job.service_address_street}, ${job.service_address_city}`);
+                      }}
+                    />
+                  ) : null}
+                  <div className={`text-center ${job.service_address_street && job.service_address_city ? 'hidden' : 'flex flex-col items-center justify-center'}`}>
+                    <div className="w-10 sm:w-12 h-10 sm:h-12 bg-blue-500 rounded-lg flex items-center justify-center mx-auto mb-3">
+                      <MapPin className="w-5 sm:w-6 h-5 sm:h-6 text-white" />
+                    </div>
+                    <p className="text-gray-600 font-medium">
+                      {job.service_address_street ? 'Map unavailable' : 'No address set'}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      {job.service_address_street ? 'Unable to load map for this address' : 'Add an address to see the map'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Location Info Section - Moved below map */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-4 sm:mb-6 p-4 sm:p-6">
+              <div className="flex items-start justify-between">
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-semibold text-gray-900 mb-1 text-sm sm:text-base">JOB LOCATION</h3>
+                  <p className="text-gray-700 font-medium text-sm sm:text-base truncate">
+                    {job.service_address_street || 'Address not set'}
+                  </p>
+                  <p className="text-gray-700 text-sm sm:text-base">
+                    {job.service_address_city}, {job.service_address_state} {job.service_address_zip}
+                  </p>
+                  {job.service_address_street && (
+                    <a 
+                      href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
+                        `${job.service_address_street}, ${job.service_address_city}, ${job.service_address_state} ${job.service_address_zip}`
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-700 text-xs sm:text-sm font-medium mt-1 flex items-center"
+                    >
+                      View directions <ExternalLink className="w-3 h-3 ml-1" />
+                    </a>
+                  )}
+                </div>
+                <button
+                  className="text-blue-600 hover:text-blue-700 text-xs sm:text-sm font-medium ml-2 flex-shrink-0"
+                  onClick={() => setShowEditAddressModal(true)}
+                >
+                  Edit Address
+                </button>
+              </div>
+            </div>
+
+            {/* Date & Time Section */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-4 sm:mb-6 p-4 sm:p-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+                <div>
+                  <h3 className="text-sm font-medium text-gray-600 mb-2">DATE & TIME</h3>
+                  <div className="flex items-center space-x-3">
+                    <Calendar className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                    <div>
+                      <p className="text-lg sm:text-xl font-semibold text-gray-900">
+                        {formatTime(job.scheduled_date) || 'Time placeholder'}
+                      </p>
+                      <p className="text-gray-600 text-sm sm:text-base">{formatDate(job.scheduled_date) || 'Date placeholder'}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+                  <button 
+                    onClick={() => setShowCancelModal(true)}
+                    className="px-3 py-2 text-red-600 hover:bg-red-50 rounded border border-red-200 text-sm"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={() => setShowRescheduleModal(true)}
+                    className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+                  >
+                    Reschedule
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Job Details Section */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-4 sm:mb-6 p-4 sm:p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-medium text-gray-600">JOB DETAILS</h3>
+                <button
+                  className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                  onClick={() => setShowEditServiceModal(true)}
+                >
+                  Edit Service
+                </button>
+              </div>
+              <div className="flex items-start space-x-4">
+                <Clipboard className="w-5 h-5 text-gray-400 mt-1 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-gray-900">{job.service_name}</p>
+                  <p className="text-gray-600 text-sm mb-2">Default service category</p>
+                  <p className="text-sm text-gray-600 mt-2">{formatDuration(job.duration || 0)}</p>
+                </div>
+              </div>
+            </div>
+
+
+
+            {/* Team Assignment Section - Moved from sidebar */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-4 sm:mb-6 p-4 sm:p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-blue-50 rounded-lg">
+                    <Users className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">Team Assignment</h3>
+                    <p className="text-sm text-gray-500">Manage team members for this job</p>
+                  </div>
+                </div>
+                <button
+                  className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow-md"
+                  onClick={() => setAssigning(true)}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Assign Member
+                </button>
+              </div>
+              
+              {job.team_assignments && job.team_assignments.length > 0 ? (
+                <div className="space-y-4">
+                  {job.team_assignments.map((assignment, index) => {
+                    const member = teamMembers.find(m => String(m.id) === String(assignment.team_member_id));
+                    const memberName = member ? (member.name || member.fullName || member.email || member.id) : 'Unknown Member';
+                    const memberEmail = member ? (member.email || '') : '';
+                    return (
+                      <div key={assignment.team_member_id} className="group relative bg-gray-50 border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-lg transition-all duration-200">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-4">
+                            <div className="relative">
+                              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-sm">
+                                <User className="w-6 h-6 text-white" />
+                              </div>
+                              {assignment.is_primary && (
+                                <div className="absolute -top-1 -right-1 w-5 h-5 bg-yellow-400 rounded-full flex items-center justify-center shadow-sm border-2 border-white">
+                                  <Star className="w-2.5 h-2.5 text-white" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center space-x-3 mb-1">
+                                <h4 className="text-base font-semibold text-gray-900 truncate">{memberName}</h4>
+                                {assignment.is_primary && (
+                                  <span className="inline-flex items-center px-2.5 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">
+                                    Primary
+                                  </span>
+                                )}
+                              </div>
+                              {memberEmail && (
+                                <p className="text-sm text-gray-600 mb-1 truncate">{memberEmail}</p>
+                              )}
+                              <p className="text-xs text-gray-500 flex items-center">
+                                <Calendar className="w-3 h-3 mr-1" />
+                                Assigned {new Date(assignment.assigned_at).toLocaleDateString('en-US', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric'
+                                })}
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            className="opacity-0 group-hover:opacity-100 inline-flex items-center px-3 py-1.5 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-all duration-200"
+                            onClick={() => handleTeamAssignment(null, assignment.team_member_id)}
+                            title="Remove assignment"
+                          >
+                            <X className="w-4 h-4 mr-1" />
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  
+                  {/* Summary Card */}
+                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="p-2 bg-blue-100 rounded-lg">
+                          <CheckCircle className="w-4 h-4 text-blue-600" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-blue-900">
+                            {job.team_assignments.length} team member{job.team_assignments.length !== 1 ? 's' : ''} assigned
+                          </p>
+                          <p className="text-xs text-blue-700">
+                            {job.workers_needed || 1} worker{job.workers_needed !== 1 ? 's' : ''} needed for this job
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-lg font-bold text-blue-900">
+                          {job.team_assignments.length}/{job.workers_needed || 1}
+                        </div>
+                        <div className="text-xs text-blue-700">Assigned</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-12 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border-2 border-dashed border-gray-300">
+                  <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Users className="w-8 h-8 text-gray-400" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No Team Members Assigned</h3>
+                  <p className="text-sm text-gray-600 mb-6 max-w-sm mx-auto">
+                    Assign team members to this job to ensure it gets completed efficiently and on time.
+                  </p>
+                  <button
+                    className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow-md"
+                    onClick={() => setAssigning(true)}
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Assign First Member
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Team Assignment Modal */}
+            {assigning && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[80vh] overflow-y-auto">
+                  <div className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold text-gray-900">Assign Team Member</h3>
+                      <button
+                        onClick={() => {
+                          setAssigning(false);
+                          setSelectedTeamMember(null);
+                        }}
+                        className="text-gray-400 hover:text-gray-600"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Select Team Member
+                        </label>
+                        <select
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                          value={selectedTeamMember || ''}
+                          onChange={(e) => setSelectedTeamMember(e.target.value)}
+                        >
+                          <option value="">Choose a team member...</option>
+                          {teamMembers.map((member) => (
+                            <option key={member.id} value={member.id}>
+                              {member.first_name} {member.last_name} ({member.email})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      
+                      {teamMembers.length === 0 && (
+                        <div className="text-center py-4">
+                          <Users className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+                          <p className="text-gray-500 text-sm">No team members available</p>
+                          <p className="text-gray-400 text-xs">Add team members in the Team section first</p>
+                        </div>
+                      )}
+                      
+                      <div className="flex justify-end space-x-3 pt-4">
+                        <button
+                          onClick={() => {
+                            setAssigning(false);
+                            setSelectedTeamMember(null);
+                          }}
+                          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (selectedTeamMember) {
+                              handleTeamAssignment(selectedTeamMember);
+                              setAssigning(false);
+                              setSelectedTeamMember(null);
+                            }
+                          }}
+                          disabled={!selectedTeamMember}
+                          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Assign Member
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Invoice Section */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 space-y-2 sm:space-y-0 sm:space-x-2">
+                <div>
+                  <div className="flex items-center space-x-2">
+                    <h3 className="text-lg font-semibold text-gray-900">Invoice</h3>
+                    <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded">
+                      {job.invoice_status || 'Draft'}
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-600">Due Aug 31, 2025</p>
+                </div>
+                
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
+                  <button 
+                    onClick={() => setShowAddPaymentModal(true)}
+                    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center justify-center space-x-2 text-sm"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Add Payment</span>
+                    <ChevronDown className="w-4 h-4" />
+                  </button>
+                  <button 
+                    onClick={() => setShowSendInvoiceModal(true)}
+                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 text-sm"
+                  >
+                    Send Invoice
+                  </button>
+                  <div className="flex space-x-2">
+                    <button className="p-2 text-gray-400 hover:text-gray-600 border border-gray-300 rounded">
+                      <Printer className="w-4 h-4" />
+                    </button>
+                    <button className="p-2 text-gray-400 hover:text-gray-600 border border-gray-300 rounded">
+                      <MoreVertical className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex justify-between">
+                  <span className="text-lg font-semibold">$0.00</span>
+                  <span className="text-lg font-semibold">${calculateTotalPrice().toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-sm text-gray-600">
+                  <span>Amount paid</span>
+                  <span>Amount due</span>
+                </div>
+
+                <hr className="my-4" />
+
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span>{job.service_name}</span>
+                    <span>${(parseFloat(job.service_price) || 0).toFixed(2)}</span>
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    Base Service
+                  </div>
+                  
+                  {/* Show modifier breakdown if there are any */}
+                  {(() => {
+                    const serviceModifiers = getServiceModifiers();
+                    let hasModifiers = false;
+                    
+                    return (
+                      <>
+                        {serviceModifiers.map(modifier => {
+                          if (!modifier.selectedOptions || modifier.selectedOptions.length === 0) {
+                            return null;
+                          }
+                          
+                          hasModifiers = true;
+                          return modifier.selectedOptions.map((option, index) => (
+                            <div key={`${modifier.id}-${option.id}-${index}`} className="flex justify-between text-sm">
+                              <span className="text-gray-600">
+                                • {modifier.title}: {option.label || option.description}
+                                {option.selectedQuantity && ` (x${option.selectedQuantity})`}
+                              </span>
+                              <span>${(option.totalPrice || option.price || 0).toFixed(2)}</span>
+                            </div>
+                          ));
+                        })}
+                        {!hasModifiers && (
+                          <div className="text-sm text-gray-500 italic">
+                            No modifiers selected
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+
+                <button className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center">
+                  <Edit className="w-4 h-4 mr-1" />
+                  Edit Service & Pricing
+                </button>
+
+                <hr className="my-4" />
+
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span>Subtotal</span>
+                    <span>${job.service_price || 0}</span>
+                  </div>
+                  <div className="flex justify-between font-semibold">
+                    <span>Total</span>
+                    <span>${calculateTotalPrice().toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Amount paid</span>
+                    <span>$0.00</span>
+                  </div>
+                  <div className="flex justify-between font-semibold text-lg">
+                    <span>Total due</span>
+                    <span>${calculateTotalPrice().toFixed(2)}</span>
+                  </div>
+                </div>
+
+                <hr className="my-4" />
+
+                <div>
+                  <h4 className="font-semibold mb-3">Payments</h4>
+                  <div className="text-center py-8">
+                    <CreditCard className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-500 font-medium">No payments</p>
+                    <p className="text-sm text-gray-400">
+                      When you process or record a payment for this invoice, it will appear here.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Sidebar */}
+          <div className="hidden lg:block w-80 p-6 space-y-6">
+            {/* Customer Card */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+              <h3 className="font-semibold text-gray-900 mb-4">Customer</h3>
+              
+              <div className="flex items-center space-x-3 mb-4">
+                <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center">
+                  <span className="text-white font-semibold text-sm">{getCustomerInitials()}</span>
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-900">
+                    {job.customer_first_name && job.customer_last_name 
+                      ? `${job.customer_first_name} ${job.customer_last_name}`
+                      : job.customer_first_name || job.customer_last_name || 'Client name placeholder'
+                    }
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center space-x-2 text-sm">
+                  <Phone className="w-4 h-4 text-gray-400" />
+                  <a href={`tel:${job.customer_phone}`} className="text-blue-600 hover:text-blue-700">
+                    {job.customer_phone ? formatPhoneNumber(job.customer_phone) : 'Phone placeholder'}
+                  </a>
+                </div>
+                <div className="flex items-center space-x-2 text-sm">
+                  <Mail className="w-4 h-4 text-gray-400" />
+                  <a href={`mailto:${job.customer_email}`} className="text-blue-600 hover:text-blue-700 truncate">
+                    {job.customer_email || 'Email placeholder'}
+                  </a>
+                </div>
+              </div>
+
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="font-medium text-gray-700">BILLING ADDRESS</span>
+                  <button className="text-blue-600 hover:text-blue-700 font-medium">Edit</button>
+                </div>
+                <p className="text-sm text-gray-600 mt-1">Same as service address</p>
+              </div>
+
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <div className="text-sm">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="font-medium text-gray-700">EXPECTED PAYMENT METHOD</span>
+                  </div>
+                  <div className="flex items-center space-x-2 text-gray-600">
+                    <CreditCard className="w-4 h-4" />
+                    <span>No payment method on file</span>
+                  </div>
+                  <button className="text-blue-600 hover:text-blue-700 text-sm font-medium mt-1">
+                    Add a card to charge later
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Team Section */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+              <h3 className="font-semibold text-gray-900 mb-4">Team</h3>
+              <div className="space-y-4">
+                {/* Job Requirements */}
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm font-medium text-gray-700">JOB REQUIREMENTS</span>
+                  </div>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Workers needed</span>
+                      <span className="font-medium">{job.workers_needed || 1} service provider</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Skills needed</span>
+                      <span className="font-medium">
+                        {job.skills && job.skills.length ? job.skills.join(', ') : 'No skill tags required'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+
+
+                <div className="pt-4 border-t border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-700">Offer job to service providers</span>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        checked={formData.offer_to_providers}
+                        onChange={(e) => {
+                          setFormData(prev => ({ ...prev, offer_to_providers: e.target.checked }))
+                          handleSave()
+                        }}
+                        className="sr-only peer" 
+                      />
+                      <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Allows qualified, available providers to see and claim this job. 
+                    <button className="text-blue-600 hover:text-blue-700 ml-1">Learn more</button>
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Intake Questions & Answers */}
+            <IntakeAnswersDisplay intakeAnswers={(() => {
+              // Get intake questions and answers from job data
+              const intakeQuestionsAndAnswers = job.service_intake_questions || [];
+              
+              console.log('🔄 Intake questions and answers from job:', intakeQuestionsAndAnswers);
+              
+              // Convert to the format expected by IntakeAnswersDisplay
+              return intakeQuestionsAndAnswers.map(question => {
+                console.log('🔄 Processing question:', question);
+                return {
+                  question_text: question.question,
+                  question_type: question.questionType,
+                  answer: question.answer || null,
+                  created_at: job.created_at
+                };
+              });
+            })()} />
+
+            {/* Notes & Files */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+              <h3 className="font-semibold text-gray-900 mb-4">Notes & Files</h3>
+              <div className="py-4">
+                <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                {editingField === 'notes' ? (
+                  <>
+                    <textarea
+                      className="w-full border border-gray-300 rounded p-2 mb-2"
+                      rows={4}
+                      value={formData.notes}
+                      onChange={e => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                    />
+                    <div className="flex justify-end space-x-2">
+                      <button
+                        className="px-3 py-1 text-gray-600 border border-gray-300 rounded"
+                        onClick={() => setEditingField(null)}
+                      >Cancel</button>
+                      <button
+                        className="px-3 py-1 bg-blue-600 text-white rounded"
+                        onClick={handleSave}
+                      >Save</button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-gray-700 mb-2 whitespace-pre-line min-h-[48px]">
+                      {job.notes || <span className="text-gray-400">No notes</span>}
+                    </p>
+                    <button
+                      className="px-3 py-1 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 flex items-center space-x-2"
+                      onClick={() => setEditingField('notes')}
+                    >
+                      <Edit className="w-4 h-4" />
+                      <span>{job.notes ? "Edit Note" : "Add Note"}</span>
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Customer Notifications */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+              <h3 className="font-semibold text-gray-900 mb-4">Customer notifications</h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-3">NOTIFICATION PREFERENCES</h4>
+                  
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-700">Emails</span>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          checked={emailNotifications}
+                          onChange={(e) => handleNotificationToggle('email', e.target.checked)}
+                          disabled={loading}
+                          className="sr-only peer" 
+                        />
+                        <div className={`w-9 h-5 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all ${emailNotifications ? 'bg-blue-600 peer-checked:after:translate-x-full peer-checked:after:border-white' : 'bg-gray-200'} ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}></div>
+                      </label>
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-700">Text messages</span>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          checked={smsNotifications}
+                          onChange={(e) => handleNotificationToggle('sms', e.target.checked)}
+                          disabled={loading}
+                          className="sr-only peer" 
+                        />
+                        <div className={`w-9 h-5 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all ${smsNotifications ? 'bg-blue-600 peer-checked:after:translate-x-full peer-checked:after:border-white' : 'bg-gray-200'} ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}></div>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-gray-200">
+                  <div className="flex items-start space-x-3">
+                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                      <CheckCircle className="w-4 h-4 text-blue-600" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-sm font-medium text-gray-700">Confirmation</h4>
+                        <button 
+                          onClick={() => {
+                            setSuccessMessage('Confirmation sent to customer!')
+                            setTimeout(() => setSuccessMessage(""), 3000)
+                          }}
+                          className="text-blue-600 hover:text-blue-700 text-xs font-medium"
+                        >
+                          Resend
+                        </button>
+                      </div>
+                      <p className="text-sm font-semibold text-gray-900">Appointment Confirmation</p>
+                      <p className="text-xs text-gray-500">10 minutes ago • Email • Opened</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-gray-200">
+                  <div className="flex items-start space-x-3">
+                    <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center flex-shrink-0">
+                      <Bell className="w-4 h-4 text-orange-600" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-sm font-medium text-gray-700">Reminder</h4>
+                        <button 
+                          onClick={() => {
+                            setSuccessMessage('Reminder sent to customer!')
+                            setTimeout(() => setSuccessMessage(""), 3000)
+                          }}
+                          className="text-blue-600 hover:text-blue-700 text-xs font-medium"
+                        >
+                          Send Now
+                        </button>
+                      </div>
+                      <p className="text-sm font-semibold text-gray-900">Appointment Reminder</p>
+                      <p className="text-xs text-gray-500">Scheduled for 2 hours before appointment</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-700">Custom Notifications</h4>
+                      <p className="text-xs text-gray-500">Send custom messages to customer</p>
+                    </div>
+                    <button 
+                      onClick={() => {
+                        setSuccessMessage('Custom notification sent!')
+                        setTimeout(() => setSuccessMessage(""), 3000)
+                      }}
+                      className="px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700"
+                    >
+                      Send Message
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Customer Feedback */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+              <h3 className="font-semibold text-gray-900 mb-4">Customer feedback</h3>
+              
+              <p className="text-sm text-gray-600 mb-2">
+                An email will be sent to the customer asking them to rate the service after the job is marked complete.
+              </p>
+              <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">
+                Learn more.
+              </button>
+            </div>
+
+            {/* Conversion Summary */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+              <h3 className="font-semibold text-gray-900 mb-4">Conversion summary</h3>
+              
+              <div className="text-center py-4">
+                <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <Target className="w-6 h-6 text-gray-400" />
+                </div>
+                <p className="text-gray-500 text-sm">No conversion data available</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Mobile Sidebar */}
+          {showMobileSidebar && (
+            <>
+              <div 
+                className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden" 
+                onClick={() => setShowMobileSidebar(false)}
+              />
+              <div className="fixed top-0 right-0 h-full w-80 bg-white shadow-xl transform transition-transform duration-300 ease-in-out z-50 lg:hidden overflow-y-auto">
+                <div className="p-4 border-b border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-lg font-semibold text-gray-900">Job Details</h2>
+                    <button
+                      onClick={() => setShowMobileSidebar(false)}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      <X className="w-6 h-6" />
+                    </button>
+                  </div>
+                </div>
+                <div className="p-4 space-y-6">
+                  {/* Customer Card */}
+                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                    <h3 className="font-semibold text-gray-900 mb-4">Customer</h3>
+                    
+                    <div className="flex items-center space-x-3 mb-4">
+                      <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center">
+                        <span className="text-white font-semibold text-sm">{getCustomerInitials()}</span>
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-900">
+                          {job.customer_first_name} {job.customer_last_name}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="flex items-center space-x-2 text-sm">
+                        <Phone className="w-4 h-4 text-gray-400" />
+                        <a href={`tel:${job.customer_phone}`} className="text-blue-600 hover:text-blue-700">
+                          {formatPhoneNumber(job.customer_phone)}
+                        </a>
+                      </div>
+                      <div className="flex items-center space-x-2 text-sm">
+                        <Mail className="w-4 h-4 text-gray-400" />
+                        <a href={`mailto:${job.customer_email}`} className="text-blue-600 hover:text-blue-700 truncate">
+                          {job.customer_email}
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Job Requirements Section */}
+                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                    <h3 className="font-semibold text-gray-900 mb-4">Job Requirements</h3>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Workers needed</span>
+                        <span className="font-medium">{job.workers_needed || 1} service provider</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Skills needed</span>
+                        <span className="font-medium text-right max-w-xs">
+                          {job.skills && job.skills.length ? job.skills.join(', ') : 'No skill tags required'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Intake Questions & Answers */}
+                  <IntakeAnswersDisplay intakeAnswers={job.intake_answers || []} />
+
+                  {/* Notes & Files */}
+                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                    <h3 className="font-semibold text-gray-900 mb-4">Notes & Files</h3>
+                    <div className="py-4">
+                      <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                      <p className="text-gray-700 mb-2 whitespace-pre-line min-h-[48px]">
+                        {job.notes || <span className="text-gray-400">No notes</span>}
+                      </p>
+                      <button
+                        className="px-3 py-1 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 flex items-center space-x-2"
+                        onClick={() => setEditingField('notes')}
+                      >
+                        <Edit className="w-4 h-4" />
+                        <span>{job.notes ? "Edit Note" : "Add Note"}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Customer Notifications */}
+                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                    <h3 className="font-semibold text-gray-900 mb-4">Customer notifications</h3>
+                    
+                    <div className="space-y-4">
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-700 mb-3">NOTIFICATION PREFERENCES</h4>
+                        
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-gray-700">Emails</span>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                              <input 
+                                type="checkbox" 
+                                checked={emailNotifications}
+                                onChange={(e) => handleNotificationToggle('email', e.target.checked)}
+                                disabled={loading}
+                                className="sr-only peer" 
+                              />
+                              <div className={`w-9 h-5 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all ${emailNotifications ? 'bg-blue-600 peer-checked:after:translate-x-full peer-checked:after:border-white' : 'bg-gray-200'} ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}></div>
+                            </label>
+                          </div>
+                          
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-gray-700">Text messages</span>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                              <input 
+                                type="checkbox" 
+                                checked={smsNotifications}
+                                onChange={(e) => handleNotificationToggle('sms', e.target.checked)}
+                                disabled={loading}
+                                className="sr-only peer" 
+                              />
+                              <div className={`w-9 h-5 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all ${smsNotifications ? 'bg-blue-600 peer-checked:after:translate-x-full peer-checked:after:border-white' : 'bg-gray-200'} ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}></div>
+                            </label>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Modals */}
+        {/* Reschedule Modal */}
+        {showRescheduleModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Reschedule Job</h3>
+                  <button
+                    onClick={() => setShowRescheduleModal(false)}
+                    className="text-gray-400 hover:text-gray-600 p-1"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
+                    <input
+                      type="date"
+                      value={formData.scheduledDate}
+                      onChange={(e) => setFormData(prev => ({ ...prev, scheduledDate: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Time</label>
+                    <input
+                      type="time"
+                      value={formData.scheduledTime}
+                      onChange={(e) => setFormData(prev => ({ ...prev, scheduledTime: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+                
+                <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 mt-6">
+                  <button
+                    onClick={() => setShowRescheduleModal(false)}
+                    className="px-4 py-2 text-gray-600 hover:text-gray-800 order-2 sm:order-1"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleReschedule}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 order-1 sm:order-2"
+                  >
+                    Reschedule
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Cancel Modal */}
+        {showCancelModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Cancel Job</h3>
+                  <button
+                    onClick={() => setShowCancelModal(false)}
+                    className="text-gray-400 hover:text-gray-600 p-1"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <p className="text-gray-600 mb-6">
+                  Are you sure you want to cancel this job? This action cannot be undone.
+                </p>
+                
+                <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3">
+                  <button
+                    onClick={() => setShowCancelModal(false)}
+                    className="px-4 py-2 text-gray-600 hover:text-gray-800 order-2 sm:order-1"
+                  >
+                    Keep Job
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleStatusChange('cancelled')
+                      setShowCancelModal(false)
+                    }}
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 order-1 sm:order-2"
+                  >
+                    Cancel Job
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Service Modal */}
+        {showEditServiceModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Edit Service</h3>
+                  <button
+                    onClick={() => setShowEditServiceModal(false)}
+                    className="text-gray-400 hover:text-gray-600 p-1"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Service Name</label>
+                    <input
+                      type="text"
+                      value={formData.service_name}
+                      onChange={e => setFormData(prev => ({ ...prev, service_name: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Bathroom Details</label>
+                    <input
+                      type="text"
+                      value={formData.bathroom_count}
+                      onChange={e => setFormData(prev => ({ ...prev, bathroom_count: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Duration (minutes)</label>
+                    <input
+                      type="number"
+                      value={formData.duration}
+                      onChange={e => setFormData(prev => ({ ...prev, duration: parseInt(e.target.value) || 0 }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+                
+                <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 mt-6">
+                  <button
+                    onClick={() => setShowEditServiceModal(false)}
+                    className="px-4 py-2 text-gray-600 hover:text-gray-800 order-2 sm:order-1"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleSave()
+                      setShowEditServiceModal(false)
+                    }}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 order-1 sm:order-2"
+                  >
+                    Save Changes
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Address Modal */}
+        {showEditAddressModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Edit Address</h3>
+                  <button
+                    onClick={() => setShowEditAddressModal(false)}
+                    className="text-gray-400 hover:text-gray-600 p-1"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="space-y-4">
+                  <div className="relative">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Street Address</label>
+                    <AddressAutocomplete
+                      value={formData.serviceAddress.street}
+                      onChange={(value) => {
+                        setFormData(prev => ({
+                          ...prev,
+                          serviceAddress: {
+                            ...prev.serviceAddress,
+                            street: value
+                          }
+                        }));
+                      }}
+                      onAddressSelect={(address) => {
+                        setFormData(prev => ({
+                          ...prev,
+                          serviceAddress: {
+                            street: address.street || '',
+                            city: address.city || '',
+                            state: address.state || '',
+                            zipCode: address.zipCode || ''
+                          }
+                        }));
+                      }}
+                      placeholder={job?.service_address_street || "Start typing address..."}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
+                    <input
+                      type="text"
+                      value={formData.serviceAddress.city}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        serviceAddress: {
+                          ...prev.serviceAddress,
+                          city: e.target.value
+                        }
+                      }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder={job?.service_address_city || "Enter city"}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">State</label>
+                      <input
+                        type="text"
+                        value={formData.serviceAddress.state}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          serviceAddress: {
+                            ...prev.serviceAddress,
+                            state: e.target.value
+                          }
+                        }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder={job?.service_address_state || "Enter state"}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">ZIP Code</label>
+                      <input
+                        type="text"
+                        value={formData.serviceAddress.zipCode}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          serviceAddress: {
+                            ...prev.serviceAddress,
+                            zipCode: e.target.value
+                          }
+                        }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder={job?.service_address_zip || "Enter ZIP code"}
+                      />
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 mt-6">
+                  <button
+                    onClick={() => setShowEditAddressModal(false)}
+                    className="px-4 py-2 text-gray-600 hover:text-gray-800 order-2 sm:order-1"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleSave()
+                      setShowEditAddressModal(false)
+                    }}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 order-1 sm:order-2"
+                  >
+                    Save Changes
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Send Invoice Modal */}
+        {showSendInvoiceModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Send Invoice</h3>
+                  <button
+                    onClick={() => setShowSendInvoiceModal(false)}
+                    className="text-gray-400 hover:text-gray-600 p-1"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+                    <input
+                      type="email"
+                      defaultValue={job.customer_email}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Enter email address"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Subject</label>
+                    <input
+                      type="text"
+                      defaultValue={`Invoice for ${job.service_name}`}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Message</label>
+                    <textarea
+                      rows={4}
+                      defaultValue={`Hi ${job.customer_first_name},
+
+Please find attached the invoice for your recent service.
+
+Total Amount: $${job.total_amount || job.service_price || 0}
+
+Thank you for choosing our services.
+
+Best regards,
+Your Service Team`}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+                
+                <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 mt-6">
+                  <button
+                    onClick={() => setShowSendInvoiceModal(false)}
+                    className="px-4 py-2 text-gray-600 hover:text-gray-800 order-2 sm:order-1"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSendInvoice}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 order-1 sm:order-2"
+                  >
+                    Send Invoice
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Add Payment Modal */}
+        {showAddPaymentModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Add Payment</h3>
+                  <button
+                    onClick={() => setShowAddPaymentModal(false)}
+                    className="text-gray-400 hover:text-gray-600 p-1"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Payment Method</label>
+                    <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                      <option value="cash">Cash</option>
+                      <option value="check">Check</option>
+                      <option value="credit_card">Credit Card</option>
+                      <option value="bank_transfer">Bank Transfer</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Amount</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      defaultValue={job.total_amount || job.service_price || 0}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Enter amount"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Payment Date</label>
+                    <input
+                      type="date"
+                      defaultValue={new Date().toISOString().split('T')[0]}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Notes</label>
+                    <textarea
+                      rows={3}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Optional payment notes"
+                    />
+                  </div>
+                </div>
+                
+                <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 mt-6">
+                  <button
+                    onClick={() => setShowAddPaymentModal(false)}
+                    className="px-4 py-2 text-gray-600 hover:text-gray-800 order-2 sm:order-1"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSuccessMessage('Payment recorded successfully!')
+                      setTimeout(() => setSuccessMessage(""), 3000)
+                      setShowAddPaymentModal(false)
+                    }}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 order-1 sm:order-2"
+                  >
+                    Record Payment
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export default JobDetails 
