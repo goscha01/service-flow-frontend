@@ -1,0 +1,1091 @@
+import { useState, useEffect, useMemo, useRef } from "react"
+import { Plus, ChevronLeft, ChevronRight, Calendar, Grid3X3, MapPin, Clock, DollarSign, User, Filter, AlertTriangle, RefreshCw, Map, BarChart3, Users, UserX, CheckCircle, PlayCircle, XCircle } from "lucide-react"
+import Sidebar from "../components/sidebar"
+import MobileHeader from "../components/mobile-header"
+import ScheduleSidebar from "../components/schedule-sidebar"
+import { useNavigate } from "react-router-dom"
+
+
+import { useAuth } from "../context/AuthContext"
+import { jobsAPI, teamAPI } from "../services/api"
+
+const ZenbookerSchedule = () => {
+  const { user } = useAuth()
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [activeFilter, setActiveFilter] = useState("all")
+  const [currentView, setCurrentView] = useState("day") // day, week, month
+  const [currentDate, setCurrentDate] = useState(new Date()) // Current date
+  const [allJobs, setAllJobs] = useState([]) // Store ALL jobs
+  const [jobs, setJobs] = useState([]) // Filtered jobs for current view
+  const [showMap, setShowMap] = useState(false)
+  const [filters, setFilters] = useState({
+    status: "all",
+    teamMember: "all",
+    timeRange: "all",
+    territory: "all"
+  })
+
+
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
+  const [teamMembers, setTeamMembers] = useState([])
+  const [expandedDays, setExpandedDays] = useState(new Set())
+  const [isNavigating, setIsNavigating] = useState(false)
+  const navigate = useNavigate()
+
+  // Request cancellation and navigation timeout
+  const abortControllerRef = useRef(null)
+  const navigationTimeoutRef = useRef(null)
+  const silentRefreshIntervalRef = useRef(null)
+
+  // Function to handle expanding/collapsing days
+  const toggleDayExpansion = (dateString) => {
+    setExpandedDays(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(dateString)) {
+        newSet.delete(dateString)
+      } else {
+        newSet.add(dateString)
+      }
+      return newSet
+    })
+  }
+
+  // Get current user with useMemo to prevent infinite re-renders
+  const currentUser = useMemo(() => user, [user])
+
+  useEffect(() => {
+    if (currentUser?.id) {
+      // Only fetch all jobs once when user changes or on initial load
+      if (allJobs.length === 0) {
+        loadAllJobs()
+      }
+      loadTeamMembers()
+      
+      // Start silent refresh every 30 seconds
+      silentRefreshIntervalRef.current = setInterval(() => {
+        refreshJobsSilently()
+      }, 30000) // 30 seconds
+      
+      // Cleanup interval on unmount
+      return () => {
+        if (silentRefreshIntervalRef.current) {
+          clearInterval(silentRefreshIntervalRef.current)
+        }
+      }
+    } else if (!currentUser) {
+      console.log('❌ No authenticated user, redirecting to signin')
+      navigate('/signin')
+    }
+  }, [currentUser, navigate])
+
+  // Separate useEffect for filtering jobs when view/date/filters change
+  useEffect(() => {
+    if (allJobs.length > 0) {
+      filterJobsForCurrentView()
+    }
+  }, [allJobs, currentView, currentDate, filters])
+
+  const loadTeamMembers = async () => {
+    if (!currentUser?.id) return
+    try {
+      const response = await teamAPI.getAll(currentUser.id)
+      // response may be { teamMembers: [...] } or just an array
+      const members = Array.isArray(response) ? response : (response.teamMembers || response || [])
+      
+      // Add sample territories for testing if none exist
+      const membersWithTerritories = members.map(member => ({
+        ...member,
+        territory: member.territory || (member.id % 3 === 0 ? 'Jacksonville' : member.id % 3 === 1 ? 'St. Petersburg' : 'Tampa')
+      }))
+      
+      setTeamMembers(membersWithTerritories)
+    } catch (error) {
+      setTeamMembers([])
+    }
+  }
+
+  // Get unique territories from team members
+  const getTerritories = () => {
+    const territories = new Set()
+    teamMembers.forEach(member => {
+      if (member.territory) {
+        territories.add(member.territory)
+      }
+    })
+    return Array.from(territories).sort()
+  }
+
+  const loadAllJobs = async () => {
+    if (!currentUser?.id) return
+    
+    try {
+      setLoading(true)
+      setError("")
+      
+      console.log('🔄 Loading ALL jobs for user:', currentUser.id)
+      
+      // Get ALL jobs without date filtering - we'll filter client-side
+      const response = await jobsAPI.getAll(
+        currentUser.id, 
+        "", // status (empty to get all)
+        "", // search
+        1, // page
+        1000, // limit
+        "", // dateFilter (empty to get all dates)
+        "", // dateRange
+        "scheduled_date", // sortBy
+        "ASC", // sortOrder
+        undefined, // teamMember (empty to get all)
+        undefined, // invoiceStatus
+        undefined, // customerId
+        undefined, // territoryId
+      )
+      
+      const allJobsData = response.jobs || response || []
+      console.log('✅ All jobs loaded:', allJobsData.length, 'total jobs')
+      setAllJobs(allJobsData)
+    } catch (error) {
+      console.error('❌ Error loading all jobs:', error)
+      if (error.response?.status === 403) {
+        setError("Authentication required. Please log in again.")
+        navigate('/signin')
+      } else if (error.response?.status === 404) {
+        setError("Jobs not found. Please try again.")
+      } else {
+        setError("Failed to load jobs. Please try again.")
+      }
+      setAllJobs([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const filterJobsForCurrentView = () => {
+    if (allJobs.length === 0) return
+    
+    console.log('🔍 Filtering jobs for current view:', currentView, currentDate)
+    
+    // Calculate date range based on current view
+    let startDate, endDate
+    if (currentView === 'day') {
+      startDate = new Date(currentDate)
+      startDate.setHours(0, 0, 0, 0)
+      endDate = new Date(currentDate)
+      endDate.setHours(23, 59, 59, 999)
+    } else if (currentView === 'week') {
+      startDate = new Date(currentDate)
+      startDate.setDate(currentDate.getDate() - currentDate.getDay())
+      startDate.setHours(0, 0, 0, 0)
+      endDate = new Date(startDate)
+      endDate.setDate(startDate.getDate() + 6)
+      endDate.setHours(23, 59, 59, 999)
+    } else {
+      startDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
+      startDate.setHours(0, 0, 0, 0)
+      endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0)
+      endDate.setHours(23, 59, 59, 999)
+    }
+    
+    // Filter jobs by date range
+    let filteredJobs = allJobs.filter(job => {
+      // Extract date part from scheduled_date string (format: "2024-01-15 10:00:00")
+      const jobDateString = job.scheduled_date ? job.scheduled_date.split(' ')[0] : ''
+      const startDateString = startDate.toISOString().split('T')[0]
+      const endDateString = endDate.toISOString().split('T')[0]
+      return jobDateString >= startDateString && jobDateString <= endDateString
+    })
+    
+    // Apply status filter
+    if (filters.status !== "all") {
+      filteredJobs = filteredJobs.filter(job => job.status === filters.status)
+    }
+    
+    // Apply team member filter
+    if (filters.teamMember !== "all") {
+      if (filters.teamMember === "assigned") {
+        filteredJobs = filteredJobs.filter(job => job.team_member_id !== null)
+      } else if (filters.teamMember === "unassigned") {
+        filteredJobs = filteredJobs.filter(job => job.team_member_id === null)
+      } else {
+        filteredJobs = filteredJobs.filter(job => job.team_member_id === parseInt(filters.teamMember))
+      }
+    }
+    
+    // Apply territory filter
+    if (filters.territory !== "all") {
+      filteredJobs = filteredJobs.filter(job => job.territory_id === parseInt(filters.territory))
+    }
+    
+    console.log('✅ Filtered jobs:', filteredJobs.length, 'for', currentView, 'view')
+    setJobs(filteredJobs)
+  }
+
+  const formatDate = (date, view) => {
+    const options = { 
+      weekday: 'short', 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric' 
+    }
+    
+    if (view === 'day') {
+      return date.toLocaleDateString('en-US', options)
+    } else if (view === 'week') {
+      const startOfWeek = new Date(date)
+      startOfWeek.setDate(date.getDate() - date.getDay())
+      const endOfWeek = new Date(startOfWeek)
+      endOfWeek.setDate(startOfWeek.getDate() + 6)
+      return `${startOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${endOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+    } else {
+      return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+    }
+  }
+
+  const formatTime = (dateString) => {
+    if (!dateString) return 'Time placeholder'
+    // Extract time part directly from the string (format: "2024-01-15 10:00:00")
+    const timePart = dateString.split(' ')[1]
+    if (!timePart) return 'Time placeholder'
+    
+    const [hours, minutes] = timePart.split(':')
+    const hour = parseInt(hours, 10)
+    const minute = parseInt(minutes, 10)
+    
+    if (isNaN(hour) || isNaN(minute)) return 'Time placeholder'
+    
+    // Convert to 12-hour format
+    const ampm = hour >= 12 ? 'PM' : 'AM'
+    const displayHour = hour % 12 || 12
+    const displayMinute = minute.toString().padStart(2, '0')
+    
+    return `${displayHour}:${displayMinute} ${ampm}`
+  }
+
+  const navigateDate = (direction) => {
+    // Prevent rapid navigation clicks
+    if (isNavigating) {
+      console.log('🚫 Navigation blocked - already navigating')
+      return
+    }
+    
+    setIsNavigating(true)
+    
+    // Clear any existing navigation timeout
+    if (navigationTimeoutRef.current) {
+      clearTimeout(navigationTimeoutRef.current)
+    }
+    
+    const newDate = new Date(currentDate)
+    
+    if (currentView === 'day') {
+      newDate.setDate(currentDate.getDate() + direction)
+    } else if (currentView === 'week') {
+      newDate.setDate(currentDate.getDate() + (direction * 7))
+    } else {
+      newDate.setMonth(currentDate.getMonth() + direction)
+    }
+    
+    setCurrentDate(newDate)
+    
+    // Allow navigation again after 500ms (faster since no API call)
+    navigationTimeoutRef.current = setTimeout(() => {
+      setIsNavigating(false)
+    }, 500)
+  }
+
+  // Function to refresh jobs silently in background
+  const refreshJobsSilently = async () => {
+    if (!currentUser?.id) return
+    
+    try {
+      console.log('🔄 Silently refreshing jobs...')
+      const response = await jobsAPI.getAll(
+        currentUser.id, 
+        "", // status (empty to get all)
+        "", // search
+        1, // page
+        1000, // limit
+        "", // dateFilter (empty to get all dates)
+        "", // dateRange
+        "scheduled_date", // sortBy
+        "ASC", // sortOrder
+        undefined, // teamMember (empty to get all)
+        undefined, // invoiceStatus
+        undefined, // customerId
+        undefined, // territoryId
+      )
+      
+      const allJobsData = response.jobs || response || []
+      console.log('✅ Jobs refreshed silently:', allJobsData.length, 'total jobs')
+      setAllJobs(allJobsData)
+    } catch (error) {
+      console.log('⚠️ Silent refresh failed:', error.message)
+      // Don't show error to user for silent refresh
+    }
+  }
+
+  const handleCreateJob = () => {
+    navigate('/createjob')
+  }
+
+  const handleViewJob = (job) => {
+    navigate(`/job/${job.id}`)
+  }
+
+  const handleViewCustomer = (customerId) => {
+    navigate(`/customer/${customerId}`)
+  }
+
+
+
+  // Calculate job summary statistics
+  const getJobSummary = () => {
+    const filteredJobs = getFilteredJobs()
+    
+    const totalJobs = filteredJobs.length
+    const completedJobs = filteredJobs.filter(job => job.status === 'completed').length
+    const inProgressJobs = filteredJobs.filter(job => job.status === 'in_progress').length
+    const pendingJobs = filteredJobs.filter(job => job.status === 'pending').length
+    const confirmedJobs = filteredJobs.filter(job => job.status === 'confirmed').length
+    const cancelledJobs = filteredJobs.filter(job => job.status === 'cancelled').length
+    
+    const totalRevenue = filteredJobs.reduce((sum, job) => sum + (parseFloat(job.service_price) || 0), 0)
+    const totalDuration = filteredJobs.reduce((sum, job) => sum + (parseFloat(job.duration) || 0), 0)
+    
+    const assignedJobs = filteredJobs.filter(job => job.team_member_id).length
+    const unassignedJobs = totalJobs - assignedJobs
+    
+    return {
+      totalJobs,
+      completedJobs,
+      inProgressJobs,
+      pendingJobs,
+      confirmedJobs,
+      cancelledJobs,
+      totalRevenue,
+      totalDuration,
+      assignedJobs,
+      unassignedJobs
+    }
+  }
+
+  // Get filtered jobs based on current filters
+  const getFilteredJobs = () => {
+    let filtered = jobs
+
+    // Filter by status
+    if (filters.status !== 'all') {
+      filtered = filtered.filter(job => job.status === filters.status)
+    }
+
+    // Filter by team member
+    if (filters.teamMember !== 'all') {
+      if (filters.teamMember === 'unassigned') {
+        filtered = filtered.filter(job => !job.team_member_id)
+      } else {
+        filtered = filtered.filter(job => job.team_member_id === filters.teamMember)
+      }
+    }
+
+    // Filter by territory
+    if (filters.territory !== 'all') {
+      filtered = filtered.filter(job => {
+        // Check if job has territory information
+        if (job.territory) {
+          return job.territory === filters.territory
+        }
+        // If no territory on job, check team member's territory
+        if (job.team_member_id) {
+          const teamMember = teamMembers.find(tm => tm.id === job.team_member_id)
+          return teamMember?.territory === filters.territory
+        }
+        return false
+      })
+    }
+
+    // Filter by time range
+    if (filters.timeRange !== 'all') {
+      const now = new Date()
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+      
+      filtered = filtered.filter(job => {
+        // Extract time and date parts from scheduled_date string (format: "2024-01-15 10:00:00")
+        const jobDateTime = job.scheduled_date ? job.scheduled_date.split(' ') : ['', '']
+        const jobDateString = jobDateTime[0]
+        const jobTimeString = jobDateTime[1]
+        
+        if (!jobTimeString) return true
+        
+        const [hours] = jobTimeString.split(':')
+        const jobHour = parseInt(hours, 10)
+        const todayString = today.toISOString().split('T')[0]
+        
+        switch (filters.timeRange) {
+          case 'morning':
+            return jobHour < 12
+          case 'afternoon':
+            return jobHour >= 12 && jobHour < 17
+          case 'evening':
+            return jobHour >= 17
+          case 'today':
+            return jobDateString === todayString
+          default:
+            return true
+        }
+      })
+    }
+
+    return filtered
+  }
+
+  const handleFilterChange = (filterType, value) => {
+    setFilters(prev => ({
+      ...prev,
+      [filterType]: value
+    }))
+  }
+
+  // Jobs Summary Component
+  const JobsSummary = () => {
+    const summary = getJobSummary()
+    
+    return (
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-900">
+            Day Summary - {formatDate(currentDate, 'day')}
+          </h2>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setShowMap(!showMap)}
+              className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                showMap ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              <Map className="w-4 h-4 inline mr-1" />
+              {showMap ? 'Hide Map' : 'Show Map'}
+            </button>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-4">
+          <div className="text-center">
+            <div className="text-2xl font-bold text-gray-900">{summary.totalJobs}</div>
+            <div className="text-sm text-gray-600">Total Jobs</div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-green-600">{summary.completedJobs}</div>
+            <div className="text-sm text-gray-600">Completed</div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-blue-600">{summary.inProgressJobs}</div>
+            <div className="text-sm text-gray-600">In Progress</div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-yellow-600">{summary.pendingJobs}</div>
+            <div className="text-sm text-gray-600">Pending</div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-green-600">${summary.totalRevenue.toFixed(2)}</div>
+            <div className="text-sm text-gray-600">Revenue</div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-purple-600">{summary.assignedJobs}</div>
+            <div className="text-sm text-gray-600">Assigned</div>
+          </div>
+        </div>
+
+        {/* Additional metrics row */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-gray-100">
+          <div className="text-center">
+            <div className="text-lg font-semibold text-orange-600">{summary.confirmedJobs}</div>
+            <div className="text-sm text-gray-600">Confirmed</div>
+          </div>
+          <div className="text-center">
+            <div className="text-lg font-semibold text-red-600">{summary.cancelledJobs}</div>
+            <div className="text-sm text-gray-600">Cancelled</div>
+          </div>
+          <div className="text-center">
+            <div className="text-lg font-semibold text-gray-600">{summary.unassignedJobs}</div>
+            <div className="text-sm text-gray-600">Unassigned</div>
+          </div>
+          <div className="text-center">
+            <div className="text-lg font-semibold text-blue-600">
+              {summary.totalDuration > 0 ? `${Math.round(summary.totalDuration / 60)}h ${summary.totalDuration % 60}m` : '0h 0m'}
+            </div>
+            <div className="text-sm text-gray-600">Total Duration</div>
+          </div>
+        </div>
+
+        {/* Progress bar for completion rate */}
+        {summary.totalJobs > 0 && (
+          <div className="mt-4 pt-4 border-t border-gray-100">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-gray-700">Completion Rate</span>
+              <span className="text-sm text-gray-600">
+                {Math.round((summary.completedJobs / summary.totalJobs) * 100)}%
+              </span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div 
+                className="bg-green-600 h-2 rounded-full transition-all duration-300"
+                style={{ width: `${(summary.completedJobs / summary.totalJobs) * 100}%` }}
+              ></div>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // Jobs Map Component
+  const JobsMap = () => {
+    // Filter jobs that have location data
+    const jobsWithLocation = getFilteredJobs().filter(job => 
+      job.customer_address || (job.service_address_street && job.service_address_city)
+    )
+
+    if (jobsWithLocation.length === 0) {
+      return (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+          <div className="text-center">
+            <Map className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No locations available</h3>
+            <p className="text-gray-500">Jobs need addresses to be displayed on the map.</p>
+          </div>
+        </div>
+      )
+    }
+
+    // Create a custom map URL that shows all job locations
+    const createMultiLocationMap = () => {
+      if (jobsWithLocation.length === 1) {
+        // Single job - use place mode
+        const address = jobsWithLocation[0].customer_address || `${jobsWithLocation[0].service_address_street}, ${jobsWithLocation[0].service_address_city}`
+        return `https://www.google.com/maps/embed/v1/place?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&q=${encodeURIComponent(address)}&zoom=14`
+      } else {
+        // Multiple jobs - use a custom approach with search mode
+        const addresses = jobsWithLocation.map(job => 
+          job.customer_address || `${job.service_address_street}, ${job.service_address_city}`
+        ).join('|')
+        
+        // Use search mode to show multiple locations
+        return `https://www.google.com/maps/embed/v1/search?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&q=${encodeURIComponent(addresses)}&zoom=10`
+      }
+    }
+
+    return (
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Job Locations</h3>
+        <p className="text-sm text-gray-600 mb-4">
+          {jobsWithLocation.length === 1 
+            ? "Map shows the job location." 
+            : `Map shows all ${jobsWithLocation.length} job locations. Job details are listed below.`
+          }
+        </p>
+        
+        {/* Google Maps iframe with all job locations */}
+        <div className="h-80 bg-gray-100 rounded-lg overflow-hidden mb-4 relative">
+          <iframe
+            width="100%"
+            height="100%"
+            frameBorder="0"
+            style={{ border: 0 }}
+            src={createMultiLocationMap()}
+            allowFullScreen
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+            title="Job Locations Map"
+            onLoad={() => {
+              // Map loaded successfully
+            }}
+          />
+          <div className="absolute top-2 right-2 bg-white px-2 py-1 rounded text-xs text-gray-600 shadow-sm">
+            {jobsWithLocation.length} job{jobsWithLocation.length !== 1 ? 's' : ''}
+          </div>
+        </div>
+        
+        {/* Job list below map with numbered markers */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {jobsWithLocation.slice(0, 6).map((job, index) => (
+            <div 
+              key={job.id} 
+              className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer border-l-4 border-blue-500"
+              onClick={() => navigate(`/job/${job.id}`)}
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-6 h-6 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
+                  {index + 1}
+                </div>
+                <div className="font-medium text-sm text-gray-900">{job.service_name || 'Service placeholder'}</div>
+              </div>
+              <div className="text-xs text-gray-600 truncate mt-1">
+                {job.customer_address || `${job.service_address_street}, ${job.service_address_city}`}
+              </div>
+              <div className="text-xs text-gray-500 mt-1">
+                                        {formatTime(job.scheduled_date)}
+              </div>
+              <div className="text-xs text-gray-400 mt-1">
+                {job.customer_first_name && job.customer_last_name 
+                  ? `${job.customer_first_name} ${job.customer_last_name}`
+                  : job.customer_first_name || job.customer_last_name || 'Client placeholder'
+                }
+              </div>
+              <div className="text-xs text-gray-500 mt-1">
+                Status: {job.status || 'Status placeholder'}
+              </div>
+            </div>
+          ))}
+        </div>
+        
+        {jobsWithLocation.length > 6 && (
+          <div 
+            className="text-center text-sm text-blue-600 mt-3 cursor-pointer hover:text-blue-800 hover:underline transition-colors"
+            onClick={() => {
+              // For now, just show all jobs - could be enhanced to show a modal or expand the map
+              console.log('Show all jobs with locations:', jobsWithLocation.length)
+            }}
+          >
+            +{jobsWithLocation.length - 6} more jobs with locations
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // Day View Component
+  const DayView = () => (
+    <div className="flex-1 bg-gray-50 overflow-y-auto">
+      <div className="max-w-6xl mx-auto p-4 sm:p-6">
+        <JobsSummary />
+        {showMap && <JobsMap />}
+        {loading ? (
+          <div className="text-center py-16">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 sm:p-12">
+              <RefreshCw className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mx-auto mb-4 animate-spin" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Loading jobs...</h3>
+              <p className="text-gray-500 mb-6">Please wait while we fetch the scheduled jobs.</p>
+            </div>
+          </div>
+        ) : error ? (
+          <div className="text-center py-16">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 sm:p-12">
+              <AlertTriangle className="w-12 h-12 sm:w-16 sm:h-16 text-red-500 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Error: {error}</h3>
+              <p className="text-gray-500 mb-6">Failed to load jobs. Please try again later.</p>
+              <button 
+                onClick={loadAllJobs}
+                className="w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center hover:bg-blue-700 transition-all duration-200 transform hover:scale-[1.02] focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              >
+                <RefreshCw className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+        ) : getFilteredJobs().length > 0 ? (
+          <div className="space-y-4 pb-8 min-h-0">
+            {getFilteredJobs().map((job) => {
+              const getStatusColor = (status) => {
+                switch (status) {
+                  case 'completed': return 'bg-green-100 text-green-800 border-green-200';
+                  case 'in_progress': return 'bg-blue-100 text-blue-800 border-blue-200';
+                  case 'confirmed': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+                  case 'cancelled': return 'bg-red-100 text-red-800 border-red-200';
+                  default: return 'bg-gray-100 text-gray-800 border-gray-200';
+                }
+              };
+              // Find the team member color
+              const teamMember = teamMembers.find(tm => tm.id === job.team_member_id)
+              const memberColor = teamMember?.color || '#2563EB'
+              return (
+                <div 
+                  key={job.id} 
+                  className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 hover:shadow-lg hover:border-blue-300 transition-all duration-200 cursor-pointer"
+                  onClick={() => navigate(`/job/${job.id}`)}
+                >
+                  <div className="flex flex-col space-y-4 sm:flex-row sm:items-start sm:justify-between sm:space-y-0">
+                    <div className="flex-1">
+                      <div className="flex flex-col space-y-3 sm:flex-row sm:items-center sm:space-y-0 sm:space-x-3 mb-4">
+                        <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: memberColor }}>
+                          <span className="text-white font-semibold text-sm">
+                            {job.team_member_first_name?.charAt(0) || job.service_name?.charAt(0) || 'J'}
+                          </span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-lg font-semibold text-gray-900 mb-1 truncate">
+                            {job.service_name || 'Service'}
+                          </h3>
+                          <div className="text-sm text-gray-600 truncate block">
+                            {job.customer_first_name && job.customer_last_name 
+                              ? `${job.customer_first_name} ${job.customer_last_name}`
+                              : job.customer_first_name || job.customer_last_name || 'Client name placeholder'
+                            }
+                          </div>
+                        </div>
+                        <span className={`px-3 py-1 text-xs font-medium rounded-full border ${getStatusColor(job.status)} flex-shrink-0`}>
+                          {job.status ? job.status.replace('_', ' ') : 'Status placeholder'}
+                        </span>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-sm">
+                        <div className="flex items-center space-x-2 text-gray-600">
+                          <Clock className="w-4 h-4 flex-shrink-0" />
+                          <span className="truncate">
+                            {formatTime(job.scheduled_date)}
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-2 text-gray-600">
+                          <User className="w-4 h-4 flex-shrink-0" />
+                          <span className="truncate">
+                            {job.team_member_first_name && job.team_member_last_name 
+                              ? `${job.team_member_first_name} ${job.team_member_last_name}`
+                              : job.team_member_first_name || job.team_member_last_name || 'Unassigned'
+                            }
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-2 text-gray-600 sm:col-span-2">
+                          <MapPin className="w-4 h-4 flex-shrink-0" />
+                          <span className="truncate">{job.customer_address || 'Address not provided'}</span>
+                        </div>
+                        <div className="flex items-center space-x-2 text-gray-600">
+                          <DollarSign className="w-4 h-4 flex-shrink-0" />
+                          <span className="font-medium text-green-600">${job.service_price || '0'}</span>
+                        </div>
+                      </div>
+                      
+                      {job.notes && (
+                        <div className="mt-4 pt-4 border-t border-gray-100">
+                          <p className="text-sm text-gray-600 italic">"{job.notes}"</p>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2 sm:ml-4">
+                      <button 
+                        onClick={() => handleViewJob(job)}
+                        className="px-3 py-2 text-sm font-medium text-gray-600 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200"
+                      >
+                        View
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="text-center py-16 pb-8">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 sm:p-12">
+              <Calendar className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                {jobs.length > 0 ? 'No jobs match your filters' : 'No scheduled jobs'}
+              </h3>
+              <p className="text-gray-500 mb-6">
+                {jobs.length > 0 
+                  ? 'Try adjusting your filters to see more jobs.'
+                  : `No jobs scheduled for ${formatDate(currentDate, 'day')}`
+                }
+              </p>
+              <button 
+                onClick={handleCreateJob}
+                className="w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center hover:bg-blue-700 transition-all duration-200 transform hover:scale-[1.02] focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              >
+                <Plus className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+
+  // Week View Component
+  const WeekView = () => {
+    const startOfWeek = new Date(currentDate)
+    startOfWeek.setDate(currentDate.getDate() - currentDate.getDay())
+    
+    const weekDays = []
+    for (let i = 0; i < 7; i++) {
+      const day = new Date(startOfWeek)
+      day.setDate(startOfWeek.getDate() + i)
+      weekDays.push(day)
+    }
+
+    const getJobsForDay = (date) => {
+      return jobs.filter(job => {
+        // Extract date part from scheduled_date string (format: "2024-01-15 10:00:00")
+        const jobDateString = job.scheduled_date ? job.scheduled_date.split(' ')[0] : ''
+        const dateString = date.toISOString().split('T')[0]
+        return jobDateString === dateString
+      })
+    }
+
+    return (
+      <div className="flex-1 bg-gray-50 overflow-y-auto">
+        <div className="max-w-7xl mx-auto p-4 sm:p-6 pb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-7 gap-4">
+            {weekDays.map((day, index) => {
+              const dayJobs = getJobsForDay(day)
+              const isToday = day.toDateString() === new Date().toDateString()
+              
+              return (
+                <div key={index} className={`bg-white rounded-lg border ${isToday ? 'border-blue-300 shadow-md' : 'border-gray-200'} p-4`}>
+                  <div className="text-center mb-3">
+                    <div className={`text-sm font-medium ${isToday ? 'text-blue-600' : 'text-gray-500'}`}>
+                      {day.toLocaleDateString('en-US', { weekday: 'short' })}
+                    </div>
+                    <div className={`text-2xl font-bold ${isToday ? 'text-blue-600' : 'text-gray-900'}`}>
+                      {day.getDate()}
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    {dayJobs.map(job => (
+                      <div 
+                        key={job.id} 
+                        className="p-2 bg-gray-50 rounded text-xs cursor-pointer hover:bg-gray-100 transition-colors"
+                        onClick={() => navigate(`/job/${job.id}`)}
+                      >
+                        <div className="font-medium truncate">{job.service_name || 'Service placeholder'}</div>
+                        <div className="text-gray-600 truncate">
+                          {job.customer_first_name && job.customer_last_name 
+                            ? `${job.customer_first_name} ${job.customer_last_name}`
+                            : job.customer_first_name || job.customer_last_name || 'Client placeholder'
+                          }
+                        </div>
+                        <div className="text-gray-500">
+                                                                            {formatTime(job.scheduled_date)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Month View Component
+  const MonthView = () => {
+    const year = currentDate.getFullYear()
+    const month = currentDate.getMonth()
+    
+    const isToday = (date) => date.toDateString() === new Date().toDateString()
+    const isCurrentMonth = (date) => date.getMonth() === month
+    
+    const generateDaysArray = () => {
+      const firstDay = new Date(year, month, 1)
+      const lastDay = new Date(year, month + 1, 0)
+      const startDate = new Date(firstDay)
+      startDate.setDate(firstDay.getDate() - firstDay.getDay())
+      
+      const days = []
+      for (let i = 0; i < 42; i++) {
+        const date = new Date(startDate)
+        date.setDate(startDate.getDate() + i)
+        days.push(date)
+      }
+      return days
+    }
+
+    const getJobsForDay = (date) => {
+      return jobs.filter(job => {
+        // Extract date part from scheduled_date string (format: "2024-01-15 10:00:00")
+        const jobDateString = job.scheduled_date ? job.scheduled_date.split(' ')[0] : ''
+        const dateString = date.toISOString().split('T')[0]
+        return jobDateString === dateString
+      })
+    }
+
+    const days = generateDaysArray()
+
+    return (
+      <div className="flex-1 bg-gray-50 overflow-y-auto">
+        <div className="max-w-7xl mx-auto p-4 sm:p-6 pb-8">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+            <div className="grid grid-cols-7 gap-px bg-gray-200">
+              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                <div key={day} className="bg-gray-50 p-2 text-center">
+                  <div className="text-sm font-medium text-gray-900">{day}</div>
+                </div>
+              ))}
+              
+              {days.map((date, index) => {
+                const dayJobs = getJobsForDay(date)
+                const isCurrentMonthDay = isCurrentMonth(date)
+                const isTodayDate = isToday(date)
+                
+                return (
+                  <div key={index} className={`bg-white min-h-[100px] p-2 ${!isCurrentMonthDay ? 'bg-gray-50' : ''}`}>
+                    <div className={`text-sm font-medium mb-1 ${isTodayDate ? 'text-blue-600' : isCurrentMonthDay ? 'text-gray-900' : 'text-gray-400'}`}>
+                      {date.getDate()}
+                    </div>
+                    
+                    <div className="space-y-1">
+                      {dayJobs.slice(0, expandedDays.has(date.toISOString().split('T')[0]) ? dayJobs.length : 3).map(job => (
+                        <div 
+                          key={job.id} 
+                          className="p-1 bg-blue-50 rounded text-xs truncate cursor-pointer hover:bg-blue-100 transition-colors"
+                          onClick={() => navigate(`/job/${job.id}`)}
+                        >
+                          <div className="font-medium truncate">{job.service_name || 'Service placeholder'}</div>
+                          <div className="text-gray-600 truncate">
+                            {job.customer_first_name && job.customer_last_name 
+                              ? `${job.customer_first_name} ${job.customer_last_name}`
+                              : job.customer_first_name || job.customer_last_name || 'Client placeholder'
+                            }
+                          </div>
+                        </div>
+                      ))}
+                      {dayJobs.length > 3 && !expandedDays.has(date.toISOString().split('T')[0]) && (
+                        <div 
+                          className="text-xs text-blue-600 text-center cursor-pointer hover:text-blue-800 hover:underline transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            toggleDayExpansion(date.toISOString().split('T')[0])
+                          }}
+                        >
+                          +{dayJobs.length - 3} more
+                        </div>
+                      )}
+                      {expandedDays.has(date.toISOString().split('T')[0]) && (
+                        <div 
+                          className="text-xs text-gray-500 text-center cursor-pointer hover:text-gray-700 hover:underline transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            toggleDayExpansion(date.toISOString().split('T')[0])
+                          }}
+                        >
+                          Show less
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const renderView = () => {
+    switch (currentView) {
+      case "day":
+        return <DayView />
+      case "week":
+        return <WeekView />
+      case "month":
+        return <MonthView />
+      default:
+        return <DayView />
+    }
+  }
+
+  return (
+    <div className="flex h-screen bg-gray-50 overflow-hidden">
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      
+      <div className="flex-1 flex min-w-0 lg:ml-64 h-full">
+        {/* Schedule Sidebar */}
+        <ScheduleSidebar 
+          filters={filters}
+          onFilterChange={handleFilterChange}
+          teamMembers={teamMembers}
+        />
+        
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden h-full">
+          <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
+          
+          <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="border-b border-gray-200 bg-white flex-shrink-0">
+            <div className="px-4 sm:px-6 py-4">
+              <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
+                <div className="flex items-center space-x-4">
+                  <button
+                    onClick={handleCreateJob}
+                    className="w-10 h-10 bg-primary-600 text-white rounded-full flex items-center justify-center hover:bg-primary-700 transition-all duration-200 transform hover:scale-[1.02] focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+                  >
+                    <Plus className="w-5 h-5" />
+                  </button>
+                  <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">Schedule</h1>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => navigateDate(-1)}
+                      disabled={isNavigating}
+                      className={`p-1 rounded transition-colors ${
+                        isNavigating 
+                          ? 'text-gray-300 cursor-not-allowed' 
+                          : 'hover:bg-gray-100 text-gray-500'
+                      }`}
+                      title={isNavigating ? 'Please wait...' : 'Previous'}
+                    >
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    
+                    <span className="font-medium text-sm sm:text-base">
+                      {formatDate(currentDate, currentView)}
+                    </span>
+                    
+                    <button
+                      onClick={() => navigateDate(1)}
+                      disabled={isNavigating}
+                      className={`p-1 rounded transition-colors ${
+                        isNavigating 
+                          ? 'text-gray-300 cursor-not-allowed' 
+                          : 'hover:bg-gray-100 text-gray-500'
+                      }`}
+                      title={isNavigating ? 'Please wait...' : 'Next'}
+                    >
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="flex items-center space-x-2 sm:space-x-4">
+                  <div className="flex items-center space-x-1 sm:space-x-2">
+                    <button
+                      onClick={() => setCurrentView("day")}
+                      className={`px-2 sm:px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-colors ${
+                        currentView === "day" ? "bg-gray-100 text-gray-900" : "text-gray-600 hover:text-gray-900"
+                      }`}
+                    >
+                      Day
+                    </button>
+                    <button
+                      onClick={() => setCurrentView("week")}
+                      className={`px-2 sm:px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-colors ${
+                        currentView === "week" ? "bg-gray-100 text-gray-900" : "text-gray-600 hover:text-gray-900"
+                      }`}
+                    >
+                      Week
+                    </button>
+                    <button
+                      onClick={() => setCurrentView("month")}
+                      className={`px-2 sm:px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-colors ${
+                        currentView === "month" ? "bg-gray-100 text-gray-900" : "text-gray-600 hover:text-gray-900"
+                      }`}
+                    >
+                      Month
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          {renderView()}
+        </div>
+      </div>
+    </div>
+
+
+    </div>
+  )
+}
+
+export default ZenbookerSchedule
