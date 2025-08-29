@@ -1,11 +1,11 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { X, MapPin, Clock, Users, DollarSign, Settings, Globe, Target, Plus, Minus } from "lucide-react"
 import { territoriesAPI } from "../services/api"
 
 // API base URL for Google Places API proxy
-const API_BASE_URL = 'https://zenbookapi.now2code.online/api'
+const API_BASE_URL = 'https://service-flow-backend-production.up.railway.app/api'
 
 const CreateTerritoryModal = ({ isOpen, onClose, onSuccess, territory = null, isEditing = false, userId }) => {
   const [formData, setFormData] = useState({
@@ -37,6 +37,7 @@ const CreateTerritoryModal = ({ isOpen, onClose, onSuccess, territory = null, is
   const [availableServices, setAvailableServices] = useState([])
   const [addressSuggestions, setAddressSuggestions] = useState([])
   const [showAddressSuggestions, setShowAddressSuggestions] = useState(false)
+  const locationInputRef = useRef(null)
 
   useEffect(() => {
     if (isOpen && territory && isEditing) {
@@ -109,6 +110,20 @@ const CreateTerritoryModal = ({ isOpen, onClose, onSuccess, territory = null, is
     }
   }, [isOpen, territory, isEditing])
 
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (locationInputRef.current && !locationInputRef.current.contains(event.target)) {
+        setShowAddressSuggestions(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [])
+
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
       ...prev,
@@ -120,21 +135,44 @@ const CreateTerritoryModal = ({ isOpen, onClose, onSuccess, territory = null, is
     const value = e.target.value
     setFormData(prev => ({ ...prev, location: value }))
     
+    console.log('🔍 Location change:', value, 'Length:', value.length)
+    
     if (value.length > 3) {
       try {
+         console.log('🔍 Fetching suggestions for:', value)
+         console.log('🔍 API URL:', `${API_BASE_URL}/places/autocomplete?input=${encodeURIComponent(value)}`)
+         
         const response = await fetch(
           `${API_BASE_URL}/places/autocomplete?input=${encodeURIComponent(value)}`
         )
+         
+         console.log('🔍 Response status:', response.status)
+         console.log('🔍 Response ok:', response.ok)
+         
         const data = await response.json()
         
-        if (data.predictions) {
+        console.log('🔍 API response:', data)
+        console.log('🔍 Response type:', typeof data)
+        console.log('🔍 Has predictions property:', 'predictions' in data)
+        console.log('🔍 Predictions value:', data.predictions)
+        
+        if (data.predictions && Array.isArray(data.predictions)) {
+          console.log('🔍 Setting suggestions:', data.predictions.length, 'items')
           setAddressSuggestions(data.predictions)
           setShowAddressSuggestions(true)
+        } else {
+          console.log('🔍 No predictions in response or not an array')
+          console.log('🔍 Predictions type:', typeof data.predictions)
+          setAddressSuggestions([])
+          setShowAddressSuggestions(false)
         }
       } catch (error) {
         console.error('Error fetching address suggestions:', error)
+        setAddressSuggestions([])
+        setShowAddressSuggestions(false)
       }
     } else {
+      console.log('🔍 Clearing suggestions (input too short)')
       setAddressSuggestions([])
       setShowAddressSuggestions(false)
     }
@@ -347,7 +385,7 @@ const CreateTerritoryModal = ({ isOpen, onClose, onSuccess, territory = null, is
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Location *
                 </label>
-                <div className="relative">
+                <div className="relative" ref={locationInputRef}>
                   <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
                     <MapPin className="w-4 h-4 text-gray-400" />
                   </div>
@@ -359,8 +397,14 @@ const CreateTerritoryModal = ({ isOpen, onClose, onSuccess, territory = null, is
                     placeholder="Enter address or location..."
                     required
                   />
+                  {/* Debug info */}
+                  <div className="text-xs text-gray-500 mt-1">
+                    Show suggestions: {showAddressSuggestions.toString()}, 
+                    Count: {addressSuggestions.length}
+                  </div>
+                  
                   {showAddressSuggestions && addressSuggestions.length > 0 && (
-                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                       {addressSuggestions.map((suggestion, index) => (
                         <button
                           key={index}

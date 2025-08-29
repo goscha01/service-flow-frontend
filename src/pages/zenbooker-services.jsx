@@ -9,12 +9,13 @@ import CreateServiceModal from "../components/create-service-modal"
 import ServiceTemplatesModal from "../components/service-templates-modal"
 import { servicesAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
+import { getImageUrl, handleImageError } from "../utils/imageUtils"
 
 const ZenbookerServices = () => {
   const navigate = useNavigate()
   const { user, loading: authLoading } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [categoriesEnabled, setCategoriesEnabled] = useState(true)
+  const [categoriesEnabled, setCategoriesEnabled] = useState(false)
   const [createModalOpen, setCreateModalOpen] = useState(false)
   const [templatesModalOpen, setTemplatesModalOpen] = useState(false)
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
@@ -73,17 +74,25 @@ const ZenbookerServices = () => {
         // Set categories from API response
         const categoryNames = categoriesResponse.map(cat => cat.name)
         console.log('🔍 Category names:', categoryNames)
+        console.log('🔍 Full categories response:', categoriesResponse)
         setCategories(categoryNames)
         setCategoryObjects(categoriesResponse)
       } catch (categoriesError) {
         console.log('🔍 Categories endpoint not available, using fallback:', categoriesError.message)
         
         // Fallback: Extract categories from services
-        const uniqueCategories = [...new Set(sortedServices.map(service => service.category).filter(Boolean))]
+        const uniqueCategories = [...new Set(sortedServices.map(service => service.category).filter(cat => cat && cat.trim() !== ''))]
         console.log('🔍 Fallback categories:', uniqueCategories)
         setCategories(uniqueCategories)
         setCategoryObjects([])
       }
+      
+      // Debug logging for rendering logic
+      console.log('🔍 Debug - categoriesEnabled:', categoriesEnabled)
+      console.log('🔍 Debug - categories array:', categories)
+      console.log('🔍 Debug - services array length:', sortedServices.length)
+      console.log('🔍 Debug - services with categories:', sortedServices.filter(s => s.category).length)
+      console.log('🔍 Debug - services without categories:', sortedServices.filter(s => !s.category).length)
     } catch (error) {
       console.error('Error fetching services:', error)
       setError("Failed to load services. Please try again.")
@@ -112,7 +121,7 @@ const ZenbookerServices = () => {
           const formData = new FormData();
           formData.append('image', serviceData.image);
           
-          const uploadResponse = await fetch('https://zenbookapi.now2code.online/api/upload-service-image', {
+          const uploadResponse = await fetch('https://service-flow-backend-production.up.railway.app/api/upload-service-image', {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${localStorage.getItem('authToken')}`
@@ -558,17 +567,122 @@ const ZenbookerServices = () => {
                 </div>
               ) : (
                 <div>
+                      {console.log('🔍 Render - categoriesEnabled:', categoriesEnabled, 'services length:', services.length, 'categories length:', categories.length)}
                       {categoriesEnabled ? (
                         // Group services by category, including "Additional" for uncategorized services
                         (() => {
-                          const categorizedServices = services.filter(s => s.category)
-                          const uncategorizedServices = services.filter(s => !s.category)
+                          // Services with string categories that don't exist in the categories array are treated as uncategorized
+                          const categorizedServices = services.filter(s => {
+                            if (!s.category || s.category.trim() === '') return false
+                            // Check if the category exists in the categories array
+                            return categories.includes(s.category)
+                          })
+                          const uncategorizedServices = services.filter(s => {
+                            if (!s.category || s.category.trim() === '') return true
+                            // Services with categories that don't exist in the categories array are uncategorized
+                            return !categories.includes(s.category)
+                          })
+                          
+                          console.log('🔍 Debug - Total services:', services.length)
+                          console.log('🔍 Debug - Categorized services:', categorizedServices.length)
+                          console.log('🔍 Debug - Uncategorized services:', uncategorizedServices.length)
+                          console.log('🔍 Debug - Uncategorized services details:', uncategorizedServices.map(s => ({ id: s.id, name: s.name, category: s.category })))
+                          console.log('🔍 Debug - Categories array:', categories)
+                          
+                          // If no categories are defined or all services are uncategorized, show all services in "Additional"
+                          if (categories.length === 0 || categorizedServices.length === 0) {
+                            console.log('🔍 Debug - No categories defined, showing all services in Additional')
+                            return (
+                              <div 
+                                key="Additional" 
+                                className="border-b border-gray-200 last:border-b-0 transition-all duration-200 relative"
+                              >
+                                <div className="px-4 py-3 flex items-center justify-between bg-gray-50">
+                                  <h3 className="font-medium text-gray-900">Additional</h3>
+                                  <div className="flex items-center space-x-2">
+                                    <span className="text-sm text-gray-500">
+                                      {services.length} service{services.length !== 1 ? 's' : ''}
+                                    </span>
+                                  </div>
+                                </div>
+                                {services.map((service, index) => (
+                                  <div
+                                    key={service.id}
+                                    draggable
+                                    onDragStart={(e) => handleDragStart(e, service)}
+                                    onDragEnd={handleDragEnd}
+                                    className={`flex items-center justify-between p-4 transition-all duration-200 ${
+                                      index !== services.length - 1 ? "border-b border-gray-100" : ""
+                                    } hover:bg-gray-50 cursor-move`}
+                                  >
+                                    <div 
+                                      className="flex items-center space-x-4 flex-1 cursor-pointer hover:bg-gray-50 p-2 rounded"
+                                      onClick={() => handleServiceClick(service.id)}
+                                    >
+                                      <GripVertical className="w-5 h-5 text-gray-400 cursor-move hover:text-gray-600 transition-colors" title="Drag to move service" />
+                                      {service.image ? (
+                                        <img 
+                                          src={getImageUrl(service.image)} 
+                                          alt={service.name}
+                                          className="w-10 h-10 object-cover rounded"
+                                          onError={(e) => handleImageError(e, null)}
+                                        />
+                                      ) : (
+                                        <Wrench className="w-5 h-5 text-gray-400" />
+                                      )}
+                                      <div className="flex-1 min-w-0">
+                                        <h3 className="font-medium text-gray-900">{service.name}</h3>
+                                        {service.description && (
+                                          <p className="text-sm text-gray-500 mt-1 line-clamp-1">
+                                            {service.description}
+                                          </p>
+                                        )}
+                                        <div className="flex items-center space-x-4 mt-2">
+                                          <span className="text-sm text-gray-600">
+                                            {service.price ? `$${service.price}` : 'Free'}
+                                          </span>
+                                          {service.duration && (
+                                            <span className="text-sm text-gray-600">
+                                              {Math.floor(service.duration / 60)}h {service.duration % 60}m
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center space-x-4">
+                                      <div className={`w-2 h-2 rounded-full ${service.visible ? "bg-green-500" : "bg-yellow-500"}`}></div>
+                                      <span className={`text-sm ${service.visible ? "text-green-700" : "text-yellow-700"}`}>
+                                        {service.visible ? "Visible" : "Hidden"}
+                                      </span>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          handleDeleteService(service.id)
+                                        }}
+                                        disabled={deleteLoading === service.id}
+                                        className="text-red-600 hover:text-red-700 text-sm font-medium disabled:opacity-50"
+                                      >
+                                        {deleteLoading === service.id ? (
+                                          <Loader2 className="w-4 h-4 animate-spin" />
+                                        ) : (
+                                          "Delete"
+                                        )}
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )
+                          }
                           
                           // Get all categories and add "Additional" if there are uncategorized services
                           const allCategories = [...categories]
+                          console.log('🔍 Debug - Initial allCategories:', allCategories)
                           if (uncategorizedServices.length > 0) {
                             allCategories.push('Additional')
+                            console.log('🔍 Debug - Added "Additional" category')
                           }
+                          console.log('🔍 Debug - Final allCategories:', allCategories)
                           
                           // Smart sorting: categories with services first, then empty categories
                           // This ensures new categories (with 0 services) appear at the bottom
@@ -576,10 +690,10 @@ const ZenbookerServices = () => {
                           const sortedCategories = allCategories.sort((a, b) => {
                             const aServices = a === 'Additional' 
                               ? uncategorizedServices 
-                              : services.filter(s => s.category === a)
+                              : services.filter(s => s.category && s.category.trim() === a)
                             const bServices = b === 'Additional' 
                               ? uncategorizedServices 
-                              : services.filter(s => s.category === b)
+                              : services.filter(s => s.category && s.category.trim() === b)
                             
                             const aCount = aServices.length
                             const bCount = bServices.length
@@ -597,11 +711,19 @@ const ZenbookerServices = () => {
                           })
                           
                           return sortedCategories.map(category => {
+                            console.log(`🔍 Debug - Processing category: "${category}"`)
                             const categoryServices = category === 'Additional' 
                               ? uncategorizedServices 
-                              : services.filter(s => s.category === category)
+                              : services.filter(s => s.category && s.category.trim() === category)
                             
-                      return (
+                            console.log(`🔍 Category "${category}" has ${categoryServices.length} services`)
+                            
+                            // If no services in this category, don't render the category
+                            if (categoryServices.length === 0) {
+                              return null
+                            }
+                            
+                        return (
                                 <div 
                           key={category} 
                           className={`border-b border-gray-200 last:border-b-0 transition-all duration-200 relative ${
@@ -663,9 +785,10 @@ const ZenbookerServices = () => {
                                 <GripVertical className="w-5 h-5 text-gray-400 cursor-move hover:text-gray-600 transition-colors" title="Drag to move service" />
                                 {service.image ? (
                                   <img 
-                                    src={service.image} 
+                                    src={getImageUrl(service.image)} 
                                     alt={service.name}
                                     className="w-10 h-10 object-cover rounded"
+                                    onError={(e) => handleImageError(e, null)}
                                   />
                                 ) : (
                                   <Wrench className="w-5 h-5 text-gray-400" />
@@ -733,9 +856,10 @@ const ZenbookerServices = () => {
                           <GripVertical className="w-5 h-5 text-gray-400 cursor-move" />
                           {service.image ? (
                             <img 
-                              src={service.image} 
+                              src={getImageUrl(service.image)} 
                               alt={service.name}
                               className="w-10 h-10 object-cover rounded"
+                              onError={(e) => handleImageError(e, null)}
                             />
                           ) : (
                             <Wrench className="w-5 h-5 text-gray-400" />
@@ -803,7 +927,12 @@ const ZenbookerServices = () => {
                 </div>
                 <div className="flex-shrink-0">
                   <button
-                    onClick={() => setCategoriesEnabled(!categoriesEnabled)}
+                    onClick={() => {
+                      console.log('🔍 Toggle clicked - current categoriesEnabled:', categoriesEnabled)
+                      console.log('🔍 Current services count:', services.length)
+                      console.log('🔍 Current categories count:', categories.length)
+                      setCategoriesEnabled(!categoriesEnabled)
+                    }}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                       categoriesEnabled ? "bg-blue-600" : "bg-gray-300"
                     }`}

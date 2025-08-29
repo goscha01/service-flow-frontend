@@ -154,7 +154,7 @@ const IntakeQuestionModal = ({ isOpen, onClose, selectedQuestionType, onSave, ed
         throw new Error('Authentication required');
       }
 
-      const response = await fetch('https://zenbookapi.now2code.online/api/upload-modifier-image', {
+      const response = await fetch('https://service-flow-backend-production.up.railway.app/api/upload-modifier-image', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`

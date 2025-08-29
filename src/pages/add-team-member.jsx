@@ -121,7 +121,7 @@ const AddTeamMember = () => {
 
     try {
       setAddressLoading(true)
-      const response = await fetch(`https://zenbookapi.now2code.online/api/places/autocomplete?input=${encodeURIComponent(value)}`)
+      const response = await fetch(`https://service-flow-backend-production.up.railway.app/api/places/autocomplete?input=${encodeURIComponent(value)}`)
       const data = await response.json()
       
       if (data.predictions) {
@@ -137,7 +137,7 @@ const AddTeamMember = () => {
 
   const handleAddressSelect = async (suggestion) => {
     try {
-      const response = await fetch(`https://zenbookapi.now2code.online/api/places/details?place_id=${suggestion.place_id}`)
+      const response = await fetch(`https://service-flow-backend-production.up.railway.app/api/places/details?place_id=${suggestion.place_id}`)
       const data = await response.json()
       
       if (data.result) {

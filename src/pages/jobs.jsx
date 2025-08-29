@@ -148,7 +148,7 @@ const ZenbookerJobs = () => {
       await invoicesAPI.create(invoiceData)
       
         // Update job invoice status
-        await jobsAPI.update(job.id, { invoice_status: 'invoiced' })
+        await jobsAPI.update(job.id, { invoiceStatus: 'invoiced' })
         await fetchJobs() // Refresh jobs list
         alert('Invoice created and sent successfully!')
     } catch (error) {

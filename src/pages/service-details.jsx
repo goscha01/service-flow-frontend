@@ -171,7 +171,7 @@ const ServiceDetails = () => {
       
       // First check if backend is running
       try {
-        const healthResponse = await fetch('https://zenbookapi.now2code.online/api/health')
+        const healthResponse = await fetch('https://service-flow-backend-production.up.railway.app/api/health')
         if (!healthResponse.ok) {
           throw new Error('Backend not responding')
         }
@@ -868,7 +868,7 @@ const ServiceDetails = () => {
         throw new Error('Authentication required');
       }
 
-      const response = await fetch('https://zenbookapi.now2code.online/api/upload-service-image', {
+      const response = await fetch('https://service-flow-backend-production.up.railway.app/api/upload-service-image', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`

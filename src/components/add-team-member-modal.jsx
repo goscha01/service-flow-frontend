@@ -5,7 +5,7 @@ import { X, UserPlus, Edit, Calendar, DollarSign, Tag, MapPin, Search, CheckCirc
 import { teamAPI, territoriesAPI } from "../services/api"
 
 // API base URL for Google Places API proxy
-const API_BASE_URL = 'https://zenbookapi.now2code.online/api'
+const API_BASE_URL = 'https://service-flow-backend-production.up.railway.app/api'
 
 const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null, isEditing = false }) => {
   const [formData, setFormData] = useState({
