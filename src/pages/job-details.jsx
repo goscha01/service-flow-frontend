@@ -112,6 +112,29 @@ const JobDetails = () => {
   const [emailNotifications, setEmailNotifications] = useState(true)
   const [smsNotifications, setSmsNotifications] = useState(false)
 
+  // Helper function to map job data from API response
+  const mapJobData = (jobData) => {
+    return {
+      ...jobData,
+      customer_first_name: jobData.customers?.first_name || jobData.customer_first_name,
+      customer_last_name: jobData.customers?.last_name || jobData.customer_last_name,
+      customer_email: jobData.customers?.email || jobData.customer_email,
+      customer_phone: jobData.customers?.phone || jobData.customer_phone,
+      customer_address: jobData.customers?.address || jobData.customer_address,
+      customer_city: jobData.customers?.city || jobData.customer_city,
+      customer_state: jobData.customers?.state || jobData.customer_state,
+      customer_zip_code: jobData.customers?.zip_code || jobData.customer_zip_code,
+      service_name: jobData.services?.name || jobData.service_name,
+      service_price: jobData.services?.price || jobData.service_price,
+      service_duration: jobData.services?.duration || jobData.service_duration,
+      // Map additional fields that might be missing
+      duration: jobData.duration || jobData.estimated_duration,
+      workers_needed: jobData.workers_needed || jobData.workers,
+      // Convert ISO date format to expected format for backward compatibility
+      scheduled_date: jobData.scheduled_date ? jobData.scheduled_date.replace('T', ' ') : jobData.scheduled_date,
+    }
+  }
+
   // For address modal mapping
   useEffect(() => {
     if (showEditAddressModal && job) {
@@ -150,26 +173,34 @@ const JobDetails = () => {
         const jobData = await jobsAPI.getById(jobId)
         console.log('🔄 Job data received:', jobData)
         console.log('🔄 Team assignments in job data:', jobData.team_assignments)
-        setJob(jobData)
+        console.log('🔄 Scheduled date from API:', jobData.scheduled_date)
+        
+        // Map customer and service data from nested structure
+        const mappedJobData = mapJobData(jobData)
+        
+        console.log('🔄 Mapped job data:', mappedJobData)
+        console.log('🔄 Scheduled date in mapped data:', mappedJobData.scheduled_date)
+        
+        setJob(mappedJobData)
         
         // Initialize form data
         setFormData({
-          service_name: jobData.service_name || "",
-          bathroom_count: jobData.bathroom_count || "",
-          duration: jobData.duration || 0,
-          workers_needed: jobData.workers_needed || 1,
-          skills: jobData.skills || [],
-          notes: jobData.notes || "",
-          internal_notes: jobData.internal_notes || "",
+          service_name: mappedJobData.service_name || "",
+          bathroom_count: mappedJobData.bathroom_count || "",
+          duration: mappedJobData.duration || mappedJobData.estimated_duration || 0,
+          workers_needed: mappedJobData.workers_needed || mappedJobData.workers || 1,
+          skills: mappedJobData.skills || [],
+          notes: mappedJobData.notes || "",
+          internal_notes: mappedJobData.internal_notes || "",
           serviceAddress: {
-            street: jobData.service_address_street || "",
-            city: jobData.service_address_city || "",
-            state: jobData.service_address_state || "",
-            zipCode: jobData.service_address_zip || ""
+            street: mappedJobData.service_address_street || "",
+            city: mappedJobData.service_address_city || "",
+            state: mappedJobData.service_address_state || "",
+            zipCode: mappedJobData.service_address_zip || ""
           },
-          scheduledDate: jobData.scheduled_date ? jobData.scheduled_date.split(' ')[0] : "",
-          scheduledTime: jobData.scheduled_date ? jobData.scheduled_date.split(' ')[1]?.substring(0, 5) : "",
-          offer_to_providers: jobData.offer_to_providers || false
+          scheduledDate: mappedJobData.scheduled_date ? (mappedJobData.scheduled_date.includes('T') ? mappedJobData.scheduled_date.split('T')[0] : mappedJobData.scheduled_date.split(' ')[0]) : "",
+          scheduledTime: mappedJobData.scheduled_date ? (mappedJobData.scheduled_date.includes('T') ? mappedJobData.scheduled_date.split('T')[1]?.substring(0, 5) : mappedJobData.scheduled_date.split(' ')[1]?.substring(0, 5)) : "",
+          offer_to_providers: mappedJobData.offer_to_providers || false
         })
 
         // Fetch notification preferences
@@ -255,18 +286,20 @@ const JobDetails = () => {
     try {
       setLoading(true)
       const updatedJob = {
-        service_name: formData.service_name,
-        bathroom_count: formData.bathroom_count,
+        serviceName: formData.service_name,
+        bathroomCount: formData.bathroom_count,
         duration: formData.duration,
-        workers_needed: formData.workers_needed,
+        workers: formData.workers_needed,
         skills: formData.skills,
         notes: formData.notes,
-        internal_notes: formData.internal_notes,
-        service_address_street: formData.serviceAddress.street,
-        service_address_city: formData.serviceAddress.city,
-        service_address_state: formData.serviceAddress.state,
-        service_address_zip: formData.serviceAddress.zipCode,
-        offer_to_providers: formData.offer_to_providers
+        internalNotes: formData.internal_notes,
+        serviceAddress: {
+          street: formData.serviceAddress.street,
+          city: formData.serviceAddress.city,
+          state: formData.serviceAddress.state,
+          zipCode: formData.serviceAddress.zipCode
+        },
+        offerToProviders: formData.offerToProviders
       }
       await jobsAPI.update(job.id, updatedJob)
       setSuccessMessage('Job updated successfully!')
@@ -275,7 +308,8 @@ const JobDetails = () => {
       setEditingField(null)
       // Reload job data to get updated values
       const jobData = await jobsAPI.getById(jobId)
-      setJob(jobData)
+      const mappedJobData = mapJobData(jobData)
+      setJob(mappedJobData)
     } catch (error) {
       setError('Failed to update job')
     } finally {
@@ -292,14 +326,16 @@ const JobDetails = () => {
         : job.scheduled_date
       
       await jobsAPI.update(job.id, {
-        scheduled_date: scheduledDate
+        scheduledDate: formData.scheduledDate,
+        scheduledTime: formData.scheduledTime
       })
       setSuccessMessage('Job rescheduled successfully!')
       setTimeout(() => setSuccessMessage(""), 3000)
       setShowRescheduleModal(false)
       // Reload job data
       const jobData = await jobsAPI.getById(jobId)
-      setJob(jobData)
+      const mappedJobData = mapJobData(jobData)
+      setJob(mappedJobData)
     } catch (error) {
       setError('Failed to reschedule job')
     } finally {
@@ -335,7 +371,7 @@ const JobDetails = () => {
       setLoading(true)
       // Update invoice status to 'invoiced'
       await jobsAPI.update(job.id, {
-        invoice_status: 'invoiced'
+        invoiceStatus: 'invoiced'
       })
       setJob(prev => ({ ...prev, invoice_status: 'invoiced' }))
       setSuccessMessage('Invoice sent successfully!')
@@ -370,11 +406,12 @@ const JobDetails = () => {
         
         // Refresh job data to get updated team assignments
         console.log('🔄 Refreshing job data...')
-        const updatedJob = await jobsAPI.getById(job.id)
-        console.log('🔄 Updated job data:', updatedJob)
-        console.log('🔄 Team assignments in updated job:', updatedJob.team_assignments)
+        const updatedJobData = await jobsAPI.getById(job.id)
+        console.log('🔄 Updated job data:', updatedJobData)
+        console.log('🔄 Team assignments in updated job:', updatedJobData.team_assignments)
         
-        setJob(updatedJob)
+        const mappedUpdatedJob = mapJobData(updatedJobData)
+        setJob(mappedUpdatedJob)
         setSuccessMessage('Team member assigned!')
       } else {
         // Remove all team members
@@ -433,34 +470,57 @@ const JobDetails = () => {
   }
 
   const formatDate = (dateString) => {
+    console.log('🔄 formatDate called with:', dateString)
     if (!dateString) return 'Date placeholder'
-    // Extract date part directly from the string (format: "2024-01-15 10:00:00")
-    const datePart = dateString.split(' ')[0]
+    
+    // Handle both ISO format (2025-08-29T09:00:00) and space format (2025-08-29 09:00:00)
+    let datePart
+    if (dateString.includes('T')) {
+      datePart = dateString.split('T')[0]
+    } else {
+      datePart = dateString.split(' ')[0]
+    }
+    
+    console.log('🔄 Date part extracted:', datePart)
     if (!datePart) return 'Date placeholder'
     
     const [year, month, day] = datePart.split('-')
+    console.log('🔄 Date components:', { year, month, day })
     if (!year || !month || !day) return 'Date placeholder'
     
     const date = new Date(year, month - 1, day) // month is 0-indexed
+    console.log('🔄 Created date object:', date)
     if (isNaN(date.getTime())) return 'Date placeholder'
     
-    return date.toLocaleDateString('en-US', {
+    const formatted = date.toLocaleDateString('en-US', {
       weekday: 'long',
       month: 'short',
       day: 'numeric',
       year: 'numeric'
     })
+    console.log('🔄 Formatted date:', formatted)
+    return formatted
   }
 
   const formatTime = (dateString) => {
+    console.log('🔄 formatTime called with:', dateString)
     if (!dateString) return 'Time placeholder'
-    // Extract time part directly from the string (format: "2024-01-15 10:00:00")
-    const timePart = dateString.split(' ')[1]
+    
+    // Handle both ISO format (2025-08-29T09:00:00) and space format (2025-08-29 09:00:00)
+    let timePart
+    if (dateString.includes('T')) {
+      timePart = dateString.split('T')[1]
+    } else {
+      timePart = dateString.split(' ')[1]
+    }
+    
+    console.log('🔄 Time part extracted:', timePart)
     if (!timePart) return 'Time placeholder'
     
     const [hours, minutes] = timePart.split(':')
     const hour = parseInt(hours, 10)
     const minute = parseInt(minutes, 10)
+    console.log('🔄 Time components:', { hours, minutes, hour, minute })
     
     if (isNaN(hour) || isNaN(minute)) return 'Time placeholder'
     
@@ -469,7 +529,9 @@ const JobDetails = () => {
     const displayHour = hour % 12 || 12
     const displayMinute = minute.toString().padStart(2, '0')
     
-    return `${displayHour}:${displayMinute} ${ampm}`
+    const formatted = `${displayHour}:${displayMinute} ${ampm}`
+    console.log('🔄 Formatted time:', formatted)
+    return formatted
   }
 
   // Calculate total price including modifiers

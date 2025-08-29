@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Create axios instance with base configuration
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || 'https://zenbookapi.now2code.online/api',
+  baseURL: process.env.REACT_APP_API_URL || 'https://service-flow-backend-production.up.railway.app/api',
   timeout: 15000,
   headers: {
     'Content-Type': 'application/json',
@@ -181,7 +181,7 @@ export const servicesAPI = {
 
   getServiceCategories: async (userId) => {
     try {
-      const response = await api.get(`/servi/categories?userId=${userId}`);
+      const response = await api.get(`/services/categories?userId=${userId}`);
       // The server returns { data: categories }, so we need to extract the data property
       return response.data.data || response.data;
     } catch (error) {
@@ -477,7 +477,7 @@ export const userProfileAPI = {
       formData.append('userId', userId);
       
       // Upload to server
-      const apiUrl = process.env.REACT_APP_API_URL || 'https://zenbookapi.now2code.online/api';
+      const apiUrl = process.env.REACT_APP_API_URL || 'https://service-flow-backend-production.up.railway.app/api';
       console.log('🔍 Uploading to:', `${apiUrl}/upload/profile-picture`);
       
       const response = await fetch(`${apiUrl}/upload/profile-picture`, {
@@ -506,7 +506,7 @@ export const userProfileAPI = {
     try {
       console.log('🔍 Removing profile picture for user:', userId);
       
-      const apiUrl = process.env.REACT_APP_API_URL || 'https://zenbookapi.now2code.online/api';
+      const apiUrl = process.env.REACT_APP_API_URL || 'https://service-flow-backend-production.up.railway.app/api';
       console.log('🔍 Removing from:', `${apiUrl}/user/profile-picture`);
       
       const response = await fetch(`${apiUrl}/user/profile-picture`, {

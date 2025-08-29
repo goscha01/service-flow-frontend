@@ -69,7 +69,7 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
         throw new Error('Authentication required');
       }
 
-      const response = await fetch('https://zenbookapi.now2code.online/api/upload-intake-image', {
+      const response = await fetch('https://service-flow-backend-production.up.railway.app/api/upload-intake-image', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -118,8 +118,40 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
 
     switch (question.questionType) {
       case 'multiple_choice':
+        // Multiple choice always uses radio buttons
+        return (
+          <div key={questionId} className="mb-6">
+            <div className="mb-3">
+              <label className="block text-lg font-medium text-gray-900 mb-1">
+                {question.question}
+                {question.required && <span className="text-red-500 ml-1">*</span>}
+              </label>
+              {question.description && (
+                <p className="text-sm text-gray-600">{question.description}</p>
+              )}
+            </div>
+            
+            <div className="space-y-3">
+              {question.options?.map((option, index) => (
+                <label key={index} className="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
+                  <input
+                    type="radio"
+                    name={questionId}
+                    value={option.text}
+                    checked={currentAnswer === option.text}
+                    onChange={(e) => handleAnswerChange(questionId, e.target.value)}
+                    required={question.required}
+                    className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                  />
+                  <span className="ml-3 text-sm font-medium text-gray-900">{option.text}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        );
+
       case 'dropdown':
-        // Check if it's a multi-select dropdown
+        // Dropdown uses actual dropdown for single select, multiselect for multi
         const isMultiSelect = question.selectionType === 'multi';
         
         return (
@@ -133,8 +165,6 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
                 <p className="text-sm text-gray-600">{question.description}</p>
               )}
             </div>
-            
-
             
             {isMultiSelect ? (
               // Multi-select using SimpleDropdownMultiselect
@@ -150,23 +180,20 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
                 placeholder={`Select ${question.question.toLowerCase()}...`}
               />
             ) : (
-              // Single select using radio buttons
-              <div className="space-y-3">
+              // Single select using proper dropdown
+              <select
+                value={currentAnswer || ''}
+                onChange={(e) => handleAnswerChange(questionId, e.target.value)}
+                required={question.required}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">Select an option...</option>
                 {question.options?.map((option, index) => (
-                  <label key={index} className="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
-                    <input
-                      type="radio"
-                      name={questionId}
-                      value={option.text}
-                      checked={currentAnswer === option.text}
-                      onChange={(e) => handleAnswerChange(questionId, e.target.value)}
-                      required={question.required}
-                      className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                    />
-                    <span className="ml-3 text-sm font-medium text-gray-900">{option.text}</span>
-                  </label>
+                  <option key={index} value={option.text}>
+                    {option.text}
+                  </option>
                 ))}
-              </div>
+              </select>
             )}
           </div>
         );

@@ -68,6 +68,7 @@ import ServiceModifiersForm from "../components/service-modifiers-form";
 import { useNavigate } from 'react-router-dom';
 import { jobsAPI, customersAPI, servicesAPI, teamAPI, territoriesAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { getImageUrl, handleImageError } from '../utils/imageUtils';
 
 
 export default function CreateJobPage() {
@@ -302,12 +303,17 @@ export default function CreateJobPage() {
         territoriesAPI.getAll(user.id)
       ]);
       
+      const services = servicesData.services || servicesData;
+      console.log('🔄 Loaded services:', services);
+      console.log('🔄 Services with intake questions:', services.filter(s => s.intake_questions));
+      console.log('🔄 Services with intake questions count:', services.filter(s => s.intake_questions).length);
+      
       setCustomers(customersData.customers || customersData);
-      setServices(servicesData.services || servicesData);
+      setServices(services);
       setTeamMembers(teamData.teamMembers || teamData);
       setTerritories(territoriesData.territories || territoriesData);
       setFilteredCustomers(customersData.customers || customersData);
-      setFilteredServices(servicesData.services || servicesData);
+      setFilteredServices(services);
     } catch (error) {
       console.error('Error loading data:', error);
       setError('Failed to load data. Please refresh the page.');
@@ -395,6 +401,10 @@ export default function CreateJobPage() {
     setSelectedService(service);
     
     console.log('🔄 Service selected:', service);
+    console.log('🔄 Service intake_questions raw:', service.intake_questions);
+    console.log('🔄 Service intake_questions type:', typeof service.intake_questions);
+    console.log('🔄 Service intakeQuestions raw:', service.intakeQuestions);
+    console.log('🔄 Service intakeQuestions type:', typeof service.intakeQuestions);
     console.log('🔄 Service modifiers raw:', service.modifiers);
     console.log('🔄 Service modifiers type:', typeof service.modifiers);
     
@@ -509,28 +519,29 @@ export default function CreateJobPage() {
       console.log('🔄 No modifiers found in service');
     }
     
-    if (service.intake_questions) {
+    if (service.intakeQuestions || service.intake_questions) {
       try {
         let parsedQuestions;
         
-        if (typeof service.intake_questions === 'string') {
+        const intakeQuestionsData = service.intakeQuestions || service.intake_questions;
+        if (typeof intakeQuestionsData === 'string') {
           // Try to parse as regular JSON first
-          try {
-            parsedQuestions = JSON.parse(service.intake_questions);
-            console.log('🔄 First parse successful for intake questions:', parsedQuestions);
-          } catch (firstError) {
-            console.log('🔄 First parse failed for intake questions, trying double parse');
-            // If first parse fails, try parsing again (double-escaped)
-            try {
-              parsedQuestions = JSON.parse(JSON.parse(service.intake_questions));
-              console.log('🔄 Double parse successful for intake questions:', parsedQuestions);
-            } catch (secondError) {
-              console.error('🔄 Both parse attempts failed for intake questions:', { firstError, secondError });
-              throw secondError;
+                      try {
+              parsedQuestions = JSON.parse(intakeQuestionsData);
+              console.log('🔄 First parse successful for intake questions:', parsedQuestions);
+            } catch (firstError) {
+              console.log('🔄 First parse failed for intake questions, trying double parse');
+              // If first parse fails, try parsing again (double-escaped)
+              try {
+                parsedQuestions = JSON.parse(JSON.parse(intakeQuestionsData));
+                console.log('🔄 Double parse successful for intake questions:', parsedQuestions);
+              } catch (secondError) {
+                console.error('🔄 Both parse attempts failed for intake questions:', { firstError, secondError });
+                throw secondError;
+              }
             }
-          }
         } else {
-          parsedQuestions = service.intake_questions;
+          parsedQuestions = intakeQuestionsData;
         }
         
         const originalQuestions = parsedQuestions;
@@ -1248,11 +1259,12 @@ export default function CreateJobPage() {
                       <div className="mt-2 p-3 bg-green-50 rounded-lg">
                         <div className="flex items-center space-x-3">
                           {selectedService.image && (
-                            <img 
-                              src={selectedService.image} 
-                              alt={selectedService.name}
-                              className="w-12 h-12 object-cover rounded-lg"
-                            />
+                                                          <img 
+                                src={getImageUrl(selectedService.image)} 
+                                alt={selectedService.name}
+                                className="w-12 h-12 object-cover rounded-lg"
+                                onError={(e) => handleImageError(e, null)}
+                              />
                           )}
                           <div className="flex-1">
                             <p className="font-medium text-green-900">{selectedService.name}</p>
@@ -1277,11 +1289,12 @@ export default function CreateJobPage() {
                           >
                             <div className="flex items-center space-x-3">
                               {service.image && (
-                                <img 
-                                  src={service.image} 
-                                  alt={service.name}
-                                  className="w-8 h-8 object-cover rounded"
-                                />
+                                                                  <img 
+                                    src={getImageUrl(service.image)} 
+                                    alt={service.name}
+                                    className="w-8 h-8 object-cover rounded"
+                                    onError={(e) => handleImageError(e, null)}
+                                  />
                               )}
                               <div className="flex-1">
                                 <p className="font-medium">{service.name}</p>

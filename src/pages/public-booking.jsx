@@ -21,7 +21,7 @@ import ServiceModifiersForm from "../components/service-modifiers-form"
 
 // Create axios instance for public API calls
 const publicApi = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || 'https://zenbookapi.now2code.online/api',
+  baseURL: process.env.REACT_APP_API_URL || 'https://service-flow-backend-production.up.railway.app/api',
   timeout: 15000,
   headers: {
     'Content-Type': 'application/json',

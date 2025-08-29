@@ -389,7 +389,7 @@ const TeamMemberDetails = () => {
     try {
       setTerritoryLoading(true)
       console.log('Fetching available territories for user:', user?.id)
-      const response = await fetch(`https://zenbookapi.now2code.online/api/territories?userId=${user?.id}&status=active`)
+      const response = await fetch(`https://service-flow-backend-production.up.railway.app/api/territories?userId=${user?.id}&status=active`)
       const data = await response.json()
       console.log('Available territories response:', data)
       console.log('Available territories array:', data.territories)
@@ -618,7 +618,7 @@ const TeamMemberDetails = () => {
 
     try {
       setAddressLoading(true)
-      const response = await fetch(`https://zenbookapi.now2code.online/api/places/autocomplete?input=${encodeURIComponent(value)}`)
+      const response = await fetch(`https://service-flow-backend-production.up.railway.app/api/places/autocomplete?input=${encodeURIComponent(value)}`)
       const data = await response.json()
       
       if (data.predictions) {
@@ -635,7 +635,7 @@ const TeamMemberDetails = () => {
   // Handle address selection
   const handleAddressSelect = async (suggestion) => {
     try {
-      const response = await fetch(`https://zenbookapi.now2code.online/api/places/details?place_id=${suggestion.place_id}`)
+      const response = await fetch(`https://service-flow-backend-production.up.railway.app/api/places/details?place_id=${suggestion.place_id}`)
       const data = await response.json()
       
       if (data.result) {
