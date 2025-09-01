@@ -2,8 +2,6 @@ import React from 'react';
 import { FileText, CheckCircle, MessageSquare } from 'lucide-react';
 
 const IntakeAnswersDisplay = ({ intakeAnswers = [] }) => {
-  console.log('🔄 IntakeAnswersDisplay received:', intakeAnswers);
-  console.log('🔄 IntakeAnswersDisplay length:', intakeAnswers?.length);
   
   if (!intakeAnswers || intakeAnswers.length === 0) {
     return (
@@ -42,7 +40,6 @@ const IntakeAnswersDisplay = ({ intakeAnswers = [] }) => {
   };
 
   const formatAnswer = (answer, questionType) => {
-    console.log('🔄 Formatting answer:', { answer, questionType, answerType: typeof answer, isArray: Array.isArray(answer) });
     if (!answer) return 'No answer provided';
     
     // Parse JSON strings back to arrays/objects for multiple choice and dropdown questions
@@ -52,10 +49,9 @@ const IntakeAnswersDisplay = ({ intakeAnswers = [] }) => {
         const parsed = JSON.parse(answer);
         if (Array.isArray(parsed)) {
           parsedAnswer = parsed;
-          console.log('🔄 Parsed JSON string to array:', parsedAnswer);
         }
       } catch (e) {
-        console.log('🔄 Failed to parse answer as JSON, treating as string:', e);
+        // Failed to parse answer as JSON, treating as string
       }
     }
     
@@ -66,7 +62,6 @@ const IntakeAnswersDisplay = ({ intakeAnswers = [] }) => {
         try {
           parsedAnswer = JSON.parse(answer);
         } catch (e) {
-          console.log('Failed to parse picture choice answer:', e);
           return answer; // Return as-is if parsing fails
         }
       }
@@ -93,7 +88,6 @@ const IntakeAnswersDisplay = ({ intakeAnswers = [] }) => {
     
     // Handle multiple choice and dropdown questions with multiple selections
     if ((questionType === 'multiple_choice' || questionType === 'dropdown') && Array.isArray(parsedAnswer)) {
-      console.log('🔄 Processing multiple selection answer:', { questionType, parsedAnswer });
       return parsedAnswer.join(', ');
     }
     
@@ -162,7 +156,6 @@ const IntakeAnswersDisplay = ({ intakeAnswers = [] }) => {
       
       <div className="space-y-4">
         {intakeAnswers.map((qa, index) => {
-          console.log('🔄 Processing answer:', qa);
           return (
             <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50 hover:bg-gray-100 transition-colors">
               <div className="flex flex-col sm:flex-row sm:items-start space-y-3 sm:space-y-0 sm:space-x-3">

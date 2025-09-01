@@ -79,6 +79,7 @@ import JobAssignmentTeam from "./pages/settings/job-assignment-team"
 import TeamMemberLogin from "./pages/team-member-login"
 import TeamMemberDashboard from "./pages/team-member-dashboard"
 import TeamMemberFieldApp from "./pages/team-member-field-app"
+import TeamMemberSignup from "./pages/team-member-signup"
 import DropdownMultiselectDemo from "./pages/dropdown-multiselect-demo"
 import { TeamMemberAuthProvider } from "./context/TeamMemberAuthContext"
 
@@ -169,6 +170,7 @@ root.render(
       
       {/* Team Member Routes */}
       <Route path="team-member/login" element={<TeamMemberLogin />} />
+      <Route path="team-member/signup" element={<TeamMemberSignup />} />
       <Route path="team-member/dashboard" element={<TeamMemberDashboard />} />
       <Route path="team-member/field-app" element={<TeamMemberFieldApp />} />
       

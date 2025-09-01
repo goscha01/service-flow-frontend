@@ -105,9 +105,7 @@ const ZenbookerJobs = () => {
         filters.territoryId // pass territoryId to API
       )
       
-      console.log('🔄 Jobs API Response:', response);
-      console.log('🔄 Jobs Array:', response.jobs);
-      console.log('🔄 Jobs Count:', response.jobs ? response.jobs.length : 0);
+
       
       setJobs(response.jobs || [])
     } catch (error) {
@@ -185,7 +183,7 @@ const ZenbookerJobs = () => {
 
   const handleStatusChange = async (job, newStatus) => {
     try {
-      console.log('Updating job status:', job.id, 'to:', newStatus);
+
       await jobsAPI.updateStatus(job.id, newStatus)
       
       // Update the job in the local state immediately for better UX
@@ -194,7 +192,6 @@ const ZenbookerJobs = () => {
       ));
       
       // Show success message
-      console.log(`Job status updated to ${newStatus}`);
       
       // Refresh the jobs list after a short delay to ensure consistency
       setTimeout(() => {
@@ -460,12 +457,7 @@ const ZenbookerJobs = () => {
               <JobsEmptyState onCreateJob={handleCreateJob} />
             ) : (
               <>
-                {/* Debug info */}
-                <div className="mb-4 p-4 bg-blue-50 rounded-lg">
-                  <p className="text-sm text-blue-800">
-                    Debug: {jobs.length} jobs loaded, User ID: {user?.id}, Active Tab: {activeTab}
-                  </p>
-                </div>
+
                 
                 {viewMode === "table" ? (
               // Table View

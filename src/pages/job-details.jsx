@@ -59,6 +59,7 @@ import { jobsAPI, notificationAPI, territoriesAPI, teamAPI, invoicesAPI } from "
 import Sidebar from "../components/sidebar"
 import AddressAutocomplete from "../components/address-autocomplete"
 import IntakeAnswersDisplay from "../components/intake-answers-display"
+import IntakeQuestionsForm from "../components/intake-questions-form"
 import { formatPhoneNumber } from "../utils/phoneFormatter"
 
 const JobDetails = () => {
@@ -111,6 +112,7 @@ const JobDetails = () => {
   const [invoice, setInvoice] = useState(null)
   const [emailNotifications, setEmailNotifications] = useState(true)
   const [smsNotifications, setSmsNotifications] = useState(false)
+  const [intakeQuestionAnswers, setIntakeQuestionAnswers] = useState({})
 
   // Helper function to map job data from API response
   const mapJobData = (jobData) => {
@@ -127,6 +129,9 @@ const JobDetails = () => {
       service_name: jobData.services?.name || jobData.service_name,
       service_price: jobData.services?.price || jobData.service_price,
       service_duration: jobData.services?.duration || jobData.service_duration,
+      // Handle multiple services - check if service_name contains multiple services
+      service_names: jobData.service_name && jobData.service_name.includes(', ') ? jobData.service_name.split(', ') : null,
+      service_ids: jobData.service_ids ? (typeof jobData.service_ids === 'string' ? JSON.parse(jobData.service_ids) : jobData.service_ids) : null,
       // Map additional fields that might be missing
       duration: jobData.duration || jobData.estimated_duration,
       workers_needed: jobData.workers_needed || jobData.workers,
@@ -171,15 +176,12 @@ const JobDetails = () => {
       setLoading(true)
       try {
         const jobData = await jobsAPI.getById(jobId)
-        console.log('🔄 Job data received:', jobData)
-        console.log('🔄 Team assignments in job data:', jobData.team_assignments)
-        console.log('🔄 Scheduled date from API:', jobData.scheduled_date)
+        
         
         // Map customer and service data from nested structure
         const mappedJobData = mapJobData(jobData)
         
-        console.log('🔄 Mapped job data:', mappedJobData)
-        console.log('🔄 Scheduled date in mapped data:', mappedJobData.scheduled_date)
+
         
         setJob(mappedJobData)
         
@@ -203,16 +205,29 @@ const JobDetails = () => {
           offer_to_providers: mappedJobData.offer_to_providers || false
         })
 
+        // Initialize intake question answers
+        if (mappedJobData.service_intake_questions) {
+          const initialAnswers = {}
+          mappedJobData.service_intake_questions.forEach(question => {
+            if (question.answer) {
+              initialAnswers[question.id] = question.answer
+            }
+          })
+          setIntakeQuestionAnswers(initialAnswers)
+        }
+
         // Fetch notification preferences
         if (jobData.customer_id) {
           try {
             const prefs = await notificationAPI.getPreferences(jobData.customer_id)
-            console.log('Notification preferences loaded:', prefs)
+    
             setEmailNotifications(!!prefs.email_notifications)
             setSmsNotifications(!!prefs.sms_notifications)
           } catch (e) {
             console.error('Failed to load notification preferences:', e)
-            // Use defaults
+            // Use defaults - don't show error to user for notification preferences
+            setEmailNotifications(true)
+            setSmsNotifications(false)
           }
         }
       } catch (err) {
@@ -285,6 +300,8 @@ const JobDetails = () => {
     if (!job) return
     try {
       setLoading(true)
+      setError("")
+      
       const updatedJob = {
         serviceName: formData.service_name,
         bathroomCount: formData.bathroom_count,
@@ -301,17 +318,32 @@ const JobDetails = () => {
         },
         offerToProviders: formData.offerToProviders
       }
+      
+
       await jobsAPI.update(job.id, updatedJob)
+      
       setSuccessMessage('Job updated successfully!')
       setTimeout(() => setSuccessMessage(""), 3000)
       setEditing(false)
       setEditingField(null)
+      
+      // Update the job state with new data immediately
+      setJob(prev => ({
+        ...prev,
+        service_address_street: formData.serviceAddress.street,
+        service_address_city: formData.serviceAddress.city,
+        service_address_state: formData.serviceAddress.state,
+        service_address_zip: formData.serviceAddress.zipCode,
+        ...updatedJob
+      }))
+      
       // Reload job data to get updated values
       const jobData = await jobsAPI.getById(jobId)
       const mappedJobData = mapJobData(jobData)
       setJob(mappedJobData)
     } catch (error) {
-      setError('Failed to update job')
+      console.error('Error updating job:', error)
+      setError(error.response?.data?.error || 'Failed to update job')
     } finally {
       setLoading(false)
     }
@@ -345,15 +377,15 @@ const JobDetails = () => {
 
   const handleTerritoryChange = async (territoryId) => {
     if (!job) return
-    console.log('Updating territory for job:', job.id, 'to territory:', territoryId)
+    
     try {
       setLoading(true)
       const updateData = {
         territoryId: territoryId
       }
-      console.log('Sending update data:', updateData)
+      
       await jobsAPI.update(job.id, updateData)
-      console.log('Territory update successful')
+      
       setJob(prev => ({ ...prev, territory_id: territoryId }))
       setSuccessMessage('Territory updated successfully!')
       setTimeout(() => setSuccessMessage(""), 3000)
@@ -388,11 +420,11 @@ const JobDetails = () => {
     if (!job) return
     try {
       setLoading(true)
-      console.log('🔄 Team assignment request:', { teamMemberId, specificMemberId, makePrimary, jobId: job.id })
+
       
       if (specificMemberId) {
         // Remove specific team member
-        console.log('🔄 Removing team member:', specificMemberId)
+        
         await jobsAPI.removeTeamMember(job.id, specificMemberId)
         setJob(prev => ({
           ...prev,
@@ -401,21 +433,20 @@ const JobDetails = () => {
         setSuccessMessage('Team member removed!')
       } else if (teamMemberId) {
         // Add new team member
-        console.log('🔄 Assigning team member:', teamMemberId)
+        
         await jobsAPI.assignToTeamMember(job.id, teamMemberId)
         
         // Refresh job data to get updated team assignments
-        console.log('🔄 Refreshing job data...')
+
         const updatedJobData = await jobsAPI.getById(job.id)
-        console.log('🔄 Updated job data:', updatedJobData)
-        console.log('🔄 Team assignments in updated job:', updatedJobData.team_assignments)
+        
         
         const mappedUpdatedJob = mapJobData(updatedJobData)
         setJob(mappedUpdatedJob)
         setSuccessMessage('Team member assigned!')
       } else {
         // Remove all team members
-        console.log('🔄 Removing all team members')
+        
         await jobsAPI.assignToTeamMember(job.id, null)
         setJob(prev => ({ ...prev, team_assignments: [] }))
         setSuccessMessage('All team members unassigned!')
@@ -436,7 +467,7 @@ const JobDetails = () => {
     if (!job || !job.customer_id) return
     try {
       setLoading(true)
-      console.log(`Toggling ${type} notifications to:`, value)
+
       
       if (type === 'email') {
         setEmailNotifications(value)
@@ -449,7 +480,7 @@ const JobDetails = () => {
         email_notifications: type === 'email' ? value : emailNotifications,
         sms_notifications: type === 'sms' ? value : smsNotifications
       }
-      console.log('Updating notification preferences:', preferences)
+      
       
       await notificationAPI.updatePreferences(job.customer_id, preferences)
       
@@ -469,8 +500,49 @@ const JobDetails = () => {
     }
   }
 
+  const handleIntakeQuestionsChange = (answers) => {
+    setIntakeQuestionAnswers(answers)
+  }
+
+  const handleSaveIntakeQuestions = async () => {
+    if (!job) return
+    try {
+      setLoading(true)
+      setError("")
+      
+      // Update the job with new intake question answers
+      const updatedJob = {
+        service_intake_questions: job.service_intake_questions.map(question => ({
+          ...question,
+          answer: intakeQuestionAnswers[question.id] || null
+        }))
+      }
+      
+      await jobsAPI.update(job.id, updatedJob)
+      
+      setSuccessMessage('Intake question answers updated successfully!')
+      setTimeout(() => setSuccessMessage(""), 3000)
+      setEditingField(null)
+      
+      // Update the job state with new data immediately
+      setJob(prev => ({
+        ...prev,
+        service_intake_questions: updatedJob.service_intake_questions
+      }))
+      
+      // Reload job data to get updated values
+      const jobData = await jobsAPI.getById(jobId)
+      const mappedJobData = mapJobData(jobData)
+      setJob(mappedJobData)
+    } catch (error) {
+      console.error('Error updating intake questions:', error)
+      setError(error.response?.data?.error || 'Failed to update intake questions')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const formatDate = (dateString) => {
-    console.log('🔄 formatDate called with:', dateString)
     if (!dateString) return 'Date placeholder'
     
     // Handle both ISO format (2025-08-29T09:00:00) and space format (2025-08-29 09:00:00)
@@ -481,15 +553,12 @@ const JobDetails = () => {
       datePart = dateString.split(' ')[0]
     }
     
-    console.log('🔄 Date part extracted:', datePart)
     if (!datePart) return 'Date placeholder'
     
     const [year, month, day] = datePart.split('-')
-    console.log('🔄 Date components:', { year, month, day })
     if (!year || !month || !day) return 'Date placeholder'
     
     const date = new Date(year, month - 1, day) // month is 0-indexed
-    console.log('🔄 Created date object:', date)
     if (isNaN(date.getTime())) return 'Date placeholder'
     
     const formatted = date.toLocaleDateString('en-US', {
@@ -498,12 +567,10 @@ const JobDetails = () => {
       day: 'numeric',
       year: 'numeric'
     })
-    console.log('🔄 Formatted date:', formatted)
     return formatted
   }
 
   const formatTime = (dateString) => {
-    console.log('🔄 formatTime called with:', dateString)
     if (!dateString) return 'Time placeholder'
     
     // Handle both ISO format (2025-08-29T09:00:00) and space format (2025-08-29 09:00:00)
@@ -514,13 +581,11 @@ const JobDetails = () => {
       timePart = dateString.split(' ')[1]
     }
     
-    console.log('🔄 Time part extracted:', timePart)
     if (!timePart) return 'Time placeholder'
     
     const [hours, minutes] = timePart.split(':')
     const hour = parseInt(hours, 10)
     const minute = parseInt(minutes, 10)
-    console.log('🔄 Time components:', { hours, minutes, hour, minute })
     
     if (isNaN(hour) || isNaN(minute)) return 'Time placeholder'
     
@@ -530,7 +595,6 @@ const JobDetails = () => {
     const displayMinute = minute.toString().padStart(2, '0')
     
     const formatted = `${displayHour}:${displayMinute} ${ampm}`
-    console.log('🔄 Formatted time:', formatted)
     return formatted
   }
 
@@ -541,12 +605,7 @@ const JobDetails = () => {
       const savedTotal = parseFloat(job.total) || 0;
       const basePrice = parseFloat(job.service_price) || 0;
       
-      console.log('🔄 Price calculation:', { 
-        savedTotal, 
-        basePrice, 
-        serviceModifiers: job.service_modifiers,
-        serviceIntakeQuestions: job.service_intake_questions
-      });
+
       
       return savedTotal;
     } catch (error) {
@@ -574,22 +633,17 @@ const JobDetails = () => {
     try {
       if (!job.service_intake_questions) return [];
       if (typeof job.service_intake_questions === 'string') {
-        console.log('🔄 Parsing intake questions string:', job.service_intake_questions);
         try {
           const firstParse = JSON.parse(job.service_intake_questions);
-          console.log('🔄 First parse result:', firstParse);
           
           // Check if it's double-encoded
           if (typeof firstParse === 'string') {
-            console.log('🔄 First parse is string, attempting second parse...');
             const secondParse = JSON.parse(firstParse);
-            console.log('🔄 Second parse result:', secondParse);
             return Array.isArray(secondParse) ? secondParse : [];
           }
           
           return Array.isArray(firstParse) ? firstParse : [];
         } catch (firstError) {
-          console.log('🔄 First parse failed:', firstError.message);
           return [];
         }
       }
@@ -642,7 +696,10 @@ const JobDetails = () => {
               
               <div className="min-w-0 flex-1">
                 <h1 className="text-lg sm:text-xl font-semibold text-gray-900 truncate">
-                  {job.service_name} for {job.customer_first_name} {job.customer_last_name}
+                  {job.service_names && job.service_names.length > 1 
+                    ? `${job.service_names.length} Services` 
+                    : (job.service_name || 'Service')
+                  } for {job.customer_first_name} {job.customer_last_name}
                 </h1>
                 <p className="text-xs sm:text-sm text-gray-600">Job #{job.id}</p>
               </div>
@@ -925,8 +982,25 @@ const JobDetails = () => {
               <div className="flex items-start space-x-4">
                 <Clipboard className="w-5 h-5 text-gray-400 mt-1 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-gray-900">{job.service_name}</p>
-                  <p className="text-gray-600 text-sm mb-2">Default service category</p>
+                  {/* Display multiple services if available */}
+                  {job.service_names && Array.isArray(job.service_names) && job.service_names.length > 1 ? (
+                    <div className="space-y-2">
+                      <p className="font-semibold text-gray-900">Multiple Services</p>
+                      <div className="space-y-1">
+                        {job.service_names.map((serviceName, index) => (
+                          <div key={index} className="flex items-center space-x-2">
+                            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                            <span className="text-sm text-gray-700">{serviceName}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="font-semibold text-gray-900">{job.service_name}</p>
+                  )}
+                  <p className="text-gray-600 text-sm mb-2">
+                    {job.service_names && job.service_names.length > 1 ? `${job.service_names.length} services` : 'Default service category'}
+                  </p>
                   <p className="text-sm text-gray-600 mt-2">{formatDuration(job.duration || 0)}</p>
                 </div>
               </div>
@@ -1374,23 +1448,63 @@ const JobDetails = () => {
             </div>
 
             {/* Intake Questions & Answers */}
-            <IntakeAnswersDisplay intakeAnswers={(() => {
-              // Get intake questions and answers from job data
-              const intakeQuestionsAndAnswers = job.service_intake_questions || [];
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-gray-900 flex items-center">
+                  <MessageSquare className="w-5 h-5 mr-2 text-gray-400" />
+                  Customer Questions & Answers
+                </h3>
+                <button
+                  onClick={() => setEditingField(editingField === 'intakeQuestions' ? null : 'intakeQuestions')}
+                  className="px-3 py-1 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 flex items-center space-x-2"
+                >
+                  <Edit className="w-4 h-4" />
+                  <span>{editingField === 'intakeQuestions' ? 'Cancel' : 'Edit Answers'}</span>
+                </button>
+              </div>
               
-              console.log('🔄 Intake questions and answers from job:', intakeQuestionsAndAnswers);
-              
-              // Convert to the format expected by IntakeAnswersDisplay
-              return intakeQuestionsAndAnswers.map(question => {
-                console.log('🔄 Processing question:', question);
-                return {
-                  question_text: question.question,
-                  question_type: question.questionType,
-                  answer: question.answer || null,
-                  created_at: job.created_at
-                };
-              });
-            })()} />
+              {editingField === 'intakeQuestions' ? (
+                <div>
+                  <IntakeQuestionsForm
+                    questions={job.service_intake_questions || []}
+                    onAnswersChange={handleIntakeQuestionsChange}
+                    isEditable={true}
+                    isSaving={loading}
+                    initialAnswers={intakeQuestionAnswers}
+                  />
+                  <div className="mt-4 flex justify-end space-x-2">
+                    <button
+                      onClick={() => setEditingField(null)}
+                      className="px-3 py-1 text-gray-600 border border-gray-300 rounded hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSaveIntakeQuestions}
+                      disabled={loading}
+                      className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      {loading ? 'Saving...' : 'Save Answers'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <IntakeAnswersDisplay intakeAnswers={(() => {
+                  // Get intake questions and answers from job data
+                  const intakeQuestionsAndAnswers = job.service_intake_questions || [];
+                  
+                  // Convert to the format expected by IntakeAnswersDisplay
+                  return intakeQuestionsAndAnswers.map(question => {
+                    return {
+                      question_text: question.question,
+                      question_type: question.questionType,
+                      answer: question.answer || null,
+                      created_at: job.created_at
+                    };
+                  });
+                })()} />
+              )}
+            </div>
 
             {/* Notes & Files */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
@@ -2006,7 +2120,7 @@ const JobDetails = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-2">Subject</label>
                     <input
                       type="text"
-                      defaultValue={`Invoice for ${job.service_name}`}
+                      defaultValue={`Invoice for ${job.service_names && job.service_names.length > 1 ? job.service_names.join(', ') : (job.service_name || 'Service')}`}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
