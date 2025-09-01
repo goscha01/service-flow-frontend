@@ -1,17 +1,29 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Minus, Upload, Image as ImageIcon, Save } from 'lucide-react';
 import SimpleDropdownMultiselect from './simple-dropdown-multiselect.jsx';
 
-const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditable = false, isSaving = false }) => {
+const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditable = false, isSaving = false, initialAnswers = {} }) => {
 
-  const [answers, setAnswers] = useState({});
+  const [answers, setAnswers] = useState(initialAnswers);
   const [imageUploading, setImageUploading] = useState({});
 
+  // Initialize answers when questions change or when initialAnswers are provided
+  useEffect(() => {
+    if (initialAnswers && Object.keys(initialAnswers).length > 0) {
+      setAnswers(initialAnswers);
+    } else if (questions && questions.length > 0) {
+      const defaultAnswers = {};
+      questions.forEach(question => {
+        if (question.answer) {
+          defaultAnswers[question.id] = question.answer;
+        }
+      });
+      setAnswers(defaultAnswers);
+    }
+  }, [questions, initialAnswers]);
+
   const handleAnswerChange = (questionId, value) => {
-    console.log('🔄 IntakeQuestionsForm - Answer changed:', { questionId, value });
     const newAnswers = { ...answers, [questionId]: value };
-    console.log('🔄 IntakeQuestionsForm - New answers object:', newAnswers);
-    console.log('🔄 IntakeQuestionsForm - Answers count:', Object.keys(newAnswers).length);
     setAnswers(newAnswers);
     onAnswersChange(newAnswers);
   };
@@ -99,8 +111,7 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
     }
   };
 
-  console.log('🔄 IntakeQuestionsForm - Questions received:', questions);
-  console.log('🔄 IntakeQuestionsForm - Questions count:', questions?.length);
+
 
   if (!questions || questions.length === 0) {
     return null;
@@ -109,12 +120,7 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
   const renderQuestion = (question) => {
     const questionId = question.id;
     const currentAnswer = answers[questionId];
-    console.log('🔄 IntakeQuestionsForm - Rendering question:', { 
-      questionId, 
-      question: question.question, 
-      questionType: question.questionType,
-      currentAnswer 
-    });
+
 
     switch (question.questionType) {
       case 'multiple_choice':
@@ -346,13 +352,7 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
                         : currentAnswer === option.text
                     }
                     onChange={(e) => {
-                      console.log('🔄 Color choice changed:', {
-                        questionId,
-                        optionText: option.text,
-                        value: e.target.value,
-                        selectionType: question.selectionType,
-                        checked: e.target.checked
-                      });
+
                       
                       if (question.selectionType === 'multi') {
                         handleMultipleChoiceChange(questionId, option.text, e.target.checked);

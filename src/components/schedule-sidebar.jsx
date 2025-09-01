@@ -51,7 +51,7 @@ const ScheduleSidebar = ({ filters, onFilterChange, teamMembers }) => {
   ]
 
   return (
-    <div className="w-64 bg-gray-50 border-r border-gray-200 flex-shrink-0 overflow-y-auto h-full">
+    <div className="w-full lg:w-64 bg-gray-50 border-r border-gray-200 flex-shrink-0 overflow-y-auto h-full">
       <div className="p-4 space-y-6">
         {/* Status Filter */}
         <div>

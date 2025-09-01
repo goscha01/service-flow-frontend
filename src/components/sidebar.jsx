@@ -109,6 +109,14 @@ const Sidebar = ({ isOpen, onClose }) => {
 
         {/* User Profile */}
         <div className="p-4 border-t border-gray-200 relative">
+          {/* Debug: Log user object to see what fields are available */}
+          {user && (
+            <div className="hidden">
+              {console.log('🔍 Sidebar: User object:', user)}
+              {console.log('🔍 Sidebar: Profile picture field:', user.profilePicture)}
+            </div>
+          )}
+          
           <button
             onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)}
             className="w-full flex items-center space-x-3 hover:bg-gray-50 rounded-lg p-2 transition-colors"

@@ -10,6 +10,14 @@ const UserDropdown = ({ isOpen, onClose, onToggle }) => {
   const dropdownRef = useRef(null)
   const { user, logout } = useAuth()
 
+  // Debug: Log user object to see what fields are available
+  useEffect(() => {
+    if (user) {
+      console.log('🔍 UserDropdown: User object:', user)
+      console.log('🔍 UserDropdown: Profile picture field:', user.profilePicture)
+    }
+  }, [user])
+
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -102,13 +110,25 @@ const UserDropdown = ({ isOpen, onClose, onToggle }) => {
       {/* User Info at Bottom */}
       <div className="border-t border-gray-200 mt-2 pt-2 px-4">
         <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
-            <span className="text-white font-medium text-xs">
-              {user?.firstName && user?.lastName 
-                ? `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`
-                : user?.firstName?.charAt(0) || user?.email?.charAt(0) || 'U'
-              }
-            </span>
+          <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden">
+            {user?.profilePicture ? (
+              <img 
+                src={user.profilePicture} 
+                alt="Profile" 
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  console.error('Failed to load profile picture in user dropdown:', user.profilePicture);
+                  e.target.style.display = 'none';
+                }}
+              />
+            ) : (
+              <span className="text-white font-medium text-xs">
+                {user?.firstName && user?.lastName 
+                  ? `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`
+                  : user?.firstName?.charAt(0) || user?.email?.charAt(0) || 'U'
+                }
+              </span>
+            )}
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-gray-900 truncate">

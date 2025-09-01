@@ -56,6 +56,7 @@ const TeamMemberDetails = () => {
   const [customAvailability, setCustomAvailability] = useState([])
   const [editingHours, setEditingHours] = useState(false)
   const [editingAvailability, setEditingAvailability] = useState(false)
+  const [savingHours, setSavingHours] = useState(false)
   const [settings, setSettings] = useState({
     isServiceProvider: true,
     canEditAvailability: true,
@@ -485,12 +486,16 @@ const TeamMemberDetails = () => {
 
   const handleSaveHours = async () => {
     try {
-      setEditingHours(false)
+      console.log('handleSaveHours called')
+      console.log('Current workingHours:', workingHours)
+      console.log('Current customAvailability:', customAvailability)
+      
+      setSavingHours(true)
       
       const updateData = {
         availability: JSON.stringify({
-        workingHours,
-        customAvailability
+          workingHours,
+          customAvailability
         })
       }
       
@@ -499,9 +504,14 @@ const TeamMemberDetails = () => {
       
       // Refresh team member data
       await fetchTeamMemberDetails()
+      
+      setEditingHours(false)
+      console.log('Availability saved successfully')
     } catch (error) {
       console.error('Error saving availability:', error)
       alert('Failed to save availability. Please try again.')
+    } finally {
+      setSavingHours(false)
     }
   }
 
@@ -1200,29 +1210,36 @@ const TeamMemberDetails = () => {
                           <h5 className="text-sm font-medium text-gray-900">RECURRING HOURS</h5>
                           <HelpCircle className="w-4 h-4 text-gray-400" />
                         </div>
-                        {!editingHours ? (
-                          <button
-                            onClick={() => setEditingHours(true)}
-                            className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-                          >
-                            Edit Hours
-                          </button>
-                        ) : (
-                          <div className="flex space-x-2">
+                        <div className="flex space-x-2">
+                          {!editingHours ? (
                             <button
-                              onClick={handleSaveHours}
-                              className="text-sm text-green-600 hover:text-green-700 font-medium"
+                              onClick={() => setEditingHours(true)}
+                              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
                             >
-                              Save
+                              Edit Hours
                             </button>
-                            <button
-                              onClick={() => setEditingHours(false)}
-                              className="text-sm text-gray-600 hover:text-gray-700 font-medium"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        )}
+                          ) : (
+                            <>
+                              <button
+                                onClick={handleSaveHours}
+                                disabled={savingHours}
+                                className={`text-sm font-medium ${
+                                  savingHours 
+                                    ? 'text-gray-400 cursor-not-allowed' 
+                                    : 'text-green-600 hover:text-green-700'
+                                }`}
+                              >
+                                {savingHours ? 'Saving...' : 'Save'}
+                              </button>
+                              <button
+                                onClick={() => setEditingHours(false)}
+                                className="text-sm text-gray-600 hover:text-gray-700 font-medium"
+                              >
+                                Cancel
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </div>
                       <div className="space-y-4">
                           {Object.entries(workingHours).map(([day, { available, hours, timeSlots = [] }]) => (

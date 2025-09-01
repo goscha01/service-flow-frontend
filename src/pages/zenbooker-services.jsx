@@ -7,6 +7,7 @@ import MobileHeader from "../components/mobile-header"
 import { GripVertical, Wrench, Plus, AlertCircle, Loader2, Trash2, X } from "lucide-react"
 import CreateServiceModal from "../components/create-service-modal"
 import ServiceTemplatesModal from "../components/service-templates-modal"
+import ServicesDisplay from "../components/services-display"
 import { servicesAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
 import { getImageUrl, handleImageError } from "../utils/imageUtils"
@@ -71,12 +72,25 @@ const ZenbookerServices = () => {
         const categoriesResponse = await servicesAPI.getServiceCategories(user.id)
         console.log('🔍 Categories API response:', categoriesResponse)
         
-        // Set categories from API response
+        // Set categories from API response - ensure we have the full category objects
         const categoryNames = categoriesResponse.map(cat => cat.name)
         console.log('🔍 Category names:', categoryNames)
         console.log('🔍 Full categories response:', categoriesResponse)
         setCategories(categoryNames)
         setCategoryObjects(categoriesResponse)
+        
+        // Update services to properly map to category names
+        const updatedServices = sortedServices.map(service => {
+          if (service.category && service.category.trim() !== '') {
+            // Find the matching category object
+            const matchingCategory = categoriesResponse.find(cat => cat.name === service.category)
+            if (matchingCategory) {
+              return { ...service, category: matchingCategory.name }
+            }
+          }
+          return service
+        })
+        setServices(updatedServices)
       } catch (categoriesError) {
         console.log('🔍 Categories endpoint not available, using fallback:', categoriesError.message)
         
@@ -260,6 +274,105 @@ const ZenbookerServices = () => {
 
   const handleServiceClick = (serviceId) => {
     navigate(`/services/${serviceId}`)
+  }
+
+  const handleServiceEdit = (service) => {
+    // Navigate to service edit page or open edit modal
+    navigate(`/service/${service.id}/edit`)
+  }
+
+  const fixCategoryMapping = async () => {
+    // This function can be used to manually fix category mapping issues
+    console.log('🔧 Attempting to fix category mapping...')
+    
+    // Check if services have categories that don't match the categories array
+    const mismatchedServices = services.filter(s => {
+      if (!s.category || s.category.trim() === '') return false
+      return !categories.includes(s.category)
+    })
+    
+    console.log('🔧 Services with mismatched categories:', mismatchedServices)
+    
+    if (mismatchedServices.length > 0) {
+      // Try to find the correct category for each service
+      mismatchedServices.forEach(service => {
+        console.log(`🔧 Service "${service.name}" has category "${service.category}" but categories array has:`, categories)
+      })
+      
+      // Check if we can auto-fix by looking at service names
+      console.log('🔧 Attempting to auto-fix category mapping...')
+      
+      services.forEach(service => {
+        if (!service.category || service.category.trim() === '') {
+          // Try to match service name to category
+          if (service.name.toLowerCase().includes('clean') && categories.includes('cleaning')) {
+            console.log(`🔧 Auto-fixing: "${service.name}" -> "cleaning" category`)
+            // You can implement the actual update here
+          }
+        }
+      })
+    }
+    
+    // Show current state
+    console.log('🔧 Current services state:')
+    services.forEach(service => {
+      console.log(`  - "${service.name}": category="${service.category}"`)
+    })
+    
+    console.log('🔧 Available categories:', categories)
+  }
+
+  const autoFixCategoryMapping = async () => {
+    console.log('🔧 Auto-fixing category mapping...')
+    
+    try {
+      // Find services that should be in the cleaning category
+      const servicesToUpdate = services.filter(service => {
+        if (service.category && service.category.trim() !== '') return false // Already has a category
+        return service.name.toLowerCase().includes('clean') || 
+               service.name.toLowerCase().includes('cleaning') ||
+               service.description?.toLowerCase().includes('clean') ||
+               service.description?.toLowerCase().includes('cleaning')
+      })
+      
+      console.log('🔧 Services to update:', servicesToUpdate.map(s => s.name))
+      
+      if (servicesToUpdate.length === 0) {
+        console.log('🔧 No services need updating')
+        return
+      }
+      
+      // Update each service with the cleaning category
+      for (const service of servicesToUpdate) {
+        try {
+          const updateData = {
+            name: service.name,
+            description: service.description,
+            price: service.price,
+            duration: service.duration,
+            category: 'cleaning' // Set to cleaning category
+          }
+          
+          console.log(`🔧 Updating service "${service.name}" with category "cleaning"`)
+          await servicesAPI.update(service.id, updateData)
+          
+          // Update local state
+          setServices(prev => prev.map(s => 
+            s.id === service.id ? { ...s, category: 'cleaning' } : s
+          ))
+          
+          console.log(`✅ Successfully updated "${service.name}"`)
+        } catch (error) {
+          console.error(`❌ Failed to update "${service.name}":`, error)
+        }
+      }
+      
+      // Refresh services to see the changes
+      await fetchServices()
+      
+    } catch (error) {
+      console.error('🔧 Auto-fix failed:', error)
+    }
   }
 
   const handleRetry = () => {
@@ -572,9 +685,10 @@ const ZenbookerServices = () => {
                         // Group services by category, including "Additional" for uncategorized services
                         (() => {
                           // Services with string categories that don't exist in the categories array are treated as uncategorized
+                          // Improved categorization logic - handle both category names and IDs
                           const categorizedServices = services.filter(s => {
                             if (!s.category || s.category.trim() === '') return false
-                            // Check if the category exists in the categories array
+                            // Check if the category exists in the categories array (by name)
                             return categories.includes(s.category)
                           })
                           const uncategorizedServices = services.filter(s => {
@@ -588,9 +702,18 @@ const ZenbookerServices = () => {
                           console.log('🔍 Debug - Uncategorized services:', uncategorizedServices.length)
                           console.log('🔍 Debug - Uncategorized services details:', uncategorizedServices.map(s => ({ id: s.id, name: s.name, category: s.category })))
                           console.log('🔍 Debug - Categories array:', categories)
+                          console.log('🔍 Debug - All services and their categories:', services.map(s => ({ id: s.id, name: s.name, category: s.category, categoryType: typeof s.category })))
                           
-                          // If no categories are defined or all services are uncategorized, show all services in "Additional"
-                          if (categories.length === 0 || categorizedServices.length === 0) {
+                          // Debug: Check if services have categories that match the categories array
+                          console.log('🔍 Debug - Categories array:', categories)
+                          console.log('🔍 Debug - Services with categories:', services.filter(s => s.category && s.category.trim() !== '').map(s => s.category))
+                          console.log('🔍 Debug - Category matching test:', categories.map(cat => ({
+                            category: cat,
+                            matchingServices: services.filter(s => s.category === cat).length
+                          })))
+                          
+                          // Only show all services in "Additional" if there are truly no categories defined
+                          if (categories.length === 0) {
                             console.log('🔍 Debug - No categories defined, showing all services in Additional')
                             return (
                               <div 
@@ -718,10 +841,10 @@ const ZenbookerServices = () => {
                             
                             console.log(`🔍 Category "${category}" has ${categoryServices.length} services`)
                             
-                            // If no services in this category, don't render the category
-                            if (categoryServices.length === 0) {
-                              return null
-                            }
+                                                    // Show all categories, even if they have 0 services (for better UX)
+                        // if (categoryServices.length === 0) {
+                        //   return null
+                        // }
                             
                         return (
                                 <div 
@@ -768,6 +891,15 @@ const ZenbookerServices = () => {
                                     )}
                             </div>
                           </div>
+                          
+                          {/* Show empty state for categories with no services */}
+                          {categoryServices.length === 0 && (
+                            <div className="px-4 py-6 text-center text-gray-500">
+                              <p>No services in this category yet.</p>
+                              <p className="text-sm mt-1">Drag services here or create new ones to get started.</p>
+                            </div>
+                          )}
+                          
                           {categoryServices.map((service, index) => (
                             <div
                               key={service.id}
@@ -950,12 +1082,28 @@ const ZenbookerServices = () => {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <h4 className="font-medium text-gray-900">Categories</h4>
-                    <button
-                      onClick={() => setShowAddCategoryModal(true)}
-                      className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
-                    >
-                      Add Category
-                    </button>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={fixCategoryMapping}
+                        className="bg-yellow-600 text-white px-3 py-1 rounded text-sm hover:bg-yellow-700"
+                        title="Debug category mapping issues"
+                      >
+                        Debug Categories
+                      </button>
+                      <button
+                        onClick={autoFixCategoryMapping}
+                        className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700"
+                        title="Auto-fix category mapping for cleaning services"
+                      >
+                        Auto-Fix Cleaning
+                      </button>
+                      <button
+                        onClick={() => setShowAddCategoryModal(true)}
+                        className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
+                      >
+                        Add Category
+                      </button>
+                    </div>
                   </div>
                   
                   {/* {categories.length > 0 ? (

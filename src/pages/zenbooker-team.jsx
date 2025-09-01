@@ -17,6 +17,10 @@ const ZenbookerTeam = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [memberToDelete, setMemberToDelete] = useState(null)
+  const [showActivationModal, setShowActivationModal] = useState(false)
+  const [activationLoading, setActivationLoading] = useState(false)
+  const [memberToToggle, setMemberToToggle] = useState(null)
+  const [notification, setNotification] = useState(null)
   
   // API State
   const [teamMembers, setTeamMembers] = useState([])
@@ -174,13 +178,31 @@ const ZenbookerTeam = () => {
   }
 
   const handleToggleActivation = async (member) => {
+    setMemberToToggle(member)
+    setShowActivationModal(true)
+  }
+
+  const confirmToggleActivation = async () => {
+    if (!memberToToggle) return
+    
     try {
-      const newStatus = member.status === 'active' ? 'inactive' : 'active';
-      await teamAPI.update(member.id, { status: newStatus });
+      setActivationLoading(true)
+      const newStatus = memberToToggle.status === 'active' ? 'inactive' : 'active';
+      await teamAPI.update(memberToToggle.id, { status: newStatus });
       fetchTeamMembers(); // Refresh the list
+      setShowActivationModal(false)
+      setMemberToToggle(null)
+      setNotification({
+        type: 'success',
+        message: `${memberToToggle.first_name} ${memberToToggle.last_name} has been ${newStatus === 'active' ? 'activated' : 'deactivated'} successfully.`
+      })
+      // Clear notification after 3 seconds
+      setTimeout(() => setNotification(null), 3000)
     } catch (error) {
       console.error('Error toggling team member activation:', error);
       setError("Failed to update team member status.");
+    } finally {
+      setActivationLoading(false)
     }
   }
 
@@ -408,6 +430,28 @@ const ZenbookerTeam = () => {
                         </div>
                       )}
 
+                      {/* Success Notification */}
+                      {notification && (
+                        <div className={`mb-6 border rounded-lg p-4 ${
+                          notification.type === 'success' 
+                            ? 'bg-green-50 border-green-200' 
+                            : 'bg-red-50 border-red-200'
+                        }`}>
+                          <div className="flex">
+                            {notification.type === 'success' ? (
+                              <svg className="h-5 w-5 text-green-400 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                              </svg>
+                            ) : (
+                              <AlertCircle className="h-5 w-5 text-red-400 mr-3" />
+                            )}
+                            <p className={`text-sm ${notification.type === 'success' ? 'text-green-700' : 'text-red-700'}`}>
+                              {notification.message}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
                       {/* Loading State */}
                       {loading ? (
                         <div className="flex items-center justify-center h-64">
@@ -540,7 +584,7 @@ const ZenbookerTeam = () => {
                                             </div>
                                             <div className="mt-3 sm:mt-0 flex items-center justify-end space-x-2">
                                               {/* Activation/Deactivation Toggle */}
-                                              {(member.status === 'active' || member.status === 'inactive' || member.status === 'pending') && (
+                                              {(member.status === 'active' || member.status === 'inactive' || member.status === 'pending' || member.status === 'invited') && (
                                                 <button
                                                   onClick={() => handleToggleActivation(member)}
                                                   className={`inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 ${
@@ -553,6 +597,11 @@ const ZenbookerTeam = () => {
                                                     <>
                                                       <PowerOff className="w-3 h-3 mr-1" />
                                                       Deactivate
+                                                    </>
+                                                  ) : member.status === 'invited' ? (
+                                                    <>
+                                                      <Power className="w-3 h-3 mr-1" />
+                                                      Activate (Skip Invite)
                                                     </>
                                                   ) : (
                                                     <>
@@ -646,6 +695,55 @@ const ZenbookerTeam = () => {
                   className="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
                 >
                   {deleteLoading ? "Deleting..." : "Delete"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Activation Confirmation Modal */}
+        {showActivationModal && memberToToggle && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full">
+              <div className="flex items-center mb-4">
+                {memberToToggle.status === 'active' ? (
+                  <PowerOff className="h-6 w-6 text-red-600 mr-3" />
+                ) : (
+                  <Power className="h-6 w-6 text-green-600 mr-3" />
+                )}
+                <h3 className="text-lg font-medium text-gray-900">
+                  {memberToToggle.status === 'active' ? 'Deactivate' : 'Activate'} Team Member
+                </h3>
+              </div>
+              <p className="text-sm text-gray-500 mb-6">
+                {memberToToggle.status === 'active' ? (
+                  <>Are you sure you want to deactivate <strong>{memberToToggle.first_name} {memberToToggle.last_name}</strong>? They will no longer be able to access the system.</>
+                ) : memberToToggle.status === 'invited' ? (
+                  <>Are you sure you want to activate <strong>{memberToToggle.first_name} {memberToToggle.last_name}</strong>? This will skip the invitation process and make them immediately active.</>
+                ) : (
+                  <>Are you sure you want to activate <strong>{memberToToggle.first_name} {memberToToggle.last_name}</strong>? They will be able to access the system.</>
+                )}
+              </p>
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => {
+                    setShowActivationModal(false)
+                    setMemberToToggle(null)
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmToggleActivation}
+                  disabled={activationLoading}
+                  className={`px-4 py-2 text-sm font-medium text-white border border-transparent rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 ${
+                    memberToToggle.status === 'active' 
+                      ? 'bg-red-600 hover:bg-red-700 focus:ring-red-500' 
+                      : 'bg-green-600 hover:bg-green-700 focus:ring-green-500'
+                  }`}
+                >
+                  {activationLoading ? "Updating..." : (memberToToggle.status === 'active' ? "Deactivate" : "Activate")}
                 </button>
               </div>
             </div>

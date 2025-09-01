@@ -163,12 +163,14 @@ export default function CreateJobPage() {
 
   // Selected items
   const [selectedCustomer, setSelectedCustomer] = useState(null);
-  const [selectedService, setSelectedService] = useState(null);
+  const [selectedServices, setSelectedServices] = useState([]); // Multiple services
+  const [selectedService, setSelectedService] = useState(null); // Keep for backward compatibility
   const [selectedTeamMember, setSelectedTeamMember] = useState(null);
   const [selectedTeamMembers, setSelectedTeamMembers] = useState([]); // Multiple team members
   const [detectedTerritory, setDetectedTerritory] = useState(null);
   const [territories, setTerritories] = useState([]);
   const [territoriesLoading, setTerritoriesLoading] = useState(false);
+  const [addressAutoPopulated, setAddressAutoPopulated] = useState(false);
   
   // Service modifiers and intake questions state
   const [selectedModifiers, setSelectedModifiers] = useState({}); // { modifierId: selectedOptions[] }
@@ -248,9 +250,9 @@ export default function CreateJobPage() {
   }, [serviceSearch, services]);
 
   useEffect(() => {
-    // Update price calculations
-    if (selectedService) {
-      const basePrice = selectedService.price || 0;
+    // Update price calculations for multiple services
+    if (selectedServices.length > 0) {
+      const basePrice = selectedServices.reduce((total, service) => total + (service.price || 0), 0);
       const discount = formData.discount || 0;
       const additionalFees = formData.additionalFees || 0;
       const taxes = formData.taxes || 0;
@@ -258,38 +260,146 @@ export default function CreateJobPage() {
       const subtotal = basePrice - discount + additionalFees;
       const total = subtotal + taxes;
       
+      // Calculate total duration from all services
+      const totalDuration = selectedServices.reduce((total, service) => {
+        let serviceDuration = 0;
+        if (service.duration) {
+          if (typeof service.duration === 'object' && service.duration.hours !== undefined) {
+            serviceDuration = (service.duration.hours * 60) + service.duration.minutes;
+          } else if (typeof service.duration === 'number') {
+            serviceDuration = service.duration;
+          }
+        }
+        return total + serviceDuration;
+      }, 0);
+      
       setFormData(prev => ({ 
         ...prev, 
         price: basePrice,
         total: total,
-        serviceName: selectedService.name,
-        duration: selectedService.duration || 0,
-        estimatedDuration: selectedService.duration || 0
+        serviceName: selectedServices.map(s => s.name).join(', '),
+        duration: totalDuration,
+        estimatedDuration: totalDuration
+      }));
+    } else {
+      // Reset when no services are selected
+      setFormData(prev => ({ 
+        ...prev, 
+        price: 0,
+        total: 0,
+        serviceName: '',
+        duration: 0,
+        estimatedDuration: 0
       }));
     }
-  }, [selectedService, formData.discount, formData.additionalFees, formData.taxes]);
+  }, [selectedServices, formData.discount, formData.additionalFees, formData.taxes]);
 
-  // Monitor scheduledTime changes
+  // Sync modifiers and intake questions when services change
   useEffect(() => {
-    console.log('scheduledTime changed to:', formData.scheduledTime);
-  }, [formData.scheduledTime]);
-
-  // Monitor selectedModifiers changes for debugging
-  useEffect(() => {
-    console.log('🔄 selectedModifiers changed:', selectedModifiers);
-    console.log('🔄 Current price calculation:', calculateTotalPrice());
-    console.log('🔄 Current duration calculation:', calculateTotalDuration());
-  }, [selectedModifiers, calculationTrigger]);
-
-  // Monitor formData.serviceModifiers changes for debugging
-  useEffect(() => {
-    console.log('🔄 formData.serviceModifiers changed:', {
-      serviceModifiers: formData.serviceModifiers,
-      isArray: Array.isArray(formData.serviceModifiers),
-      length: formData.serviceModifiers?.length,
-      hasModifiers: formData.serviceModifiers && formData.serviceModifiers.length > 0
+    if (selectedServices.length === 0) {
+      // No services selected, clear everything
+      setFormData(prev => ({
+        ...prev,
+        serviceModifiers: [],
+        serviceIntakeQuestions: []
+      }));
+      setSelectedModifiers({});
+      setIntakeQuestionAnswers({});
+      return;
+    }
+    
+    // Combine modifiers and intake questions from all selected services
+    let allModifiers = [];
+    let allIntakeQuestions = [];
+    
+    selectedServices.forEach(service => {
+      // Process modifiers
+      if (service.modifiers) {
+        try {
+          let serviceModifiers = [];
+          if (typeof service.modifiers === 'string') {
+            serviceModifiers = JSON.parse(service.modifiers);
+          } else if (Array.isArray(service.modifiers)) {
+            serviceModifiers = service.modifiers;
+          }
+          
+          // Add service ID to each modifier for identification
+          const modifiersWithServiceId = serviceModifiers.map(modifier => ({
+            ...modifier,
+            serviceId: service.id
+          }));
+          
+          allModifiers = [...allModifiers, ...modifiersWithServiceId];
+        } catch (error) {
+          console.error(`Error parsing modifiers for service ${service.name}:`, error);
+        }
+      }
+      
+      // Process intake questions - check both field names
+      const intakeQuestionsData = service.intake_questions || service.intakeQuestions;
+      if (intakeQuestionsData) {
+        try {
+          let serviceIntakeQuestions = [];
+          if (typeof intakeQuestionsData === 'string') {
+            serviceIntakeQuestions = JSON.parse(intakeQuestionsData);
+          } else if (Array.isArray(intakeQuestionsData)) {
+            serviceIntakeQuestions = intakeQuestionsData;
+          }
+          
+          // Add service ID to each question for identification
+          const questionsWithServiceId = serviceIntakeQuestions.map((question, index) => ({
+            ...question,
+            id: index + 1, // Normalize ID
+            serviceId: service.id
+          }));
+          
+          allIntakeQuestions = [...allIntakeQuestions, ...questionsWithServiceId];
+        } catch (error) {
+          console.error(`Error parsing intake questions for service ${service.name}:`, error);
+        }
+      }
     });
-  }, [formData.serviceModifiers]);
+    
+    // Update form data with combined modifiers and questions
+    setFormData(prev => ({
+      ...prev,
+      serviceModifiers: allModifiers,
+      serviceIntakeQuestions: allIntakeQuestions
+    }));
+    
+    // Clear any selected modifiers that don't belong to current services
+    setSelectedModifiers(prev => {
+      const validModifierIds = allModifiers.map(m => m.id);
+      const filteredModifiers = {};
+      
+      Object.entries(prev).forEach(([modifierId, modifierData]) => {
+        if (validModifierIds.includes(parseInt(modifierId))) {
+          filteredModifiers[modifierId] = modifierData;
+        }
+      });
+      
+      return filteredModifiers;
+    });
+    
+    // Clear any intake answers that don't belong to current services
+    setIntakeQuestionAnswers(prev => {
+      const validQuestionIds = allIntakeQuestions.map(q => q.id);
+      const filteredAnswers = {};
+      
+      Object.entries(prev).forEach(([questionId, answer]) => {
+        if (validQuestionIds.includes(parseInt(questionId))) {
+          filteredAnswers[questionId] = answer;
+        }
+      });
+      
+      return filteredAnswers;
+    });
+    
+  }, [selectedServices]);
+
+
+
+
 
   const loadData = async () => {
     if (!user?.id) return;
@@ -304,9 +414,7 @@ export default function CreateJobPage() {
       ]);
       
       const services = servicesData.services || servicesData;
-      console.log('🔄 Loaded services:', services);
-      console.log('🔄 Services with intake questions:', services.filter(s => s.intake_questions));
-      console.log('🔄 Services with intake questions count:', services.filter(s => s.intake_questions).length);
+      
       
       setCustomers(customersData.customers || customersData);
       setServices(services);
@@ -342,7 +450,11 @@ export default function CreateJobPage() {
       country: "USA"
     };
     
+    let hasAddress = false;
+    
     if (customer.address || customer.city || customer.state || customer.zip_code) {
+      hasAddress = true;
+      
       // Use separate fields if available
       if (customer.city && customer.state && customer.zip_code) {
         parsedAddress.street = customer.address || "";
@@ -391,51 +503,47 @@ export default function CreateJobPage() {
         textNotifications: false
       },
       // Autopopulate service address from customer address if available
-      serviceAddress: (customer.address || customer.city || customer.state || customer.zip_code) ? parsedAddress : prev.serviceAddress
+      serviceAddress: hasAddress ? parsedAddress : prev.serviceAddress
     }));
+    
+    // Set flag to show address was auto-populated
+    setAddressAutoPopulated(hasAddress);
+    
+    // Clear the flag after 3 seconds
+    if (hasAddress) {
+      setTimeout(() => setAddressAutoPopulated(false), 3000);
+    }
+    
     setShowCustomerDropdown(false);
     setCustomerSearch("");
   };
 
   const handleServiceSelect = (service) => {
+    // Check if service is already selected
+    const isAlreadySelected = selectedServices.some(s => s.id === service.id);
+    if (isAlreadySelected) {
+      return;
+    }
+    
+    // Add service to selected services array
+    setSelectedServices(prev => [...prev, service]);
+    
+    // Keep selectedService for backward compatibility (use the first selected service)
     setSelectedService(service);
     
-    console.log('🔄 Service selected:', service);
-    console.log('🔄 Service intake_questions raw:', service.intake_questions);
-    console.log('🔄 Service intake_questions type:', typeof service.intake_questions);
-    console.log('🔄 Service intakeQuestions raw:', service.intakeQuestions);
-    console.log('🔄 Service intakeQuestions type:', typeof service.intakeQuestions);
-    console.log('🔄 Service modifiers raw:', service.modifiers);
-    console.log('🔄 Service modifiers type:', typeof service.modifiers);
+
     
     // Handle duration properly - services store duration in MINUTES
     let durationInMinutes = 60; // Default 1 hour
     if (service.duration) {
-      console.log('🔄 Service duration before conversion:', {
-        duration: service.duration,
-        type: typeof service.duration,
-        isObject: typeof service.duration === 'object'
-      });
-      
       if (typeof service.duration === 'object' && service.duration.hours !== undefined) {
         // New format: { hours: X, minutes: Y }
         durationInMinutes = (service.duration.hours * 60) + service.duration.minutes;
-        console.log('🔄 Converted object duration to minutes:', {
-          hours: service.duration.hours,
-          minutes: service.duration.minutes,
-          totalMinutes: durationInMinutes
-        });
       } else if (typeof service.duration === 'number') {
         // Service duration is already in minutes
         durationInMinutes = service.duration;
-        console.log('🔄 Service duration in minutes:', {
-          originalMinutes: service.duration,
-          totalMinutes: durationInMinutes
-        });
       }
     }
-    
-    console.log('🔄 Final duration in minutes for formData:', durationInMinutes);
     
     // Parse modifiers and intake questions if they exist
     let serviceModifiers = [];
@@ -443,32 +551,22 @@ export default function CreateJobPage() {
     
     if (service.modifiers) {
       try {
-        console.log('🔄 Attempting to parse modifiers...');
         let parsedModifiers;
         
         if (typeof service.modifiers === 'string') {
           // Try to parse as regular JSON first
           try {
             const firstParse = JSON.parse(service.modifiers);
-            console.log('🔄 First parse result:', firstParse);
-            console.log('🔄 First parse type:', typeof firstParse);
-            console.log('🔄 First parse is array?', Array.isArray(firstParse));
             
             // If first parse is still a string, it's double-encoded
             if (typeof firstParse === 'string') {
-              console.log('🔄 First parse is still string, attempting second parse...');
               const secondParse = JSON.parse(firstParse);
-              console.log('🔄 Second parse result:', secondParse);
-              console.log('🔄 Second parse type:', typeof secondParse);
-              console.log('🔄 Second parse is array?', Array.isArray(secondParse));
-              
               parsedModifiers = Array.isArray(secondParse) ? secondParse : [];
             } else {
               // First parse was successful and returned an object/array
               parsedModifiers = Array.isArray(firstParse) ? firstParse : [];
             }
           } catch (firstError) {
-            console.log('🔄 First parse failed:', firstError.message);
             parsedModifiers = [];
           }
         } else {
@@ -477,46 +575,14 @@ export default function CreateJobPage() {
         
         serviceModifiers = parsedModifiers;
         
-        console.log('🔄 Parsed modifiers:', serviceModifiers);
-        console.log('🔄 Parsed modifiers type:', typeof serviceModifiers);
-        console.log('🔄 Parsed modifiers is array?', Array.isArray(serviceModifiers));
-        
         // Ensure serviceModifiers is an array
         if (!Array.isArray(serviceModifiers)) {
-          console.warn('🔄 Service modifiers is not an array, converting to empty array:', serviceModifiers);
           serviceModifiers = [];
         }
-        
-        // Debug modifier durations
-        console.log('🔄 Service modifiers loaded:', serviceModifiers);
-        serviceModifiers.forEach(modifier => {
-          console.log(`🔄 Modifier "${modifier.title || modifier.id}":`, {
-            id: modifier.id,
-            title: modifier.title,
-            selectionType: modifier.selectionType,
-            options: modifier.options?.length || 0
-          });
-          if (modifier.options && Array.isArray(modifier.options)) {
-            modifier.options.forEach(option => {
-              console.log(`🔄 Modifier option "${option.label || option.title || option.id}":`, {
-                id: option.id,
-                label: option.label,
-                title: option.title,
-                price: option.price,
-                duration: option.duration,
-                type: typeof option.duration,
-                isObject: typeof option.duration === 'object'
-              });
-            });
-          }
-        });
       } catch (error) {
         console.error('Error parsing service modifiers:', error);
-        console.error('Raw modifiers string:', service.modifiers);
         serviceModifiers = [];
       }
-    } else {
-      console.log('🔄 No modifiers found in service');
     }
     
     if (service.intakeQuestions || service.intake_questions) {
@@ -526,20 +592,16 @@ export default function CreateJobPage() {
         const intakeQuestionsData = service.intakeQuestions || service.intake_questions;
         if (typeof intakeQuestionsData === 'string') {
           // Try to parse as regular JSON first
-                      try {
-              parsedQuestions = JSON.parse(intakeQuestionsData);
-              console.log('🔄 First parse successful for intake questions:', parsedQuestions);
-            } catch (firstError) {
-              console.log('🔄 First parse failed for intake questions, trying double parse');
-              // If first parse fails, try parsing again (double-escaped)
-              try {
-                parsedQuestions = JSON.parse(JSON.parse(intakeQuestionsData));
-                console.log('🔄 Double parse successful for intake questions:', parsedQuestions);
-              } catch (secondError) {
-                console.error('🔄 Both parse attempts failed for intake questions:', { firstError, secondError });
-                throw secondError;
-              }
+          try {
+            parsedQuestions = JSON.parse(intakeQuestionsData);
+          } catch (firstError) {
+            // If first parse fails, try parsing again (double-escaped)
+            try {
+              parsedQuestions = JSON.parse(JSON.parse(intakeQuestionsData));
+            } catch (secondError) {
+              throw secondError;
             }
+          }
         } else {
           parsedQuestions = intakeQuestionsData;
         }
@@ -548,7 +610,6 @@ export default function CreateJobPage() {
         
         // Ensure originalQuestions is an array
         if (!Array.isArray(originalQuestions)) {
-          console.warn('🔄 Service intake questions is not an array, converting to empty array:', originalQuestions);
           serviceIntakeQuestions = [];
         } else {
           // Create a mapping from normalized IDs to original IDs
@@ -564,33 +625,12 @@ export default function CreateJobPage() {
           
           // Store the ID mapping for later use when sending to backend
           setFormData(prev => ({ ...prev, intakeQuestionIdMapping: idMapping }));
-          
-          console.log('🔄 Service intake questions loaded:', serviceIntakeQuestions);
-          console.log('🔄 ID mapping created:', idMapping);
-          console.log('🔄 Service intake questions count:', serviceIntakeQuestions.length);
-          
-          if (Array.isArray(serviceIntakeQuestions)) {
-            serviceIntakeQuestions.forEach((q, index) => {
-              console.log(`🔄 Question ${index + 1}:`, {
-                id: q.id,
-                originalId: idMapping[q.id],
-                question: q.question,
-                questionType: q.questionType,
-                required: q.required
-              });
-            });
-          }
         }
       } catch (error) {
         console.error('Error parsing service intake questions:', error);
         serviceIntakeQuestions = [];
       }
-    } else {
-      console.log('🔄 No intake questions found for service');
     }
-    
-    console.log('🔄 Setting formData with serviceModifiers:', serviceModifiers);
-    console.log('🔄 Setting formData with serviceIntakeQuestions:', serviceIntakeQuestions);
     
     setFormData(prev => ({
       ...prev,
@@ -601,16 +641,12 @@ export default function CreateJobPage() {
       skillsRequired: service.skills || 0,
       serviceName: service.name,
       estimatedDuration: service.duration || 0,
-      // Store service modifiers and intake questions for job creation
-      serviceModifiers: serviceModifiers,
-      serviceIntakeQuestions: serviceIntakeQuestions,
       // Keep existing time or default to 9 AM if no time set
       scheduledTime: prev.scheduledTime && prev.scheduledTime.trim() !== "" ? prev.scheduledTime : "09:00"
     }));
     
-    // Clear previous intake answers when selecting a new service
-    setIntakeQuestionAnswers({});
-    setSelectedModifiers({}); // Clear previous modifier selections
+    // Note: serviceModifiers and serviceIntakeQuestions are now handled by the useEffect
+    // that syncs when selectedServices changes
     
     setShowServiceDropdown(false);
     setServiceSearch("");
@@ -725,8 +761,8 @@ export default function CreateJobPage() {
       return;
     }
 
-    if (!selectedService) {
-      setError('Please select a service.');
+    if (selectedServices.length === 0) {
+      setError('Please select at least one service.');
       // Prevent any input from being focused
       if (document.activeElement) {
         document.activeElement.blur();
@@ -743,7 +779,8 @@ export default function CreateJobPage() {
       const jobData = {
         userId: user.id,
         customerId: formData.customerId,
-        serviceId: formData.serviceId,
+        serviceIds: selectedServices.map(service => service.id), // Multiple service IDs
+        serviceId: selectedServices.length > 0 ? selectedServices[0].id : null, // Keep for backward compatibility
         teamMemberId: selectedTeamMembers.length > 0 ? selectedTeamMembers[0].id : formData.teamMemberId, // Primary team member
         teamMemberIds: selectedTeamMembers.map(member => member.id), // All selected team members
         scheduledDate: formData.scheduledDate,
@@ -798,24 +835,12 @@ export default function CreateJobPage() {
         totalPrice: calculateTotalPrice()
       };
 
-      console.log('🕐 FRONTEND TIME DEBUG:');
-      console.log('  - Time being sent:', jobData.scheduledTime);
-      console.log('  - Time type:', typeof jobData.scheduledTime);
-      console.log('  - Time length:', jobData.scheduledTime ? jobData.scheduledTime.length : 'null/undefined');
-      console.log('  - Time validation:', timeRegex.test(jobData.scheduledTime));
-      
-      console.log('Creating job with data:', jobData);
-      console.log('🔄 Intake questions being sent:', jobData.intakeQuestionAnswers);
-      console.log('🔄 Intake questions count being sent:', Object.keys(jobData.intakeQuestionAnswers || {}).length);
-      console.log('🔄 Intake questions keys being sent:', Object.keys(jobData.intakeQuestionAnswers || {}));
       const result = await jobsAPI.create(jobData);
-      console.log('Job creation result:', result);
       
       setSuccessMessage('Job created successfully!');
       setTimeout(() => {
         // Navigate to the specific job details page
         const jobId = result.id || result.job?.id || result.job_id;
-        console.log('Navigating to job ID:', jobId);
         if (jobId) {
           navigate(`/job/${jobId}`);
         } else {
@@ -864,6 +889,124 @@ export default function CreateJobPage() {
     setShowAddressModal(false);
   };
 
+  const copyCustomerAddressToService = () => {
+    if (!selectedCustomer) return;
+    
+    let parsedAddress = {
+      street: "",
+      city: "",
+      state: "",
+      zipCode: "",
+      country: "USA"
+    };
+    
+    if (selectedCustomer.address || selectedCustomer.city || selectedCustomer.state || selectedCustomer.zip_code) {
+      // Use separate fields if available
+      if (selectedCustomer.city && selectedCustomer.state && selectedCustomer.zip_code) {
+        parsedAddress.street = selectedCustomer.address || "";
+        parsedAddress.city = selectedCustomer.city;
+        parsedAddress.state = selectedCustomer.state;
+        parsedAddress.zipCode = selectedCustomer.zip_code;
+      } else if (selectedCustomer.address) {
+        // Fallback to parsing address string if separate fields aren't available
+        const addressParts = selectedCustomer.address.split(',').map(part => part.trim());
+        
+        if (addressParts.length >= 1) {
+          parsedAddress.street = addressParts[0];
+        }
+        
+        if (addressParts.length >= 2) {
+          parsedAddress.city = addressParts[1];
+        }
+        
+        if (addressParts.length >= 3) {
+          // Handle state and zip code which might be together like "State 12345"
+          const stateZipPart = addressParts[2];
+          const stateZipMatch = stateZipPart.match(/^([A-Za-z\s]+)\s+(\d{5}(?:-\d{4})?)$/);
+          
+          if (stateZipMatch) {
+            parsedAddress.state = stateZipMatch[1].trim();
+            parsedAddress.zipCode = stateZipMatch[2];
+          } else {
+            // If no zip code pattern, assume it's just state
+            parsedAddress.state = stateZipPart;
+          }
+        }
+      }
+      
+      setFormData(prev => ({
+        ...prev,
+        serviceAddress: parsedAddress
+      }));
+      
+      // Show feedback
+      setAddressAutoPopulated(true);
+      setTimeout(() => setAddressAutoPopulated(false), 3000);
+    }
+  };
+
+  const clearServiceAddress = () => {
+    setFormData(prev => ({
+      ...prev,
+      serviceAddress: {
+        street: "",
+        city: "",
+        state: "",
+        zipCode: "",
+        country: "USA"
+      }
+    }));
+  };
+
+  const removeService = (serviceId) => {
+    setSelectedServices(prev => {
+      const newServices = prev.filter(service => service.id !== serviceId);
+      return newServices;
+    });
+    
+    // Update selectedService if the removed service was the current one
+    if (selectedService && selectedService.id === serviceId) {
+      const remainingServices = selectedServices.filter(service => service.id !== serviceId);
+      setSelectedService(remainingServices.length > 0 ? remainingServices[0] : null);
+    }
+    
+    // Clear modifiers and intake questions for the removed service
+    setSelectedModifiers(prev => {
+      const newModifiers = { ...prev };
+      // Remove any modifiers that belong to the removed service
+      // We'll handle this in the useEffect that syncs form data
+      return newModifiers;
+    });
+    
+    setIntakeQuestionAnswers(prev => {
+      const newAnswers = { ...prev };
+      // Remove any intake answers that belong to the removed service
+      // We'll handle this in the useEffect that syncs form data
+      return newAnswers;
+    });
+  };
+
+  const clearAllServices = () => {
+    setSelectedServices([]);
+    setSelectedService(null);
+    
+    // Clear all modifiers and intake questions
+    setSelectedModifiers({});
+    setIntakeQuestionAnswers({});
+    
+    // Reset form data related to services
+    setFormData(prev => ({
+      ...prev,
+      serviceModifiers: [],
+      serviceIntakeQuestions: [],
+      price: 0,
+      total: 0,
+      serviceName: '',
+      duration: 0,
+      estimatedDuration: 0
+    }));
+  };
+
   const handlePaymentMethodSave = (paymentMethod) => {
     setFormData(prev => ({ ...prev, paymentMethod }));
     setShowPaymentModal(false);
@@ -877,8 +1020,6 @@ export default function CreateJobPage() {
 
   // Handle modifier selections
   const handleModifierSelection = (modifierId, optionId, isSelected) => {
-    console.log('🔄 Modifier selection:', { modifierId, optionId, isSelected });
-    
     setSelectedModifiers(prev => {
       const currentSelections = prev[modifierId] || [];
       let newSelections;
@@ -894,32 +1035,25 @@ export default function CreateJobPage() {
         [modifierId]: newSelections
       };
       
-      console.log('🔄 Updated modifier selections:', updatedSelections);
       return updatedSelections;
     });
   };
 
   // Handle modifiers change from the new component
   const handleModifiersChange = (modifiers) => {
-    console.log('🔄 Modifiers changed:', modifiers);
-    console.log('🔄 Service modifiers available:', formData.serviceModifiers);
-    
     // Convert the new format to the existing format for compatibility
     const convertedModifiers = {};
     
     Object.entries(modifiers).forEach(([modifierId, modifierData]) => {
       const modifier = formData.serviceModifiers?.find(m => m.id == modifierId);
-      console.log(`🔄 Processing modifier ${modifierId}:`, { modifier, modifierData });
       
       if (!modifier) {
-        console.log(`🔄 Modifier ${modifierId} not found in serviceModifiers`);
         return;
       }
       
       if (modifier.selectionType === 'quantity') {
         // Handle quantity selection
         const quantities = modifierData.quantities || {};
-        console.log(`🔄 Quantity modifier ${modifierId} quantities:`, quantities);
         Object.entries(quantities).forEach(([optionId, quantity]) => {
           if (quantity > 0) {
             if (!convertedModifiers[modifierId]) {
@@ -931,21 +1065,18 @@ export default function CreateJobPage() {
       } else if (modifier.selectionType === 'multi') {
         // Handle multi-selection
         const selections = modifierData.selections || [];
-        console.log(`🔄 Multi modifier ${modifierId} selections:`, selections);
         if (selections.length > 0) {
           convertedModifiers[modifierId] = selections;
         }
       } else {
         // Handle single selection
         const selection = modifierData.selection;
-        console.log(`🔄 Single modifier ${modifierId} selection:`, selection);
         if (selection) {
           convertedModifiers[modifierId] = [selection];
         }
       }
     });
     
-    console.log('🔄 Converted modifiers:', convertedModifiers);
     setSelectedModifiers(convertedModifiers);
     setCalculationTrigger(prev => prev + 1); // Trigger recalculation
   };
@@ -960,20 +1091,6 @@ export default function CreateJobPage() {
 
   // Handle intake questions change from the new component
   const handleIntakeQuestionsChange = (answers) => {
-    console.log('🔄 Intake questions changed:', answers);
-    console.log('🔄 Intake questions count:', Object.keys(answers).length);
-    console.log('🔄 Intake questions keys:', Object.keys(answers));
-    console.log('🔄 Intake questions values:', Object.values(answers));
-    
-    // Verify that all questions have answers
-    const serviceQuestions = formData.serviceIntakeQuestions || [];
-    console.log('🔄 Service questions:', serviceQuestions.map(q => ({ id: q.id, question: q.question })));
-    
-    const missingAnswers = serviceQuestions.filter(q => !answers[q.id]);
-    if (missingAnswers.length > 0) {
-      console.log('🔄 Missing answers for questions:', missingAnswers);
-    }
-    
     setIntakeQuestionAnswers(answers);
   };
 
@@ -984,65 +1101,37 @@ export default function CreateJobPage() {
       let basePrice = parseFloat(formData.price) || 0;
       let modifierPrice = 0;
       
-      console.log('🔄 Service modifiers available:', formData.serviceModifiers);
-      console.log('🔄 Selected modifiers structure:', selectedModifiers);
-      
       // Add prices from selected modifiers
       Object.entries(selectedModifiers).forEach(([modifierId, modifierData]) => {
-        console.log(`🔄 Processing modifier ${modifierId}:`, { modifierData, type: typeof modifierData });
-        console.log(`🔄 Looking for modifier with ID: ${modifierId}`);
-        console.log(`🔄 Available modifier IDs:`, formData.serviceModifiers?.map(m => m.id));
         const modifier = formData.serviceModifiers?.find(m => m.id == modifierId);
         if (!modifier) {
-          console.log(`🔄 Modifier ${modifierId} not found in serviceModifiers`);
           return;
         }
         
         if (modifier.selectionType === 'quantity') {
-          console.log(`🔄 Processing quantity modifier ${modifierId}:`, modifierData);
           // Handle quantity selection - modifierData is { optionId: quantity }
           Object.entries(modifierData).forEach(([optionId, quantity]) => {
-            console.log(`🔄 Quantity option ${optionId}:`, { quantity, type: typeof quantity });
-            console.log(`🔄 Looking for option with ID: ${optionId}`);
-            console.log(`🔄 Available option IDs:`, modifier.options?.map(o => o.id));
             const option = modifier.options?.find(o => o.id == optionId);
-            console.log(`🔄 Found option:`, option);
             if (option && option.price && quantity > 0) {
               const optionPrice = parseFloat(option.price) || 0;
               const optionTotal = optionPrice * quantity;
               modifierPrice += optionTotal;
-              console.log(`🔄 Added to modifier price: ${optionPrice} * ${quantity} = ${optionTotal}`);
             }
           });
         } else {
-          console.log(`🔄 Processing single/multi modifier ${modifierId}:`, modifierData);
           // Handle single/multi selection - modifierData is array of optionIds
           const selectedOptionIds = Array.isArray(modifierData) ? modifierData : [modifierData];
-          console.log(`🔄 Selected option IDs:`, selectedOptionIds);
           selectedOptionIds.forEach(optionId => {
-            console.log(`🔄 Processing option ID:`, optionId);
-            console.log(`🔄 Looking for option with ID: ${optionId}`);
-            console.log(`🔄 Available option IDs:`, modifier.options?.map(o => o.id));
             const option = modifier.options?.find(o => o.id == optionId);
-            console.log(`🔄 Found option:`, option);
             if (option && option.price) {
               const optionPrice = parseFloat(option.price) || 0;
               modifierPrice += optionPrice;
-              console.log(`🔄 Added to modifier price: ${optionPrice}`);
             }
           });
         }
       });
       
       const totalPrice = basePrice + modifierPrice;
-      console.log('🔄 Price calculation:', { 
-        basePrice, 
-        modifierPrice, 
-        totalPrice, 
-        selectedModifiers,
-        selectedModifiersKeys: Object.keys(selectedModifiers),
-        selectedModifiersValues: Object.values(selectedModifiers)
-      });
       return totalPrice;
     } catch (error) {
       console.error('Error calculating total price:', error);
@@ -1071,12 +1160,6 @@ export default function CreateJobPage() {
               const optionDurationInMinutes = parseFloat(option.duration) || 0;
               
               modifierDuration += optionDurationInMinutes * quantity;
-              
-              console.log(`🔄 Modifier option "${option.label}" duration:`, {
-                originalMinutes: optionDurationInMinutes,
-                quantity,
-                totalForThisOption: optionDurationInMinutes * quantity
-              });
             }
           });
         } else {
@@ -1089,27 +1172,12 @@ export default function CreateJobPage() {
               const optionDurationInMinutes = parseFloat(option.duration) || 0;
               
               modifierDuration += optionDurationInMinutes;
-              
-              console.log(`🔄 Modifier option "${option.label}" duration:`, {
-                originalMinutes: optionDurationInMinutes
-              });
             }
           });
         }
       });
       
       const totalDurationInMinutes = baseDuration + modifierDuration;
-      const totalDurationInHours = totalDurationInMinutes / 60; // Convert to hours for display
-      
-      console.log('🔄 Duration calculation:', { 
-        baseDurationMinutes: baseDuration, 
-        modifierDurationMinutes: modifierDuration, 
-        totalDurationMinutes: totalDurationInMinutes,
-        totalDurationHours: totalDurationInHours,
-        formDataDuration: formData.duration,
-        selectedModifiersCount: Object.keys(selectedModifiers).length,
-        selectedModifiers
-      });
       return totalDurationInMinutes; // Return in minutes for backend
     } catch (error) {
       console.error('Error calculating total duration:', error);
@@ -1255,20 +1323,48 @@ export default function CreateJobPage() {
                       onFocus={() => setShowServiceDropdown(true)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
-                    {selectedService && (
-                      <div className="mt-2 p-3 bg-green-50 rounded-lg">
-                        <div className="flex items-center space-x-3">
-                          {selectedService.image && (
-                                                          <img 
-                                src={getImageUrl(selectedService.image)} 
-                                alt={selectedService.name}
-                                className="w-12 h-12 object-cover rounded-lg"
-                                onError={(e) => handleImageError(e, null)}
-                              />
-                          )}
-                          <div className="flex-1">
-                            <p className="font-medium text-green-900">{selectedService.name}</p>
-                            <p className="text-sm text-green-700">${selectedService.price}</p>
+                    {selectedServices.length > 0 && (
+                      <div className="mt-2 space-y-2">
+                        {selectedServices.map((service, index) => (
+                          <div key={service.id} className="p-3 bg-green-50 rounded-lg border border-green-200">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-3">
+                                {service.image && (
+                                  <img 
+                                    src={getImageUrl(service.image)} 
+                                    alt={service.name}
+                                    className="w-12 h-12 object-cover rounded-lg"
+                                    onError={(e) => handleImageError(e, null)}
+                                  />
+                                )}
+                                <div className="flex-1">
+                                  <p className="font-medium text-green-900">{service.name}</p>
+                                  <p className="text-sm text-green-700">${service.price}</p>
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => removeService(service.id)}
+                                className="text-red-600 hover:text-red-700 p-1"
+                                title="Remove service"
+                              >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                        
+                        {/* Summary */}
+                        <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm font-medium text-blue-900">
+                              {selectedServices.length} service{selectedServices.length !== 1 ? 's' : ''} selected
+                            </span>
+                            <span className="text-sm font-medium text-blue-900">
+                              Total: ${selectedServices.reduce((sum, service) => sum + (service.price || 0), 0).toFixed(2)}
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -1280,53 +1376,68 @@ export default function CreateJobPage() {
                           onClick={() => setShowServiceDropdown(false)}
                         />
                       <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                        {filteredServices.map(service => (
-                          <button
-                            key={service.id}
-                            type="button"
-                            onClick={() => handleServiceSelect(service)}
-                            className="w-full text-left px-4 py-2 hover:bg-gray-100 border-b border-gray-100 last:border-b-0"
-                          >
-                            <div className="flex items-center space-x-3">
-                              {service.image && (
-                                                                  <img 
+                        {filteredServices.map(service => {
+                          const isSelected = selectedServices.some(s => s.id === service.id);
+                          return (
+                            <button
+                              key={service.id}
+                              type="button"
+                              onClick={() => handleServiceSelect(service)}
+                              disabled={isSelected}
+                              className={`w-full text-left px-4 py-2 border-b border-gray-100 last:border-b-0 ${
+                                isSelected 
+                                  ? 'bg-green-50 text-green-700 cursor-not-allowed' 
+                                  : 'hover:bg-gray-100'
+                              }`}
+                            >
+                                                          <div className="flex items-center space-x-3">
+                                {service.image && (
+                                  <img 
                                     src={getImageUrl(service.image)} 
                                     alt={service.name}
                                     className="w-8 h-8 object-cover rounded"
                                     onError={(e) => handleImageError(e, null)}
                                   />
-                              )}
-                              <div className="flex-1">
-                                <p className="font-medium">{service.name}</p>
-                                <p className="text-sm text-gray-600">${service.price}</p>
+                                )}
+                                <div className="flex-1">
+                                  <p className="font-medium">{service.name}</p>
+                                  <p className="text-sm text-gray-600">${service.price}</p>
+                                </div>
+                                {isSelected && (
+                                  <svg className="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                  </svg>
+                                )}
                               </div>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
+                            </button>
+                          );
+                                                 })}
+                        </div>
                       </>
                     )}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setIsServiceModalOpen(true)}
-                    className="mt-2 text-blue-600 hover:text-blue-700 text-sm font-medium"
-                  >
-                    + Add New Service
-                  </button>
+                  <div className="flex space-x-3 mt-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsServiceModalOpen(true)}
+                      className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                    >
+                      + Add New Service
+                    </button>
+                    {selectedServices.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={clearAllServices}
+                        className="text-red-600 hover:text-red-700 text-sm font-medium"
+                      >
+                        Clear All Services
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Service Modifiers - Right after service selection */}
-                {(() => {
-                  const hasModifiers = formData.serviceModifiers && formData.serviceModifiers.length > 0;
-                  console.log('🔄 ServiceModifiers display condition check:', {
-                    serviceModifiers: formData.serviceModifiers,
-                    isArray: Array.isArray(formData.serviceModifiers),
-                    length: formData.serviceModifiers?.length,
-                    hasModifiers: hasModifiers
-                  });
-                  return hasModifiers;
-                })() && (
+                {formData.serviceModifiers && formData.serviceModifiers.length > 0 && (
                   <div className="space-y-6">
                     <div>
                       <h3 className="text-lg font-medium text-gray-900 mb-2">Service Options</h3>
@@ -1431,12 +1542,9 @@ export default function CreateJobPage() {
                     type="time"
                     value={formData.scheduledTime}
                         onChange={(e) => {
-                          console.log('Time input changed:', e.target.value);
-                          console.log('Previous scheduledTime:', formData.scheduledTime);
-                          setFormData(prev => {
-                            console.log('Setting scheduledTime to:', e.target.value);
-                            return { ...prev, scheduledTime: e.target.value };
-                          });
+                          setFormData(prev => ({
+                            ...prev, scheduledTime: e.target.value
+                          }));
                         }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         step="1800"
@@ -1509,15 +1617,7 @@ export default function CreateJobPage() {
                 
                 {expandedSections.serviceDetails && (
                   <div className="px-6 pb-6 space-y-6">
-                    {/* Debug Info */}
-                    <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                      <h4 className="text-sm font-medium text-yellow-800 mb-2">Debug Info:</h4>
-                      <div className="text-xs text-yellow-700 space-y-1">
-                        <div>Selected Modifiers: {JSON.stringify(selectedModifiers)}</div>
-                        <div>Service Modifiers Count: {formData.serviceModifiers?.length || 0}</div>
-                        <div>Calculation Trigger: {calculationTrigger}</div>
-                      </div>
-                    </div>
+
 
                     {/* Service Info Chips */}
                     <div className="flex flex-wrap gap-3 mb-6">
@@ -1956,9 +2056,52 @@ export default function CreateJobPage() {
               
               {expandedSections.address && (
                 <div className="px-6 pb-6 space-y-6">
+                  {/* Address Auto-population Feedback */}
+                  {addressAutoPopulated && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                      <div className="flex items-center">
+                        <svg className="w-5 h-5 text-green-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                        <p className="text-sm text-green-800">
+                          Customer address automatically copied to service address
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Copy Customer Address Button */}
+                  {selectedCustomer && (selectedCustomer.address || selectedCustomer.city || selectedCustomer.state || selectedCustomer.zip_code) && (
+                    <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="flex items-center">
+                        <MapPin className="w-4 h-4 text-blue-600 mr-2" />
+                        <div>
+                          <p className="text-sm font-medium text-blue-900">Customer Address Available</p>
+                          <p className="text-xs text-blue-700">
+                            {selectedCustomer.address || `${selectedCustomer.city}, ${selectedCustomer.state} ${selectedCustomer.zip_code}`}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={copyCustomerAddressToService}
+                        className="px-3 py-1 text-xs font-medium text-blue-600 bg-white border border-blue-300 rounded-md hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        Copy Address
+                      </button>
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Street Address</label>
+                                  <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Street Address
+                        {addressAutoPopulated && formData.serviceAddress.street && (
+                          <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                            Auto-filled
+                          </span>
+                        )}
+                      </label>
                       <AddressAutocomplete
                         value={formData.serviceAddress.street}
                         onChange={(value) => setFormData(prev => ({ 
@@ -1980,7 +2123,14 @@ export default function CreateJobPage() {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        City
+                        {addressAutoPopulated && formData.serviceAddress.city && (
+                          <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                            Auto-filled
+                          </span>
+                        )}
+                      </label>
                       <input
                         type="text"
                         value={formData.serviceAddress.city}
@@ -1989,12 +2139,19 @@ export default function CreateJobPage() {
                           serviceAddress: { ...prev.serviceAddress, city: e.target.value }
                         }))}
                         placeholder="New York"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">State</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        State
+                        {addressAutoPopulated && formData.serviceAddress.state && (
+                          <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                            Auto-filled
+                          </span>
+                        )}
+                      </label>
                       <input
                         type="text"
                         value={formData.serviceAddress.state}
@@ -2008,7 +2165,14 @@ export default function CreateJobPage() {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">ZIP Code</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        ZIP Code
+                        {addressAutoPopulated && formData.serviceAddress.zipCode && (
+                          <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                            Auto-filled
+                          </span>
+                        )}
+                      </label>
                       <input
                         type="text"
                         value={formData.serviceAddress.zipCode}
@@ -2036,13 +2200,22 @@ export default function CreateJobPage() {
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => setShowAddressModal(true)}
-                    className="text-blue-600 hover:text-blue-700 text-sm font-medium"
-                  >
-                    + Use Address Modal
-                  </button>
+                  <div className="flex space-x-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowAddressModal(true)}
+                      className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                    >
+                      + Use Address Modal
+                    </button>
+                    <button
+                      type="button"
+                      onClick={clearServiceAddress}
+                      className="text-gray-600 hover:text-gray-700 text-sm font-medium"
+                    >
+                      Clear Address
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

@@ -12,6 +12,10 @@ const AddTeamMember = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [emailWarning, setEmailWarning] = useState('')
+  const [checkingEmail, setCheckingEmail] = useState(false)
+  const [phoneWarning, setPhoneWarning] = useState('')
+  const [checkingPhone, setCheckingPhone] = useState(false)
   
   // Form data
   const [formData, setFormData] = useState({
@@ -20,8 +24,6 @@ const AddTeamMember = () => {
     email: '',
     phone: '',
     role: '',
-    username: '',
-    password: '',
     hourly_rate: '',
     location: '',
     city: '',
@@ -238,6 +240,20 @@ const AddTeamMember = () => {
       return
     }
 
+    // Check for email warning
+    if (emailWarning) {
+      setError('Please use a different email address. The current email is already registered.')
+      setSaving(false)
+      return
+    }
+
+    // Check for phone warning
+    if (phoneWarning) {
+      setError('Please use a different phone number. The current phone number is already registered.')
+      setSaving(false)
+      return
+    }
+
     try {
       const teamMemberData = {
         userId: user.id, // Backend expects 'userId', not 'user_id'
@@ -246,8 +262,6 @@ const AddTeamMember = () => {
         email: formData.email,
         phone: formData.phone,
         role: formData.role,
-        username: formData.username,
-        password: formData.password,
         hourlyRate: formData.hourly_rate,
         location: formData.location,
         city: formData.city,
@@ -266,14 +280,94 @@ const AddTeamMember = () => {
       console.log('Submitting team member data:', teamMemberData)
 
       const response = await teamAPI.create(teamMemberData)
+      // Show success message before navigating
+      alert('Team member invited successfully! An invitation email has been sent.')
       navigate('/team')
     } catch (error) {
       console.error('Error creating team member:', error)
-      setError(error.response?.data?.message || 'Error creating team member')
+      
+      // Handle enhanced error messages from backend
+      const errorData = error.response?.data
+      if (errorData) {
+        if (errorData.conflictType && errorData.message) {
+          // Show specific conflict message
+          setError(errorData.message)
+          
+          // Highlight the specific field that has a conflict
+          if (errorData.field === 'email') {
+            setEmailWarning(errorData.message)
+          } else if (errorData.field === 'phone') {
+            setPhoneWarning(errorData.message)
+          }
+        } else if (errorData.error) {
+          setError(errorData.error)
+        } else {
+          setError('Error creating team member')
+        }
+      } else {
+        setError('Error creating team member')
+      }
     } finally {
       setSaving(false)
     }
   }
+
+  // Check if email already exists
+  const checkEmailExists = async (email) => {
+    if (!email || !user?.id) {
+      setEmailWarning('')
+      return
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      setEmailWarning('')
+      return
+    }
+
+    try {
+      setCheckingEmail(true)
+      setEmailWarning('')
+      
+      // Check if email exists by trying to get team members with this email
+      const response = await teamAPI.getAll(user.id, {
+        search: email,
+        status: '',
+        sortBy: 'first_name',
+        sortOrder: 'ASC',
+        page: 1,
+        limit: 10
+      })
+      
+      const existingMembers = response.teamMembers || []
+      const emailExists = existingMembers.some(member => 
+        member.email && member.email.toLowerCase() === email.toLowerCase()
+      )
+      
+      if (emailExists) {
+        setEmailWarning('This email address is already registered with another team member.')
+      }
+    } catch (error) {
+      console.error('Error checking email:', error)
+      // Don't show error to user for email check
+    } finally {
+      setCheckingEmail(false)
+    }
+  }
+
+  // Debounced email check
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (formData.email) {
+        checkEmailExists(formData.email)
+      } else {
+        setEmailWarning('')
+      }
+    }, 500) // Wait 500ms after user stops typing
+
+    return () => clearTimeout(timeoutId)
+  }, [formData.email, user?.id])
 
   // Load available territories on component mount
   useEffect(() => {
@@ -317,6 +411,23 @@ const AddTeamMember = () => {
               </div>
             )}
 
+            {/* Invitation Info */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-blue-800">Invitation Process</h3>
+                  <div className="mt-2 text-sm text-blue-700">
+                    <p>When you add a team member, they will receive an invitation email with a link to create their account. They'll be able to set their own username and password during the signup process.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <form onSubmit={handleSubmit} className="space-y-8">
               {/* Basic Information */}
               <div className="bg-white rounded-lg shadow p-6">
@@ -356,13 +467,30 @@ const AddTeamMember = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Email *
                     </label>
-                    <input
-                      type="email"
-                      required
-                      value={formData.email}
-                      onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
+                    <div className="relative">
+                      <input
+                        type="email"
+                        required
+                        value={formData.email}
+                        onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                          emailWarning ? 'border-orange-300 focus:border-orange-500' : 'border-gray-300'
+                        }`}
+                      />
+                      {checkingEmail && (
+                        <div className="absolute right-3 top-2">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                        </div>
+                      )}
+                    </div>
+                    {emailWarning && (
+                      <div className="mt-1 flex items-center text-sm text-orange-600">
+                        <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                        {emailWarning}
+                      </div>
+                    )}
                   </div>
 
                   <div>
@@ -374,8 +502,18 @@ const AddTeamMember = () => {
                       required
                       value={formData.phone}
                       onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                        phoneWarning ? 'border-orange-300 focus:border-orange-500' : 'border-gray-300'
+                      }`}
                     />
+                    {phoneWarning && (
+                      <div className="mt-1 flex items-center text-sm text-orange-600">
+                        <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                        {phoneWarning}
+                      </div>
+                    )}
                   </div>
 
                   <div>
@@ -396,31 +534,7 @@ const AddTeamMember = () => {
                     </select>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Username *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.username}
-                      onChange={(e) => setFormData(prev => ({ ...prev, username: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Password *
-                    </label>
-                    <input
-                      type="password"
-                      required
-                      value={formData.password}
-                      onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -616,13 +730,24 @@ const AddTeamMember = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={saving}
-                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                  disabled={saving || emailWarning || phoneWarning}
+                  className={`px-6 py-3 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center ${
+                    emailWarning || phoneWarning
+                      ? 'bg-orange-500 hover:bg-orange-600' 
+                      : 'bg-blue-600 hover:bg-blue-700'
+                  }`}
                 >
                   {saving ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                       Creating...
+                    </>
+                  ) : emailWarning || phoneWarning ? (
+                    <>
+                      <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      Fix {emailWarning ? 'Email' : 'Phone'} Issue
                     </>
                   ) : (
                     <>
