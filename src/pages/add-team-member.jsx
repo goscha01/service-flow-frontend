@@ -280,11 +280,16 @@ const AddTeamMember = () => {
       console.log('Submitting team member data:', teamMemberData)
 
       const response = await teamAPI.create(teamMemberData)
+      console.log('✅ Team member created successfully:', response)
+      
       // Show success message before navigating
       alert('Team member invited successfully! An invitation email has been sent.')
       navigate('/team')
     } catch (error) {
-      console.error('Error creating team member:', error)
+      console.error('❌ Error creating team member:', error)
+      console.error('❌ Error response:', error.response)
+      console.error('❌ Error status:', error.response?.status)
+      console.error('❌ Error data:', error.response?.data)
       
       // Handle enhanced error messages from backend
       const errorData = error.response?.data
