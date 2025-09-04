@@ -12,11 +12,9 @@ import { jobsAPI, teamAPI } from "../services/api"
 const ZenbookerSchedule = () => {
   const { user } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [scheduleSidebarOpen, setScheduleSidebarOpen] = useState(false) // New state for schedule sidebar
   const [activeFilter, setActiveFilter] = useState("all")
   const [currentView, setCurrentView] = useState("day") // day, week, month
   const [currentDate, setCurrentDate] = useState(new Date()) // Current date
-  const [showCalendarPicker, setShowCalendarPicker] = useState(false) // Calendar picker visibility
   const [allJobs, setAllJobs] = useState([]) // Store ALL jobs
   const [jobs, setJobs] = useState([]) // Filtered jobs for current view
   const [showMap, setShowMap] = useState(false)
@@ -33,6 +31,8 @@ const ZenbookerSchedule = () => {
   const [teamMembers, setTeamMembers] = useState([])
   const [expandedDays, setExpandedDays] = useState(new Set())
   const [isNavigating, setIsNavigating] = useState(false)
+  const [showCalendarPicker, setShowCalendarPicker] = useState(false) // Calendar picker visibility
+  const [scheduleSidebarOpen, setScheduleSidebarOpen] = useState(false) // Mobile filter sidebar state
   const navigate = useNavigate()
 
   // Request cancellation and navigation timeout
@@ -52,35 +52,6 @@ const ZenbookerSchedule = () => {
       }
       return newSet
     })
-  }
-
-  // Function to generate calendar days for the date picker
-  const generateCalendarDays = () => {
-    const year = currentDate.getFullYear()
-    const month = currentDate.getMonth()
-    
-    const firstDay = new Date(year, month, 1)
-    const lastDay = new Date(year, month + 1, 0)
-    const startDate = new Date(firstDay)
-    startDate.setDate(firstDay.getDate() - firstDay.getDay())
-    
-    const days = []
-    const date = new Date(startDate)
-    
-    // Generate 42 days (6 weeks) to ensure we cover the entire month
-    for (let i = 0; i < 42; i++) {
-      days.push(new Date(date))
-      date.setDate(date.getDate() + 1)
-    }
-    
-    return days
-  }
-
-  // Function to navigate months in the calendar picker
-  const navigateMonth = (direction) => {
-    const newDate = new Date(currentDate)
-    newDate.setMonth(newDate.getMonth() + direction)
-    setCurrentDate(newDate)
   }
 
   // Get current user with useMemo to prevent infinite re-renders
@@ -106,7 +77,6 @@ const ZenbookerSchedule = () => {
         }
       }
     } else if (!currentUser) {
-      console.log('❌ No authenticated user, redirecting to signin')
       navigate('/signin')
     }
   }, [currentUser, navigate])
@@ -180,8 +150,6 @@ const ZenbookerSchedule = () => {
       setLoading(true)
       setError("")
       
-      console.log('🔄 Loading ALL jobs for user:', currentUser.id)
-      
       // Get ALL jobs without date filtering - we'll filter client-side
       const response = await jobsAPI.getAll(
         currentUser.id, 
@@ -200,10 +168,8 @@ const ZenbookerSchedule = () => {
       )
       
       const allJobsData = response.jobs || response || []
-      console.log('✅ All jobs loaded:', allJobsData.length, 'total jobs')
       setAllJobs(allJobsData)
     } catch (error) {
-      console.error('❌ Error loading all jobs:', error)
       if (error.response?.status === 403) {
         setError("Authentication required. Please log in again.")
         navigate('/signin')
@@ -221,37 +187,8 @@ const ZenbookerSchedule = () => {
   const filterJobsForCurrentView = () => {
     if (allJobs.length === 0) return
     
-    console.log('🔍 Filtering jobs for current view:', currentView, currentDate)
-    
-    // Calculate date range based on current view
-    let startDate, endDate
-    if (currentView === 'day') {
-      startDate = new Date(currentDate)
-      startDate.setHours(0, 0, 0, 0)
-      endDate = new Date(currentDate)
-      endDate.setHours(23, 59, 59, 999)
-    } else if (currentView === 'week') {
-      startDate = new Date(currentDate)
-      startDate.setDate(currentDate.getDate() - currentDate.getDay())
-      startDate.setHours(0, 0, 0, 0)
-      endDate = new Date(startDate)
-      endDate.setDate(startDate.getDate() + 6)
-      endDate.setHours(23, 59, 59, 999)
-    } else {
-      startDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
-      startDate.setHours(0, 0, 0, 0)
-      endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0)
-      endDate.setHours(23, 59, 59, 999)
-    }
-    
-    // Filter jobs by date range
-    let filteredJobs = allJobs.filter(job => {
-      // Extract date part from scheduled_date string (format: "2024-01-15 10:00:00")
-      const jobDateString = job.scheduled_date ? job.scheduled_date.split(' ')[0] : ''
-      const startDateString = startDate.toISOString().split('T')[0]
-      const endDateString = endDate.toISOString().split('T')[0]
-      return jobDateString >= startDateString && jobDateString <= endDateString
-    })
+    // Apply NON-DATE filters to allJobs (keep allJobs unfiltered for date views)
+    let filteredJobs = [...allJobs]
     
     // Apply status filter
     if (filters.status !== "all") {
@@ -274,7 +211,6 @@ const ZenbookerSchedule = () => {
       filteredJobs = filteredJobs.filter(job => job.territory_id === parseInt(filters.territory))
     }
     
-    console.log('✅ Filtered jobs:', filteredJobs.length, 'for', currentView, 'view')
     setJobs(filteredJobs)
   }
 
@@ -301,8 +237,17 @@ const ZenbookerSchedule = () => {
 
   const formatTime = (dateString) => {
     if (!dateString) return 'Time placeholder'
-    // Extract time part directly from the string (format: "2024-01-15 10:00:00")
-    const timePart = dateString.split(' ')[1]
+    
+    // Handle both ISO format (2025-08-20T09:00:00) and space format (2025-08-20 09:00:00)
+    let timePart = ''
+    if (dateString.includes('T')) {
+      // ISO format: 2025-08-20T09:00:00
+      timePart = dateString.split('T')[1]
+    } else {
+      // Space format: 2025-08-20 09:00:00
+      timePart = dateString.split(' ')[1]
+    }
+    
     if (!timePart) return 'Time placeholder'
     
     const [hours, minutes] = timePart.split(':')
@@ -319,10 +264,30 @@ const ZenbookerSchedule = () => {
     return `${displayHour}:${displayMinute} ${ampm}`
   }
 
+  // Function to get filtered jobs for Day view (with date filtering)
+  const getFilteredJobs = () => {
+    // Filter jobs by current date for Day view - use direct date comparison
+    const currentDateString = currentDate.toLocaleDateString('en-CA') // Returns YYYY-MM-DD format
+    
+    return jobs.filter(job => {
+      // Handle both ISO format (2025-08-20T09:00:00) and space format (2025-08-20 09:00:00)
+      let jobDateString = ''
+      if (job.scheduled_date) {
+        if (job.scheduled_date.includes('T')) {
+          // ISO format: 2025-08-20T09:00:00
+          jobDateString = job.scheduled_date.split('T')[0]
+        } else {
+          // Space format: 2025-08-20 09:00:00
+          jobDateString = job.scheduled_date.split(' ')[0]
+        }
+      }
+      return jobDateString === currentDateString
+    })
+  }
+
   const navigateDate = (direction) => {
     // Prevent rapid navigation clicks
     if (isNavigating) {
-      console.log('🚫 Navigation blocked - already navigating')
       return
     }
     
@@ -351,12 +316,40 @@ const ZenbookerSchedule = () => {
     }, 500)
   }
 
+  // Function to generate calendar days for the date picker
+  const generateCalendarDays = () => {
+    const year = currentDate.getFullYear()
+    const month = currentDate.getMonth()
+    
+    const firstDay = new Date(year, month, 1)
+    const lastDay = new Date(year, month + 1, 0)
+    const startDate = new Date(firstDay)
+    startDate.setDate(firstDay.getDate() - firstDay.getDay())
+    
+    const days = []
+    const date = new Date(startDate)
+    
+    // Generate 42 days (6 weeks) to ensure we cover the entire month
+    for (let i = 0; i < 42; i++) {
+      days.push(new Date(date))
+      date.setDate(date.getDate() + 1)
+    }
+    
+    return days
+  }
+
+  // Function to navigate months in the calendar picker
+  const navigateMonth = (direction) => {
+    const newDate = new Date(currentDate)
+    newDate.setMonth(newDate.getMonth() + direction)
+    setCurrentDate(newDate)
+  }
+
   // Function to refresh jobs silently in background
   const refreshJobsSilently = async () => {
     if (!currentUser?.id) return
     
     try {
-      console.log('🔄 Silently refreshing jobs...')
       const response = await jobsAPI.getAll(
         currentUser.id, 
         "", // status (empty to get all)
@@ -374,10 +367,8 @@ const ZenbookerSchedule = () => {
       )
       
       const allJobsData = response.jobs || response || []
-      console.log('✅ Jobs refreshed silently:', allJobsData.length, 'total jobs')
       setAllJobs(allJobsData)
     } catch (error) {
-      console.log('⚠️ Silent refresh failed:', error.message)
       // Don't show error to user for silent refresh
     }
   }
@@ -427,74 +418,7 @@ const ZenbookerSchedule = () => {
     }
   }
 
-  // Get filtered jobs based on current filters
-  const getFilteredJobs = () => {
-    let filtered = jobs
 
-    // Filter by status
-    if (filters.status !== 'all') {
-      filtered = filtered.filter(job => job.status === filters.status)
-    }
-
-    // Filter by team member
-    if (filters.teamMember !== 'all') {
-      if (filters.teamMember === 'unassigned') {
-        filtered = filtered.filter(job => !job.team_member_id)
-      } else {
-        filtered = filtered.filter(job => job.team_member_id === filters.teamMember)
-      }
-    }
-
-    // Filter by territory
-    if (filters.territory !== 'all') {
-      filtered = filtered.filter(job => {
-        // Check if job has territory information
-        if (job.territory) {
-          return job.territory === filters.territory
-        }
-        // If no territory on job, check team member's territory
-        if (job.team_member_id) {
-          const teamMember = teamMembers.find(tm => tm.id === job.team_member_id)
-          return teamMember?.territory === filters.territory
-        }
-        return false
-      })
-    }
-
-    // Filter by time range
-    if (filters.timeRange !== 'all') {
-      const now = new Date()
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-      
-      filtered = filtered.filter(job => {
-        // Extract time and date parts from scheduled_date string (format: "2024-01-15 10:00:00")
-        const jobDateTime = job.scheduled_date ? job.scheduled_date.split(' ') : ['', '']
-        const jobDateString = jobDateTime[0]
-        const jobTimeString = jobDateTime[1]
-        
-        if (!jobTimeString) return true
-        
-        const [hours] = jobTimeString.split(':')
-        const jobHour = parseInt(hours, 10)
-        const todayString = today.toISOString().split('T')[0]
-        
-        switch (filters.timeRange) {
-          case 'morning':
-            return jobHour < 12
-          case 'afternoon':
-            return jobHour >= 12 && jobHour < 17
-          case 'evening':
-            return jobHour >= 17
-          case 'today':
-            return jobDateString === todayString
-          default:
-            return true
-        }
-      })
-    }
-
-    return filtered
-  }
 
   const handleFilterChange = (filterType, value) => {
     setFilters(prev => ({
@@ -701,7 +625,6 @@ const ZenbookerSchedule = () => {
             className="text-center text-sm text-blue-600 mt-3 cursor-pointer hover:text-blue-800 hover:underline transition-colors"
             onClick={() => {
               // For now, just show all jobs - could be enhanced to show a modal or expand the map
-              console.log('Show all jobs with locations:', jobsWithLocation.length)
             }}
           >
             +{jobsWithLocation.length - 6} more jobs with locations
@@ -757,66 +680,75 @@ const ZenbookerSchedule = () => {
               return (
                 <div 
                   key={job.id} 
-                  className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 hover:shadow-lg hover:border-blue-300 transition-all duration-200 cursor-pointer"
+                  className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 hover:shadow-lg hover:border-blue-300 transition-all duration-200 cursor-pointer"
                   onClick={() => navigate(`/job/${job.id}`)}
                 >
-                  <div className="flex items-start space-x-3 mb-3">
-                    <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: memberColor }}>
-                      <span className="text-white font-semibold text-sm">
-                        {job.team_member_first_name?.charAt(0) || job.service_name?.charAt(0) || 'J'}
-                      </span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between">
+                  <div className="flex flex-col space-y-4 sm:flex-row sm:items-start sm:justify-between sm:space-y-0">
+                    <div className="flex-1">
+                      <div className="flex flex-col space-y-3 sm:flex-row sm:items-center sm:space-y-0 sm:space-x-3 mb-4">
+                        <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: memberColor }}>
+                          <span className="text-white font-semibold text-sm">
+                            {job.team_member_first_name?.charAt(0) || job.service_name?.charAt(0) || 'J'}
+                          </span>
+                        </div>
                         <div className="flex-1 min-w-0">
-                          <h3 className="text-base font-semibold text-gray-900 mb-1 truncate">
+                          <h3 className="text-lg font-semibold text-gray-900 mb-1 truncate">
                             {job.service_name || 'Service'}
                           </h3>
-                          <div className="text-sm text-gray-600 truncate">
+                          <div className="text-sm text-gray-600 truncate block">
                             {job.customer_first_name && job.customer_last_name 
                               ? `${job.customer_first_name} ${job.customer_last_name}`
                               : job.customer_first_name || job.customer_last_name || 'Client name placeholder'
                             }
                           </div>
                         </div>
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getStatusColor(job.status)} flex-shrink-0 ml-2`}>
+                        <span className={`px-3 py-1 text-xs font-medium rounded-full border ${getStatusColor(job.status)} flex-shrink-0`}>
                           {job.status ? job.status.replace('_', ' ') : 'Status placeholder'}
                         </span>
                       </div>
+                      
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-sm">
+                        <div className="flex items-center space-x-2 text-gray-600">
+                          <Clock className="w-4 h-4 flex-shrink-0" />
+                          <span className="truncate">
+                            {formatTime(job.scheduled_date)}
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-2 text-gray-600">
+                          <User className="w-4 h-4 flex-shrink-0" />
+                          <span className="truncate">
+                            {job.team_member_first_name && job.team_member_last_name 
+                              ? `${job.team_member_first_name} ${job.team_member_last_name}`
+                              : job.team_member_first_name || job.team_member_last_name || 'Unassigned'
+                            }
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-2 text-gray-600 sm:col-span-2">
+                          <MapPin className="w-4 h-4 flex-shrink-0" />
+                          <span className="truncate">{job.customer_address || 'Address not provided'}</span>
+                        </div>
+                        <div className="flex items-center space-x-2 text-gray-600">
+                          <DollarSign className="w-4 h-4 flex-shrink-0" />
+                          <span className="font-medium text-green-600">${job.service_price || '0'}</span>
+                        </div>
+                      </div>
+                      
+                      {job.notes && (
+                        <div className="mt-4 pt-4 border-t border-gray-100">
+                          <p className="text-sm text-gray-600 italic">"{job.notes}"</p>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2 sm:ml-4">
+                      <button 
+                        onClick={() => handleViewJob(job)}
+                        className="px-3 py-2 text-sm font-medium text-gray-600 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200"
+                      >
+                        View
+                      </button>
                     </div>
                   </div>
-                  
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center space-x-2 text-gray-600">
-                      <Clock className="w-4 h-4 flex-shrink-0" />
-                      <span className="truncate">
-                        {formatTime(job.scheduled_date)}
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-2 text-gray-600">
-                      <User className="w-4 h-4 flex-shrink-0" />
-                      <span className="truncate">
-                        {job.team_member_first_name && job.team_member_last_name 
-                          ? `${job.team_member_first_name} ${job.team_member_last_name}`
-                          : job.team_member_first_name || job.team_member_last_name || 'Unassigned'
-                        }
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-2 text-gray-600">
-                      <MapPin className="w-4 h-4 flex-shrink-0" />
-                      <span className="truncate">{job.customer_address || 'Address not provided'}</span>
-                    </div>
-                    <div className="flex items-center space-x-2 text-gray-600">
-                      <DollarSign className="w-4 h-4 flex-shrink-0" />
-                      <span className="font-medium text-green-600">${job.service_price || '0'}</span>
-                    </div>
-                  </div>
-                  
-                  {job.notes && (
-                    <div className="mt-3 pt-3 border-t border-gray-100">
-                      <p className="text-sm text-gray-600 italic">"{job.notes}"</p>
-                    </div>
-                  )}
                 </div>
               );
             })}
@@ -861,9 +793,18 @@ const ZenbookerSchedule = () => {
 
     const getJobsForDay = (date) => {
       return jobs.filter(job => {
-        // Extract date part from scheduled_date string (format: "2024-01-15 10:00:00")
-        const jobDateString = job.scheduled_date ? job.scheduled_date.split(' ')[0] : ''
-        const dateString = date.toISOString().split('T')[0]
+        // Handle both ISO format (2025-08-20T09:00:00) and space format (2025-08-20 09:00:00)
+        let jobDateString = ''
+        if (job.scheduled_date) {
+          if (job.scheduled_date.includes('T')) {
+            // ISO format: 2025-08-20T09:00:00
+            jobDateString = job.scheduled_date.split('T')[0]
+          } else {
+            // Space format: 2025-08-20 09:00:00
+            jobDateString = job.scheduled_date.split(' ')[0]
+          }
+        }
+        const dateString = date.toLocaleDateString('en-CA') // Returns YYYY-MM-DD format
         return jobDateString === dateString
       })
     }
@@ -871,27 +812,27 @@ const ZenbookerSchedule = () => {
     return (
       <div className="flex-1 bg-gray-50 overflow-y-auto">
         <div className="max-w-7xl mx-auto p-4 sm:p-6 pb-8">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-7 gap-4">
             {weekDays.map((day, index) => {
               const dayJobs = getJobsForDay(day)
               const isToday = day.toDateString() === new Date().toDateString()
               
               return (
-                <div key={index} className={`bg-white rounded-lg border ${isToday ? 'border-blue-300 shadow-md' : 'border-gray-200'} p-3 sm:p-4`}>
+                <div key={index} className={`bg-white rounded-lg border ${isToday ? 'border-blue-300 shadow-md' : 'border-gray-200'} p-4`}>
                   <div className="text-center mb-3">
-                    <div className={`text-xs sm:text-sm font-medium ${isToday ? 'text-blue-600' : 'text-gray-500'}`}>
+                    <div className={`text-sm font-medium ${isToday ? 'text-blue-600' : 'text-gray-500'}`}>
                       {day.toLocaleDateString('en-US', { weekday: 'short' })}
                     </div>
-                    <div className={`text-xl sm:text-2xl font-bold ${isToday ? 'text-blue-600' : 'text-gray-900'}`}>
+                    <div className={`text-2xl font-bold ${isToday ? 'text-blue-600' : 'text-gray-900'}`}>
                       {day.getDate()}
                     </div>
                   </div>
                   
-                  <div className="space-y-1 sm:space-y-2">
+                  <div className="space-y-2">
                     {dayJobs.map(job => (
                       <div 
                         key={job.id} 
-                        className="p-1.5 sm:p-2 bg-gray-50 rounded text-xs cursor-pointer hover:bg-gray-100 transition-colors"
+                        className="p-2 bg-gray-50 rounded text-xs cursor-pointer hover:bg-gray-100 transition-colors"
                         onClick={() => navigate(`/job/${job.id}`)}
                       >
                         <div className="font-medium truncate">{job.service_name || 'Service placeholder'}</div>
@@ -902,7 +843,7 @@ const ZenbookerSchedule = () => {
                           }
                         </div>
                         <div className="text-gray-500">
-                          {formatTime(job.scheduled_date)}
+                                                                            {formatTime(job.scheduled_date)}
                         </div>
                       </div>
                     ))}
@@ -941,9 +882,18 @@ const ZenbookerSchedule = () => {
 
     const getJobsForDay = (date) => {
       return jobs.filter(job => {
-        // Extract date part from scheduled_date string (format: "2024-01-15 10:00:00")
-        const jobDateString = job.scheduled_date ? job.scheduled_date.split(' ')[0] : ''
-        const dateString = date.toISOString().split('T')[0]
+        // Handle both ISO format (2025-08-20T09:00:00) and space format (2025-08-20 09:00:00)
+        let jobDateString = ''
+        if (job.scheduled_date) {
+          if (job.scheduled_date.includes('T')) {
+            // ISO format: 2025-08-20T09:00:00
+            jobDateString = job.scheduled_date.split('T')[0]
+          } else {
+            // Space format: 2025-08-20 09:00:00
+            jobDateString = job.scheduled_date.split(' ')[0]
+          }
+        }
+        const dateString = date.toLocaleDateString('en-CA') // Returns YYYY-MM-DD format
         return jobDateString === dateString
       })
     }
@@ -952,12 +902,12 @@ const ZenbookerSchedule = () => {
 
     return (
       <div className="flex-1 bg-gray-50 overflow-y-auto">
-        <div className="max-w-7xl mx-auto p-2 sm:p-4 lg:p-6 pb-8">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div className="max-w-7xl mx-auto p-4 sm:p-6 pb-8">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
             <div className="grid grid-cols-7 gap-px bg-gray-200">
               {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                <div key={day} className="bg-gray-50 p-1 sm:p-2 text-center">
-                  <div className="text-xs sm:text-sm font-medium text-gray-900">{day}</div>
+                <div key={day} className="bg-gray-50 p-2 text-center">
+                  <div className="text-sm font-medium text-gray-900">{day}</div>
                 </div>
               ))}
               
@@ -967,16 +917,16 @@ const ZenbookerSchedule = () => {
                 const isTodayDate = isToday(date)
                 
                 return (
-                  <div key={index} className={`bg-white min-h-[80px] sm:min-h-[100px] p-1 sm:p-2 ${!isCurrentMonthDay ? 'bg-gray-50' : ''}`}>
-                    <div className={`text-xs sm:text-sm font-medium mb-1 ${isTodayDate ? 'text-blue-600' : isCurrentMonthDay ? 'text-gray-900' : 'text-gray-400'}`}>
+                  <div key={index} className={`bg-white min-h-[100px] p-2 ${!isCurrentMonthDay ? 'bg-gray-50' : ''}`}>
+                    <div className={`text-sm font-medium mb-1 ${isTodayDate ? 'text-blue-600' : isCurrentMonthDay ? 'text-gray-900' : 'text-gray-400'}`}>
                       {date.getDate()}
                     </div>
                     
-                    <div className="space-y-0.5 sm:space-y-1">
-                      {dayJobs.slice(0, expandedDays.has(date.toISOString().split('T')[0]) ? dayJobs.length : 2).map(job => (
+                    <div className="space-y-1">
+                      {dayJobs.slice(0, expandedDays.has(date.toISOString().split('T')[0]) ? dayJobs.length : 3).map(job => (
                         <div 
                           key={job.id} 
-                          className="p-0.5 sm:p-1 bg-blue-50 rounded text-xs truncate cursor-pointer hover:bg-blue-100 transition-colors"
+                          className="p-1 bg-blue-50 rounded text-xs truncate cursor-pointer hover:bg-blue-100 transition-colors"
                           onClick={() => navigate(`/job/${job.id}`)}
                         >
                           <div className="font-medium truncate">{job.service_name || 'Service placeholder'}</div>
@@ -988,7 +938,7 @@ const ZenbookerSchedule = () => {
                           </div>
                         </div>
                       ))}
-                      {dayJobs.length > 2 && !expandedDays.has(date.toISOString().split('T')[0]) && (
+                      {dayJobs.length > 3 && !expandedDays.has(date.toISOString().split('T')[0]) && (
                         <div 
                           className="text-xs text-blue-600 text-center cursor-pointer hover:text-blue-800 hover:underline transition-colors"
                           onClick={(e) => {
@@ -996,7 +946,7 @@ const ZenbookerSchedule = () => {
                             toggleDayExpansion(date.toISOString().split('T')[0])
                           }}
                         >
-                          +{dayJobs.length - 2} more
+                          +{dayJobs.length - 3} more
                         </div>
                       )}
                       {expandedDays.has(date.toISOString().split('T')[0]) && (
@@ -1048,50 +998,6 @@ const ZenbookerSchedule = () => {
           />
         </div>
         
-        {/* Mobile Schedule Sidebar Overlay */}
-        {scheduleSidebarOpen && (
-          <div className="fixed inset-0 z-40 lg:hidden">
-            <div className="fixed inset-0 bg-gray-600 bg-opacity-75" onClick={() => setScheduleSidebarOpen(false)} />
-            <div className="fixed inset-y-0 left-0 flex max-w-xs w-full">
-              <div className="relative flex-1 flex flex-col max-w-xs w-full bg-white">
-                <div className="absolute top-0 right-0 -mr-12 pt-2">
-                  <button
-                    type="button"
-                    className="ml-1 flex items-center justify-center h-10 w-10 rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
-                    onClick={() => setScheduleSidebarOpen(false)}
-                  >
-                    <span className="sr-only">Close sidebar</span>
-                    <XCircle className="h-6 w-6 text-white" />
-                  </button>
-                </div>
-                <div className="flex-shrink-0 px-4 py-3 border-b border-gray-200">
-                  <h2 className="text-lg font-semibold text-gray-900">Filters</h2>
-                  <p className="text-sm text-gray-500">Filter your schedule view</p>
-                </div>
-                <div className="flex-1 overflow-y-auto">
-                  <ScheduleSidebar 
-                    filters={filters}
-                    onFilterChange={(filterType, value) => {
-                      handleFilterChange(filterType, value)
-                      // Auto-close sidebar on mobile after filter change
-                      setTimeout(() => setScheduleSidebarOpen(false), 300)
-                    }}
-                    teamMembers={teamMembers}
-                  />
-                </div>
-                <div className="flex-shrink-0 p-4 border-t border-gray-200">
-                  <button
-                    onClick={() => setScheduleSidebarOpen(false)}
-                    className="w-full px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                  >
-                    Close Filters
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-        
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden h-full">
           <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
           
@@ -1099,7 +1005,7 @@ const ZenbookerSchedule = () => {
           <div className="border-b border-gray-200 bg-white flex-shrink-0">
             <div className="px-4 sm:px-6 py-4">
               <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
-                <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-4 relative">
                   <button
                     onClick={handleCreateJob}
                     className="w-10 h-10 bg-primary-600 text-white rounded-full flex items-center justify-center hover:bg-primary-700 transition-all duration-200 transform hover:scale-[1.02] focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
@@ -1121,9 +1027,12 @@ const ZenbookerSchedule = () => {
                       <ChevronLeft className="w-5 h-5" />
                     </button>
                     
-                    <span className="font-medium text-sm sm:text-base">
+                    <button
+                      onClick={() => setShowCalendarPicker(!showCalendarPicker)}
+                      className="font-medium text-sm sm:text-base hover:text-blue-600 hover:bg-blue-50 px-2 py-1 rounded transition-colors cursor-pointer"
+                    >
                       {formatDate(currentDate, currentView)}
-                    </span>
+                    </button>
                     
                     <button
                       onClick={() => navigateDate(1)}
@@ -1138,10 +1047,113 @@ const ZenbookerSchedule = () => {
                       <ChevronRight className="w-5 h-5" />
                     </button>
                   </div>
+                  
+                  {/* Calendar Picker Dropdown */}
+                  {showCalendarPicker && (
+                    <div 
+                      ref={calendarRef}
+                      className="absolute top-full left-1/2 transform -translate-x-1/2 sm:left-0 sm:transform-none mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 p-3 sm:p-4 min-w-[280px] sm:min-w-[320px] max-w-[90vw] sm:max-w-none"
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <button
+                          onClick={() => navigateMonth(-1)}
+                          className="p-2 sm:p-1 hover:bg-gray-100 rounded transition-colors"
+                          title="Previous month"
+                        >
+                          <ChevronLeft className="w-5 h-5 sm:w-4 sm:h-4" />
+                        </button>
+                        <span className="font-medium text-sm sm:text-base">
+                          {currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                        </span>
+                        <button
+                          onClick={() => navigateMonth(1)}
+                          className="p-2 sm:p-1 hover:bg-gray-100 rounded transition-colors"
+                          title="Next month"
+                        >
+                          <ChevronRight className="w-5 h-5 sm:w-4 sm:h-4" />
+                        </button>
+                      </div>
+                      
+                      {/* Calendar Grid */}
+                      <div className="grid grid-cols-7 gap-1 text-xs">
+                        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                          <div key={day} className="p-1 sm:p-1 text-center text-gray-500 font-medium text-xs sm:text-sm">
+                            {day}
+                          </div>
+                        ))}
+                        
+                        {generateCalendarDays().map((date, index) => {
+                          if (!date) return <div key={index} className="p-1" />
+                          
+                          const isCurrentMonth = date.getMonth() === currentDate.getMonth()
+                          const isToday = date.toDateString() === new Date().toDateString()
+                          const isSelected = date.toDateString() === currentDate.toDateString()
+                          
+                          return (
+                            <button
+                              key={index}
+                              onClick={() => {
+                                setCurrentDate(date)
+                                setShowCalendarPicker(false)
+                              }}
+                              className={`p-2 sm:p-1 rounded text-xs sm:text-sm transition-colors ${
+                                !isCurrentMonth 
+                                  ? 'text-gray-300' 
+                                  : isToday 
+                                    ? 'bg-blue-100 text-blue-700 font-semibold' 
+                                    : isSelected 
+                                      ? 'bg-gray-200 text-gray-900 font-semibold'
+                                      : 'hover:bg-gray-100 text-gray-700'
+                              }`}
+                            >
+                              {date.getDate()}
+                            </button>
+                          )
+                        })}
+                      </div>
+                      
+                      {/* Quick Actions */}
+                      <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-200">
+                        <button
+                          onClick={() => {
+                            setCurrentDate(new Date())
+                            setShowCalendarPicker(false)
+                          }}
+                          className="text-xs sm:text-sm text-blue-600 hover:text-blue-700 font-medium px-2 py-1 rounded hover:bg-blue-50"
+                        >
+                          Today
+                        </button>
+                        <button
+                          onClick={() => setShowCalendarPicker(false)}
+                          className="text-xs sm:text-sm text-gray-500 hover:text-gray-700 font-medium px-2 py-1 rounded hover:bg-gray-50"
+                        >
+                          Close
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="flex items-center space-x-2 sm:space-x-4">
                   {/* Mobile Filter Button */}
+                  <button
+                    onClick={() => setScheduleSidebarOpen(true)}
+                    className={`lg:hidden p-2 rounded-lg transition-colors relative ${
+                      (filters.status !== 'all' || filters.teamMember !== 'all' || filters.timeRange !== 'all' || filters.territory !== 'all')
+                        ? 'text-blue-600 bg-blue-50 hover:bg-blue-100'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                    }`}
+                    title="Open filters"
+                  >
+                    {/* <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.207A1 1 0 013 6.5V4z" />
+                    </svg> */}
+                    {(filters.status !== 'all' || filters.teamMember !== 'all' || filters.timeRange !== 'all' || filters.territory !== 'all') && (
+                      <span className="absolute -top-1 -right-1 w-3 h-3 bg-blue-600 rounded-full"></span>
+                    )}
+                  </button>
+                  
+                  {/* New Filter Button with Filter Icon */}
                   <button
                     onClick={() => setScheduleSidebarOpen(true)}
                     className={`lg:hidden p-2 rounded-lg transition-colors relative ${
@@ -1158,100 +1170,6 @@ const ZenbookerSchedule = () => {
                   </button>
                   
                   <div className="flex items-center space-x-1 sm:space-x-2">
-                    {/* Calendar Date Picker */}
-                    <div className="relative" ref={calendarRef}>
-                      <button
-                        onClick={() => setShowCalendarPicker(!showCalendarPicker)}
-                        className="flex items-center space-x-2 px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors"
-                        title="Select date"
-                      >
-                        <Calendar className="w-4 h-4" />
-                        <span className="hidden sm:inline">Pick Date</span>
-                      </button>
-                      
-                      {/* Calendar Dropdown */}
-                      {showCalendarPicker && (
-                        <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 p-3 min-w-[280px] sm:min-w-[320px]">
-                          <div className="flex items-center justify-between mb-3">
-                            <button
-                              onClick={() => navigateMonth(-1)}
-                              className="p-1 hover:bg-gray-100 rounded transition-colors"
-                              title="Previous month"
-                            >
-                              <ChevronLeft className="w-4 h-4" />
-                            </button>
-                            <span className="font-medium text-sm sm:text-base">
-                              {currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-                            </span>
-                            <button
-                              onClick={() => navigateMonth(1)}
-                              className="p-1 hover:bg-gray-100 rounded transition-colors"
-                              title="Next month"
-                            >
-                              <ChevronRight className="w-4 h-4" />
-                            </button>
-                          </div>
-                          
-                          {/* Calendar Grid */}
-                          <div className="grid grid-cols-7 gap-1 text-xs">
-                            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                              <div key={day} className="p-1 text-center text-gray-500 font-medium text-xs sm:text-sm">
-                                {day}
-                              </div>
-                            ))}
-                            
-                            {generateCalendarDays().map((date, index) => {
-                              if (!date) return <div key={index} className="p-1" />
-                              
-                              const isCurrentMonth = date.getMonth() === currentDate.getMonth()
-                              const isToday = date.toDateString() === new Date().toDateString()
-                              const isSelected = date.toDateString() === currentDate.toDateString()
-                              
-                              return (
-                                <button
-                                  key={index}
-                                  onClick={() => {
-                                    setCurrentDate(date)
-                                    setShowCalendarPicker(false)
-                                  }}
-                                  className={`p-1 sm:p-2 rounded text-xs sm:text-sm transition-colors ${
-                                    !isCurrentMonth 
-                                      ? 'text-gray-300' 
-                                      : isToday 
-                                        ? 'bg-blue-100 text-blue-700 font-semibold' 
-                                        : isSelected 
-                                          ? 'bg-gray-200 text-gray-900 font-semibold'
-                                          : 'hover:bg-gray-100 text-gray-700'
-                                  }`}
-                                >
-                                  {date.getDate()}
-                                </button>
-                              )
-                            })}
-                          </div>
-                          
-                          {/* Quick Actions */}
-                          <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-200">
-                            <button
-                              onClick={() => {
-                                setCurrentDate(new Date())
-                                setShowCalendarPicker(false)
-                              }}
-                              className="text-xs text-blue-600 hover:text-blue-700 font-medium"
-                            >
-                              Today
-                            </button>
-                            <button
-                              onClick={() => setShowCalendarPicker(false)}
-                              className="text-xs text-gray-500 hover:text-gray-700"
-                            >
-                              Close
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    
                     <button
                       onClick={() => setCurrentView("day")}
                       className={`px-2 sm:px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-colors ${
@@ -1277,6 +1195,8 @@ const ZenbookerSchedule = () => {
                       Month
                     </button>
                   </div>
+                  
+
                 </div>
               </div>
             </div>
@@ -1285,6 +1205,52 @@ const ZenbookerSchedule = () => {
           {renderView()}
         </div>
       </div>
+      
+      {/* Mobile Filter Sidebar Overlay */}
+      {scheduleSidebarOpen && (
+        <div className="fixed inset-0 z-40 lg:hidden">
+          <div className="fixed inset-0 bg-gray-600 bg-opacity-75" onClick={() => setScheduleSidebarOpen(false)} />
+          <div className="fixed inset-y-0 left-0 flex max-w-xs w-full">
+            <div className="relative flex-1 flex flex-col max-w-xs w-full bg-white">
+              <div className="absolute top-0 right-0 -mr-12 pt-2">
+                <button
+                  type="button"
+                  className="ml-1 flex items-center justify-center h-10 w-10 rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
+                  onClick={() => setScheduleSidebarOpen(false)}
+                >
+                  <span className="sr-only">Close sidebar</span>
+                  <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div className="flex-shrink-0 px-4 py-3 border-b border-gray-200">
+                <h2 className="text-lg font-semibold text-gray-900">Filters</h2>
+                <p className="text-sm text-gray-500">Filter your schedule view</p>
+              </div>
+              <div className="flex-1 overflow-y-auto">
+                <ScheduleSidebar 
+                  filters={filters}
+                  onFilterChange={(filterType, value) => {
+                    handleFilterChange(filterType, value)
+                    // Auto-close sidebar on mobile after filter change
+                    setTimeout(() => setScheduleSidebarOpen(false), 300)
+                  }}
+                  teamMembers={teamMembers}
+                />
+              </div>
+              <div className="flex-shrink-0 p-4 border-t border-gray-200">
+                <button
+                  onClick={() => setScheduleSidebarOpen(false)}
+                  className="w-full px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Close Filters
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
 
 
