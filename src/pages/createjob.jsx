@@ -76,7 +76,6 @@ import { useHashRouter } from '../hooks/useHashRouter';
 
 export default function CreateJobPage() {
   const navigate = useNavigate();
-  const { navigate: hashNavigate, navigateReplace } = useHashRouter();
   const { user, loading: authLoading } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
@@ -870,11 +869,11 @@ export default function CreateJobPage() {
         if (jobId) {
           console.log('Navigating to job details page:', `/job/${jobId}`);
           // Use replace to prevent back button issues
-          navigateReplace(`/job/${jobId}`);
+          navigate(`/job/${jobId}`);
         } else {
           console.log('No job ID found, navigating to jobs page');
           // If no job ID returned, navigate to jobs page
-          navigateReplace('/jobs');
+          navigate('/jobs');
         }
       }, 1500);
     } catch (error) {
@@ -1389,7 +1388,7 @@ export default function CreateJobPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <button
-                onClick={() => hashNavigate('/jobs')}
+                onClick={() => navigate('/jobs')}
                 className="flex items-center text-blue-600 hover:text-blue-700"
               >
                 <ArrowLeft className="w-5 h-5 mr-2" />
@@ -2277,7 +2276,7 @@ export default function CreateJobPage() {
             <div className="flex justify-end space-x-4">
               <button
                 type="button"
-                onClick={() => hashNavigate('/jobs')}
+                onClick={() => navigate('/jobs')}
                 className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
               >
                 Cancel
