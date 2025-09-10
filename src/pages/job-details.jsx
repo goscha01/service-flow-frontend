@@ -104,6 +104,44 @@ const JobDetails = () => {
   const [showSendInvoiceModal, setShowSendInvoiceModal] = useState(false)
   const [showAddPaymentModal, setShowAddPaymentModal] = useState(false)
 
+  // Update form data when edit address modal opens
+  useEffect(() => {
+    if (showEditAddressModal && job) {
+      setFormData(prev => ({
+        ...prev,
+        serviceAddress: {
+          street: job.customer_address || job.service_address_street || "",
+          city: job.customer_city || job.service_address_city || "",
+          state: job.customer_state || job.service_address_state || "",
+          zipCode: job.customer_zip_code || job.service_address_zip || ""
+        }
+      }))
+    }
+  }, [showEditAddressModal, job])
+
+  // Update form data when edit service modal opens
+  useEffect(() => {
+    if (showEditServiceModal && job) {
+      console.log('Updating formData for edit service modal:', {
+        service_price: job.service_price,
+        discount: job.discount,
+        additional_fees: job.additional_fees,
+        taxes: job.taxes,
+        total: job.total
+      })
+      setFormData(prev => ({
+        ...prev,
+        service_name: job.service_name || "",
+        bathroom_count: job.bathroom_count || "",
+        duration: job.duration || job.estimated_duration || 0,
+        service_price: job.service_price || 0,
+        discount: job.discount || 0,
+        additional_fees: job.additional_fees || 0,
+        taxes: job.taxes || 0
+      }))
+    }
+  }, [showEditServiceModal, job])
+
   // Data state
   const [territories, setTerritories] = useState([])
   const [teamMembers, setTeamMembers] = useState([])
@@ -195,14 +233,19 @@ const JobDetails = () => {
           notes: mappedJobData.notes || "",
           internal_notes: mappedJobData.internal_notes || "",
           serviceAddress: {
-            street: mappedJobData.service_address_street || "",
-            city: mappedJobData.service_address_city || "",
-            state: mappedJobData.service_address_state || "",
-            zipCode: mappedJobData.service_address_zip || ""
+            street: mappedJobData.customer_address || mappedJobData.service_address_street || "",
+            city: mappedJobData.customer_city || mappedJobData.service_address_city || "",
+            state: mappedJobData.customer_state || mappedJobData.service_address_state || "",
+            zipCode: mappedJobData.customer_zip_code || mappedJobData.service_address_zip || ""
           },
           scheduledDate: mappedJobData.scheduled_date ? (mappedJobData.scheduled_date.includes('T') ? mappedJobData.scheduled_date.split('T')[0] : mappedJobData.scheduled_date.split(' ')[0]) : "",
           scheduledTime: mappedJobData.scheduled_date ? (mappedJobData.scheduled_date.includes('T') ? mappedJobData.scheduled_date.split('T')[1]?.substring(0, 5) : mappedJobData.scheduled_date.split(' ')[1]?.substring(0, 5)) : "",
-          offer_to_providers: mappedJobData.offer_to_providers || false
+          offer_to_providers: mappedJobData.offer_to_providers || false,
+          // Pricing fields
+          service_price: mappedJobData.service_price || 0,
+          discount: mappedJobData.discount || 0,
+          additional_fees: mappedJobData.additional_fees || 0,
+          taxes: mappedJobData.taxes || 0
         })
 
         // Initialize intake question answers
@@ -316,7 +359,16 @@ const JobDetails = () => {
           state: formData.serviceAddress.state,
           zipCode: formData.serviceAddress.zipCode
         },
-        offerToProviders: formData.offerToProviders
+        offerToProviders: formData.offerToProviders,
+        // Pricing fields - use formData if available, otherwise use current job values
+        servicePrice: formData.service_price !== undefined ? formData.service_price : (job.service_price || 0),
+        discount: formData.discount !== undefined ? formData.discount : (job.discount || 0),
+        additionalFees: formData.additional_fees !== undefined ? formData.additional_fees : (job.additional_fees || 0),
+        taxes: formData.taxes !== undefined ? formData.taxes : (job.taxes || 0),
+        total: (formData.service_price !== undefined ? formData.service_price : (job.service_price || 0)) + 
+               (formData.additional_fees !== undefined ? formData.additional_fees : (job.additional_fees || 0)) + 
+               (formData.taxes !== undefined ? formData.taxes : (job.taxes || 0)) - 
+               (formData.discount !== undefined ? formData.discount : (job.discount || 0))
       }
       
 
@@ -501,6 +553,7 @@ const JobDetails = () => {
   }
 
   const handleIntakeQuestionsChange = (answers) => {
+    console.log('🔄 Job Details: Intake questions changed', answers);
     setIntakeQuestionAnswers(answers)
   }
 
@@ -996,7 +1049,7 @@ const JobDetails = () => {
                       </div>
                     </div>
                   ) : (
-                    <p className="font-semibold text-gray-900">{job.service_name}</p>
+                  <p className="font-semibold text-gray-900">{job.service_name}</p>
                   )}
                   <p className="text-gray-600 text-sm mb-2">
                     {job.service_names && job.service_names.length > 1 ? `${job.service_names.length} services` : 'Default service category'}
@@ -1297,7 +1350,10 @@ const JobDetails = () => {
                   })()}
                 </div>
 
-                <button className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center">
+                <button 
+                  onClick={() => setShowEditServiceModal(true)}
+                  className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center"
+                >
                   <Edit className="w-4 h-4 mr-1" />
                   Edit Service & Pricing
                 </button>
@@ -1455,7 +1511,16 @@ const JobDetails = () => {
                   Customer Questions & Answers
                 </h3>
                 <button
-                  onClick={() => setEditingField(editingField === 'intakeQuestions' ? null : 'intakeQuestions')}
+                  onClick={() => {
+                    const newEditingField = editingField === 'intakeQuestions' ? null : 'intakeQuestions';
+                    console.log('🔄 Job Details: Edit button clicked', { 
+                      currentEditingField: editingField, 
+                      newEditingField,
+                      intakeQuestionAnswers,
+                      serviceIntakeQuestions: job?.service_intake_questions 
+                    });
+                    setEditingField(newEditingField);
+                  }}
                   className="px-3 py-1 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 flex items-center space-x-2"
                 >
                   <Edit className="w-4 h-4" />
@@ -1466,6 +1531,7 @@ const JobDetails = () => {
               {editingField === 'intakeQuestions' ? (
                 <div>
                   <IntakeQuestionsForm
+                    key={`intake-questions-${editingField}`}
                     questions={job.service_intake_questions || []}
                     onAnswersChange={handleIntakeQuestionsChange}
                     isEditable={true}
@@ -1489,20 +1555,20 @@ const JobDetails = () => {
                   </div>
                 </div>
               ) : (
-                <IntakeAnswersDisplay intakeAnswers={(() => {
-                  // Get intake questions and answers from job data
-                  const intakeQuestionsAndAnswers = job.service_intake_questions || [];
-                  
-                  // Convert to the format expected by IntakeAnswersDisplay
-                  return intakeQuestionsAndAnswers.map(question => {
-                    return {
-                      question_text: question.question,
-                      question_type: question.questionType,
-                      answer: question.answer || null,
-                      created_at: job.created_at
-                    };
-                  });
-                })()} />
+            <IntakeAnswersDisplay intakeAnswers={(() => {
+              // Get intake questions and answers from job data
+              const intakeQuestionsAndAnswers = job.service_intake_questions || [];
+              
+              // Convert to the format expected by IntakeAnswersDisplay
+              return intakeQuestionsAndAnswers.map(question => {
+                return {
+                  question_text: question.question,
+                  question_type: question.questionType,
+                  answer: question.answer || null,
+                  created_at: job.created_at
+                };
+              });
+            })()} />
               )}
             </div>
 
@@ -1912,8 +1978,8 @@ const JobDetails = () => {
         {/* Edit Service Modal */}
         {showEditServiceModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-              <div className="p-6">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] flex flex-col">
+              <div className="p-6 flex-1 overflow-y-auto">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold text-gray-900">Edit Service</h3>
                   <button
@@ -1934,15 +2000,6 @@ const JobDetails = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Bathroom Details</label>
-                    <input
-                      type="text"
-                      value={formData.bathroom_count}
-                      onChange={e => setFormData(prev => ({ ...prev, bathroom_count: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Duration (minutes)</label>
                     <input
                       type="number"
@@ -1951,9 +2008,71 @@ const JobDetails = () => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
+                  
+                  {/* Pricing Section */}
+                  <div className="border-t pt-4">
+                    <h4 className="text-sm font-medium text-gray-700 mb-3">Pricing</h4>
+                    <div className="space-y-3">
+                  <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Base Service Price ($)</label>
+                    <input
+                      type="number"
+                          step="0.01"
+                          defaultValue={job?.service_price || 0}
+                          onChange={e => setFormData(prev => ({ ...prev, service_price: parseFloat(e.target.value) || 0 }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="0.00"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Discount ($)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          defaultValue={job?.discount || 0}
+                          onChange={e => setFormData(prev => ({ ...prev, discount: parseFloat(e.target.value) || 0 }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="0.00"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Additional Fees ($)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          defaultValue={job?.additional_fees || 0}
+                          onChange={e => setFormData(prev => ({ ...prev, additional_fees: parseFloat(e.target.value) || 0 }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="0.00"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Taxes ($)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          defaultValue={job?.taxes || 0}
+                          onChange={e => setFormData(prev => ({ ...prev, taxes: parseFloat(e.target.value) || 0 }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="0.00"
+                        />
+                      </div>
+                      <div className="bg-gray-50 p-3 rounded-lg">
+                        <div className="flex justify-between text-sm">
+                          <span className="font-medium">Total:</span>
+                          <span className="font-semibold">
+                            ${((job?.service_price || 0) + (job?.additional_fees || 0) + (job?.taxes || 0) - (job?.discount || 0)).toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  </div>
                 </div>
                 
-                <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 mt-6">
+              {/* Fixed footer with buttons */}
+              <div className="p-6 border-t border-gray-200 bg-gray-50">
+                <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3">
                   <button
                     onClick={() => setShowEditServiceModal(false)}
                     className="px-4 py-2 text-gray-600 hover:text-gray-800 order-2 sm:order-1"

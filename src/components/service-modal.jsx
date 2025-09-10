@@ -7,12 +7,27 @@ export default function ServiceModal({ isOpen, onClose, onSave }) {
     name: "",
     description: "",
     price: "",
-    duration: "",
+    duration: 30, // Default to 30 minutes
     category: "",
     require_payment_method: false,
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // Reset form when modal opens
+  React.useEffect(() => {
+    if (isOpen) {
+      setFormData({
+        name: "",
+        description: "",
+        price: "",
+        duration: 30, // Default to 30 minutes
+        category: "",
+        require_payment_method: false,
+      });
+      setError("");
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -24,31 +39,68 @@ export default function ServiceModal({ isOpen, onClose, onSave }) {
     }));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     setError("");
-    if (!formData.name) {
+    
+    console.log('Form data before validation:', formData);
+    console.log('Auth token exists:', !!localStorage.getItem('authToken'));
+    console.log('User from localStorage:', localStorage.getItem('user'));
+    
+    if (!formData.name || formData.name.trim() === '') {
+      console.error('Validation failed: Service name is empty or undefined');
       setError("Service name is required.");
       return;
     }
+    
     setLoading(true);
     try {
-      const userId = JSON.parse(localStorage.getItem("user"))?.id;
+      const user = JSON.parse(localStorage.getItem("user"));
+      const userId = user?.id;
+      
+      console.log('User object:', user);
+      console.log('User ID:', userId);
+      
+      if (!userId) {
+        throw new Error('User ID not found in localStorage');
+      }
+      
       const payload = {
         ...formData,
         userId,
+        name: formData.name.trim(),
         price: formData.price ? parseFloat(formData.price) : null,
         duration: formData.duration ? parseInt(formData.duration, 10) : null,
       };
+      
       console.log('Service creation payload:', payload);
+      console.log('Payload validation:');
+      console.log('- Name:', payload.name, '(length:', payload.name.length, ')');
+      console.log('- UserId:', payload.userId);
+      console.log('- Duration:', payload.duration);
+      console.log('- Price:', payload.price);
+      
       const response = await servicesAPI.create(payload);
+      console.log('Service creation response:', response);
       onSave(response);
+      
+      // Reset form after successful creation
+      setFormData({
+        name: "",
+        description: "",
+        price: "",
+        duration: 30,
+        category: "",
+        require_payment_method: false,
+      });
+      
       onClose();
     } catch (err) {
       console.error('Service creation error:', err);
       console.error('Error response:', err?.response?.data);
+      console.error('Error status:', err?.response?.status);
+      console.error('Error message:', err?.message);
       setError(
-        err?.response?.data?.error || "Failed to create service. Please try again."
+        err?.response?.data?.error || err?.message || "Failed to create service. Please try again."
       );
     } finally {
       setLoading(false);
@@ -69,7 +121,13 @@ export default function ServiceModal({ isOpen, onClose, onSave }) {
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4 text-red-700 text-sm">{error}</div>
         )}
-        <form onSubmit={handleSubmit} className="space-y-5">
+        {/* Debug info - remove in production */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mb-4 text-xs text-gray-600">
+            <strong>Debug:</strong> Name: "{formData.name}", Duration: {formData.duration}, Price: "{formData.price}"
+          </div>
+        )}
+        <div className="space-y-5">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
             <input
@@ -99,6 +157,13 @@ export default function ServiceModal({ isOpen, onClose, onSave }) {
                 name="price"
                 value={formData.price}
                 onChange={handleChange}
+                onFocus={(e) => {
+                  e.target.select()
+                  // Clear default values when focusing
+                  if (e.target.value === '0' || e.target.value === '0.00') {
+                    e.target.value = ''
+                  }
+                }}
                 min="0"
                 step="0.01"
                 className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
@@ -106,17 +171,54 @@ export default function ServiceModal({ isOpen, onClose, onSave }) {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Duration (min)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Duration</label>
+              <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-1">
+                  <input
+                    type="number"
+                    value={Math.floor((formData.duration || 0) / 60)}
+                    onChange={(e) => {
+                      const hours = parseInt(e.target.value) || 0
+                      const minutes = (formData.duration || 0) % 60
+                      handleChange({ target: { name: 'duration', value: hours * 60 + minutes } })
+                    }}
+                    onFocus={(e) => {
+                      e.target.select()
+                      // Clear default values when focusing
+                      if (e.target.value === '0') {
+                        e.target.value = ''
+                      }
+                    }}
+                    min="0"
+                    className="w-16 border border-gray-300 rounded-lg px-2 py-2 text-center focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
+                    placeholder="0"
+                  />
+                  <span className="text-sm text-gray-600">hr</span>
+                </div>
+                <div className="flex items-center space-x-1">
               <input
                 type="number"
-                name="duration"
-                value={formData.duration}
-                onChange={handleChange}
-                min="1"
-                step="1"
-                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
+                    value={(formData.duration || 0) % 60}
+                    onChange={(e) => {
+                      const hours = Math.floor((formData.duration || 0) / 60)
+                      const minutes = parseInt(e.target.value) || 0
+                      handleChange({ target: { name: 'duration', value: hours * 60 + minutes } })
+                    }}
+                    onFocus={(e) => {
+                      e.target.select()
+                      // Clear default values when focusing
+                      if (e.target.value === '0' || e.target.value === '30') {
+                        e.target.value = ''
+                      }
+                    }}
+                    min="0"
+                    max="59"
+                    className="w-16 border border-gray-300 rounded-lg px-2 py-2 text-center focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
                 placeholder="30"
               />
+                  <span className="text-sm text-gray-600">min</span>
+                </div>
+              </div>
             </div>
           </div>
           <div>
@@ -144,14 +246,15 @@ export default function ServiceModal({ isOpen, onClose, onSave }) {
           </div>
           <div className="flex justify-end">
             <button
-              type="submit"
+              type="button"
+              onClick={handleSubmit}
               disabled={loading}
               className="px-6 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50"
             >
               {loading ? "Creating..." : "Create Service"}
             </button>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );

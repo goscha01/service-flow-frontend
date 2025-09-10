@@ -103,6 +103,13 @@ const ModifierModal = ({ isOpen, onClose, editingModifier = null, onSave }) => {
                   type="number"
                   value={formData.amount}
                   onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                  onFocus={(e) => {
+                    e.target.select()
+                    // Clear default values when focusing
+                    if (e.target.value === '0' || e.target.value === '0.00') {
+                      e.target.value = ''
+                    }
+                  }}
                   placeholder={formData.type === "percentage" ? "25" : "50"}
                   className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                     formData.type === "fixed" ? "pl-8" : "pr-8"

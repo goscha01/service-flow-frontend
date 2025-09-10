@@ -147,7 +147,7 @@ export const AuthProvider = ({ children }) => {
       const token = localStorage.getItem('authToken');
       if (token && isTokenExpired(token)) {
         logout();
-        window.location.href = '/signin';
+        window.location.hash = '#/signin';
       }
     }, 60 * 1000); // check every minute
     return () => clearInterval(interval);

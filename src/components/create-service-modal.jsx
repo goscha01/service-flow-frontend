@@ -275,6 +275,18 @@ const CreateServiceModal = ({ isOpen, onClose, onCreateService, onStartWithTempl
                     type="number"
                     value={formData.price}
                     onChange={(e) => handleInputChange('price', e.target.value)}
+                    onFocus={(e) => {
+                      e.target.select()
+                      // Clear default values when focusing
+                      if (e.target.value === '0' || e.target.value === '0.00') {
+                        e.target.value = ''
+                      }
+                    }}
+                    onBlur={(e) => {
+                      if (e.target.value === '') {
+                        handleInputChange('price', '')
+                      }
+                    }}
                     placeholder="0.00"
                     min="0"
                     step="0.01"
@@ -296,6 +308,17 @@ const CreateServiceModal = ({ isOpen, onClose, onCreateService, onStartWithTempl
                     type="number"
                     value={formData.duration.hours}
                     onChange={(e) => handleDurationChange('hours', e.target.value)}
+                    onFocus={(e) => {
+                      e.target.select()
+                      if (e.target.value === '0') {
+                        e.target.value = ''
+                      }
+                    }}
+                    onBlur={(e) => {
+                      if (e.target.value === '') {
+                        handleDurationChange('hours', '0')
+                      }
+                    }}
                     placeholder="0"
                     min="0"
                     className="w-16 border border-gray-300 rounded-lg px-2 py-2 text-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -307,6 +330,18 @@ const CreateServiceModal = ({ isOpen, onClose, onCreateService, onStartWithTempl
                     type="number"
                     value={formData.duration.minutes}
                     onChange={(e) => handleDurationChange('minutes', e.target.value)}
+                    onFocus={(e) => {
+                      e.target.select()
+                      // Clear default values when focusing
+                      if (e.target.value === '30' || e.target.value === '0') {
+                        e.target.value = ''
+                      }
+                    }}
+                    onBlur={(e) => {
+                      if (e.target.value === '') {
+                        handleDurationChange('minutes', '30')
+                      }
+                    }}
                     placeholder="30"
                     min="0"
                     max="59"

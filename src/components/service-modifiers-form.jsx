@@ -1,17 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Plus, Minus, Image as ImageIcon, Save } from 'lucide-react';
 
-const ServiceModifiersForm = ({ modifiers = [], onModifiersChange, onSave, isEditable = false, isSaving = false }) => {
-  const [selectedModifiers, setSelectedModifiers] = useState({});
+const ServiceModifiersForm = ({ modifiers = [], selectedModifiers: parentSelectedModifiers = {}, onModifiersChange, onSave, isEditable = false, isSaving = false }) => {
+  // Use parent selectedModifiers directly, with fallback to internal state for user interactions
+  const [internalSelectedModifiers, setInternalSelectedModifiers] = useState({});
+  
+  // Merge parent selections with any additional internal selections
+  const selectedModifiers = useMemo(() => {
+    return { ...parentSelectedModifiers, ...internalSelectedModifiers };
+  }, [parentSelectedModifiers, internalSelectedModifiers]);
 
-  console.log('🔄 ServiceModifiersForm render:', { 
-    modifiersCount: modifiers?.length, 
-    modifiers: modifiers,
-    modifiersType: typeof modifiers,
-    modifiersIsArray: Array.isArray(modifiers),
-    selectedModifiers, 
-    isEditable 
-  });
 
   const handleModifierChange = (modifierId, optionId, value) => {
     const currentModifier = selectedModifiers[modifierId] || {};
@@ -61,14 +59,19 @@ const ServiceModifiersForm = ({ modifiers = [], onModifiersChange, onSave, isEdi
       };
     }
 
-    const updatedModifiers = {
-      ...selectedModifiers,
+    const updatedInternalModifiers = {
+      ...internalSelectedModifiers,
       [modifierId]: newValue
     };
 
-    console.log('🔄 Modifier change:', { modifierId, optionId, value, newValue, updatedModifiers });
-    setSelectedModifiers(updatedModifiers);
-    onModifiersChange(updatedModifiers);
+    setInternalSelectedModifiers(updatedInternalModifiers);
+    
+    // Send the complete merged state to parent
+    const completeUpdatedModifiers = {
+      ...parentSelectedModifiers,
+      ...updatedInternalModifiers
+    };
+    onModifiersChange(completeUpdatedModifiers);
   };
 
   const isOptionSelected = (modifierId, optionId) => {
@@ -225,11 +228,6 @@ const ServiceModifiersForm = ({ modifiers = [], onModifiersChange, onSave, isEdi
     );
   };
 
-  console.log('🔄 ServiceModifiersForm render:', { 
-    modifiersCount: modifiers?.length, 
-    selectedModifiers, 
-    isEditable 
-  });
 
   if (!modifiers || modifiers.length === 0) {
     return null;

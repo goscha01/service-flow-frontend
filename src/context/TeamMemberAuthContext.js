@@ -20,7 +20,7 @@ export const TeamMemberAuthProvider = ({ children }) => {
 
   // Create axios instance for team member API calls
   const teamMemberApi = axios.create({
-    baseURL: 'https://zenbookapi.now2code.online',
+    baseURL: 'https://service-flow-backend-production.up.railway.app',
     timeout: 15000,
     headers: {
       'Content-Type': 'application/json',
