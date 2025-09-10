@@ -23,7 +23,7 @@ const publicApi = axios.create({
 });
 
 // API base URL for Google Places API proxy
-const API_BASE_URL = 'https://zenbookapi.now2code.online'
+const API_BASE_URL = 'https://service-flow-backend-production.up.railway.app'
 
 const PublicQuote = () => {
   const [loading, setLoading] = useState(true)

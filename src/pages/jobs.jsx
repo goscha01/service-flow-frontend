@@ -234,7 +234,22 @@ const ZenbookerJobs = () => {
   }
 
   const formatDate = (dateString) => {
-    const date = new Date(dateString)
+    if (!dateString) return 'Date not set'
+    
+    // Extract date part only (YYYY-MM-DD) to avoid timezone issues
+    let jobDateString = ''
+    if (dateString.includes('T')) {
+      // ISO format: 2025-08-20T09:00:00
+      jobDateString = dateString.split('T')[0]
+    } else {
+      // Space format: 2025-08-20 09:00:00
+      jobDateString = dateString.split(' ')[0]
+    }
+    
+    // Create date from YYYY-MM-DD string to avoid timezone conversion
+    const [year, month, day] = jobDateString.split('-')
+    const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
+    
     return date.toLocaleDateString('en-US', { 
       weekday: 'short',
       month: 'short', 
@@ -244,16 +259,25 @@ const ZenbookerJobs = () => {
   }
 
   const formatTime = (dateString) => {
-    if (!dateString) return 'Time placeholder'
-    // Extract time part directly from the string (format: "2024-01-15 10:00:00")
-    const timePart = dateString.split(' ')[1]
-    if (!timePart) return 'Time placeholder'
+    if (!dateString) return 'Time not set'
+    
+    // Handle both ISO format (2025-08-20T09:00:00) and space format (2025-08-20 09:00:00)
+    let timePart = ''
+    if (dateString.includes('T')) {
+      // ISO format: 2025-08-20T09:00:00
+      timePart = dateString.split('T')[1]
+    } else {
+      // Space format: 2025-08-20 09:00:00
+      timePart = dateString.split(' ')[1]
+    }
+    
+    if (!timePart) return 'Time not set'
     
     const [hours, minutes] = timePart.split(':')
     const hour = parseInt(hours, 10)
     const minute = parseInt(minutes, 10)
     
-    if (isNaN(hour) || isNaN(minute)) return 'Time placeholder'
+    if (isNaN(hour) || isNaN(minute)) return 'Time not set'
     
     // Convert to 12-hour format
     const ampm = hour >= 12 ? 'PM' : 'AM'
@@ -297,21 +321,51 @@ const ZenbookerJobs = () => {
   }
 
   const getRelativeTime = (dateString) => {
-    const date = new Date(dateString)
-    const now = new Date()
-    const diffTime = date.getTime() - now.getTime()
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+    if (!dateString) return 'Date not set'
     
-    if (diffDays < 0) {
-      return `${Math.abs(diffDays)} day${Math.abs(diffDays) !== 1 ? 's' : ''} ago`
-    } else if (diffDays === 0) {
-      return 'Today'
-    } else if (diffDays === 1) {
-      return 'Tomorrow'
-    } else if (diffDays <= 7) {
-      return `In ${diffDays} days`
+    // Extract date part only (YYYY-MM-DD) to avoid timezone issues
+    let jobDateString = ''
+    if (dateString.includes('T')) {
+      // ISO format: 2025-08-20T09:00:00
+      jobDateString = dateString.split('T')[0]
     } else {
-      return `In ${Math.ceil(diffDays / 7)} week${Math.ceil(diffDays / 7) !== 1 ? 's' : ''}`
+      // Space format: 2025-08-20 09:00:00
+      jobDateString = dateString.split(' ')[0]
+    }
+    
+    // Get today's date in YYYY-MM-DD format
+    const today = new Date()
+    const todayString = today.toLocaleDateString('en-CA') // Returns YYYY-MM-DD format
+    
+    // Get tomorrow's date in YYYY-MM-DD format
+    const tomorrow = new Date(today)
+    tomorrow.setDate(today.getDate() + 1)
+    const tomorrowString = tomorrow.toLocaleDateString('en-CA')
+    
+    // Get yesterday's date in YYYY-MM-DD format
+    const yesterday = new Date(today)
+    yesterday.setDate(today.getDate() - 1)
+    const yesterdayString = yesterday.toLocaleDateString('en-CA')
+    
+    if (jobDateString === todayString) {
+      return 'Today'
+    } else if (jobDateString === tomorrowString) {
+      return 'Tomorrow'
+    } else if (jobDateString === yesterdayString) {
+      return 'Yesterday'
+    } else {
+      // Calculate difference in days for other dates
+      const jobDate = new Date(jobDateString)
+      const diffTime = jobDate.getTime() - today.getTime()
+      const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24))
+      
+      if (diffDays < 0) {
+        return `${Math.abs(diffDays)} day${Math.abs(diffDays) !== 1 ? 's' : ''} ago`
+      } else if (diffDays <= 7) {
+        return `In ${diffDays} days`
+      } else {
+        return `In ${Math.ceil(diffDays / 7)} week${Math.ceil(diffDays / 7) !== 1 ? 's' : ''}`
+      }
     }
   }
 

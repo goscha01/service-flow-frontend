@@ -49,6 +49,43 @@ const ZenbookerDashboard = () => {
     totalRevenue: 0
   })
 
+  // Store today's jobs for the map
+  const [todayJobsList, setTodayJobsList] = useState([])
+  const [mapView, setMapView] = useState('map') // 'map' or 'satellite'
+
+  // Function to generate Google Maps URL with job markers
+  const generateMapUrl = (jobs, mapType = 'roadmap') => {
+    if (!jobs || jobs.length === 0) {
+      // Default to New York if no jobs
+      return `https://www.google.com/maps/embed/v1/view?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&center=40.7128,-74.0060&zoom=11&maptype=${mapType}`
+    }
+
+    // Filter jobs that have valid addresses
+    const jobsWithAddresses = jobs.filter(job => job.customer_address && job.customer_address.trim() !== '')
+    
+    if (jobsWithAddresses.length === 0) {
+      // No valid addresses, use default
+      return `https://www.google.com/maps/embed/v1/view?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&center=40.7128,-74.0060&zoom=11&maptype=${mapType}`
+    }
+
+    if (jobsWithAddresses.length === 1) {
+      // Single job - use place mode for better centering
+      const address = encodeURIComponent(jobsWithAddresses[0].customer_address)
+      return `https://www.google.com/maps/embed/v1/place?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&q=${address}&zoom=14&maptype=${mapType}`
+    }
+
+    // Multiple jobs - use search mode to show all locations
+    const addresses = jobsWithAddresses.map(job => job.customer_address).join('|')
+    const encodedAddresses = encodeURIComponent(addresses)
+    
+    return `https://www.google.com/maps/embed/v1/search?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&q=${encodedAddresses}&zoom=10&maptype=${mapType}`
+  }
+
+  // Setup section visibility state - ALWAYS starts hidden and stays hidden until proven needed
+  const [showSetupSection, setShowSetupSection] = useState(false)
+  const [setupSectionDismissed, setSetupSectionDismissed] = useState(true) // Start as dismissed by default
+  const [setupCheckCompleted, setSetupCheckCompleted] = useState(false)
+
   // Setup tasks state
   const [setupTasks, setSetupTasks] = useState([
     {
@@ -145,6 +182,173 @@ const ZenbookerDashboard = () => {
     }
   }, [user, dateRange])
 
+  // Function to clear cookies
+  const clearStaleData = () => {
+    // Clear any stale localStorage data except user preferences and authentication
+    const keysToCheck = Object.keys(localStorage)
+    keysToCheck.forEach(key => {
+      if (key.startsWith('dashboard_') || key.startsWith('temp_') || key.startsWith('cache_') || key.startsWith('stale_')) {
+        localStorage.removeItem(key)
+        console.log('🗑️ Removed stale cache key:', key)
+      }
+    })
+    
+    // Clear sessionStorage data that might be stale
+    const sessionKeysToCheck = Object.keys(sessionStorage)
+    sessionKeysToCheck.forEach(key => {
+      if (key.startsWith('dashboard_') || key.startsWith('temp_') || key.startsWith('cache_')) {
+        sessionStorage.removeItem(key)
+        console.log('🗑️ Removed stale session key:', key)
+      }
+    })
+    
+    // Clear any non-essential cookies (preserve auth cookies)
+    if (typeof document !== 'undefined') {
+      const cookies = document.cookie.split(';')
+      cookies.forEach(cookie => {
+        const [name] = cookie.split('=')
+        const cleanName = name.trim()
+        
+        // Only clear non-essential cookies (preserve auth and session cookies)
+        if (cleanName && !cleanName.includes('auth') && !cleanName.includes('session') && !cleanName.includes('token')) {
+          if (cleanName.startsWith('dashboard_') || cleanName.startsWith('temp_') || cleanName.startsWith('cache_')) {
+            document.cookie = `${cleanName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`
+            console.log('🍪 Cleared cookie:', cleanName)
+          }
+        }
+      })
+    }
+  }
+
+  // Load setup section preferences from localStorage and clean cache on startup
+  useEffect(() => {
+    // Clear any stale cache data on dashboard startup
+    console.log('🧹 Cleaning cache and cookies on dashboard startup...')
+    
+    clearStaleData()
+    
+    // Load setup section preferences from localStorage - only allow showing if explicitly NOT dismissed
+    const dismissed = localStorage.getItem('setupSectionDismissed')
+    // If never set before, default to NOT dismissed (null), otherwise respect the setting
+    const isDismissed = dismissed === 'true'
+    setSetupSectionDismissed(isDismissed)
+    
+    console.log('🔍 Setup section dismissed from localStorage:', dismissed)
+    console.log('✅ Cache and cookie cleanup completed')
+  }, [])
+
+  // Silent background check if setup section should be shown based on user's data
+  const checkIfSetupSectionNeeded = () => {
+    console.log('🔍 Running silent background setup check...')
+    
+    // GUARANTEE section stays hidden during check
+    setShowSetupSection(false)
+    
+    // If user has dismissed it before, never show again
+    if (setupSectionDismissed) {
+      console.log('🔍 Setup section was previously dismissed - keeping hidden permanently')
+      setSetupCheckCompleted(true)
+      return
+    }
+
+    // Add delay to ensure section stays hidden during check and data loading
+    setTimeout(() => {
+      try {
+        // Get current data counts safely
+        const totalServices = dashboardData?.totalServices || 0
+        const totalJobs = dashboardData?.totalJobs || 0  
+        const totalTeamMembers = dashboardData?.totalTeamMembers || 0
+        
+        // Check if user has basic setup completed
+        const hasServices = totalServices > 0
+        const hasJobs = totalJobs > 0
+        const hasTeamMembers = totalTeamMembers > 0
+        
+        // Calculate completed setup tasks
+      const completedTasks = setupTasks.filter(task => !task.hidden && task.completed).length
+      const totalTasks = setupTasks.filter(task => !task.hidden).length
+      const allTasksCompleted = completedTasks === totalTasks && totalTasks > 0
+      
+        // STRICT LOGIC: Only show for completely new users with ZERO activity
+        const hasAnyActivity = hasServices || hasJobs || hasTeamMembers
+        const isCompletelyNewUser = !hasAnyActivity && totalServices === 0 && totalJobs === 0 && totalTeamMembers === 0
+        
+        // Rule 1: NEVER show if all tasks are completed
+        if (allTasksCompleted) {
+          console.log('🚫 All setup tasks completed - permanently hiding setup section')
+          setShowSetupSection(false)
+          setSetupCheckCompleted(true)
+          localStorage.setItem('setupSectionDismissed', 'true')
+          setSetupSectionDismissed(true)
+          return
+        }
+        
+        // Rule 2: NEVER show if user has ANY activity/data
+        if (hasAnyActivity) {
+          console.log('🚫 User has activity - permanently hiding setup section')
+          setShowSetupSection(false)
+          setSetupCheckCompleted(true)
+          localStorage.setItem('setupSectionDismissed', 'true')
+          setSetupSectionDismissed(true)
+          return
+        }
+        
+        // Rule 3: Only show for completely new users who haven't dismissed it
+        const shouldShow = isCompletelyNewUser && !setupSectionDismissed && !allTasksCompleted
+        
+        console.log('🔍 STRICT setup check completed:', {
+          isCompletelyNewUser,
+          hasAnyActivity,
+          allTasksCompleted,
+          shouldShow,
+          completedTasks,
+          totalTasks,
+          hasServices, 
+          hasJobs, 
+          hasTeamMembers,
+          totalServices,
+          totalJobs,
+          totalTeamMembers,
+          setupSectionDismissed
+        })
+        
+        // FINAL DECISION: Only show if user is completely new AND hasn't dismissed
+        if (shouldShow) {
+          console.log('✅ Showing setup section for completely new user')
+          setShowSetupSection(true)
+        } else {
+          console.log('❌ Keeping setup section hidden')
+          setShowSetupSection(false)
+        }
+        setSetupCheckCompleted(true)
+      
+    } catch (error) {
+        console.error('❌ Error in silent setup check:', error)
+        setShowSetupSection(false) // Always hide on error
+      setSetupCheckCompleted(true)
+    }
+    }, 250) // Increased delay to ensure data is loaded first
+  }
+
+  // Re-check setup section when dashboard data changes
+  useEffect(() => {
+    if (dashboardData && !setupCheckCompleted) {
+      // Only run the check once when data first loads
+      checkIfSetupSectionNeeded()
+    }
+  }, [dashboardData, setupSectionDismissed])
+
+  // Function to dismiss setup section permanently
+  const dismissSetupSection = () => {
+    setSetupSectionDismissed(true)
+    setShowSetupSection(false)
+    localStorage.setItem('setupSectionDismissed', 'true')
+    console.log('🚫 Setup section dismissed permanently')
+    
+    // Clear any related cache when dismissed
+    clearStaleData()
+  }
+
   const fetchDashboardData = async () => {
     if (!user?.id) {
       console.log('No user ID available for dashboard')
@@ -222,7 +426,12 @@ const ZenbookerDashboard = () => {
           inv.job === job.id ||
           inv.id === job.invoice_id
         )
-        return sum + (parseFloat(invoice?.total_amount || invoice?.amount || invoice?.total || 0))
+        
+        // Use invoice amount if available, otherwise use job's price/total as fallback
+        const jobValue = parseFloat(invoice?.total_amount || invoice?.amount || invoice?.total || 
+                                   job.total || job.price || job.service_price || 0)
+        
+        return sum + jobValue
       }, 0)
       
       const todayDuration = todayJobs.reduce((sum, job) => {
@@ -251,7 +460,7 @@ const ZenbookerDashboard = () => {
         return jobDate >= startDate
       }).length
       
-      // Calculate total revenue from all invoices for jobs in the date range
+      // Calculate total revenue from invoices OR job prices as fallback
       const totalRevenue = rangeJobs.reduce((sum, job) => {
         // Find invoice for this job
         const invoice = invoices.find(inv => 
@@ -260,7 +469,12 @@ const ZenbookerDashboard = () => {
           inv.job === job.id ||
           inv.id === job.invoice_id
         )
-        return sum + (parseFloat(invoice?.total_amount || invoice?.amount || invoice?.total || 0))
+        
+        // Use invoice amount if available, otherwise use job's price/total as fallback
+        const jobValue = parseFloat(invoice?.total_amount || invoice?.amount || invoice?.total || 
+                                   job.total || job.price || job.service_price || 0)
+        
+        return sum + jobValue
       }, 0)
       
       const avgJobValue = rangeJobs.length > 0 ? totalRevenue / rangeJobs.length : 0
@@ -282,6 +496,8 @@ const ZenbookerDashboard = () => {
         todayEarnings: todayEarnings,
         newJobs: newJobs,
         totalJobs: rangeJobs.length,
+        totalServices: services.length, // Add this for setup check
+        totalTeamMembers: teamMembers.length, // Add this for setup check
         newRecurringBookings: newRecurringJobs,
         recurringBookings: recurringJobs.length,
         jobValue: avgJobValue,
@@ -292,6 +508,7 @@ const ZenbookerDashboard = () => {
       }
       
       setDashboardData(newDashboardData)
+      setTodayJobsList(todayJobs) // Store today's jobs for the map
       
       // Check setup task completion
       await checkSetupTaskCompletion(services, jobs, teamMembers)
@@ -300,11 +517,19 @@ const ZenbookerDashboard = () => {
       setRetryCount(0)
       
       console.log('📊 Dashboard data loaded:', newDashboardData)
+      // Debug revenue calculation
       console.log('💰 Revenue calculation details:', {
         totalJobs: rangeJobs.length,
         totalInvoices: invoices.length,
         totalRevenue: totalRevenue,
-        avgJobValue: avgJobValue
+        avgJobValue: avgJobValue,
+        sampleJobPrices: rangeJobs.slice(0, 3).map(job => ({
+          id: job.id,
+          price: job.price,
+          total: job.total,
+          service_price: job.service_price,
+          hasInvoice: invoices.some(inv => inv.job_id === job.id || inv.jobId === job.id)
+        }))
       })
       console.log('✅ Dashboard connected to backend successfully!')
       
@@ -386,7 +611,7 @@ const ZenbookerDashboard = () => {
   }, [])
 
   const checkSetupTaskCompletion = async (services, jobs, teamMembers) => {
-    console.log('🔍 Checking setup task completion...')
+    console.log('🔍 Silently checking setup task completion...')
     
     const updatedTasks = setupTasks.map(task => {
       let completed = false
@@ -581,12 +806,33 @@ const ZenbookerDashboard = () => {
                   </div>
                 </div>
               )}
-              {/* Setup Section - Only show if not all tasks are completed */}
-              {setupTasks.filter(task => !task.hidden).filter(task => !task.completed).length > 0 && (
+              {/* Setup Section - STRICTLY HIDDEN: Only shows for completely new users with ZERO activity */}
+              {setupCheckCompleted && 
+               showSetupSection && 
+               !setupSectionDismissed && 
+               (dashboardData?.totalServices === 0) && 
+               (dashboardData?.totalJobs === 0) && 
+               (dashboardData?.totalTeamMembers === 0) && (
                 <div className="bg-white rounded-xl border border-gray-200 p-4 lg:p-6 shadow-sm hover:shadow-md transition-shadow duration-200">
                   <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg font-display font-semibold text-gray-900">Finish setting up your account</h2>
-                    <span className="text-sm text-gray-500">{setupTasks.filter(task => !task.hidden).filter(task => task.completed).length}/{setupTasks.filter(task => !task.hidden).length} completed</span>
+                    <div className="flex items-center space-x-3">
+                      <h2 className="text-lg font-display font-semibold text-gray-900">Finish setting up your account</h2>
+                      <span className="text-sm text-gray-500">{setupTasks.filter(task => !task.hidden).filter(task => task.completed).length}/{setupTasks.filter(task => !task.hidden).length} completed</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => {
+                          console.log('🧪 Manual setup section dismissal')
+                          dismissSetupSection()
+                        }}
+                        className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition-colors"
+                        title="Hide setup section permanently"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
                   </div>
                   
                   {/* Progress Bar */}
@@ -661,29 +907,148 @@ const ZenbookerDashboard = () => {
                   </div>
                 </div>
 
-                {/* Map Section */}
+                {/* Today's Jobs Map */}
                 <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
                   <div className="flex items-center justify-between p-4 border-b border-gray-200">
-                    <h3 className="text-lg font-semibold text-gray-900">Business Overview</h3>
+                    <h3 className="text-lg font-semibold text-gray-900">Today's Jobs Map</h3>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm text-gray-500">{dashboardData.todayJobs} jobs</span>
                     <div className="flex bg-gray-100 rounded-lg p-1">
-                      <button className="px-3 py-1 bg-white text-gray-900 font-medium rounded-md shadow-sm text-sm">Map</button>
-                      <button className="px-3 py-1 text-gray-600 hover:text-gray-900 transition-colors duration-200 text-sm">Satellite</button>
+                        <button 
+                          onClick={() => setMapView('map')}
+                          className={`px-3 py-1 font-medium rounded-md shadow-sm text-sm transition-colors ${
+                            mapView === 'map' 
+                              ? 'bg-white text-gray-900' 
+                              : 'text-gray-600 hover:text-gray-900'
+                          }`}
+                        >
+                          Map
+                        </button>
+                        <button 
+                          onClick={() => setMapView('satellite')}
+                          className={`px-3 py-1 font-medium rounded-md shadow-sm text-sm transition-colors ${
+                            mapView === 'satellite' 
+                              ? 'bg-white text-gray-900' 
+                              : 'text-gray-600 hover:text-gray-900'
+                          }`}
+                        >
+                          Satellite
+                        </button>
+                      </div>
                     </div>
                   </div>
                   
-                  <div className="h-64 relative">
+                  <div className="h-64">
                     {dashboardData.todayJobs > 0 ? (
+                      <div className="h-full">
+                        {mapView === 'map' ? (
+                          /* Interactive Map View */
+                          <div className="h-full relative">
                       <iframe
                         width="100%"
                         height="100%"
                         frameBorder="0"
                         style={{ border: 0 }}
-                        src="https://www.google.com/maps/embed/v1/place?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&q=business+services&zoom=11"
+                              src={generateMapUrl(todayJobsList, 'roadmap')}
                         allowFullScreen
                         loading="lazy"
                         referrerPolicy="no-referrer-when-downgrade"
-                        title="Business Overview Map"
-                      />
+                              title="Today's Jobs Map"
+                            />
+                            
+                            {/* Job Legend Overlay */}
+                            <div className="absolute top-4 left-4 bg-white rounded-lg shadow-lg p-3 max-w-xs">
+                              <h4 className="text-sm font-semibold text-gray-900 mb-2">Today's Jobs</h4>
+                              <div className="space-y-2 max-h-32 overflow-y-auto">
+                                {todayJobsList.map((job, index) => {
+                                  const markerLabel = String.fromCharCode(65 + index) // A, B, C, etc.
+                                  const markerColor = job.status === 'completed' ? 'green' : 
+                                                     job.status === 'in_progress' ? 'blue' : 
+                                                     job.status === 'confirmed' ? 'yellow' : 'red'
+                                  
+                                  return (
+                                    <div key={job.id || index} className="flex items-center space-x-2 text-xs">
+                                      <div className={`w-4 h-4 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 ${
+                                        markerColor === 'green' ? 'bg-green-500' :
+                                        markerColor === 'blue' ? 'bg-blue-500' :
+                                        markerColor === 'yellow' ? 'bg-yellow-500' : 'bg-red-500'
+                                      }`}>
+                                        {markerLabel}
+                                      </div>
+                                      <div className="min-w-0 flex-1">
+                                        <p className="font-medium text-gray-900 truncate">
+                                          {job.service_name || 'Service'}
+                                        </p>
+                                        <p className="text-gray-500 truncate">
+                                          {job.customer_first_name} {job.customer_last_name}
+                                        </p>
+                                        {job.customer_address && (
+                                          <p className="text-gray-400 truncate text-xs">
+                                            📍 {job.customer_address}
+                                          </p>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          /* Satellite Map View */
+                          <div className="h-full relative">
+                            <iframe
+                              width="100%"
+                              height="100%"
+                              frameBorder="0"
+                              style={{ border: 0 }}
+                              src={generateMapUrl(todayJobsList, 'satellite')}
+                              allowFullScreen
+                              loading="lazy"
+                              referrerPolicy="no-referrer-when-downgrade"
+                              title="Today's Jobs Satellite Map"
+                            />
+                            
+                            {/* Job Legend Overlay */}
+                            <div className="absolute top-4 left-4 bg-white rounded-lg shadow-lg p-3 max-w-xs">
+                              <h4 className="text-sm font-semibold text-gray-900 mb-2">Today's Jobs</h4>
+                              <div className="space-y-2 max-h-32 overflow-y-auto">
+                                {todayJobsList.map((job, index) => {
+                                  const markerLabel = String.fromCharCode(65 + index) // A, B, C, etc.
+                                  const markerColor = job.status === 'completed' ? 'green' : 
+                                                     job.status === 'in_progress' ? 'blue' : 
+                                                     job.status === 'confirmed' ? 'yellow' : 'red'
+                                  
+                                  return (
+                                    <div key={job.id || index} className="flex items-center space-x-2 text-xs">
+                                      <div className={`w-4 h-4 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 ${
+                                        markerColor === 'green' ? 'bg-green-500' :
+                                        markerColor === 'blue' ? 'bg-blue-500' :
+                                        markerColor === 'yellow' ? 'bg-yellow-500' : 'bg-red-500'
+                                      }`}>
+                                        {markerLabel}
+                                      </div>
+                                      <div className="min-w-0 flex-1">
+                                        <p className="font-medium text-gray-900 truncate">
+                                          {job.service_name || 'Service'}
+                                        </p>
+                                        <p className="text-gray-500 truncate">
+                                          {job.customer_first_name} {job.customer_last_name}
+                                        </p>
+                                        {job.customer_address && (
+                                          <p className="text-gray-400 truncate text-xs">
+                                            📍 {job.customer_address}
+                                          </p>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     ) : (
                       <div className="h-full flex items-center justify-center bg-gray-50">
                         <div className="text-center">
@@ -805,9 +1170,9 @@ const ZenbookerDashboard = () => {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-2">
                         <CreditCard className="w-5 h-5 text-primary-600" />
-                        <h3 className="text-sm font-medium text-gray-900">Job value</h3>
+                        <h3 className="text-sm font-medium text-gray-900">Avg job value</h3>
                       </div>
-                      <Info className="w-4 h-4 text-gray-400 hover:text-gray-600 cursor-help transition-colors duration-200" />
+                      <Info className="w-4 h-4 text-gray-400 hover:text-gray-600 cursor-help transition-colors duration-200" title="Average value per job (total revenue ÷ number of jobs)" />
                     </div>
                     <div className="text-3xl font-bold text-gray-900">${dashboardData.jobValue.toLocaleString()}</div>
                     <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
@@ -820,9 +1185,9 @@ const ZenbookerDashboard = () => {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-2">
                         <CreditCard className="w-5 h-5 text-primary-600" />
-                        <h3 className="text-sm font-medium text-gray-900">Payments collected</h3>
+                        <h3 className="text-sm font-medium text-gray-900">Total revenue</h3>
                       </div>
-                      <Info className="w-4 h-4 text-gray-400 hover:text-gray-600 cursor-help transition-colors duration-200" />
+                      <Info className="w-4 h-4 text-gray-400 hover:text-gray-600 cursor-help transition-colors duration-200" title="Total value of all jobs in the selected time period" />
                     </div>
                     <div className="text-3xl font-bold text-gray-900">${dashboardData.totalRevenue.toLocaleString()}</div>
                     <div className="h-2 bg-gray-200 rounded-full overflow-hidden">

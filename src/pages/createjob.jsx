@@ -65,15 +65,19 @@ import TerritorySelectionModal from "../components/territory-selection-modal";
 import AddressAutocomplete from "../components/address-autocomplete";
 import IntakeQuestionsForm from "../components/intake-questions-form";
 import ServiceModifiersForm from "../components/service-modifiers-form";
+import ServiceCustomizationPopup from "../components/service-customization-popup";
+import ServiceSelectionModal from "../components/service-selection-modal";
 import { useNavigate } from 'react-router-dom';
 import { jobsAPI, customersAPI, servicesAPI, teamAPI, territoriesAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { getImageUrl, handleImageError } from '../utils/imageUtils';
+import { useHashRouter } from '../hooks/useHashRouter';
 
 
 export default function CreateJobPage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { navigate: hashNavigate, navigateReplace } = useHashRouter();
+  const { user, loading: authLoading } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -84,6 +88,8 @@ export default function CreateJobPage() {
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showTerritoryModal, setShowTerritoryModal] = useState(false);
+  const [showServiceCustomizationPopup, setShowServiceCustomizationPopup] = useState(false);
+  const [showServiceSelectionModal, setShowServiceSelectionModal] = useState(false);
 
   // Form data
   const [formData, setFormData] = useState({
@@ -156,10 +162,8 @@ export default function CreateJobPage() {
 
   // UI state
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
-  const [showServiceDropdown, setShowServiceDropdown] = useState(false);
   const [showTeamDropdown, setShowTeamDropdown] = useState(false);
   const [customerSearch, setCustomerSearch] = useState("");
-  const [serviceSearch, setServiceSearch] = useState("");
 
   // Selected items
   const [selectedCustomer, setSelectedCustomer] = useState(null);
@@ -181,7 +185,6 @@ export default function CreateJobPage() {
   const [expandedSections, setExpandedSections] = useState({
     basicInfo: true,
     serviceDetails: true,
-    scheduling: true,
     pricing: true,
     team: false,
     contact: false,
@@ -236,18 +239,6 @@ export default function CreateJobPage() {
     }
   }, [customerSearch, customers]);
 
-  useEffect(() => {
-    // Filter services based on search
-    if (serviceSearch) {
-      const filtered = (services || []).filter(service =>
-        service.name.toLowerCase().includes(serviceSearch.toLowerCase()) ||
-        service.category?.toLowerCase().includes(serviceSearch.toLowerCase())
-      );
-      setFilteredServices(filtered);
-    } else {
-      setFilteredServices(services || []);
-    }
-  }, [serviceSearch, services]);
 
   useEffect(() => {
     // Update price calculations for multiple services
@@ -519,6 +510,10 @@ export default function CreateJobPage() {
   };
 
   const handleServiceSelect = (service) => {
+    console.log('🔧 HANDLESERVICESELECT: Function called with service:', service.name);
+    console.log('🔧 HANDLESERVICESELECT: Service selectedModifiers:', service.selectedModifiers);
+    console.log('🔧 HANDLESERVICESELECT: Service intakeQuestionAnswers:', service.intakeQuestionAnswers);
+    
     // Check if service is already selected
     const isAlreadySelected = selectedServices.some(s => s.id === service.id);
     if (isAlreadySelected) {
@@ -531,7 +526,27 @@ export default function CreateJobPage() {
     // Keep selectedService for backward compatibility (use the first selected service)
     setSelectedService(service);
     
-
+    // Handle customized modifiers and intake questions from ServiceSelectionModal
+    if (service.selectedModifiers) {
+      console.log('🔧 HANDLESERVICESELECT: Updating selectedModifiers state:', service.selectedModifiers);
+      console.log('🔧 HANDLESERVICESELECT: Current selectedModifiers before update:', selectedModifiers);
+      setSelectedModifiers(prev => {
+        const updated = {
+          ...prev,
+          ...service.selectedModifiers
+        };
+        console.log('🔧 HANDLESERVICESELECT: Updated selectedModifiers:', updated);
+        return updated;
+      });
+    }
+    
+    if (service.intakeQuestionAnswers) {
+      console.log('🔧 HANDLESERVICESELECT: Updating intakeQuestionAnswers state:', service.intakeQuestionAnswers);
+      setIntakeQuestionAnswers(prev => ({
+        ...prev,
+        ...service.intakeQuestionAnswers
+      }));
+    }
     
     // Handle duration properly - services store duration in MINUTES
     let durationInMinutes = 60; // Default 1 hour
@@ -592,16 +607,16 @@ export default function CreateJobPage() {
         const intakeQuestionsData = service.intakeQuestions || service.intake_questions;
         if (typeof intakeQuestionsData === 'string') {
           // Try to parse as regular JSON first
-          try {
-            parsedQuestions = JSON.parse(intakeQuestionsData);
-          } catch (firstError) {
-            // If first parse fails, try parsing again (double-escaped)
-            try {
-              parsedQuestions = JSON.parse(JSON.parse(intakeQuestionsData));
-            } catch (secondError) {
-              throw secondError;
+                      try {
+              parsedQuestions = JSON.parse(intakeQuestionsData);
+            } catch (firstError) {
+              // If first parse fails, try parsing again (double-escaped)
+              try {
+                parsedQuestions = JSON.parse(JSON.parse(intakeQuestionsData));
+              } catch (secondError) {
+                throw secondError;
+              }
             }
-          }
         } else {
           parsedQuestions = intakeQuestionsData;
         }
@@ -632,6 +647,12 @@ export default function CreateJobPage() {
       }
     }
     
+    // Check if we have modifier definitions from the modal
+    console.log('🔧 HANDLESERVICESELECT: Checking for modifier definitions:');
+    console.log('🔧 service.serviceModifiers:', service.serviceModifiers);
+    console.log('🔧 service.parsedModifiers:', service.parsedModifiers);
+    console.log('🔧 serviceModifiers array:', serviceModifiers);
+    
     setFormData(prev => ({
       ...prev,
       serviceId: service.id,
@@ -642,14 +663,14 @@ export default function CreateJobPage() {
       serviceName: service.name,
       estimatedDuration: service.duration || 0,
       // Keep existing time or default to 9 AM if no time set
-      scheduledTime: prev.scheduledTime && prev.scheduledTime.trim() !== "" ? prev.scheduledTime : "09:00"
+      scheduledTime: prev.scheduledTime && prev.scheduledTime.trim() !== "" ? prev.scheduledTime : "09:00",
+      // Add modifier definitions from modal if available
+      serviceModifiers: service.serviceModifiers || service.parsedModifiers || serviceModifiers || prev.serviceModifiers || [],
+      serviceIntakeQuestions: service.serviceIntakeQuestions || service.parsedIntakeQuestions || serviceIntakeQuestions || prev.serviceIntakeQuestions || []
     }));
     
     // Note: serviceModifiers and serviceIntakeQuestions are now handled by the useEffect
     // that syncs when selectedServices changes
-    
-    setShowServiceDropdown(false);
-    setServiceSearch("");
   };
 
   const handleTeamMemberSelect = (member) => {
@@ -837,17 +858,23 @@ export default function CreateJobPage() {
 
       const result = await jobsAPI.create(jobData);
       
+      console.log('Job creation result:', result);
+      console.log('Job ID from result:', result.job?.id || result.id || result.job_id);
+      
       setSuccessMessage('Job created successfully!');
       setTimeout(() => {
         // Navigate to the specific job details page
-        const jobId = result.id || result.job?.id || result.job_id;
+        // Backend returns: { message: 'Job created successfully', job: { id: ... } }
+        const jobId = result.job?.id || result.id || result.job_id;
+        console.log('Attempting to navigate to job ID:', jobId);
         if (jobId) {
-          navigate(`/job/${jobId}`);
+          console.log('Navigating to job details page:', `/job/${jobId}`);
+          // Use replace to prevent back button issues
+          navigateReplace(`/job/${jobId}`);
         } else {
-          // If no job ID returned, navigate to jobs page and refresh
-          navigate('/jobs');
-          // Force a page reload to ensure new job appears
-          window.location.reload();
+          console.log('No job ID found, navigating to jobs page');
+          // If no job ID returned, navigate to jobs page
+          navigateReplace('/jobs');
         }
       }, 1500);
     } catch (error) {
@@ -1018,6 +1045,160 @@ export default function CreateJobPage() {
     setShowTerritoryModal(false);
   };
 
+  // Service customization popup handlers
+  const handleOpenServiceCustomization = () => {
+    setShowServiceCustomizationPopup(true);
+  };
+
+  const handleCloseServiceCustomization = () => {
+    setShowServiceCustomizationPopup(false);
+  };
+
+  const handleSaveServiceCustomization = () => {
+    setShowServiceCustomizationPopup(false);
+    // The modifiers and intake questions are already saved in state
+    // via the existing handlers
+  };
+
+  // Service selection modal handlers
+  const handleOpenServiceSelection = () => {
+    if (authLoading) {
+      console.log('⏳ Auth still loading, waiting...');
+      return;
+    }
+    
+    if (!user?.id) {
+      console.error('❌ Cannot open service selection: No user ID available');
+      setError('Please log in to select services');
+      return;
+    }
+    
+    console.log('🔄 Opening service selection modal for user:', user.id);
+    setShowServiceSelectionModal(true);
+  };
+
+  const handleCloseServiceSelection = () => {
+    setShowServiceSelectionModal(false);
+  };
+
+  const handleServiceSelectFromModal = (service) => {
+    // Handle service selection from the modal
+    console.log('🔧 Service selected from modal:', service);
+    console.log('🔧 Selected modifiers:', service.selectedModifiers);
+    console.log('🔧 Intake question answers:', service.intakeQuestionAnswers);
+    
+    // Check if service is already selected
+    const isAlreadySelected = selectedServices.some(s => s.id === service.id);
+    if (isAlreadySelected) {
+      return;
+    }
+    
+    // Parse modifiers and intake questions from the service
+    let serviceModifiers = [];
+    let serviceIntakeQuestions = [];
+    
+    if (service.modifiers) {
+      try {
+        let parsedModifiers;
+        if (typeof service.modifiers === 'string') {
+          parsedModifiers = JSON.parse(service.modifiers);
+        } else if (Array.isArray(service.modifiers)) {
+          parsedModifiers = service.modifiers;
+        }
+        serviceModifiers = Array.isArray(parsedModifiers) ? parsedModifiers : [];
+      } catch (error) {
+        console.error('Error parsing service modifiers:', error);
+        serviceModifiers = [];
+      }
+    }
+    
+    if (service.intake_questions || service.intakeQuestions) {
+      try {
+        const intakeQuestionsData = service.intake_questions || service.intakeQuestions;
+        let parsedQuestions;
+        if (typeof intakeQuestionsData === 'string') {
+          parsedQuestions = JSON.parse(intakeQuestionsData);
+        } else if (Array.isArray(intakeQuestionsData)) {
+          parsedQuestions = intakeQuestionsData;
+        }
+        serviceIntakeQuestions = Array.isArray(parsedQuestions) ? parsedQuestions : [];
+      } catch (error) {
+        console.error('Error parsing service intake questions:', error);
+        serviceIntakeQuestions = [];
+      }
+    }
+    
+    // Add service ID to each modifier and question for identification
+    const modifiersWithServiceId = serviceModifiers.map(modifier => ({
+      ...modifier,
+      serviceId: service.id
+    }));
+    
+    const questionsWithServiceId = serviceIntakeQuestions.map((question, index) => ({
+      ...question,
+      id: index + 1, // Normalize ID
+      serviceId: service.id
+    }));
+    
+    // Update form data with the parsed modifiers and questions
+    setFormData(prev => ({
+      ...prev,
+      serviceModifiers: modifiersWithServiceId,
+      serviceIntakeQuestions: questionsWithServiceId,
+      serviceId: service.id,
+      serviceName: service.name,
+      price: service.price || 0,
+      total: service.price || 0
+    }));
+    
+    // Add service to selected services array with customization data
+    setSelectedServices(prev => [...prev, service]);
+    
+    // Keep selectedService for backward compatibility (use the first selected service)
+    setSelectedService(service);
+    
+    // Update modifiers and intake questions if they exist
+    if (service.selectedModifiers) {
+      console.log('🔧 Setting selected modifiers:', service.selectedModifiers);
+      setSelectedModifiers(prev => ({
+        ...prev,
+        ...service.selectedModifiers
+      }));
+    }
+    if (service.intakeQuestionAnswers) {
+      console.log('🔧 Setting intake question answers:', service.intakeQuestionAnswers);
+      setIntakeQuestionAnswers(prev => ({
+        ...prev,
+        ...service.intakeQuestionAnswers
+      }));
+    }
+
+    // Update formData with service modifiers and intake questions for UI display
+    console.log('🔧 Checking service data for modifiers/intake questions:');
+    console.log('🔧 service.serviceModifiers:', service.serviceModifiers);
+    console.log('🔧 service.serviceIntakeQuestions:', service.serviceIntakeQuestions);
+    console.log('🔧 service.parsedModifiers:', service.parsedModifiers);
+    console.log('🔧 service.parsedIntakeQuestions:', service.parsedIntakeQuestions);
+    
+    // Use parsedModifiers and parsedIntakeQuestions if serviceModifiers/serviceIntakeQuestions are not available
+    const modifiersToUse = service.serviceModifiers || service.parsedModifiers || [];
+    const intakeQuestionsToUse = service.serviceIntakeQuestions || service.parsedIntakeQuestions || [];
+    
+    if (modifiersToUse.length > 0 || intakeQuestionsToUse.length > 0) {
+      setFormData(prev => ({
+        ...prev,
+        serviceModifiers: modifiersToUse,
+        serviceIntakeQuestions: intakeQuestionsToUse
+      }));
+      console.log('🔧 Updated formData with modifiers:', modifiersToUse);
+      console.log('🔧 Updated formData with intake questions:', intakeQuestionsToUse);
+    } else {
+      console.log('🔧 No modifiers or intake questions found in service data');
+    }
+    
+    // Service selected successfully - no UI updates needed since we use the big modal now
+  };
+
   // Handle modifier selections
   const handleModifierSelection = (modifierId, optionId, isSelected) => {
     setSelectedModifiers(prev => {
@@ -1185,8 +1366,8 @@ export default function CreateJobPage() {
     }
   };
 
-  // Show loading if user is not available
-  if (!user) {
+  // Show loading if user is not available or still loading
+  if (authLoading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -1208,7 +1389,7 @@ export default function CreateJobPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <button
-                onClick={() => navigate('/jobs')}
+                onClick={() => hashNavigate('/jobs')}
                 className="flex items-center text-blue-600 hover:text-blue-700"
               >
                 <ArrowLeft className="w-5 h-5 mr-2" />
@@ -1317,27 +1498,32 @@ export default function CreateJobPage() {
                   <div className="relative">
                     <input
                       type="text"
-                      placeholder="Search services..."
-                      value={serviceSearch}
-                      onChange={(e) => setServiceSearch(e.target.value)}
-                      onFocus={() => setShowServiceDropdown(true)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder={authLoading ? "Loading..." : "Click to select services..."}
+                      value={selectedServices.length > 0 ? `${selectedServices.length} service(s) selected` : ""}
+                      onChange={() => {}} // Prevent typing
+                      onFocus={() => setShowServiceSelectionModal(true)}
+                      onClick={() => setShowServiceSelectionModal(true)}
+                      readOnly
+                      disabled={authLoading}
+                      className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                        authLoading ? 'cursor-not-allowed bg-gray-100' : 'cursor-pointer'
+                      }`}
                     />
                     {selectedServices.length > 0 && (
                       <div className="mt-2 space-y-2">
                         {selectedServices.map((service, index) => (
                           <div key={service.id} className="p-3 bg-green-50 rounded-lg border border-green-200">
                             <div className="flex items-center justify-between">
-                              <div className="flex items-center space-x-3">
+                        <div className="flex items-center space-x-3">
                                 {service.image && (
-                                  <img 
+                                                          <img 
                                     src={getImageUrl(service.image)} 
                                     alt={service.name}
-                                    className="w-12 h-12 object-cover rounded-lg"
-                                    onError={(e) => handleImageError(e, null)}
-                                  />
-                                )}
-                                <div className="flex-1">
+                                className="w-12 h-12 object-cover rounded-lg"
+                                onError={(e) => handleImageError(e, null)}
+                              />
+                          )}
+                          <div className="flex-1">
                                   <p className="font-medium text-green-900">{service.name}</p>
                                   <p className="text-sm text-green-700">${service.price}</p>
                                 </div>
@@ -1369,61 +1555,15 @@ export default function CreateJobPage() {
                         </div>
                       </div>
                     )}
-                    {showServiceDropdown && (
-                      <>
-                        <div 
-                          className="fixed inset-0 z-40" 
-                          onClick={() => setShowServiceDropdown(false)}
-                        />
-                      <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                        {filteredServices.map(service => {
-                          const isSelected = selectedServices.some(s => s.id === service.id);
-                          return (
-                            <button
-                              key={service.id}
-                              type="button"
-                              onClick={() => handleServiceSelect(service)}
-                              disabled={isSelected}
-                              className={`w-full text-left px-4 py-2 border-b border-gray-100 last:border-b-0 ${
-                                isSelected 
-                                  ? 'bg-green-50 text-green-700 cursor-not-allowed' 
-                                  : 'hover:bg-gray-100'
-                              }`}
-                            >
-                                                          <div className="flex items-center space-x-3">
-                                {service.image && (
-                                  <img 
-                                    src={getImageUrl(service.image)} 
-                                    alt={service.name}
-                                    className="w-8 h-8 object-cover rounded"
-                                    onError={(e) => handleImageError(e, null)}
-                                  />
-                                )}
-                                <div className="flex-1">
-                                  <p className="font-medium">{service.name}</p>
-                                  <p className="text-sm text-gray-600">${service.price}</p>
-                                </div>
-                                {isSelected && (
-                                  <svg className="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                  </svg>
-                                )}
-                              </div>
-                            </button>
-                          );
-                                                 })}
-                        </div>
-                      </>
-                    )}
                   </div>
                   <div className="flex space-x-3 mt-2">
-                    <button
-                      type="button"
-                      onClick={() => setIsServiceModalOpen(true)}
+                  <button
+                    type="button"
+                    onClick={() => setIsServiceModalOpen(true)}
                       className="text-blue-600 hover:text-blue-700 text-sm font-medium"
-                    >
-                      + Add New Service
-                    </button>
+                  >
+                    + Add New Service
+                  </button>
                     {selectedServices.length > 0 && (
                       <button
                         type="button"
@@ -1433,38 +1573,9 @@ export default function CreateJobPage() {
                         Clear All Services
                       </button>
                     )}
-                  </div>
-                </div>
-
-                {/* Service Modifiers - Right after service selection */}
-                {formData.serviceModifiers && formData.serviceModifiers.length > 0 && (
-                  <div className="space-y-6">
-                    <div>
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">Service Options</h3>
-                      <p className="text-sm text-gray-600">Select any additional options to customize this service.</p>
-                          </div>
-                    
-                    <ServiceModifiersForm 
-                      modifiers={formData.serviceModifiers}
-                      onModifiersChange={handleModifiersChange}
-                    />
-                  </div>
-                )}
-
-                {/* Intake Questions - Right after modifiers */}
-                {formData.serviceIntakeQuestions && formData.serviceIntakeQuestions.length > 0 && (
-                  <div className="space-y-6">
-                    <div>
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">Customer Information</h3>
-                      <p className="text-sm text-gray-600">Please provide additional details for this job.</p>
                         </div>
-                    
-                    <IntakeQuestionsForm 
-                      questions={formData.serviceIntakeQuestions}
-                      onAnswersChange={handleIntakeQuestionsChange}
-                    />
                   </div>
-                )}
+
 
                     {/* Status */}
                     <div>
@@ -1502,102 +1613,7 @@ export default function CreateJobPage() {
               )}
             </div>
 
-            {/* Scheduling Section */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-              <div 
-                className="p-6 cursor-pointer"
-                onClick={() => toggleSection('scheduling')}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <Calendar className="w-5 h-5 text-green-600" />
-                    <h2 className="text-lg font-semibold text-gray-900">Scheduling</h2>
-                  </div>
-                  {expandedSections.scheduling ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-                </div>
-              </div>
-              
-              {expandedSections.scheduling && (
-                <div className="px-6 pb-6 space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Date */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Date <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.scheduledDate}
-                    onChange={(e) => setFormData(prev => ({ ...prev, scheduledDate: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-
-                {/* Time */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Time <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="time"
-                    value={formData.scheduledTime}
-                        onChange={(e) => {
-                          setFormData(prev => ({
-                            ...prev, scheduledTime: e.target.value
-                          }));
-                        }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        step="1800"
-                      />
-                    </div>
-
-                    {/* Recurring Job */}
-                    <div>
-                      <label className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          checked={formData.recurringJob}
-                          onChange={(e) => setFormData(prev => ({ ...prev, recurringJob: e.target.checked }))}
-                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                        />
-                        <span className="text-sm font-medium text-gray-700">Recurring Job</span>
-                      </label>
-                    </div>
-
-                    {/* Recurring Frequency */}
-                    {formData.recurringJob && (
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Frequency</label>
-                        <select
-                          value={formData.recurringFrequency}
-                          onChange={(e) => setFormData(prev => ({ ...prev, recurringFrequency: e.target.value }))}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        >
-                          {recurringOptions.map(option => (
-                            <option key={option.key} value={option.key}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-
-                    {/* Recurring End Date */}
-                    {formData.recurringJob && (
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">End Date</label>
-                        <input
-                          type="date"
-                          value={formData.recurringEndDate}
-                          onChange={(e) => setFormData(prev => ({ ...prev, recurringEndDate: e.target.value }))}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        />
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
+          
 
             {/* Service Details Section */}
             {selectedService && (
@@ -1706,6 +1722,30 @@ export default function CreateJobPage() {
                         </button>
                       </div>
                     </div>
+
+                    {/* Service Modifiers */}
+                    {formData.serviceModifiers && formData.serviceModifiers.length > 0 && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Service Options</label>
+                        <ServiceModifiersForm
+                          modifiers={formData.serviceModifiers}
+                          selectedModifiers={selectedModifiers}
+                          onModifiersChange={handleModifiersChange}
+                        />
+                      </div>
+                    )}
+
+                    {/* Intake Questions */}
+                    {formData.serviceIntakeQuestions && formData.serviceIntakeQuestions.length > 0 && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Additional Information</label>
+                        <IntakeQuestionsForm
+                          questions={formData.serviceIntakeQuestions}
+                          answers={intakeQuestionAnswers}
+                          onAnswersChange={handleIntakeQuestionsChange}
+                        />
+                      </div>
+                    )}
 
                     {/* Special Instructions */}
                     <div>
@@ -1919,6 +1959,7 @@ export default function CreateJobPage() {
                   <h3 className="text-sm font-medium text-gray-900">Schedule Now</h3>
                 </div>
                 
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Date *</label>
                     <div className="relative">
@@ -1927,9 +1968,21 @@ export default function CreateJobPage() {
                         required
                         value={formData.scheduledDate}
                         onChange={(e) => setFormData(prev => ({ ...prev, scheduledDate: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
-                      <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Time *</label>
+                    <input
+                      type="time"
+                      value={formData.scheduledTime}
+                      onChange={(e) => setFormData(prev => ({ ...prev, scheduledTime: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      step="1800"
+                    />
                     </div>
                 </div>
                 
@@ -2093,7 +2146,7 @@ export default function CreateJobPage() {
                   )}
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                  <div>
+              <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Street Address
                         {addressAutoPopulated && formData.serviceAddress.street && (
@@ -2139,9 +2192,9 @@ export default function CreateJobPage() {
                           serviceAddress: { ...prev.serviceAddress, city: e.target.value }
                         }))}
                         placeholder="New York"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      />
-                    </div>
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -2201,20 +2254,20 @@ export default function CreateJobPage() {
                   </div>
 
                   <div className="flex space-x-3">
-                    <button
-                      type="button"
-                      onClick={() => setShowAddressModal(true)}
-                      className="text-blue-600 hover:text-blue-700 text-sm font-medium"
-                    >
-                      + Use Address Modal
-                    </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddressModal(true)}
+                    className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                  >
+                    + Use Address Modal
+                  </button>
                     <button
                       type="button"
                       onClick={clearServiceAddress}
                       className="text-gray-600 hover:text-gray-700 text-sm font-medium"
                     >
                       Clear Address
-                    </button>
+                  </button>
                   </div>
                 </div>
               )}
@@ -2224,7 +2277,7 @@ export default function CreateJobPage() {
             <div className="flex justify-end space-x-4">
               <button
                 type="button"
-                onClick={() => navigate('/jobs')}
+                onClick={() => hashNavigate('/jobs')}
                 className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
               >
                 Cancel
@@ -2254,12 +2307,27 @@ export default function CreateJobPage() {
         isOpen={isServiceModalOpen}
         onClose={() => setIsServiceModalOpen(false)}
         onSave={(newService) => {
+          // ServiceModal already created the service via API, just handle the response
+          console.log('Service created successfully from modal:', newService);
+          
+          // Extract the created service from response (it should be response.service)
+          const serviceData = newService.service || newService;
+          
+          console.log('Adding service to local state:', serviceData);
+          
           // Add the new service to the services list
-          setServices(prev => [...prev, newService]);
+          setServices(prev => [...prev, serviceData]);
+          
+          // Refresh filtered services  
+          setFilteredServices(prev => [...prev, serviceData]);
+          
           // Select the newly created service
-          handleServiceSelect(newService);
+          handleServiceSelect(serviceData);
+          
           // Close the modal
           setIsServiceModalOpen(false);
+          
+          console.log('Service added to job successfully');
         }}
         user={user}
       />
@@ -2283,6 +2351,31 @@ export default function CreateJobPage() {
         onClose={() => setShowTerritoryModal(false)}
         onSelect={handleTerritorySelect}
         territories={territories}
+        user={user}
+      />
+
+      <ServiceCustomizationPopup
+        isOpen={showServiceCustomizationPopup}
+        onClose={handleCloseServiceCustomization}
+        service={selectedService}
+        modifiers={formData.serviceModifiers}
+        intakeQuestions={formData.serviceIntakeQuestions}
+        onModifiersChange={handleModifiersChange}
+        onIntakeQuestionsChange={handleIntakeQuestionsChange}
+        onSave={handleSaveServiceCustomization}
+      />
+
+      <ServiceSelectionModal
+        isOpen={showServiceSelectionModal}
+        onClose={() => setShowServiceSelectionModal(false)}
+        onServiceSelect={(service) => {
+          console.log('🔧 Service selected from modal:', service);
+          console.log('🔧 Service selectedModifiers:', service.selectedModifiers);
+          console.log('🔧 Service intakeQuestionAnswers:', service.intakeQuestionAnswers);
+          handleServiceSelect(service);
+          setShowServiceSelectionModal(false);
+        }}
+        selectedServices={selectedServices}
         user={user}
       />
     </div>

@@ -247,7 +247,7 @@ const CreateModifierGroupModal = ({ isOpen, onClose, onSave, editingModifier = n
         localStorage.removeItem('authToken');
         localStorage.removeItem('user');
         // Redirect to login page
-        window.location.href = '/signin';
+        window.location.hash = '#/signin';
         return;
       }
       
@@ -504,6 +504,13 @@ const CreateModifierGroupModal = ({ isOpen, onClose, onSave, editingModifier = n
                               type="number"
                               value={option.price}
                               onChange={(e) => handleOptionChange(option.id, 'price', parseFloat(e.target.value) || 0)}
+                              onFocus={(e) => {
+                                e.target.select()
+                                // Clear default values when focusing
+                                if (e.target.value === '0' || e.target.value === '0.00') {
+                                  e.target.value = ''
+                                }
+                              }}
                               className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             />
                           </div>
@@ -518,6 +525,13 @@ const CreateModifierGroupModal = ({ isOpen, onClose, onSave, editingModifier = n
                               type="number"
                               value={option.durationHours}
                               onChange={(e) => handleOptionChange(option.id, 'durationHours', parseInt(e.target.value) || 0)}
+                              onFocus={(e) => {
+                                e.target.select()
+                                // Clear default values when focusing
+                                if (e.target.value === '0') {
+                                  e.target.value = ''
+                                }
+                              }}
                               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             />
                             <span className="flex items-center text-sm text-gray-500">hr</span>
@@ -533,6 +547,13 @@ const CreateModifierGroupModal = ({ isOpen, onClose, onSave, editingModifier = n
                               type="number"
                               value={option.durationMinutes}
                               onChange={(e) => handleOptionChange(option.id, 'durationMinutes', parseInt(e.target.value) || 0)}
+                              onFocus={(e) => {
+                                e.target.select()
+                                // Clear default values when focusing
+                                if (e.target.value === '0') {
+                                  e.target.value = ''
+                                }
+                              }}
                               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             />
                             <span className="flex items-center text-sm text-gray-500">min</span>

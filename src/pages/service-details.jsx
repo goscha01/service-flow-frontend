@@ -2087,6 +2087,13 @@ const ServiceDetails = () => {
                               const minutes = serviceData.duration % 60
                               setServiceData({ ...serviceData, duration: hours * 60 + minutes })
                             }}
+                            onFocus={(e) => {
+                              e.target.select()
+                              // Clear default values when focusing
+                              if (e.target.value === '0') {
+                                e.target.value = ''
+                              }
+                            }}
                             className="w-20 border border-gray-300 rounded-md px-2 py-1"
                           />
                           <span className="text-sm text-gray-600 py-1">hours</span>
@@ -2097,6 +2104,13 @@ const ServiceDetails = () => {
                               const hours = Math.floor(serviceData.duration / 60)
                               const minutes = parseInt(e.target.value) || 0
                               setServiceData({ ...serviceData, duration: hours * 60 + minutes })
+                            }}
+                            onFocus={(e) => {
+                              e.target.select()
+                              // Clear default values when focusing
+                              if (e.target.value === '0' || e.target.value === '30') {
+                                e.target.value = ''
+                              }
                             }}
                             className="w-20 border border-gray-300 rounded-md px-2 py-1"
                           />
@@ -2114,6 +2128,13 @@ const ServiceDetails = () => {
                             type="number"
                             value={serviceData.price}
                             onChange={(e) => setServiceData({ ...serviceData, price: parseFloat(e.target.value) || 0 })}
+                            onFocus={(e) => {
+                              e.target.select()
+                              // Clear default values when focusing
+                              if (e.target.value === '0' || e.target.value === '0.00') {
+                                e.target.value = ''
+                              }
+                            }}
                             className="w-20 border border-gray-300 rounded-md px-2 py-1"
                             disabled={serviceData.isFree}
                           />

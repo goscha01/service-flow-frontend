@@ -2,9 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { MapPin, Search } from 'lucide-react';
-
-// API base URL for backend calls
-const API_BASE_URL = 'https://zenbookapi.now2code.online';
+import api from '../services/api';
 
 const AddressAutocomplete = ({ 
   value, 
@@ -42,13 +40,9 @@ const AddressAutocomplete = ({
 
     try {
       setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/api/places/autocomplete?input=${encodeURIComponent(query)}`);
+      const response = await api.get(`/places/autocomplete?input=${encodeURIComponent(query)}`);
       
-      if (!response.ok) {
-        throw new Error('Failed to fetch suggestions');
-      }
-      
-      const data = await response.json();
+      const data = response.data;
       setSuggestions(data.predictions || []);
       setShowSuggestions(true);
     } catch (error) {
@@ -63,13 +57,9 @@ const AddressAutocomplete = ({
   const handleSuggestionSelect = async (suggestion) => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/api/places/details?place_id=${suggestion.place_id}`);
+      const response = await api.get(`/places/details?place_id=${suggestion.place_id}`);
       
-      if (!response.ok) {
-        throw new Error('Failed to fetch place details');
-      }
-      
-      const data = await response.json();
+      const data = response.data;
       const placeDetails = data.result;
       
       // Extract address components

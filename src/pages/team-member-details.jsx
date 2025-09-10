@@ -57,6 +57,8 @@ const TeamMemberDetails = () => {
   const [editingHours, setEditingHours] = useState(false)
   const [editingAvailability, setEditingAvailability] = useState(false)
   const [savingHours, setSavingHours] = useState(false)
+  const [savingCustomAvailability, setSavingCustomAvailability] = useState(false)
+  const [savingDay, setSavingDay] = useState(null) // Track which day is being saved
   const [settings, setSettings] = useState({
     isServiceProvider: true,
     canEditAvailability: true,
@@ -488,7 +490,6 @@ const TeamMemberDetails = () => {
     try {
       console.log('handleSaveHours called')
       console.log('Current workingHours:', workingHours)
-      console.log('Current customAvailability:', customAvailability)
       
       setSavingHours(true)
       
@@ -499,19 +500,78 @@ const TeamMemberDetails = () => {
         })
       }
       
-      console.log('Saving availability:', updateData)
+      console.log('Saving recurring hours:', updateData)
       await teamAPI.update(memberId, updateData)
       
       // Refresh team member data
       await fetchTeamMemberDetails()
       
       setEditingHours(false)
-      console.log('Availability saved successfully')
+      console.log('Recurring hours saved successfully')
     } catch (error) {
-      console.error('Error saving availability:', error)
-      alert('Failed to save availability. Please try again.')
+      console.error('Error saving recurring hours:', error)
+      alert('Failed to save recurring hours. Please try again.')
     } finally {
       setSavingHours(false)
+    }
+  }
+
+  const handleSaveCustomAvailability = async () => {
+    try {
+      console.log('handleSaveCustomAvailability called')
+      console.log('Current customAvailability:', customAvailability)
+      
+      setSavingCustomAvailability(true)
+      
+      const updateData = {
+        availability: JSON.stringify({
+          workingHours,
+          customAvailability
+        })
+      }
+      
+      console.log('Saving custom availability:', updateData)
+      await teamAPI.update(memberId, updateData)
+      
+      // Refresh team member data
+      await fetchTeamMemberDetails()
+      
+      setEditingAvailability(false)
+      console.log('Custom availability saved successfully')
+    } catch (error) {
+      console.error('Error saving custom availability:', error)
+      alert('Failed to save custom availability. Please try again.')
+    } finally {
+      setSavingCustomAvailability(false)
+    }
+  }
+
+  const handleSaveDay = async (day) => {
+    try {
+      console.log(`handleSaveDay called for ${day}`)
+      console.log(`Current ${day} hours:`, workingHours[day])
+      
+      setSavingDay(day)
+      
+      const updateData = {
+        availability: JSON.stringify({
+          workingHours,
+          customAvailability
+        })
+      }
+      
+      console.log(`Saving ${day} availability:`, updateData)
+      await teamAPI.update(memberId, updateData)
+      
+      // Refresh team member data
+      await fetchTeamMemberDetails()
+      
+      console.log(`${day} availability saved successfully`)
+    } catch (error) {
+      console.error(`Error saving ${day} availability:`, error)
+      alert(`Failed to save ${day} availability. Please try again.`)
+    } finally {
+      setSavingDay(null)
     }
   }
 
@@ -1219,25 +1279,12 @@ const TeamMemberDetails = () => {
                               Edit Hours
                             </button>
                           ) : (
-                            <>
-                              <button
-                                onClick={handleSaveHours}
-                                disabled={savingHours}
-                                className={`text-sm font-medium ${
-                                  savingHours 
-                                    ? 'text-gray-400 cursor-not-allowed' 
-                                    : 'text-green-600 hover:text-green-700'
-                                }`}
-                              >
-                                {savingHours ? 'Saving...' : 'Save'}
-                              </button>
-                              <button
-                                onClick={() => setEditingHours(false)}
-                                className="text-sm text-gray-600 hover:text-gray-700 font-medium"
-                              >
-                                Cancel
-                              </button>
-                            </>
+                            <button
+                              onClick={() => setEditingHours(false)}
+                              className="text-sm text-gray-600 hover:text-gray-700 font-medium"
+                            >
+                              Done Editing
+                            </button>
                           )}
                         </div>
                       </div>
@@ -1257,14 +1304,29 @@ const TeamMemberDetails = () => {
                                 />
                                 <span className="text-sm font-medium text-gray-900 capitalize">{day}</span>
                               </div>
-                              {editingHours && available && (
-                                <button
-                                  onClick={() => handleAddTimeSlot(day)}
-                                  className="text-xs text-blue-600 hover:text-blue-700 font-medium"
-                                >
-                                  + Add Hours
-                                </button>
-                              )}
+                              <div className="flex items-center space-x-2">
+                                {editingHours && available && (
+                                  <button
+                                    onClick={() => handleAddTimeSlot(day)}
+                                    className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                                  >
+                                    + Add Hours
+                                  </button>
+                                )}
+                                {editingHours && (
+                                  <button
+                                    onClick={() => handleSaveDay(day)}
+                                    disabled={savingDay === day}
+                                    className={`text-xs font-medium px-2 py-1 rounded ${
+                                      savingDay === day 
+                                        ? 'text-gray-400 cursor-not-allowed bg-gray-100' 
+                                        : 'text-green-600 hover:text-green-700 bg-green-50 hover:bg-green-100'
+                                    }`}
+                                  >
+                                    {savingDay === day ? 'Saving...' : 'Save'}
+                                  </button>
+                                )}
+                              </div>
                             </div>
                             
                             {editingHours ? (
@@ -1344,10 +1406,21 @@ const TeamMemberDetails = () => {
                         ) : (
                           <div className="flex space-x-2">
                             <button
-                              onClick={() => setEditingAvailability(false)}
-                              className="text-sm text-green-600 hover:text-green-700 font-medium"
+                              onClick={handleSaveCustomAvailability}
+                              disabled={savingCustomAvailability}
+                              className={`text-sm font-medium ${
+                                savingCustomAvailability 
+                                  ? 'text-gray-400 cursor-not-allowed' 
+                                  : 'text-green-600 hover:text-green-700'
+                              }`}
                             >
-                              Done
+                              {savingCustomAvailability ? 'Saving...' : 'Save'}
+                            </button>
+                            <button
+                              onClick={() => setEditingAvailability(false)}
+                              className="text-sm text-gray-600 hover:text-gray-700 font-medium"
+                            >
+                              Cancel
                             </button>
                           </div>
                         )}

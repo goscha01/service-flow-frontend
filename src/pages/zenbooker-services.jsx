@@ -11,12 +11,19 @@ import ServicesDisplay from "../components/services-display"
 import { servicesAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
 import { getImageUrl, handleImageError } from "../utils/imageUtils"
+import useServiceSettings from "../components/use-service-settings"
 
 const ZenbookerServices = () => {
   const navigate = useNavigate()
   const { user, loading: authLoading } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [categoriesEnabled, setCategoriesEnabled] = useState(false)
+  
+  // Use persistent settings for categories enabled state
+  const { 
+    settings: { categoriesEnabled }, 
+    updateSettings: updateServiceSettings, 
+    saveSettings: saveServiceSettings 
+  } = useServiceSettings({ categoriesEnabled: false })
   const [createModalOpen, setCreateModalOpen] = useState(false)
   const [templatesModalOpen, setTemplatesModalOpen] = useState(false)
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
@@ -1059,11 +1066,23 @@ const ZenbookerServices = () => {
                 </div>
                 <div className="flex-shrink-0">
                   <button
-                    onClick={() => {
+                    onClick={async () => {
                       console.log('🔍 Toggle clicked - current categoriesEnabled:', categoriesEnabled)
                       console.log('🔍 Current services count:', services.length)
                       console.log('🔍 Current categories count:', categories.length)
-                      setCategoriesEnabled(!categoriesEnabled)
+                      
+                      const newCategoriesEnabled = !categoriesEnabled
+                      
+                      // Update settings immediately (updates local state)
+                      updateServiceSettings({ categoriesEnabled: newCategoriesEnabled })
+                      
+                      // Save to localStorage and potentially backend
+                      try {
+                        await saveServiceSettings({ categoriesEnabled: newCategoriesEnabled })
+                        console.log('🔍 Service categories setting saved successfully:', newCategoriesEnabled)
+                      } catch (error) {
+                        console.error('🔍 Failed to save service categories setting:', error)
+                      }
                     }}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                       categoriesEnabled ? "bg-blue-600" : "bg-gray-300"
@@ -1097,12 +1116,12 @@ const ZenbookerServices = () => {
                       >
                         Auto-Fix Cleaning
                       </button>
-                      <button
-                        onClick={() => setShowAddCategoryModal(true)}
-                        className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
-                      >
-                        Add Category
-                      </button>
+                    <button
+                      onClick={() => setShowAddCategoryModal(true)}
+                      className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
+                    >
+                      Add Category
+                    </button>
                     </div>
                   </div>
                   

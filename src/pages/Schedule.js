@@ -991,11 +991,11 @@ const ZenbookerSchedule = () => {
       <div className="flex-1 flex min-w-0 lg:ml-64 h-full">
         {/* Schedule Sidebar - Hidden on mobile, visible on desktop */}
         <div className="hidden lg:block">
-          <ScheduleSidebar 
-            filters={filters}
-            onFilterChange={handleFilterChange}
-            teamMembers={teamMembers}
-          />
+        <ScheduleSidebar 
+          filters={filters}
+          onFilterChange={handleFilterChange}
+          teamMembers={teamMembers}
+        />
         </div>
         
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden h-full">

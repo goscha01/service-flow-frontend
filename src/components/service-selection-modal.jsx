@@ -1,0 +1,588 @@
+import React, { useState, useEffect } from 'react';
+import { X, ChevronRight, ChevronLeft, Clock, DollarSign, Users, Tag } from 'lucide-react';
+import { servicesAPI } from '../services/api';
+import ServiceModifiersForm from './service-modifiers-form';
+import IntakeQuestionsForm from './intake-questions-form';
+
+const ServiceSelectionModal = ({ 
+  isOpen, 
+  onClose, 
+  onServiceSelect, 
+  selectedServices = [],
+  user 
+}) => {
+  const [categories, setCategories] = useState([]);
+  const [services, setServices] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentView, setCurrentView] = useState('categories'); // 'categories', 'services', 'customize'
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [selectedService, setSelectedService] = useState(null);
+  const [selectedModifiers, setSelectedModifiers] = useState({});
+  const [intakeQuestionAnswers, setIntakeQuestionAnswers] = useState({});
+
+  // Load categories and services
+  useEffect(() => {
+    if (isOpen && user?.id) {
+      console.log('🔄 Loading data for user:', user.id);
+      loadCategories();
+      loadServices();
+    } else if (isOpen) {
+      console.warn('⚠️ Modal opened but no user ID available:', user);
+    }
+  }, [isOpen, user?.id]);
+
+  // Debug services data
+  useEffect(() => {
+    console.log('🔧 Services state updated:', services);
+    console.log('🔧 Services length:', services.length);
+    if (services.length > 0) {
+      console.log('🔧 First service sample:', services[0]);
+    }
+  }, [services]);
+
+  // Debug categories data
+  useEffect(() => {
+    console.log('📋 Categories state updated:', categories);
+    console.log('📋 Categories length:', categories.length);
+    if (categories.length > 0) {
+      console.log('📋 First category sample:', categories[0]);
+    }
+  }, [categories]);
+
+  const loadCategories = async () => {
+    if (!user?.id) {
+      console.error('❌ Cannot load categories: No user ID available');
+      setCategories([]);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      console.log('🔄 Loading categories for user:', user.id);
+      const categoriesData = await servicesAPI.getServiceCategories(user.id);
+      console.log('📋 Categories loaded:', categoriesData);
+      setCategories(categoriesData || []);
+    } catch (error) {
+      console.error('❌ Error loading categories:', error);
+      setCategories([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadServices = async () => {
+    if (!user?.id) {
+      console.error('❌ Cannot load services: No user ID available');
+      setServices([]);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      console.log('🔄 Loading services for user:', user.id);
+      const response = await servicesAPI.getAll(user.id);
+      console.log('🔧 Full API response:', response);
+      console.log('🔧 Response type:', typeof response);
+      console.log('🔧 Response keys:', Object.keys(response));
+      console.log('🔧 Response services:', response.services);
+      console.log('🔧 Response pagination:', response.pagination);
+      
+      // servicesAPI.getAll returns response.data directly, which is {services: [...], pagination: {...}}
+      let servicesArray = [];
+      if (response.services && Array.isArray(response.services)) {
+        servicesArray = response.services;
+        console.log('✅ Found services array with', servicesArray.length, 'services');
+      } else if (Array.isArray(response)) {
+        servicesArray = response;
+        console.log('✅ Response is direct array with', servicesArray.length, 'services');
+      } else {
+        console.warn('⚠️ Unexpected response structure:', response);
+        servicesArray = [];
+      }
+      
+      console.log('🔧 Final services array:', servicesArray);
+      setServices(servicesArray);
+    } catch (error) {
+      console.error('❌ Error loading services:', error);
+      setServices([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCategorySelect = (category) => {
+    setSelectedCategory(category);
+    setCurrentView('services');
+  };
+
+  const handleServiceSelect = (service) => {
+    setSelectedService(service);
+    
+    // Check if service has modifiers or intake questions
+    const hasModifiers = service.modifiers && (
+      (typeof service.modifiers === 'string' && service.modifiers !== '[]' && service.modifiers !== 'null') ||
+      (Array.isArray(service.modifiers) && service.modifiers.length > 0)
+    );
+    
+    const hasIntakeQuestions = service.intake_questions || service.intakeQuestions;
+    
+    if (hasModifiers || hasIntakeQuestions) {
+      // Show customization view
+      setCurrentView('customize');
+      // Parse modifiers and intake questions
+      parseServiceCustomization(service);
+    } else {
+      // Add service instantly with empty customization
+      const serviceWithCustomization = {
+        ...service,
+        selectedModifiers: {},
+        intakeQuestionAnswers: {}
+      };
+      onServiceSelect(serviceWithCustomization);
+      handleClose();
+    }
+  };
+
+  const parseServiceCustomization = (service) => {
+    // Parse modifiers
+    let serviceModifiers = [];
+    if (service.modifiers) {
+      try {
+        if (typeof service.modifiers === 'string') {
+          serviceModifiers = JSON.parse(service.modifiers);
+        } else if (Array.isArray(service.modifiers)) {
+          serviceModifiers = service.modifiers;
+        }
+      } catch (error) {
+        console.error('Error parsing modifiers:', error);
+      }
+    }
+
+    // Parse intake questions
+    let serviceIntakeQuestions = [];
+    const intakeQuestionsData = service.intake_questions || service.intakeQuestions;
+    if (intakeQuestionsData) {
+      try {
+        if (typeof intakeQuestionsData === 'string') {
+          serviceIntakeQuestions = JSON.parse(intakeQuestionsData);
+        } else if (Array.isArray(intakeQuestionsData)) {
+          serviceIntakeQuestions = intakeQuestionsData;
+        }
+      } catch (error) {
+        console.error('Error parsing intake questions:', error);
+      }
+    }
+
+    // Set the parsed data for customization
+    setSelectedService({
+      ...service,
+      parsedModifiers: serviceModifiers,
+      parsedIntakeQuestions: serviceIntakeQuestions
+    });
+
+    // Reset modifiers and answers for this service (start fresh each time)
+    setSelectedModifiers({});
+    setIntakeQuestionAnswers({});
+  };
+
+
+  const validateCustomization = () => {
+    if (!selectedService) return false;
+
+    // Check required modifiers
+    if (selectedService.parsedModifiers) {
+      for (const modifier of selectedService.parsedModifiers) {
+        if (modifier.required) {
+          const modifierSelection = selectedModifiers[modifier.id];
+          if (!modifierSelection) return false;
+          
+          if (modifier.selectionType === 'quantity') {
+            const quantities = modifierSelection.quantities || {};
+            const hasSelection = Object.values(quantities).some(qty => qty > 0);
+            if (!hasSelection) return false;
+          } else if (modifier.selectionType === 'multi') {
+            const selections = modifierSelection.selections || [];
+            if (selections.length === 0) return false;
+          } else {
+            if (!modifierSelection.selection) return false;
+          }
+        }
+      }
+    }
+
+    // Check required intake questions
+    if (selectedService.parsedIntakeQuestions) {
+      for (const question of selectedService.parsedIntakeQuestions) {
+        if (question.required) {
+          const answer = intakeQuestionAnswers[question.id];
+          if (!answer || (typeof answer === 'string' && answer.trim() === '')) {
+            return false;
+          }
+        }
+      }
+    }
+
+    return true;
+  };
+
+  const handleAddService = () => {
+    // Validate required fields
+    if (!validateCustomization()) {
+      alert('Please fill in all required fields before continuing.');
+      return;
+    }
+
+    console.log('🔧 Adding service with customization data:');
+    console.log('🔧 Selected modifiers:', selectedModifiers);
+    console.log('🔧 Intake question answers:', intakeQuestionAnswers);
+    console.log('🔧 Selected service:', selectedService);
+
+    // Create service with proper customization data
+    const serviceWithCustomization = {
+      ...selectedService,
+      selectedModifiers: selectedModifiers,
+      intakeQuestionAnswers: intakeQuestionAnswers,
+      // Ensure modifiers and intake questions are available in the job form
+      serviceModifiers: selectedService.parsedModifiers || [],
+      serviceIntakeQuestions: selectedService.parsedIntakeQuestions || []
+    };
+
+    console.log('🔧 Final service data being passed:', serviceWithCustomization);
+
+    // Add service with customization data
+    onServiceSelect(serviceWithCustomization);
+    handleClose();
+  };
+
+  const handleClose = () => {
+    setCurrentView('categories');
+    setSelectedCategory(null);
+    setSelectedService(null);
+    // Reset modifiers and answers for clean state on next open
+    setSelectedModifiers({});
+    setIntakeQuestionAnswers({});
+    setSearchTerm('');
+    onClose();
+  };
+
+  const handleBack = () => {
+    if (currentView === 'services') {
+      setCurrentView('categories');
+      setSelectedCategory(null);
+    } else if (currentView === 'customize') {
+      setCurrentView('services');
+      setSelectedService(null);
+      // Don't reset modifiers and answers when going back - preserve them
+    }
+  };
+
+  const getFilteredServices = () => {
+    if (!selectedCategory) return [];
+    
+    console.log('🔍 Filtering services for category:', selectedCategory);
+    console.log('🔍 All services:', services);
+    
+    let filtered;
+    
+    // Handle "All Services" category
+    if (selectedCategory.id === 'all') {
+      filtered = services;
+    } else {
+      filtered = services.filter(service => {
+        const matchesId = service.category_id === selectedCategory.id;
+        const matchesName = service.category === selectedCategory.name;
+        console.log(`🔍 Service "${service.name}": category_id=${service.category_id}, category=${service.category}, matchesId=${matchesId}, matchesName=${matchesName}`);
+        return matchesId || matchesName;
+      });
+    }
+
+    console.log('🔍 Filtered services:', filtered);
+
+    if (searchTerm) {
+      filtered = filtered.filter(service =>
+        service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        service.description?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    return filtered;
+  };
+
+  // Helper function to count services per category
+  const getServiceCountForCategory = (category) => {
+    if (category.id === 'all') {
+      return services.length;
+    }
+    
+    const count = services.filter(service => {
+      const matchesId = service.category_id === category.id;
+      const matchesName = service.category === category.name;
+      return matchesId || matchesName;
+    }).length;
+    
+    console.log(`📊 Service count for category "${category.name}":`, count);
+    return count;
+  };
+
+  const getFilteredCategories = () => {
+    if (!searchTerm) return categories;
+    
+    return categories.filter(category =>
+      category.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  };
+
+  const isServiceSelected = (service) => {
+    return selectedServices.some(selected => selected.id === service.id);
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+          <div className="flex items-center space-x-4">
+            {currentView !== 'categories' && (
+              <button
+                onClick={handleBack}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+            )}
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900">
+                {currentView === 'categories' && 'Select Service Category'}
+                {currentView === 'services' && `Services in ${selectedCategory?.name}`}
+                {currentView === 'customize' && `Customize ${selectedService?.name}`}
+              </h2>
+              <p className="text-sm text-gray-600 mt-1">
+                {currentView === 'categories' && 'Choose a category to see available services'}
+                {currentView === 'services' && 'Select a service to add to your job'}
+                {currentView === 'customize' && 'Configure options and provide additional information'}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleClose}
+            className="text-gray-400 hover:text-gray-500 hover:bg-gray-100 p-2 rounded-full transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Search */}
+        <div className="p-6 border-b border-gray-200">
+          <div className="relative">
+            <input
+              type="text"
+              placeholder={
+                currentView === 'categories' 
+                  ? 'Search categories...' 
+                  : 'Search services...'
+              }
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 p-6 overflow-y-auto">
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            </div>
+          ) : (
+            <>
+              {/* Categories View */}
+              {currentView === 'categories' && (
+                <div>
+                  {categories.length === 0 && services.length === 0 ? (
+                    <div className="text-center py-8">
+                      <div className="text-gray-400 mb-2">
+                        <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                        </svg>
+                      </div>
+                      <h3 className="text-lg font-medium text-gray-900 mb-1">No Services Available</h3>
+                      <p className="text-sm text-gray-600">
+                        You haven't created any services yet. Create your first service to get started.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {/* All Services Category */}
+                      <button
+                        onClick={() => handleCategorySelect({ id: 'all', name: 'All Services' })}
+                        className="p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors text-left"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h3 className="font-medium text-gray-900">All Services</h3>
+                            <p className="text-sm text-gray-600 mt-1">
+                              {getServiceCountForCategory({ id: 'all' })} services
+                            </p>
+                          </div>
+                          <ChevronRight className="w-5 h-5 text-gray-400" />
+                        </div>
+                      </button>
+                      
+                      {/* Regular Categories */}
+                      {getFilteredCategories().map((category) => (
+                        <button
+                          key={category.id}
+                          onClick={() => handleCategorySelect(category)}
+                          className="p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors text-left"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <h3 className="font-medium text-gray-900">{category.name}</h3>
+                              <p className="text-sm text-gray-600 mt-1">
+                                {getServiceCountForCategory(category)} services
+                              </p>
+                            </div>
+                            <ChevronRight className="w-5 h-5 text-gray-400" />
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Services View */}
+              {currentView === 'services' && (
+                <div className="space-y-4">
+                  {getFilteredServices().map((service) => (
+                    <button
+                      key={service.id}
+                      onClick={() => handleServiceSelect(service)}
+                      disabled={isServiceSelected(service)}
+                      className={`w-full p-4 border rounded-lg text-left transition-colors ${
+                        isServiceSelected(service)
+                          ? 'border-green-300 bg-green-50 cursor-not-allowed'
+                          : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2">
+                            <h3 className="font-medium text-gray-900">{service.name}</h3>
+                            {isServiceSelected(service) && (
+                              <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                                Selected
+                              </span>
+                            )}
+                          </div>
+                          {service.description && (
+                            <p className="text-sm text-gray-600 mt-1">{service.description}</p>
+                          )}
+                          <div className="flex items-center space-x-4 mt-2 text-sm text-gray-500">
+                            {service.duration && (
+                              <div className="flex items-center space-x-1">
+                                <Clock className="w-4 h-4" />
+                                <span>{Math.floor(service.duration / 60)}h {service.duration % 60}m</span>
+                              </div>
+                            )}
+                            {service.price && (
+                              <div className="flex items-center space-x-1">
+                                <DollarSign className="w-4 h-4" />
+                                <span>${service.price}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <ChevronRight className="w-5 h-5 text-gray-400" />
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Customize View */}
+              {currentView === 'customize' && selectedService && (
+                <div className="space-y-6">
+                  {/* Service Info */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h3 className="font-medium text-gray-900">{selectedService.name}</h3>
+                    {selectedService.description && (
+                      <p className="text-sm text-gray-600 mt-1">{selectedService.description}</p>
+                    )}
+                    <div className="flex items-center space-x-4 mt-2 text-sm text-gray-500">
+                      {selectedService.duration && (
+                        <div className="flex items-center space-x-1">
+                          <Clock className="w-4 h-4" />
+                          <span>{Math.floor(selectedService.duration / 60)}h {selectedService.duration % 60}m</span>
+                        </div>
+                      )}
+                      {selectedService.price && (
+                        <div className="flex items-center space-x-1">
+                          <DollarSign className="w-4 h-4" />
+                          <span>${selectedService.price}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Modifiers */}
+                  {selectedService.parsedModifiers && selectedService.parsedModifiers.length > 0 && (
+                    <div>
+                      <h4 className="text-lg font-medium text-gray-900 mb-4">Service Options</h4>
+                      <ServiceModifiersForm
+                        modifiers={selectedService.parsedModifiers}
+                        onModifiersChange={setSelectedModifiers}
+                      />
+                    </div>
+                  )}
+
+                  {/* Intake Questions */}
+                  {selectedService.parsedIntakeQuestions && selectedService.parsedIntakeQuestions.length > 0 && (
+                    <div>
+                      <h4 className="text-lg font-medium text-gray-900 mb-4">Additional Information</h4>
+                      <IntakeQuestionsForm
+                        questions={selectedService.parsedIntakeQuestions}
+                        onAnswersChange={setIntakeQuestionAnswers}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Footer */}
+        {currentView === 'customize' && (
+          <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200 bg-gray-50 flex-shrink-0">
+            <button
+              type="button"
+              onClick={handleBack}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+            >
+              Back
+            </button>
+            <button
+              type="button"
+              onClick={handleAddService}
+              disabled={!validateCustomization()}
+              className={`px-6 py-2 text-sm font-medium border border-transparent rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors ${
+                validateCustomization()
+                  ? 'text-white bg-blue-600 hover:bg-blue-700'
+                  : 'text-gray-400 bg-gray-200 cursor-not-allowed'
+              }`}
+            >
+              Continue & Add Service
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default ServiceSelectionModal;

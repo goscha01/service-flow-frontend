@@ -9,18 +9,51 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
 
   // Initialize answers when questions change or when initialAnswers are provided
   useEffect(() => {
+    console.log('🔄 IntakeQuestionsForm: Initializing answers', { 
+      initialAnswers, 
+      questions: questions?.length || 0,
+      hasInitialAnswers: initialAnswers && Object.keys(initialAnswers).length > 0
+    });
+    
+    // Priority 1: Use initialAnswers if provided
     if (initialAnswers && Object.keys(initialAnswers).length > 0) {
+      console.log('✅ Using initialAnswers:', initialAnswers);
       setAnswers(initialAnswers);
-    } else if (questions && questions.length > 0) {
+      return;
+    }
+    
+    // Priority 2: Build from questions that have answers embedded
+    if (questions && questions.length > 0) {
+      console.log('🔍 Building answers from questions');
       const defaultAnswers = {};
       questions.forEach(question => {
-        if (question.answer) {
+        if (question.answer !== undefined && question.answer !== null && question.answer !== '') {
           defaultAnswers[question.id] = question.answer;
+          console.log(`📝 Question ${question.id} has answer:`, question.answer);
         }
       });
+      console.log('📝 Default answers from questions:', defaultAnswers);
       setAnswers(defaultAnswers);
     }
-  }, [questions, initialAnswers]);
+  }, [questions, initialAnswers]); // Include initialAnswers but with proper handling
+
+  // Separate effect to handle initialAnswers changes without causing loops
+  useEffect(() => {
+    if (initialAnswers && Object.keys(initialAnswers).length > 0) {
+      setAnswers(prevAnswers => {
+        // Only update if the initialAnswers are actually different
+        const hasChanges = Object.keys(initialAnswers).some(key => 
+          prevAnswers[key] !== initialAnswers[key]
+        );
+        console.log('🔄 IntakeQuestionsForm: Checking for changes', { 
+          hasChanges, 
+          prevAnswers, 
+          initialAnswers 
+        });
+        return hasChanges ? initialAnswers : prevAnswers;
+      });
+    }
+  }, [initialAnswers]);
 
   const handleAnswerChange = (questionId, value) => {
     const newAnswers = { ...answers, [questionId]: value };
@@ -120,6 +153,13 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
   const renderQuestion = (question) => {
     const questionId = question.id;
     const currentAnswer = answers[questionId];
+    
+    // Debug logging for question rendering
+    console.log(`🎯 Rendering question ${questionId} (${question.questionType}):`, {
+      currentAnswer,
+      questionText: question.question,
+      allAnswers: answers
+    });
 
 
     switch (question.questionType) {
@@ -159,6 +199,15 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
       case 'dropdown':
         // Dropdown uses actual dropdown for single select, multiselect for multi
         const isMultiSelect = question.selectionType === 'multi';
+        
+        // Debug logging for dropdown questions
+        console.log(`🔽 Dropdown question ${questionId}:`, {
+          questionText: question.question,
+          currentAnswer,
+          isMultiSelect,
+          options: question.options,
+          answersState: answers
+        });
         
         return (
           <div key={questionId} className="mb-6">

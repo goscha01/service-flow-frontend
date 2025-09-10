@@ -16,6 +16,7 @@ const AddTeamMember = () => {
   const [checkingEmail, setCheckingEmail] = useState(false)
   const [phoneWarning, setPhoneWarning] = useState('')
   const [checkingPhone, setCheckingPhone] = useState(false)
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
   
   // Form data
   const [formData, setFormData] = useState({
@@ -282,9 +283,8 @@ const AddTeamMember = () => {
       const response = await teamAPI.create(teamMemberData)
       console.log('✅ Team member created successfully:', response)
       
-      // Show success message before navigating
-      alert('Team member invited successfully! An invitation email has been sent.')
-      navigate('/team')
+      // Show success modal
+      setShowSuccessModal(true)
     } catch (error) {
       console.error('❌ Error creating team member:', error)
       console.error('❌ Error response:', error.response)
@@ -361,6 +361,51 @@ const AddTeamMember = () => {
     }
   }
 
+  // Check if phone number already exists
+  const checkPhoneExists = async (phone) => {
+    if (!phone || !user?.id) {
+      setPhoneWarning('')
+      return
+    }
+
+    // Basic phone validation - remove formatting
+    const cleanedPhone = phone.replace(/[\s\-\(\)]/g, '')
+    const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/
+    if (!phoneRegex.test(cleanedPhone)) {
+      setPhoneWarning('')
+      return
+    }
+
+    try {
+      setCheckingPhone(true)
+      setPhoneWarning('')
+      
+      // Check if phone exists by trying to get team members with this phone
+      const response = await teamAPI.getAll(user.id, {
+        search: phone,
+        status: '',
+        sortBy: 'first_name',
+        sortOrder: 'ASC',
+        page: 1,
+        limit: 10
+      })
+      
+      const existingMembers = response.teamMembers || []
+      const phoneExists = existingMembers.some(member => 
+        member.phone && member.phone.replace(/[\s\-\(\)]/g, '') === cleanedPhone
+      )
+      
+      if (phoneExists) {
+        setPhoneWarning('This phone number is already registered with another team member.')
+      }
+    } catch (error) {
+      console.error('Error checking phone:', error)
+      // Don't show error to user for phone check
+    } finally {
+      setCheckingPhone(false)
+    }
+  }
+
   // Debounced email check
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -373,6 +418,19 @@ const AddTeamMember = () => {
 
     return () => clearTimeout(timeoutId)
   }, [formData.email, user?.id])
+
+  // Debounced phone check
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (formData.phone) {
+        checkPhoneExists(formData.phone)
+      } else {
+        setPhoneWarning('')
+      }
+    }, 500) // Wait 500ms after user stops typing
+
+    return () => clearTimeout(timeoutId)
+  }, [formData.phone, user?.id])
 
   // Load available territories on component mount
   useEffect(() => {
@@ -473,11 +531,11 @@ const AddTeamMember = () => {
                       Email *
                     </label>
                     <div className="relative">
-                      <input
-                        type="email"
-                        required
-                        value={formData.email}
-                        onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                    <input
+                      type="email"
+                      required
+                      value={formData.email}
+                      onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                         className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                           emailWarning ? 'border-orange-300 focus:border-orange-500' : 'border-gray-300'
                         }`}
@@ -502,15 +560,22 @@ const AddTeamMember = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Phone *
                     </label>
+                    <div className="relative">
                     <input
                       type="tel"
                       required
                       value={formData.phone}
                       onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                        phoneWarning ? 'border-orange-300 focus:border-orange-500' : 'border-gray-300'
-                      }`}
-                    />
+                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                          phoneWarning ? 'border-orange-300 focus:border-orange-500' : 'border-gray-300'
+                        }`}
+                      />
+                      {checkingPhone && (
+                        <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                        </div>
+                      )}
+                    </div>
                     {phoneWarning && (
                       <div className="mt-1 flex items-center text-sm text-orange-600">
                         <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
@@ -867,6 +932,66 @@ const AddTeamMember = () => {
               >
                 Cancel
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <div className="text-center">
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
+                <svg className="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                Team Member Invited Successfully!
+              </h3>
+              <p className="text-sm text-gray-600 mb-6">
+                An invitation email has been sent to <strong>{formData.email}</strong>. 
+                They will receive instructions to create their account.
+              </p>
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => {
+                    setShowSuccessModal(false)
+                    navigate('/team')
+                  }}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                >
+                  Go to Team
+                </button>
+                <button
+                  onClick={() => {
+                    setShowSuccessModal(false)
+                    // Reset form for adding another team member
+                    setFormData({
+                      first_name: '',
+                      last_name: '',
+                      email: '',
+                      phone: '',
+                      role: '',
+                      hourly_rate: '',
+                      location: '',
+                      city: '',
+                      state: '',
+                      zip_code: '',
+                      is_service_provider: true
+                    })
+                    setSkills([])
+                    setTerritories([])
+                    setEmailWarning('')
+                    setPhoneWarning('')
+                    setError('')
+                  }}
+                  className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                >
+                  Add Another
+                </button>
+              </div>
             </div>
           </div>
         </div>
