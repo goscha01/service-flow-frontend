@@ -1,9 +1,27 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Plus, Minus, Image as ImageIcon, Save } from 'lucide-react';
 
-const ServiceModifiersForm = ({ modifiers = [], selectedModifiers: parentSelectedModifiers = {}, onModifiersChange, onSave, isEditable = false, isSaving = false }) => {
+const ServiceModifiersForm = ({ modifiers = [], selectedModifiers: parentSelectedModifiers = {}, onModifiersChange, onSave, isEditable = false, isSaving = false, editedModifierPrices = {}, onModifierPriceChange }) => {
   // Use parent selectedModifiers directly, with fallback to internal state for user interactions
   const [internalSelectedModifiers, setInternalSelectedModifiers] = useState({});
+  
+  // Local state for modifier prices to handle immediate updates
+  const [localEditedPrices, setLocalEditedPrices] = useState({});
+  
+  // Merge parent edited prices with local ones
+  const effectiveEditedPrices = { ...editedModifierPrices, ...localEditedPrices };
+  
+  // Debug log to see current state
+  useEffect(() => {
+    console.log('🔧 ServiceModifiersForm editedModifierPrices:', editedModifierPrices);
+    console.log('🔧 ServiceModifiersForm localEditedPrices:', localEditedPrices);
+    console.log('🔧 ServiceModifiersForm effectiveEditedPrices:', effectiveEditedPrices);
+  }, [editedModifierPrices, localEditedPrices]);
+  
+  // Clear local edited prices when parent prices change
+  useEffect(() => {
+    setLocalEditedPrices({});
+  }, [editedModifierPrices]);
   
   // Merge parent selections with any additional internal selections
   const selectedModifiers = useMemo(() => {
@@ -146,7 +164,35 @@ const ServiceModifiersForm = ({ modifiers = [], selectedModifiers: parentSelecte
                         <div className="text-sm text-gray-600">{option.description}</div>
                       )}
                       <div className="flex items-center space-x-2 mt-1">
-                        <span className="text-sm font-medium text-gray-900">${option.price}</span>
+                        <div className="flex items-center space-x-1">
+                          <span className="text-xs text-gray-500">$</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={(() => {
+                              const priceKey = `${modifier.id}_option_${option.id}`;
+                              const editedPrice = effectiveEditedPrices[priceKey];
+                              console.log('🔧 RENDER VALUE for', priceKey, ':', editedPrice, 'original:', option.price);
+                              return editedPrice !== undefined ? editedPrice : option.price;
+                            })()}
+                            onChange={(e) => {
+                              const priceKey = `${modifier.id}_option_${option.id}`;
+                              const value = e.target.value;
+                              console.log('🔧 MODIFIER INPUT CHANGE:', priceKey, value);
+                              
+                              // Update local state immediately for UI responsiveness
+                              setLocalEditedPrices(prev => ({
+                                ...prev,
+                                [priceKey]: value
+                              }));
+                              
+                              // Also call parent callback
+                              onModifierPriceChange && onModifierPriceChange(priceKey, value);
+                            }}
+                            className="w-16 px-1 py-0.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                          />
+                        </div>
                         {option.duration && (
                           <span className="text-sm text-gray-500">
                             {Math.floor(option.duration / 60)}h {option.duration % 60}m
@@ -211,7 +257,35 @@ const ServiceModifiersForm = ({ modifiers = [], selectedModifiers: parentSelecte
                       )}
                     </div>
                     <div className="text-right">
-                      <div className="font-medium text-gray-900">${option.price}</div>
+                      <div className="flex items-center justify-end space-x-1">
+                        <span className="text-xs text-gray-500">$</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={(() => {
+                            const priceKey = `${modifier.id}_option_${option.id}`;
+                            const editedPrice = effectiveEditedPrices[priceKey];
+                            console.log('🔧 RENDER VALUE (2) for', priceKey, ':', editedPrice, 'original:', option.price);
+                            return editedPrice !== undefined ? editedPrice : option.price;
+                          })()}
+                          onChange={(e) => {
+                            const priceKey = `${modifier.id}_option_${option.id}`;
+                            const value = e.target.value;
+                            console.log('🔧 MODIFIER INPUT CHANGE (2):', priceKey, value);
+                            
+                            // Update local state immediately for UI responsiveness
+                            setLocalEditedPrices(prev => ({
+                              ...prev,
+                              [priceKey]: value
+                            }));
+                            
+                            // Also call parent callback
+                            onModifierPriceChange && onModifierPriceChange(priceKey, value);
+                          }}
+                          className="w-16 px-1 py-0.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent text-right"
+                        />
+                      </div>
                       {option.duration && (
                         <div className="text-sm text-gray-500">
                           {Math.floor(option.duration / 60)}h {option.duration % 60}m
