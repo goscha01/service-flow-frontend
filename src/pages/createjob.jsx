@@ -1536,12 +1536,25 @@ export default function CreateJobPage() {
                           )}
                           <div className="flex-1">
                                   <p className="font-medium text-green-900">{service.name}</p>
-                                  <p className="text-sm text-green-700">
-                                    ${service.price}
+                                  <div className="flex items-center space-x-2">
+                                    <span className="text-xs text-green-700">$</span>
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      min="0"
+                                      value={service.price}
+                                      onChange={(e) => {
+                                        const newPrice = e.target.value;
+                                        setSelectedServices(prev => prev.map(s => 
+                                          s.id === service.id ? { ...s, price: newPrice } : s
+                                        ));
+                                      }}
+                                      className="w-20 px-2 py-1 text-sm border border-green-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white"
+                                    />
                                     {service.originalPrice && service.originalPrice !== service.price && (
-                                      <span className="ml-2 text-xs text-gray-500 line-through">${service.originalPrice}</span>
+                                      <span className="text-xs text-gray-500 line-through">${service.originalPrice}</span>
                                     )}
-                                  </p>
+                                  </div>
                                 </div>
                               </div>
                               <button

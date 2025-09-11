@@ -88,6 +88,13 @@ const ServiceDetails = () => {
   const [previewAnswers, setPreviewAnswers] = useState({})
   const [previewQuantities, setPreviewQuantities] = useState({})
   
+  // Default selections from service customizations
+  const [defaultModifierSelections, setDefaultModifierSelections] = useState({})
+  const [defaultIntakeAnswers, setDefaultIntakeAnswers] = useState({})
+  
+  // Editable modifier prices state
+  const [editedModifierPrices, setEditedModifierPrices] = useState({})
+  
   // Hidden sections state - not needed when sections are commented out
   // const [hiddenSections, setHiddenSections] = useState([])
   
@@ -374,6 +381,33 @@ const ServiceDetails = () => {
       })())
       
       console.log('Service data set successfully')
+      
+      // Load default selections if they exist
+      try {
+        console.log('📋 Checking for default selections in service:', {
+          default_modifier_selections: service.default_modifier_selections,
+          default_intake_answers: service.default_intake_answers
+        });
+        
+        if (service.default_modifier_selections) {
+          const defaultSelections = JSON.parse(service.default_modifier_selections);
+          setDefaultModifierSelections(defaultSelections);
+          console.log('📋 Loaded default modifier selections:', defaultSelections);
+        } else {
+          console.log('📋 No default modifier selections found');
+        }
+        
+        if (service.default_intake_answers) {
+          const defaultAnswers = JSON.parse(service.default_intake_answers);
+          setDefaultIntakeAnswers(defaultAnswers);
+          setPreviewAnswers(defaultAnswers); // Also set preview answers
+          console.log('📋 Loaded default intake answers:', defaultAnswers);
+        } else {
+          console.log('📋 No default intake answers found');
+        }
+      } catch (error) {
+        console.error('Error parsing default selections:', error);
+      }
       
       // Load categories
       await loadCategories()
@@ -704,7 +738,35 @@ const ServiceDetails = () => {
       setSavingModifiers(true)
       setError("")
       
-      await handleSaveService(serviceData)
+      // Apply edited modifier prices to the service data
+      let updatedServiceData = { ...serviceData };
+      
+      if (Object.keys(editedModifierPrices).length > 0) {
+        console.log('🔧 Applying edited modifier prices:', editedModifierPrices);
+        
+        // Update modifier prices in the service data
+        updatedServiceData.modifiers = serviceData.modifiers?.map(modifier => ({
+          ...modifier,
+          options: modifier.options?.map(option => {
+            const priceKey = `${modifier.id}_option_${option.id}`;
+            const editedPrice = editedModifierPrices[priceKey];
+            
+            if (editedPrice !== undefined) {
+              console.log(`🔧 Updating ${priceKey} price from ${option.price} to ${editedPrice}`);
+              return {
+                ...option,
+                price: parseFloat(editedPrice)
+              };
+            }
+            return option;
+          })
+        }));
+        
+        // Update the service data state
+        setServiceData(updatedServiceData);
+      }
+      
+      await handleSaveService(updatedServiceData)
       
       setModifiersChanged(false)
       setSuccessMessage("Modifiers saved successfully!")
@@ -2442,10 +2504,19 @@ const ServiceDetails = () => {
                 <div className="bg-gray-50 rounded-lg p-6">
                   <ServiceModifiersForm 
                     modifiers={serviceData.modifiers}
+                    selectedModifiers={defaultModifierSelections}
                     onModifiersChange={handleModifiersChange}
                     onSave={handleSaveModifiers}
                     isEditable={true}
                     isSaving={savingModifiers}
+                    editedModifierPrices={editedModifierPrices}
+                    onModifierPriceChange={(priceKey, value) => {
+                      console.log('🔧 SERVICE DETAILS: Modifier price change:', priceKey, '=', value);
+                      setEditedModifierPrices(prev => ({
+                        ...prev,
+                        [priceKey]: value
+                      }));
+                    }}
                   />
                 </div>
               </div>

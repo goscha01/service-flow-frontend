@@ -20,10 +20,14 @@ const ServiceSelectionModal = ({
   const [selectedService, setSelectedService] = useState(null);
   const [selectedModifiers, setSelectedModifiers] = useState({});
   const [intakeQuestionAnswers, setIntakeQuestionAnswers] = useState({});
+  const [editedServicePrice, setEditedServicePrice] = useState(null);
+  const [editedModifierPrices, setEditedModifierPrices] = useState({});
 
   // Function to calculate dynamic price based on service and modifiers
   const calculateDynamicPrice = (service, modifiers = {}) => {
-    let totalPrice = parseFloat(service.price) || 0;
+    // Use edited service price if available, otherwise use original
+    let totalPrice = editedServicePrice !== null ? parseFloat(editedServicePrice) : parseFloat(service.price) || 0;
+    console.log('🔧 CALC START: Base price =', totalPrice, '(edited:', editedServicePrice, ', original:', service.price, ')');
     
     // Add modifier prices
     if (service.parsedModifiers && Array.isArray(service.parsedModifiers)) {
@@ -36,7 +40,12 @@ const ServiceSelectionModal = ({
           Object.entries(modifierSelection.quantities).forEach(([optionId, quantity]) => {
             const option = modifier.options?.find(opt => opt.id == optionId);
             if (option && quantity > 0) {
-              totalPrice += (parseFloat(option.price) || 0) * quantity;
+              // Use edited option price if available
+              const optionPriceKey = `${modifier.id}_option_${optionId}`;
+              const optionPrice = editedModifierPrices[optionPriceKey] !== undefined
+                ? parseFloat(editedModifierPrices[optionPriceKey])
+                : parseFloat(option.price) || 0;
+              totalPrice += optionPrice * quantity;
             }
           });
         } else if (modifier.selectionType === 'multi' && modifierSelection.selections) {
@@ -44,14 +53,24 @@ const ServiceSelectionModal = ({
           modifierSelection.selections.forEach(optionId => {
             const option = modifier.options?.find(opt => opt.id == optionId);
             if (option) {
-              totalPrice += parseFloat(option.price) || 0;
+              // Use edited option price if available
+              const optionPriceKey = `${modifier.id}_option_${optionId}`;
+              const optionPrice = editedModifierPrices[optionPriceKey] !== undefined
+                ? parseFloat(editedModifierPrices[optionPriceKey])
+                : parseFloat(option.price) || 0;
+              totalPrice += optionPrice;
             }
           });
         } else if (modifier.selectionType === 'single' && modifierSelection.selection) {
           // Handle single-select modifiers
           const option = modifier.options?.find(opt => opt.id == modifierSelection.selection);
           if (option) {
-            totalPrice += parseFloat(option.price) || 0;
+            // Use edited option price if available
+            const optionPriceKey = `${modifier.id}_option_${modifierSelection.selection}`;
+            const optionPrice = editedModifierPrices[optionPriceKey] !== undefined
+              ? parseFloat(editedModifierPrices[optionPriceKey])
+              : parseFloat(option.price) || 0;
+            totalPrice += optionPrice;
           }
         }
       });
@@ -157,6 +176,10 @@ const ServiceSelectionModal = ({
 
   const handleServiceSelect = (service) => {
     setSelectedService(service);
+    
+    // Reset price editing when selecting a new service
+    setEditedServicePrice(null);
+    setEditedModifierPrices({});
     
     // Check if service has modifiers or intake questions
     const hasModifiers = service.modifiers && (
@@ -265,7 +288,7 @@ const ServiceSelectionModal = ({
     return true;
   };
 
-  const handleAddService = () => {
+  const handleAddService = async () => {
     // Validate required fields
     if (!validateCustomization()) {
       alert('Please fill in all required fields before continuing.');
@@ -291,6 +314,9 @@ const ServiceSelectionModal = ({
       // Update price with dynamic calculation
       price: dynamicPrice,
       originalPrice: selectedService.price, // Keep original for reference
+      // Include edited prices
+      editedServicePrice: editedServicePrice,
+      editedModifierPrices: editedModifierPrices,
       // Ensure modifiers and intake questions are available in the job form
       serviceModifiers: selectedService.parsedModifiers || [],
       serviceIntakeQuestions: selectedService.parsedIntakeQuestions || []
@@ -299,6 +325,67 @@ const ServiceSelectionModal = ({
     console.log('🔧 SERVICE MODAL: Final service price being passed:', serviceWithCustomization.price);
 
     console.log('🔧 Final service data being passed:', serviceWithCustomization);
+
+    // Save customizations back to the service if any were made
+    const hasCustomizations = Object.keys(selectedModifiers).length > 0 || 
+                             Object.keys(intakeQuestionAnswers).length > 0 ||
+                             editedServicePrice !== null ||
+                             Object.keys(editedModifierPrices).length > 0;
+    
+    if (hasCustomizations) {
+      try {
+        // Update the original service with the customizations
+        const updatedServiceData = {
+          ...selectedService,
+          // Save modifier selections as default selections
+          defaultModifierSelections: selectedModifiers,
+          // Save intake question answers as default answers  
+          defaultIntakeAnswers: intakeQuestionAnswers,
+          // Update price if edited
+          price: editedServicePrice !== null ? parseFloat(editedServicePrice) : selectedService.price,
+          // Update modifier prices if edited
+          modifiers: selectedService.parsedModifiers?.map(modifier => ({
+            ...modifier,
+            options: modifier.options?.map(option => ({
+              ...option,
+              price: editedModifierPrices[`${modifier.id}_option_${option.id}`] !== undefined
+                ? parseFloat(editedModifierPrices[`${modifier.id}_option_${option.id}`])
+                : option.price
+            }))
+          }))
+        };
+
+        console.log('🔄 Updating service with customizations:', updatedServiceData);
+        
+        // Save to backend
+        await servicesAPI.update(selectedService.id, {
+          name: updatedServiceData.name,
+          description: updatedServiceData.description,
+          price: updatedServiceData.price,
+          duration: updatedServiceData.duration,
+          category: updatedServiceData.category,
+          category_id: updatedServiceData.category_id,
+          image: updatedServiceData.image,
+          modifiers: JSON.stringify(updatedServiceData.modifiers || []),
+          intake_questions: JSON.stringify(selectedService.parsedIntakeQuestions || []),
+          // Store default selections for future use
+          default_modifier_selections: JSON.stringify(selectedModifiers),
+          default_intake_answers: JSON.stringify(intakeQuestionAnswers)
+        });
+        
+        console.log('✅ Service updated successfully with customizations');
+      } catch (error) {
+        console.error('❌ Failed to update service with customizations:', error);
+        console.error('❌ Error details:', error.message);
+        console.error('❌ Service ID:', selectedService.id);
+        console.error('❌ Selected modifiers:', selectedModifiers);
+        console.error('❌ Intake answers:', intakeQuestionAnswers);
+        console.error('❌ Edited service price:', editedServicePrice);
+        console.error('❌ Edited modifier prices:', editedModifierPrices);
+        // Don't block the flow if saving fails
+        alert('Warning: Failed to save customizations to service. Your selections will only apply to this job.');
+      }
+    }
 
     // Add service with customization data
     onServiceSelect(serviceWithCustomization);
@@ -312,6 +399,8 @@ const ServiceSelectionModal = ({
     // Reset modifiers and answers for clean state on next open
     setSelectedModifiers({});
     setIntakeQuestionAnswers({});
+    setEditedServicePrice(null);
+    setEditedModifierPrices({});
     setSearchTerm('');
     onClose();
   };
@@ -574,12 +663,23 @@ const ServiceSelectionModal = ({
                         </div>
                       )}
                       {selectedService.price && (
-                        <div className="flex items-center space-x-1">
-                          <DollarSign className="w-4 h-4" />
-                          <span className="font-semibold text-blue-600">${calculateDynamicPrice(selectedService, selectedModifiers).toFixed(2)}</span>
-                          {calculateDynamicPrice(selectedService, selectedModifiers) !== parseFloat(selectedService.price) && (
-                            <span className="text-xs text-gray-400 line-through">${selectedService.price}</span>
-                          )}
+                        <div className="space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <DollarSign className="w-4 h-4" />
+                            <label className="text-sm font-medium text-gray-700">Base Price:</label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={editedServicePrice !== null ? editedServicePrice : selectedService.price}
+                              onChange={(e) => setEditedServicePrice(e.target.value)}
+                              className="w-20 px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            />
+                          </div>
+                          <div className="flex items-center space-x-1">
+                            <span className="text-xs text-gray-500">Total with options:</span>
+                            <span className="font-semibold text-blue-600">${calculateDynamicPrice(selectedService, selectedModifiers).toFixed(2)}</span>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -592,6 +692,18 @@ const ServiceSelectionModal = ({
                       <ServiceModifiersForm
                         modifiers={selectedService.parsedModifiers}
                         onModifiersChange={setSelectedModifiers}
+                        editedModifierPrices={editedModifierPrices}
+                        onModifierPriceChange={(priceKey, value) => {
+                          console.log('🔧 MODIFIER PRICE CHANGE:', priceKey, '=', value);
+                          setEditedModifierPrices(prev => {
+                            const updated = {
+                              ...prev,
+                              [priceKey]: value
+                            };
+                            console.log('🔧 UPDATED MODIFIER PRICES:', updated);
+                            return updated;
+                          });
+                        }}
                       />
                     </div>
                   )}
@@ -617,9 +729,9 @@ const ServiceSelectionModal = ({
           <div className="px-6 py-4 border-t border-gray-200 bg-blue-50">
             <div className="flex items-center justify-between">
               <div className="text-sm text-gray-600">
-                <div>Base Price: ${selectedService.price}</div>
-                {calculateDynamicPrice(selectedService, selectedModifiers) !== parseFloat(selectedService.price) && (
-                  <div>Modifiers: +${(calculateDynamicPrice(selectedService, selectedModifiers) - parseFloat(selectedService.price)).toFixed(2)}</div>
+                <div>Base Price: ${editedServicePrice !== null ? parseFloat(editedServicePrice).toFixed(2) : selectedService.price}</div>
+                {calculateDynamicPrice(selectedService, selectedModifiers) !== (editedServicePrice !== null ? parseFloat(editedServicePrice) : parseFloat(selectedService.price)) && (
+                  <div>Options: +${(calculateDynamicPrice(selectedService, selectedModifiers) - (editedServicePrice !== null ? parseFloat(editedServicePrice) : parseFloat(selectedService.price))).toFixed(2)}</div>
                 )}
               </div>
               <div className="text-lg font-semibold text-blue-600">
