@@ -867,13 +867,13 @@ export default function CreateJobPage() {
         const jobId = result.job?.id || result.id || result.job_id;
         console.log('Attempting to navigate to job ID:', jobId);
         if (jobId) {
-          console.log('Navigating to job details page:', `/job/${jobId}`);
+          // console.log('Navigating to job details page:', `/job/${jobId}`);
           // Use replace to prevent back button issues
-          navigate(`/job/${jobId}`);
+          window.location.href = `/#/job/${jobId}`;
         } else {
           console.log('No job ID found, navigating to jobs page');
           // If no job ID returned, navigate to jobs page
-          navigate('/jobs');
+          window.location.href = `/#/jobs/`;
         }
       }, 1500);
     } catch (error) {
