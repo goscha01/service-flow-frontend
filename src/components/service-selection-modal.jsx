@@ -21,6 +21,45 @@ const ServiceSelectionModal = ({
   const [selectedModifiers, setSelectedModifiers] = useState({});
   const [intakeQuestionAnswers, setIntakeQuestionAnswers] = useState({});
 
+  // Function to calculate dynamic price based on service and modifiers
+  const calculateDynamicPrice = (service, modifiers = {}) => {
+    let totalPrice = parseFloat(service.price) || 0;
+    
+    // Add modifier prices
+    if (service.parsedModifiers && Array.isArray(service.parsedModifiers)) {
+      service.parsedModifiers.forEach(modifier => {
+        const modifierSelection = modifiers[modifier.id];
+        if (!modifierSelection) return;
+        
+        if (modifier.selectionType === 'quantity' && modifierSelection.quantities) {
+          // Handle quantity-based modifiers
+          Object.entries(modifierSelection.quantities).forEach(([optionId, quantity]) => {
+            const option = modifier.options?.find(opt => opt.id == optionId);
+            if (option && quantity > 0) {
+              totalPrice += (parseFloat(option.price) || 0) * quantity;
+            }
+          });
+        } else if (modifier.selectionType === 'multi' && modifierSelection.selections) {
+          // Handle multi-select modifiers
+          modifierSelection.selections.forEach(optionId => {
+            const option = modifier.options?.find(opt => opt.id == optionId);
+            if (option) {
+              totalPrice += parseFloat(option.price) || 0;
+            }
+          });
+        } else if (modifier.selectionType === 'single' && modifierSelection.selection) {
+          // Handle single-select modifiers
+          const option = modifier.options?.find(opt => opt.id == modifierSelection.selection);
+          if (option) {
+            totalPrice += parseFloat(option.price) || 0;
+          }
+        }
+      });
+    }
+    
+    return totalPrice;
+  };
+
   // Load categories and services
   useEffect(() => {
     if (isOpen && user?.id) {
@@ -238,15 +277,26 @@ const ServiceSelectionModal = ({
     console.log('🔧 Intake question answers:', intakeQuestionAnswers);
     console.log('🔧 Selected service:', selectedService);
 
+    // Calculate the final dynamic price
+    const dynamicPrice = calculateDynamicPrice(selectedService, selectedModifiers);
+    console.log('🔧 SERVICE MODAL: Base price:', selectedService.price);
+    console.log('🔧 SERVICE MODAL: Dynamic price calculated:', dynamicPrice);
+    console.log('🔧 SERVICE MODAL: Selected modifiers:', selectedModifiers);
+    
     // Create service with proper customization data
     const serviceWithCustomization = {
       ...selectedService,
       selectedModifiers: selectedModifiers,
       intakeQuestionAnswers: intakeQuestionAnswers,
+      // Update price with dynamic calculation
+      price: dynamicPrice,
+      originalPrice: selectedService.price, // Keep original for reference
       // Ensure modifiers and intake questions are available in the job form
       serviceModifiers: selectedService.parsedModifiers || [],
       serviceIntakeQuestions: selectedService.parsedIntakeQuestions || []
     };
+    
+    console.log('🔧 SERVICE MODAL: Final service price being passed:', serviceWithCustomization.price);
 
     console.log('🔧 Final service data being passed:', serviceWithCustomization);
 
@@ -492,7 +542,10 @@ const ServiceSelectionModal = ({
                             {service.price && (
                               <div className="flex items-center space-x-1">
                                 <DollarSign className="w-4 h-4" />
-                                <span>${service.price}</span>
+                                <span>${calculateDynamicPrice(service).toFixed(2)}</span>
+                                {calculateDynamicPrice(service) !== parseFloat(service.price) && (
+                                  <span className="text-xs text-gray-400 line-through">${service.price}</span>
+                                )}
                               </div>
                             )}
                           </div>
@@ -523,7 +576,10 @@ const ServiceSelectionModal = ({
                       {selectedService.price && (
                         <div className="flex items-center space-x-1">
                           <DollarSign className="w-4 h-4" />
-                          <span>${selectedService.price}</span>
+                          <span className="font-semibold text-blue-600">${calculateDynamicPrice(selectedService, selectedModifiers).toFixed(2)}</span>
+                          {calculateDynamicPrice(selectedService, selectedModifiers) !== parseFloat(selectedService.price) && (
+                            <span className="text-xs text-gray-400 line-through">${selectedService.price}</span>
+                          )}
                         </div>
                       )}
                     </div>
@@ -555,6 +611,23 @@ const ServiceSelectionModal = ({
             </>
           )}
         </div>
+
+        {/* Price Summary */}
+        {currentView === 'customize' && selectedService && (
+          <div className="px-6 py-4 border-t border-gray-200 bg-blue-50">
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-gray-600">
+                <div>Base Price: ${selectedService.price}</div>
+                {calculateDynamicPrice(selectedService, selectedModifiers) !== parseFloat(selectedService.price) && (
+                  <div>Modifiers: +${(calculateDynamicPrice(selectedService, selectedModifiers) - parseFloat(selectedService.price)).toFixed(2)}</div>
+                )}
+              </div>
+              <div className="text-lg font-semibold text-blue-600">
+                Total: ${calculateDynamicPrice(selectedService, selectedModifiers).toFixed(2)}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Footer */}
         {currentView === 'customize' && (
