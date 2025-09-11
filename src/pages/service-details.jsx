@@ -33,7 +33,9 @@ import {
   HelpCircle,
   MapPin,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  Copy,
+  CheckCircle
 } from "lucide-react"
 
 const ServiceDetails = () => {
@@ -53,6 +55,7 @@ const ServiceDetails = () => {
   const [isTerritoryModalOpen, setIsTerritoryModalOpen] = useState(false)
   const [recurringOptions, setRecurringOptions] = useState([])
   const [territoryRules, setTerritoryRules] = useState([])
+  const [copiedModifier, setCopiedModifier] = useState(null)
   
   // Availability State
   const [availabilityData, setAvailabilityData] = useState({
@@ -835,6 +838,46 @@ const ServiceDetails = () => {
     } catch (error) {
       console.error('Error copying intake question:', error)
       setError("Failed to copy intake question. Please try again.")
+    }
+  }
+
+  const handleCopyModifier = async (modifier) => {
+    try {
+      const copiedModifier = {
+        ...modifier,
+        id: Date.now().toString(), // Generate new ID
+        title: `${modifier.title} (Copy)`
+      }
+      
+      const updatedServiceData = {
+        ...serviceData,
+        modifiers: [...(serviceData.modifiers || []), copiedModifier]
+      }
+      
+      setServiceData(updatedServiceData)
+      
+      const updateData = {
+        name: updatedServiceData.name,
+        description: updatedServiceData.description,
+        price: updatedServiceData.isFree ? 0 : updatedServiceData.price,
+        duration: updatedServiceData.duration,
+        category: updatedServiceData.category,
+        modifiers: JSON.stringify(updatedServiceData.modifiers),
+        intake_questions: JSON.stringify(updatedServiceData.intakeQuestions),
+        require_payment_method: !!updatedServiceData.require_payment_method
+      }
+      
+      await servicesAPI.update(updatedServiceData.id, updateData)
+      
+      // Show visual feedback
+      setCopiedModifier(modifier.id)
+      setTimeout(() => setCopiedModifier(null), 2000)
+      
+      setSuccessMessage("Modifier copied successfully!")
+      setTimeout(() => setSuccessMessage(""), 3000)
+    } catch (error) {
+      console.error('Error copying modifier:', error)
+      setError("Failed to copy modifier. Please try again.")
     }
   }
 
@@ -2336,6 +2379,17 @@ const ServiceDetails = () => {
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => handleCopyModifier(modifier)}
+                        className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
+                        title="Copy modifier"
+                      >
+                        {copiedModifier === modifier.id ? (
+                          <CheckCircle className="w-4 h-4 text-green-500" />
+                        ) : (
+                          <Copy className="w-4 h-4" />
+                        )}
+                      </button>
                       <button 
                         onClick={() => handleEditModifier(modifier)}
                         className="text-sm text-gray-600 hover:text-gray-800"
