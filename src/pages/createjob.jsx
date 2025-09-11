@@ -242,7 +242,12 @@ export default function CreateJobPage() {
   useEffect(() => {
     // Update price calculations for multiple services
     if (selectedServices.length > 0) {
-      const basePrice = selectedServices.reduce((total, service) => total + (service.price || 0), 0);
+      const basePrice = selectedServices.reduce((total, service) => {
+        const servicePrice = parseFloat(service.price) || 0;
+        console.log(`🔧 PRICING: Service "${service.name}" price: $${servicePrice}`);
+        return total + servicePrice;
+      }, 0);
+      console.log('🔧 PRICING: Total base price from services:', basePrice);
       const discount = formData.discount || 0;
       const additionalFees = formData.additionalFees || 0;
       const taxes = formData.taxes || 0;
@@ -510,6 +515,8 @@ export default function CreateJobPage() {
 
   const handleServiceSelect = (service) => {
     console.log('🔧 HANDLESERVICESELECT: Function called with service:', service.name);
+    console.log('🔧 HANDLESERVICESELECT: Service price:', service.price);
+    console.log('🔧 HANDLESERVICESELECT: Service originalPrice:', service.originalPrice);
     console.log('🔧 HANDLESERVICESELECT: Service selectedModifiers:', service.selectedModifiers);
     console.log('🔧 HANDLESERVICESELECT: Service intakeQuestionAnswers:', service.intakeQuestionAnswers);
     
@@ -520,7 +527,12 @@ export default function CreateJobPage() {
     }
     
     // Add service to selected services array
-    setSelectedServices(prev => [...prev, service]);
+    console.log('🔧 HANDLESERVICESELECT: Adding service to selectedServices with price:', service.price);
+    setSelectedServices(prev => {
+      const updated = [...prev, service];
+      console.log('🔧 HANDLESERVICESELECT: Updated selectedServices:', updated.map(s => ({ name: s.name, price: s.price, originalPrice: s.originalPrice })));
+      return updated;
+    });
     
     // Keep selectedService for backward compatibility (use the first selected service)
     setSelectedService(service);
@@ -1524,7 +1536,12 @@ export default function CreateJobPage() {
                           )}
                           <div className="flex-1">
                                   <p className="font-medium text-green-900">{service.name}</p>
-                                  <p className="text-sm text-green-700">${service.price}</p>
+                                  <p className="text-sm text-green-700">
+                                    ${service.price}
+                                    {service.originalPrice && service.originalPrice !== service.price && (
+                                      <span className="ml-2 text-xs text-gray-500 line-through">${service.originalPrice}</span>
+                                    )}
+                                  </p>
                                 </div>
                               </div>
                               <button
@@ -1548,7 +1565,7 @@ export default function CreateJobPage() {
                               {selectedServices.length} service{selectedServices.length !== 1 ? 's' : ''} selected
                             </span>
                             <span className="text-sm font-medium text-blue-900">
-                              Total: ${selectedServices.reduce((sum, service) => sum + (service.price || 0), 0).toFixed(2)}
+                              Total: ${selectedServices.reduce((sum, service) => sum + (parseFloat(service.price) || 0), 0).toFixed(2)}
                             </span>
                           </div>
                         </div>
@@ -1761,6 +1778,122 @@ export default function CreateJobPage() {
                 )}
               </div>
             )}
+
+            {/* Pricing Section */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+              <div 
+                className="p-6 cursor-pointer"
+                onClick={() => toggleSection('pricing')}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <DollarSign className="w-5 h-5 text-blue-600" />
+                    <h2 className="text-lg font-semibold text-gray-900">Pricing & Billing</h2>
+                  </div>
+                  {expandedSections.pricing ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                </div>
+              </div>
+              
+              {expandedSections.pricing && (
+                <div className="px-6 pb-6 space-y-6">
+                  {/* Services Subtotal */}
+                  {selectedServices.length > 0 && (
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <div className="space-y-3">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">Services Subtotal:</span>
+                          <span className="font-medium">${selectedServices.reduce((sum, service) => sum + (parseFloat(service.price) || 0), 0).toFixed(2)}</span>
+                        </div>
+                        
+                        {/* Discount */}
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-600">Discount:</span>
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={formData.discount || ''}
+                              onChange={(e) => setFormData(prev => ({ ...prev, discount: parseFloat(e.target.value) || 0 }))}
+                              placeholder="0.00"
+                              className="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setFormData(prev => ({ ...prev, discount: 0 }))}
+                              className="text-xs text-blue-600 hover:text-blue-700"
+                            >
+                              Clear
+                            </button>
+                          </div>
+                        </div>
+                        
+                        {/* Additional Fees */}
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-600">Additional Fees:</span>
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={formData.additionalFees || ''}
+                              onChange={(e) => setFormData(prev => ({ ...prev, additionalFees: parseFloat(e.target.value) || 0 }))}
+                              placeholder="0.00"
+                              className="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setFormData(prev => ({ ...prev, additionalFees: 0 }))}
+                              className="text-xs text-blue-600 hover:text-blue-700"
+                            >
+                              Clear
+                            </button>
+                          </div>
+                        </div>
+                        
+                        {/* Taxes */}
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-600">Taxes:</span>
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={formData.taxes || ''}
+                              onChange={(e) => setFormData(prev => ({ ...prev, taxes: parseFloat(e.target.value) || 0 }))}
+                              placeholder="0.00"
+                              className="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setFormData(prev => ({ ...prev, taxes: 0 }))}
+                              className="text-xs text-blue-600 hover:text-blue-700"
+                            >
+                              Clear
+                            </button>
+                          </div>
+                        </div>
+                        
+                        <hr className="border-gray-200" />
+                        
+                        {/* Total */}
+                        <div className="flex justify-between text-lg font-semibold">
+                          <span className="text-gray-900">Total:</span>
+                          <span className="text-blue-600">${formData.total?.toFixed(2) || '0.00'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {selectedServices.length === 0 && (
+                    <div className="text-center py-8 text-gray-500">
+                      <DollarSign className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                      <p>Select services to see pricing breakdown</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
 
             {/* Notes Section */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200">
