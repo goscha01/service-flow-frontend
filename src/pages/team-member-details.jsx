@@ -91,6 +91,10 @@ const TeamMemberDetails = () => {
   const [availableTerritories, setAvailableTerritories] = useState([])
   const [territoryLoading, setTerritoryLoading] = useState(false)
 
+  // Delete modal
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
   // Load team member data
   useEffect(() => {
     if (memberId) {
@@ -338,15 +342,21 @@ const TeamMemberDetails = () => {
     setEditFormData({})
   }
 
-  const handleDeleteMember = async () => {
-    if (window.confirm('Are you sure you want to delete this team member?')) {
-      try {
+  const handleDeleteMember = () => {
+    setShowDeleteModal(true)
+  }
+
+  const confirmDeleteMember = async () => {
+    try {
+      setDeleting(true)
         await teamAPI.delete(memberId)
         navigate('/team')
     } catch (error) {
         console.error('Error deleting team member:', error)
         setError('Failed to delete team member')
-      }
+    } finally {
+      setDeleting(false)
+      setShowDeleteModal(false)
     }
   }
 
@@ -1642,6 +1652,59 @@ const TeamMemberDetails = () => {
               >
                 Add Skill
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div 
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowDeleteModal(false)
+            }
+          }}
+        >
+          <div className="bg-white rounded-lg w-full max-w-md">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Delete Team Member
+                </h3>
+                <button
+                  onClick={() => setShowDeleteModal(false)}
+                  className="text-gray-400 hover:text-gray-500 hover:bg-gray-100 p-1 rounded-full transition-colors"
+                  disabled={deleting}
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="mb-6">
+                <p className="text-gray-600">
+                  Are you sure you want to delete <strong>{teamMember?.first_name} {teamMember?.last_name}</strong>? 
+                  This action cannot be undone and will remove all associated data.
+                </p>
+              </div>
+
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => setShowDeleteModal(false)}
+                  disabled={deleting}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmDeleteMember}
+                  disabled={deleting}
+                  className="flex-1 px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
+                >
+                  {deleting ? 'Deleting...' : 'Delete'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
