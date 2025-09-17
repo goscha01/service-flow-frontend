@@ -17,7 +17,11 @@ import {
   Bell,
   Settings,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Eye,
+  X,
+  DollarSign,
+  FileText
 } from "lucide-react"
 import { useTeamMemberAuth } from "../context/TeamMemberAuthContext"
 
@@ -28,6 +32,7 @@ const TeamMemberDashboard = () => {
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [activeTab, setActiveTab] = useState('today')
   const [selectedJob, setSelectedJob] = useState(null)
+  const [showJobModal, setShowJobModal] = useState(false)
 
   useEffect(() => {
     if (teamMember) {
@@ -62,6 +67,16 @@ const TeamMemberDashboard = () => {
     if (result.success) {
       loadDashboardData() // Refresh data
     }
+  }
+
+  const handleViewJobDetails = (job) => {
+    setSelectedJob(job)
+    setShowJobModal(true)
+  }
+
+  const closeJobModal = () => {
+    setShowJobModal(false)
+    setSelectedJob(null)
   }
 
   const formatDate = (dateString) => {
@@ -276,36 +291,39 @@ const TeamMemberDashboard = () => {
                   </div>
 
                   {/* Job Actions */}
-                  {job.status === 'pending' && (
-                    <div className="flex space-x-2">
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => handleViewJobDetails(job)}
+                      className="flex-1 bg-gray-100 text-gray-700 py-2 px-4 rounded-md text-sm font-medium hover:bg-gray-200 flex items-center justify-center space-x-2"
+                    >
+                      <Eye className="w-4 h-4" />
+                      <span>View Details</span>
+                    </button>
+                    {job.status === 'pending' && (
                       <button
                         onClick={() => handleJobStatusUpdate(job.id, 'confirmed')}
                         className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md text-sm font-medium hover:bg-blue-700"
                       >
                         Accept Job
                       </button>
-                    </div>
-                  )}
-                  {job.status === 'confirmed' && (
-                    <div className="flex space-x-2">
+                    )}
+                    {job.status === 'confirmed' && (
                       <button
                         onClick={() => handleJobStatusUpdate(job.id, 'in_progress')}
                         className="flex-1 bg-green-600 text-white py-2 px-4 rounded-md text-sm font-medium hover:bg-green-700"
                       >
                         Start Job
                       </button>
-                    </div>
-                  )}
-                  {job.status === 'in_progress' && (
-                    <div className="flex space-x-2">
+                    )}
+                    {job.status === 'in_progress' && (
                       <button
                         onClick={() => handleJobStatusUpdate(job.id, 'completed')}
                         className="flex-1 bg-green-600 text-white py-2 px-4 rounded-md text-sm font-medium hover:bg-green-700"
                       >
                         Complete Job
                       </button>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               ))
             )}
@@ -347,12 +365,185 @@ const TeamMemberDashboard = () => {
                       <span className="text-sm text-gray-600">{job.customer_address}</span>
                     </div>
                   </div>
+
+                  {/* Job Actions */}
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => handleViewJobDetails(job)}
+                      className="flex-1 bg-gray-100 text-gray-700 py-2 px-4 rounded-md text-sm font-medium hover:bg-gray-200 flex items-center justify-center space-x-2"
+                    >
+                      <Eye className="w-4 h-4" />
+                      <span>View Details</span>
+                    </button>
+                  </div>
                 </div>
               ))
             )}
           </div>
         )}
       </div>
+
+      {/* Job Details Modal */}
+      {showJobModal && selectedJob && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-xl font-semibold text-gray-900">Job Details</h2>
+              <button
+                onClick={closeJobModal}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 space-y-6">
+              {/* Job Status and Basic Info */}
+              <div className="flex items-start justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">{selectedJob.service_name}</h3>
+                  <p className="text-sm text-gray-600">
+                    {formatDate(selectedJob.scheduled_date)} at {formatTime(selectedJob.scheduled_date)}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    Duration: {selectedJob.duration || 60} minutes
+                  </p>
+                </div>
+                <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(selectedJob.status)}`}>
+                  {selectedJob.status.replace('_', ' ')}
+                </span>
+              </div>
+
+              {/* Customer Information */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
+                  <User className="w-5 h-5 mr-2" />
+                  Customer Information
+                </h4>
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <User className="w-4 h-4 text-gray-400" />
+                    <span className="text-sm font-medium text-gray-900">
+                      {selectedJob.customer_first_name} {selectedJob.customer_last_name}
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Phone className="w-4 h-4 text-gray-400" />
+                    <span className="text-sm text-gray-600">{selectedJob.customer_phone}</span>
+                  </div>
+                  <div className="flex items-start space-x-2">
+                    <MapPin className="w-4 h-4 text-gray-400 mt-0.5" />
+                    <span className="text-sm text-gray-600">{selectedJob.customer_address}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Job Details */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
+                  <FileText className="w-5 h-5 mr-2" />
+                  Job Information
+                </h4>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Service Type</label>
+                    <p className="text-sm text-gray-900">{selectedJob.service_name}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Duration</label>
+                    <p className="text-sm text-gray-900">{selectedJob.duration || 60} minutes</p>
+                  </div>
+                  {selectedJob.description && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-700">Description</label>
+                      <p className="text-sm text-gray-900">{selectedJob.description}</p>
+                    </div>
+                  )}
+                  {selectedJob.notes && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-700">Notes</label>
+                      <p className="text-sm text-gray-900">{selectedJob.notes}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Pricing Information */}
+              {(selectedJob.invoice_amount || selectedJob.estimated_amount) && (
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
+                    <DollarSign className="w-5 h-5 mr-2" />
+                    Pricing Information
+                  </h4>
+                  <div className="space-y-2">
+                    {selectedJob.invoice_amount && (
+                      <div className="flex justify-between">
+                        <span className="text-sm font-medium text-gray-700">Invoice Amount</span>
+                        <span className="text-sm font-semibold text-gray-900">
+                          ${selectedJob.invoice_amount.toFixed(2)}
+                        </span>
+                      </div>
+                    )}
+                    {selectedJob.estimated_amount && (
+                      <div className="flex justify-between">
+                        <span className="text-sm font-medium text-gray-700">Estimated Amount</span>
+                        <span className="text-sm font-semibold text-gray-900">
+                          ${selectedJob.estimated_amount.toFixed(2)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Job Actions */}
+              <div className="flex space-x-3 pt-4 border-t border-gray-200">
+                <button
+                  onClick={closeJobModal}
+                  className="flex-1 bg-gray-100 text-gray-700 py-2 px-4 rounded-md text-sm font-medium hover:bg-gray-200"
+                >
+                  Close
+                </button>
+                {selectedJob.status === 'pending' && (
+                  <button
+                    onClick={() => {
+                      handleJobStatusUpdate(selectedJob.id, 'confirmed')
+                      closeJobModal()
+                    }}
+                    className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md text-sm font-medium hover:bg-blue-700"
+                  >
+                    Accept Job
+                  </button>
+                )}
+                {selectedJob.status === 'confirmed' && (
+                  <button
+                    onClick={() => {
+                      handleJobStatusUpdate(selectedJob.id, 'in_progress')
+                      closeJobModal()
+                    }}
+                    className="flex-1 bg-green-600 text-white py-2 px-4 rounded-md text-sm font-medium hover:bg-green-700"
+                  >
+                    Start Job
+                  </button>
+                )}
+                {selectedJob.status === 'in_progress' && (
+                  <button
+                    onClick={() => {
+                      handleJobStatusUpdate(selectedJob.id, 'completed')
+                      closeJobModal()
+                    }}
+                    className="flex-1 bg-green-600 text-white py-2 px-4 rounded-md text-sm font-medium hover:bg-green-700"
+                  >
+                    Complete Job
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

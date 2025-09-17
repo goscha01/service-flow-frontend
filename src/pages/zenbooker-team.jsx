@@ -20,6 +20,9 @@ const ZenbookerTeam = () => {
   const [showActivationModal, setShowActivationModal] = useState(false)
   const [activationLoading, setActivationLoading] = useState(false)
   const [memberToToggle, setMemberToToggle] = useState(null)
+  const [showResendModal, setShowResendModal] = useState(false)
+  const [resendLoading, setResendLoading] = useState(false)
+  const [memberToResend, setMemberToResend] = useState(null)
   const [notification, setNotification] = useState(null)
   
   // API State
@@ -166,14 +169,35 @@ const ZenbookerTeam = () => {
     setSelectedMember(null)
   }
 
-  const handleResendInvite = async (member) => {
+  const handleResendInvite = (member) => {
+    setMemberToResend(member)
+    setShowResendModal(true)
+  }
+
+  const confirmResendInvite = async () => {
+    if (!memberToResend) return
+    
     try {
-      await teamAPI.resendInvite(member.id)
-      // Show success message
-      alert('Invitation resent successfully!')
+      setResendLoading(true)
+      await teamAPI.resendInvite(memberToResend.id)
+      setShowResendModal(false)
+      setMemberToResend(null)
+      setNotification({
+        type: 'success',
+        message: 'Invitation resent successfully!'
+      })
+      // Clear notification after 3 seconds
+      setTimeout(() => setNotification(null), 3000)
     } catch (error) {
       console.error('Error resending invite:', error)
-      alert('Failed to resend invitation. Please try again.')
+      setNotification({
+        type: 'error',
+        message: 'Failed to resend invitation. Please try again.'
+      })
+      // Clear notification after 5 seconds
+      setTimeout(() => setNotification(null), 5000)
+    } finally {
+      setResendLoading(false)
     }
   }
 
@@ -746,6 +770,62 @@ const ZenbookerTeam = () => {
                   {activationLoading ? "Updating..." : (memberToToggle.status === 'active' ? "Deactivate" : "Activate")}
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Resend Invite Confirmation Modal */}
+        {showResendModal && memberToResend && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full">
+              <div className="flex items-center mb-4">
+                <UserPlus className="h-6 w-6 text-blue-600 mr-3" />
+                <h3 className="text-lg font-medium text-gray-900">Resend Invitation</h3>
+              </div>
+              <p className="text-sm text-gray-500 mb-6">
+                Are you sure you want to resend the invitation to <strong>{memberToResend.first_name} {memberToResend.last_name}</strong>? 
+                A new invitation email will be sent to {memberToResend.email}.
+              </p>
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => {
+                    setShowResendModal(false)
+                    setMemberToResend(null)
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmResendInvite}
+                  disabled={resendLoading}
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                >
+                  {resendLoading ? "Sending..." : "Resend Invitation"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Notification */}
+        {notification && (
+          <div className={`fixed top-4 right-4 z-50 p-4 rounded-md shadow-lg ${
+            notification.type === 'success' 
+              ? 'bg-green-50 text-green-800 border border-green-200' 
+              : 'bg-red-50 text-red-800 border border-red-200'
+          }`}>
+            <div className="flex items-center">
+              {notification.type === 'success' ? (
+                <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+              )}
+              <span className="font-medium">{notification.message}</span>
             </div>
           </div>
         )}

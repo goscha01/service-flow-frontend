@@ -3,7 +3,7 @@
 import { X, Check } from "lucide-react"
 import { useState } from "react"
 
-const PlanSelectionModal = ({ isOpen, onClose }) => {
+const PlanSelectionModal = ({ isOpen, onClose, onPlanSelect }) => {
   const [selectedPlan, setSelectedPlan] = useState("standard")
 
   if (!isOpen) return null
@@ -72,8 +72,10 @@ const PlanSelectionModal = ({ isOpen, onClose }) => {
   }
 
   const handleConfirm = () => {
-    // Handle plan selection logic here
-    console.log("Selected plan:", selectedPlan)
+    const plan = plans.find(p => p.id === selectedPlan)
+    if (plan && onPlanSelect) {
+      onPlanSelect(plan)
+    }
     onClose()
   }
 

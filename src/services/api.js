@@ -1014,9 +1014,36 @@ export const billingAPI = {
     }
   },
 
+  createSetupIntent: async (userData) => {
+    try {
+      const response = await api.post('/user/billing/setup-intent', userData);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
   createSubscription: async (subscriptionData) => {
     try {
       const response = await api.post('/user/billing/subscription', subscriptionData);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  getPaymentMethods: async (userId) => {
+    try {
+      const response = await api.get(`/user/billing/payment-methods?userId=${userId}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  cancelSubscription: async (userId) => {
+    try {
+      const response = await api.post('/user/billing/cancel-subscription', { userId });
       return response.data;
     } catch (error) {
       throw error;

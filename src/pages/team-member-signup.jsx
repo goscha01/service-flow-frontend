@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Eye, EyeOff, CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
 import { teamAPI } from '../services/api'
+import api from '../services/api'
 
 const TeamMemberSignup = () => {
   const navigate = useNavigate()
@@ -41,15 +42,9 @@ const TeamMemberSignup = () => {
       setVerifying(true)
       setError('')
       
-      // In a real app, this would call an API to verify the token
-      // For now, we'll simulate the verification
-      const response = await fetch(`/api/team-members/verify-invitation?token=${token}`)
-      
-      if (!response.ok) {
-        throw new Error('Invalid or expired invitation token')
-      }
-      
-      const data = await response.json()
+      // Call the API to verify the invitation token
+      const response = await api.get(`/team-members/verify-invitation?token=${token}`)
+      const data = response.data
       setInvitationData(data)
       
       // Pre-fill form with invitation data
@@ -111,13 +106,8 @@ const TeamMemberSignup = () => {
       setLoading(true)
       setError('')
       
-      // In a real app, this would call an API to complete the signup
-      const response = await fetch('/api/team-members/complete-signup', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      // Call the API to complete the signup
+      const response = await api.post('/team-members/complete-signup', {
           token,
           username: formData.username,
           password: formData.password,
@@ -125,12 +115,6 @@ const TeamMemberSignup = () => {
           lastName: formData.lastName,
           phone: formData.phone
         })
-      })
-      
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to complete signup')
-      }
       
       setSuccess('Account created successfully! Redirecting to login...')
       
