@@ -41,21 +41,53 @@ export const TeamMemberAuthProvider = ({ children }) => {
     }
   )
 
-  // Check if team member is logged in on app start
-  useEffect(() => {
-    const token = localStorage.getItem('teamMemberToken')
-    const teamMemberData = localStorage.getItem('teamMemberData')
-    
-    if (token && teamMemberData) {
-      try {
-        setTeamMember(JSON.parse(teamMemberData))
-      } catch (error) {
-        console.error('Error parsing team member data:', error)
+  // Response interceptor to handle auth errors
+  teamMemberApi.interceptors.response.use(
+    (response) => response,
+    (error) => {
+      if (error.response?.status === 401) {
+        // Token is invalid or expired
+        console.log('Team member authentication failed, redirecting to login')
         localStorage.removeItem('teamMemberToken')
         localStorage.removeItem('teamMemberData')
+        setTeamMember(null)
+        // Redirect to login page
+        window.location.href = '/#/team-member/login'
       }
+      return Promise.reject(error)
     }
-    setLoading(false)
+  )
+
+  // Check if team member is logged in on app start
+  useEffect(() => {
+    const validateAuth = async () => {
+      const token = localStorage.getItem('teamMemberToken')
+      const teamMemberData = localStorage.getItem('teamMemberData')
+      
+      if (token && teamMemberData) {
+        try {
+          // Validate token with server
+          const response = await teamMemberApi.get('/api/team-members/me')
+          if (response.data && response.data.id) {
+            setTeamMember(response.data)
+          } else {
+            // Token is invalid, clear storage
+            localStorage.removeItem('teamMemberToken')
+            localStorage.removeItem('teamMemberData')
+            setTeamMember(null)
+          }
+        } catch (error) {
+          console.error('Token validation failed:', error)
+          // Token is invalid or expired, clear storage
+          localStorage.removeItem('teamMemberToken')
+          localStorage.removeItem('teamMemberData')
+          setTeamMember(null)
+        }
+      }
+      setLoading(false)
+    }
+    
+    validateAuth()
   }, [])
 
   const login = async (username, password) => {
