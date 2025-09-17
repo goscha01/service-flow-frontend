@@ -62,6 +62,25 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
         }
       }
       
+      // Parse availability data
+      let parsedAvailability = {
+        monday: { start: "09:00", end: "17:00", available: true },
+        tuesday: { start: "09:00", end: "17:00", available: true },
+        wednesday: { start: "09:00", end: "17:00", available: true },
+        thursday: { start: "09:00", end: "17:00", available: true },
+        friday: { start: "09:00", end: "17:00", available: true },
+        saturday: { start: "09:00", end: "17:00", available: false },
+        sunday: { start: "09:00", end: "17:00", available: false }
+      }
+      
+      if (member.availability) {
+        try {
+          parsedAvailability = JSON.parse(member.availability)
+        } catch (error) {
+          console.error('Error parsing availability:', error)
+        }
+      }
+      
       setFormData({
         firstName: member.first_name || "",
         lastName: member.last_name || "",
@@ -75,6 +94,7 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
         isServiceProvider: member.is_service_provider !== false,
         territories: parsedTerritories,
         skills: member.skills ? JSON.parse(member.skills) : [],
+        availability: parsedAvailability,
         permissions: member.permissions ? JSON.parse(member.permissions) : {
           viewCustomerNotes: true,
           modifyJobStatus: true,
@@ -526,49 +546,66 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
             {/* Availability Section */}
             <div className="border-t border-gray-200 pt-4 sm:pt-6">
               <h3 className="text-sm font-medium text-gray-900 mb-3">AVAILABILITY</h3>
-              <div className="space-y-3">
-                {Object.entries(formData.availability).map(([day, schedule]) => (
-                  <div key={day} className="flex items-center space-x-3">
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={schedule.available}
-                        onChange={(e) => handleAvailabilityChange(day, 'available', e.target.checked)}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                      />
-                      <label className="ml-2 text-sm font-medium text-gray-900 capitalize">
-                        {day}
-                      </label>
-                    </div>
-                    {schedule.available && (
-                      <div className="flex items-center space-x-2">
-                        <select
-                          value={schedule.start}
-                          onChange={(e) => handleAvailabilityChange(day, 'start', e.target.value)}
-                          className="border border-gray-300 rounded px-2 py-1 text-sm"
-                        >
-                          {Array.from({ length: 24 }, (_, i) => (
-                            <option key={i} value={`${i.toString().padStart(2, '0')}:00`}>
-                              {i === 0 ? '12:00 AM' : i < 12 ? `${i}:00 AM` : i === 12 ? '12:00 PM' : `${i - 12}:00 PM`}
-                            </option>
-                          ))}
-                        </select>
-                        <span className="text-sm text-gray-500">to</span>
-                        <select
-                          value={schedule.end}
-                          onChange={(e) => handleAvailabilityChange(day, 'end', e.target.value)}
-                          className="border border-gray-300 rounded px-2 py-1 text-sm"
-                        >
-                          {Array.from({ length: 24 }, (_, i) => (
-                            <option key={i} value={`${i.toString().padStart(2, '0')}:00`}>
-                              {i === 0 ? '12:00 AM' : i < 12 ? `${i}:00 AM` : i === 12 ? '12:00 PM' : `${i - 12}:00 PM`}
-                            </option>
-                          ))}
-                        </select>
+              {/* Compact Availability List - Similar to Screenshot */}
+              <div className="bg-white rounded-lg border border-gray-200">
+                {formData.availability ? Object.entries(formData.availability).map(([day, schedule], index) => (
+                  <div key={day}>
+                    <div className="flex items-center justify-between p-3">
+                      <div className="flex items-center space-x-3">
+                        <input
+                          type="checkbox"
+                          checked={schedule.available}
+                          onChange={(e) => handleAvailabilityChange(day, 'available', e.target.checked)}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        />
+                        <span className="text-sm font-medium text-gray-900 capitalize min-w-[80px]">
+                          {day}
+                        </span>
                       </div>
+                      
+                      {schedule.available ? (
+                        <div className="flex-1 flex items-center justify-end">
+                          <div className="flex items-center space-x-2">
+                            <select
+                              value={schedule.start}
+                              onChange={(e) => handleAvailabilityChange(day, 'start', e.target.value)}
+                              className="text-sm border border-gray-300 rounded px-2 py-1"
+                            >
+                              {Array.from({ length: 24 }, (_, i) => (
+                                <option key={i} value={`${i.toString().padStart(2, '0')}:00`}>
+                                  {i === 0 ? '12:00 AM' : i < 12 ? `${i}:00 AM` : i === 12 ? '12:00 PM' : `${i - 12}:00 PM`}
+                                </option>
+                              ))}
+                            </select>
+                            <span className="text-sm text-gray-500">to</span>
+                            <select
+                              value={schedule.end}
+                              onChange={(e) => handleAvailabilityChange(day, 'end', e.target.value)}
+                              className="text-sm border border-gray-300 rounded px-2 py-1"
+                            >
+                              {Array.from({ length: 24 }, (_, i) => (
+                                <option key={i} value={`${i.toString().padStart(2, '0')}:00`}>
+                                  {i === 0 ? '12:00 AM' : i < 12 ? `${i}:00 AM` : i === 12 ? '12:00 PM' : `${i - 12}:00 PM`}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-sm text-gray-500">
+                          Unavailable
+                        </div>
+                      )}
+                    </div>
+                    {index < Object.entries(formData.availability).length - 1 && (
+                      <div className="border-b border-gray-100"></div>
                     )}
                   </div>
-                ))}
+                )) : (
+                  <div className="p-4 text-center text-gray-500">
+                    Loading availability...
+                  </div>
+                )}
               </div>
             </div>
 

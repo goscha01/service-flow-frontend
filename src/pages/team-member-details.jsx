@@ -94,6 +94,7 @@ const TeamMemberDetails = () => {
   // Delete modal
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState("")
 
   // Load team member data
   useEffect(() => {
@@ -349,14 +350,16 @@ const TeamMemberDetails = () => {
   const confirmDeleteMember = async () => {
     try {
       setDeleting(true)
-        await teamAPI.delete(memberId)
-        navigate('/team')
+      setDeleteError("") // Clear any previous errors
+      await teamAPI.delete(memberId)
+      navigate('/team')
     } catch (error) {
-        console.error('Error deleting team member:', error)
-        setError('Failed to delete team member')
+      console.error('Error deleting team member:', error)
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to delete team member. Please try again.'
+      setDeleteError(errorMessage)
+      // Don't close the modal on error - let user see the error message
     } finally {
       setDeleting(false)
-      setShowDeleteModal(false)
     }
   }
 
@@ -1298,10 +1301,11 @@ const TeamMemberDetails = () => {
                           )}
                         </div>
                       </div>
-                      <div className="space-y-4">
-                          {Object.entries(workingHours).map(([day, { available, hours, timeSlots = [] }]) => (
-                          <div key={day} className={`p-4 rounded-lg border ${getDayColor(day)}`}>
-                            <div className="flex items-center justify-between mb-3">
+                      {/* Compact Hours List - Similar to Screenshot */}
+                      <div className="bg-white rounded-lg border border-gray-200">
+                        {Object.entries(workingHours).map(([day, { available, hours, timeSlots = [] }], index) => (
+                          <div key={day}>
+                            <div className="flex items-center justify-between p-3">
                               <div className="flex items-center space-x-3">
                                 <input
                                   type="checkbox"
@@ -1310,88 +1314,99 @@ const TeamMemberDetails = () => {
                                     ...prev,
                                     [day]: { ...prev[day], available: e.target.checked }
                                   }))}
-                                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                                 />
-                                <span className="text-sm font-medium text-gray-900 capitalize">{day}</span>
+                                <span className="text-sm font-medium text-gray-900 capitalize min-w-[80px]">
+                                  {day}
+                                </span>
                               </div>
-                              <div className="flex items-center space-x-2">
-                                {editingHours && available && (
-                                  <button
-                                    onClick={() => handleAddTimeSlot(day)}
-                                    className="text-xs text-blue-600 hover:text-blue-700 font-medium"
-                                  >
-                                    + Add Hours
-                                  </button>
-                                )}
-                                {editingHours && (
-                                  <button
-                                    onClick={() => handleSaveDay(day)}
-                                    disabled={savingDay === day}
-                                    className={`text-xs font-medium px-2 py-1 rounded ${
-                                      savingDay === day 
-                                        ? 'text-gray-400 cursor-not-allowed bg-gray-100' 
-                                        : 'text-green-600 hover:text-green-700 bg-green-50 hover:bg-green-100'
-                                    }`}
-                                  >
-                                    {savingDay === day ? 'Saving...' : 'Save'}
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                            
-                            {editingHours ? (
-                              <div className="space-y-2">
-                                {available && timeSlots.length === 0 && (
-                                  <div className="text-sm text-gray-500 italic">
-                                    No time slots set. Click "Add Hours" to add a time slot.
-                                  </div>
-                                )}
-                                {timeSlots.map((slot, index) => (
-                                  <div key={slot.id} className="flex items-center space-x-2 p-2 bg-white rounded border">
-                                    <select
-                                      value={slot.start}
-                                      onChange={(e) => handleTimeSlotChange(day, slot.id, 'start', e.target.value)}
-                                      className="text-sm border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                                    >
-                                      {timeOptions.map(time => (
-                                        <option key={time} value={time}>{time}</option>
+                              
+                              {available ? (
+                                <div className="flex-1 flex items-center justify-end">
+                                  {editingHours ? (
+                                    <div className="flex items-center space-x-2">
+                                      {timeSlots.length === 0 && (
+                                        <button
+                                          onClick={() => handleAddTimeSlot(day)}
+                                          className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                                        >
+                                          + Add Hours
+                                        </button>
+                                      )}
+                                      {timeSlots.map((slot, slotIndex) => (
+                                        <div key={slot.id} className="flex items-center space-x-2">
+                                          <select
+                                            value={slot.start}
+                                            onChange={(e) => handleTimeSlotChange(day, slot.id, 'start', e.target.value)}
+                                            className="text-sm border border-gray-300 rounded px-2 py-1"
+                                          >
+                                            {timeOptions.map(time => (
+                                              <option key={time} value={time}>{time}</option>
+                                            ))}
+                                          </select>
+                                          <span className="text-sm text-gray-500">to</span>
+                                          <select
+                                            value={slot.end}
+                                            onChange={(e) => handleTimeSlotChange(day, slot.id, 'end', e.target.value)}
+                                            className="text-sm border border-gray-300 rounded px-2 py-1"
+                                          >
+                                            {timeOptions.map(time => (
+                                              <option key={time} value={time}>{time}</option>
+                                            ))}
+                                          </select>
+                                          <button
+                                            onClick={() => handleRemoveTimeSlot(day, slot.id)}
+                                            className="text-red-600 hover:text-red-700 p-1"
+                                          >
+                                            <X className="w-4 h-4" />
+                                          </button>
+                                          {slotIndex === timeSlots.length - 1 && (
+                                            <button
+                                              onClick={() => handleAddTimeSlot(day)}
+                                              className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                                            >
+                                              + Add More
+                                            </button>
+                                          )}
+                                        </div>
                                       ))}
-                                    </select>
-                                    <span className="text-sm text-gray-500">to</span>
-                                    <select
-                                      value={slot.end}
-                                      onChange={(e) => handleTimeSlotChange(day, slot.id, 'end', e.target.value)}
-                                      className="text-sm border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                                    >
-                                      {timeOptions.map(time => (
-                                        <option key={time} value={time}>{time}</option>
-                                      ))}
-                                    </select>
-                                    <button
-                                      onClick={() => handleRemoveTimeSlot(day, slot.id)}
-                                      className="text-red-600 hover:text-red-700 p-1"
-                                    >
-                                      <X className="w-4 h-4" />
-                                    </button>
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <div className="space-y-1">
-                                {available ? (
-                                  timeSlots.length > 0 ? (
-                                    timeSlots.map((slot, index) => (
-                                      <div key={slot.id} className="text-sm text-gray-600">
-                                        {slot.start} - {slot.end}
-                                      </div>
-                                    ))
+                                      {timeSlots.length > 0 && (
+                                        <button
+                                          onClick={() => handleSaveDay(day)}
+                                          disabled={savingDay === day}
+                                          className={`text-xs font-medium px-2 py-1 rounded ${
+                                            savingDay === day 
+                                              ? 'text-gray-400 cursor-not-allowed bg-gray-100' 
+                                              : 'text-green-600 hover:text-green-700 bg-green-50 hover:bg-green-100'
+                                          }`}
+                                        >
+                                          {savingDay === day ? 'Saving...' : 'Save'}
+                                        </button>
+                                      )}
+                                    </div>
                                   ) : (
-                                      <span className="text-sm text-gray-500">{hours || 'No hours set'}</span>
-                                  )
-                                ) : (
-                                  <span className="text-sm text-gray-500">Unavailable</span>
-                                )}
-                              </div>
+                                    <div className="text-sm text-gray-600">
+                                      {timeSlots.length > 0 ? (
+                                        timeSlots.map((slot, slotIndex) => (
+                                          <span key={slot.id}>
+                                            {slot.start} - {slot.end}
+                                            {slotIndex < timeSlots.length - 1 && ', '}
+                                          </span>
+                                        ))
+                                      ) : (
+                                        <span className="text-gray-500">{hours || 'No hours set'}</span>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <div className="text-sm text-gray-500">
+                                  Unavailable
+                                </div>
+                              )}
+                            </div>
+                            {index < Object.entries(workingHours).length - 1 && (
+                              <div className="border-b border-gray-100"></div>
                             )}
                           </div>
                         ))}
@@ -1682,6 +1697,16 @@ const TeamMemberDetails = () => {
                 </button>
               </div>
 
+              {/* Error Message Display */}
+              {deleteError && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                  <div className="flex items-center">
+                    <AlertCircle className="h-4 w-4 text-red-600 mr-2" />
+                    <p className="text-sm text-red-700">{deleteError}</p>
+                  </div>
+                </div>
+              )}
+
               <div className="mb-6">
                 <p className="text-gray-600">
                   Are you sure you want to delete <strong>{teamMember?.first_name} {teamMember?.last_name}</strong>? 
@@ -1691,7 +1716,10 @@ const TeamMemberDetails = () => {
 
               <div className="flex space-x-3">
                 <button
-                  onClick={() => setShowDeleteModal(false)}
+                  onClick={() => {
+                    setShowDeleteModal(false)
+                    setDeleteError("") // Clear error when closing modal
+                  }}
                   disabled={deleting}
                   className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
                 >

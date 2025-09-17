@@ -37,8 +37,11 @@ const TeamMemberDashboard = () => {
   useEffect(() => {
     if (teamMember) {
       loadDashboardData()
+    } else if (!loading) {
+      // If not loading and no team member, redirect to login
+      navigate('/team-member/login')
     }
-  }, [teamMember, selectedDate])
+  }, [teamMember, selectedDate, loading, navigate])
 
   const loadDashboardData = async () => {
     const startDate = selectedDate.toISOString().split('T')[0]
@@ -138,12 +141,25 @@ const TeamMemberDashboard = () => {
     }
   }
 
-  if (!teamMember) {
+  // Show loading state while checking authentication
+  if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // If not loading and no team member, show redirect message
+  if (!teamMember) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Redirecting to login...</p>
         </div>
       </div>
     )

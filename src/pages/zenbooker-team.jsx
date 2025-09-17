@@ -5,6 +5,7 @@ import { Plus, Search, Filter, Users, TrendingUp, Calendar, DollarSign, Clock, E
 import { useAuth } from "../context/AuthContext"
 import { teamAPI } from "../services/api"
 import LoadingButton from "../components/loading-button"
+import AddTeamMemberModal from "../components/add-team-member-modal"
 import { useNavigate } from "react-router-dom"
 
 const ZenbookerTeam = () => {
@@ -14,6 +15,7 @@ const ZenbookerTeam = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [activeTab, setActiveTab] = useState("all")
   const [selectedMember, setSelectedMember] = useState(null)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [memberToDelete, setMemberToDelete] = useState(null)
@@ -24,6 +26,7 @@ const ZenbookerTeam = () => {
   const [resendLoading, setResendLoading] = useState(false)
   const [memberToResend, setMemberToResend] = useState(null)
   const [notification, setNotification] = useState(null)
+  const [deleteError, setDeleteError] = useState("")
   
   // API State
   const [teamMembers, setTeamMembers] = useState([])
@@ -130,7 +133,7 @@ const ZenbookerTeam = () => {
 
   const handleEditMember = (member) => {
     setSelectedMember(member)
-    // setIsEditModalOpen(true) // Removed
+    setIsEditModalOpen(true)
   }
 
   const handleViewMember = (member) => {
@@ -148,6 +151,7 @@ const ZenbookerTeam = () => {
     
     try {
       setDeleteLoading(true)
+      setDeleteError("") // Clear any previous errors
       console.log('Deleting team member:', memberToDelete.id)
       const response = await teamAPI.delete(memberToDelete.id)
       console.log('Delete response:', response)
@@ -157,7 +161,8 @@ const ZenbookerTeam = () => {
     } catch (error) {
       console.error('Error deleting team member:', error)
       const errorMessage = error.response?.data?.error || error.message || 'Failed to delete team member. Please try again.'
-      setError(errorMessage)
+      setDeleteError(errorMessage)
+      // Don't close the modal on error - let user see the error message
     } finally {
       setDeleteLoading(false)
     }
@@ -165,7 +170,7 @@ const ZenbookerTeam = () => {
 
   const handleMemberUpdate = () => {
     fetchTeamMembers()
-    // setIsEditModalOpen(false) // Removed
+    setIsEditModalOpen(false)
     setSelectedMember(null)
   }
 
@@ -685,11 +690,20 @@ const ZenbookerTeam = () => {
           </div>
         </div>
 
-        {/* Add Team Member Modal */}
-        {/* Removed AddTeamMemberModal */}
-
         {/* Edit Team Member Modal */}
-        {/* Removed AddTeamMemberModal */}
+        {isEditModalOpen && selectedMember && (
+          <AddTeamMemberModal
+            isOpen={isEditModalOpen}
+            onClose={() => {
+              setIsEditModalOpen(false)
+              setSelectedMember(null)
+            }}
+            onSuccess={handleMemberUpdate}
+            userId={user?.id}
+            member={selectedMember}
+            isEditing={true}
+          />
+        )}
 
         {/* Delete Confirmation Modal */}
         {showDeleteModal && memberToDelete && (
@@ -699,6 +713,17 @@ const ZenbookerTeam = () => {
                 <AlertCircle className="h-6 w-6 text-red-600 mr-3" />
                 <h3 className="text-lg font-medium text-gray-900">Delete Team Member</h3>
               </div>
+              
+              {/* Error Message Display */}
+              {deleteError && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                  <div className="flex items-center">
+                    <AlertCircle className="h-4 w-4 text-red-600 mr-2" />
+                    <p className="text-sm text-red-700">{deleteError}</p>
+                  </div>
+                </div>
+              )}
+              
               <p className="text-sm text-gray-500 mb-6">
                 Are you sure you want to delete <strong>{memberToDelete.first_name} {memberToDelete.last_name}</strong>? 
                 This action cannot be undone.
@@ -708,6 +733,7 @@ const ZenbookerTeam = () => {
                   onClick={() => {
                     setShowDeleteModal(false)
                     setMemberToDelete(null)
+                    setDeleteError("") // Clear error when closing modal
                   }}
                   className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                 >
