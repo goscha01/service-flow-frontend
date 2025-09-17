@@ -2000,13 +2000,36 @@ const JobDetails = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Duration (minutes)</label>
-                    <input
-                      type="number"
-                      value={formData.duration}
-                      onChange={e => setFormData(prev => ({ ...prev, duration: parseInt(e.target.value) || 0 }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Duration</label>
+                    <div className="flex gap-2 items-center">
+                      <input
+                        type="number"
+                        value={Math.floor(formData.duration / 60)}
+                        onChange={e => {
+                          const hours = parseInt(e.target.value) || 0
+                          const minutes = formData.duration % 60
+                          setFormData(prev => ({ ...prev, duration: hours * 60 + minutes }))
+                        }}
+                        className="w-20 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="0"
+                        min="0"
+                      />
+                      <span className="text-sm text-gray-600">hours</span>
+                      <input
+                        type="number"
+                        value={formData.duration % 60}
+                        onChange={e => {
+                          const minutes = parseInt(e.target.value) || 0
+                          const hours = Math.floor(formData.duration / 60)
+                          setFormData(prev => ({ ...prev, duration: hours * 60 + minutes }))
+                        }}
+                        className="w-20 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="0"
+                        min="0"
+                        max="59"
+                      />
+                      <span className="text-sm text-gray-600">minutes</span>
+                    </div>
                   </div>
                   
                   {/* Pricing Section */}
