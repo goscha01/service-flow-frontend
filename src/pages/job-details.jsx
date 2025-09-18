@@ -103,6 +103,9 @@ const JobDetails = () => {
   const [showMobileSidebar, setShowMobileSidebar] = useState(false)
   const [showSendInvoiceModal, setShowSendInvoiceModal] = useState(false)
   const [showAddPaymentModal, setShowAddPaymentModal] = useState(false)
+  
+  // Address autopopulation state
+  const [addressAutoPopulated, setAddressAutoPopulated] = useState(false)
 
   // Update form data when edit address modal opens
   useEffect(() => {
@@ -338,6 +341,65 @@ const JobDetails = () => {
       setLoading(false)
     }
   }
+
+  const copyCustomerAddressToService = () => {
+    if (!job) return;
+    
+    let parsedAddress = {
+      street: "",
+      city: "",
+      state: "",
+      zipCode: "",
+      country: "USA"
+    };
+    
+    // Check if customer has address information
+    const hasCustomerAddress = job.customer_address || job.customer_city || job.customer_state || job.customer_zip_code;
+    
+    if (hasCustomerAddress) {
+      // Use separate fields if available
+      if (job.customer_city && job.customer_state && job.customer_zip_code) {
+        parsedAddress.street = job.customer_address || "";
+        parsedAddress.city = job.customer_city;
+        parsedAddress.state = job.customer_state;
+        parsedAddress.zipCode = job.customer_zip_code;
+      } else if (job.customer_address) {
+        // Fallback to parsing address string if separate fields aren't available
+        const addressParts = job.customer_address.split(',').map(part => part.trim());
+        
+        if (addressParts.length >= 1) {
+          parsedAddress.street = addressParts[0];
+        }
+        
+        if (addressParts.length >= 2) {
+          parsedAddress.city = addressParts[1];
+        }
+        
+        if (addressParts.length >= 3) {
+          // Handle state and zip code which might be together like "State 12345"
+          const stateZipPart = addressParts[2];
+          const stateZipMatch = stateZipPart.match(/^([A-Za-z\s]+)\s+(\d{5}(?:-\d{4})?)$/);
+          
+          if (stateZipMatch) {
+            parsedAddress.state = stateZipMatch[1].trim();
+            parsedAddress.zipCode = stateZipMatch[2];
+          } else {
+            // If no zip code pattern, assume it's just state
+            parsedAddress.state = stateZipPart;
+          }
+        }
+      }
+      
+      setFormData(prev => ({
+        ...prev,
+        serviceAddress: parsedAddress
+      }));
+      
+      // Show feedback
+      setAddressAutoPopulated(true);
+      setTimeout(() => setAddressAutoPopulated(false), 3000);
+    }
+  };
 
   const handleSave = async () => {
     if (!job) return
@@ -2131,9 +2193,39 @@ const JobDetails = () => {
                     <X className="w-5 h-5" />
                   </button>
                 </div>
+                
+                {/* Copy Customer Address Button */}
+                {job && (job.customer_address || job.customer_city || job.customer_state || job.customer_zip_code) && (
+                  <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg mb-4">
+                    <div className="flex items-center">
+                      <MapPin className="w-4 h-4 text-blue-600 mr-2" />
+                      <div>
+                        <p className="text-sm font-medium text-blue-900">Customer Address Available</p>
+                        <p className="text-xs text-blue-700">
+                          {job.customer_address || `${job.customer_city}, ${job.customer_state} ${job.customer_zip_code}`}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={copyCustomerAddressToService}
+                      className="px-3 py-1 text-xs font-medium text-blue-600 bg-white border border-blue-300 rounded-md hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      Copy Address
+                    </button>
+                  </div>
+                )}
+                
                 <div className="space-y-4">
                   <div className="relative">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Street Address</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Street Address
+                      {addressAutoPopulated && formData.serviceAddress.street && (
+                        <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                          Auto-filled
+                        </span>
+                      )}
+                    </label>
                     <AddressAutocomplete
                       value={formData.serviceAddress.street}
                       onChange={(value) => {
@@ -2161,7 +2253,14 @@ const JobDetails = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      City
+                      {addressAutoPopulated && formData.serviceAddress.city && (
+                        <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                          Auto-filled
+                        </span>
+                      )}
+                    </label>
                     <input
                       type="text"
                       value={formData.serviceAddress.city}
@@ -2178,7 +2277,14 @@ const JobDetails = () => {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">State</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        State
+                        {addressAutoPopulated && formData.serviceAddress.state && (
+                          <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                            Auto-filled
+                          </span>
+                        )}
+                      </label>
                       <input
                         type="text"
                         value={formData.serviceAddress.state}
@@ -2194,7 +2300,14 @@ const JobDetails = () => {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">ZIP Code</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        ZIP Code
+                        {addressAutoPopulated && formData.serviceAddress.zipCode && (
+                          <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                            Auto-filled
+                          </span>
+                        )}
+                      </label>
                       <input
                         type="text"
                         value={formData.serviceAddress.zipCode}
