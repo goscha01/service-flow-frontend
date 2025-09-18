@@ -21,7 +21,6 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
     isServiceProvider: true,
     isActive: true,
     territories: [],
-    skills: [],
     availability: {
       monday: { start: "09:00", end: "17:00", available: true },
       tuesday: { start: "09:00", end: "17:00", available: true },
@@ -93,7 +92,6 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
         role: member.role || "worker",
         isServiceProvider: member.is_service_provider !== false,
         territories: parsedTerritories,
-        skills: member.skills ? JSON.parse(member.skills) : [],
         availability: parsedAvailability,
         permissions: member.permissions ? JSON.parse(member.permissions) : {
           viewCustomerNotes: true,
@@ -117,7 +115,6 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
         role: "worker",
         isServiceProvider: true,
         territories: [],
-        skills: [],
         permissions: {
           viewCustomerNotes: true,
           modifyJobStatus: true,
@@ -348,7 +345,6 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
         role: formData.role,
         isServiceProvider: formData.isServiceProvider,
         territories: formData.territories,
-        skills: formData.skills,
         permissions: formData.permissions
       }
       
@@ -487,33 +483,6 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
               </p>
             </div>
 
-            {/* Service Provider Section */}
-            <div className="border-t border-gray-200 pt-4 sm:pt-6">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
-                <div>
-                  <h3 className="text-sm font-medium text-gray-900">Service Provider</h3>
-                  <p className="text-sm text-gray-500">Can this team member be assigned to jobs?</p>
-                </div>
-                <div className="flex items-center">
-                  <button
-                    type="button"
-                    onClick={() => handleInputChange('isServiceProvider', !formData.isServiceProvider)}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${
-                      formData.isServiceProvider ? 'bg-green-600' : 'bg-gray-200'
-                    }`}
-                  >
-                    <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                        formData.isServiceProvider ? 'translate-x-6' : 'translate-x-1'
-                      }`}
-                    />
-                  </button>
-                  <span className="ml-2 text-sm font-medium text-gray-900">
-                    {formData.isServiceProvider ? 'YES' : 'NO'}
-                  </span>
-                </div>
-              </div>
-            </div>
 
             {/* Activation Toggle */}
             <div className="border-t border-gray-200 pt-4 sm:pt-6">
@@ -550,7 +519,7 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
               <div className="bg-white rounded-lg border border-gray-200">
                 {formData.availability ? Object.entries(formData.availability).map(([day, schedule], index) => (
                   <div key={day}>
-                    <div className="flex items-center justify-between p-3">
+                    <div className="flex items-center justify-between p-3 min-w-0">
                       <div className="flex items-center space-x-3">
                         <input
                           type="checkbox"
@@ -564,12 +533,12 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
                       </div>
                       
                       {schedule.available ? (
-                        <div className="flex-1 flex items-center justify-end">
-                          <div className="flex items-center space-x-2">
+                        <div className="flex-1 flex items-center justify-end min-w-0">
+                          <div className="flex items-center space-x-2 flex-wrap">
                             <select
                               value={schedule.start}
                               onChange={(e) => handleAvailabilityChange(day, 'start', e.target.value)}
-                              className="text-sm border border-gray-300 rounded px-2 py-1"
+                              className="text-sm border border-gray-300 rounded px-2 py-1 min-w-0 flex-shrink-0"
                             >
                               {Array.from({ length: 24 }, (_, i) => (
                                 <option key={i} value={`${i.toString().padStart(2, '0')}:00`}>
@@ -577,11 +546,11 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
                                 </option>
                               ))}
                             </select>
-                            <span className="text-sm text-gray-500">to</span>
+                            <span className="text-sm text-gray-500 flex-shrink-0">to</span>
                             <select
                               value={schedule.end}
                               onChange={(e) => handleAvailabilityChange(day, 'end', e.target.value)}
-                              className="text-sm border border-gray-300 rounded px-2 py-1"
+                              className="text-sm border border-gray-300 rounded px-2 py-1 min-w-0 flex-shrink-0"
                             >
                               {Array.from({ length: 24 }, (_, i) => (
                                 <option key={i} value={`${i.toString().padStart(2, '0')}:00`}>

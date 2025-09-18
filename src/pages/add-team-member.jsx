@@ -29,8 +29,7 @@ const AddTeamMember = () => {
     location: '',
     city: '',
     state: '',
-    zip_code: '',
-    is_service_provider: true
+    zip_code: ''
   })
 
   // Google Places Autocomplete
@@ -39,10 +38,6 @@ const AddTeamMember = () => {
   const [addressLoading, setAddressLoading] = useState(false)
   const addressRef = useRef(null)
 
-  // Skills management
-  const [skills, setSkills] = useState([])
-  const [showAddSkillModal, setShowAddSkillModal] = useState(false)
-  const [newSkill, setNewSkill] = useState({ name: '', level: 'Beginner' })
 
   // Territories management
   const [territories, setTerritories] = useState([])
@@ -194,23 +189,6 @@ const AddTeamMember = () => {
     }
   }, [])
 
-  // Skills management
-  const handleAddSkill = () => {
-    setShowAddSkillModal(true)
-  }
-
-  const handleSaveSkill = async () => {
-    if (newSkill.name.trim()) {
-      const skillToAdd = { ...newSkill, id: Date.now() }
-      setSkills(prev => [...prev, skillToAdd])
-      setNewSkill({ name: '', level: 'Beginner' })
-      setShowAddSkillModal(false)
-    }
-  }
-
-  const handleRemoveSkill = (index) => {
-    setSkills(prev => prev.filter((_, i) => i !== index))
-  }
 
   // Territories management
   const handleAddTerritory = () => {
@@ -268,8 +246,6 @@ const AddTeamMember = () => {
         city: formData.city,
         state: formData.state,
         zipCode: formData.zip_code, // Backend expects 'zipCode'
-        isServiceProvider: formData.is_service_provider,
-        skills: JSON.stringify(skills),
         territories: JSON.stringify(territories.map(t => t.id)),
         availability: JSON.stringify({
           workingHours,
@@ -688,59 +664,9 @@ const AddTeamMember = () => {
                     />
                   </div>
 
-                  <div className="md:col-span-2">
-                    <label className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={formData.is_service_provider}
-                        onChange={(e) => setFormData(prev => ({ ...prev, is_service_provider: e.target.checked }))}
-                        className="mr-2"
-                      />
-                      <span className="text-sm font-medium text-gray-700">Service Provider</span>
-                    </label>
-                  </div>
                 </div>
               </div>
 
-              {/* Skills */}
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center">
-                    <User className="w-5 h-5 text-blue-600 mr-2" />
-                    <h2 className="text-lg font-semibold text-gray-900">Skills</h2>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleAddSkill}
-                    className="flex items-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                  >
-                    <Plus className="w-4 h-4 mr-1" />
-                    Add Skill
-                  </button>
-                </div>
-
-                {skills.length > 0 ? (
-                  <div className="space-y-3">
-                    {skills.map((skill, index) => (
-                      <div key={skill.id || index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <div>
-                          <span className="font-medium text-gray-900">{skill.name}</span>
-                          <span className="ml-2 text-sm text-gray-500">({skill.level})</span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveSkill(index)}
-                          className="text-red-600 hover:text-red-800"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-500 text-center py-4">No skills added yet</p>
-                )}
-              </div>
 
               {/* Territories */}
               <div className="bg-white rounded-lg shadow p-6">
@@ -832,62 +758,6 @@ const AddTeamMember = () => {
         </div>
       </div>
 
-      {/* Add Skill Modal */}
-      {showAddSkillModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-            <h3 className="text-lg font-semibold mb-4">Add Skill</h3>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Skill Name
-                </label>
-                <input
-                  type="text"
-                  value={newSkill.name}
-                  onChange={(e) => setNewSkill(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="e.g., Plumbing, Electrical"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Skill Level
-                </label>
-                <select
-                  value={newSkill.level}
-                  onChange={(e) => setNewSkill(prev => ({ ...prev, level: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="Beginner">Beginner</option>
-                  <option value="Intermediate">Intermediate</option>
-                  <option value="Advanced">Advanced</option>
-                  <option value="Expert">Expert</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="flex justify-end space-x-3 mt-6">
-              <button
-                type="button"
-                onClick={() => setShowAddSkillModal(false)}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveSkill}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                Add Skill
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Add Territory Modal */}
       {showAddTerritoryModal && (
@@ -979,9 +849,7 @@ const AddTeamMember = () => {
                       city: '',
                       state: '',
                       zip_code: '',
-                      is_service_provider: true
                     })
-                    setSkills([])
                     setTerritories([])
                     setEmailWarning('')
                     setPhoneWarning('')
