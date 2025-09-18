@@ -43,7 +43,6 @@ const TeamMemberDetails = () => {
   const [editFormData, setEditFormData] = useState({})
   const [territories, setTerritories] = useState([])
   const [displayedTerritories, setDisplayedTerritories] = useState([])
-  const [skills, setSkills] = useState([])
   const [workingHours, setWorkingHours] = useState({
     sunday: { available: false, hours: "" },
     monday: { available: true, hours: "9:00 AM - 6:00 PM" },
@@ -82,9 +81,6 @@ const TeamMemberDetails = () => {
   const [showAddressSuggestions, setShowAddressSuggestions] = useState(false)
   const [addressLoading, setAddressLoading] = useState(false)
   
-  // Skills modal
-  const [showAddSkillModal, setShowAddSkillModal] = useState(false)
-  const [newSkill, setNewSkill] = useState({ name: '', level: 'Intermediate' })
 
   // Territories modal
   const [showAddTerritoryModal, setShowAddTerritoryModal] = useState(false)
@@ -121,55 +117,6 @@ const TeamMemberDetails = () => {
         const teamMemberData = response.teamMember
         setTeamMember(teamMemberData)
         
-        // Parse skills
-        if (teamMemberData.skills) {
-          try {
-            console.log('Raw skills from team member:', teamMemberData.skills)
-            let parsedSkills
-            if (typeof teamMemberData.skills === 'string') {
-              // Handle double-escaped JSON
-              try {
-                parsedSkills = JSON.parse(teamMemberData.skills)
-                console.log('First parse successful:', parsedSkills)
-              } catch (e) {
-                console.log('First parse failed, trying double parse')
-                // If first parse fails, try parsing again (double-escaped)
-                parsedSkills = JSON.parse(JSON.parse(teamMemberData.skills))
-                console.log('Double parse successful:', parsedSkills)
-          }
-        } else {
-              parsedSkills = teamMemberData.skills
-            }
-            console.log('Parsed skills:', parsedSkills)
-            console.log('Is parsedSkills an array?', Array.isArray(parsedSkills))
-            console.log('parsedSkills type:', typeof parsedSkills)
-            console.log('parsedSkills value:', parsedSkills)
-            
-            // Force it to be an array if it's a string that looks like an array
-            let skillsArray
-            if (typeof parsedSkills === 'string' && parsedSkills.startsWith('[')) {
-              try {
-                skillsArray = JSON.parse(parsedSkills)
-                console.log('Re-parsed skills from string:', skillsArray)
-              } catch (e) {
-                skillsArray = []
-              }
-            } else if (Array.isArray(parsedSkills)) {
-              skillsArray = parsedSkills
-            } else {
-              skillsArray = []
-            }
-            
-            console.log('Final skillsArray:', skillsArray)
-            setSkills(skillsArray)
-          } catch (e) {
-            console.error('Error parsing skills:', e)
-            setSkills([])
-          }
-        } else {
-          console.log('No skills found in team member data')
-          setSkills([])
-        }
 
         // Parse territories
         if (teamMemberData.territories) {
@@ -315,7 +262,6 @@ const TeamMemberDetails = () => {
       const updateData = {
         ...editFormData,
         color: editFormData.color || '#2563EB',
-        skills: JSON.stringify(skills),
         territories: JSON.stringify(territories.map(t => typeof t === 'object' ? t.id : t)),
         availability: JSON.stringify({
           workingHours,
@@ -363,43 +309,6 @@ const TeamMemberDetails = () => {
     }
   }
 
-  const handleAddSkill = () => {
-    setShowAddSkillModal(true)
-  }
-
-  const handleSaveSkill = async () => {
-    try {
-      if (!newSkill.name.trim()) {
-        alert('Please enter a skill name')
-        return
-      }
-
-      // Add new skill to current skills
-      const updatedSkills = [...skills, newSkill]
-
-      // Update team member
-      await teamAPI.update(memberId, {
-        skills: JSON.stringify(updatedSkills)
-      })
-
-      // Update local state
-      setSkills(updatedSkills)
-
-      // Refresh team member data
-      await fetchTeamMemberDetails()
-
-      // Reset form
-      setNewSkill({ name: '', level: 'Intermediate' })
-      setShowAddSkillModal(false)
-    } catch (error) {
-      console.error('Error adding skill:', error)
-      alert('Failed to add skill. Please try again.')
-    }
-  }
-
-  const handleRemoveSkill = (index) => {
-    setSkills(skills.filter((_, i) => i !== index))
-  }
 
   const fetchAvailableTerritories = async () => {
     try {
@@ -1098,61 +1007,6 @@ const TeamMemberDetails = () => {
                 </div>
               </div>
 
-              {/* Skills Card */}
-              <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                <div className="p-4 sm:p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-medium text-gray-900">Skills</h3>
-                    {!editing && (
-                      <button
-                        onClick={handleEditMember}
-                        className="text-sm text-blue-600 hover:text-blue-700"
-                      >
-                        Edit
-                      </button>
-                      )}
-                    </div>
-                  
-                  {editing ? (
-                    <div className="space-y-4">
-                      <div className="flex flex-wrap gap-2">
-                        {skills.map((skill, index) => (
-                          <div key={index} className="flex items-center space-x-2 bg-blue-100 text-blue-800 px-3 py-1 rounded-full">
-                            <span className="text-sm">{skill.name || skill}</span>
-                            <button
-                              onClick={() => handleRemoveSkill(index)}
-                              className="text-blue-600 hover:text-blue-800"
-                            >
-                              <XCircle className="w-4 h-4" />
-                            </button>
-                          </div>
-                        ))}
-                  </div>
-                      <button
-                        onClick={handleAddSkill}
-                        className="text-sm text-blue-600 hover:text-blue-700"
-                      >
-                        + Add Skill
-                      </button>
-                    </div>
-                  ) : (
-                    <div>
-                      {console.log('Rendering skills:', skills)}
-                      {skills.length > 0 ? (
-                        <div className="flex flex-wrap gap-2">
-                          {skills.map((skill, index) => (
-                            <span key={index} className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
-                              {skill.name || skill}
-                            </span>
-                          ))}
-                      </div>
-                    ) : (
-                        <p className="text-gray-500 text-sm">No skills added yet</p>
-                                  )}
-                                </div>
-                  )}
-                              </div>
-              </div>
 
               {/* Territories Card */}
               <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
@@ -1215,34 +1069,9 @@ const TeamMemberDetails = () => {
                     </div>
                   </div>
 
-              {/* Service Provider Card */}
+              {/* Availability Section */}
               <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
                 <div className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900">Service Provider</h3>
-                      <p className="text-sm text-gray-500">This team member can be assigned to jobs</p>
-                    </div>
-                    <button
-                      className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                        settings.isServiceProvider ? 'bg-green-500' : 'bg-gray-200'
-                      }`}
-                      onClick={async () => {
-                        const newSettings = { ...settings, isServiceProvider: !settings.isServiceProvider }
-                        setSettings(newSettings)
-                        await handleSaveSettings(newSettings)
-                      }}
-                    >
-                      <span
-                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                          settings.isServiceProvider ? 'translate-x-5' : 'translate-x-0'
-                        }`}
-                      />
-                    </button>
-                </div>
-
-                {/* Availability Section */}
-                  <div className="border-t border-gray-200 pt-6">
                   <div className="mb-6">
                     <h4 className="text-base font-semibold text-gray-900">Availability</h4>
                     <p className="text-sm text-gray-500">
@@ -1276,7 +1105,7 @@ const TeamMemberDetails = () => {
 
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     {/* Recurring Hours */}
-                    <div>
+                    <div className="min-w-0">
                       <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0 mb-4">
                         <div className="flex items-center space-x-2">
                           <Clock className="w-4 h-4 text-gray-400" />
@@ -1305,7 +1134,7 @@ const TeamMemberDetails = () => {
                       <div className="bg-white rounded-lg border border-gray-200">
                         {Object.entries(workingHours).map(([day, { available, hours, timeSlots = [] }], index) => (
                           <div key={day}>
-                            <div className="flex items-center justify-between p-3">
+                            <div className="flex items-center justify-between p-3 min-w-0">
                               <div className="flex items-center space-x-3">
                                 <input
                                   type="checkbox"
@@ -1322,33 +1151,33 @@ const TeamMemberDetails = () => {
                               </div>
                               
                               {available ? (
-                                <div className="flex-1 flex items-center justify-end">
+                                <div className="flex-1 flex items-center justify-end min-w-0">
                                   {editingHours ? (
-                                    <div className="flex items-center space-x-2">
+                                    <div className="flex flex-col space-y-2 w-full max-w-xs">
                                       {timeSlots.length === 0 && (
                                         <button
                                           onClick={() => handleAddTimeSlot(day)}
-                                          className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                                          className="text-xs text-blue-600 hover:text-blue-700 font-medium self-start"
                                         >
                                           + Add Hours
                                         </button>
                                       )}
                                       {timeSlots.map((slot, slotIndex) => (
-                                        <div key={slot.id} className="flex items-center space-x-2">
+                                        <div key={slot.id} className="flex items-center space-x-2 flex-wrap">
                                           <select
                                             value={slot.start}
                                             onChange={(e) => handleTimeSlotChange(day, slot.id, 'start', e.target.value)}
-                                            className="text-sm border border-gray-300 rounded px-2 py-1"
+                                            className="text-sm border border-gray-300 rounded px-2 py-1 min-w-0 flex-shrink-0"
                                           >
                                             {timeOptions.map(time => (
                                               <option key={time} value={time}>{time}</option>
                                             ))}
                                           </select>
-                                          <span className="text-sm text-gray-500">to</span>
+                                          <span className="text-sm text-gray-500 flex-shrink-0">to</span>
                                           <select
                                             value={slot.end}
                                             onChange={(e) => handleTimeSlotChange(day, slot.id, 'end', e.target.value)}
-                                            className="text-sm border border-gray-300 rounded px-2 py-1"
+                                            className="text-sm border border-gray-300 rounded px-2 py-1 min-w-0 flex-shrink-0"
                                           >
                                             {timeOptions.map(time => (
                                               <option key={time} value={time}>{time}</option>
@@ -1356,14 +1185,14 @@ const TeamMemberDetails = () => {
                                           </select>
                                           <button
                                             onClick={() => handleRemoveTimeSlot(day, slot.id)}
-                                            className="text-red-600 hover:text-red-700 p-1"
+                                            className="text-red-600 hover:text-red-700 p-1 flex-shrink-0"
                                           >
                                             <X className="w-4 h-4" />
                                           </button>
                                           {slotIndex === timeSlots.length - 1 && (
                                             <button
                                               onClick={() => handleAddTimeSlot(day)}
-                                              className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                                              className="text-xs text-blue-600 hover:text-blue-700 font-medium flex-shrink-0"
                                             >
                                               + Add More
                                             </button>
@@ -1374,7 +1203,7 @@ const TeamMemberDetails = () => {
                                         <button
                                           onClick={() => handleSaveDay(day)}
                                           disabled={savingDay === day}
-                                          className={`text-xs font-medium px-2 py-1 rounded ${
+                                          className={`text-xs font-medium px-2 py-1 rounded self-start ${
                                             savingDay === day 
                                               ? 'text-gray-400 cursor-not-allowed bg-gray-100' 
                                               : 'text-green-600 hover:text-green-700 bg-green-50 hover:bg-green-100'
@@ -1385,7 +1214,7 @@ const TeamMemberDetails = () => {
                                       )}
                                     </div>
                                   ) : (
-                                    <div className="text-sm text-gray-600">
+                                    <div className="text-sm text-gray-600 text-right">
                                       {timeSlots.length > 0 ? (
                                         timeSlots.map((slot, slotIndex) => (
                                           <span key={slot.id}>
@@ -1551,6 +1380,11 @@ const TeamMemberDetails = () => {
                     </div>
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add Territory Modal */}
       {showAddTerritoryModal && (
@@ -1613,64 +1447,6 @@ const TeamMemberDetails = () => {
         </div>
       )}
 
-      {/* Add Skill Modal */}
-      {showAddSkillModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Add Skill</h3>
-              <button
-                onClick={() => setShowAddSkillModal(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Skill Name</label>
-                <input
-                  type="text"
-                  value={newSkill.name}
-                  onChange={(e) => setNewSkill(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="e.g., Deep Cleaning, Window Cleaning"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Proficiency Level</label>
-                <select
-                  value={newSkill.level}
-                  onChange={(e) => setNewSkill(prev => ({ ...prev, level: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                >
-                  <option value="Beginner">Beginner</option>
-                  <option value="Intermediate">Intermediate</option>
-                  <option value="Advanced">Advanced</option>
-                  <option value="Expert">Expert</option>
-                </select>
-              </div>
-            </div>
-            
-            <div className="flex space-x-3 mt-6">
-              <button
-                onClick={() => setShowAddSkillModal(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveSkill}
-                className="flex-1 px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                Add Skill
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
