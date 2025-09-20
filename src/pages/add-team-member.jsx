@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, User, Mail, Phone, MapPin, Clock, Settings, Plus, X, Trash2, Save } from 'lucide-react'
 import Sidebar from '../components/sidebar'
 import MobileHeader from '../components/mobile-header'
+import ErrorPopup from '../components/ErrorPopup'
 import { teamAPI, territoriesAPI } from '../services/api'
 import { useAuth } from '../context/AuthContext'
 
@@ -17,6 +18,14 @@ const AddTeamMember = () => {
   const [phoneWarning, setPhoneWarning] = useState('')
   const [checkingPhone, setCheckingPhone] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
+  
+  // Error popup state
+  const [showErrorPopup, setShowErrorPopup] = useState(false)
+  const [errorPopupData, setErrorPopupData] = useState({
+    title: '',
+    message: '',
+    type: 'error'
+  })
   
   // Form data
   const [formData, setFormData] = useState({
@@ -269,10 +278,15 @@ const AddTeamMember = () => {
       
       // Handle enhanced error messages from backend
       const errorData = error.response?.data
+      let errorTitle = 'Registration Failed'
+      let errorMessage = 'An error occurred while creating the team member.'
+      let errorType = 'error'
+      
       if (errorData) {
         if (errorData.conflictType && errorData.message) {
           // Show specific conflict message
-          setError(errorData.message)
+          errorTitle = 'Conflict Detected'
+          errorMessage = errorData.message
           
           // Highlight the specific field that has a conflict
           if (errorData.field === 'email') {
@@ -281,13 +295,28 @@ const AddTeamMember = () => {
             setPhoneWarning(errorData.message)
           }
         } else if (errorData.error) {
-          setError(errorData.error)
+          errorMessage = errorData.error
+        } else if (errorData.details) {
+          // Handle server errors with specific details
+          errorTitle = 'Server Error'
+          errorMessage = `Server error: ${errorData.details}`
         } else {
-          setError('Error creating team member')
+          errorMessage = 'Error creating team member'
         }
       } else {
-        setError('Error creating team member')
+        errorMessage = 'Network error. Please check your connection and try again.'
       }
+      
+      // Show error popup
+      setErrorPopupData({
+        title: errorTitle,
+        message: errorMessage,
+        type: errorType
+      })
+      setShowErrorPopup(true)
+      
+      // Also set the banner error for backward compatibility
+      setError(errorMessage)
     } finally {
       setSaving(false)
     }
@@ -864,6 +893,17 @@ const AddTeamMember = () => {
           </div>
         </div>
       )}
+      
+      {/* Error Popup */}
+      <ErrorPopup
+        isOpen={showErrorPopup}
+        onClose={() => setShowErrorPopup(false)}
+        title={errorPopupData.title}
+        message={errorPopupData.message}
+        type={errorPopupData.type}
+        autoClose={true}
+        autoCloseDelay={8000}
+      />
     </div>
   )
 }

@@ -105,9 +105,42 @@ const TeamPage = () => {
     try {
       await teamAPI.delete(memberId)
       fetchTeamMembers()
+      
+      // Show success notification
+      setNotification({
+        type: 'success',
+        message: 'Team member has been deleted successfully.'
+      })
+      
+      // Clear notification after 3 seconds
+      setTimeout(() => setNotification(null), 3000)
     } catch (error) {
       console.error('Error deleting team member:', error)
-      alert('Failed to delete team member. Please try again.')
+      
+      // Enhanced error handling with specific error types
+      let errorMessage = 'Failed to delete team member. Please try again.'
+      
+      if (error.response?.data) {
+        const errorData = error.response.data
+        
+        // Use user-friendly message if available
+        if (errorData.userMessage) {
+          errorMessage = errorData.userMessage
+        } else if (errorData.error) {
+          errorMessage = errorData.error
+        }
+      } else if (error.message) {
+        errorMessage = error.message
+      }
+      
+      // Show error notification instead of alert
+      setNotification({
+        type: 'error',
+        message: errorMessage
+      })
+      
+      // Clear error notification after 5 seconds
+      setTimeout(() => setNotification(null), 5000)
     }
   }
 

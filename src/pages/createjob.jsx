@@ -436,6 +436,10 @@ export default function CreateJobPage() {
       zip_code: customer.zip_code
     });
     
+    // Debug: Check if customer has any address data
+    const hasAnyAddress = customer.address || customer.city || customer.state || customer.zip_code;
+    console.log('Has any address data:', hasAnyAddress);
+    
     // Use separate address fields if available, otherwise parse the address string
     let parsedAddress = {
       street: "",
@@ -449,14 +453,17 @@ export default function CreateJobPage() {
     
     if (customer.address || customer.city || customer.state || customer.zip_code) {
       hasAddress = true;
+      console.log('Address data found, parsing...');
       
       // Use separate fields if available
       if (customer.city && customer.state && customer.zip_code) {
+        console.log('Using separate address fields');
         parsedAddress.street = customer.address || "";
         parsedAddress.city = customer.city;
         parsedAddress.state = customer.state;
         parsedAddress.zipCode = customer.zip_code;
       } else if (customer.address) {
+        console.log('Parsing address string:', customer.address);
         // Fallback to parsing address string if separate fields aren't available
         const addressParts = customer.address.split(',').map(part => part.trim());
         
@@ -487,6 +494,10 @@ export default function CreateJobPage() {
       
       console.log('Parsed address:', parsedAddress);
     }
+    
+    console.log('Final hasAddress:', hasAddress);
+    console.log('Final parsedAddress:', parsedAddress);
+    console.log('Setting service address to:', hasAddress ? parsedAddress : 'keeping previous');
     
     setFormData(prev => ({
       ...prev,

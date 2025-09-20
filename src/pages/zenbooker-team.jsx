@@ -7,6 +7,7 @@ import { teamAPI } from "../services/api"
 import LoadingButton from "../components/loading-button"
 import AddTeamMemberModal from "../components/add-team-member-modal"
 import { useNavigate } from "react-router-dom"
+import { handleTeamDeletionError, createErrorNotification, createSuccessNotification } from "../utils/errorHandler"
 
 const ZenbookerTeam = () => {
   const { user, loading: authLoading } = useAuth()
@@ -155,13 +156,32 @@ const ZenbookerTeam = () => {
       console.log('Deleting team member:', memberToDelete.id)
       const response = await teamAPI.delete(memberToDelete.id)
       console.log('Delete response:', response)
+      
+      // Show success notification
+      setNotification(createSuccessNotification(
+        `Team member ${memberToDelete.first_name} ${memberToDelete.last_name} has been deleted successfully.`
+      ))
+      
       setShowDeleteModal(false)
       setMemberToDelete(null)
       fetchTeamMembers()
+      
+      // Clear success notification after 3 seconds
+      setTimeout(() => setNotification(null), 3000)
     } catch (error) {
       console.error('Error deleting team member:', error)
-      const errorMessage = error.response?.data?.error || error.message || 'Failed to delete team member. Please try again.'
-      setDeleteError(errorMessage)
+      
+      // Use the enhanced error handling utility
+      const errorInfo = handleTeamDeletionError(error)
+      setDeleteError(errorInfo.message)
+      
+      // Log additional details for debugging
+      console.log('Error details:', {
+        type: errorInfo.type,
+        status: errorInfo.status,
+        details: errorInfo.details
+      })
+      
       // Don't close the modal on error - let user see the error message
     } finally {
       setDeleteLoading(false)
@@ -708,18 +728,51 @@ const ZenbookerTeam = () => {
         {/* Delete Confirmation Modal */}
         {showDeleteModal && memberToDelete && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <div className="bg-white rounded-lg p-6 max-w-lg w-full">
               <div className="flex items-center mb-4">
                 <AlertCircle className="h-6 w-6 text-red-600 mr-3" />
                 <h3 className="text-lg font-medium text-gray-900">Delete Team Member</h3>
               </div>
               
-              {/* Error Message Display */}
+              {/* Enhanced Error Message Display */}
               {deleteError && (
-                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
-                  <div className="flex items-center">
-                    <AlertCircle className="h-4 w-4 text-red-600 mr-2" />
-                    <p className="text-sm text-red-700">{deleteError}</p>
+                <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
+                  <div className="flex items-start">
+                    <AlertCircle className="h-5 w-5 text-red-600 mr-3 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1">
+                      <h4 className="text-sm font-medium text-red-800 mb-1">Unable to Delete Team Member</h4>
+                      <p className="text-sm text-red-700 leading-relaxed">{deleteError}</p>
+                      {/* Show additional help text for specific error types */}
+                      {deleteError.includes('active job assignment') && (
+                        <div className="mt-2 text-xs text-red-600">
+                          <p className="font-medium">What you can do:</p>
+                          <ul className="list-disc list-inside mt-1 space-y-1">
+                            <li>Complete or reassign their active jobs first</li>
+                            <li>Deactivate the team member instead of deleting</li>
+                            <li>Contact support if you need assistance</li>
+                          </ul>
+                        </div>
+                      )}
+                      {deleteError.includes('only admin') && (
+                        <div className="mt-2 text-xs text-red-600">
+                          <p className="font-medium">What you can do:</p>
+                          <ul className="list-disc list-inside mt-1 space-y-1">
+                            <li>Assign another team member as admin first</li>
+                            <li>Deactivate this team member instead of deleting</li>
+                          </ul>
+                        </div>
+                      )}
+                      {deleteError.includes('network') && (
+                        <div className="mt-2 text-xs text-red-600">
+                          <p className="font-medium">Troubleshooting:</p>
+                          <ul className="list-disc list-inside mt-1 space-y-1">
+                            <li>Check your internet connection</li>
+                            <li>Try refreshing the page</li>
+                            <li>Contact support if the problem persists</li>
+                          </ul>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
@@ -728,6 +781,20 @@ const ZenbookerTeam = () => {
                 Are you sure you want to delete <strong>{memberToDelete.first_name} {memberToDelete.last_name}</strong>? 
                 This action cannot be undone.
               </p>
+              
+              {/* Warning for active team members */}
+              {memberToDelete.status === 'active' && (
+                <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                  <div className="flex items-start">
+                    <AlertCircle className="h-4 w-4 text-yellow-600 mr-2 mt-0.5 flex-shrink-0" />
+                    <div className="text-sm text-yellow-700">
+                      <p className="font-medium">Warning:</p>
+                      <p>This team member is currently active. If they have active job assignments, deletion will be blocked.</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               <div className="flex justify-end space-x-3">
                 <button
                   onClick={() => {
@@ -742,9 +809,17 @@ const ZenbookerTeam = () => {
                 <button
                   onClick={confirmDeleteMember}
                   disabled={deleteLoading}
-                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
+                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {deleteLoading ? "Deleting..." : "Delete"}
+                  {deleteLoading ? (
+                    <div className="flex items-center">
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Deleting...
+                    </div>
+                  ) : "Delete"}
                 </button>
               </div>
             </div>
