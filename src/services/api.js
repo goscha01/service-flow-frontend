@@ -47,8 +47,8 @@ api.interceptors.response.use(
           console.error('Unauthorized - redirecting to login');
           localStorage.removeItem('authToken');
           localStorage.removeItem('user');
-          // Use HashRouter-compatible redirect
-          window.location.hash = '#/signin';
+          // Redirect to signin page
+          window.location.href = '/signin';
           break;
         case 403:
           console.error('Access forbidden');

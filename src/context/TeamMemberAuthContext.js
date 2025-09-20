@@ -52,7 +52,7 @@ export const TeamMemberAuthProvider = ({ children }) => {
         localStorage.removeItem('teamMemberData')
         setTeamMember(null)
         // Redirect to login page
-        window.location.href = '/#/team-member/login'
+        window.location.href = '/team-member/login'
       }
       return Promise.reject(error)
     }

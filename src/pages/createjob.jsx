@@ -71,7 +71,6 @@ import { useNavigate } from 'react-router-dom';
 import { jobsAPI, customersAPI, servicesAPI, teamAPI, territoriesAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { getImageUrl, handleImageError } from '../utils/imageUtils';
-import { useHashRouter } from '../hooks/useHashRouter';
 
 
 export default function CreateJobPage() {
@@ -890,13 +889,13 @@ export default function CreateJobPage() {
         const jobId = result.job?.id || result.id || result.job_id;
         console.log('Attempting to navigate to job ID:', jobId);
         if (jobId) {
-          // console.log('Navigating to job details page:', `/job/${jobId}`);
-          // Use replace to prevent back button issues
-          window.location.href = `/#/job/${jobId}`;
+          console.log('Navigating to job details page:', `/job/${jobId}`);
+          // Use React Router navigate instead of window.location.href
+          navigate(`/job/${jobId}`);
         } else {
           console.log('No job ID found, navigating to jobs page');
           // If no job ID returned, navigate to jobs page
-          window.location.href = `/#/jobs/`;
+          navigate('/jobs');
         }
       }, 1500);
     } catch (error) {

@@ -226,12 +226,12 @@ const ZenbookerOnlineBooking = () => {
     // If custom URL is provided, use it
     if (customUrl.trim()) {
       const cleanCustomUrl = customUrl.trim().toLowerCase().replace(/[^a-z0-9-]/g, '')
-      return `${currentDomain}/#/book/${cleanCustomUrl}`
+      return `${currentDomain}/book/${cleanCustomUrl}`
     }
     
     // Otherwise use business name
     if (!user?.businessName) {
-      return `${currentDomain}/#/book/your-business`
+      return `${currentDomain}/book/your-business`
     }
     
     // Convert business name to URL-friendly format
@@ -240,7 +240,7 @@ const ZenbookerOnlineBooking = () => {
       .replace(/[^a-z0-9]/g, '')
       .substring(0, 20) // Limit length
     
-    return `${currentDomain}/#/book/${businessSlug}`
+    return `${currentDomain}/book/${businessSlug}`
   }
 
   const generateQuoteUrl = () => {
@@ -252,12 +252,12 @@ const ZenbookerOnlineBooking = () => {
     // If custom URL is provided, use it
     if (customUrl.trim()) {
       const cleanCustomUrl = customUrl.trim().toLowerCase().replace(/[^a-z0-9-]/g, '')
-      return `${currentDomain}/#/quote/${cleanCustomUrl}`
+      return `${currentDomain}/quote/${cleanCustomUrl}`
     }
     
     // Otherwise use business name
     if (!user?.businessName) {
-      return `${currentDomain}/#/quote/your-business`
+      return `${currentDomain}/quote/your-business`
     }
     
     // Convert business name to URL-friendly format
@@ -266,7 +266,7 @@ const ZenbookerOnlineBooking = () => {
       .replace(/[^a-z0-9]/g, '')
       .substring(0, 20) // Limit length
     
-    return `${currentDomain}/#/quote/${businessSlug}`
+    return `${currentDomain}/quote/${businessSlug}`
   }
 
   const bookingUrl = generateBookingUrl()

@@ -45,7 +45,7 @@ const ZenbookerTerritories = () => {
     if (!authLoading && user?.id) {
       fetchTerritories()
     } else if (!authLoading && !user?.id) {
-      window.location.hash = '#/signin'
+      window.location.href = '/signin'
     }
   }, [authLoading, user?.id])
 
