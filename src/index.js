@@ -1,6 +1,6 @@
 import ReactDOM from "react-dom/client"
 import App from "./App"
-import { HashRouter, Routes, Route } from "react-router-dom"
+import { BrowserRouter, Routes, Route } from "react-router-dom"
 import { AuthProvider } from "./context/AuthContext"
 import ProtectedRoute from "./components/ProtectedRoute"
 import SignupForm from "./pages/Signup"
@@ -85,7 +85,7 @@ import { TeamMemberAuthProvider } from "./context/TeamMemberAuthContext"
 
 const root = ReactDOM.createRoot(document.getElementById("root"))
 root.render(
-  <HashRouter>
+  <BrowserRouter>
     <AuthProvider>
       <TeamMemberAuthProvider>
         <Routes>
@@ -182,5 +182,5 @@ root.render(
       </Routes>
     </TeamMemberAuthProvider>
     </AuthProvider>
-  </HashRouter>,
+  </BrowserRouter>,
 )

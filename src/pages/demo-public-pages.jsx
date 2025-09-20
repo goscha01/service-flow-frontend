@@ -11,7 +11,7 @@ const DemoPublicPages = () => {
     {
       title: "Public Booking Page",
       description: "Customers can book services directly through this page",
-      url: `${baseUrl}/#/book/${businessSlug}`,
+      url: `${baseUrl}/book/${businessSlug}`,
       features: [
         "Multi-step booking process",
         "Service selection",
@@ -23,7 +23,7 @@ const DemoPublicPages = () => {
     {
       title: "Public Quote Page", 
       description: "Customers can request custom quotes for their projects",
-      url: `${baseUrl}/#/quote/${businessSlug}`,
+      url: `${baseUrl}/quote/${businessSlug}`,
       features: [
         "Detailed project description",
         "Service type selection",
@@ -142,10 +142,10 @@ const DemoPublicPages = () => {
           </h3>
           <div className="space-y-2 text-sm">
             <p className="text-blue-800">
-              <strong>Booking:</strong> <code>yourdomain.com/#/book/your-business-slug</code>
+              <strong>Booking:</strong> <code>yourdomain.com/book/your-business-slug</code>
             </p>
             <p className="text-blue-800">
-              <strong>Quote:</strong> <code>yourdomain.com/#/quote/your-business-slug</code>
+              <strong>Quote:</strong> <code>yourdomain.com/quote/your-business-slug</code>
             </p>
             <p className="text-blue-700 mt-3">
               The business slug is automatically generated from your business name (lowercase, no spaces)

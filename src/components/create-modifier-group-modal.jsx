@@ -247,7 +247,7 @@ const CreateModifierGroupModal = ({ isOpen, onClose, onSave, editingModifier = n
         localStorage.removeItem('authToken');
         localStorage.removeItem('user');
         // Redirect to login page
-        window.location.hash = '#/signin';
+        window.location.href = '/signin';
         return;
       }
       
