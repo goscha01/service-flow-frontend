@@ -891,11 +891,11 @@ export default function CreateJobPage() {
         if (jobId) {
           console.log('Navigating to job details page:', `/job/${jobId}`);
           // Use React Router navigate instead of window.location.href
-          navigate(`/job/${jobId}`);
+          window.location.href = `/job/${jobId}`;
         } else {
           console.log('No job ID found, navigating to jobs page');
           // If no job ID returned, navigate to jobs page
-          navigate('/jobs');
+           window.location.href = '/jobs';
         }
       }, 1500);
     } catch (error) {
