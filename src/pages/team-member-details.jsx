@@ -29,7 +29,7 @@ import {
   User,
   AlertCircle
 } from 'lucide-react'
-import { teamAPI } from '../services/api'
+import { teamAPI, territoriesAPI } from '../services/api'
 import UpdateAvailabilityModal from '../components/update-availability-modal'
 
 const TeamMemberDetails = () => {
@@ -370,14 +370,13 @@ const TeamMemberDetails = () => {
     try {
       setTerritoryLoading(true)
       console.log('Fetching available territories for user:', user?.id)
-      const response = await fetch(`https://service-flow-backend-production.up.railway.app/api/territories?userId=${user?.id}&status=active`)
-      const data = await response.json()
-      console.log('Available territories response:', data)
-      console.log('Available territories array:', data.territories)
-      console.log('Available territories count:', data.territories?.length || 0)
-      console.log('Full API response structure:', Object.keys(data))
-      setAvailableTerritories(data.territories || [])
-      } catch (error) {
+      const response = await territoriesAPI.getAll(user?.id, { status: 'active' })
+      console.log('Available territories response:', response)
+      console.log('Available territories array:', response.territories)
+      console.log('Available territories count:', response.territories?.length || 0)
+      console.log('Full API response structure:', Object.keys(response))
+      setAvailableTerritories(response.territories || [])
+    } catch (error) {
       console.error('Error fetching territories:', error)
       setAvailableTerritories([])
     } finally {
