@@ -22,6 +22,24 @@ const ServiceModifiersForm = ({ modifiers = [], selectedModifiers: parentSelecte
   useEffect(() => {
     setLocalEditedPrices({});
   }, [editedModifierPrices]);
+
+  // Sync internal state with parent changes
+  useEffect(() => {
+    console.log('🔧 ServiceModifiersForm: Syncing with parent changes', { parentSelectedModifiers, internalSelectedModifiers });
+    
+    // If parent has selections that we don't have internally, update our internal state
+    const hasNewParentSelections = Object.keys(parentSelectedModifiers).some(key => 
+      !internalSelectedModifiers[key] && parentSelectedModifiers[key]
+    );
+    
+    if (hasNewParentSelections) {
+      console.log('🔧 ServiceModifiersForm: Updating internal state with parent selections');
+      setInternalSelectedModifiers(prev => ({
+        ...prev,
+        ...parentSelectedModifiers
+      }));
+    }
+  }, [parentSelectedModifiers, internalSelectedModifiers]);
   
   // Merge parent selections with any additional internal selections
   const selectedModifiers = useMemo(() => {
@@ -77,6 +95,7 @@ const ServiceModifiersForm = ({ modifiers = [], selectedModifiers: parentSelecte
       };
     }
 
+    // Update internal modifiers while preserving all existing selections
     const updatedInternalModifiers = {
       ...internalSelectedModifiers,
       [modifierId]: newValue
@@ -84,11 +103,13 @@ const ServiceModifiersForm = ({ modifiers = [], selectedModifiers: parentSelecte
 
     setInternalSelectedModifiers(updatedInternalModifiers);
     
-    // Send the complete merged state to parent
+    // Send the complete merged state to parent - this includes ALL modifiers
     const completeUpdatedModifiers = {
       ...parentSelectedModifiers,
       ...updatedInternalModifiers
     };
+    
+    console.log('🔧 ServiceModifiersForm: Sending complete modifiers to parent:', completeUpdatedModifiers);
     onModifiersChange(completeUpdatedModifiers);
   };
 

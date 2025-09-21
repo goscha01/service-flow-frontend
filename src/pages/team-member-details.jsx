@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Sidebar from '../components/sidebar'
 import MobileHeader from '../components/mobile-header'
+import AddressValidation from '../components/address-validation'
+import AddressAutocomplete from '../components/address-autocomplete'
 import { 
   ChevronLeft, 
   Edit,
@@ -28,6 +30,7 @@ import {
   AlertCircle
 } from 'lucide-react'
 import { teamAPI } from '../services/api'
+import UpdateAvailabilityModal from '../components/update-availability-modal'
 
 const TeamMemberDetails = () => {
   const { memberId } = useParams()
@@ -59,6 +62,8 @@ const TeamMemberDetails = () => {
   const [savingCustomAvailability, setSavingCustomAvailability] = useState(false)
   const [savingDay, setSavingDay] = useState(null) // Track which day is being saved
   const [showWeeklyHoursModal, setShowWeeklyHoursModal] = useState(false)
+  const [showAvailabilityModal, setShowAvailabilityModal] = useState(false)
+  const [selectedDates, setSelectedDates] = useState([])
   const [settings, setSettings] = useState({
     isServiceProvider: true,
     canEditAvailability: true,
@@ -92,6 +97,7 @@ const TeamMemberDetails = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState("")
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   
   // Notifications
   const [notification, setNotification] = useState(null)
@@ -549,15 +555,20 @@ const TeamMemberDetails = () => {
   }
 
   const handleAddCustomAvailability = () => {
-    setCustomAvailability([
-      ...customAvailability,
-      {
-        id: Date.now(),
-        date: '',
-        available: true,
-        hours: ''
-      }
-    ])
+    setShowAvailabilityModal(true)
+  }
+
+  const handleAvailabilityModalSave = (availabilityData) => {
+    const newAvailability = {
+      id: Date.now(),
+      date: availabilityData.dates[0], // Use first selected date
+      available: availabilityData.type === 'time_period',
+      hours: availabilityData.type === 'time_period' 
+        ? availabilityData.timeSlots.map(slot => `${slot.start}-${slot.end}`).join(', ')
+        : 'Unavailable'
+    }
+    
+    setCustomAvailability(prev => [...prev, newAvailability])
   }
 
   const handleRemoveCustomAvailability = (id) => {
@@ -664,6 +675,14 @@ const TeamMemberDetails = () => {
       const response = await fetch(`https://service-flow-backend-production.up.railway.app/api/places/autocomplete?input=${encodeURIComponent(value)}`)
       const data = await response.json()
       
+      if (!response.ok) {
+        console.error('Address suggestions API error:', data)
+        setError(`Address suggestions failed: ${data.error || 'Unknown error'}`)
+        setAddressSuggestions([])
+        setShowAddressSuggestions(false)
+        return
+      }
+      
       if (data.predictions) {
         setAddressSuggestions(data.predictions)
         setShowAddressSuggestions(true)
@@ -758,7 +777,7 @@ const TeamMemberDetails = () => {
   if (loading) {
     return (
       <div className="flex h-screen bg-gray-50">
-        <Sidebar isOpen={false} onClose={() => { }} />
+        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <div className="flex-1 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
@@ -772,7 +791,7 @@ const TeamMemberDetails = () => {
   if (error) {
     return (
       <div className="flex h-screen bg-gray-50">
-        <Sidebar isOpen={false} onClose={() => { }} />
+        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <div className="flex-1 flex items-center justify-center">
         <div className="text-center">
             <XCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
@@ -792,7 +811,7 @@ const TeamMemberDetails = () => {
   if (!teamMember) {
     return (
       <div className="flex h-screen bg-gray-50">
-        <Sidebar isOpen={false} onClose={() => { }} />
+        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <div className="flex-1 flex items-center justify-center">
         <div className="text-center">
             <XCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
@@ -812,10 +831,10 @@ const TeamMemberDetails = () => {
   return (
     <>
     <div className="flex h-screen bg-gray-50 overflow-hidden">
-        <Sidebar isOpen={false} onClose={() => { }} />
+        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
-      <div className="flex-1 flex flex-col min-w-0 lg:ml-64">
-          <MobileHeader onMenuClick={() => { }} />
+      <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72 2xl:ml-80">
+          <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
         
         {/* Notification Display */}
         {notification && (
@@ -836,7 +855,7 @@ const TeamMemberDetails = () => {
         )}
         
         <div className="flex-1 overflow-auto">
-          <div className="px-4 sm:px-6 lg:px-8 py-8">
+          <div className="px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16 py-8 max-w-7xl mx-auto">
             {/* Header */}
             <div className="mb-8">
               <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
@@ -917,7 +936,7 @@ const TeamMemberDetails = () => {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                     {/* Contact Information */}
                     <div className="space-y-4">
                       <h3 className="text-lg font-medium text-gray-900">Contact Information</h3>
@@ -972,19 +991,28 @@ const TeamMemberDetails = () => {
                     <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Color</label>
                             <div className="flex items-center space-x-3">
-                              <input
-                                type="color"
-                                value={editFormData.color || '#2563EB'}
-                                onChange={(e) => setEditFormData({ ...editFormData, color: e.target.value })}
-                                className="w-12 h-8 border border-gray-300 rounded cursor-pointer"
+                              <div 
+                                className="w-8 h-8 rounded border border-gray-300 flex-shrink-0"
+                                style={{ backgroundColor: editFormData.color || '#2563EB' }}
                               />
-                              <input
-                                type="text"
+                              <select
                                 value={editFormData.color || '#2563EB'}
                                 onChange={(e) => setEditFormData({ ...editFormData, color: e.target.value })}
                                 className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                placeholder="#2563EB"
-                              />
+                              >
+                                <option value="#2563EB">Blue</option>
+                                <option value="#DC2626">Red</option>
+                                <option value="#059669">Green</option>
+                                <option value="#D97706">Orange</option>
+                                <option value="#7C3AED">Purple</option>
+                                <option value="#DB2777">Pink</option>
+                                <option value="#6B7280">Gray</option>
+                                <option value="#F59E0B">Yellow</option>
+                                <option value="#10B981">Emerald</option>
+                                <option value="#8B5CF6">Violet</option>
+                                <option value="#EF4444">Rose</option>
+                                <option value="#14B8A6">Teal</option>
+                              </select>
                             </div>
                             <p className="text-xs text-gray-500 mt-1">This color will be used in the calendar and schedule views</p>
                     </div>
@@ -1009,33 +1037,24 @@ const TeamMemberDetails = () => {
                       
                       {editing ? (
                         <div className="space-y-4">
-                          <div className="relative" ref={addressRef}>
+                          <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
-                            <input
-                              type="text"
+                            <AddressAutocomplete
                               value={editFormData.location}
-                              onChange={handleLocationChange}
+                              onChange={(value) => setEditFormData(prev => ({ ...prev, location: value }))}
+                              onAddressSelect={(addressData) => {
+                                setEditFormData(prev => ({
+                                  ...prev,
+                                  location: addressData.formattedAddress,
+                                  city: addressData.components.city,
+                                  state: addressData.components.state,
+                                  zip_code: addressData.components.zipCode
+                                }));
+                              }}
                               placeholder="Start typing an address..."
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              showValidationResults={true}
+                              className="w-full"
                             />
-                            {addressLoading && (
-                              <div className="absolute right-3 top-2">
-                                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
-                              </div>
-                            )}
-                            {showAddressSuggestions && addressSuggestions.length > 0 && (
-                              <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto">
-                                {addressSuggestions.map((suggestion, index) => (
-                                  <div
-                                    key={index}
-                                    onClick={() => handleAddressSelect(suggestion)}
-                                    className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm"
-                                  >
-                                    {suggestion.description}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
                           </div>
                           <div className="grid grid-cols-3 gap-3">
                       <div>
@@ -1181,7 +1200,7 @@ const TeamMemberDetails = () => {
                       </button>
                     </div>
 
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 lg:gap-8">
                     {/* Recurring Hours */}
                     <div className="min-w-0">
                       <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0 mb-4">
@@ -1374,7 +1393,7 @@ const TeamMemberDetails = () => {
                     </div>
                   </div>
                 </div>
-
+         
       {/* Add Territory Modal */}
       {showAddTerritoryModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -1628,6 +1647,15 @@ const TeamMemberDetails = () => {
           </div>
         </div>
       )}
+
+      {/* Update Availability Modal */}
+      <UpdateAvailabilityModal
+        isOpen={showAvailabilityModal}
+        onClose={() => setShowAvailabilityModal(false)}
+        onSave={handleAvailabilityModalSave}
+        selectedDates={selectedDates}
+        availability={customAvailability}
+      />
 
     </>
   )

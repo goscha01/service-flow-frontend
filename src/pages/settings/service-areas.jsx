@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import Sidebar from "../../components/sidebar"
 import MobileHeader from "../../components/mobile-header"
+import TerritoryMap from "../../components/territory-map"
 import { ChevronLeft, MapPin, Check, X } from "lucide-react"
 import { serviceAreasAPI } from "../../services/api"
 import { useAuth } from "../../context/AuthContext"
@@ -128,7 +129,7 @@ const ServiceAreas = () => {
     return (
       <div className="flex h-screen bg-gray-50 overflow-hidden">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-        <div className="flex-1 flex flex-col min-w-0 lg:ml-64">
+        <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
           <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
@@ -145,7 +146,7 @@ const ServiceAreas = () => {
     <div className="min-h-screen bg-gray-50 flex">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <div className="flex-1 flex flex-col min-w-0 lg:ml-64">
+      <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
         <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
 
         {/* Header */}
@@ -231,27 +232,13 @@ const ServiceAreas = () => {
                 <div className="space-y-4">
                   {serviceAreasData.territories.map((territory) => (
                     <div key={territory.id} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                      {/* Map */}
-                      <div className="h-96 bg-green-50 relative">
-                        <iframe
-                          src={getTerritoryMapUrl(territory)}
-                          width="100%"
-                          height="100%"
-                          style={{ border: 0 }}
-                          allowFullScreen=""
-                          loading="lazy"
-                          referrerPolicy="no-referrer-when-downgrade"
-                        ></iframe>
-                        <button className="absolute right-4 top-4 p-2 bg-white rounded-lg shadow-md hover:bg-gray-50">
-                          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M15 3L21 3M21 3V9M21 3L13 11M10 5H7C4.79086 5 3 6.79086 3 9V17C3 19.2091 4.79086 21 7 21H15C17.2091 21 19 19.2091 19 17V14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
-                        </button>
-                        {/* Radius indicator */}
-                        <div className="absolute left-4 top-4 bg-blue-600 text-white px-3 py-1 rounded-lg text-sm font-medium">
-                          {territory.radius_miles || 25} mile radius
-                        </div>
-                      </div>
+                      {/* Territory Map with Boundaries */}
+                      <TerritoryMap 
+                        territory={territory}
+                        height="400px"
+                        showDetails={true}
+                        className="rounded-t-lg"
+                      />
 
                       {/* Territory Details */}
                       <div className="p-4">

@@ -363,13 +363,13 @@ const PublicBooking = () => {
               </h1>
             )}
             
-            {!settings?.branding?.hideZenbookerBranding && (
+            {!settings?.branding?.hideServiceFlowBranding && (
               <div className="flex items-center space-x-1 text-xs text-gray-500">
                 <span>Powered by</span>
                 <div className="w-4 h-4 bg-blue-600 rounded flex items-center justify-center">
-                  <span className="text-white font-bold text-xs">Z</span>
+                  <span className="text-white font-bold text-xs">S</span>
                 </div>
-                <span>zenbooker</span>
+                <span>serviceflow</span>
               </div>
             )}
           </div>

@@ -20,7 +20,7 @@ import {
 import Sidebar from '../components/sidebar';
 import MobileHeader from '../components/mobile-header';
 
-const ZenbookerEstimatePage = () => {
+const ServiceFlowEstimatePage = () => {
   const [selectedCustomer, setSelectedCustomer] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
     const [sidebarOpen, setSidebarOpen] = useState(false); 
@@ -133,4 +133,4 @@ const ZenbookerEstimatePage = () => {
   );
 };
 
-export default ZenbookerEstimatePage;
+export default ServiceFlowEstimatePage;

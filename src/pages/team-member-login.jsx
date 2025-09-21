@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import { Eye, EyeOff, User, Lock, Smartphone } from "lucide-react"
 import { useTeamMemberAuth } from "../context/TeamMemberAuthContext"
@@ -13,6 +13,57 @@ const TeamMemberLogin = () => {
     password: ""
   })
   const [showPassword, setShowPassword] = useState(false)
+
+  // Refs for autofill sync
+  const usernameRef = useRef(null)
+  const passwordRef = useRef(null)
+
+  // On mount, sync autofilled values into state
+  useEffect(() => {
+    // Timeout allows browser autofill to populate fields first
+    setTimeout(() => {
+      const username = usernameRef.current?.value || ""
+      const password = passwordRef.current?.value || ""
+      if (username || password) {
+        setFormData({ username, password })
+      }
+    }, 100)
+
+    // Listen for autofill events
+    const handleAutofill = () => {
+      setTimeout(() => {
+        const username = usernameRef.current?.value || ""
+        const password = passwordRef.current?.value || ""
+        if (username || password) {
+          setFormData({ username, password })
+        }
+      }, 50)
+    }
+
+    // Add event listeners for autofill detection
+    const usernameInput = usernameRef.current
+    const passwordInput = passwordRef.current
+
+    if (usernameInput) {
+      usernameInput.addEventListener('animationstart', handleAutofill)
+      usernameInput.addEventListener('change', handleAutofill)
+    }
+    if (passwordInput) {
+      passwordInput.addEventListener('animationstart', handleAutofill)
+      passwordInput.addEventListener('change', handleAutofill)
+    }
+
+    return () => {
+      if (usernameInput) {
+        usernameInput.removeEventListener('animationstart', handleAutofill)
+        usernameInput.removeEventListener('change', handleAutofill)
+      }
+      if (passwordInput) {
+        passwordInput.removeEventListener('animationstart', handleAutofill)
+        passwordInput.removeEventListener('change', handleAutofill)
+      }
+    }
+  }, [])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -47,10 +98,15 @@ const TeamMemberLogin = () => {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form 
+            onSubmit={handleSubmit} 
+            className="space-y-6"
+            autoComplete="on"
+            method="post"
+          >
             {/* Username/Email Field */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
                 Username or Email
               </label>
               <div className="relative">
@@ -58,9 +114,13 @@ const TeamMemberLogin = () => {
                   <User className="w-4 h-4 text-gray-400" />
                 </div>
                 <input
+                  id="username"
+                  name="username"
                   type="text"
                   value={formData.username}
                   onChange={(e) => handleInputChange('username', e.target.value)}
+                  ref={usernameRef}
+                  autoComplete="username"
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Enter your username or email"
                   required
@@ -70,7 +130,7 @@ const TeamMemberLogin = () => {
 
             {/* Password Field */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
                 Password
               </label>
               <div className="relative">
@@ -78,13 +138,16 @@ const TeamMemberLogin = () => {
                   <Lock className="w-4 h-4 text-gray-400" />
                 </div>
                 <input
+                  id="password"
+                  name="password"
                   type={showPassword ? "text" : "password"}
                   value={formData.password}
                   onChange={(e) => handleInputChange('password', e.target.value)}
+                  ref={passwordRef}
+                  autoComplete="current-password"
                   className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Enter your password"
                   required
-                  autoComplete="current-password"
                 />
                 <button
                   type="button"

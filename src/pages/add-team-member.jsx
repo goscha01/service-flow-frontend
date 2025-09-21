@@ -4,6 +4,8 @@ import { ChevronLeft, User, Mail, Phone, MapPin, Clock, Settings, Plus, X, Trash
 import Sidebar from '../components/sidebar'
 import MobileHeader from '../components/mobile-header'
 import ErrorPopup from '../components/ErrorPopup'
+import AddressValidation from '../components/address-validation'
+import AddressAutocomplete from '../components/address-autocomplete'
 import { teamAPI, territoriesAPI } from '../services/api'
 import { useAuth } from '../context/AuthContext'
 
@@ -18,6 +20,7 @@ const AddTeamMember = () => {
   const [phoneWarning, setPhoneWarning] = useState('')
   const [checkingPhone, setCheckingPhone] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   
   // Error popup state
   const [showErrorPopup, setShowErrorPopup] = useState(false)
@@ -38,7 +41,8 @@ const AddTeamMember = () => {
     location: '',
     city: '',
     state: '',
-    zip_code: ''
+    zip_code: '',
+    color: '#2563EB'
   })
 
   // Google Places Autocomplete
@@ -255,6 +259,7 @@ const AddTeamMember = () => {
         city: formData.city,
         state: formData.state,
         zipCode: formData.zip_code, // Backend expects 'zipCode'
+        color: formData.color, // Include color in submission
         territories: JSON.stringify(territories.map(t => t.id)),
         availability: JSON.stringify({
           workingHours,
@@ -449,10 +454,10 @@ const AddTeamMember = () => {
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
-      <Sidebar isOpen={false} onClose={() => {}} />
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
-      <div className="flex-1 flex flex-col min-w-0 lg:ml-64">
-        <MobileHeader onMenuClick={() => {}} />
+      <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
+        <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
         
         <div className="flex-1 overflow-auto">
           <div className="px-4 sm:px-6 lg:px-8 py-8">
@@ -609,7 +614,36 @@ const AddTeamMember = () => {
                     </select>
                   </div>
 
-
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Color
+                    </label>
+                    <div className="flex items-center space-x-3">
+                      <div 
+                        className="w-8 h-8 rounded border border-gray-300 flex-shrink-0"
+                        style={{ backgroundColor: formData.color || '#2563EB' }}
+                      />
+                      <select
+                        value={formData.color || '#2563EB'}
+                        onChange={(e) => setFormData(prev => ({ ...prev, color: e.target.value }))}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="#2563EB">Blue</option>
+                        <option value="#DC2626">Red</option>
+                        <option value="#059669">Green</option>
+                        <option value="#D97706">Orange</option>
+                        <option value="#7C3AED">Purple</option>
+                        <option value="#DB2777">Pink</option>
+                        <option value="#6B7280">Gray</option>
+                        <option value="#F59E0B">Yellow</option>
+                        <option value="#10B981">Emerald</option>
+                        <option value="#8B5CF6">Violet</option>
+                        <option value="#EF4444">Rose</option>
+                        <option value="#14B8A6">Teal</option>
+                      </select>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">This color will be used in the calendar and schedule views</p>
+                  </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -628,33 +662,22 @@ const AddTeamMember = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Location
                     </label>
-                    <div className="relative" ref={addressRef}>
-                      <input
-                        type="text"
-                        value={formData.location}
-                        onChange={handleLocationChange}
-                        placeholder="Start typing an address..."
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      />
-                      {addressLoading && (
-                        <div className="absolute right-3 top-2">
-                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
-                        </div>
-                      )}
-                      {showAddressSuggestions && addressSuggestions.length > 0 && (
-                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto">
-                          {addressSuggestions.map((suggestion, index) => (
-                            <div
-                              key={index}
-                              onClick={() => handleAddressSelect(suggestion)}
-                              className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm"
-                            >
-                              {suggestion.description}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                    <AddressAutocomplete
+                      value={formData.location}
+                      onChange={(value) => setFormData(prev => ({ ...prev, location: value }))}
+                      onAddressSelect={(addressData) => {
+                        setFormData(prev => ({
+                          ...prev,
+                          location: addressData.formattedAddress,
+                          city: addressData.components.city,
+                          state: addressData.components.state,
+                          zipCode: addressData.components.zipCode
+                        }));
+                      }}
+                      placeholder="Start typing an address..."
+                      showValidationResults={true}
+                      className="w-full"
+                    />
                   </div>
 
                   <div>

@@ -11,7 +11,7 @@ import LoadingButton from "../components/loading-button"
 import EstimateModal from "../components/estimate-modal"
 import EstimatePreviewModal from "../components/estimate-preview-modal"
 
-const ZenbookerEstimates = () => {
+const ServiceFlowEstimates = () => {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -259,7 +259,7 @@ const ZenbookerEstimates = () => {
     return (
       <div className="flex h-screen bg-gray-50 overflow-hidden">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-        <div className="flex-1 flex flex-col min-w-0 lg:ml-64">
+        <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
           <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
@@ -276,7 +276,7 @@ const ZenbookerEstimates = () => {
     <div className="flex h-screen bg-gray-50 overflow-hidden">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
-      <div className="flex-1 flex flex-col min-w-0 lg:ml-64">
+      <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
         <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
         
         <div className="flex-1 overflow-auto">
@@ -543,4 +543,4 @@ const ZenbookerEstimates = () => {
   )
 }
 
-export default ZenbookerEstimates 
+export default ServiceFlowEstimates 

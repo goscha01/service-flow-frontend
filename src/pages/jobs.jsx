@@ -11,7 +11,7 @@ import { Link, useNavigate } from "react-router-dom"
 import { jobsAPI, invoicesAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
 
-const ZenbookerJobs = () => {
+const ServiceFlowJobs = () => {
   const { user, loading: authLoading } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [activeTab, setActiveTab] = useState("upcoming")
@@ -384,7 +384,7 @@ const ZenbookerJobs = () => {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0 lg:ml-64">
+      <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
         {/* Mobile Header */}
         <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
 
@@ -886,4 +886,4 @@ const ZenbookerJobs = () => {
   )
 }
 
-export default ZenbookerJobs
+export default ServiceFlowJobs

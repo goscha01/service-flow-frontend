@@ -10,7 +10,7 @@ import { useAuth } from "../context/AuthContext"
 import { requestsAPI } from "../services/api"
 import { useNavigate } from "react-router-dom"
 
-const ZenbookerRequests = () => {
+const ServiceFlowRequests = () => {
   const { user } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [activeFilter, setActiveFilter] = useState("all")
@@ -102,7 +102,7 @@ const ZenbookerRequests = () => {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0 lg:ml-64">
+      <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
         {/* Mobile Header */}
         <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
 
@@ -355,4 +355,4 @@ const ZenbookerRequests = () => {
   )
 }
 
-export default ZenbookerRequests
+export default ServiceFlowRequests

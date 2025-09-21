@@ -4,16 +4,19 @@ import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import Sidebar from "../components/sidebar"
 import MobileHeader from "../components/mobile-header"
-import { Plus, Search, Filter, FileText, Send, Check, X, Eye, Edit, Trash2, Calendar, DollarSign, User, AlertCircle, RefreshCw, CreditCard, Receipt } from "lucide-react"
+import { Plus, Search, Filter, FileText, Send, Check, X, Eye, Edit, Trash2, Calendar, DollarSign, User, AlertCircle, RefreshCw } from "lucide-react"
 import { useAuth } from "../context/AuthContext"
-import { invoicesAPI, customersAPI, servicesAPI } from "../services/api"
+import { estimatesAPI, customersAPI, servicesAPI } from "../services/api"
 import LoadingButton from "../components/loading-button"
+import EstimateModal from "../components/estimate-modal"
+import EstimatePreviewModal from "../components/estimate-preview-modal"
+import { normalizeAPIResponse, handleAPIError } from "../utils/dataHandler"
 
-const ServiceFlowInvoices = () => {
+const ServiceFlowEstimates = () => {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [invoices, setInvoices] = useState([])
+  const [estimates, setEstimates] = useState([])
   const [customers, setCustomers] = useState([])
   const [services, setServices] = useState([])
   const [loading, setLoading] = useState(true)
@@ -26,13 +29,15 @@ const ServiceFlowInvoices = () => {
     sortBy: "created_at",
     sortOrder: "DESC"
   })
+  const [selectedEstimate, setSelectedEstimate] = useState(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
+  const [showPreviewModal, setShowPreviewModal] = useState(false)
 
   // Initial data fetch
   useEffect(() => {
     if (user?.id) {
-      fetchInvoices()
+      fetchEstimates()
       fetchCustomers()
       fetchServices()
     }
@@ -43,13 +48,13 @@ const ServiceFlowInvoices = () => {
     if (!user?.id) return
     
     const timeoutId = setTimeout(() => {
-      fetchInvoices()
+      fetchEstimates()
     }, 300)
 
     return () => clearTimeout(timeoutId)
   }, [filters.status, filters.customerId, filters.search, filters.sortBy, filters.sortOrder, user])
 
-  const fetchInvoices = async () => {
+  const fetchEstimates = async () => {
     if (!user?.id) {
       setDebugInfo("No user ID available")
       return
@@ -58,22 +63,34 @@ const ServiceFlowInvoices = () => {
     try {
       setLoading(true)
       setError("")
-      setDebugInfo(`Fetching invoices for user: ${user.id}`)
+      setDebugInfo(`Fetching estimates for user: ${user.id}`)
       
-      const response = await invoicesAPI.getAll(user.id)
+      console.log('Making API call to estimates with user ID:', user.id)
+      console.log('API base URL:', process.env.REACT_APP_API_URL || 'https://service-flow-backend-production.up.railway.app/api')
       
-      console.log('Invoices API response:', response)
+      const response = await estimatesAPI.getAll(user.id, {
+        status: filters.status,
+        customerId: filters.customerId,
+        search: filters.search,
+        sortBy: filters.sortBy,
+        sortOrder: filters.sortOrder,
+        page: 1,
+        limit: 50
+      })
       
-      // Handle different response formats
-      const invoicesData = response.invoices || response || []
-      setInvoices(Array.isArray(invoicesData) ? invoicesData : [])
+      console.log('Estimates API response:', response)
       
-      setDebugInfo(`Loaded ${invoicesData.length} invoices`)
+      // Handle different response formats using standardized handler
+      const estimatesData = normalizeAPIResponse(response, 'estimates')
+      setEstimates(estimatesData)
+      
+      setDebugInfo(`Loaded ${estimatesData.length} estimates`)
     } catch (error) {
-      console.error('Error fetching invoices:', error)
-      setError(`Failed to load invoices: ${error.message || 'Unknown error'}`)
-      setDebugInfo(`Error: ${error.message}`)
-      setInvoices([])
+      console.error('Error fetching estimates:', error)
+      const errorInfo = handleAPIError(error, 'Estimates fetch')
+      setError(`Failed to load estimates: ${errorInfo.message}`)
+      setDebugInfo(`Error: ${errorInfo.message} - Status: ${errorInfo.status}`)
+      setEstimates([])
     } finally {
       setLoading(false)
     }
@@ -104,65 +121,74 @@ const ServiceFlowInvoices = () => {
     }
   }
 
-  const handleCreateInvoice = () => {
+  const handleCreateEstimate = () => {
     setShowCreateModal(true)
   }
 
-  const handleEditInvoice = (invoice) => {
+  const handleEditEstimate = (estimate) => {
+    setSelectedEstimate(estimate)
     setShowEditModal(true)
   }
 
-  const handleViewInvoice = (invoice) => {
-    navigate(`/invoices/${invoice.id}`)
+  const handleViewEstimate = (estimate) => {
+    setSelectedEstimate(estimate)
+    setShowPreviewModal(true)
   }
 
   const handleViewCustomer = (customerId) => {
     navigate(`/customer/${customerId}`)
   }
 
-  const handleSaveInvoice = () => {
-    fetchInvoices()
+  const handleSaveEstimate = () => {
+    fetchEstimates()
     setShowCreateModal(false)
     setShowEditModal(false)
   }
 
-  const handleSendInvoiceSuccess = () => {
-    fetchInvoices()
+  const handleSendEstimateSuccess = () => {
+    fetchEstimates()
+    setShowPreviewModal(false)
   }
 
-  const handleMarkAsPaid = async (invoiceId) => {
-    try {
-      await invoicesAPI.updateStatus(invoiceId, 'paid', user.id)
-      fetchInvoices()
-      alert('Invoice marked as paid successfully!')
-    } catch (error) {
-      console.error('Error marking invoice as paid:', error)
-      alert('Failed to mark invoice as paid. Please try again.')
-    }
+  const handleConvertToInvoiceSuccess = () => {
+    fetchEstimates()
+    setShowPreviewModal(false)
   }
 
-  const handleDeleteInvoice = async (invoiceId) => {
-    if (!window.confirm('Are you sure you want to delete this invoice?')) {
+  const handleDeleteEstimate = async (estimateId) => {
+    if (!window.confirm('Are you sure you want to delete this estimate?')) {
       return
     }
     
     try {
-      await invoicesAPI.delete(invoiceId, user.id)
-      fetchInvoices()
+      await estimatesAPI.delete(estimateId)
+      fetchEstimates()
     } catch (error) {
-      console.error('Error deleting invoice:', error)
-      alert('Failed to delete invoice. Please try again.')
+      console.error('Error deleting estimate:', error)
+      alert('Failed to delete estimate. Please try again.')
     }
   }
 
-  const handleSendInvoice = async (invoiceId) => {
+  const handleSendEstimate = async (estimateId) => {
     try {
-      await invoicesAPI.updateStatus(invoiceId, 'sent', user.id)
-      fetchInvoices()
-      alert('Invoice sent successfully!')
+      await estimatesAPI.send(estimateId)
+      fetchEstimates()
+      alert('Estimate sent successfully!')
     } catch (error) {
-      console.error('Error sending invoice:', error)
-      alert('Failed to send invoice. Please try again.')
+      console.error('Error sending estimate:', error)
+      alert('Failed to send estimate. Please try again.')
+    }
+  }
+
+  const handleConvertToInvoice = async (estimateId) => {
+    try {
+      const dueDate = new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      await estimatesAPI.convertToInvoice(estimateId, dueDate)
+      fetchEstimates()
+      alert('Estimate converted to invoice successfully!')
+    } catch (error) {
+      console.error('Error converting estimate to invoice:', error)
+      alert('Failed to convert estimate to invoice. Please try again.')
     }
   }
 
@@ -171,21 +197,19 @@ const ServiceFlowInvoices = () => {
   }
 
   const handleRefresh = () => {
-    fetchInvoices()
+    fetchEstimates()
   }
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'draft':
-        return 'bg-gray-100 text-gray-800'
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800'
       case 'sent':
         return 'bg-blue-100 text-blue-800'
-      case 'paid':
+      case 'accepted':
         return 'bg-green-100 text-green-800'
-      case 'overdue':
+      case 'rejected':
         return 'bg-red-100 text-red-800'
-      case 'cancelled':
-        return 'bg-gray-100 text-gray-800'
       default:
         return 'bg-gray-100 text-gray-800'
     }
@@ -193,16 +217,14 @@ const ServiceFlowInvoices = () => {
 
   const getStatusLabel = (status) => {
     switch (status) {
-      case 'draft':
-        return 'Draft'
+      case 'pending':
+        return 'Pending'
       case 'sent':
         return 'Sent'
-      case 'paid':
-        return 'Paid'
-      case 'overdue':
-        return 'Overdue'
-      case 'cancelled':
-        return 'Cancelled'
+      case 'accepted':
+        return 'Accepted'
+      case 'rejected':
+        return 'Rejected'
       default:
         return 'Unknown'
     }
@@ -224,22 +246,9 @@ const ServiceFlowInvoices = () => {
     })
   }
 
-  const isInvoiceOverdue = (dueDate, status) => {
-    if (status === 'paid' || status === 'cancelled') return false
-    if (!dueDate) return false
-    return new Date(dueDate) < new Date()
-  }
-
-  const getTotalRevenue = () => {
-    return invoices
-      .filter(invoice => invoice.status === 'paid')
-      .reduce((sum, invoice) => sum + (invoice.total_amount || 0), 0)
-  }
-
-  const getOutstandingAmount = () => {
-    return invoices
-      .filter(invoice => invoice.status === 'sent' || invoice.status === 'overdue')
-      .reduce((sum, invoice) => sum + (invoice.total_amount || 0), 0)
+  const isEstimateExpired = (validUntil) => {
+    if (!validUntil) return false
+    return new Date(validUntil) < new Date()
   }
 
   if (!user) {
@@ -251,7 +260,7 @@ const ServiceFlowInvoices = () => {
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <h2 className="text-xl font-semibold text-gray-900 mb-2">Please log in</h2>
-              <p className="text-gray-500">You need to be logged in to view invoices.</p>
+              <p className="text-gray-500">You need to be logged in to view estimates.</p>
             </div>
           </div>
         </div>
@@ -272,9 +281,9 @@ const ServiceFlowInvoices = () => {
             <div className="mb-8">
               <div className="flex items-center justify-between">
                 <div>
-                  <h1 className="text-2xl font-bold text-gray-900">Invoices</h1>
+                  <h1 className="text-2xl font-bold text-gray-900">Estimates</h1>
                   <p className="mt-1 text-sm text-gray-500">
-                    Manage invoices and track payments
+                    Create and manage estimates for your customers
                   </p>
                   {debugInfo && (
                     <p className="mt-1 text-xs text-gray-400">{debugInfo}</p>
@@ -285,56 +294,17 @@ const ServiceFlowInvoices = () => {
                     onClick={handleRefresh}
                     disabled={loading}
                     className="p-2 text-gray-400 hover:text-gray-600 disabled:opacity-50"
-                    title="Refresh invoices"
+                    title="Refresh estimates"
                   >
                     <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                   </button>
                   <button
-                    onClick={handleCreateInvoice}
+                    onClick={handleCreateEstimate}
                     className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                   >
                     <Plus className="w-4 h-4 mr-2" />
-                    New Invoice
+                    New Estimate
                   </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <Receipt className="h-8 w-8 text-blue-600" />
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-500">Total Invoices</p>
-                    <p className="text-2xl font-bold text-gray-900">{invoices.length}</p>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <DollarSign className="h-8 w-8 text-green-600" />
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-500">Total Revenue</p>
-                    <p className="text-2xl font-bold text-gray-900">{formatCurrency(getTotalRevenue())}</p>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <CreditCard className="h-8 w-8 text-orange-600" />
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-500">Outstanding</p>
-                    <p className="text-2xl font-bold text-gray-900">{formatCurrency(getOutstandingAmount())}</p>
-                  </div>
                 </div>
               </div>
             </div>
@@ -346,7 +316,7 @@ const ServiceFlowInvoices = () => {
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                   <input
                     type="text"
-                    placeholder="Search invoices..."
+                    placeholder="Search estimates..."
                     value={filters.search}
                     onChange={(e) => handleFilterChange({ search: e.target.value })}
                     className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
@@ -360,11 +330,10 @@ const ServiceFlowInvoices = () => {
                     className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                   >
                     <option value="">All Status</option>
-                    <option value="draft">Draft</option>
+                    <option value="pending">Pending</option>
                     <option value="sent">Sent</option>
-                    <option value="paid">Paid</option>
-                    <option value="overdue">Overdue</option>
-                    <option value="cancelled">Cancelled</option>
+                    <option value="accepted">Accepted</option>
+                    <option value="rejected">Rejected</option>
                   </select>
 
                   <select
@@ -392,18 +361,18 @@ const ServiceFlowInvoices = () => {
                     <option value="created_at:ASC">Sort by: Oldest First</option>
                     <option value="total_amount:DESC">Sort by: Highest Amount</option>
                     <option value="total_amount:ASC">Sort by: Lowest Amount</option>
-                    <option value="due_date:ASC">Sort by: Due Soon</option>
+                    <option value="valid_until:ASC">Sort by: Expiring Soon</option>
                   </select>
                 </div>
               </div>
             </div>
 
-            {/* Invoices List */}
+            {/* Estimates List */}
             {loading ? (
               <div className="flex justify-center items-center py-12">
                 <div className="flex items-center space-x-2">
                   <LoadingButton />
-                  <span className="text-gray-500">Loading invoices...</span>
+                  <span className="text-gray-500">Loading estimates...</span>
                 </div>
               </div>
             ) : error ? (
@@ -420,31 +389,31 @@ const ServiceFlowInvoices = () => {
                   </div>
                 </div>
               </div>
-            ) : invoices.length === 0 ? (
+            ) : estimates.length === 0 ? (
               <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
                 <FileText className="mx-auto h-12 w-12 text-gray-400" />
-                <h3 className="mt-2 text-sm font-medium text-gray-900">No invoices found</h3>
+                <h3 className="mt-2 text-sm font-medium text-gray-900">No estimates found</h3>
                 <p className="mt-1 text-sm text-gray-500">
                   {filters.status || filters.customerId || filters.search 
-                    ? 'No invoices match your current filters. Try adjusting your search criteria.'
-                    : 'Get started by creating your first invoice.'
+                    ? 'No estimates match your current filters. Try adjusting your search criteria.'
+                    : 'Get started by creating your first estimate.'
                   }
                 </p>
                 <div className="mt-6">
                   <button
-                    onClick={handleCreateInvoice}
+                    onClick={handleCreateEstimate}
                     className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                   >
                     <Plus className="w-4 h-4 mr-2" />
-                    Create Invoice
+                    Create Estimate
                   </button>
                 </div>
               </div>
             ) : (
               <div className="bg-white shadow overflow-hidden sm:rounded-md">
                 <ul className="divide-y divide-gray-200">
-                  {invoices.map((invoice) => (
-                    <li key={invoice.id}>
+                  {estimates.map((estimate) => (
+                    <li key={estimate.id}>
                       <div className="px-4 py-4 sm:px-6">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center">
@@ -456,77 +425,77 @@ const ServiceFlowInvoices = () => {
                             <div className="ml-4">
                               <div className="flex items-center">
                                 <p className="text-sm font-medium text-gray-900">
-                                  Invoice #{invoice.id}
+                                  Estimate #{estimate.id}
                                 </p>
-                                <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(invoice.status)}`}>
-                                  {getStatusLabel(invoice.status)}
+                                <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(estimate.status)}`}>
+                                  {getStatusLabel(estimate.status)}
                                 </span>
-                                {isInvoiceOverdue(invoice.due_date, invoice.status) && (
+                                {isEstimateExpired(estimate.valid_until) && (
                                   <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                                    Overdue
+                                    Expired
                                   </span>
                                 )}
                               </div>
                               <div className="mt-1 flex items-center text-sm text-gray-500">
                                 <User className="w-4 h-4 mr-1" />
                                 <button
-                                  onClick={() => handleViewCustomer(invoice.customer_id)}
+                                  onClick={() => handleViewCustomer(estimate.customer_id)}
                                   className="hover:text-primary-600 hover:underline cursor-pointer transition-colors duration-200"
                                 >
-                                  {invoice.customer_first_name} {invoice.customer_last_name}
+                                  {estimate.customer_first_name} {estimate.customer_last_name}
                                 </button>
                                 <span className="mx-2">•</span>
                                 <DollarSign className="w-4 h-4 mr-1" />
-                                <span>{formatCurrency(invoice.total_amount)}</span>
+                                <span>{formatCurrency(estimate.total_amount)}</span>
                                 <span className="mx-2">•</span>
                                 <Calendar className="w-4 h-4 mr-1" />
-                                <span>Due {formatDate(invoice.due_date)}</span>
+                                <span>Valid until {formatDate(estimate.valid_until)}</span>
                               </div>
                             </div>
                           </div>
                           
                           <div className="flex items-center space-x-2">
                             <button
-                              onClick={() => handleViewInvoice(invoice)}
+                              onClick={() => handleViewEstimate(estimate)}
                               className="p-2 text-gray-400 hover:text-gray-600"
-                              title="View invoice"
+                              title="View estimate"
                             >
                               <Eye className="w-4 h-4" />
                             </button>
                             
-                            {invoice.status === 'draft' && (
+                            {estimate.status === 'pending' && (
                               <>
                                 <button
-                                  onClick={() => handleSendInvoice(invoice.id)}
+                                  onClick={() => handleSendEstimate(estimate.id)}
                                   className="p-2 text-gray-400 hover:text-blue-600"
-                                  title="Send invoice"
+                                  title="Send estimate"
                                 >
                                   <Send className="w-4 h-4" />
                                 </button>
                                 <button
-                                  onClick={() => handleEditInvoice(invoice)}
+                                  onClick={() => handleEditEstimate(estimate)}
                                   className="p-2 text-gray-400 hover:text-blue-600"
-                                  title="Edit invoice"
+                                  title="Edit estimate"
                                 >
                                   <Edit className="w-4 h-4" />
                                 </button>
                               </>
                             )}
                             
-                            {(invoice.status === 'sent' || invoice.status === 'overdue') && (
+                            {estimate.status === 'accepted' && (
                               <button
-                                onClick={() => handleMarkAsPaid(invoice.id)}
+                                onClick={() => handleConvertToInvoice(estimate.id)}
                                 className="p-2 text-gray-400 hover:text-green-600"
-                                title="Mark as paid"
+                                title="Convert to invoice"
                               >
                                 <Check className="w-4 h-4" />
                               </button>
                             )}
                             
                             <button
-                              onClick={() => handleDeleteInvoice(invoice.id)}
+                              onClick={() => handleDeleteEstimate(estimate.id)}
                               className="p-2 text-gray-400 hover:text-red-600"
-                              title="Delete invoice"
+                              title="Delete estimate"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -542,10 +511,32 @@ const ServiceFlowInvoices = () => {
         </div>
       </div>
 
-      {/* TODO: Add Create/Edit Invoice Modal */}
-      {/* TODO: Add Invoice Preview Modal */}
+      {/* Create/Edit Estimate Modal */}
+      <EstimateModal
+        isOpen={showCreateModal || showEditModal}
+        onClose={() => {
+          setShowCreateModal(false)
+          setShowEditModal(false)
+          setSelectedEstimate(null)
+        }}
+        onSave={handleSaveEstimate}
+        editingEstimate={showEditModal ? selectedEstimate : null}
+        userId={user?.id}
+      />
+
+      {/* Estimate Preview Modal */}
+      <EstimatePreviewModal
+        isOpen={showPreviewModal}
+        onClose={() => {
+          setShowPreviewModal(false)
+          setSelectedEstimate(null)
+        }}
+        estimate={selectedEstimate}
+        onSend={handleSendEstimateSuccess}
+        onConvertToInvoice={handleConvertToInvoiceSuccess}
+      />
     </div>
   )
 }
 
-export default ServiceFlowInvoices 
+export default ServiceFlowEstimates 

@@ -156,6 +156,14 @@ const CreateTerritoryModal = ({ isOpen, onClose, onSuccess, territory = null, is
         console.log('🔍 Has predictions property:', 'predictions' in data)
         console.log('🔍 Predictions value:', data.predictions)
         
+        if (!response.ok) {
+          console.error('🔍 API error response:', data)
+          setError(`Address suggestions failed: ${data.error || 'Unknown error'}`)
+          setAddressSuggestions([])
+          setShowAddressSuggestions(false)
+          return
+        }
+        
         if (data.predictions && Array.isArray(data.predictions)) {
           console.log('🔍 Setting suggestions:', data.predictions.length, 'items')
           setAddressSuggestions(data.predictions)
