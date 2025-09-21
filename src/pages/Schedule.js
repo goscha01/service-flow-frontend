@@ -264,10 +264,9 @@ const ServiceFlowSchedule = () => {
     return `${displayHour}:${displayMinute} ${ampm}`
   }
 
-  // Function to get filtered jobs for Day view (with date filtering)
-  const getFilteredJobs = () => {
-    // Filter jobs by current date for Day view - use direct date comparison
-    const currentDateString = currentDate.toLocaleDateString('en-CA') // Returns YYYY-MM-DD format
+  // Universal function to get jobs for a specific date
+  const getJobsForDate = (date) => {
+    const dateString = date.toLocaleDateString('en-CA') // Returns YYYY-MM-DD format
     
     return jobs.filter(job => {
       // Handle both ISO format (2025-08-20T09:00:00) and space format (2025-08-20 09:00:00)
@@ -281,8 +280,30 @@ const ServiceFlowSchedule = () => {
           jobDateString = job.scheduled_date.split(' ')[0]
         }
       }
-      return jobDateString === currentDateString
+      return jobDateString === dateString
     })
+  }
+
+  // Universal function to get team member color for a job
+  const getTeamMemberColor = (job) => {
+    const teamMember = teamMembers.find(tm => tm.id === job.team_member_id)
+    return teamMember?.color || '#2563EB'
+  }
+
+  // Universal function to get status color for a job
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'completed': return 'bg-green-100 text-green-800 border-green-200';
+      case 'in_progress': return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'confirmed': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'cancelled': return 'bg-red-100 text-red-800 border-red-200';
+      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+  }
+
+  // Function to get filtered jobs for Day view (with date filtering)
+  const getFilteredJobs = () => {
+    return getJobsForDate(currentDate)
   }
 
   const navigateDate = (direction) => {
@@ -665,18 +686,7 @@ const ServiceFlowSchedule = () => {
         ) : getFilteredJobs().length > 0 ? (
           <div className="space-y-4 pb-8 min-h-0">
             {getFilteredJobs().map((job) => {
-              const getStatusColor = (status) => {
-                switch (status) {
-                  case 'completed': return 'bg-green-100 text-green-800 border-green-200';
-                  case 'in_progress': return 'bg-blue-100 text-blue-800 border-blue-200';
-                  case 'confirmed': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-                  case 'cancelled': return 'bg-red-100 text-red-800 border-red-200';
-                  default: return 'bg-gray-100 text-gray-800 border-gray-200';
-                }
-              };
-              // Find the team member color
-              const teamMember = teamMembers.find(tm => tm.id === job.team_member_id)
-              const memberColor = teamMember?.color || '#2563EB'
+              const memberColor = getTeamMemberColor(job)
               return (
                 <div 
                   key={job.id} 
@@ -792,21 +802,7 @@ const ServiceFlowSchedule = () => {
     }
 
     const getJobsForDay = (date) => {
-      return jobs.filter(job => {
-        // Handle both ISO format (2025-08-20T09:00:00) and space format (2025-08-20 09:00:00)
-        let jobDateString = ''
-        if (job.scheduled_date) {
-          if (job.scheduled_date.includes('T')) {
-            // ISO format: 2025-08-20T09:00:00
-            jobDateString = job.scheduled_date.split('T')[0]
-          } else {
-            // Space format: 2025-08-20 09:00:00
-            jobDateString = job.scheduled_date.split(' ')[0]
-          }
-        }
-        const dateString = date.toLocaleDateString('en-CA') // Returns YYYY-MM-DD format
-        return jobDateString === dateString
-      })
+      return getJobsForDate(date)
     }
 
     return (
@@ -830,9 +826,7 @@ const ServiceFlowSchedule = () => {
                   
                   <div className="space-y-2">
                     {dayJobs.map(job => {
-                      // Find the team member color for this job
-                      const teamMember = teamMembers.find(tm => tm.id === job.team_member_id)
-                      const memberColor = teamMember?.color || '#2563EB'
+                      const memberColor = getTeamMemberColor(job)
                       
                       return (
                         <div 
@@ -891,21 +885,7 @@ const ServiceFlowSchedule = () => {
     }
 
     const getJobsForDay = (date) => {
-      return jobs.filter(job => {
-        // Handle both ISO format (2025-08-20T09:00:00) and space format (2025-08-20 09:00:00)
-        let jobDateString = ''
-        if (job.scheduled_date) {
-          if (job.scheduled_date.includes('T')) {
-            // ISO format: 2025-08-20T09:00:00
-            jobDateString = job.scheduled_date.split('T')[0]
-          } else {
-            // Space format: 2025-08-20 09:00:00
-            jobDateString = job.scheduled_date.split(' ')[0]
-          }
-        }
-        const dateString = date.toLocaleDateString('en-CA') // Returns YYYY-MM-DD format
-        return jobDateString === dateString
-      })
+      return getJobsForDate(date)
     }
 
     const days = generateDaysArray()
@@ -934,9 +914,7 @@ const ServiceFlowSchedule = () => {
                     
                     <div className="space-y-1">
                       {dayJobs.slice(0, expandedDays.has(date.toISOString().split('T')[0]) ? dayJobs.length : 3).map(job => {
-                        // Find the team member color for this job
-                        const teamMember = teamMembers.find(tm => tm.id === job.team_member_id)
-                        const memberColor = teamMember?.color || '#2563EB'
+                        const memberColor = getTeamMemberColor(job)
                         
                         return (
                           <div 
