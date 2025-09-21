@@ -9,7 +9,7 @@ import { useNavigate } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
 import { jobsAPI, teamAPI } from "../services/api"
 
-const ZenbookerSchedule = () => {
+const ServiceFlowSchedule = () => {
   const { user } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [activeFilter, setActiveFilter] = useState("all")
@@ -829,24 +829,34 @@ const ZenbookerSchedule = () => {
                   </div>
                   
                   <div className="space-y-2">
-                    {dayJobs.map(job => (
-                      <div 
-                        key={job.id} 
-                        className="p-2 bg-gray-50 rounded text-xs cursor-pointer hover:bg-gray-100 transition-colors"
-                        onClick={() => navigate(`/job/${job.id}`)}
-                      >
-                        <div className="font-medium truncate">{job.service_name || 'Service placeholder'}</div>
-                        <div className="text-gray-600 truncate">
-                          {job.customer_first_name && job.customer_last_name 
-                            ? `${job.customer_first_name} ${job.customer_last_name}`
-                            : job.customer_first_name || job.customer_last_name || 'Client placeholder'
-                          }
+                    {dayJobs.map(job => {
+                      // Find the team member color for this job
+                      const teamMember = teamMembers.find(tm => tm.id === job.team_member_id)
+                      const memberColor = teamMember?.color || '#2563EB'
+                      
+                      return (
+                        <div 
+                          key={job.id} 
+                          className="p-2 rounded text-xs cursor-pointer hover:opacity-80 transition-all border-l-4"
+                          style={{ 
+                            backgroundColor: `${memberColor}15`, // 15% opacity
+                            borderLeftColor: memberColor
+                          }}
+                          onClick={() => navigate(`/job/${job.id}`)}
+                        >
+                          <div className="font-medium truncate text-gray-900">{job.service_name || 'Service placeholder'}</div>
+                          <div className="text-gray-600 truncate">
+                            {job.customer_first_name && job.customer_last_name 
+                              ? `${job.customer_first_name} ${job.customer_last_name}`
+                              : job.customer_first_name || job.customer_last_name || 'Client placeholder'
+                            }
+                          </div>
+                          <div className="text-gray-500">
+                            {formatTime(job.scheduled_date)}
+                          </div>
                         </div>
-                        <div className="text-gray-500">
-                                                                            {formatTime(job.scheduled_date)}
-                        </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 </div>
               )
@@ -923,21 +933,31 @@ const ZenbookerSchedule = () => {
                     </div>
                     
                     <div className="space-y-1">
-                      {dayJobs.slice(0, expandedDays.has(date.toISOString().split('T')[0]) ? dayJobs.length : 3).map(job => (
-                        <div 
-                          key={job.id} 
-                          className="p-1 bg-blue-50 rounded text-xs truncate cursor-pointer hover:bg-blue-100 transition-colors"
-                          onClick={() => navigate(`/job/${job.id}`)}
-                        >
-                          <div className="font-medium truncate">{job.service_name || 'Service placeholder'}</div>
-                          <div className="text-gray-600 truncate">
-                            {job.customer_first_name && job.customer_last_name 
-                              ? `${job.customer_first_name} ${job.customer_last_name}`
-                              : job.customer_first_name || job.customer_last_name || 'Client placeholder'
-                            }
+                      {dayJobs.slice(0, expandedDays.has(date.toISOString().split('T')[0]) ? dayJobs.length : 3).map(job => {
+                        // Find the team member color for this job
+                        const teamMember = teamMembers.find(tm => tm.id === job.team_member_id)
+                        const memberColor = teamMember?.color || '#2563EB'
+                        
+                        return (
+                          <div 
+                            key={job.id} 
+                            className="p-1 rounded text-xs truncate cursor-pointer hover:opacity-80 transition-all border-l-2"
+                            style={{ 
+                              backgroundColor: `${memberColor}15`, // 15% opacity
+                              borderLeftColor: memberColor
+                            }}
+                            onClick={() => navigate(`/job/${job.id}`)}
+                          >
+                            <div className="font-medium truncate text-gray-900">{job.service_name || 'Service placeholder'}</div>
+                            <div className="text-gray-600 truncate">
+                              {job.customer_first_name && job.customer_last_name 
+                                ? `${job.customer_first_name} ${job.customer_last_name}`
+                                : job.customer_first_name || job.customer_last_name || 'Client placeholder'
+                              }
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        )
+                      })}
                       {dayJobs.length > 3 && !expandedDays.has(date.toISOString().split('T')[0]) && (
                         <div 
                           className="text-xs text-blue-600 text-center cursor-pointer hover:text-blue-800 hover:underline transition-colors"
@@ -988,7 +1008,7 @@ const ZenbookerSchedule = () => {
     <div className="flex h-screen bg-gray-50 overflow-hidden">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
-      <div className="flex-1 flex min-w-0 lg:ml-64 h-full">
+      <div className="flex-1 flex min-w-0 lg:ml-64 xl:ml-72 h-full">
         {/* Schedule Sidebar - Hidden on mobile, visible on desktop */}
         <div className="hidden lg:block">
         <ScheduleSidebar 
@@ -1258,4 +1278,4 @@ const ZenbookerSchedule = () => {
   )
 }
 
-export default ZenbookerSchedule
+export default ServiceFlowSchedule

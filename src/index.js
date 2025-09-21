@@ -5,28 +5,28 @@ import { AuthProvider } from "./context/AuthContext"
 import ProtectedRoute from "./components/ProtectedRoute"
 import SignupForm from "./pages/Signup"
 import SignInForm from "./pages/Signin"
-import ZenbookerDashboard from "./pages/dashboard"
-import ZenbookerRequests from "./pages/Request"
-import ZenbookerSchedule from "./pages/Schedule"
-import ZenbookerJobs from "./pages/jobs"
+import ServiceFlowDashboard from "./pages/dashboard"
+import ServiceFlowRequests from "./pages/Request"
+import ServiceFlowSchedule from "./pages/Schedule"
+import ServiceFlowJobs from "./pages/jobs"
 import JobDetails from "./pages/job-details"
-import ZenbookerEstimates from "./pages/zenbooker-estimates"
-import ZenbookerRecurring from "./pages/zenbooker-recurring"
-import ZenbookerPayments from "./pages/zenbooker-payments"
-import ZenbookerInvoices from "./pages/zenbooker-invoices"
-import ZenbookerCustomers from "./pages/zenbooker-customers"
+import ServiceFlowEstimates from "./pages/serviceflow-estimates"
+import ServiceFlowRecurring from "./pages/serviceflow-recurring"
+import ServiceFlowPayments from "./pages/serviceflow-payments"
+import ServiceFlowInvoices from "./pages/serviceflow-invoices"
+import ServiceFlowCustomers from "./pages/serviceflow-customers"
 import CustomerDetails from "./pages/customer-details"
 import InvoiceDetails from "./pages/invoice-details"
 import InvoiceEdit from "./pages/invoice-edit"
-import ZenbookerTeam from "./pages/zenbooker-team"
-import ZenbookerServices from "./pages/zenbooker-services"
-import ZenbookerCoupons from "./pages/zenbooker-coupons"
+import ServiceFlowTeam from "./pages/serviceflow-team"
+import ServiceFlowServices from "./pages/serviceflow-services"
+import ServiceFlowCoupons from "./pages/serviceflow-coupons"
 import CreateCoupon from "./pages/create-coupon"
-import ZenbookerTerritories from "./pages/zenbooker-territories"
+import ServiceFlowTerritories from "./pages/serviceflow-territories"
 import Analytics from "./pages/analytics"
-import ZenbookerOnlineBooking from "./pages/zenbooker-online-booking"
-import ZenbookerWebsiteEmbed from "./pages/zenbooker-website-embed"
-import ZenbookerSettings from "./pages/zenbooker-settings"
+import ServiceFlowOnlineBooking from "./pages/serviceflow-online-booking"
+import ServiceFlowWebsiteEmbed from "./pages/serviceflow-website-embed"
+import ServiceFlowSettings from "./pages/serviceflow-settings"
 import TeamMemberDetails from "./pages/team-member-details"
 import AddTeamMember from "./pages/add-team-member"
 import ServiceDetails from "./pages/service-details"
@@ -51,7 +51,7 @@ import ServiceAreas from "./pages/settings/service-areas"
 import BookingQuoteRequests from "./pages/settings/booking-quote-requests"
 import FieldApp from "./pages/settings/field-app"
 import CreateJobPage from "./pages/createjob"
-import ZenbookerEstimatePage from "./pages/bookableestimate"
+import ServiceFlowEstimatePage from "./pages/bookableestimate"
 import BrandingSettings from "./pages/settings/branding"
 import AccountDetails from "./pages/settings/account-details"
 import BillingSettings from "./pages/settings/billing"
@@ -92,38 +92,38 @@ root.render(
       <Route index element={<App />} />
       <Route path="signup" element={<SignupForm />} />
       <Route path="signin" element={<SignInForm />} />
-      <Route path="dashboard" element={<ProtectedRoute><ZenbookerDashboard /></ProtectedRoute>} />
-      <Route path="request" element={<ProtectedRoute><ZenbookerRequests /></ProtectedRoute>} />
-      <Route path="schedule" element={<ProtectedRoute><ZenbookerSchedule /></ProtectedRoute>} />
-      <Route path="jobs" element={<ProtectedRoute><ZenbookerJobs /></ProtectedRoute>} />
+      <Route path="dashboard" element={<ProtectedRoute><ServiceFlowDashboard /></ProtectedRoute>} />
+      <Route path="request" element={<ProtectedRoute><ServiceFlowRequests /></ProtectedRoute>} />
+      <Route path="schedule" element={<ProtectedRoute><ServiceFlowSchedule /></ProtectedRoute>} />
+      <Route path="jobs" element={<ProtectedRoute><ServiceFlowJobs /></ProtectedRoute>} />
       <Route path="job/:jobId" element={<ProtectedRoute><JobDetails /></ProtectedRoute>} />
-      <Route path="estimates" element={<ProtectedRoute><ZenbookerEstimates /></ProtectedRoute>} />
-      <Route path="recurring" element={<ZenbookerRecurring />} />
+      <Route path="estimates" element={<ProtectedRoute><ServiceFlowEstimates /></ProtectedRoute>} />
+      <Route path="recurring" element={<ServiceFlowRecurring />} />
       <Route path="recurring/create" element={<CreateRecurringBooking />} />
-      <Route path="payments" element={<ZenbookerPayments />} />
-      <Route path="invoices" element={<ProtectedRoute><ZenbookerInvoices /></ProtectedRoute>} />
-      <Route path="customers" element={<ZenbookerCustomers />} />
+      <Route path="payments" element={<ServiceFlowPayments />} />
+      <Route path="invoices" element={<ProtectedRoute><ServiceFlowInvoices /></ProtectedRoute>} />
+      <Route path="customers" element={<ServiceFlowCustomers />} />
       <Route path="customer/:customerId" element={<ProtectedRoute><CustomerDetails /></ProtectedRoute>} />
       <Route path="invoices/:invoiceId" element={<ProtectedRoute><InvoiceDetails /></ProtectedRoute>} />
       <Route path="invoices/:invoiceId/edit" element={<ProtectedRoute><InvoiceEdit /></ProtectedRoute>} />
-      <Route path="team" element={<ZenbookerTeam />} />
+      <Route path="team" element={<ServiceFlowTeam />} />
       <Route path="team/:memberId" element={<ProtectedRoute><TeamMemberDetails /></ProtectedRoute>} />
       <Route path="add-team-member" element={<AddTeamMember />} />
-      <Route path="services" element={<ZenbookerServices />} />
+      <Route path="services" element={<ServiceFlowServices />} />
       <Route path="services/:serviceId" element={<ServiceDetails />} />
       <Route path="services/:serviceId/:section" element={<ServiceDetails />} />
-      <Route path="coupons" element={<ZenbookerCoupons />} />
+      <Route path="coupons" element={<ServiceFlowCoupons />} />
       <Route path="coupons/create" element={<CreateCoupon />} />
-      <Route path="territories" element={<ZenbookerTerritories />} />
+      <Route path="territories" element={<ServiceFlowTerritories />} />
       <Route path="analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
-      <Route path="online-booking" element={<ZenbookerOnlineBooking />} />
-      <Route path="embed" element={<ZenbookerWebsiteEmbed />} />
+      <Route path="online-booking" element={<ServiceFlowOnlineBooking />} />
+      <Route path="embed" element={<ServiceFlowWebsiteEmbed />} />
       <Route path="createjob" element={<CreateJobPage />} />
-      <Route path="bookable-estimate" element={<ZenbookerEstimatePage />} />
+      <Route path="bookable-estimate" element={<ServiceFlowEstimatePage />} />
       <Route path="whats-new" element={<WhatsNewPage />} />
       <Route path="help" element={<HelpPage />} />
       {/* Settings Routes */}
-      <Route path="settings" element={<ZenbookerSettings />} />
+      <Route path="settings" element={<ServiceFlowSettings />} />
       <Route path="settings/account" element={<AccountDetails />} />
       <Route path="settings/billing" element={<BillingSettings />} />
       <Route path="settings/branding" element={<BrandingSettings />} />
@@ -178,7 +178,7 @@ root.render(
       <Route path="dropdown-demo" element={<DropdownMultiselectDemo />} />
       
       {/* Catch-all route - redirect to dashboard for any unmatched routes */}
-      <Route path="*" element={<ProtectedRoute><ZenbookerDashboard /></ProtectedRoute>} />
+      <Route path="*" element={<ProtectedRoute><ServiceFlowDashboard /></ProtectedRoute>} />
       </Routes>
     </TeamMemberAuthProvider>
     </AuthProvider>

@@ -64,10 +64,10 @@ const Sidebar = ({ isOpen, onClose }) => {
       {/* Sidebar */}
       <div
         className={`
-        fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 
-        transform transition-transform duration-300 ease-in-out
+        fixed inset-y-0 left-0 z-40 w-64 xl:w-72 bg-white border-r border-gray-200 
+        transform transition-all duration-300 ease-in-out
         ${isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
-        flex flex-col
+        flex flex-col shadow-lg
       `}
       >
         {/* Mobile Close Button */}

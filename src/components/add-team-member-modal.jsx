@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react"
 import { X, UserPlus, Edit, Calendar, DollarSign, Tag, MapPin, Search, CheckCircle } from "lucide-react"
 import { teamAPI, territoriesAPI } from "../services/api"
+import AddressValidation from "./address-validation"
+import AddressAutocomplete from "./address-autocomplete"
 
 // API base URL for Google Places API proxy
 const API_BASE_URL = 'https://service-flow-backend-production.up.railway.app/api'
@@ -20,6 +22,7 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
     role: "worker",
     isServiceProvider: true,
     isActive: true,
+    color: "#2563EB",
     territories: [],
     availability: {
       monday: { start: "09:00", end: "17:00", available: true },
@@ -91,6 +94,7 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
         zipCode: member.zip_code || "",
         role: member.role || "worker",
         isServiceProvider: member.is_service_provider !== false,
+        color: member.color || "#2563EB",
         territories: parsedTerritories,
         availability: parsedAvailability,
         permissions: member.permissions ? JSON.parse(member.permissions) : {
@@ -114,6 +118,7 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
         zipCode: "",
         role: "worker",
         isServiceProvider: true,
+        color: "#2563EB",
         territories: [],
         permissions: {
           viewCustomerNotes: true,
@@ -345,7 +350,8 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
         role: formData.role,
         isServiceProvider: formData.isServiceProvider,
         territories: formData.territories,
-        permissions: formData.permissions
+        permissions: formData.permissions,
+        color: formData.color || '#2563EB'
       }
       
       console.log('Sending member data:', memberData)
@@ -455,34 +461,61 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Location
               </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={formData.location}
-                  onChange={handleLocationChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                  placeholder="Enter address"
-                />
-                {showAddressSuggestions && addressSuggestions.length > 0 && (
-                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                    {addressSuggestions.map((suggestion, index) => (
-                      <button
-                        key={index}
-                        type="button"
-                        onClick={() => handleLocationSelect(suggestion)}
-                        className="w-full px-4 py-2 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
-                      >
-                        <div className="text-sm text-gray-900">{suggestion.description}</div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <AddressAutocomplete
+                value={formData.location}
+                onChange={(value) => handleInputChange('location', value)}
+                onAddressSelect={(addressData) => {
+                  // Update form data with structured address information
+                  setFormData(prev => ({
+                    ...prev,
+                    location: addressData.formattedAddress,
+                    city: addressData.components.city,
+                    state: addressData.components.state,
+                    zipCode: addressData.components.zipCode
+                  }));
+                }}
+                placeholder="Start typing an address..."
+                showValidationResults={true}
+                className="w-full"
+              />
               <p className="mt-1 text-sm text-gray-500">
-                The location this team member starts work from.
+                The location this team member starts work from. Select from suggestions as you type.
               </p>
             </div>
 
+            {/* Color Selection */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Color
+              </label>
+              <div className="flex items-center space-x-3">
+                <div 
+                  className="w-8 h-8 rounded border border-gray-300 flex-shrink-0"
+                  style={{ backgroundColor: formData.color || '#2563EB' }}
+                />
+                <select
+                  value={formData.color || '#2563EB'}
+                  onChange={(e) => handleInputChange('color', e.target.value)}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                >
+                  <option value="#2563EB">Blue</option>
+                  <option value="#DC2626">Red</option>
+                  <option value="#059669">Green</option>
+                  <option value="#D97706">Orange</option>
+                  <option value="#7C3AED">Purple</option>
+                  <option value="#DB2777">Pink</option>
+                  <option value="#6B7280">Gray</option>
+                  <option value="#F59E0B">Yellow</option>
+                  <option value="#10B981">Emerald</option>
+                  <option value="#8B5CF6">Violet</option>
+                  <option value="#EF4444">Rose</option>
+                  <option value="#14B8A6">Teal</option>
+                </select>
+              </div>
+              <p className="mt-1 text-sm text-gray-500">
+                This color will be used in the calendar and schedule views
+              </p>
+            </div>
 
             {/* Activation Toggle */}
             <div className="border-t border-gray-200 pt-4 sm:pt-6">

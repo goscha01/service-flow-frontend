@@ -8,8 +8,9 @@ import { Plus, ChevronDown, Info, Star, Calendar, ArrowRight, BarChart2, CreditC
 import { Link, useNavigate } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
 import { jobsAPI, customersAPI, servicesAPI, invoicesAPI, teamAPI } from "../services/api"
+import { normalizeAPIResponse, handleAPIError } from "../utils/dataHandler"
 
-const ZenbookerDashboard = () => {
+const ServiceFlowDashboard = () => {
   const { user } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   
@@ -99,7 +100,7 @@ const ZenbookerDashboard = () => {
     {
       number: 2,
       title: "Create a test job",
-      description: "Create a test job from the admin to get a sense of how jobs work in Zenbooker.",
+      description: "Create a test job from the admin to get a sense of how jobs work in ServiceFlow.",
       completed: false,
       link: "/jobs",
       icon: BarChart2,
@@ -368,7 +369,7 @@ const ZenbookerDashboard = () => {
       // Fetch jobs data
       console.log('📋 Fetching jobs...')
       const jobsResponse = await retryAPI(() => jobsAPI.getAll(user.id, "", "", 1, 1000))
-      const jobs = jobsResponse.jobs || jobsResponse || []
+      const jobs = normalizeAPIResponse(jobsResponse, 'jobs')
       console.log('✅ Jobs loaded:', jobs.length)
       
       // Add delay to prevent rate limiting
@@ -377,7 +378,7 @@ const ZenbookerDashboard = () => {
       // Fetch invoices data
       console.log('💰 Fetching invoices...')
       const invoicesResponse = await retryAPI(() => invoicesAPI.getAll(user.id, { page: 1, limit: 1000 }))
-      const invoices = invoicesResponse.invoices || invoicesResponse || []
+      const invoices = normalizeAPIResponse(invoicesResponse, 'invoices')
       console.log('✅ Invoices loaded:', invoices.length)
       
       // Add delay to prevent rate limiting
@@ -386,7 +387,7 @@ const ZenbookerDashboard = () => {
       // Fetch services data
       console.log('🔧 Fetching services...')
       const servicesResponse = await retryAPI(() => servicesAPI.getAll(user.id))
-      const services = servicesResponse.services || servicesResponse || []
+      const services = normalizeAPIResponse(servicesResponse, 'services')
       console.log('✅ Services loaded:', services.length)
       
       // Add delay to prevent rate limiting
@@ -684,7 +685,7 @@ const ZenbookerDashboard = () => {
       />
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0 lg:ml-64">
+      <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
         {/* Mobile Header */}
         <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
 
@@ -1287,4 +1288,4 @@ const ZenbookerDashboard = () => {
   )
 }
 
-export default ZenbookerDashboard
+export default ServiceFlowDashboard

@@ -1181,10 +1181,15 @@ export default function CreateJobPage() {
     // Update modifiers and intake questions if they exist
     if (service.selectedModifiers) {
       console.log('🔧 Setting selected modifiers:', service.selectedModifiers);
-      setSelectedModifiers(prev => ({
-        ...prev,
-        ...service.selectedModifiers
-      }));
+      console.log('🔧 Current selected modifiers before update:', selectedModifiers);
+      setSelectedModifiers(prev => {
+        const updated = {
+          ...prev,
+          ...service.selectedModifiers
+        };
+        console.log('🔧 Updated selected modifiers:', updated);
+        return updated;
+      });
     }
     if (service.intakeQuestionAnswers) {
       console.log('🔧 Setting intake question answers:', service.intakeQuestionAnswers);
@@ -1243,6 +1248,9 @@ export default function CreateJobPage() {
 
   // Handle modifiers change from the new component
   const handleModifiersChange = (modifiers) => {
+    console.log('🔧 handleModifiersChange called with:', modifiers);
+    console.log('🔧 Current selectedModifiers before update:', selectedModifiers);
+    
     // Convert the new format to the existing format for compatibility
     const convertedModifiers = {};
     
@@ -1250,20 +1258,24 @@ export default function CreateJobPage() {
       const modifier = formData.serviceModifiers?.find(m => m.id == modifierId);
       
       if (!modifier) {
+        console.log('🔧 Modifier not found for ID:', modifierId);
         return;
       }
+      
+      console.log('🔧 Processing modifier:', modifierId, 'with data:', modifierData);
       
       if (modifier.selectionType === 'quantity') {
         // Handle quantity selection
         const quantities = modifierData.quantities || {};
+        const convertedQuantities = {};
         Object.entries(quantities).forEach(([optionId, quantity]) => {
           if (quantity > 0) {
-            if (!convertedModifiers[modifierId]) {
-              convertedModifiers[modifierId] = {};
-            }
-            convertedModifiers[modifierId][optionId] = quantity;
+            convertedQuantities[optionId] = quantity;
           }
         });
+        if (Object.keys(convertedQuantities).length > 0) {
+          convertedModifiers[modifierId] = convertedQuantities;
+        }
       } else if (modifier.selectionType === 'multi') {
         // Handle multi-selection
         const selections = modifierData.selections || [];
@@ -1279,7 +1291,18 @@ export default function CreateJobPage() {
       }
     });
     
-    setSelectedModifiers(convertedModifiers);
+    console.log('🔧 Converted modifiers:', convertedModifiers);
+    
+    // Merge with existing selections to preserve other modifiers
+    setSelectedModifiers(prev => {
+      const updated = {
+        ...prev,
+        ...convertedModifiers
+      };
+      console.log('🔧 Final updated selectedModifiers:', updated);
+      return updated;
+    });
+    
     setCalculationTrigger(prev => prev + 1); // Trigger recalculation
   };
 
@@ -1402,9 +1425,12 @@ export default function CreateJobPage() {
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* Sidebar */}
-      <Sidebar />
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
-      <div className="flex-1 lg:ml-64">
+      <div className="flex-1 lg:ml-64 xl:ml-72">
+        {/* Mobile Header */}
+        <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
+        
         {/* Header */}
         <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between">
@@ -1780,7 +1806,7 @@ export default function CreateJobPage() {
                         <label className="block text-sm font-medium text-gray-700 mb-2">Additional Information</label>
                         <IntakeQuestionsForm
                           questions={formData.serviceIntakeQuestions}
-                          answers={intakeQuestionAnswers}
+                          initialAnswers={intakeQuestionAnswers}
                           onAnswersChange={handleIntakeQuestionsChange}
                         />
                       </div>
@@ -2518,6 +2544,8 @@ export default function CreateJobPage() {
         onModifiersChange={handleModifiersChange}
         onIntakeQuestionsChange={handleIntakeQuestionsChange}
         onSave={handleSaveServiceCustomization}
+        initialAnswers={intakeQuestionAnswers}
+        selectedModifiers={selectedModifiers}
       />
 
       <ServiceSelectionModal

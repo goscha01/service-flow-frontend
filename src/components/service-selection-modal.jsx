@@ -691,6 +691,7 @@ const ServiceSelectionModal = ({
                       <h4 className="text-lg font-medium text-gray-900 mb-4">Service Options</h4>
                       <ServiceModifiersForm
                         modifiers={selectedService.parsedModifiers}
+                        selectedModifiers={selectedModifiers}
                         onModifiersChange={setSelectedModifiers}
                         editedModifierPrices={editedModifierPrices}
                         onModifierPriceChange={(priceKey, value) => {
@@ -714,6 +715,7 @@ const ServiceSelectionModal = ({
                       <h4 className="text-lg font-medium text-gray-900 mb-4">Additional Information</h4>
                       <IntakeQuestionsForm
                         questions={selectedService.parsedIntakeQuestions}
+                        initialAnswers={intakeQuestionAnswers}
                         onAnswersChange={setIntakeQuestionAnswers}
                       />
                     </div>

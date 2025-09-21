@@ -1560,4 +1560,46 @@ export const requestsAPI = {
   }
 };
 
+// Address Validation API functions
+export const addressValidationAPI = {
+  validate: async (address) => {
+    try {
+      const response = await api.post('/address/validate', { address });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  geocode: async (address) => {
+    try {
+      const response = await api.post('/address/geocode', { address });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+};
+
+// Google Places API functions
+export const placesAPI = {
+  autocomplete: async (input) => {
+    try {
+      const response = await api.get(`/places/autocomplete?input=${encodeURIComponent(input)}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  getDetails: async (placeId) => {
+    try {
+      const response = await api.get(`/places/details?place_id=${placeId}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+};
+
 export default api; 

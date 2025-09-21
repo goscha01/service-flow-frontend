@@ -57,6 +57,7 @@ import {
 } from "lucide-react"
 import { jobsAPI, notificationAPI, territoriesAPI, teamAPI, invoicesAPI } from "../services/api"
 import Sidebar from "../components/sidebar"
+import MobileHeader from "../components/mobile-header"
 import AddressAutocomplete from "../components/address-autocomplete"
 import IntakeAnswersDisplay from "../components/intake-answers-display"
 import IntakeQuestionsForm from "../components/intake-questions-form"
@@ -101,6 +102,7 @@ const JobDetails = () => {
   const [showEditServiceModal, setShowEditServiceModal] = useState(false)
   const [showEditAddressModal, setShowEditAddressModal] = useState(false)
   const [showMobileSidebar, setShowMobileSidebar] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [showSendInvoiceModal, setShowSendInvoiceModal] = useState(false)
   const [showAddPaymentModal, setShowAddPaymentModal] = useState(false)
   
@@ -794,9 +796,12 @@ const JobDetails = () => {
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* Sidebar */}
-      <Sidebar />
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
-      <div className="flex-1 lg:ml-64">
+      <div className="flex-1 lg:ml-64 xl:ml-72">
+        {/* Mobile Header */}
+        <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
+        
         {/* Header */}
         <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between">

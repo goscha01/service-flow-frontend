@@ -1412,8 +1412,12 @@ const ServiceDetails = () => {
                                   <span className="text-sm text-gray-700">{option.text}</span>
                                 </div>
                                 {option.image && (
-                                  <div className="mt-2 w-full h-24 bg-gray-100 rounded flex items-center justify-center">
-                                    <span className="text-xs text-gray-500">Image preview</span>
+                                  <div className="mt-2 w-full h-24 bg-gray-100 rounded overflow-hidden">
+                                    <img
+                                      src={option.image}
+                                      alt={option.text}
+                                      className="w-full h-full object-cover"
+                                    />
                                   </div>
                                 )}
                               </div>
@@ -1465,21 +1469,32 @@ const ServiceDetails = () => {
                         )}
 
                         {question.questionType === 'quantity_select' && (
-                          <div className="flex items-center space-x-3">
-                            <button
-                              onClick={() => handlePreviewQuantityChange(question.id, -1)}
-                              className="w-8 h-8 border border-gray-300 rounded-full flex items-center justify-center text-gray-600 bg-white hover:bg-gray-50 transition-colors"
-                            >
-                              -
-                            </button>
-                            <span className="text-lg font-medium text-gray-700">{previewQuantities[question.id] || 0}</span>
-                            <button
-                              onClick={() => handlePreviewQuantityChange(question.id, 1)}
-                              className="w-8 h-8 border border-gray-300 rounded-full flex items-center justify-center text-gray-600 bg-white hover:bg-gray-50 transition-colors"
-                            >
-                              +
-                            </button>
-                            <span className="text-sm text-gray-500 ml-2">of {question.options?.[0]?.text || 'items'}</span>
+                          <div className="space-y-3">
+                            {question.options?.[0]?.image && (
+                              <div className="w-full h-24 bg-gray-100 rounded overflow-hidden">
+                                <img
+                                  src={question.options[0].image}
+                                  alt={question.options[0].text}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                            )}
+                            <div className="flex items-center space-x-3">
+                              <button
+                                onClick={() => handlePreviewQuantityChange(question.id, -1)}
+                                className="w-8 h-8 border border-gray-300 rounded-full flex items-center justify-center text-gray-600 bg-white hover:bg-gray-50 transition-colors"
+                              >
+                                -
+                              </button>
+                              <span className="text-lg font-medium text-gray-700">{previewQuantities[question.id] || 0}</span>
+                              <button
+                                onClick={() => handlePreviewQuantityChange(question.id, 1)}
+                                className="w-8 h-8 border border-gray-300 rounded-full flex items-center justify-center text-gray-600 bg-white hover:bg-gray-50 transition-colors"
+                              >
+                                +
+                              </button>
+                              <span className="text-sm text-gray-500 ml-2">of {question.options?.[0]?.text || 'items'}</span>
+                            </div>
                           </div>
                         )}
 
@@ -2051,7 +2066,7 @@ const ServiceDetails = () => {
                 <div className="flex space-x-2">
                   <input
                     type="text"
-                    value="https://widget.zenbooker.com/book/justwebagency?preselected=1"
+                    value="https://widget.serviceflow.com/book/justwebagency?preselected=1"
                     readOnly
                     className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-600 bg-gray-50"
                   />
