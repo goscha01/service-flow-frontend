@@ -7,6 +7,9 @@ const UpdateAvailabilityModal = ({ isOpen, onClose, onSave, selectedDates = [], 
   const [availabilityType, setAvailabilityType] = useState('unavailable') // 'unavailable' or 'time_period'
   const [timeSlots, setTimeSlots] = useState([])
   const [newTimeSlot, setNewTimeSlot] = useState({ start: '09:00', end: '17:00' })
+  const [dateRangeMode, setDateRangeMode] = useState(false) // For vacation periods
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
 
   useEffect(() => {
     if (isOpen) {
@@ -21,6 +24,26 @@ const UpdateAvailabilityModal = ({ isOpen, onClose, onSave, selectedDates = [], 
         ? prev.filter(d => d !== dateStr)
         : [...prev, dateStr]
     )
+  }
+
+  const handleDateRangeSelect = () => {
+    if (startDate && endDate) {
+      const start = new Date(startDate)
+      const end = new Date(endDate)
+      const dates = []
+      
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        dates.push(d.toISOString().split('T')[0])
+      }
+      
+      setSelectedDatesState(prev => [...prev, ...dates.filter(date => !prev.includes(date))])
+      setStartDate('')
+      setEndDate('')
+    }
+  }
+
+  const clearAllDates = () => {
+    setSelectedDatesState([])
   }
 
   const handleAddTimeSlot = () => {
@@ -105,6 +128,75 @@ const UpdateAvailabilityModal = ({ isOpen, onClose, onSave, selectedDates = [], 
           <div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Dates</h3>
             <p className="text-sm text-gray-600 mb-4">Select the date(s) you want to assign specific hours</p>
+            
+            {/* Date Range Picker for Vacation Periods */}
+            <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center space-x-2 mb-3">
+                <Calendar className="w-4 h-4 text-blue-600" />
+                <span className="text-sm font-medium text-blue-800">Quick Date Range Selection (for vacation periods)</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Start Date</label>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">End Date</label>
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <div className="flex items-end">
+                  <button
+                    onClick={handleDateRangeSelect}
+                    disabled={!startDate || !endDate}
+                    className="w-full px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                  >
+                    Add Range
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Selected Dates Summary */}
+            {selectedDatesState.length > 0 && (
+              <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <Calendar className="w-4 h-4 text-green-600" />
+                    <span className="text-sm font-medium text-green-800">
+                      {selectedDatesState.length} date{selectedDatesState.length !== 1 ? 's' : ''} selected
+                    </span>
+                  </div>
+                  <button
+                    onClick={clearAllDates}
+                    className="text-red-600 hover:text-red-700 text-sm font-medium"
+                  >
+                    Clear All
+                  </button>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {selectedDatesState.slice(0, 5).map(date => (
+                    <span key={date} className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded">
+                      {new Date(date).toLocaleDateString()}
+                    </span>
+                  ))}
+                  {selectedDatesState.length > 5 && (
+                    <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded">
+                      +{selectedDatesState.length - 5} more
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
             
             {/* Calendar */}
             <div className="border border-gray-200 rounded-lg p-4">
