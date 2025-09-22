@@ -558,16 +558,17 @@ const TeamMemberDetails = () => {
   }
 
   const handleAvailabilityModalSave = (availabilityData) => {
-    const newAvailability = {
-      id: Date.now(),
-      date: availabilityData.dates[0], // Use first selected date
+    // Handle multiple dates for vacation periods
+    const newAvailabilityItems = availabilityData.dates.map(date => ({
+      id: Date.now() + Math.random(), // Ensure unique IDs
+      date: date,
       available: availabilityData.type === 'time_period',
       hours: availabilityData.type === 'time_period' 
         ? availabilityData.timeSlots.map(slot => `${slot.start}-${slot.end}`).join(', ')
         : 'Unavailable'
-    }
+    }))
     
-    setCustomAvailability(prev => [...prev, newAvailability])
+    setCustomAvailability(prev => [...prev, ...newAvailabilityItems])
   }
 
   const handleRemoveCustomAvailability = (id) => {
