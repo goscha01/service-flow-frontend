@@ -561,6 +561,7 @@ const ServiceFlowDashboard = () => {
   }
 
   const handleNewOptionClick = (option) => {
+    console.log('🔄 Dashboard: New option clicked:', option.title);
     setShowNewMenu(false)
     if (option.title === "Job") {
       navigate("/createjob")
@@ -601,13 +602,16 @@ const ServiceFlowDashboard = () => {
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (newMenuRef.current && !newMenuRef.current.contains(event.target)) {
-        setShowNewMenu(false)
+        // Add a small delay to prevent race condition with button clicks
+        setTimeout(() => {
+          setShowNewMenu(false)
+        }, 100)
       }
     }
 
-    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('click', handleClickOutside)
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('click', handleClickOutside)
     }
   }, [])
 
@@ -711,7 +715,10 @@ const ServiceFlowDashboard = () => {
             </div>
             <div className="relative" ref={newMenuRef}>
               <button
-                onClick={() => setShowNewMenu(!showNewMenu)}
+                onClick={() => {
+                  console.log('🔄 Dashboard: New button clicked, current state:', showNewMenu);
+                  setShowNewMenu(!showNewMenu)
+                }}
                 className="bg-primary-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center space-x-2 hover:bg-primary-700 transition-colors duration-200"
               >
                 <span>NEW</span>
@@ -749,7 +756,10 @@ const ServiceFlowDashboard = () => {
             </div>
             <div className="relative" ref={newMenuRef}>
               <button
-                onClick={() => setShowNewMenu(!showNewMenu)}
+                onClick={() => {
+                  console.log('🔄 Dashboard: Mobile New button clicked, current state:', showNewMenu);
+                  setShowNewMenu(!showNewMenu)
+                }}
                 className="bg-primary-600 text-white px-3 py-2 rounded-lg text-sm font-medium flex items-center space-x-1 hover:bg-primary-700 transition-colors duration-200"
               >
                 <Plus className="w-4 h-4" />
