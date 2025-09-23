@@ -417,7 +417,12 @@ const ServiceFlowJobs = () => {
                 </button>
               </div>
               <button 
-                onClick={handleCreateJob}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('🔄 Jobs: Create job button clicked');
+                  handleCreateJob()
+                }}
                 className="w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center hover:bg-blue-700 transition-all duration-200 transform hover:scale-[1.02] focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
               >
                 <Plus className="w-5 h-5" />
@@ -454,7 +459,12 @@ const ServiceFlowJobs = () => {
                 </button>
               </div>
               <button 
-                onClick={handleCreateJob}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('🔄 Jobs: Mobile Create job button clicked');
+                  handleCreateJob()
+                }}
                 className="w-9 h-9 bg-blue-600 text-white rounded-full flex items-center justify-center hover:bg-blue-700 transition-all duration-200"
               >
                 <Plus className="w-5 h-5" />
