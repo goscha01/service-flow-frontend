@@ -117,6 +117,7 @@ const ServiceFlowJobs = () => {
   }
 
   const handleCreateJob = () => {
+    console.log('🔄 Jobs: Create job button clicked');
     navigate('/createjob')
   }
 
