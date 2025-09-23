@@ -18,6 +18,7 @@ import {
 import axios from "axios"
 import IntakeQuestionsForm from "../components/intake-questions-form"
 import ServiceModifiersForm from "../components/service-modifiers-form"
+import AddressAutocomplete from "../components/address-autocomplete"
 
 // Create axios instance for public API calls
 const publicApi = axios.create({
@@ -53,8 +54,6 @@ const PublicBooking = () => {
   const [validatingCoupon, setValidatingCoupon] = useState(false)
   const [availableServices, setAvailableServices] = useState([])
   const [availableSlots, setAvailableSlots] = useState([])
-  const [addressSuggestions, setAddressSuggestions] = useState([])
-  const [showAddressSuggestions, setShowAddressSuggestions] = useState(false)
   const [intakeAnswers, setIntakeAnswers] = useState({})
   const [selectedServiceQuestions, setSelectedServiceQuestions] = useState([])
   const [serviceModifiers, setServiceModifiers] = useState({})
@@ -116,73 +115,14 @@ const PublicBooking = () => {
     }
   }
 
-  const handleAddressChange = async (e) => {
-    const value = e.target.value
-    setFormData(prev => ({ ...prev, address: value }))
-    
-    if (value.length > 3) {
-      try {
-        const response = await fetch(
-          `${API_BASE_URL}/places/autocomplete?input=${encodeURIComponent(value)}`
-        )
-        const data = await response.json()
-        
-        if (data.predictions) {
-          setAddressSuggestions(data.predictions)
-          setShowAddressSuggestions(true)
-        }
-      } catch (error) {
-        console.error('Error fetching address suggestions:', error)
-      }
-    } else {
-      setAddressSuggestions([])
-      setShowAddressSuggestions(false)
-    }
-  }
-
-  const handleAddressSelect = async (suggestion) => {
-    try {
-      // Get detailed place information
-      const response = await fetch(
-        `${API_BASE_URL}/places/details?place_id=${suggestion.place_id}`
-      )
-      const data = await response.json()
-      
-      if (data.result) {
-        const place = data.result
-        let city = ""
-        let state = ""
-        let zipCode = ""
-        
-        // Extract address components
-        place.address_components.forEach(component => {
-          if (component.types.includes('locality')) {
-            city = component.long_name
-          } else if (component.types.includes('administrative_area_level_1')) {
-            state = component.short_name
-          } else if (component.types.includes('postal_code')) {
-            zipCode = component.long_name
-          }
-        })
-        
-        setFormData(prev => ({
-          ...prev,
-          address: suggestion.description,
-          city: city,
-          state: state,
-          zipCode: zipCode
-        }))
-      } else {
-        // Fallback if detailed info not available
-        setFormData(prev => ({ ...prev, address: suggestion.description }))
-      }
-    } catch (error) {
-      console.error('Error fetching place details:', error)
-      // Fallback to just the description
-      setFormData(prev => ({ ...prev, address: suggestion.description }))
-    }
-    
-    setShowAddressSuggestions(false)
+  const handleAddressSelect = (addressData) => {
+    setFormData(prev => ({
+      ...prev,
+      address: addressData.formattedAddress,
+      city: addressData.components.city,
+      state: addressData.components.state,
+      zipCode: addressData.components.zipCode
+    }))
   }
 
   const handleIntakeAnswersChange = (answers) => {
@@ -709,15 +649,15 @@ const PublicBooking = () => {
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Service Address <span className="text-red-500">*</span>
                       </label>
-                        <input
-                          type="text"
-                          value={formData.address}
-                        onChange={(e) => handleInputChange('address', e.target.value)}
-                        required
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      <AddressAutocomplete
+                        value={formData.address}
+                        onChange={(value) => handleInputChange('address', { target: { value } })}
+                        onAddressSelect={handleAddressSelect}
                         placeholder="Enter your service address"
+                        className="w-full"
+                        showValidationResults={true}
                       />
-                          </div>
+                    </div>
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
