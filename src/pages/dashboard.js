@@ -601,11 +601,18 @@ const ServiceFlowDashboard = () => {
 
   useEffect(() => {
     const handleClickOutside = (event) => {
+      // Temporarily disable click-outside to debug the issue
+      console.log('🔄 Dashboard: Click outside detected, target:', event.target);
+      console.log('🔄 Dashboard: Menu ref contains target:', newMenuRef.current?.contains(event.target));
+      
       if (newMenuRef.current && !newMenuRef.current.contains(event.target)) {
-        // Add a small delay to prevent race condition with button clicks
-        setTimeout(() => {
-          setShowNewMenu(false)
-        }, 100)
+        // Don't close if clicking on the button itself or its children
+        if (event.target.closest('button') && event.target.closest('button').textContent.includes('NEW')) {
+          console.log('🔄 Dashboard: Clicking on NEW button, not closing menu');
+          return
+        }
+        console.log('🔄 Dashboard: Closing menu due to click outside');
+        setShowNewMenu(false)
       }
     }
 
@@ -715,8 +722,11 @@ const ServiceFlowDashboard = () => {
             </div>
             <div className="relative" ref={newMenuRef}>
               <button
-                onClick={() => {
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
                   console.log('🔄 Dashboard: New button clicked, current state:', showNewMenu);
+                  console.log('🔄 Dashboard: Event details:', e);
                   setShowNewMenu(!showNewMenu)
                 }}
                 className="bg-primary-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center space-x-2 hover:bg-primary-700 transition-colors duration-200"
@@ -731,7 +741,12 @@ const ServiceFlowDashboard = () => {
                       key={index}
                       role="button"
                       tabIndex={0}
-                      onClick={() => handleNewOptionClick(option)}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('🔄 Dashboard: Dropdown option clicked:', option.title);
+                        handleNewOptionClick(option)
+                      }}
                       onKeyDown={(e) => e.key === 'Enter' && handleNewOptionClick(option)}
                       className="w-full px-4 py-3 hover:bg-gray-50 cursor-pointer select-none active:bg-gray-100 border-b border-gray-100 last:border-0"
                     >
@@ -756,8 +771,11 @@ const ServiceFlowDashboard = () => {
             </div>
             <div className="relative" ref={newMenuRef}>
               <button
-                onClick={() => {
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
                   console.log('🔄 Dashboard: Mobile New button clicked, current state:', showNewMenu);
+                  console.log('🔄 Dashboard: Mobile Event details:', e);
                   setShowNewMenu(!showNewMenu)
                 }}
                 className="bg-primary-600 text-white px-3 py-2 rounded-lg text-sm font-medium flex items-center space-x-1 hover:bg-primary-700 transition-colors duration-200"
@@ -772,7 +790,12 @@ const ServiceFlowDashboard = () => {
                       key={index}
                       role="button"
                       tabIndex={0}
-                      onClick={() => handleNewOptionClick(option)}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('🔄 Dashboard: Dropdown option clicked:', option.title);
+                        handleNewOptionClick(option)
+                      }}
                       onKeyDown={(e) => e.key === 'Enter' && handleNewOptionClick(option)}
                       className="w-full px-4 py-3 hover:bg-gray-50 cursor-pointer select-none active:bg-gray-100 border-b border-gray-100 last:border-0"
                     >
