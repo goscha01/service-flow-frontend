@@ -2234,6 +2234,7 @@ const JobDetails = () => {
                     <AddressAutocomplete
                       value={formData.serviceAddress.street}
                       onChange={(value) => {
+                        // Only update street if user is typing manually (not from address selection)
                         setFormData(prev => ({
                           ...prev,
                           serviceAddress: {
@@ -2242,16 +2243,18 @@ const JobDetails = () => {
                           }
                         }));
                       }}
-                      onAddressSelect={(address) => {
+                      onAddressSelect={(addressData) => {
+                        console.log('Address selected in job details:', addressData);
                         setFormData(prev => ({
                           ...prev,
                           serviceAddress: {
-                            street: address.street || '',
-                            city: address.city || '',
-                            state: address.state || '',
-                            zipCode: address.zipCode || ''
+                            street: addressData.formattedAddress || '',
+                            city: addressData.components.city || '',
+                            state: addressData.components.state || '',
+                            zipCode: addressData.components.zipCode || ''
                           }
                         }));
+                        setAddressAutoPopulated(true);
                       }}
                       placeholder={job?.service_address_street || "Start typing address..."}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"

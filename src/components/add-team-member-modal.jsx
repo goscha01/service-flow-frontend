@@ -462,7 +462,7 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
                 Location
               </label>
               <AddressAutocomplete
-                value={formData.location}
+                  value={formData.location}
                 onChange={(value) => handleInputChange('location', value)}
                 onAddressSelect={(addressData) => {
                   // Update form data with structured address information

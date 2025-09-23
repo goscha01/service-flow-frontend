@@ -2342,15 +2342,19 @@ export default function CreateJobPage() {
                           ...prev, 
                           serviceAddress: { ...prev.serviceAddress, street: value }
                         }))}
-                        onAddressSelect={(addressComponents) => {
-                          console.log('Address selected:', addressComponents);
+                        onAddressSelect={(addressData) => {
+                          console.log('Address selected in create job:', addressData);
                           setFormData(prev => ({
                             ...prev,
                             serviceAddress: {
                               ...prev.serviceAddress,
-                              ...addressComponents
+                              street: addressData.formattedAddress,
+                              city: addressData.components.city,
+                              state: addressData.components.state,
+                              zipCode: addressData.components.zipCode
                             }
                           }));
+                          setAddressAutoPopulated(true);
                         }}
                         placeholder="123 Main Street"
                       />
