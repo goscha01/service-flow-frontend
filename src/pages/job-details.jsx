@@ -435,8 +435,11 @@ const JobDetails = () => {
                (formData.discount !== undefined ? formData.discount : (job.discount || 0))
       }
       
+      console.log('🔄 Job Details: Sending update data:', updatedJob);
+      console.log('🔄 Job Details: Service address data:', updatedJob.serviceAddress);
 
-      await jobsAPI.update(job.id, updatedJob)
+      const result = await jobsAPI.update(job.id, updatedJob)
+      console.log('🔄 Job Details: API update result:', result);
       
       setSuccessMessage('Job updated successfully!')
       setTimeout(() => setSuccessMessage(""), 3000)
@@ -444,14 +447,18 @@ const JobDetails = () => {
       setEditingField(null)
       
       // Update the job state with new data immediately
-      setJob(prev => ({
-        ...prev,
-        service_address_street: formData.serviceAddress.street,
-        service_address_city: formData.serviceAddress.city,
-        service_address_state: formData.serviceAddress.state,
-        service_address_zip: formData.serviceAddress.zipCode,
-        ...updatedJob
-      }))
+      setJob(prev => {
+        const updatedJobState = {
+          ...prev,
+          service_address_street: formData.serviceAddress.street,
+          service_address_city: formData.serviceAddress.city,
+          service_address_state: formData.serviceAddress.state,
+          service_address_zip: formData.serviceAddress.zipCode,
+          ...updatedJob
+        };
+        console.log('🔄 Job Details: Updated job state:', updatedJobState);
+        return updatedJobState;
+      })
       
       // Reload job data to get updated values
       const jobData = await jobsAPI.getById(jobId)
@@ -2245,15 +2252,19 @@ const JobDetails = () => {
                       }}
                       onAddressSelect={(addressData) => {
                         console.log('Address selected in job details:', addressData);
-                        setFormData(prev => ({
-                          ...prev,
-                          serviceAddress: {
-                            street: addressData.formattedAddress || '',
-                            city: addressData.components.city || '',
-                            state: addressData.components.state || '',
-                            zipCode: addressData.components.zipCode || ''
-                          }
-                        }));
+                        setFormData(prev => {
+                          const updatedFormData = {
+                            ...prev,
+                            serviceAddress: {
+                              street: addressData.formattedAddress || '',
+                              city: addressData.components.city || '',
+                              state: addressData.components.state || '',
+                              zipCode: addressData.components.zipCode || ''
+                            }
+                          };
+                          console.log('🔄 Job Details: Updated form data after address selection:', updatedFormData);
+                          return updatedFormData;
+                        });
                         setAddressAutoPopulated(true);
                       }}
                       placeholder={job?.service_address_street || "Start typing address..."}
