@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import { X, MapPin, Clock, Users, DollarSign, Settings, Globe, Target, Plus, Minus } from "lucide-react"
 import { territoriesAPI } from "../services/api"
+import AddressAutocomplete from "./address-autocomplete"
 
 // API base URL for Google Places API proxy
 const API_BASE_URL = 'https://service-flow-backend-production.up.railway.app/api'
@@ -35,9 +36,6 @@ const CreateTerritoryModal = ({ isOpen, onClose, onSuccess, territory = null, is
   const [newZipCode, setNewZipCode] = useState("")
   const [availableTeamMembers, setAvailableTeamMembers] = useState([])
   const [availableServices, setAvailableServices] = useState([])
-  const [addressSuggestions, setAddressSuggestions] = useState([])
-  const [showAddressSuggestions, setShowAddressSuggestions] = useState(false)
-  const locationInputRef = useRef(null)
 
   useEffect(() => {
     if (isOpen && territory && isEditing) {
@@ -110,19 +108,6 @@ const CreateTerritoryModal = ({ isOpen, onClose, onSuccess, territory = null, is
     }
   }, [isOpen, territory, isEditing])
 
-  // Close suggestions when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (locationInputRef.current && !locationInputRef.current.contains(event.target)) {
-        setShowAddressSuggestions(false)
-      }
-    }
-
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [])
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
@@ -131,122 +116,21 @@ const CreateTerritoryModal = ({ isOpen, onClose, onSuccess, territory = null, is
     }))
   }
 
-  const handleLocationChange = async (e) => {
-    const value = e.target.value
-    setFormData(prev => ({ ...prev, location: value }))
+  const handleLocationSelect = (addressData) => {
+    setFormData(prev => ({
+      ...prev,
+      location: addressData.formattedAddress
+    }))
     
-    console.log('🔍 Location change:', value, 'Length:', value.length)
-    
-    if (value.length > 3) {
-      try {
-         console.log('🔍 Fetching suggestions for:', value)
-         console.log('🔍 API URL:', `${API_BASE_URL}/places/autocomplete?input=${encodeURIComponent(value)}`)
-         
-        const response = await fetch(
-          `${API_BASE_URL}/places/autocomplete?input=${encodeURIComponent(value)}`
-        )
-         
-         console.log('🔍 Response status:', response.status)
-         console.log('🔍 Response ok:', response.ok)
-         
-        const data = await response.json()
-        
-        console.log('🔍 API response:', data)
-        console.log('🔍 Response type:', typeof data)
-        console.log('🔍 Has predictions property:', 'predictions' in data)
-        console.log('🔍 Predictions value:', data.predictions)
-        
-        if (!response.ok) {
-          console.error('🔍 API error response:', data)
-          setError(`Address suggestions failed: ${data.error || 'Unknown error'}`)
-          setAddressSuggestions([])
-          setShowAddressSuggestions(false)
-          return
-        }
-        
-        if (data.predictions && Array.isArray(data.predictions)) {
-          console.log('🔍 Setting suggestions:', data.predictions.length, 'items')
-          setAddressSuggestions(data.predictions)
-          setShowAddressSuggestions(true)
-        } else {
-          console.log('🔍 No predictions in response or not an array')
-          console.log('🔍 Predictions type:', typeof data.predictions)
-          setAddressSuggestions([])
-          setShowAddressSuggestions(false)
-        }
-      } catch (error) {
-        console.error('Error fetching address suggestions:', error)
-        setAddressSuggestions([])
-        setShowAddressSuggestions(false)
-      }
-    } else {
-      console.log('🔍 Clearing suggestions (input too short)')
-      setAddressSuggestions([])
-      setShowAddressSuggestions(false)
+    // Auto-add the ZIP code if found
+    if (addressData.components.zipCode && !formData.zipCodes.includes(addressData.components.zipCode)) {
+      setFormData(prev => ({
+        ...prev,
+        zipCodes: [...prev.zipCodes, addressData.components.zipCode]
+      }))
     }
   }
 
-  const handleLocationSelect = async (suggestion) => {
-    try {
-      // Get detailed place information
-      const response = await fetch(
-        `${API_BASE_URL}/places/details?place_id=${suggestion.place_id}`
-      )
-      const data = await response.json()
-      
-      if (data.result) {
-        const place = data.result
-        let city = ""
-        let state = ""
-        let zipCode = ""
-        
-        // Extract address components
-        place.address_components.forEach(component => {
-          console.log('Address component:', component.types, component.long_name)
-          if (component.types.includes('locality')) {
-            city = component.long_name
-          } else if (component.types.includes('administrative_area_level_1')) {
-            state = component.short_name
-          } else if (component.types.includes('postal_code')) {
-            zipCode = component.long_name
-          }
-        })
-        
-        setFormData(prev => ({
-          ...prev,
-          location: suggestion.description
-        }))
-        
-        // Auto-add the ZIP code if found
-        if (zipCode) {
-          console.log('Found ZIP code:', zipCode)
-          console.log('Current ZIP codes:', formData.zipCodes)
-          setFormData(prev => {
-            // Check if ZIP code is already in the list
-            if (!prev.zipCodes.includes(zipCode)) {
-              console.log('Adding ZIP code:', zipCode)
-              return {
-                ...prev,
-                zipCodes: [...prev.zipCodes, zipCode]
-              }
-            } else {
-              console.log('ZIP code already exists:', zipCode)
-            }
-            return prev
-          })
-        }
-      } else {
-        // Fallback if detailed info not available
-        setFormData(prev => ({ ...prev, location: suggestion.description }))
-      }
-    } catch (error) {
-      console.error('Error fetching place details:', error)
-      // Fallback to just the description
-      setFormData(prev => ({ ...prev, location: suggestion.description }))
-    }
-    
-    setShowAddressSuggestions(false)
-  }
 
   const handleBusinessHoursChange = (day, field, value) => {
     setFormData(prev => ({
@@ -393,39 +277,14 @@ const CreateTerritoryModal = ({ isOpen, onClose, onSuccess, territory = null, is
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Location *
                 </label>
-                <div className="relative" ref={locationInputRef}>
-                  <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
-                    <MapPin className="w-4 h-4 text-gray-400" />
-                  </div>
-                  <input
-                    type="text"
-                    value={formData.location}
-                    onChange={handleLocationChange}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Enter address or location..."
-                    required
-                  />
-                  {/* Debug info */}
-                  <div className="text-xs text-gray-500 mt-1">
-                    Show suggestions: {showAddressSuggestions.toString()}, 
-                    Count: {addressSuggestions.length}
-                  </div>
-                  
-                  {showAddressSuggestions && addressSuggestions.length > 0 && (
-                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                      {addressSuggestions.map((suggestion, index) => (
-                        <button
-                          key={index}
-                          type="button"
-                          onClick={() => handleLocationSelect(suggestion)}
-                          className="w-full px-4 py-2 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
-                        >
-                          <div className="text-sm text-gray-900">{suggestion.description}</div>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                <AddressAutocomplete
+                  value={formData.location}
+                  onChange={(value) => handleInputChange('location', value)}
+                  onAddressSelect={handleLocationSelect}
+                  placeholder="Enter address or location..."
+                  className="w-full"
+                  showValidationResults={true}
+                />
                 <p className="mt-1 text-sm text-gray-500">
                   Start typing to get address suggestions. ZIP codes will be automatically added.
                 </p>

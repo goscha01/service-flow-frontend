@@ -23,8 +23,6 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [validationErrors, setValidationErrors] = useState({})
-  const [addressSuggestions, setAddressSuggestions] = useState([])
-  const [showAddressSuggestions, setShowAddressSuggestions] = useState(false)
   const [isValidatingEmail, setIsValidatingEmail] = useState(false)
   const [isValidatingPhone, setIsValidatingPhone] = useState(false)
 
@@ -96,8 +94,6 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
       })
       setError("")
       setValidationErrors({})
-      setAddressSuggestions([])
-      setShowAddressSuggestions(false)
       setIsValidatingEmail(false)
       setIsValidatingPhone(false)
     } else if (isOpen && !isEditing) {
@@ -116,8 +112,6 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
       })
       setError("")
       setValidationErrors({})
-      setAddressSuggestions([])
-      setShowAddressSuggestions(false)
       setIsValidatingEmail(false)
       setIsValidatingPhone(false)
     } else if (isEditing && customer) {
@@ -142,10 +136,18 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
     }
   }, [isOpen, isEditing, customer])
 
-  // Add click-outside handler to close modal
+  // Add click-outside handler to close modal (excluding Google Places autocomplete)
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (modalRef.current && !modalRef.current.contains(event.target)) {
+        // Don't close if clicking on Google Places autocomplete suggestions
+        if (event.target.closest('.pac-container') || 
+            event.target.closest('[data-autocomplete-suggestions]') ||
+            event.target.closest('.autocomplete-suggestions') ||
+            event.target.closest('[role="listbox"]') ||
+            event.target.closest('.pac-item')) {
+          return
+        }
         onClose()
       }
     }
