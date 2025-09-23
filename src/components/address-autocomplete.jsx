@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MapPin, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
-import { placesAPI } from '../services/api';
+import { loadGoogleMapsScript, initializePlacesAutocomplete, getPlaceDetails, isGoogleMapsLoaded } from '../utils/googleMaps';
 
 const AddressAutocomplete = ({ 
   value, 
@@ -9,82 +9,99 @@ const AddressAutocomplete = ({
   placeholder = "Enter address",
   className = "",
   showValidationResults = true,
-  debounceMs = 300
+  apiKey = "AIzaSyC_CrJWTsTHOTBd7TSzTuXOfutywZ2AyOQ"
 }) => {
   const [input, setInput] = useState(value || '');
-  const [suggestions, setSuggestions] = useState([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [selectedAddress, setSelectedAddress] = useState(null);
-  const timeoutRef = useRef(null);
+  const [googleMapsReady, setGoogleMapsReady] = useState(false);
   const inputRef = useRef(null);
+  const autocompleteRef = useRef(null);
+
+  // Load Google Maps script on component mount
+  useEffect(() => {
+    const loadMaps = async () => {
+      try {
+        await loadGoogleMapsScript(apiKey);
+        setGoogleMapsReady(true);
+      } catch (err) {
+        console.error('Failed to load Google Maps:', err);
+        setError('Failed to load Google Maps API');
+      }
+    };
+
+    if (!isGoogleMapsLoaded()) {
+      loadMaps();
+    } else {
+      setGoogleMapsReady(true);
+    }
+  }, [apiKey]);
+
+  // Initialize autocomplete when Google Maps is ready
+  useEffect(() => {
+    if (googleMapsReady && inputRef.current && !autocompleteRef.current) {
+      try {
+        const autocomplete = initializePlacesAutocomplete(inputRef.current, {
+          types: ['address'],
+          componentRestrictions: { country: 'us' }
+        });
+
+        // Listen for place selection
+        autocomplete.addListener('place_changed', () => {
+          const place = autocomplete.getPlace();
+          if (place && place.place_id) {
+            handlePlaceSelection(place);
+          }
+        });
+
+        autocompleteRef.current = autocomplete;
+      } catch (err) {
+        console.error('Failed to initialize autocomplete:', err);
+        setError('Failed to initialize address autocomplete');
+      }
+    }
+  }, [googleMapsReady]);
 
   // Update input when value prop changes
   useEffect(() => {
     setInput(value || '');
   }, [value]);
 
-  // Debounced autocomplete search
-  useEffect(() => {
-    if (!input || input.length < 3) {
-      setSuggestions([]);
-      setShowSuggestions(false);
-      return;
-    }
-
-    // Clear previous timeout
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-
-    // Set new timeout
-    timeoutRef.current = setTimeout(async () => {
-      await fetchSuggestions(input);
-    }, debounceMs);
-
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
-  }, [input, debounceMs]);
-
-  // Close suggestions when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (inputRef.current && !inputRef.current.contains(event.target)) {
-        setShowSuggestions(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
-
-  const fetchSuggestions = async (inputValue) => {
-    if (!inputValue || inputValue.length < 3) return;
-
-    setIsLoading(true);
-    setError(null);
-
+  const handlePlaceSelection = async (place) => {
     try {
-      const response = await placesAPI.autocomplete(inputValue);
+      setIsLoading(true);
+      setError(null);
+
+      // Get detailed place information
+      const placeDetails = await getPlaceDetails(place.place_id);
       
-      if (response.predictions) {
-        setSuggestions(response.predictions);
-        setShowSuggestions(true);
-      } else {
-        setSuggestions([]);
-        setShowSuggestions(false);
+      if (placeDetails) {
+        const addressData = {
+          formattedAddress: placeDetails.formatted_address,
+          placeId: placeDetails.place_id,
+          components: {
+            streetNumber: placeDetails.address_components?.find(c => c.types.includes('street_number'))?.long_name,
+            route: placeDetails.address_components?.find(c => c.types.includes('route'))?.long_name,
+            city: placeDetails.address_components?.find(c => c.types.includes('locality'))?.long_name,
+            state: placeDetails.address_components?.find(c => c.types.includes('administrative_area_level_1'))?.short_name,
+            zipCode: placeDetails.address_components?.find(c => c.types.includes('postal_code'))?.long_name,
+            country: placeDetails.address_components?.find(c => c.types.includes('country'))?.long_name,
+          },
+          geometry: placeDetails.geometry?.location,
+        };
+
+        setSelectedAddress(addressData);
+        setInput(placeDetails.formatted_address);
+        onChange(placeDetails.formatted_address);
+        
+        if (onAddressSelect) {
+          onAddressSelect(addressData);
+        }
       }
     } catch (err) {
-      console.error('Autocomplete error:', err);
-      setError('Failed to fetch address suggestions');
-      setSuggestions([]);
-      setShowSuggestions(false);
+      console.error('Error getting place details:', err);
+      setError('Failed to get address details');
     } finally {
       setIsLoading(false);
     }
@@ -95,73 +112,7 @@ const AddressAutocomplete = ({
     setInput(newValue);
     onChange(newValue);
     setSelectedAddress(null);
-    
-    if (newValue.length < 3) {
-      setSuggestions([]);
-      setShowSuggestions(false);
-    }
-  };
-
-  const handleSuggestionClick = async (suggestion) => {
-    setInput(suggestion.description);
-    onChange(suggestion.description);
-    setShowSuggestions(false);
-    setSelectedAddress(suggestion);
-
-    // Get full address details
-    if (onAddressSelect) {
-      try {
-        setIsLoading(true);
-        const detailsResponse = await placesAPI.getDetails(suggestion.place_id);
-        
-        if (detailsResponse.result) {
-          const place = detailsResponse.result;
-          
-          // Extract address components
-          let city = '';
-          let state = '';
-          let zipCode = '';
-          let country = '';
-          
-          if (place.address_components) {
-            place.address_components.forEach(component => {
-              if (component.types.includes('locality')) {
-                city = component.long_name;
-              }
-              if (component.types.includes('administrative_area_level_1')) {
-                state = component.short_name;
-              }
-              if (component.types.includes('postal_code')) {
-                zipCode = component.long_name;
-              }
-              if (component.types.includes('country')) {
-                country = component.long_name;
-              }
-            });
-          }
-
-          const addressData = {
-            formattedAddress: place.formatted_address,
-            placeId: suggestion.place_id,
-            components: {
-              city,
-              state,
-              zipCode,
-              country
-            },
-            geometry: place.geometry,
-            originalSuggestion: suggestion
-          };
-
-          onAddressSelect(addressData);
-        }
-      } catch (err) {
-        console.error('Error fetching place details:', err);
-        setError('Failed to get address details');
-      } finally {
-        setIsLoading(false);
-      }
-    }
+    setError(null);
   };
 
   const getStatusIcon = () => {
@@ -177,45 +128,27 @@ const AddressAutocomplete = ({
   };
 
   return (
-    <div className={`relative ${className}`} ref={inputRef}>
+    <div className={`relative ${className}`}>
       <div className="relative">
         <input
+          ref={inputRef}
           type="text"
           value={input}
           onChange={handleInputChange}
           placeholder={placeholder}
           className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          disabled={!googleMapsReady}
         />
         <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
           {getStatusIcon()}
         </div>
       </div>
 
-      {/* Suggestions Dropdown */}
-      {showSuggestions && suggestions.length > 0 && (
-        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-          {suggestions.map((suggestion, index) => (
-            <button
-              key={suggestion.place_id}
-              type="button"
-              onClick={() => handleSuggestionClick(suggestion)}
-              className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 focus:outline-none focus:bg-gray-50"
-            >
-              <div className="flex items-start space-x-3">
-                <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-gray-900">
-                    {suggestion.structured_formatting?.main_text || suggestion.description}
-                  </div>
-                  {suggestion.structured_formatting?.secondary_text && (
-                    <div className="text-sm text-gray-500 mt-1">
-                      {suggestion.structured_formatting.secondary_text}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </button>
-          ))}
+      {/* Loading State */}
+      {!googleMapsReady && (
+        <div className="mt-2 text-sm text-gray-500 flex items-center gap-1">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          Loading Google Maps...
         </div>
       )}
 
@@ -233,8 +166,13 @@ const AddressAutocomplete = ({
           <div className="flex items-center gap-2 text-sm text-green-700">
             <CheckCircle className="w-4 h-4" />
             <span className="font-medium">Address selected:</span>
-            <span>{selectedAddress.description}</span>
+            <span>{selectedAddress.formattedAddress}</span>
           </div>
+          {selectedAddress.components.city && (
+            <div className="mt-1 text-xs text-green-600">
+              {selectedAddress.components.city}, {selectedAddress.components.state} {selectedAddress.components.zipCode}
+            </div>
+          )}
         </div>
       )}
     </div>
