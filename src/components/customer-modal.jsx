@@ -3,6 +3,7 @@
 import { X, MapPin, Search } from "lucide-react"
 import { useState, useEffect, useRef } from "react"
 import { useNavigate } from "react-router-dom"
+import AddressAutocomplete from "./address-autocomplete"
 
 const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false }) => {
   const navigate = useNavigate()
@@ -295,74 +296,16 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
     validateField('name', value)
   }
 
-  const handleAddressChange = async (e) => {
-    const value = e.target.value
-    setCustomerData({ ...customerData, address: value })
-    
-    if (value.length > 3) {
-      try {
-        const response = await fetch(
-          `${API_BASE_URL}/places/autocomplete?input=${encodeURIComponent(value)}`
-        )
-        const data = await response.json()
-        
-        if (data.predictions) {
-          setAddressSuggestions(data.predictions)
-          setShowAddressSuggestions(true)
-        }
-      } catch (error) {
-        console.error('Error fetching address suggestions:', error)
-      }
-    } else {
-      setAddressSuggestions([])
-      setShowAddressSuggestions(false)
-    }
+  const handleAddressSelect = (addressData) => {
+    setCustomerData({
+      ...customerData,
+      address: addressData.formattedAddress,
+      city: addressData.components.city,
+      state: addressData.components.state,
+      zipCode: addressData.components.zipCode
+    })
   }
 
-  const handleAddressSelect = async (suggestion) => {
-    try {
-      // Get detailed place information
-      const response = await fetch(
-        `${API_BASE_URL}/places/details?place_id=${suggestion.place_id}`
-      )
-      const data = await response.json()
-      
-      if (data.result) {
-        const place = data.result
-        let city = ""
-        let state = ""
-        let zipCode = ""
-        
-        // Extract address components
-        place.address_components.forEach(component => {
-          if (component.types.includes('locality')) {
-            city = component.long_name
-          } else if (component.types.includes('administrative_area_level_1')) {
-            state = component.short_name
-          } else if (component.types.includes('postal_code')) {
-            zipCode = component.long_name
-          }
-        })
-        
-        setCustomerData({
-          ...customerData,
-          address: suggestion.description,
-          city: city,
-          state: state,
-          zipCode: zipCode
-        })
-      } else {
-        // Fallback if detailed info not available
-        setCustomerData({ ...customerData, address: suggestion.description })
-      }
-    } catch (error) {
-      console.error('Error fetching place details:', error)
-      // Fallback to just the description
-      setCustomerData({ ...customerData, address: suggestion.description })
-    }
-    
-    setShowAddressSuggestions(false)
-  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -513,32 +456,14 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Address
               </label>
-              <div className="relative">
-                <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
-                  <MapPin className="w-4 h-4 text-gray-400" />
-                </div>
-                <input
-                  type="text"
-                  placeholder="Street Address"
-                  value={customerData.address}
-                  onChange={handleAddressChange}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-gray-900 text-sm"
-                />
-                {showAddressSuggestions && addressSuggestions.length > 0 && (
-                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                    {addressSuggestions.map((suggestion, index) => (
-                      <button
-                        key={index}
-                        type="button"
-                        onClick={() => handleAddressSelect(suggestion)}
-                        className="w-full px-4 py-2 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
-                      >
-                        <div className="text-sm text-gray-900">{suggestion.description}</div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <AddressAutocomplete
+                value={customerData.address}
+                onChange={(value) => setCustomerData({ ...customerData, address: value })}
+                onAddressSelect={handleAddressSelect}
+                placeholder="Street Address"
+                className="w-full"
+                showValidationResults={true}
+              />
             </div>
 
             {/* Apartment/Unit */}
