@@ -238,6 +238,13 @@ const JobDetails = () => {
         console.log('🔧 Job Details: Raw job data from API:', jobData);
         console.log('🔧 Job Details: Mapped job data:', mappedJobData);
         console.log('🔧 Job Details: service_modifiers in mapped data:', mappedJobData.service_modifiers);
+        console.log('🔧 Job Details: Pricing breakdown:', {
+          service_price: mappedJobData.service_price,
+          additional_fees: mappedJobData.additional_fees,
+          taxes: mappedJobData.taxes,
+          discount: mappedJobData.discount,
+          total: mappedJobData.total
+        });
         
         setJob(mappedJobData)
         
@@ -1425,14 +1432,18 @@ const JobDetails = () => {
                   {(() => {
                     const serviceModifiers = getServiceModifiers();
                     console.log('🔧 Modifier display: serviceModifiers:', serviceModifiers);
+                    console.log('🔧 Modifier display: serviceModifiers length:', serviceModifiers.length);
                     let hasModifiers = false;
                     
                     return (
                       <>
-                        {serviceModifiers.map(modifier => {
-                          console.log('🔧 Processing modifier:', modifier);
+                        {serviceModifiers.map((modifier, modifierIndex) => {
+                          console.log(`🔧 Processing modifier ${modifierIndex}:`, modifier);
                           console.log('🔧 Modifier selectedOptions:', modifier.selectedOptions);
+                          console.log('🔧 Modifier selectedOptions length:', modifier.selectedOptions?.length);
+                          
                           if (!modifier.selectedOptions || modifier.selectedOptions.length === 0) {
+                            console.log('🔧 No selectedOptions for modifier:', modifier.title || modifier.id);
                             return null;
                           }
                           
@@ -1472,6 +1483,31 @@ const JobDetails = () => {
                     <span>Subtotal</span>
                     <span>${(parseFloat(job.service_price) || 0).toFixed(2)}</span>
                   </div>
+                  
+                  {/* Show additional fees if they exist */}
+                  {(parseFloat(job.additional_fees) || 0) > 0 && (
+                    <div className="flex justify-between">
+                      <span>Additional Fees</span>
+                      <span>+${(parseFloat(job.additional_fees) || 0).toFixed(2)}</span>
+                    </div>
+                  )}
+                  
+                  {/* Show taxes if they exist */}
+                  {(parseFloat(job.taxes) || 0) > 0 && (
+                    <div className="flex justify-between">
+                      <span>Taxes</span>
+                      <span>+${(parseFloat(job.taxes) || 0).toFixed(2)}</span>
+                    </div>
+                  )}
+                  
+                  {/* Show discount if it exists */}
+                  {(parseFloat(job.discount) || 0) > 0 && (
+                    <div className="flex justify-between">
+                      <span>Discount</span>
+                      <span>-${(parseFloat(job.discount) || 0).toFixed(2)}</span>
+                    </div>
+                  )}
+                  
                   <div className="flex justify-between font-semibold">
                     <span>Total</span>
                     <span>${(parseFloat(job.total) || parseFloat(job.service_price) || 0).toFixed(2)}</span>

@@ -416,14 +416,19 @@ const ServiceFlowServices = () => {
             price: service.price,
             duration: service.duration,
             category: 'cleaning', // Set to cleaning category
-            // Preserve modifiers and intake questions
-            modifiers: service.modifiers,
-            intake_questions: service.intake_questions,
             // Preserve other important fields
             image: service.image,
             require_payment_method: service.require_payment_method,
             is_active: service.is_active,
             category_id: service.category_id
+          }
+          
+          // Only include modifiers and intake_questions if they exist and are not null/undefined
+          if (service.modifiers !== null && service.modifiers !== undefined) {
+            updateData.modifiers = service.modifiers;
+          }
+          if (service.intake_questions !== null && service.intake_questions !== undefined) {
+            updateData.intake_questions = service.intake_questions;
           }
           
           console.log(`🔧 Updating service "${service.name}" with category "cleaning"`)
@@ -515,14 +520,19 @@ const ServiceFlowServices = () => {
         price: service.price,
         duration: service.duration,
         category: newCategory,
-        // Preserve modifiers and intake questions
-        modifiers: service.modifiers,
-        intake_questions: service.intake_questions,
         // Preserve other important fields
         image: service.image,
         require_payment_method: service.require_payment_method,
         is_active: service.is_active,
         category_id: service.category_id
+      }
+      
+      // Only include modifiers and intake_questions if they exist and are not null/undefined
+      if (service.modifiers !== null && service.modifiers !== undefined) {
+        updateData.modifiers = service.modifiers;
+      }
+      if (service.intake_questions !== null && service.intake_questions !== undefined) {
+        updateData.intake_questions = service.intake_questions;
       }
       
       console.log('🔧 Moving service to category:', service.name, '→', newCategory);
