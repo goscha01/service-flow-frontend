@@ -415,7 +415,15 @@ const ServiceFlowServices = () => {
             description: service.description,
             price: service.price,
             duration: service.duration,
-            category: 'cleaning' // Set to cleaning category
+            category: 'cleaning', // Set to cleaning category
+            // Preserve modifiers and intake questions
+            modifiers: service.modifiers,
+            intake_questions: service.intake_questions,
+            // Preserve other important fields
+            image: service.image,
+            require_payment_method: service.require_payment_method,
+            is_active: service.is_active,
+            category_id: service.category_id
           }
           
           console.log(`🔧 Updating service "${service.name}" with category "cleaning"`)
@@ -500,14 +508,26 @@ const ServiceFlowServices = () => {
       const service = services.find(s => s.id === serviceId)
       if (!service) return
       
-      // Only send the essential fields for the update
+      // Preserve all service data including modifiers and intake questions
       const updateData = {
         name: service.name,
         description: service.description,
         price: service.price,
         duration: service.duration,
-        category: newCategory
+        category: newCategory,
+        // Preserve modifiers and intake questions
+        modifiers: service.modifiers,
+        intake_questions: service.intake_questions,
+        // Preserve other important fields
+        image: service.image,
+        require_payment_method: service.require_payment_method,
+        is_active: service.is_active,
+        category_id: service.category_id
       }
+      
+      console.log('🔧 Moving service to category:', service.name, '→', newCategory);
+      console.log('🔧 Preserving modifiers:', service.modifiers);
+      console.log('🔧 Preserving intake_questions:', service.intake_questions);
       
       // Update the service in the backend
       await servicesAPI.update(serviceId, updateData)
