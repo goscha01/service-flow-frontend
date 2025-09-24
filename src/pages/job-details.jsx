@@ -187,6 +187,10 @@ const JobDetails = () => {
       workers_needed: jobData.workers_needed || jobData.workers,
       // Convert ISO date format to expected format for backward compatibility
       scheduled_date: jobData.scheduled_date ? jobData.scheduled_date.replace('T', ' ') : jobData.scheduled_date,
+      // Map service modifiers and intake questions
+      service_modifiers: jobData.service_modifiers,
+      service_intake_questions: jobData.service_intake_questions,
+      intake_answers: jobData.intake_answers
     }
   }
 
@@ -231,7 +235,9 @@ const JobDetails = () => {
         // Map customer and service data from nested structure
         const mappedJobData = mapJobData(jobData)
         
-
+        console.log('🔧 Job Details: Raw job data from API:', jobData);
+        console.log('🔧 Job Details: Mapped job data:', mappedJobData);
+        console.log('🔧 Job Details: service_modifiers in mapped data:', mappedJobData.service_modifiers);
         
         setJob(mappedJobData)
         
@@ -752,11 +758,24 @@ const JobDetails = () => {
   // Parse service modifiers from JSON
   const getServiceModifiers = () => {
     try {
-      if (!job.service_modifiers) return [];
-      if (typeof job.service_modifiers === 'string') {
-        return JSON.parse(job.service_modifiers);
+      console.log('🔧 getServiceModifiers: job.service_modifiers:', job.service_modifiers);
+      console.log('🔧 getServiceModifiers: job.service_modifiers type:', typeof job.service_modifiers);
+      
+      // Handle null, undefined, or empty values
+      if (!job.service_modifiers || job.service_modifiers === null) {
+        console.log('🔧 getServiceModifiers: No modifiers found, returning empty array');
+        return [];
       }
-      return Array.isArray(job.service_modifiers) ? job.service_modifiers : [];
+      
+      if (typeof job.service_modifiers === 'string') {
+        const parsed = JSON.parse(job.service_modifiers);
+        console.log('🔧 getServiceModifiers: parsed from string:', parsed);
+        return Array.isArray(parsed) ? parsed : [];
+      }
+      
+      const result = Array.isArray(job.service_modifiers) ? job.service_modifiers : [];
+      console.log('🔧 getServiceModifiers: final result:', result);
+      return result;
     } catch (error) {
       console.error('Error parsing service modifiers:', error);
       return [];
@@ -1405,11 +1424,14 @@ const JobDetails = () => {
                   {/* Show modifier breakdown if there are any */}
                   {(() => {
                     const serviceModifiers = getServiceModifiers();
+                    console.log('🔧 Modifier display: serviceModifiers:', serviceModifiers);
                     let hasModifiers = false;
                     
                     return (
                       <>
                         {serviceModifiers.map(modifier => {
+                          console.log('🔧 Processing modifier:', modifier);
+                          console.log('🔧 Modifier selectedOptions:', modifier.selectedOptions);
                           if (!modifier.selectedOptions || modifier.selectedOptions.length === 0) {
                             return null;
                           }
