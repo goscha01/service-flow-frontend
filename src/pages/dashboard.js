@@ -183,7 +183,7 @@ const ServiceFlowDashboard = () => {
     }
   }, [user, dateRange])
 
-  // Function to clear cookies
+  // Function to clear cookies (now used for manual cleanup)
   const clearStaleData = () => {
     // Clear any stale localStorage data except user preferences and authentication
     const keysToCheck = Object.keys(localStorage)
@@ -221,12 +221,51 @@ const ServiceFlowDashboard = () => {
     }
   }
 
-  // Load setup section preferences from localStorage and clean cache on startup
+  // Clear cache and cookies on every dashboard start
   useEffect(() => {
-    // Clear any stale cache data on dashboard startup
-    console.log('🧹 Cleaning cache and cookies on dashboard startup...')
+    // Clear ALL cache data on every dashboard startup
+    console.log('🧹 Cleaning ALL cache and cookies on dashboard startup...')
     
-    clearStaleData()
+    // Clear ALL localStorage data except essential auth data
+    const keysToKeep = ['user', 'token', 'auth', 'session']
+    const allKeys = Object.keys(localStorage)
+    allKeys.forEach(key => {
+      const shouldKeep = keysToKeep.some(keepKey => key.toLowerCase().includes(keepKey.toLowerCase()))
+      if (!shouldKeep) {
+        localStorage.removeItem(key)
+        console.log('🗑️ Removed localStorage key:', key)
+      }
+    })
+    
+    // Clear ALL sessionStorage data except essential auth data
+    const sessionKeysToKeep = ['user', 'token', 'auth', 'session']
+    const allSessionKeys = Object.keys(sessionStorage)
+    allSessionKeys.forEach(key => {
+      const shouldKeep = sessionKeysToKeep.some(keepKey => key.toLowerCase().includes(keepKey.toLowerCase()))
+      if (!shouldKeep) {
+        sessionStorage.removeItem(key)
+        console.log('🗑️ Removed sessionStorage key:', key)
+      }
+    })
+    
+    // Clear ALL cookies except essential auth cookies
+    if (typeof document !== 'undefined') {
+      const cookies = document.cookie.split(';')
+      const authCookies = ['auth', 'token', 'session', 'user']
+      cookies.forEach(cookie => {
+        const [name] = cookie.split('=')
+        const cleanName = name.trim()
+        
+        if (cleanName) {
+          const isAuthCookie = authCookies.some(authKey => cleanName.toLowerCase().includes(authKey.toLowerCase()))
+          if (!isAuthCookie) {
+            document.cookie = `${cleanName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`
+            document.cookie = `${cleanName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=${window.location.hostname};`
+            console.log('🍪 Cleared cookie:', cleanName)
+          }
+        }
+      })
+    }
     
     // Load setup section preferences from localStorage - only allow showing if explicitly NOT dismissed
     const dismissed = localStorage.getItem('setupSectionDismissed')
@@ -235,7 +274,7 @@ const ServiceFlowDashboard = () => {
     setSetupSectionDismissed(isDismissed)
     
     console.log('🔍 Setup section dismissed from localStorage:', dismissed)
-    console.log('✅ Cache and cookie cleanup completed')
+    console.log('✅ Complete cache and cookie cleanup completed')
   }, [])
 
   // Silent background check if setup section should be shown based on user's data
@@ -366,7 +405,11 @@ const ServiceFlowDashboard = () => {
       // Add delay between API calls to prevent rate limiting
       const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms))
       
-      // Fetch jobs data
+      // Add cache busting timestamp
+      const cacheBuster = Date.now()
+      console.log('🔄 Cache buster timestamp:', cacheBuster)
+      
+      // Fetch jobs data with cache busting
       console.log('📋 Fetching jobs...')
       const jobsResponse = await retryAPI(() => jobsAPI.getAll(user.id, "", "", 1, 1000))
       const jobs = normalizeAPIResponse(jobsResponse, 'jobs')
@@ -405,19 +448,39 @@ const ServiceFlowDashboard = () => {
         teamMembers = []
       }
       
-      // Calculate today's data
+      // Calculate today's data - use same logic as Schedule page
       const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      const tomorrow = new Date(today)
-      tomorrow.setDate(tomorrow.getDate() + 1)
+      const todayString = today.toLocaleDateString('en-CA') // Returns YYYY-MM-DD format
+      
+      // Calculate date range data - use same logic as Schedule page
+      const startDate = new Date()
+      startDate.setDate(startDate.getDate() - parseInt(dateRange))
+      const startDateString = startDate.toLocaleDateString('en-CA') // Returns YYYY-MM-DD format
+      
+      console.log('🔍 Dashboard date debugging:')
+      console.log('📅 Today string:', todayString)
+      console.log('📅 All jobs scheduled dates:', jobs.map(job => job.scheduled_date))
+      console.log('📅 Date range setting:', dateRange, 'days')
+      console.log('📅 Start date for range:', startDateString)
       
       const todayJobs = jobs.filter(job => {
-        // Extract date part from scheduled_date string (format: "2024-01-15 10:00:00")
-        const jobDateString = job.scheduled_date ? job.scheduled_date.split(' ')[0] : ''
-        const todayString = today.toISOString().split('T')[0]
-        const tomorrowString = tomorrow.toISOString().split('T')[0]
-        return jobDateString >= todayString && jobDateString < tomorrowString
+        // Handle both ISO format (2025-08-20T09:00:00) and space format (2025-08-20 09:00:00)
+        let jobDateString = ''
+        if (job.scheduled_date) {
+          if (job.scheduled_date.includes('T')) {
+            // ISO format: 2025-08-20T09:00:00
+            jobDateString = job.scheduled_date.split('T')[0]
+          } else {
+            // Space format: 2025-08-20 09:00:00
+            jobDateString = job.scheduled_date.split(' ')[0]
+          }
+        }
+        const matches = jobDateString === todayString
+        console.log(`📅 Job ${job.id}: scheduled_date="${job.scheduled_date}" -> jobDateString="${jobDateString}" -> matches=${matches}`)
+        return matches
       })
+      
+      console.log('📅 Today jobs found:', todayJobs.length)
       
       const todayEarnings = todayJobs.reduce((sum, job) => {
         // Try multiple possible invoice fields to find the matching invoice
@@ -439,26 +502,50 @@ const ServiceFlowDashboard = () => {
         return sum + (parseInt(job.service_duration || 0))
       }, 0)
       
-      // Calculate date range data
-      const startDate = new Date()
-      startDate.setDate(startDate.getDate() - parseInt(dateRange))
-      
       const rangeJobs = jobs.filter(job => {
-        // Extract date part from scheduled_date string (format: "2024-01-15 10:00:00")
-        const jobDateString = job.scheduled_date ? job.scheduled_date.split(' ')[0] : ''
-        const startDateString = startDate.toISOString().split('T')[0]
-        return jobDateString >= startDateString
+        // Handle both ISO format (2025-08-20T09:00:00) and space format (2025-08-20 09:00:00)
+        let jobDateString = ''
+        if (job.scheduled_date) {
+          if (job.scheduled_date.includes('T')) {
+            // ISO format: 2025-08-20T09:00:00
+            jobDateString = job.scheduled_date.split('T')[0]
+          } else {
+            // Space format: 2025-08-20 09:00:00
+            jobDateString = job.scheduled_date.split(' ')[0]
+          }
+        }
+        const matches = jobDateString >= startDateString
+        console.log(`📅 Range Job ${job.id}: scheduled_date="${job.scheduled_date}" -> jobDateString="${jobDateString}" -> matches=${matches}`)
+        return matches
       })
+      
+      console.log('📅 Range jobs found:', rangeJobs.length)
       
       const rangeInvoices = invoices.filter(invoice => {
-        const invoiceDate = new Date(invoice.created_at)
-        return invoiceDate >= startDate
+        // Handle both ISO format and space format for created_at
+        let invoiceDateString = ''
+        if (invoice.created_at) {
+          if (invoice.created_at.includes('T')) {
+            invoiceDateString = invoice.created_at.split('T')[0]
+          } else {
+            invoiceDateString = invoice.created_at.split(' ')[0]
+          }
+        }
+        return invoiceDateString >= startDateString
       })
       
-      // Calculate metrics
+      // Calculate metrics - use same date logic as Schedule page
       const newJobs = rangeJobs.filter(job => {
-        const jobDate = new Date(job.created_at)
-        return jobDate >= startDate
+        // Handle both ISO format and space format for created_at
+        let jobDateString = ''
+        if (job.created_at) {
+          if (job.created_at.includes('T')) {
+            jobDateString = job.created_at.split('T')[0]
+          } else {
+            jobDateString = job.created_at.split(' ')[0]
+          }
+        }
+        return jobDateString >= startDateString
       }).length
       
       // Calculate total revenue from invoices OR job prices as fallback
@@ -484,11 +571,19 @@ const ServiceFlowDashboard = () => {
       const maxJobValue = Math.max(avgJobValue, 100) // Use $100 as minimum scale
       const maxRevenue = Math.max(totalRevenue, 1000) // Use $1000 as minimum scale
       
-      // Calculate recurring bookings (jobs with is_recurring = true)
+      // Calculate recurring bookings (jobs with is_recurring = true) - use same date logic
       const recurringJobs = jobs.filter(job => job.is_recurring === true)
       const newRecurringJobs = recurringJobs.filter(job => {
-        const jobDate = new Date(job.created_at)
-        return jobDate >= startDate
+        // Handle both ISO format and space format for created_at
+        let jobDateString = ''
+        if (job.created_at) {
+          if (job.created_at.includes('T')) {
+            jobDateString = job.created_at.split('T')[0]
+          } else {
+            jobDateString = job.created_at.split(' ')[0]
+          }
+        }
+        return jobDateString >= startDateString
       }).length
       
       const newDashboardData = {
@@ -510,6 +605,13 @@ const ServiceFlowDashboard = () => {
       
       setDashboardData(newDashboardData)
       setTodayJobsList(todayJobs) // Store today's jobs for the map
+      
+      console.log('📊 Final dashboard data:')
+      console.log('📊 Today jobs:', newDashboardData.todayJobs)
+      console.log('📊 Total jobs (range):', newDashboardData.totalJobs)
+      console.log('📊 New jobs:', newDashboardData.newJobs)
+      console.log('📊 Today earnings:', newDashboardData.todayEarnings)
+      console.log('📊 Total revenue:', newDashboardData.totalRevenue)
       
       // Check setup task completion
       await checkSetupTaskCompletion(services, jobs, teamMembers)
@@ -917,10 +1019,13 @@ const ServiceFlowDashboard = () => {
                       {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                     </span>
                     <button
-                      onClick={fetchDashboardData}
+                      onClick={() => {
+                        console.log('🔄 Manual refresh triggered')
+                        fetchDashboardData()
+                      }}
                       disabled={isLoading}
                       className="p-2 text-gray-400 hover:text-gray-600 disabled:opacity-50"
-                      title="Refresh dashboard data"
+                      title="Force refresh dashboard data (clears cache)"
                     >
                       <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
                     </button>

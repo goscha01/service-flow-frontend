@@ -3,6 +3,8 @@ import { X, ChevronRight, ChevronLeft, Clock, DollarSign, Users, Tag } from 'luc
 import { servicesAPI } from '../services/api';
 import ServiceModifiersForm from './service-modifiers-form';
 import IntakeQuestionsForm from './intake-questions-form';
+import { useCategory } from '../context/CategoryContext';
+import useServiceSettings from './use-service-settings';
 
 const ServiceSelectionModal = ({ 
   isOpen, 
@@ -11,12 +13,25 @@ const ServiceSelectionModal = ({
   selectedServices = [],
   user 
 }) => {
-  const [categories, setCategories] = useState([]);
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentView, setCurrentView] = useState('categories'); // 'categories', 'services', 'customize'
   const [selectedCategory, setSelectedCategory] = useState(null);
+  
+  // Use global category state
+  const { 
+    selectedCategoryId, 
+    selectedCategoryName, 
+    categories, 
+    setCategories, 
+    selectCategory 
+  } = useCategory();
+  
+  // Check if categories are enabled in service settings
+  const { 
+    settings: { categoriesEnabled } 
+  } = useServiceSettings({ categoriesEnabled: false });
   const [selectedService, setSelectedService] = useState(null);
   const [selectedModifiers, setSelectedModifiers] = useState({});
   const [intakeQuestionAnswers, setIntakeQuestionAnswers] = useState({});
@@ -83,12 +98,32 @@ const ServiceSelectionModal = ({
   useEffect(() => {
     if (isOpen && user?.id) {
       console.log('🔄 Loading data for user:', user.id);
-      loadCategories();
-      loadServices();
+      console.log('🔄 Categories enabled:', categoriesEnabled);
+      
+      if (categoriesEnabled) {
+        loadCategories();
+        loadServices();
+      } else {
+        // When categories are disabled, skip categories and load all services directly
+        loadServices();
+        setCurrentView('services'); // Skip categories view
+      }
     } else if (isOpen) {
       console.warn('⚠️ Modal opened but no user ID available:', user);
     }
-  }, [isOpen, user?.id]);
+  }, [isOpen, user?.id, categoriesEnabled]);
+
+  // Auto-select globally selected category when modal opens (only when categories are enabled)
+  useEffect(() => {
+    if (isOpen && categoriesEnabled && selectedCategoryId && categories.length > 0) {
+      const globalCategory = categories.find(cat => cat.id === selectedCategoryId);
+      if (globalCategory) {
+        setSelectedCategory(globalCategory);
+        setCurrentView('services');
+        loadServices(globalCategory.id);
+      }
+    }
+  }, [isOpen, categoriesEnabled, selectedCategoryId, categories]);
 
   // Debug services data
   useEffect(() => {
@@ -171,6 +206,8 @@ const ServiceSelectionModal = ({
 
   const handleCategorySelect = (category) => {
     setSelectedCategory(category);
+    // Update global category state
+    selectCategory(category.id, category.name);
     setCurrentView('services');
   };
 
@@ -417,6 +454,23 @@ const ServiceSelectionModal = ({
   };
 
   const getFilteredServices = () => {
+    // When categories are disabled, show all services
+    if (!categoriesEnabled) {
+      console.log('🔍 Categories disabled - showing all services:', services);
+      let filtered = services;
+      
+      // Apply search filter
+      if (searchTerm) {
+        filtered = filtered.filter(service => 
+          service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (service.description && service.description.toLowerCase().includes(searchTerm.toLowerCase()))
+        );
+      }
+      
+      return filtered;
+    }
+    
+    // When categories are enabled, filter by selected category
     if (!selectedCategory) return [];
     
     console.log('🔍 Filtering services for category:', selectedCategory);
@@ -484,7 +538,7 @@ const ServiceSelectionModal = ({
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div className="flex items-center space-x-4">
-            {currentView !== 'categories' && (
+            {currentView !== 'categories' && categoriesEnabled && (
               <button
                 onClick={handleBack}
                 className="p-2 hover:bg-gray-100 rounded-full transition-colors"
@@ -495,12 +549,12 @@ const ServiceSelectionModal = ({
             <div>
               <h2 className="text-xl font-semibold text-gray-900">
                 {currentView === 'categories' && 'Select Service Category'}
-                {currentView === 'services' && `Services in ${selectedCategory?.name}`}
+                {currentView === 'services' && (categoriesEnabled ? `Services in ${selectedCategory?.name}` : 'All Services')}
                 {currentView === 'customize' && `Customize ${selectedService?.name}`}
               </h2>
               <p className="text-sm text-gray-600 mt-1">
                 {currentView === 'categories' && 'Choose a category to see available services'}
-                {currentView === 'services' && 'Select a service to add to your job'}
+                {currentView === 'services' && (categoriesEnabled ? 'Select a service to add to your job' : 'Select a service to add to your job')}
                 {currentView === 'customize' && 'Configure options and provide additional information'}
               </p>
             </div>
@@ -538,8 +592,8 @@ const ServiceSelectionModal = ({
             </div>
           ) : (
             <>
-              {/* Categories View */}
-              {currentView === 'categories' && (
+              {/* Categories View - Only show when categories are enabled */}
+              {currentView === 'categories' && categoriesEnabled && (
                 <div>
                   {categories.length === 0 && services.length === 0 ? (
                     <div className="text-center py-8">
@@ -594,10 +648,23 @@ const ServiceSelectionModal = ({
                 </div>
               )}
 
-              {/* Services View */}
+              {/* Services View - Show all services when categories are disabled, or filtered services when categories are enabled */}
               {currentView === 'services' && (
                 <div className="space-y-4">
-                  {getFilteredServices().map((service) => (
+                  {getFilteredServices().length === 0 ? (
+                    <div className="text-center py-8">
+                      <div className="text-gray-400 mb-2">
+                        <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                        </svg>
+                      </div>
+                      <h3 className="text-lg font-medium text-gray-900 mb-1">No Services Found</h3>
+                      <p className="text-sm text-gray-600">
+                        {searchTerm ? 'No services match your search criteria.' : 'You haven\'t created any services yet.'}
+                      </p>
+                    </div>
+                  ) : (
+                    getFilteredServices().map((service) => (
                     <button
                       key={service.id}
                       onClick={() => handleServiceSelect(service)}
@@ -642,7 +709,8 @@ const ServiceSelectionModal = ({
                         <ChevronRight className="w-5 h-5 text-gray-400" />
                       </div>
                     </button>
-                  ))}
+                    ))
+                  )}
                 </div>
               )}
 

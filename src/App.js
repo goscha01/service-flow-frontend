@@ -1,9 +1,9 @@
 import './App.css';
 import './index.css'
-import HomePage from './app/page';
+import { Navigate } from 'react-router-dom';
 
 function App() {
-  return <HomePage />;
+  return <Navigate to="/dashboard" replace />;
 }
 
 export default App;

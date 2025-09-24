@@ -82,12 +82,14 @@ import TeamMemberFieldApp from "./pages/team-member-field-app"
 import TeamMemberSignup from "./pages/team-member-signup"
 import DropdownMultiselectDemo from "./pages/dropdown-multiselect-demo"
 import { TeamMemberAuthProvider } from "./context/TeamMemberAuthContext"
+import { CategoryProvider } from "./context/CategoryContext"
 
 const root = ReactDOM.createRoot(document.getElementById("root"))
 root.render(
   <BrowserRouter>
     <AuthProvider>
-      <TeamMemberAuthProvider>
+      <CategoryProvider>
+        <TeamMemberAuthProvider>
         <Routes>
       <Route index element={<App />} />
       <Route path="signup" element={<SignupForm />} />
@@ -180,7 +182,8 @@ root.render(
       {/* Catch-all route - redirect to dashboard for any unmatched routes */}
       <Route path="*" element={<ProtectedRoute><ServiceFlowDashboard /></ProtectedRoute>} />
       </Routes>
-    </TeamMemberAuthProvider>
+        </TeamMemberAuthProvider>
+      </CategoryProvider>
     </AuthProvider>
   </BrowserRouter>,
 )

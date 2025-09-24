@@ -134,15 +134,22 @@ const JobDetails = () => {
         taxes: job.taxes,
         total: job.total
       })
+      const servicePrice = job.service_price || 0;
+      const discount = job.discount || 0;
+      const additionalFees = job.additional_fees || 0;
+      const taxes = job.taxes || 0;
+      const calculatedTotal = servicePrice + additionalFees + taxes - discount;
+      
       setFormData(prev => ({
         ...prev,
         service_name: job.service_name || "",
         bathroom_count: job.bathroom_count || "",
         duration: job.duration || job.estimated_duration || 0,
-        service_price: job.service_price || 0,
-        discount: job.discount || 0,
-        additional_fees: job.additional_fees || 0,
-        taxes: job.taxes || 0
+        service_price: servicePrice,
+        discount: discount,
+        additional_fees: additionalFees,
+        taxes: taxes,
+        total: calculatedTotal
       }))
     }
   }, [showEditServiceModal, job])
@@ -432,7 +439,11 @@ const JobDetails = () => {
         total: (formData.service_price !== undefined ? formData.service_price : (job.service_price || 0)) + 
                (formData.additional_fees !== undefined ? formData.additional_fees : (job.additional_fees || 0)) + 
                (formData.taxes !== undefined ? formData.taxes : (job.taxes || 0)) - 
-               (formData.discount !== undefined ? formData.discount : (job.discount || 0))
+               (formData.discount !== undefined ? formData.discount : (job.discount || 0)),
+        total_amount: (formData.service_price !== undefined ? formData.service_price : (job.service_price || 0)) + 
+                     (formData.additional_fees !== undefined ? formData.additional_fees : (job.additional_fees || 0)) + 
+                     (formData.taxes !== undefined ? formData.taxes : (job.taxes || 0)) - 
+                     (formData.discount !== undefined ? formData.discount : (job.discount || 0))
       }
       
       console.log('🔄 Job Details: Sending update data:', updatedJob);
@@ -1437,11 +1448,11 @@ const JobDetails = () => {
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span>Subtotal</span>
-                    <span>${job.service_price || 0}</span>
+                    <span>${(parseFloat(job.service_price) || 0).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between font-semibold">
                     <span>Total</span>
-                    <span>${calculateTotalPrice().toFixed(2)}</span>
+                    <span>${(parseFloat(job.total) || parseFloat(job.service_price) || 0).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Amount paid</span>
@@ -1449,7 +1460,7 @@ const JobDetails = () => {
                   </div>
                   <div className="flex justify-between font-semibold text-lg">
                     <span>Total due</span>
-                    <span>${calculateTotalPrice().toFixed(2)}</span>
+                    <span>${(parseFloat(job.total) || parseFloat(job.service_price) || 0).toFixed(2)}</span>
                   </div>
                 </div>
 
@@ -2115,8 +2126,15 @@ const JobDetails = () => {
                     <input
                       type="number"
                           step="0.01"
-                          defaultValue={job?.service_price || 0}
-                          onChange={e => setFormData(prev => ({ ...prev, service_price: parseFloat(e.target.value) || 0 }))}
+                          value={formData.service_price || 0}
+                          onChange={e => {
+                            const newPrice = parseFloat(e.target.value) || 0;
+                            setFormData(prev => ({ 
+                              ...prev, 
+                              service_price: newPrice,
+                              total: newPrice + (prev.additional_fees || 0) + (prev.taxes || 0) - (prev.discount || 0)
+                            }));
+                          }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                           placeholder="0.00"
                         />
@@ -2126,8 +2144,15 @@ const JobDetails = () => {
                         <input
                           type="number"
                           step="0.01"
-                          defaultValue={job?.discount || 0}
-                          onChange={e => setFormData(prev => ({ ...prev, discount: parseFloat(e.target.value) || 0 }))}
+                          value={formData.discount || 0}
+                          onChange={e => {
+                            const newDiscount = parseFloat(e.target.value) || 0;
+                            setFormData(prev => ({ 
+                              ...prev, 
+                              discount: newDiscount,
+                              total: (prev.service_price || 0) + (prev.additional_fees || 0) + (prev.taxes || 0) - newDiscount
+                            }));
+                          }}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                           placeholder="0.00"
                         />
@@ -2137,8 +2162,15 @@ const JobDetails = () => {
                         <input
                           type="number"
                           step="0.01"
-                          defaultValue={job?.additional_fees || 0}
-                          onChange={e => setFormData(prev => ({ ...prev, additional_fees: parseFloat(e.target.value) || 0 }))}
+                          value={formData.additional_fees || 0}
+                          onChange={e => {
+                            const newFees = parseFloat(e.target.value) || 0;
+                            setFormData(prev => ({ 
+                              ...prev, 
+                              additional_fees: newFees,
+                              total: (prev.service_price || 0) + newFees + (prev.taxes || 0) - (prev.discount || 0)
+                            }));
+                          }}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                           placeholder="0.00"
                         />
@@ -2148,8 +2180,15 @@ const JobDetails = () => {
                         <input
                           type="number"
                           step="0.01"
-                          defaultValue={job?.taxes || 0}
-                          onChange={e => setFormData(prev => ({ ...prev, taxes: parseFloat(e.target.value) || 0 }))}
+                          value={formData.taxes || 0}
+                          onChange={e => {
+                            const newTaxes = parseFloat(e.target.value) || 0;
+                            setFormData(prev => ({ 
+                              ...prev, 
+                              taxes: newTaxes,
+                              total: (prev.service_price || 0) + (prev.additional_fees || 0) + newTaxes - (prev.discount || 0)
+                            }));
+                          }}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                           placeholder="0.00"
                         />
@@ -2158,7 +2197,7 @@ const JobDetails = () => {
                         <div className="flex justify-between text-sm">
                           <span className="font-medium">Total:</span>
                           <span className="font-semibold">
-                            ${((job?.service_price || 0) + (job?.additional_fees || 0) + (job?.taxes || 0) - (job?.discount || 0)).toFixed(2)}
+                            ${(formData.total || 0).toFixed(2)}
                           </span>
                         </div>
                       </div>
@@ -2406,7 +2445,7 @@ const JobDetails = () => {
 
 Please find attached the invoice for your recent service.
 
-Total Amount: $${job.total_amount || job.service_price || 0}
+Total Amount: $${(parseFloat(job.total) || parseFloat(job.service_price) || 0).toFixed(2)}
 
 Thank you for choosing our services.
 
@@ -2466,7 +2505,7 @@ Your Service Team`}
                     <input
                       type="number"
                       step="0.01"
-                      defaultValue={job.total_amount || job.service_price || 0}
+                      defaultValue={parseFloat(job.total) || parseFloat(job.service_price) || 0}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       placeholder="Enter amount"
                     />

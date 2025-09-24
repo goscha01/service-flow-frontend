@@ -22,12 +22,12 @@ const IntakeQuestionModal = ({ isOpen, onClose, selectedQuestionType, onSave, ed
   const [imageUploading, setImageUploading] = useState({});
 
   const questionTypes = [
-    { value: 'dropdown', label: 'Dropdown', icon: '📋' },
-    { value: 'multiple_choice', label: 'Multiple Choice', icon: '☑️' },
+    { value: 'dropdown', label: 'Dropdown (Single/Multi)', icon: '📋' },
+    { value: 'multiple_choice', label: 'Multiple Choice (Single/Multi)', icon: '☑️' },
     { value: 'picture_choice', label: 'Picture Choice', icon: '🖼️' },
     { value: 'short_text', label: 'Short Text Answer', icon: '📝' },
     { value: 'long_text', label: 'Long Text Answer', icon: '📄' },
-    { value: 'color_choice', label: 'Color Choice', icon: '🎨' },
+    { value: 'color_choice', label: 'Color Choice (Single/Multi)', icon: '🎨' },
     { value: 'image_upload', label: 'Image Upload', icon: '📸' },
     { value: 'quantity_select', label: 'Quantity Select', icon: '🔢' }
   ];
