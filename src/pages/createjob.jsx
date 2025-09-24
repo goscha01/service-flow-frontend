@@ -67,6 +67,7 @@ import IntakeQuestionsForm from "../components/intake-questions-form";
 import ServiceModifiersForm from "../components/service-modifiers-form";
 import ServiceCustomizationPopup from "../components/service-customization-popup";
 import ServiceSelectionModal from "../components/service-selection-modal";
+import CreateServiceModal from "../components/create-service-modal";
 import { useNavigate } from 'react-router-dom';
 import { jobsAPI, customersAPI, servicesAPI, teamAPI, territoriesAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -88,6 +89,7 @@ export default function CreateJobPage() {
   const [showTerritoryModal, setShowTerritoryModal] = useState(false);
   const [showServiceCustomizationPopup, setShowServiceCustomizationPopup] = useState(false);
   const [showServiceSelectionModal, setShowServiceSelectionModal] = useState(false);
+  const [showCreateServiceModal, setShowCreateServiceModal] = useState(false);
 
   // Form data
   const [formData, setFormData] = useState({
@@ -178,6 +180,7 @@ export default function CreateJobPage() {
   const [selectedModifiers, setSelectedModifiers] = useState({}); // { modifierId: selectedOptions[] }
   const [intakeQuestionAnswers, setIntakeQuestionAnswers] = useState({}); // { questionId: answer }
   const [calculationTrigger, setCalculationTrigger] = useState(0); // Trigger for recalculations
+  const [editedModifierPrices, setEditedModifierPrices] = useState({}); // { modifierId_optionId: price }
 
   // Expandable sections
   const [expandedSections, setExpandedSections] = useState({
@@ -1102,6 +1105,32 @@ export default function CreateJobPage() {
     setShowServiceSelectionModal(false);
   };
 
+  const handleServiceCreated = (service) => {
+    console.log('🔧 Service created:', service);
+    
+    // Extract service data from response (handle different response structures)
+    const serviceData = service.service || service;
+    console.log('🔧 Extracted service data:', serviceData);
+    
+    // Add the created service to selected services
+    setSelectedServices(prev => [...prev, serviceData]);
+    setSelectedService(serviceData);
+    
+    // Update form data with proper service information
+    setFormData(prev => ({
+      ...prev,
+      serviceId: serviceData.id,
+      serviceName: serviceData.name,
+      price: parseFloat(serviceData.price) || 0,
+      total: parseFloat(serviceData.price) || 0
+    }));
+    
+    // Close the create service modal
+    setShowCreateServiceModal(false);
+    
+    console.log('🔧 Service added to job successfully');
+  };
+
   const handleServiceSelectFromModal = (service) => {
     // Handle service selection from the modal
     console.log('🔧 Service selected from modal:', service);
@@ -1255,7 +1284,7 @@ export default function CreateJobPage() {
     const convertedModifiers = {};
     
     Object.entries(modifiers).forEach(([modifierId, modifierData]) => {
-      const modifier = formData.serviceModifiers?.find(m => m.id == modifierId);
+      const modifier = formData.serviceModifiers?.find(m => m.id === modifierId);
       
       if (!modifier) {
         console.log('🔧 Modifier not found for ID:', modifierId);
@@ -1316,7 +1345,17 @@ export default function CreateJobPage() {
 
   // Handle intake questions change from the new component
   const handleIntakeQuestionsChange = (answers) => {
-    setIntakeQuestionAnswers(answers);
+setIntakeQuestionAnswers(answers);
+  };
+
+  // Handle modifier price changes
+  const handleModifierPriceChange = (modifierId, optionId, price) => {
+    const priceKey = `${modifierId}_option_${optionId}`;
+    setEditedModifierPrices(prev => ({
+      ...prev,
+      [priceKey]: parseFloat(price) || 0
+    }));
+    setCalculationTrigger(prev => prev + 1); // Trigger recalculation
   };
 
   // Calculate total price including modifiers
@@ -1328,7 +1367,7 @@ export default function CreateJobPage() {
       
       // Add prices from selected modifiers
       Object.entries(selectedModifiers).forEach(([modifierId, modifierData]) => {
-        const modifier = formData.serviceModifiers?.find(m => m.id == modifierId);
+        const modifier = formData.serviceModifiers?.find(m => m.id === modifierId);
         if (!modifier) {
           return;
         }
@@ -1336,9 +1375,12 @@ export default function CreateJobPage() {
         if (modifier.selectionType === 'quantity') {
           // Handle quantity selection - modifierData is { optionId: quantity }
           Object.entries(modifierData).forEach(([optionId, quantity]) => {
-            const option = modifier.options?.find(o => o.id == optionId);
-            if (option && option.price && quantity > 0) {
-              const optionPrice = parseFloat(option.price) || 0;
+            const option = modifier.options?.find(o => o.id === optionId);
+            if (option && quantity > 0) {
+              // Use edited price if available, otherwise use original price
+              const priceKey = `${modifierId}_option_${optionId}`;
+              const editedPrice = editedModifierPrices[priceKey];
+              const optionPrice = editedPrice !== undefined ? editedPrice : (parseFloat(option.price) || 0);
               const optionTotal = optionPrice * quantity;
               modifierPrice += optionTotal;
             }
@@ -1347,9 +1389,12 @@ export default function CreateJobPage() {
           // Handle single/multi selection - modifierData is array of optionIds
           const selectedOptionIds = Array.isArray(modifierData) ? modifierData : [modifierData];
           selectedOptionIds.forEach(optionId => {
-            const option = modifier.options?.find(o => o.id == optionId);
-            if (option && option.price) {
-              const optionPrice = parseFloat(option.price) || 0;
+            const option = modifier.options?.find(o => o.id === optionId);
+            if (option) {
+              // Use edited price if available, otherwise use original price
+              const priceKey = `${modifierId}_option_${optionId}`;
+              const editedPrice = editedModifierPrices[priceKey];
+              const optionPrice = editedPrice !== undefined ? editedPrice : (parseFloat(option.price) || 0);
               modifierPrice += optionPrice;
             }
           });
@@ -1373,13 +1418,13 @@ export default function CreateJobPage() {
       
       // Add duration from selected modifiers
       Object.entries(selectedModifiers).forEach(([modifierId, modifierData]) => {
-        const modifier = formData.serviceModifiers?.find(m => m.id == modifierId);
+        const modifier = formData.serviceModifiers?.find(m => m.id === modifierId);
         if (!modifier) return;
         
         if (modifier.selectionType === 'quantity') {
           // Handle quantity selection - modifierData is { optionId: quantity }
           Object.entries(modifierData).forEach(([optionId, quantity]) => {
-            const option = modifier.options?.find(o => o.id == optionId);
+            const option = modifier.options?.find(o => o.id === optionId);
             if (option && option.duration && quantity > 0) {
               // Modifier durations are stored in minutes
               const optionDurationInMinutes = parseFloat(option.duration) || 0;
@@ -1391,7 +1436,7 @@ export default function CreateJobPage() {
           // Handle single/multi selection - modifierData is array of optionIds
           const selectedOptionIds = Array.isArray(modifierData) ? modifierData : [modifierData];
           selectedOptionIds.forEach(optionId => {
-            const option = modifier.options?.find(o => o.id == optionId);
+            const option = modifier.options?.find(o => o.id === optionId);
             if (option && option.duration) {
               // Modifier durations are stored in minutes
               const optionDurationInMinutes = parseFloat(option.duration) || 0;
@@ -1556,6 +1601,21 @@ export default function CreateJobPage() {
                         authLoading ? 'cursor-not-allowed bg-gray-100' : 'cursor-pointer'
                       }`}
                     />
+                    
+                    {/* Create New Service Button */}
+                    <div className="mt-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowCreateServiceModal(true)}
+                        className="w-full px-3 py-2 border border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors flex items-center justify-center space-x-2"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                        <span>Create New Service</span>
+                      </button>
+                    </div>
+                    
                     {selectedServices.length > 0 && (
                       <div className="mt-2 space-y-2">
                         {selectedServices.map((service, index) => (
@@ -1796,6 +1856,9 @@ export default function CreateJobPage() {
                           modifiers={formData.serviceModifiers}
                           selectedModifiers={selectedModifiers}
                           onModifiersChange={handleModifiersChange}
+                          editedModifierPrices={editedModifierPrices}
+                          onModifierPriceChange={handleModifierPriceChange}
+                          isEditable={true}
                         />
                       </div>
                     )}
@@ -2563,6 +2626,13 @@ export default function CreateJobPage() {
           setShowServiceSelectionModal(false);
         }}
         selectedServices={selectedServices}
+        user={user}
+      />
+
+      <CreateServiceModal
+        isOpen={showCreateServiceModal}
+        onClose={() => setShowCreateServiceModal(false)}
+        onServiceCreated={handleServiceCreated}
         user={user}
       />
     </div>

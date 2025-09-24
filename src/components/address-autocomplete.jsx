@@ -5,7 +5,7 @@ import { loadGoogleMapsScript, initializePlacesAutocomplete, getPlaceDetails, is
 const AddressAutocomplete = ({ 
   value, 
   onChange, 
-  onAddressSelect,
+  onAddressSelect, 
   placeholder = "Enter address",
   className = "",
   showValidationResults = true,
@@ -143,13 +143,13 @@ const AddressAutocomplete = ({
           {getStatusIcon()}
         </div>
       </div>
-
+      
       {/* Loading State */}
       {!googleMapsReady && (
         <div className="mt-2 text-sm text-gray-500 flex items-center gap-1">
           <Loader2 className="w-4 h-4 animate-spin" />
           Loading Google Maps...
-        </div>
+                </div>
       )}
 
       {/* Error Message */}
@@ -157,8 +157,8 @@ const AddressAutocomplete = ({
         <div className="mt-2 text-sm text-red-600 flex items-center gap-1">
           <AlertCircle className="w-4 h-4" />
           {error}
-        </div>
-      )}
+                  </div>
+                  )}
 
       {/* Selected Address Info */}
       {selectedAddress && showValidationResults && (
@@ -171,7 +171,7 @@ const AddressAutocomplete = ({
           {selectedAddress.components.city && (
             <div className="mt-1 text-xs text-green-600">
               {selectedAddress.components.city}, {selectedAddress.components.state} {selectedAddress.components.zipCode}
-            </div>
+              </div>
           )}
         </div>
       )}

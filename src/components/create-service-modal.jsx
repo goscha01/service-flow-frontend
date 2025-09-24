@@ -1,415 +1,697 @@
-import { useState } from "react"
-import { X, DollarSign, Clock, FileText, Tag, ChevronDown } from "lucide-react"
+import React, { useState, useEffect, useCallback } from 'react';
+import { X, ChevronRight, ChevronLeft, Plus, Tag } from 'lucide-react';
+import { servicesAPI } from '../services/api';
+import ServiceModifiersForm from './service-modifiers-form';
+import CreateModifierGroupModal from './create-modifier-group-modal';
+import IntakeQuestionModal from './intake-question-modal';
 
-const CreateServiceModal = ({ isOpen, onClose, onCreateService, onStartWithTemplate, existingCategories = [] }) => {
+const CreateServiceModal = ({ 
+  isOpen, 
+  onClose, 
+  onServiceCreated,
+  user 
+}) => {
+  const [currentStep, setCurrentStep] = useState(1); // 1: Category, 2: Basic Info, 3: Modifiers, 4: Intake Questions, 5: Review
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-    price: "",
-    duration: { hours: 0, minutes: 30 },
-    category: "",
-    category_id: null,
-    isFree: false,
-    image: null
-  })
-  const [loading, setLoading] = useState(false)
-  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false)
-  const [newCategory, setNewCategory] = useState("")
+    categoryId: '',
+    name: '',
+    description: '',
+    price: '',
+    duration: '',
+    workers: 1,
+    skills: 0,
+    modifiers: [],
+    intakeQuestions: []
+  });
+  const [selectedModifiers, setSelectedModifiers] = useState({});
+  
+  // Modal states for modifiers and intake questions
+  const [isCreateModifierGroupModalOpen, setIsCreateModifierGroupModalOpen] = useState(false);
+  const [editingModifier, setEditingModifier] = useState(null);
+  const [isIntakeModalOpen, setIsIntakeModalOpen] = useState(false);
+  const [selectedQuestionType, setSelectedQuestionType] = useState(null);
+  const [editingIntakeQuestion, setEditingIntakeQuestion] = useState(null);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    if (!formData.name.trim()) return
-
-    setLoading(true)
+  const loadCategories = useCallback(async () => {
     try {
-      await onCreateService(formData)
-      // Reset form
-      resetForm()
+      setLoading(true);
+      const categoriesData = await servicesAPI.getServiceCategories(user.id);
+      setCategories(categoriesData || []);
     } catch (error) {
-      console.error('Error creating service:', error)
+      console.error('Error loading categories:', error);
+      setCategories([]);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  }, [user?.id, setCategories]);
+
+  // Load categories when modal opens
+  useEffect(() => {
+    if (isOpen && user?.id) {
+      loadCategories();
+    }
+  }, [isOpen, user?.id, loadCategories]);
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
-    }))
-  }
+    }));
+    
+    // Don't update global state when creating a service
+    // The global category state should remain unchanged during service creation
+  };
 
-  const handleDurationChange = (field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      duration: {
-        ...prev.duration,
-        [field]: parseInt(value) || 0
+  const handleModifiersChange = (modifiers) => {
+    setSelectedModifiers(modifiers);
+  };
+
+
+  // Modifier handlers
+  const handleEditModifier = (modifier) => {
+    setEditingModifier(modifier);
+    setIsCreateModifierGroupModalOpen(true);
+  };
+
+  const handleSaveModifierGroup = async (modifierGroupData) => {
+    try {
+      let updatedModifiers;
+      
+      if (editingModifier) {
+        // Update existing modifier
+        updatedModifiers = formData.modifiers.map(m => 
+          m.id === editingModifier.id ? {
+            ...m,
+            ...modifierGroupData
+          } : m
+        );
+      } else {
+        // Create new modifier
+        const maxId = formData.modifiers.length > 0 
+          ? Math.max(...formData.modifiers.map(m => m.id || 0))
+          : 0;
+        
+        const newModifier = {
+          id: maxId + 1,
+          ...modifierGroupData
+        };
+        
+        updatedModifiers = [...formData.modifiers, newModifier];
       }
-    }))
-  }
-
-  const handleToggleFree = () => {
+      
     setFormData(prev => ({
       ...prev,
-      isFree: !prev.isFree,
-      price: prev.isFree ? prev.price : ""
-    }))
-  }
+        modifiers: updatedModifiers
+      }));
+      
+      setIsCreateModifierGroupModalOpen(false);
+      setEditingModifier(null);
+    } catch (error) {
+      console.error('Error saving modifier group:', error);
+    }
+  };
 
-  const resetForm = () => {
+  // Intake question handlers
+  const handleOpenIntakeModal = (questionType) => {
+    setSelectedQuestionType(questionType);
+    setIsIntakeModalOpen(true);
+  };
+
+  const handleCloseIntakeModal = () => {
+    setIsIntakeModalOpen(false);
+    setSelectedQuestionType(null);
+    setEditingIntakeQuestion(null);
+  };
+
+  const handleSaveIntakeQuestion = async (questionData) => {
+    try {
+      let updatedQuestions;
+      
+      if (editingIntakeQuestion) {
+        // Update existing question
+        updatedQuestions = formData.intakeQuestions.map(q => 
+          q.id === editingIntakeQuestion.id ? {
+            ...q,
+            ...questionData
+          } : q
+        );
+      } else {
+        // Create new question
+        const maxId = formData.intakeQuestions.length > 0 
+          ? Math.max(...formData.intakeQuestions.map(q => q.id || 0))
+          : 0;
+        
+        const newQuestion = {
+          id: maxId + 1,
+          ...questionData
+        };
+        
+        updatedQuestions = [...formData.intakeQuestions, newQuestion];
+      }
+      
+      setFormData(prev => ({
+        ...prev,
+        intakeQuestions: updatedQuestions
+      }));
+      
+      setIsIntakeModalOpen(false);
+      setSelectedQuestionType(null);
+      setEditingIntakeQuestion(null);
+    } catch (error) {
+      console.error('Error saving intake question:', error);
+    }
+  };
+
+  const handleEditIntakeQuestion = (question) => {
+    setEditingIntakeQuestion(question);
+    setIsIntakeModalOpen(true);
+  };
+
+  const handleDeleteIntakeQuestion = (questionId) => {
+    setFormData(prev => ({
+      ...prev,
+      intakeQuestions: prev.intakeQuestions.filter(q => q.id !== questionId)
+    }));
+  };
+
+  const handleNext = () => {
+    if (currentStep < 5) {
+      setCurrentStep(currentStep + 1);
+    }
+  };
+
+  const handleBack = () => {
+    if (currentStep > 1) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
+
+  const handleCreateService = async () => {
+    try {
+      setLoading(true);
+      
+      const serviceData = {
+        categoryId: formData.categoryId === 'uncategorized' ? null : formData.categoryId,
+        category: formData.categoryId === 'uncategorized' ? 'Uncategorized' : 
+                 categories.find(cat => cat.id === formData.categoryId)?.name || 'Uncategorized',
+        name: formData.name,
+        description: formData.description,
+        price: parseFloat(formData.price),
+        duration: parseInt(formData.duration),
+        workers: parseInt(formData.workers),
+        skills: parseInt(formData.skills),
+        modifiers: JSON.stringify(formData.modifiers),
+        intake_questions: JSON.stringify(formData.intakeQuestions),
+        userId: user.id
+      };
+
+      const createdService = await servicesAPI.create(serviceData);
+      
+      // Add the created service to the job
+      onServiceCreated(createdService);
+      
+      // Reset form and close modal
     setFormData({
-      name: "",
-      description: "",
-      price: "",
-      duration: { hours: 0, minutes: 30 },
-      category: "",
-      category_id: null,
-      isFree: false,
-      image: null
-    })
-    setNewCategory("")
-    setShowCategoryDropdown(false)
-  }
+        categoryId: '',
+        name: '',
+        description: '',
+        price: '',
+        duration: '',
+        workers: 1,
+        skills: 0,
+        modifiers: [],
+        intakeQuestions: []
+      });
+      setCurrentStep(1);
+      onClose();
+      
+    } catch (error) {
+      console.error('Error creating service:', error);
+      alert('Error creating service. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleClose = () => {
-    resetForm()
-    onClose()
-  }
+    setCurrentStep(1);
+    setFormData({
+      categoryId: '',
+      name: '',
+      description: '',
+      price: '',
+      duration: '',
+      workers: 1,
+      skills: 0,
+      modifiers: [],
+      intakeQuestions: []
+    });
+    setSelectedModifiers({});
+    onClose();
+  };
 
-  if (!isOpen) return null
+  const getStepTitle = () => {
+    switch (currentStep) {
+      case 1: return 'Select Category';
+      case 2: return 'Basic Information';
+      case 3: return 'Service Modifiers';
+      case 4: return 'Intake Questions';
+      case 5: return 'Review & Create';
+      default: return 'Create Service';
+    }
+  };
+
+  const getStepDescription = () => {
+    switch (currentStep) {
+      case 1: return 'Choose a category for your new service';
+      case 2: return 'Enter basic information about your service';
+      case 3: return 'Configure service options and modifiers';
+      case 4: return 'Set up customer intake questions';
+      case 5: return 'Review your service details before creating';
+      default: return '';
+    }
+  };
+
+  if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="fixed inset-0 bg-black opacity-50" onClick={onClose}></div>
-      <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl mx-4 relative max-h-[90vh] overflow-hidden flex flex-col">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[95vh] overflow-hidden flex flex-col">
+        {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">Create a service</h2>
+          <div className="flex items-center space-x-4">
+            {currentStep > 1 && (
+              <button
+                onClick={handleBack}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+            )}
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900">{getStepTitle()}</h2>
+              <p className="text-sm text-gray-600 mt-1">{getStepDescription()}</p>
+            </div>
+          </div>
           <button
             onClick={handleClose}
-            className="text-gray-400 hover:text-gray-500 transition-colors"
+            className="text-gray-400 hover:text-gray-500 hover:bg-gray-100 p-2 rounded-full transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="p-6 overflow-y-auto">
-          <p className="text-sm text-gray-600 mb-6">
-            A service is something your customers can book online. For example, a home cleaning or a junk removal pickup.
-          </p>
+        {/* Progress Bar */}
+        <div className="px-6 py-3 bg-gray-50 border-b border-gray-200">
+          <div className="flex items-center space-x-2">
+            {[1, 2, 3, 4, 5].map((step) => (
+              <React.Fragment key={step}>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                  step <= currentStep 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-gray-200 text-gray-600'
+                }`}>
+                  {step}
+                </div>
+                {step < 5 && (
+                  <div className={`w-8 h-1 ${
+                    step < currentStep ? 'bg-blue-600' : 'bg-gray-200'
+                  }`} />
+                )}
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Service Name */}
+        {/* Content */}
+        <div className="p-6 flex-1 overflow-y-auto pb-8">
+          {/* Step 1: Category Selection */}
+          {currentStep === 1 && (
+            <div className="space-y-4">
               <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-                Service Name *
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Service Category <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={formData.categoryId}
+                  onChange={(e) => handleInputChange('categoryId', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                >
+                  <option value="">Select a category...</option>
+                  <option value="uncategorized">Uncategorized</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              {loading && (
+                <div className="text-center py-4">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                  <p className="text-sm text-gray-600 mt-2">Loading categories...</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Step 2: Basic Information */}
+          {currentStep === 2 && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Service Name <span className="text-red-500">*</span>
                 </label>
                 <input
-                  id="name"
                   type="text"
                 value={formData.name}
                 onChange={(e) => handleInputChange('name', e.target.value)}
-                placeholder="e.g., Home Cleaning, TV Mounting"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="e.g., Home Cleaning, Plumbing Repair"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 required
                 />
-                <p className="mt-2 text-sm text-gray-500">
-                  Give this service a name which broadly describes it. For example,{" "}
-                  <em>Home Cleaning</em> rather than <em>1 Bedroom Home Cleaning</em>.
-                </p>
             </div>
 
-            {/* Description */}
             <div>
-              <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                 Description
               </label>
               <textarea
-                id="description"
                 value={formData.description}
                 onChange={(e) => handleInputChange('description', e.target.value)}
                 placeholder="Describe what this service includes..."
                 rows={3}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-
-            {/* Category */}
-            <div>
-              <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-2">
-                Category
-              </label>
-              <div className="relative">
-                <Tag className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-                <input
-                  id="category"
-                  type="text"
-                  value={formData.category}
-                  onChange={(e) => handleInputChange('category', e.target.value)}
-                  onFocus={() => setShowCategoryDropdown(true)}
-                  placeholder="e.g., Cleaning, Installation, Repair"
-                  className="w-full border border-gray-300 rounded-lg pl-10 pr-10 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
-                  className="absolute right-3 top-2.5 h-4 w-4 text-gray-400 hover:text-gray-600"
-                >
-                  <ChevronDown className={`w-4 h-4 transition-transform ${showCategoryDropdown ? 'rotate-180' : ''}`} />
-                </button>
-                
-                {/* Category Dropdown */}
-                {showCategoryDropdown && (
-                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                    {existingCategories.length > 0 && (
-                      <div className="p-2 border-b border-gray-200">
-                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide px-2 py-1">Existing Categories</p>
-                        {existingCategories.map((category, index) => (
-                          <button
-                            key={index}
-                            type="button"
-                            onClick={() => {
-                              handleInputChange('category', category.name)
-                              handleInputChange('category_id', category.id)
-                              setShowCategoryDropdown(false)
-                            }}
-                            className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md"
-                          >
-                            {category.name}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                    
-                    {/* Add New Category */}
-                    <div className="p-2">
-                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide px-2 py-1">Add New Category</p>
-                      <div className="flex space-x-2">
-                        <input
-                          type="text"
-                          value={newCategory}
-                          onChange={(e) => setNewCategory(e.target.value)}
-                          placeholder="Enter new category name"
-                          className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          onKeyPress={(e) => {
-                            if (e.key === 'Enter' && newCategory.trim()) {
-                              const trimmedName = newCategory.trim()
-                              const categoryExists = existingCategories.some(cat => 
-                                cat.name && cat.name.toLowerCase() === trimmedName.toLowerCase()
-                              )
-                              
-                              if (categoryExists) {
-                                alert(`Category "${trimmedName}" already exists. Please choose a different name.`)
-                                return
-                              }
-                              
-                              handleInputChange('category', trimmedName)
-                              handleInputChange('category_id', null) // Will be created on server
-                              setNewCategory("")
-                              setShowCategoryDropdown(false)
-                            }
-                          }}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (newCategory.trim()) {
-                              const trimmedName = newCategory.trim()
-                              const categoryExists = existingCategories.some(cat => 
-                                cat.name && cat.name.toLowerCase() === trimmedName.toLowerCase()
-                              )
-                              
-                              if (categoryExists) {
-                                alert(`Category "${trimmedName}" already exists. Please choose a different name.`)
-                                return
-                              }
-                              
-                              handleInputChange('category', trimmedName)
-                              handleInputChange('category_id', null) // Will be created on server
-                              setNewCategory("")
-                              setShowCategoryDropdown(false)
-                            }
-                          }}
-                          className="px-3 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                        >
-                          Add
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
               
-              {/* Close dropdown when clicking outside */}
-              {showCategoryDropdown && (
-                <div 
-                  className="fixed inset-0 z-0" 
-                  onClick={() => setShowCategoryDropdown(false)}
-                />
-              )}
-            </div>
-
-            {/* Price Section */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <label className="block text-sm font-medium text-gray-700">
-                  Pricing
-                </label>
-                <div className="flex items-center space-x-3">
-                  <label className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      checked={formData.isFree}
-                      onChange={handleToggleFree}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className="text-sm text-gray-700">Free service</span>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Price ($) <span className="text-red-500">*</span>
                   </label>
-                </div>
-              </div>
-
-              {!formData.isFree && (
-                <div className="relative">
-                  <DollarSign className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
                   <input
                     type="number"
+                    step="0.01"
+                    min="0"
                     value={formData.price}
                     onChange={(e) => handleInputChange('price', e.target.value)}
-                    onFocus={(e) => {
-                      e.target.select()
-                      // Clear default values when focusing
-                      if (e.target.value === '0' || e.target.value === '0.00') {
-                        e.target.value = ''
-                      }
-                    }}
-                    onBlur={(e) => {
-                      if (e.target.value === '') {
-                        handleInputChange('price', '')
-                      }
-                    }}
                     placeholder="0.00"
-                    min="0"
-                    step="0.01"
-                    className="w-full border border-gray-300 rounded-lg pl-10 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    required
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Duration (minutes) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={formData.duration}
+                    onChange={(e) => handleInputChange('duration', e.target.value)}
+                    placeholder="60"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                </div>
+            </div>
+
+              <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Workers Required
+              </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={formData.workers}
+                    onChange={(e) => handleInputChange('workers', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Skills Required
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formData.skills}
+                    onChange={(e) => handleInputChange('skills', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: Service Modifiers */}
+          {currentStep === 3 && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between mb-4">
+            <div>
+                  <h3 className="text-lg font-medium text-gray-900">Service Modifiers</h3>
+                  <p className="text-sm text-gray-600">Configure options and modifiers for your service</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsCreateModifierGroupModalOpen(true)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>New Modifier Group</span>
+                </button>
+              </div>
+
+              {formData.modifiers.length > 0 ? (
+                <div className="bg-gray-50 rounded-lg p-6">
+                  <ServiceModifiersForm 
+                    modifiers={formData.modifiers}
+                    selectedModifiers={selectedModifiers}
+                    onModifiersChange={handleModifiersChange}
+                    onEditModifier={handleEditModifier}
+                    isEditable={true}
+                  />
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Tag className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Modifiers Added</h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Add modifier groups to give customers options for your service
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setIsCreateModifierGroupModalOpen(true)}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    Add Your First Modifier
+                  </button>
                 </div>
               )}
             </div>
+          )}
 
-            {/* Duration */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Estimated Duration
-              </label>
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-2">
-                  <Clock className="h-4 w-4 text-gray-400" />
-                  <input
-                    type="number"
-                    value={formData.duration.hours}
-                    onChange={(e) => handleDurationChange('hours', e.target.value)}
-                    onFocus={(e) => {
-                      e.target.select()
-                      if (e.target.value === '0') {
-                        e.target.value = ''
-                      }
-                    }}
-                    onBlur={(e) => {
-                      if (e.target.value === '') {
-                        handleDurationChange('hours', '0')
-                      }
-                    }}
-                    placeholder="0"
-                    min="0"
-                    className="w-16 border border-gray-300 rounded-lg px-2 py-2 text-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                  <span className="text-sm text-gray-600">hours</span>
+          {/* Step 4: Intake Questions */}
+          {currentStep === 4 && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900">Intake Questions</h3>
+                  <p className="text-sm text-gray-600">Set up questions to collect additional information from customers</p>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="number"
-                    value={formData.duration.minutes}
-                    onChange={(e) => handleDurationChange('minutes', e.target.value)}
-                    onFocus={(e) => {
-                      e.target.select()
-                      // Clear default values when focusing
-                      if (e.target.value === '30' || e.target.value === '0') {
-                        e.target.value = ''
-                      }
-                    }}
-                    onBlur={(e) => {
-                      if (e.target.value === '') {
-                        handleDurationChange('minutes', '30')
-                      }
-                    }}
-                    placeholder="30"
-                    min="0"
-                    max="59"
-                    className="w-16 border border-gray-300 rounded-lg px-2 py-2 text-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                  <span className="text-sm text-gray-600">minutes</span>
+                <div className="flex space-x-2">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenIntakeModal('short_text')}
+                    className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                  >
+                    Short Text
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenIntakeModal('multiple_choice')}
+                    className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+                  >
+                    Multiple Choice
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenIntakeModal('dropdown')}
+                    className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm"
+                  >
+                    Dropdown
+                  </button>
                 </div>
               </div>
-            </div>
 
-            {/* Service Image */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Service Image
-              </label>
-              <div className="flex items-center space-x-4">
-                {formData.image ? (
-                  <div className="relative">
-                    <img
-                      src={URL.createObjectURL(formData.image)}
-                      alt="Service preview"
-                      className="w-20 h-20 object-cover rounded-lg border border-gray-300"
-                    />
+              {formData.intakeQuestions.length > 0 ? (
+                <div className="space-y-4">
+                  {formData.intakeQuestions.map((question, index) => (
+                    <div key={question.id} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2 mb-2">
+                            <span className="text-sm font-medium text-gray-700">
+                              {question.questionType === 'short_text' && '📝'}
+                              {question.questionType === 'multiple_choice' && '☑️'}
+                              {question.questionType === 'dropdown' && '📋'}
+                              {question.questionType === 'long_text' && '📄'}
+                            </span>
+                            <span className="text-sm font-medium text-gray-900">
+                              {question.question}
+                            </span>
+                            {question.required && (
+                              <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">Required</span>
+                            )}
+                          </div>
+                          {question.description && (
+                            <p className="text-sm text-gray-600">{question.description}</p>
+                          )}
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <button
+                            type="button"
+                            onClick={() => handleEditIntakeQuestion(question)}
+                            className="text-blue-600 hover:text-blue-700 text-sm"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteIntakeQuestion(question.id)}
+                            className="text-red-600 hover:text-red-700 text-sm"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Tag className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Questions Added</h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Add questions to collect additional information from customers
+                  </p>
+                  <div className="flex justify-center space-x-2">
                     <button
                       type="button"
-                      onClick={() => handleInputChange('image', null)}
-                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600"
+                      onClick={() => handleOpenIntakeModal('short_text')}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                     >
-                      ×
+                      Add Short Text Question
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenIntakeModal('multiple_choice')}
+                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                    >
+                      Add Multiple Choice
                     </button>
                   </div>
-                ) : (
-                  <div className="w-20 h-20 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center">
-                    <span className="text-gray-400 text-xs text-center">No image</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Step 5: Review */}
+          {currentStep === 5 && (
+            <div className="space-y-6">
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Service Summary</h3>
+                
+                <div className="space-y-3">
+                  <div>
+                    <span className="font-medium text-gray-700">Name:</span>
+                    <span className="ml-2">{formData.name}</span>
+                  </div>
+                  
+                  <div>
+                    <span className="font-medium text-gray-700">Category:</span>
+                    <span className="ml-2">
+                      {categories.find(c => c.id === formData.categoryId)?.name || 'Not selected'}
+                    </span>
+                  </div>
+                  
+                  <div>
+                    <span className="font-medium text-gray-700">Price:</span>
+                    <span className="ml-2">${formData.price}</span>
+                  </div>
+                  
+                  <div>
+                    <span className="font-medium text-gray-700">Duration:</span>
+                    <span className="ml-2">{formData.duration} minutes</span>
+                  </div>
+                  
+                  <div>
+                    <span className="font-medium text-gray-700">Workers:</span>
+                    <span className="ml-2">{formData.workers}</span>
+                  </div>
+                  
+                  {formData.description && (
+                    <div>
+                      <span className="font-medium text-gray-700">Description:</span>
+                      <p className="ml-2 text-sm text-gray-600">{formData.description}</p>
+                    </div>
+                  )}
+                  
+                  {formData.modifiers.length > 0 && (
+                    <div>
+                      <span className="font-medium text-gray-700">Modifiers:</span>
+                      <span className="ml-2">{formData.modifiers.length} configured</span>
+                    </div>
+                  )}
+                  
+                  {formData.intakeQuestions.length > 0 && (
+                    <div>
+                      <span className="font-medium text-gray-700">Intake Questions:</span>
+                      <span className="ml-2">{formData.intakeQuestions.length} configured</span>
                   </div>
                 )}
-                <div className="flex-1">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => {
-                      const file = e.target.files[0]
-                      if (file) {
-                        handleInputChange('image', file)
-                      }
-                    }}
-                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                  />
-                  <p className="mt-1 text-xs text-gray-500">
-                    Upload an image to help customers identify this service
-                  </p>
                 </div>
               </div>
             </div>
+          )}
+        </div>
 
-            {/* Action Buttons */}
-            <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">
+        {/* Footer */}
+        <div className="flex items-center justify-between p-6 border-t border-gray-200 bg-gray-50 flex-shrink-0">
+          <div className="text-sm text-gray-600">
+            Step {currentStep} of 5
+            </div>
+
+          <div className="flex space-x-3">
                 <button
-                  type="button"
-                  onClick={onClose}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+              onClick={handleClose}
+              className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                 >
                   Cancel
                 </button>
+            
+            {currentStep < 5 ? (
+              <button
+                onClick={handleNext}
+                disabled={!formData.categoryId || (currentStep === 2 && !formData.name)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+              >
+                <span>Next</span>
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            ) : (
                 <button
-                  type="submit"
-                disabled={!formData.name.trim() || loading}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                onClick={handleCreateService}
+                disabled={loading}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
               >
                 {loading ? (
                   <>
@@ -417,28 +699,37 @@ const CreateServiceModal = ({ isOpen, onClose, onCreateService, onStartWithTempl
                     <span>Creating...</span>
                   </>
                 ) : (
+                  <>
+                    <Plus className="w-4 h-4" />
                   <span>Create Service</span>
+                  </>
                 )}
-                </button>
-            </div>
-          </form>
-
-          {/* Template Option */}
-          <div className="mt-6 pt-6 border-t border-gray-200">
-            <p className="text-sm text-gray-600">
-              Prefer a head start?{" "}
-              <button
-                onClick={onStartWithTemplate}
-                className="text-blue-600 hover:text-blue-700 font-medium"
-              >
-                Start with a template...
               </button>
-            </p>
+            )}
           </div>
         </div>
       </div>
-    </div>
-  )
-}
 
-export default CreateServiceModal 
+      {/* Modals */}
+      <CreateModifierGroupModal
+        isOpen={isCreateModifierGroupModalOpen}
+        onClose={() => {
+          setIsCreateModifierGroupModalOpen(false);
+          setEditingModifier(null);
+        }}
+        onSave={handleSaveModifierGroup}
+        editingModifier={editingModifier}
+      />
+
+      <IntakeQuestionModal
+        isOpen={isIntakeModalOpen}
+        onClose={handleCloseIntakeModal}
+        selectedQuestionType={selectedQuestionType}
+        onSave={handleSaveIntakeQuestion}
+        editingQuestion={editingIntakeQuestion}
+      />
+    </div>
+  );
+};
+
+export default CreateServiceModal;

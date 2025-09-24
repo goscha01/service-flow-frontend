@@ -11,6 +11,7 @@ import CreateModifierGroupModal from "../components/create-modifier-group-modal"
 import IntakeQuestionModal from "../components/intake-question-modal"
 import IntakeQuestionsForm from "../components/intake-questions-form"
 import ServiceModifiersForm from "../components/service-modifiers-form"
+import ExcelListboxMultiselect from "../components/excel-listbox-multiselect"
 import { servicesAPI, serviceAvailabilityAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
 import { 
@@ -627,9 +628,13 @@ const ServiceDetails = () => {
       setServiceData(updatedServiceData);
       setModifiersChanged(true);
       
+      // Auto-save immediately
+      await handleSaveService(updatedServiceData);
+      
       setIsCreateModifierGroupModalOpen(false)
       setEditingModifier(null)
-      setSuccessMessage(editingModifier ? "Modifier group updated! Click 'Save Modifiers' to save changes." : "Modifier group created! Click 'Save Modifiers' to save changes.")
+      setModifiersChanged(false); // Reset changed flag since we saved
+      setSuccessMessage(editingModifier ? "Modifier group updated successfully!" : "Modifier group created successfully!")
       
       // Clear success message after 3 seconds
       setTimeout(() => setSuccessMessage(""), 3000)
@@ -655,7 +660,11 @@ const ServiceDetails = () => {
         setServiceData(updatedServiceData);
         setModifiersChanged(true);
         
-        setSuccessMessage("Modifier deleted! Click 'Save Modifiers' to save changes.")
+        // Auto-save immediately
+        await handleSaveService(updatedServiceData);
+        
+        setModifiersChanged(false); // Reset changed flag since we saved
+        setSuccessMessage("Modifier deleted successfully!")
         setTimeout(() => setSuccessMessage(""), 3000)
       } catch (error) {
         console.error('Error deleting modifier:', error)
@@ -718,11 +727,13 @@ const ServiceDetails = () => {
       setServiceData(updatedServiceData)
       setIntakeQuestionsChanged(true);
       
+      // Auto-save immediately
+      await handleSaveService(updatedServiceData);
+      
       setIsIntakeModalOpen(false)
       setSelectedQuestionType(null)
       setEditingIntakeQuestion(null) // Clear editing state
-      
-      setSuccessMessage(editingIntakeQuestion ? "Intake question updated! Click 'Save Answers' to save changes." : "Intake question created! Click 'Save Answers' to save changes.")
+      setIntakeQuestionsChanged(false); // Reset changed flag since we saved
       
       // Clear success message after 3 seconds
       setTimeout(() => setSuccessMessage(""), 3000)
@@ -846,8 +857,11 @@ const ServiceDetails = () => {
         setServiceData(updatedServiceData)
         setIntakeQuestionsChanged(true);
         
-        setSuccessMessage("Intake question deleted! Click 'Save Answers' to save changes.")
-        setTimeout(() => setSuccessMessage(""), 3000)
+        // Auto-save immediately
+        await handleSaveService(updatedServiceData);
+        
+        setIntakeQuestionsChanged(false); // Reset changed flag since we saved
+        setSuccessMessage("Intake question deleted successfully!")
         setTimeout(() => setSuccessMessage(""), 3000)
       } catch (error) {
         console.error('Error deleting intake question:', error)
@@ -855,6 +869,7 @@ const ServiceDetails = () => {
       }
     }
   }
+
 
   const handleEditIntakeQuestion = (question) => {
     setEditingIntakeQuestion(question)
@@ -1342,25 +1357,41 @@ const ServiceDetails = () => {
                         )}
 
                         {question.questionType === 'dropdown' && (
-                          <div className="relative">
-                            <select
-                              value={previewAnswers[question.id] || ""}
-                              onChange={(e) => handlePreviewAnswerChange(question.id, e.target.value)}
-                              className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white text-gray-700 appearance-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            >
-                              <option value="">Select an option</option>
-                              {question.options?.map((option, optionIndex) => (
-                                <option key={optionIndex} value={option.id}>
-                                  {option.text}
-                                </option>
-                              ))}
-                            </select>
-                            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                              <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                              </svg>
+                          question.selectionType === 'multi' ? (
+                            // Multi-select using Excel-style listbox
+                            <ExcelListboxMultiselect
+                              options={question.options?.map(option => ({
+                                value: option.id,
+                                label: option.text
+                              })) || []}
+                              selectedValues={previewAnswers[question.id] || []}
+                              onSelectionChange={(selectedValues) => {
+                                handlePreviewAnswerChange(question.id, selectedValues);
+                              }}
+                              placeholder={`Select ${question.question.toLowerCase()}...`}
+                            />
+                          ) : (
+                            // Single select using regular dropdown
+                            <div className="relative">
+                              <select
+                                value={previewAnswers[question.id] || ""}
+                                onChange={(e) => handlePreviewAnswerChange(question.id, e.target.value)}
+                                className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white text-gray-700 appearance-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              >
+                                <option value="">Select an option</option>
+                                {question.options?.map((option, optionIndex) => (
+                                  <option key={optionIndex} value={option.id}>
+                                    {option.text}
+                                  </option>
+                                ))}
+                              </select>
+                              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                                <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                              </div>
                             </div>
-                          </div>
+                          )
                         )}
 
                         {question.questionType === 'short_text' && (

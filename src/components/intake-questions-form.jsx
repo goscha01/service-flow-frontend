@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Minus, Upload, Image as ImageIcon, Save } from 'lucide-react';
 import SimpleDropdownMultiselect from './simple-dropdown-multiselect.jsx';
+import ExcelListboxMultiselect from './excel-listbox-multiselect.jsx';
 
 const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditable = false, isSaving = false, initialAnswers = {} }) => {
 
@@ -164,50 +165,90 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
 
     switch (question.questionType) {
       case 'multiple_choice':
-        // Multiple choice always uses radio buttons
-        return (
-          <div key={questionId} className="mb-6">
-            <div className="mb-3">
-              <label className="block text-lg font-medium text-gray-900 mb-1">
-                {question.question}
-                {question.required && <span className="text-red-500 ml-1">*</span>}
-              </label>
-              {question.description && (
-                <p className="text-sm text-gray-600">{question.description}</p>
-              )}
-            </div>
-            
-            <div className="space-y-3">
-              {question.options?.map((option, index) => (
-                <label key={index} className="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
-                  <input
-                    type="radio"
-                    name={questionId}
-                    value={option.text}
-                    checked={currentAnswer === option.text}
-                    onChange={(e) => handleAnswerChange(questionId, e.target.value)}
-                    required={question.required}
-                    className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                  />
-                  <span className="ml-3 text-sm font-medium text-gray-900">{option.text}</span>
+        // Multiple choice can be single or multi-select based on selectionType
+        const isMultiSelect = question.selectionType === 'multi';
+        
+        if (isMultiSelect) {
+          // Multi-select using Excel-style listbox
+          return (
+            <div key={questionId} className="mb-6">
+              <div className="mb-3">
+                <label className="block text-lg font-medium text-gray-900 mb-1">
+                  {question.question}
+                  {question.required && <span className="text-red-500 ml-1">*</span>}
                 </label>
-              ))}
+                {question.description && (
+                  <p className="text-sm text-gray-600">{question.description}</p>
+                )}
+              </div>
+              
+              <ExcelListboxMultiselect
+                options={question.options?.map(option => ({
+                  value: option.text,
+                  label: option.text
+                })) || []}
+                selectedValues={currentAnswer || []}
+                onSelectionChange={(selectedValues) => {
+                  handleAnswerChange(questionId, selectedValues);
+                }}
+                placeholder={`Select ${question.question.toLowerCase()}...`}
+              />
             </div>
-          </div>
-        );
+          );
+        } else {
+          // Single select using radio buttons
+          return (
+            <div key={questionId} className="mb-6">
+              <div className="mb-3">
+                <label className="block text-lg font-medium text-gray-900 mb-1">
+                  {question.question}
+                  {question.required && <span className="text-red-500 ml-1">*</span>}
+                </label>
+                {question.description && (
+                  <p className="text-sm text-gray-600">{question.description}</p>
+                )}
+              </div>
+              
+              <div className="space-y-3">
+                {question.options?.map((option, index) => (
+                  <label key={index} className="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
+                    <input
+                      type="radio"
+                      name={questionId}
+                      value={option.text}
+                      checked={currentAnswer === option.text}
+                      onChange={(e) => handleAnswerChange(questionId, e.target.value)}
+                      required={question.required}
+                      className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                    />
+                    <span className="ml-3 text-sm font-medium text-gray-900">{option.text}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          );
+        }
 
       case 'dropdown':
         // Dropdown uses actual dropdown for single select, multiselect for multi
-        const isMultiSelect = question.selectionType === 'multi';
+        const isDropdownMultiSelect = question.selectionType === 'multi';
         
         // Debug logging for dropdown questions
         console.log(`🔽 Dropdown question ${questionId}:`, {
           questionText: question.question,
           currentAnswer,
-          isMultiSelect,
+          isDropdownMultiSelect,
+          selectionType: question.selectionType,
           options: question.options,
-          answersState: answers
+          answersState: answers,
+          fullQuestion: question
         });
+        
+        // Force multi-select for debugging if question text contains "Multi-Select"
+        const forceMultiSelect = question.question && question.question.toLowerCase().includes('multi');
+        if (forceMultiSelect && !isDropdownMultiSelect) {
+          console.log(`🔧 FORCING multi-select for question: ${question.question}`);
+        }
         
         return (
           <div key={questionId} className="mb-6">
@@ -221,9 +262,9 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
               )}
             </div>
             
-            {isMultiSelect ? (
-              // Multi-select using SimpleDropdownMultiselect
-              <SimpleDropdownMultiselect
+            {(isDropdownMultiSelect || forceMultiSelect) ? (
+              // Multi-select using Excel-style listbox
+              <ExcelListboxMultiselect
                 options={question.options?.map(option => ({
                   value: option.text,
                   label: option.text

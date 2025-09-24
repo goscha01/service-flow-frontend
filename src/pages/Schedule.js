@@ -705,16 +705,35 @@ const ServiceFlowSchedule = () => {
                           <h3 className="text-lg font-semibold text-gray-900 mb-1 truncate">
                             {job.service_name || 'Service'}
                           </h3>
-                          <div className="text-sm text-gray-600 truncate block">
+                          <div 
+                            className="text-sm text-gray-600 truncate block hover:text-blue-600 hover:underline cursor-pointer transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              if (job.customer_id) {
+                                navigate(`/customer/${job.customer_id}`)
+                              }
+                            }}
+                          >
                             {job.customer_first_name && job.customer_last_name 
                               ? `${job.customer_first_name} ${job.customer_last_name}`
                               : job.customer_first_name || job.customer_last_name || 'Client name placeholder'
                             }
                           </div>
                         </div>
-                        <span className={`px-3 py-1 text-xs font-medium rounded-full border ${getStatusColor(job.status)} flex-shrink-0`}>
-                          {job.status ? job.status.replace('_', ' ') : 'Status placeholder'}
-                        </span>
+                        <div className="flex flex-col items-end space-y-2">
+                          <span className={`px-3 py-1 text-xs font-medium rounded-full border ${getStatusColor(job.status)} flex-shrink-0`}>
+                            {job.status ? job.status.replace('_', ' ') : 'Status - sign placeholder'}
+                          </span>
+                          <div className="flex items-center space-x-2 text-xs text-gray-500">
+                            <User className="w-3 h-3" />
+                            <span>
+                              {job.team_member_first_name && job.team_member_last_name 
+                                ? `${job.team_member_first_name} ${job.team_member_last_name}`
+                                : job.team_member_first_name || job.team_member_last_name || 'Team placeholder'
+                              }
+                            </span>
+                          </div>
+                        </div>
                       </div>
                       
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-sm">
@@ -839,14 +858,38 @@ const ServiceFlowSchedule = () => {
                           onClick={() => navigate(`/job/${job.id}`)}
                         >
                           <div className="font-medium truncate text-gray-900">{job.service_name || 'Service placeholder'}</div>
-                          <div className="text-gray-600 truncate">
+                          <div 
+                            className="text-gray-600 truncate hover:text-blue-600 hover:underline cursor-pointer transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              if (job.customer_id) {
+                                navigate(`/customer/${job.customer_id}`)
+                              }
+                            }}
+                          >
                             {job.customer_first_name && job.customer_last_name 
                               ? `${job.customer_first_name} ${job.customer_last_name}`
-                              : job.customer_first_name || job.customer_last_name || 'Client placeholder'
+                              : job.customer_first_name || job.customer_last_name || 'Client name placeholder'
                             }
                           </div>
-                          <div className="text-gray-500">
-                            {formatTime(job.scheduled_date)}
+                          <div className="flex items-center justify-between">
+                            <div className="text-gray-500">
+                              {formatTime(job.scheduled_date)}
+                            </div>
+                            <div className="flex items-center space-x-1">
+                              <span className={`px-1 py-0.5 text-xs rounded ${getStatusColor(job.status)}`}>
+                                {job.status ? job.status.replace('_', ' ') : 'Status - sign placeholder'}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-1 text-gray-500 mt-1">
+                            <User className="w-3 h-3" />
+                            <span className="text-xs">
+                              {job.team_member_first_name && job.team_member_last_name 
+                                ? `${job.team_member_first_name} ${job.team_member_last_name}`
+                                : job.team_member_first_name || job.team_member_last_name || 'Team placeholder'
+                              }
+                            </span>
                           </div>
                         </div>
                       )
@@ -927,11 +970,38 @@ const ServiceFlowSchedule = () => {
                             onClick={() => navigate(`/job/${job.id}`)}
                           >
                             <div className="font-medium truncate text-gray-900">{job.service_name || 'Service placeholder'}</div>
-                            <div className="text-gray-600 truncate">
+                            <div 
+                              className="text-gray-600 truncate hover:text-blue-600 hover:underline cursor-pointer transition-colors"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                if (job.customer_id) {
+                                  navigate(`/customer/${job.customer_id}`)
+                                }
+                              }}
+                            >
                               {job.customer_first_name && job.customer_last_name 
                                 ? `${job.customer_first_name} ${job.customer_last_name}`
-                                : job.customer_first_name || job.customer_last_name || 'Client placeholder'
+                                : job.customer_first_name || job.customer_last_name || 'Client name placeholder'
                               }
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <div className="text-gray-500 text-xs">
+                                {formatTime(job.scheduled_date)}
+                              </div>
+                              <div className="flex items-center space-x-1">
+                                <span className={`px-1 py-0.5 text-xs rounded ${getStatusColor(job.status)}`}>
+                                  {job.status ? job.status.replace('_', ' ') : 'Status - sign placeholder'}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-1 text-gray-500">
+                              <User className="w-3 h-3" />
+                              <span className="text-xs">
+                                {job.team_member_first_name && job.team_member_last_name 
+                                  ? `${job.team_member_first_name} ${job.team_member_last_name}`
+                                  : job.team_member_first_name || job.team_member_last_name || 'Team placeholder'
+                                }
+                              </span>
                             </div>
                           </div>
                         )

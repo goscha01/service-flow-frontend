@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, GripVertical, Wrench } from 'lucide-react';
+import { Plus, Edit, Trash2, GripVertical, Wrench, Copy } from 'lucide-react';
 import { servicesAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { getImageUrl, handleImageError } from '../utils/imageUtils';
@@ -74,6 +74,47 @@ const ServicesDisplay = ({
     }
   };
 
+  const handleDuplicateService = async (service) => {
+    try {
+      setDeleteLoading(service.id); // Reuse loading state for duplicate
+      
+      // Create duplicate service data
+      const duplicateData = {
+        name: `${service.name} (Copy)`,
+        description: service.description,
+        price: service.price,
+        duration: service.duration,
+        category: service.category,
+        category_id: service.category_id,
+        image: service.image,
+        modifiers: service.modifiers,
+        intake_questions: service.intake_questions,
+        require_payment_method: service.require_payment_method,
+        userId: user.id
+      };
+      
+      console.log('🔄 Duplicating service with data:', duplicateData);
+      
+      // Create the duplicate service
+      const duplicatedService = await servicesAPI.create(duplicateData);
+      
+      // Refresh the services list
+      if (onServiceDelete) {
+        // Trigger a refresh by calling the parent's refresh function
+        // We'll use onServiceDelete as a refresh trigger since it's available
+        onServiceDelete(null); // Pass null to indicate refresh
+      }
+      
+      alert('Service duplicated successfully!');
+      
+    } catch (error) {
+      console.error('Error duplicating service:', error);
+      alert('Failed to duplicate service. Please try again.');
+    } finally {
+      setDeleteLoading(null);
+    }
+  };
+
   const renderServiceCard = (service) => (
     <div
       key={service.id}
@@ -99,7 +140,24 @@ const ServicesDisplay = ({
 
           {/* Service Details */}
           <div className="flex-1 min-w-0">
-            <h3 className="text-lg font-semibold text-gray-900 mb-1">{service.name}</h3>
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-lg font-semibold text-gray-900">{service.name}</h3>
+              <button
+                onClick={() => handleDuplicateService(service)}
+                disabled={deleteLoading === service.id}
+                className="flex items-center px-2 py-1 text-xs font-medium text-green-600 hover:text-green-800 hover:bg-green-50 rounded-md transition-colors disabled:opacity-50"
+                title="Duplicate service"
+              >
+                {deleteLoading === service.id ? (
+                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-green-600"></div>
+                ) : (
+                  <>
+                    <Copy className="w-3 h-3 mr-1" />
+                    Duplicate
+                  </>
+                )}
+              </button>
+            </div>
             {service.description && (
               <p className="text-sm text-gray-600 mb-2 line-clamp-2">{service.description}</p>
             )}

@@ -663,7 +663,7 @@ const AddTeamMember = () => {
                       Location
                     </label>
                     <AddressAutocomplete
-                      value={formData.location}
+                        value={formData.location}
                       onChange={(value) => setFormData(prev => ({ ...prev, location: value }))}
                       onAddressSelect={(addressData) => {
                         setFormData(prev => ({
@@ -674,7 +674,7 @@ const AddTeamMember = () => {
                           zipCode: addressData.components.zipCode
                         }));
                       }}
-                      placeholder="Start typing an address..."
+                        placeholder="Start typing an address..."
                       showValidationResults={true}
                       className="w-full"
                     />

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import Sidebar from "../components/sidebar"
 import MobileHeader from "../components/mobile-header"
-import { GripVertical, Wrench, Plus, AlertCircle, AlertTriangle, Loader2, Trash2, X } from "lucide-react"
+import { GripVertical, Wrench, Plus, AlertCircle, AlertTriangle, Loader2, Trash2, X, Copy } from "lucide-react"
 import CreateServiceModal from "../components/create-service-modal"
 import ServiceTemplatesModal from "../components/service-templates-modal"
 import ServicesDisplay from "../components/services-display"
@@ -29,6 +29,8 @@ const ServiceFlowServices = () => {
   const [templatesModalOpen, setTemplatesModalOpen] = useState(false)
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [serviceToDelete, setServiceToDelete] = useState(null)
+  const [duplicateSuccessModalOpen, setDuplicateSuccessModalOpen] = useState(false)
+  const [duplicatedService, setDuplicatedService] = useState(null)
   const [categories, setCategories] = useState([])
   const [categoryObjects, setCategoryObjects] = useState([])
   const [showAddCategoryModal, setShowAddCategoryModal] = useState(false)
@@ -296,6 +298,47 @@ const ServiceFlowServices = () => {
 
   const handleServiceClick = (serviceId) => {
     navigate(`/services/${serviceId}`)
+  }
+
+  const handleDuplicateService = async (service) => {
+    try {
+      setDeleteLoading(service.id); // Reuse loading state for duplicate
+      
+      // Create duplicate service data
+      const duplicateData = {
+        name: `${service.name} (Copy)`,
+        description: service.description,
+        price: service.price,
+        duration: service.duration,
+        category: service.category,
+        category_id: service.category_id,
+        image: service.image,
+        modifiers: service.modifiers,
+        intake_questions: service.intake_questions,
+        require_payment_method: service.require_payment_method,
+        userId: user.id
+      };
+      
+      console.log('🔄 Duplicating service with data:', duplicateData);
+      
+      // Create the duplicate service
+      const duplicatedService = await servicesAPI.create(duplicateData);
+      
+      // Store the duplicated service for the modal
+      setDuplicatedService(duplicatedService);
+      
+      // Refresh the services list
+      await fetchServices();
+      
+      // Show success modal
+      setDuplicateSuccessModalOpen(true);
+      
+    } catch (error) {
+      console.error('Error duplicating service:', error);
+      alert('Failed to duplicate service. Please try again.');
+    } finally {
+      setDeleteLoading(null);
+    }
   }
 
   const handleServiceEdit = (service) => {
@@ -776,7 +819,27 @@ const ServiceFlowServices = () => {
                                         <Wrench className="w-5 h-5 text-gray-400" />
                                       )}
                                       <div className="flex-1 min-w-0">
-                                        <h3 className="font-medium text-gray-900">{service.name}</h3>
+                                        <div className="flex items-center justify-between mb-1">
+                                          <h3 className="font-medium text-gray-900">{service.name}</h3>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              handleDuplicateService(service)
+                                            }}
+                                            disabled={deleteLoading === service.id}
+                                            className="flex items-center px-2 py-1 text-xs font-medium text-green-600 hover:text-green-800 hover:bg-green-50 rounded-md transition-colors disabled:opacity-50"
+                                            title="Duplicate service"
+                                          >
+                                            {deleteLoading === service.id ? (
+                                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-green-600"></div>
+                                            ) : (
+                                              <>
+                                                <Copy className="w-3 h-3 mr-1" />
+                                                Duplicate
+                                              </>
+                                            )}
+                                          </button>
+                                        </div>
                                         {service.description && (
                                           <p className="text-sm text-gray-500 mt-1 line-clamp-1">
                                             {service.description}
@@ -948,7 +1011,27 @@ const ServiceFlowServices = () => {
                                   <Wrench className="w-5 h-5 text-gray-400" />
                                 )}
                                 <div className="flex-1 min-w-0">
-                                  <h3 className="font-medium text-gray-900">{service.name}</h3>
+                                  <div className="flex items-center justify-between mb-1">
+                                    <h3 className="font-medium text-gray-900">{service.name}</h3>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        handleDuplicateService(service)
+                                      }}
+                                      disabled={deleteLoading === service.id}
+                                      className="flex items-center px-2 py-1 text-xs font-medium text-green-600 hover:text-green-800 hover:bg-green-50 rounded-md transition-colors disabled:opacity-50"
+                                      title="Duplicate service"
+                                    >
+                                      {deleteLoading === service.id ? (
+                                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-green-600"></div>
+                                      ) : (
+                                        <>
+                                          <Copy className="w-3 h-3 mr-1" />
+                                          Duplicate
+                                        </>
+                                      )}
+                                    </button>
+                                  </div>
                                   {service.description && (
                                     <p className="text-sm text-gray-500 mt-1 line-clamp-1">
                                       {service.description}
@@ -1019,7 +1102,27 @@ const ServiceFlowServices = () => {
                             <Wrench className="w-5 h-5 text-gray-400" />
                           )}
                           <div className="flex-1 min-w-0">
-                            <h3 className="font-medium text-gray-900">{service.name}</h3>
+                            <div className="flex items-center justify-between mb-1">
+                              <h3 className="font-medium text-gray-900">{service.name}</h3>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleDuplicateService(service)
+                                }}
+                                disabled={deleteLoading === service.id}
+                                className="flex items-center px-2 py-1 text-xs font-medium text-green-600 hover:text-green-800 hover:bg-green-50 rounded-md transition-colors disabled:opacity-50"
+                                title="Duplicate service"
+                              >
+                                {deleteLoading === service.id ? (
+                                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-green-600"></div>
+                                ) : (
+                                  <>
+                                    <Copy className="w-3 h-3 mr-1" />
+                                    Duplicate
+                                  </>
+                                )}
+                              </button>
+                            </div>
                             {service.description && (
                               <p className="text-sm text-gray-500 mt-1 line-clamp-1">
                                 {service.description}
@@ -1396,6 +1499,76 @@ const ServiceFlowServices = () => {
                 >
                   Add Category
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Duplicate Success Modal */}
+        {duplicateSuccessModalOpen && duplicatedService && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all duration-300 ease-out">
+              {/* Header */}
+              <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-green-100 rounded-full">
+                    <Copy className="w-5 h-5 text-green-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">Service Duplicated!</h3>
+                    <p className="text-sm text-gray-500">Your service has been successfully duplicated</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setDuplicateSuccessModalOpen(false)} 
+                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Content */}
+              <div className="p-6">
+                <div className="mb-4">
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                    <div className="flex items-start space-x-2">
+                      <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <div className="text-sm text-green-800">
+                        <p className="font-medium">All service data has been copied:</p>
+                        <ul className="mt-1 space-y-1 text-xs">
+                          <li>• Service details and pricing</li>
+                          <li>• Modifiers and options</li>
+                          <li>• Intake questions</li>
+                          <li>• Category assignment</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
+                  <button
+                    onClick={() => setDuplicateSuccessModalOpen(false)}
+                    className="flex-1 sm:flex-none px-6 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors"
+                  >
+                    Stay Here
+                  </button>
+                  <button
+                    onClick={() => {
+                      setDuplicateSuccessModalOpen(false);
+                      navigate(`/services/${duplicatedService.id}`);
+                    }}
+                    className="flex-1 sm:flex-none px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors flex items-center justify-center space-x-2"
+                  >
+                    <Copy className="w-4 h-4" />
+                    <span>View Duplicated Service</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
