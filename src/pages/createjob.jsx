@@ -885,6 +885,12 @@ export default function CreateJobPage() {
       console.log('Job creation result:', result);
       console.log('Job ID from result:', result.job?.id || result.id || result.job_id);
       
+      // Debug modifier data being sent
+      console.log('🔧 Frontend: Modifier data being sent to backend:');
+      console.log('🔧 serviceModifiers:', formData.serviceModifiers);
+      console.log('🔧 selectedModifiers:', selectedModifiers);
+      console.log('🔧 selectedModifiers keys:', Object.keys(selectedModifiers));
+      
       setSuccessMessage('Job created successfully!');
       setTimeout(() => {
         // Navigate to the specific job details page
@@ -1219,6 +1225,9 @@ export default function CreateJobPage() {
         console.log('🔧 Updated selected modifiers:', updated);
         return updated;
       });
+    } else {
+      console.log('🔧 No selectedModifiers found in service:', service.name);
+      console.log('🔧 Service keys:', Object.keys(service));
     }
     if (service.intakeQuestionAnswers) {
       console.log('🔧 Setting intake question answers:', service.intakeQuestionAnswers);
@@ -1324,6 +1333,7 @@ export default function CreateJobPage() {
     
     // Merge with existing selections to preserve other modifiers
     setSelectedModifiers(prev => {
+      console.log('🔧 Frontend: Merging modifiers. Previous:', prev, 'New:', convertedModifiers);
       const updated = {
         ...prev,
         ...convertedModifiers

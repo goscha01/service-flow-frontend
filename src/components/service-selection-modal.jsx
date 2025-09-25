@@ -478,9 +478,10 @@ const ServiceSelectionModal = ({
     
     let filtered;
     
-    // Handle "All Services" category
-    if (selectedCategory.id === 'all') {
-      filtered = services;
+    // Handle "No category" - show uncategorized services
+    if (selectedCategory.id === 'no-category') {
+      // Handle "No category" - show uncategorized services
+      filtered = getUncategorizedServices();
     } else {
       filtered = services.filter(service => {
         const matchesId = service.category_id === selectedCategory.id;
@@ -504,8 +505,8 @@ const ServiceSelectionModal = ({
 
   // Helper function to count services per category
   const getServiceCountForCategory = (category) => {
-    if (category.id === 'all') {
-      return services.length;
+    if (category.id === 'no-category') {
+      return getUncategorizedServices().length;
     }
     
     const count = services.filter(service => {
@@ -524,6 +525,15 @@ const ServiceSelectionModal = ({
     return categories.filter(category =>
       category.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
+  };
+
+  // Helper function to get uncategorized services
+  const getUncategorizedServices = () => {
+    return services.filter(service => {
+      if (!service.category || service.category.trim() === '') return true;
+      // Services with categories that don't exist in the categories array are uncategorized
+      return !categories.some(cat => cat.name === service.category);
+    });
   };
 
   const isServiceSelected = (service) => {
@@ -609,22 +619,6 @@ const ServiceSelectionModal = ({
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {/* All Services Category */}
-                      <button
-                        onClick={() => handleCategorySelect({ id: 'all', name: 'All Services' })}
-                        className="p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors text-left"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <h3 className="font-medium text-gray-900">All Services</h3>
-                            <p className="text-sm text-gray-600 mt-1">
-                              {getServiceCountForCategory({ id: 'all' })} services
-                            </p>
-                          </div>
-                          <ChevronRight className="w-5 h-5 text-gray-400" />
-                        </div>
-                      </button>
-                      
                       {/* Regular Categories */}
                       {getFilteredCategories().map((category) => (
                         <button
@@ -643,6 +637,24 @@ const ServiceSelectionModal = ({
                           </div>
                         </button>
                       ))}
+
+                      {/* No Category - Show if there are uncategorized services */}
+                      {getUncategorizedServices().length > 0 && (
+                        <button
+                          onClick={() => handleCategorySelect({ id: 'no-category', name: 'No category' })}
+                          className="p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors text-left"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <h3 className="font-medium text-gray-900">No category</h3>
+                              <p className="text-sm text-gray-600 mt-1">
+                                {getUncategorizedServices().length} services
+                              </p>
+                            </div>
+                            <ChevronRight className="w-5 h-5 text-gray-400" />
+                          </div>
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>

@@ -199,18 +199,33 @@ const TeamMemberDetails = () => {
         // Parse availability
         if (teamMemberData.availability) {
           try {
-            const parsedAvailability = typeof teamMemberData.availability === 'string' 
-              ? JSON.parse(teamMemberData.availability) 
-              : teamMemberData.availability
+            let parsedAvailability;
             
-            if (parsedAvailability.workingHours) {
-              setWorkingHours(parsedAvailability.workingHours)
+            if (typeof teamMemberData.availability === 'string') {
+              // If it's a string, try to parse it
+              try {
+                parsedAvailability = JSON.parse(teamMemberData.availability);
+              } catch (parseError) {
+                console.error('Error parsing availability string:', parseError);
+                parsedAvailability = null;
+              }
+            } else if (typeof teamMemberData.availability === 'object' && teamMemberData.availability !== null) {
+              // If it's already an object, use it directly
+              parsedAvailability = teamMemberData.availability;
+            } else {
+              parsedAvailability = null;
             }
-            if (parsedAvailability.customAvailability) {
-              setCustomAvailability(parsedAvailability.customAvailability)
+            
+            if (parsedAvailability && typeof parsedAvailability === 'object') {
+              if (parsedAvailability.workingHours) {
+                setWorkingHours(parsedAvailability.workingHours)
+              }
+              if (parsedAvailability.customAvailability) {
+                setCustomAvailability(parsedAvailability.customAvailability)
+              }
             }
           } catch (e) {
-            console.error('Error parsing availability:', e)
+            console.error('Error processing availability:', e)
             setWorkingHours({
               sunday: { available: false, hours: "" },
               monday: { available: true, hours: "9:00 AM - 6:00 PM" },
@@ -226,12 +241,28 @@ const TeamMemberDetails = () => {
         // Parse permissions/settings
         if (teamMemberData.permissions) {
           try {
-            const parsedPermissions = typeof teamMemberData.permissions === 'string' 
-              ? JSON.parse(teamMemberData.permissions) 
-              : teamMemberData.permissions
-            setSettings(parsedPermissions)
+            let parsedPermissions;
+            
+            if (typeof teamMemberData.permissions === 'string') {
+              // If it's a string, try to parse it
+              try {
+                parsedPermissions = JSON.parse(teamMemberData.permissions);
+              } catch (parseError) {
+                console.error('Error parsing permissions string:', parseError);
+                parsedPermissions = null;
+              }
+            } else if (typeof teamMemberData.permissions === 'object' && teamMemberData.permissions !== null) {
+              // If it's already an object, use it directly
+              parsedPermissions = teamMemberData.permissions;
+            } else {
+              parsedPermissions = null;
+            }
+            
+            if (parsedPermissions && typeof parsedPermissions === 'object') {
+              setSettings(parsedPermissions);
+            }
           } catch (e) {
-            console.error('Error parsing permissions:', e)
+            console.error('Error processing permissions:', e)
           }
         }
 
