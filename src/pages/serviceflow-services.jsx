@@ -653,7 +653,7 @@ const ServiceFlowServices = () => {
     e.preventDefault()
     e.dataTransfer.dropEffect = 'move'
     // Don't allow dropping on the same category
-    if (draggedService && draggedService.category === (category === 'Additional' ? '' : category)) {
+    if (draggedService && draggedService.category === (category === 'No category' ? '' : category)) {
       return
     }
     setDragOverCategory(category)
@@ -681,8 +681,8 @@ const ServiceFlowServices = () => {
     }
 
     try {
-      // Convert "Additional" category to empty string for uncategorized services
-      const newCategory = targetCategory === 'Additional' ? '' : targetCategory
+      // Convert "No category" category to empty string for uncategorized services
+      const newCategory = targetCategory === 'No category' ? '' : targetCategory
       await handleMoveServiceToCategory(draggedService.id, newCategory)
       setDraggedService(null)
     } catch (error) {
@@ -816,7 +816,7 @@ const ServiceFlowServices = () => {
                                 className="border-b border-gray-200 last:border-b-0 transition-all duration-200 relative"
                               >
                                 <div className="px-4 py-3 flex items-center justify-between bg-gray-50">
-                                  <h3 className="font-medium text-gray-900">Additional</h3>
+                                  <h3 className="font-medium text-gray-900">No category</h3>
                                   <div className="flex items-center space-x-2">
                                     <span className="text-sm text-gray-500">
                                       {services.length} service{services.length !== 1 ? 's' : ''}
@@ -917,7 +917,7 @@ const ServiceFlowServices = () => {
                           const allCategories = [...categories]
                           console.log('🔍 Debug - Initial allCategories:', allCategories)
                           if (uncategorizedServices.length > 0) {
-                            allCategories.push('Additional')
+                            allCategories.push('No category')
                             console.log('🔍 Debug - Added "Additional" category')
                           }
                           console.log('🔍 Debug - Final allCategories:', allCategories)
@@ -926,10 +926,10 @@ const ServiceFlowServices = () => {
                           // This ensures new categories (with 0 services) appear at the bottom
                           // and move up when they get their first service
                           const sortedCategories = allCategories.sort((a, b) => {
-                            const aServices = a === 'Additional' 
+                            const aServices = a === 'No category' 
                               ? uncategorizedServices 
                               : services.filter(s => s.category && s.category.trim() === a)
-                            const bServices = b === 'Additional' 
+                            const bServices = b === 'No category' 
                               ? uncategorizedServices 
                               : services.filter(s => s.category && s.category.trim() === b)
                             
@@ -950,7 +950,7 @@ const ServiceFlowServices = () => {
                           
                           return sortedCategories.map(category => {
                             console.log(`🔍 Debug - Processing category: "${category}"`)
-                            const categoryServices = category === 'Additional' 
+                            const categoryServices = category === 'No category' 
                               ? uncategorizedServices 
                               : services.filter(s => s.category && s.category.trim() === category)
                             
@@ -966,7 +966,7 @@ const ServiceFlowServices = () => {
                           key={category} 
                           className={`border-b border-gray-200 last:border-b-0 transition-all duration-200 relative ${
                                     dragOverCategory === category ? 'bg-blue-50 border-2 border-blue-200' : ''
-                          } ${draggedService && draggedService.category !== (category === 'Additional' ? '' : category) ? 'hover:bg-blue-25' : ''}`}
+                          } ${draggedService && draggedService.category !== (category === 'No category' ? '' : category) ? 'hover:bg-blue-25' : ''}`}
                                   onDragOver={(e) => handleDragOver(e, category)}
                                   onDragLeave={handleDragLeave}
                                   onDrop={(e) => handleDrop(e, category)}

@@ -138,7 +138,8 @@ const JobDetails = () => {
       const discount = job.discount || 0;
       const additionalFees = job.additional_fees || 0;
       const taxes = job.taxes || 0;
-      const calculatedTotal = servicePrice + additionalFees + taxes - discount;
+      const modifierPrice = calculateModifierPrice();
+      const calculatedTotal = servicePrice + modifierPrice + additionalFees + taxes - discount;
       
       setFormData(prev => ({
         ...prev,
@@ -146,6 +147,7 @@ const JobDetails = () => {
         bathroom_count: job.bathroom_count || "",
         duration: job.duration || job.estimated_duration || 0,
         service_price: servicePrice,
+        modifier_price: modifierPrice,
         discount: discount,
         additional_fees: additionalFees,
         taxes: taxes,
@@ -238,6 +240,8 @@ const JobDetails = () => {
         console.log('🔧 Job Details: Raw job data from API:', jobData);
         console.log('🔧 Job Details: Mapped job data:', mappedJobData);
         console.log('🔧 Job Details: service_modifiers in mapped data:', mappedJobData.service_modifiers);
+        console.log('🔧 Job Details: service_modifiers type:', typeof mappedJobData.service_modifiers);
+        console.log('🔧 Job Details: service_modifiers value:', JSON.stringify(mappedJobData.service_modifiers, null, 2));
         console.log('🔧 Job Details: Pricing breakdown:', {
           service_price: mappedJobData.service_price,
           additional_fees: mappedJobData.additional_fees,
@@ -450,10 +454,12 @@ const JobDetails = () => {
         additionalFees: formData.additional_fees !== undefined ? formData.additional_fees : (job.additional_fees || 0),
         taxes: formData.taxes !== undefined ? formData.taxes : (job.taxes || 0),
         total: (formData.service_price !== undefined ? formData.service_price : (job.service_price || 0)) + 
+               (formData.modifier_price !== undefined ? formData.modifier_price : calculateModifierPrice()) + 
                (formData.additional_fees !== undefined ? formData.additional_fees : (job.additional_fees || 0)) + 
                (formData.taxes !== undefined ? formData.taxes : (job.taxes || 0)) - 
                (formData.discount !== undefined ? formData.discount : (job.discount || 0)),
         total_amount: (formData.service_price !== undefined ? formData.service_price : (job.service_price || 0)) + 
+                     (formData.modifier_price !== undefined ? formData.modifier_price : calculateModifierPrice()) + 
                      (formData.additional_fees !== undefined ? formData.additional_fees : (job.additional_fees || 0)) + 
                      (formData.taxes !== undefined ? formData.taxes : (job.taxes || 0)) - 
                      (formData.discount !== undefined ? formData.discount : (job.discount || 0))
@@ -746,14 +752,37 @@ const JobDetails = () => {
     return formatted
   }
 
+  // Calculate total modifier price
+  const calculateModifierPrice = () => {
+    try {
+      const serviceModifiers = getServiceModifiers();
+      let totalModifierPrice = 0;
+      
+      serviceModifiers.forEach(modifier => {
+        if (modifier.selectedOptions && modifier.selectedOptions.length > 0) {
+          modifier.selectedOptions.forEach(option => {
+            totalModifierPrice += parseFloat(option.totalPrice || option.price || 0);
+          });
+        }
+      });
+      
+      console.log('🔧 calculateModifierPrice: total modifier price:', totalModifierPrice);
+      return totalModifierPrice;
+    } catch (error) {
+      console.error('Error calculating modifier price:', error);
+      return 0;
+    }
+  }
+
   // Calculate total price including modifiers
   const calculateTotalPrice = () => {
     try {
       // Use the total price that was calculated and saved during job creation
       const savedTotal = parseFloat(job.total) || 0;
       const basePrice = parseFloat(job.service_price) || 0;
+      const modifierPrice = calculateModifierPrice();
       
-
+      console.log('🔧 calculateTotalPrice: basePrice:', basePrice, 'modifierPrice:', modifierPrice, 'savedTotal:', savedTotal);
       
       return savedTotal;
     } catch (error) {
@@ -767,6 +796,7 @@ const JobDetails = () => {
     try {
       console.log('🔧 getServiceModifiers: job.service_modifiers:', job.service_modifiers);
       console.log('🔧 getServiceModifiers: job.service_modifiers type:', typeof job.service_modifiers);
+      console.log('🔧 getServiceModifiers: job.service_modifiers stringified:', JSON.stringify(job.service_modifiers, null, 2));
       
       // Handle null, undefined, or empty values
       if (!job.service_modifiers || job.service_modifiers === null) {
@@ -782,6 +812,8 @@ const JobDetails = () => {
       
       const result = Array.isArray(job.service_modifiers) ? job.service_modifiers : [];
       console.log('🔧 getServiceModifiers: final result:', result);
+      console.log('🔧 getServiceModifiers: result length:', result.length);
+      console.log('🔧 getServiceModifiers: result items:', result.map(item => ({ id: item.id, title: item.title, selectedOptions: item.selectedOptions })));
       return result;
     } catch (error) {
       console.error('Error parsing service modifiers:', error);
@@ -1480,9 +1512,28 @@ const JobDetails = () => {
 
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span>Subtotal</span>
+                    <span>Base Service</span>
                     <span>${(parseFloat(job.service_price) || 0).toFixed(2)}</span>
                   </div>
+                  
+                  {/* Show modifier breakdown if there are any */}
+                  {(() => {
+                    const serviceModifiers = getServiceModifiers();
+                    const hasModifiers = serviceModifiers.some(modifier => 
+                      modifier.selectedOptions && modifier.selectedOptions.length > 0
+                    );
+                    
+                    if (hasModifiers) {
+                      const totalModifierPrice = calculateModifierPrice();
+                      return (
+                        <div className="flex justify-between">
+                          <span>Modifiers</span>
+                          <span>+${totalModifierPrice.toFixed(2)}</span>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
                   
                   {/* Show additional fees if they exist */}
                   {(parseFloat(job.additional_fees) || 0) > 0 && (
@@ -2190,7 +2241,7 @@ const JobDetails = () => {
                             setFormData(prev => ({ 
                               ...prev, 
                               service_price: newPrice,
-                              total: newPrice + (prev.additional_fees || 0) + (prev.taxes || 0) - (prev.discount || 0)
+                              total: newPrice + (prev.modifier_price || 0) + (prev.additional_fees || 0) + (prev.taxes || 0) - (prev.discount || 0)
                             }));
                           }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -2208,7 +2259,7 @@ const JobDetails = () => {
                             setFormData(prev => ({ 
                               ...prev, 
                               discount: newDiscount,
-                              total: (prev.service_price || 0) + (prev.additional_fees || 0) + (prev.taxes || 0) - newDiscount
+                              total: (prev.service_price || 0) + (prev.modifier_price || 0) + (prev.additional_fees || 0) + (prev.taxes || 0) - newDiscount
                             }));
                           }}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -2226,7 +2277,7 @@ const JobDetails = () => {
                             setFormData(prev => ({ 
                               ...prev, 
                               additional_fees: newFees,
-                              total: (prev.service_price || 0) + newFees + (prev.taxes || 0) - (prev.discount || 0)
+                              total: (prev.service_price || 0) + (prev.modifier_price || 0) + newFees + (prev.taxes || 0) - (prev.discount || 0)
                             }));
                           }}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -2244,13 +2295,34 @@ const JobDetails = () => {
                             setFormData(prev => ({ 
                               ...prev, 
                               taxes: newTaxes,
-                              total: (prev.service_price || 0) + (prev.additional_fees || 0) + newTaxes - (prev.discount || 0)
+                              total: (prev.service_price || 0) + (prev.modifier_price || 0) + (prev.additional_fees || 0) + newTaxes - (prev.discount || 0)
                             }));
                           }}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                           placeholder="0.00"
                         />
                       </div>
+                      
+                      {/* Show modifier price if there are modifiers */}
+                      {(() => {
+                        const serviceModifiers = getServiceModifiers();
+                        const hasModifiers = serviceModifiers.some(modifier => 
+                          modifier.selectedOptions && modifier.selectedOptions.length > 0
+                        );
+                        
+                        if (hasModifiers) {
+                          return (
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">Modifier Price ($)</label>
+                              <div className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-600">
+                                ${(formData.modifier_price || 0).toFixed(2)} (calculated from selected modifiers)
+                              </div>
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()}
+                      
                       <div className="bg-gray-50 p-3 rounded-lg">
                         <div className="flex justify-between text-sm">
                           <span className="font-medium">Total:</span>

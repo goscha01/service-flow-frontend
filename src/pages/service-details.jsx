@@ -2371,23 +2371,6 @@ const ServiceDetails = () => {
                     </label>
                   </div>
 
-                  {/* Save Button */}
-                  <div className="mt-8 pt-6 border-t border-gray-200">
-                    <button
-                      onClick={() => handleSaveService()}
-                      disabled={saving}
-                      className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
-                    >
-                      {saving ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          <span>Saving...</span>
-                        </>
-                      ) : (
-                        <span>Save Changes</span>
-                      )}
-                    </button>
-                  </div>
                 </div>
 
                 <div className="w-48">
