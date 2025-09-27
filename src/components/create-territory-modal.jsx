@@ -6,7 +6,7 @@ import { territoriesAPI } from "../services/api"
 import AddressAutocomplete from "./address-autocomplete"
 
 // API base URL for Google Places API proxy
-const API_BASE_URL = 'https://service-flow-backend-production.up.railway.app/api'
+const API_BASE_URL = 'https://service-flow-backend-production-4568.up.railway.app/api'
 
 const CreateTerritoryModal = ({ isOpen, onClose, onSuccess, territory = null, isEditing = false, userId }) => {
   const [formData, setFormData] = useState({

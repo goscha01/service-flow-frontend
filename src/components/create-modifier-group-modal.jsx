@@ -179,7 +179,7 @@ const CreateModifierGroupModal = ({ isOpen, onClose, onSave, editingModifier = n
         // Try to refresh the token first
         try {
           console.log('🔄 Token expired or about to expire, attempting to refresh...');
-          const refreshResponse = await fetch('https://service-flow-backend-production.up.railway.app/api/auth/refresh', {
+          const refreshResponse = await fetch('https://service-flow-backend-production-4568.up.railway.app/api/auth/refresh', {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -208,7 +208,7 @@ const CreateModifierGroupModal = ({ isOpen, onClose, onSave, editingModifier = n
 
       console.log('Uploading modifier image for option:', optionId);
 
-      const response = await fetch('https://service-flow-backend-production.up.railway.app/api/upload-modifier-image', {
+      const response = await fetch('https://service-flow-backend-production-4568.up.railway.app/api/upload-modifier-image', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`

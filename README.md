@@ -21,7 +21,7 @@ A React-based frontend for the ZenBooker application with complete authenticatio
 2. **Environment Configuration**
    Create a `.env` file in the root directory:
    ```
-   REACT_APP_API_URL=https://service-flow-backend-production.up.railway.app/api
+   REACT_APP_API_URL=https://service-flow-backend-production-4568.up.railway.app/api
    REACT_APP_ENV=development
    ```
 

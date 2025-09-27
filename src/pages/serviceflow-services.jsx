@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import Sidebar from "../components/sidebar"
 import MobileHeader from "../components/mobile-header"
-import { GripVertical, Wrench, Plus, AlertCircle, AlertTriangle, Loader2, Trash2, X, Copy } from "lucide-react"
+import { GripVertical, Wrench, Plus, AlertCircle, AlertTriangle, Loader2, Trash2, X, Copy, Edit } from "lucide-react"
 import CreateServiceModal from "../components/create-service-modal"
 import ServiceTemplatesModal from "../components/service-templates-modal"
 import ServicesDisplay from "../components/services-display"
@@ -38,6 +38,9 @@ const ServiceFlowServices = () => {
   const [categoryDeleteModalOpen, setCategoryDeleteModalOpen] = useState(false)
   const [categoryToDelete, setCategoryToDelete] = useState(null)
   const [deletingCategory, setDeletingCategory] = useState(false)
+  const [categoryEditModalOpen, setCategoryEditModalOpen] = useState(false)
+  const [categoryToEdit, setCategoryToEdit] = useState(null)
+  const [editingCategory, setEditingCategory] = useState(false)
   
   // Drag and drop state
   const [draggedService, setDraggedService] = useState(null)
@@ -146,7 +149,7 @@ const ServiceFlowServices = () => {
           const formData = new FormData();
           formData.append('image', serviceData.image);
           
-          const uploadResponse = await fetch('https://service-flow-backend-production.up.railway.app/api/upload-service-image', {
+          const uploadResponse = await fetch('https://service-flow-backend-production-4568.up.railway.app/api/upload-service-image', {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${localStorage.getItem('authToken')}`
@@ -626,6 +629,83 @@ const ServiceFlowServices = () => {
     setCategoryToDelete(null);
   }
 
+  const handleEditCategory = (categoryName) => {
+    console.log('🔄 handleEditCategory called with:', categoryName);
+    
+    // Find the category object to get the ID
+    const categoryObject = categoryObjects.find(cat => cat.name === categoryName);
+    
+    if (!categoryObject) {
+      console.error('❌ Category object not found for:', categoryName);
+      setError('Category not found. Please refresh the page and try again.');
+      return;
+    }
+    
+    console.log('🔄 Found category object for editing:', categoryObject);
+    
+    // Set the category to edit and open the modal
+    setCategoryToEdit({ name: categoryName, object: categoryObject });
+    setCategoryEditModalOpen(true);
+  }
+
+  const handleConfirmCategoryEdit = async () => {
+    if (!categoryToEdit) return;
+    
+    console.log('✅ User confirmed category edit');
+    
+    try {
+      setEditingCategory(true);
+      setError('');
+      
+      const { name: oldCategoryName, object: categoryObject } = categoryToEdit;
+      const newCategoryName = categoryObject.name; // This will be updated by the modal
+      
+      // Update the category in the database
+      console.log('🔄 Updating category in database:', categoryObject.id, 'to:', newCategoryName);
+      const result = await servicesAPI.updateCategory(categoryObject.id, { name: newCategoryName });
+      console.log('✅ Category update result:', result);
+      
+      // Update all services in this category to use the new category name
+      const servicesInCategory = services.filter(s => s.category === oldCategoryName);
+      console.log(`🔄 Updating ${servicesInCategory.length} services to use new category name`);
+      
+      for (const service of servicesInCategory) {
+        await handleMoveServiceToCategory(service.id, newCategoryName);
+      }
+      
+      // Update local state
+      setCategories(prev => prev.map(cat => cat === oldCategoryName ? newCategoryName : cat));
+      setCategoryObjects(prev => prev.map(cat => 
+        cat.name === oldCategoryName ? { ...cat, name: newCategoryName } : cat
+      ));
+      
+      console.log('✅ Category updated successfully');
+      
+      // Close the modal
+      setCategoryEditModalOpen(false);
+      setCategoryToEdit(null);
+      
+    } catch (error) {
+      console.error('❌ Error updating category:', error);
+      console.error('❌ Error response:', error.response);
+      console.error('❌ Error data:', error.response?.data);
+      
+      if (error.response?.data?.error) {
+        setError(error.response.data.error);
+      } else {
+        setError('Failed to update category. Please try again.');
+      }
+    } finally {
+      setEditingCategory(false);
+    }
+  }
+
+  const handleCancelCategoryEdit = () => {
+    console.log('❌ User cancelled category edit');
+    setCategoryEditModalOpen(false);
+    setCategoryToEdit(null);
+  }
+
   // Drag and drop handlers
   const handleDragStart = (e, service) => {
     setDraggedService(service)
@@ -996,14 +1076,26 @@ const ServiceFlowServices = () => {
                               <span className={`text-sm ${categoryServices.length === 0 ? 'text-gray-400' : 'text-gray-500'}`}>
                                 {categoryServices.length} service{categoryServices.length !== 1 ? 's' : ''}
                               </span>
-                                    {category !== 'Additional' && (
-                              <button
-                                onClick={() => handleRemoveCategory(category)}
-                                className="text-red-600 hover:text-red-700 text-sm"
-                              >
-                                Remove
-                              </button>
-                                    )}
+                              
+                              {/* Category Actions */}
+                              {category !== 'Additional' && category !== 'No category' && (
+                                <div className="flex items-center space-x-1">
+                                  <button
+                                    onClick={() => handleEditCategory(category)}
+                                    className="p-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded transition-colors"
+                                    title="Edit category name"
+                                  >
+                                    <Edit className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleRemoveCategory(category)}
+                                    className="p-1 text-red-600 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                                    title="Delete category"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           </div>
                           
@@ -1468,6 +1560,83 @@ const ServiceFlowServices = () => {
                       <>
                         <Trash2 className="w-4 h-4" />
                         <span>Delete Category</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Category Modal */}
+        {categoryEditModalOpen && categoryToEdit && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all duration-300 ease-out">
+              {/* Header */}
+              <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-blue-100 rounded-full">
+                    <Edit className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">Edit Category</h3>
+                    <p className="text-sm text-gray-500">Update category name</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={handleCancelCategoryEdit} 
+                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                  disabled={editingCategory}
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Content */}
+              <div className="p-6">
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Category Name
+                  </label>
+                  <input
+                    type="text"
+                    value={categoryToEdit.object.name}
+                    onChange={(e) => {
+                      setCategoryToEdit(prev => ({
+                        ...prev,
+                        object: { ...prev.object, name: e.target.value }
+                      }));
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Enter category name"
+                    disabled={editingCategory}
+                  />
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
+                  <button
+                    onClick={handleCancelCategoryEdit}
+                    disabled={editingCategory}
+                    className="flex-1 sm:flex-none px-6 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleConfirmCategoryEdit}
+                    disabled={editingCategory || !categoryToEdit.object.name.trim()}
+                    className="flex-1 sm:flex-none px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                  >
+                    {editingCategory ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Updating...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Edit className="w-4 h-4" />
+                        <span>Update Category</span>
                       </>
                     )}
                   </button>

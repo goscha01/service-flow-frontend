@@ -115,7 +115,7 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
         throw new Error('Authentication required');
       }
 
-      const response = await fetch('https://service-flow-backend-production.up.railway.app/api/upload-intake-image', {
+      const response = await fetch('https://service-flow-backend-production-4568.up.railway.app/api/upload-intake-image', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`

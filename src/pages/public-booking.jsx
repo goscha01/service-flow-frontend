@@ -22,7 +22,7 @@ import AddressAutocomplete from "../components/address-autocomplete"
 
 // Create axios instance for public API calls
 const publicApi = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || 'https://service-flow-backend-production.up.railway.app/api',
+  baseURL: process.env.REACT_APP_API_URL || 'https://service-flow-backend-production-4568.up.railway.app/api',
   timeout: 15000,
   headers: {
     'Content-Type': 'application/json',
@@ -30,7 +30,7 @@ const publicApi = axios.create({
 });
 
 // API base URL for Google Places API proxy
-const API_BASE_URL = 'https://service-flow-backend-production.up.railway.app'
+const API_BASE_URL = 'https://service-flow-backend-production-4568.up.railway.app'
 
 const PublicBooking = () => {
   const [loading, setLoading] = useState(true)

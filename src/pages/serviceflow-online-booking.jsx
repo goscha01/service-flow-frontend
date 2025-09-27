@@ -25,7 +25,7 @@ import axios from "axios"
 
 // Create axios instance for API calls
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || 'https://service-flow-backend-production.up.railway.app/api',
+  baseURL: process.env.REACT_APP_API_URL || 'https://service-flow-backend-production-4568.up.railway.app/api',
   timeout: 15000,
   headers: {
     'Content-Type': 'application/json',
@@ -840,7 +840,7 @@ const ServiceFlowOnlineBooking = () => {
                 id: "custom",
                 title: "Custom Integration",
                 description: "Use our API to build a custom booking experience",
-                code: `// API endpoint: https://service-flow-backend-production.up.railway.app/api/public/business/${bookingUrl.split('/').pop()}`
+                code: `// API endpoint: https://service-flow-backend-production-4568.up.railway.app/api/public/business/${bookingUrl.split('/').pop()}`
               }
             ].map((option) => (
               <div key={option.id} className="border border-gray-200 rounded-lg p-4">
