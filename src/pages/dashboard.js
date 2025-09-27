@@ -27,8 +27,48 @@ const ServiceFlowDashboard = () => {
     if (!user) return 'User'
     return user.firstName || user.name || user.email?.split('@')[0] || 'User'
   }
+
+  // Handle custom date range selection
+  const handleCustomDateRange = () => {
+    if (customDateRange.startDate && customDateRange.endDate) {
+      setDateRange('custom')
+      setShowCustomDatePicker(false)
+      // Trigger data refresh with custom date range
+      fetchDashboardData()
+    }
+  }
+
+  // Reset to default date range
+  const resetDateRange = () => {
+    setDateRange('7')
+    setCustomDateRange({ startDate: '', endDate: '' })
+    setShowCustomDatePicker(false)
+    fetchDashboardData()
+  }
+
+  // Handle single day selection
+  const handleDateSelection = (date) => {
+    setSelectedDate(date)
+    setShowDatePicker(false)
+    fetchDashboardData()
+  }
+
+  // Reset to today
+  const resetToToday = () => {
+    const today = new Date().toISOString().split('T')[0]
+    setSelectedDate(today)
+    setShowDatePicker(false)
+    fetchDashboardData()
+  }
   const [isLoading, setIsLoading] = useState(true)
   const [dateRange, setDateRange] = useState('7') // days
+  const [customDateRange, setCustomDateRange] = useState({
+    startDate: '',
+    endDate: ''
+  })
+  const [showCustomDatePicker, setShowCustomDatePicker] = useState(false)
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]) // Today's date in YYYY-MM-DD format
+  const [showDatePicker, setShowDatePicker] = useState(false)
   const [showNewMenu, setShowNewMenu] = useState(false)
   const [showCustomerModal, setShowCustomerModal] = useState(false)
   const [error, setError] = useState("")
@@ -400,7 +440,7 @@ const ServiceFlowDashboard = () => {
       setError("")
       
       console.log('🔄 Fetching dashboard data for user:', user.id)
-      console.log('📊 API Base URL:', process.env.REACT_APP_API_URL || 'https://service-flow-backend-production.up.railway.app/api')
+      console.log('📊 API Base URL:', process.env.REACT_APP_API_URL || 'https://service-flow-backend-production-4568.up.railway.app/api')
       
       // Add delay between API calls to prevent rate limiting
       const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms))
@@ -448,17 +488,27 @@ const ServiceFlowDashboard = () => {
         teamMembers = []
       }
       
-      // Calculate today's data - use same logic as Schedule page
-      const today = new Date()
-      const todayString = today.toLocaleDateString('en-CA') // Returns YYYY-MM-DD format
+      // Calculate selected day's data - use selectedDate instead of today
+      const selectedDay = new Date(selectedDate)
+      const selectedDayString = selectedDay.toLocaleDateString('en-CA') // Returns YYYY-MM-DD format
       
-      // Calculate date range data - use same logic as Schedule page
-      const startDate = new Date()
-      startDate.setDate(startDate.getDate() - parseInt(dateRange))
-      const startDateString = startDate.toLocaleDateString('en-CA') // Returns YYYY-MM-DD format
+      // Calculate date range data - handle custom date ranges
+      let startDate, startDateString
+      if (dateRange === 'custom' && customDateRange.startDate && customDateRange.endDate) {
+        // Use custom date range
+        startDate = new Date(customDateRange.startDate)
+        startDateString = customDateRange.startDate
+        console.log('📅 Using custom date range:', customDateRange.startDate, 'to', customDateRange.endDate)
+      } else {
+        // Use predefined date range - subtract 1 less day to get exact count
+        startDate = new Date()
+        startDate.setDate(startDate.getDate() - (parseInt(dateRange) - 1))
+        startDateString = startDate.toLocaleDateString('en-CA') // Returns YYYY-MM-DD format
+        console.log('📅 Using predefined date range:', dateRange, 'days')
+      }
       
       console.log('🔍 Dashboard date debugging:')
-      console.log('📅 Today string:', todayString)
+      console.log('📅 Selected day string:', selectedDayString)
       console.log('📅 All jobs scheduled dates:', jobs.map(job => job.scheduled_date))
       console.log('📅 Date range setting:', dateRange, 'days')
       console.log('📅 Start date for range:', startDateString)
@@ -475,7 +525,7 @@ const ServiceFlowDashboard = () => {
             jobDateString = job.scheduled_date.split(' ')[0]
           }
         }
-        const matches = jobDateString === todayString
+        const matches = jobDateString === selectedDayString
         console.log(`📅 Job ${job.id}: scheduled_date="${job.scheduled_date}" -> jobDateString="${jobDateString}" -> matches=${matches}`)
         return matches
       })
@@ -514,7 +564,16 @@ const ServiceFlowDashboard = () => {
             jobDateString = job.scheduled_date.split(' ')[0]
           }
         }
-        const matches = jobDateString >= startDateString
+        
+        let matches
+        if (dateRange === 'custom' && customDateRange.startDate && customDateRange.endDate) {
+          // Custom date range: check if job date is between start and end dates
+          matches = jobDateString >= customDateRange.startDate && jobDateString <= customDateRange.endDate
+        } else {
+          // Predefined date range: check if job date is after start date
+          matches = jobDateString >= startDateString
+        }
+        
         console.log(`📅 Range Job ${job.id}: scheduled_date="${job.scheduled_date}" -> jobDateString="${jobDateString}" -> matches=${matches}`)
         return matches
       })
@@ -531,7 +590,14 @@ const ServiceFlowDashboard = () => {
             invoiceDateString = invoice.created_at.split(' ')[0]
           }
         }
-        return invoiceDateString >= startDateString
+        
+        if (dateRange === 'custom' && customDateRange.startDate && customDateRange.endDate) {
+          // Custom date range: check if invoice date is between start and end dates
+          return invoiceDateString >= customDateRange.startDate && invoiceDateString <= customDateRange.endDate
+        } else {
+          // Predefined date range: check if invoice date is after start date
+          return invoiceDateString >= startDateString
+        }
       })
       
       // Calculate metrics - use same date logic as Schedule page
@@ -786,16 +852,17 @@ const ServiceFlowDashboard = () => {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
-      {/* Sidebar */}
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+    <>
+      <div className="flex h-screen bg-gray-50 overflow-hidden">
+        {/* Sidebar */}
+        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      {/* Customer Modal */}
-      <CustomerModal
-        isOpen={showCustomerModal}
-        onClose={() => setShowCustomerModal(false)}
-        onSave={handleSaveCustomer}
-      />
+        {/* Customer Modal */}
+        <CustomerModal
+          isOpen={showCustomerModal}
+          onClose={() => setShowCustomerModal(false)}
+          onSave={handleSaveCustomer}
+        />
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
@@ -1015,9 +1082,22 @@ const ServiceFlowDashboard = () => {
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-6 space-y-4 lg:space-y-0">
                   <div className="flex items-center space-x-3">
                     <h2 className="text-lg font-display font-semibold text-gray-900">Today</h2>
-                    <span className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
-                      {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                    </span>
+                    <button
+                      onClick={() => setShowDatePicker(!showDatePicker)}
+                      className="flex items-center space-x-2 text-sm text-gray-500 bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full transition-colors cursor-pointer"
+                    >
+                      <Calendar className="w-4 h-4" />
+                      <span>{new Date(selectedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                    </button>
+                    
+                    {selectedDate !== new Date().toISOString().split('T')[0] && (
+                      <button
+                        onClick={resetToToday}
+                        className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded border border-gray-200 hover:bg-gray-50 transition-colors"
+                      >
+                        Today
+                      </button>
+                    )}
                     <button
                       onClick={() => {
                         console.log('🔄 Manual refresh triggered')
@@ -1030,7 +1110,37 @@ const ServiceFlowDashboard = () => {
                       <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
                     </button>
                   </div>
-                  <div className="grid grid-cols-3 gap-6 lg:flex lg:items-center lg:space-x-12">
+                </div>
+
+                {/* Date Picker */}
+                {showDatePicker && (
+                  <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 space-y-2 sm:space-y-0">
+                      <div className="flex items-center space-x-2">
+                        <Calendar className="w-4 h-4 text-gray-500" />
+                        <span className="text-sm font-medium text-gray-700">Select Date:</span>
+                      </div>
+                      
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="date"
+                          value={selectedDate}
+                          onChange={(e) => handleDateSelection(e.target.value)}
+                          className="px-3 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                        
+                        <button
+                          onClick={() => setShowDatePicker(false)}
+                          className="px-3 py-1 bg-gray-200 text-gray-700 text-sm rounded hover:bg-gray-300 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-3 gap-6 lg:flex lg:items-center lg:space-x-12">
                     <div className="text-center">
                       <div className="text-xl lg:text-2xl font-bold text-gray-900">{dashboardData.todayJobs}</div>
                       <div className="text-gray-600 text-sm mt-1">Jobs</div>
@@ -1049,7 +1159,9 @@ const ServiceFlowDashboard = () => {
                 {/* Today's Jobs Map */}
                 <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
                   <div className="flex items-center justify-between p-4 border-b border-gray-200">
-                    <h3 className="text-lg font-semibold text-gray-900">Today's Jobs Map</h3>
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      {selectedDate === new Date().toISOString().split('T')[0] ? "Today's Jobs Map" : `${new Date(selectedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} Jobs Map`}
+                    </h3>
                     <div className="flex items-center space-x-2">
                       <span className="text-sm text-gray-500">{dashboardData.todayJobs} jobs</span>
                     <div className="flex bg-gray-100 rounded-lg p-1">
@@ -1097,7 +1209,9 @@ const ServiceFlowDashboard = () => {
                             
                             {/* Job Legend Overlay */}
                             <div className="absolute top-4 left-4 bg-white rounded-lg shadow-lg p-3 max-w-xs">
-                              <h4 className="text-sm font-semibold text-gray-900 mb-2">Today's Jobs</h4>
+                              <h4 className="text-sm font-semibold text-gray-900 mb-2">
+                                {selectedDate === new Date().toISOString().split('T')[0] ? "Today's Jobs" : `${new Date(selectedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} Jobs`}
+                              </h4>
                               <div className="space-y-2 max-h-32 overflow-y-auto">
                                 {todayJobsList.map((job, index) => {
                                   const markerLabel = String.fromCharCode(65 + index) // A, B, C, etc.
@@ -1150,7 +1264,9 @@ const ServiceFlowDashboard = () => {
                             
                             {/* Job Legend Overlay */}
                             <div className="absolute top-4 left-4 bg-white rounded-lg shadow-lg p-3 max-w-xs">
-                              <h4 className="text-sm font-semibold text-gray-900 mb-2">Today's Jobs</h4>
+                              <h4 className="text-sm font-semibold text-gray-900 mb-2">
+                                {selectedDate === new Date().toISOString().split('T')[0] ? "Today's Jobs" : `${new Date(selectedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} Jobs`}
+                              </h4>
                               <div className="space-y-2 max-h-32 overflow-y-auto">
                                 {todayJobsList.map((job, index) => {
                                   const markerLabel = String.fromCharCode(65 + index) // A, B, C, etc.
@@ -1194,7 +1310,9 @@ const ServiceFlowDashboard = () => {
                           <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mb-3 mx-auto shadow-sm">
                             <Calendar className="w-6 h-6 text-gray-400" />
                           </div>
-                          <p className="text-gray-900 font-medium">No jobs today</p>
+                          <p className="text-gray-900 font-medium">
+                            {selectedDate === new Date().toISOString().split('T')[0] ? "No jobs today" : `No jobs on ${new Date(selectedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
+                          </p>
                           <p className="text-gray-600 text-sm mt-1">Create your first job to get started</p>
                         </div>
                       </div>
@@ -1204,26 +1322,99 @@ const ServiceFlowDashboard = () => {
               </div>
 
               {/* Overview Section */}
-              <div className="bg-white rounded-xl border border-gray-200 p-4 lg:p-6 shadow-sm hover:shadow-md transition-shadow duration-200">
+              <div className="bg-white rounded-xl border border-gray-200 p-4 lg:p-6 shadow-sm hover:shadow-md transition-shadow duration-200 mt-12">
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-6 space-y-2 lg:space-y-0">
                   <div className="flex items-center space-x-3">
                     <h2 className="text-lg font-display font-semibold text-gray-900">Overview</h2>
                     <span className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
-                      {new Date(Date.now() - (dateRange * 24 * 60 * 60 * 1000)).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} 
-                      - Today
+                      {dateRange === 'custom' 
+                        ? `${new Date(customDateRange.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(customDateRange.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                        : `${new Date(Date.now() - ((dateRange - 1) * 24 * 60 * 60 * 1000)).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - Today`
+                      }
                     </span>
                   </div>
-                  <select 
-                    value={dateRange}
-                    onChange={(e) => setDateRange(e.target.value)}
-                    className="form-select rounded-lg border-gray-200 text-sm text-gray-600 hover:text-gray-900 transition-colors duration-200 cursor-pointer"
-                  >
-                    <option value="7">Last 7 days</option>
-                    <option value="30">Last 30 days</option>
-                    <option value="90">Last 90 days</option>
-                    <option value="365">Last year</option>
-                  </select>
+                  
+                  <div className="flex items-center space-x-2">
+                    <select 
+                      value={dateRange}
+                      onChange={(e) => {
+                        if (e.target.value === 'custom') {
+                          setShowCustomDatePicker(true)
+                        } else {
+                          setDateRange(e.target.value)
+                          setShowCustomDatePicker(false)
+                        }
+                      }}
+                      className="form-select rounded-lg border-gray-200 text-sm text-gray-600 hover:text-gray-900 transition-colors duration-200 cursor-pointer"
+                    >
+                      <option value="7">Last 7 days</option>
+                      <option value="30">Last 30 days</option>
+                      <option value="90">Last 90 days</option>
+                      <option value="365">Last year</option>
+                      <option value="custom">Custom range</option>
+                    </select>
+                    
+                    {dateRange === 'custom' && (
+                      <button
+                        onClick={resetDateRange}
+                        className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded border border-gray-200 hover:bg-gray-50 transition-colors"
+                      >
+                        Reset
+                      </button>
+                    )}
+                  </div>
                 </div>
+
+                {/* Custom Date Range Picker */}
+                {showCustomDatePicker && (
+                  <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 space-y-2 sm:space-y-0">
+                      <div className="flex items-center space-x-2">
+                        <Calendar className="w-4 h-4 text-gray-500" />
+                        <span className="text-sm font-medium text-gray-700">Select Date Range:</span>
+                      </div>
+                      
+                      <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
+                        <div className="flex items-center space-x-2">
+                          <label className="text-sm text-gray-600">From:</label>
+                          <input
+                            type="date"
+                            value={customDateRange.startDate}
+                            onChange={(e) => setCustomDateRange(prev => ({ ...prev, startDate: e.target.value }))}
+                            className="px-3 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                        </div>
+                        
+                        <div className="flex items-center space-x-2">
+                          <label className="text-sm text-gray-600">To:</label>
+                          <input
+                            type="date"
+                            value={customDateRange.endDate}
+                            onChange={(e) => setCustomDateRange(prev => ({ ...prev, endDate: e.target.value }))}
+                            className="px-3 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                        </div>
+                        
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={handleCustomDateRange}
+                            disabled={!customDateRange.startDate || !customDateRange.endDate}
+                            className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                          >
+                            Apply
+                          </button>
+                          
+                          <button
+                            onClick={() => setShowCustomDatePicker(false)}
+                            className="px-3 py-1 bg-gray-200 text-gray-700 text-sm rounded hover:bg-gray-300 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                   {/* New jobs */}
@@ -1422,7 +1613,7 @@ const ServiceFlowDashboard = () => {
           </div>
         </div>
       </div>
-    </div>
+    </>
   )
 }
 

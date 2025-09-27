@@ -9,7 +9,8 @@ const CreateServiceModal = ({
   isOpen, 
   onClose, 
   onServiceCreated,
-  user 
+  user,
+  initialCategory = null
 }) => {
   const [currentStep, setCurrentStep] = useState(1); // 1: Category, 2: Basic Info, 3: Modifiers, 4: Intake Questions, 5: Review
   const [categories, setCategories] = useState([]);
@@ -25,6 +26,11 @@ const CreateServiceModal = ({
     modifiers: [],
     intakeQuestions: []
   });
+  
+  // Debug formData changes
+  useEffect(() => {
+    console.log('🔧 CreateServiceModal formData changed:', formData);
+  }, [formData]);
   const [selectedModifiers, setSelectedModifiers] = useState({});
   
   // Modal states for modifiers and intake questions
@@ -53,6 +59,33 @@ const CreateServiceModal = ({
       loadCategories();
     }
   }, [isOpen, user?.id, loadCategories]);
+
+  // Set initial category when modal opens and categories are loaded
+  useEffect(() => {
+    console.log('🔧 CreateServiceModal useEffect triggered:', { isOpen, initialCategory, categoriesLength: categories.length });
+    if (isOpen && initialCategory && categories.length > 0) {
+      console.log('🔧 Setting initial category:', initialCategory);
+      console.log('🔧 Available categories:', categories);
+      
+      // Check if the category exists in the loaded categories
+      const categoryExists = categories.find(c => c.id === initialCategory.id || c.name === initialCategory.name);
+      console.log('🔧 Category exists check:', categoryExists);
+      
+      if (categoryExists) {
+        setFormData(prev => ({
+          ...prev,
+          categoryId: categoryExists.id
+        }));
+        console.log('🔧 Set categoryId to:', categoryExists.id, 'type:', typeof categoryExists.id);
+      } else {
+        console.log('🔧 Category not found in loaded categories, using initialCategory.id:', initialCategory.id, 'type:', typeof initialCategory.id);
+        setFormData(prev => ({
+          ...prev,
+          categoryId: initialCategory.id || initialCategory
+        }));
+      }
+    }
+  }, [isOpen, initialCategory, categories]);
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
@@ -619,7 +652,25 @@ const CreateServiceModal = ({
                   <div>
                     <span className="font-medium text-gray-700">Category:</span>
                     <span className="ml-2">
-                      {categories.find(c => c.id === formData.categoryId)?.name || 'Not selected'}
+                      {(() => {
+                        console.log('🔧 Service Summary - formData.categoryId:', formData.categoryId, 'type:', typeof formData.categoryId);
+                        console.log('🔧 Service Summary - categories:', categories);
+                        console.log('🔧 Service Summary - categories IDs:', categories.map(c => ({ id: c.id, name: c.name, idType: typeof c.id })));
+                        
+                        // Try different comparison methods
+                        const foundCategory = categories.find(c => c.id === formData.categoryId);
+                        const foundCategoryLoose = categories.find(c => c.id == formData.categoryId); // eslint-disable-line eqeqeq
+                        const foundCategoryString = categories.find(c => String(c.id) === String(formData.categoryId));
+                        
+                        console.log('🔧 Service Summary - foundCategory (strict):', foundCategory);
+                        console.log('🔧 Service Summary - foundCategory (loose):', foundCategoryLoose);
+                        console.log('🔧 Service Summary - foundCategory (string):', foundCategoryString);
+                        
+                        const finalCategory = foundCategory || foundCategoryLoose || foundCategoryString;
+                        console.log('🔧 Service Summary - finalCategory:', finalCategory);
+                        
+                        return finalCategory?.name || 'Not selected';
+                      })()}
                     </span>
                   </div>
                   

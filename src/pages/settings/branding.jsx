@@ -81,7 +81,7 @@ const BrandingSettings = () => {
         formData.append('userId', user.id);
         
         // Upload to server
-        const apiUrl = process.env.REACT_APP_API_URL || 'https://service-flow-backend-production.up.railway.app/api';
+        const apiUrl = process.env.REACT_APP_API_URL || 'https://service-flow-backend-production-4568.up.railway.app/api';
         console.log('🔍 Uploading to:', `${apiUrl}/upload/logo`);
         
         const response = await fetch(`${apiUrl}/upload/logo`, {

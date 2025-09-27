@@ -71,12 +71,20 @@ import CreateServiceModal from "../components/create-service-modal";
 import { useNavigate } from 'react-router-dom';
 import { jobsAPI, customersAPI, servicesAPI, teamAPI, territoriesAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useCategory } from '../context/CategoryContext';
 import { getImageUrl, handleImageError } from '../utils/imageUtils';
 
 
 export default function CreateJobPage() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
+  const { selectedCategoryId, selectedCategoryName } = useCategory();
+  
+  // Debug category context
+  console.log('🔧 CreateJob - selectedCategoryId:', selectedCategoryId);
+  console.log('🔧 CreateJob - selectedCategoryName:', selectedCategoryName);
+  console.log('🔧 CreateJob - localStorage selectedCategoryId:', localStorage.getItem('selectedCategoryId'));
+  console.log('🔧 CreateJob - localStorage selectedCategoryName:', localStorage.getItem('selectedCategoryName'));
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -2644,6 +2652,11 @@ setIntakeQuestionAnswers(answers);
         onClose={() => setShowCreateServiceModal(false)}
         onServiceCreated={handleServiceCreated}
         user={user}
+        initialCategory={(() => {
+          const category = selectedCategoryId ? { id: selectedCategoryId, name: selectedCategoryName } : null;
+          console.log('🔧 CreateJob - Passing initialCategory to modal:', category);
+          return category;
+        })()}
       />
     </div>
   );

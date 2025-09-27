@@ -31,7 +31,7 @@ const ServiceFlowCoupons = () => {
       setError("")
       
       const api = axios.create({
-        baseURL: process.env.REACT_APP_API_URL || 'https://service-flow-backend-production.up.railway.app/api',
+        baseURL: process.env.REACT_APP_API_URL || 'https://service-flow-backend-production-4568.up.railway.app/api',
         timeout: 15000,
         headers: {
           'Content-Type': 'application/json',
@@ -72,7 +72,7 @@ const ServiceFlowCoupons = () => {
     
     try {
       const api = axios.create({
-        baseURL: process.env.REACT_APP_API_URL || 'https://service-flow-backend-production.up.railway.app/api',
+        baseURL: process.env.REACT_APP_API_URL || 'https://service-flow-backend-production-4568.up.railway.app/api',
         timeout: 15000,
         headers: {
           'Content-Type': 'application/json',

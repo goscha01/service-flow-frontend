@@ -761,7 +761,30 @@ const JobDetails = () => {
       serviceModifiers.forEach(modifier => {
         if (modifier.selectedOptions && modifier.selectedOptions.length > 0) {
           modifier.selectedOptions.forEach(option => {
-            totalModifierPrice += parseFloat(option.totalPrice || option.price || 0);
+            console.log('🔧 Modifier option details:', {
+              id: option.id,
+              label: option.label,
+              price: option.price,
+              totalPrice: option.totalPrice,
+              selectedQuantity: option.selectedQuantity
+            });
+            
+            // If totalPrice exists, use it (it's already calculated with quantity)
+            // Otherwise, calculate price * quantity
+            if (option.totalPrice !== undefined && option.totalPrice !== null) {
+              console.log('🔧 Using totalPrice:', option.totalPrice);
+              totalModifierPrice += parseFloat(option.totalPrice);
+            } else if (option.selectedQuantity && option.selectedQuantity > 0) {
+              // Calculate price * quantity if totalPrice is not available
+              const basePrice = parseFloat(option.price || 0);
+              const calculatedTotal = basePrice * option.selectedQuantity;
+              console.log('🔧 Calculating price * quantity:', basePrice, '*', option.selectedQuantity, '=', calculatedTotal);
+              totalModifierPrice += calculatedTotal;
+            } else {
+              // Fallback to base price if no quantity
+              console.log('🔧 Using base price:', option.price);
+              totalModifierPrice += parseFloat(option.price || 0);
+            }
           });
         }
       });

@@ -20,7 +20,7 @@ export const TeamMemberAuthProvider = ({ children }) => {
 
   // Create axios instance for team member API calls
   const teamMemberApi = axios.create({
-    baseURL: 'https://service-flow-backend-production.up.railway.app',
+    baseURL: 'https://service-flow-backend-production-4568.up.railway.app',
     timeout: 15000,
     headers: {
       'Content-Type': 'application/json',

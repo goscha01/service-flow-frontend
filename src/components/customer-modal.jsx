@@ -27,7 +27,7 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
   const [isValidatingPhone, setIsValidatingPhone] = useState(false)
 
   // API base URL - using backend proxy for Google Places API to avoid CORS issues
-  const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://service-flow-backend-production.up.railway.app/api'
+  const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://service-flow-backend-production-4568.up.railway.app/api'
 
   // Function to parse combined address into street address and suite
   const parseCombinedAddress = (combinedAddress) => {
