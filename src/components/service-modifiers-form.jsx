@@ -18,10 +18,8 @@ const ServiceModifiersForm = ({ modifiers = [], selectedModifiers: parentSelecte
     console.log('🔧 ServiceModifiersForm effectiveEditedPrices:', effectiveEditedPrices);
   }, [editedModifierPrices, localEditedPrices]);
   
-  // Clear local edited prices when parent prices change
-  useEffect(() => {
-    setLocalEditedPrices({});
-  }, [editedModifierPrices]);
+  // Don't clear local edited prices when parent prices change
+  // This was causing price resets when editing
 
   // Sync internal state with parent changes
   useEffect(() => {
@@ -208,8 +206,10 @@ const ServiceModifiersForm = ({ modifiers = [], selectedModifiers: parentSelecte
                                 [priceKey]: value
                               }));
                               
-                              // Also call parent callback
-                              onModifierPriceChange && onModifierPriceChange(priceKey, value);
+                              // Call parent callback to update parent state
+                              if (onModifierPriceChange) {
+                                onModifierPriceChange(modifier.id, option.id, value);
+                              }
                             }}
                             className="w-16 px-1 py-0.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                           />
@@ -301,8 +301,10 @@ const ServiceModifiersForm = ({ modifiers = [], selectedModifiers: parentSelecte
                               [priceKey]: value
                             }));
                             
-                            // Also call parent callback
-                            onModifierPriceChange && onModifierPriceChange(priceKey, value);
+                            // Call parent callback to update parent state
+                            if (onModifierPriceChange) {
+                              onModifierPriceChange(modifier.id, option.id, value);
+                            }
                           }}
                           className="w-16 px-1 py-0.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent text-right"
                         />

@@ -199,7 +199,37 @@ const ServiceFlowSchedule = () => {
     
     // Apply status filter
     if (filters.status !== "all") {
-      filteredJobs = filteredJobs.filter(job => job.status === filters.status)
+      // Debug: Log all unique status values in jobs
+      const uniqueStatuses = [...new Set(filteredJobs.map(job => job.status))]
+      console.log('🔍 Available job statuses:', uniqueStatuses)
+      console.log('🔍 Filtering for status:', filters.status)
+      
+      filteredJobs = filteredJobs.filter(job => {
+        // Try exact match first
+        let matches = job.status === filters.status
+        
+        // If no exact match, try case-insensitive match
+        if (!matches) {
+          matches = job.status?.toLowerCase() === filters.status.toLowerCase()
+        }
+        
+        // If still no match, try common variations
+        if (!matches) {
+          const statusVariations = {
+            'in-progress': ['in progress', 'in-progress', 'in_progress', 'inprogress', 'active', 'started'],
+            'pending': ['pending', 'scheduled', 'booked'],
+            'confirmed': ['confirmed', 'accepted', 'approved'],
+            'completed': ['completed', 'done', 'finished'],
+            'cancelled': ['cancelled', 'canceled', 'cancelled']
+          }
+          
+          const variations = statusVariations[filters.status] || []
+          matches = variations.includes(job.status?.toLowerCase())
+        }
+        
+        console.log(`🔍 Job ${job.id}: status="${job.status}" matches="${matches}"`)
+        return matches
+      })
       console.log(`🔍 After status filter (${filters.status}):`, filteredJobs.length)
     }
     
