@@ -78,7 +78,7 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
       if (member.availability) {
         try {
           if (typeof member.availability === 'string') {
-            parsedAvailability = JSON.parse(member.availability)
+          parsedAvailability = JSON.parse(member.availability)
           } else if (typeof member.availability === 'object' && member.availability !== null) {
             parsedAvailability = member.availability
           }

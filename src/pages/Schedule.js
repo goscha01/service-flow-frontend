@@ -126,8 +126,10 @@ const ServiceFlowSchedule = () => {
         territory: member.territory || (member.id % 3 === 0 ? 'Jacksonville' : member.id % 3 === 1 ? 'St. Petersburg' : 'Tampa')
       }))
       
+      console.log('👥 Team members loaded:', membersWithTerritories)
       setTeamMembers(membersWithTerritories)
     } catch (error) {
+      console.error('❌ Error loading team members:', error)
       setTeamMembers([])
     }
   }
@@ -168,6 +170,8 @@ const ServiceFlowSchedule = () => {
       )
       
       const allJobsData = response.jobs || response || []
+      console.log('📋 Jobs loaded:', allJobsData.length, 'jobs')
+      console.log('📋 Sample job data:', allJobsData[0])
       setAllJobs(allJobsData)
     } catch (error) {
       if (error.response?.status === 403) {
@@ -190,48 +194,143 @@ const ServiceFlowSchedule = () => {
     // Apply NON-DATE filters to allJobs (keep allJobs unfiltered for date views)
     let filteredJobs = [...allJobs]
     
+    console.log('🔍 Filtering jobs with filters:', filters)
+    console.log('🔍 Total jobs before filtering:', filteredJobs.length)
+    
     // Apply status filter
     if (filters.status !== "all") {
       filteredJobs = filteredJobs.filter(job => job.status === filters.status)
+      console.log(`🔍 After status filter (${filters.status}):`, filteredJobs.length)
     }
     
     // Apply team member filter
     if (filters.teamMember !== "all") {
-      if (filters.teamMember === "assigned") {
-        filteredJobs = filteredJobs.filter(job => job.team_member_id !== null)
-      } else if (filters.teamMember === "unassigned") {
-        filteredJobs = filteredJobs.filter(job => job.team_member_id === null)
+      if (filters.teamMember === "unassigned") {
+        filteredJobs = filteredJobs.filter(job => !job.team_member_id || job.team_member_id === null)
+        console.log(`🔍 After unassigned filter:`, filteredJobs.length)
       } else {
-        filteredJobs = filteredJobs.filter(job => job.team_member_id === parseInt(filters.teamMember))
+        // Filter by specific team member ID - use loose equality for string/number comparison
+        filteredJobs = filteredJobs.filter(job => {
+          const jobTeamMemberId = job.team_member_id
+          const filterTeamMemberId = filters.teamMember
+          console.log(`🔍 Comparing job team_member_id: ${jobTeamMemberId} (${typeof jobTeamMemberId}) with filter: ${filterTeamMemberId} (${typeof filterTeamMemberId})`)
+          return jobTeamMemberId == filterTeamMemberId
+        })
+        console.log(`🔍 After team member filter (${filters.teamMember}):`, filteredJobs.length)
       }
     }
     
     // Apply territory filter
     if (filters.territory !== "all") {
-      filteredJobs = filteredJobs.filter(job => job.territory_id === parseInt(filters.territory))
+      filteredJobs = filteredJobs.filter(job => {
+        // Check if job has territory_id or if team member has territory
+        const teamMember = teamMembers.find(tm => tm.id == job.team_member_id)
+        return job.territory_id == filters.territory || 
+               (teamMember && teamMember.territory === filters.territory)
+      })
+      console.log(`🔍 After territory filter (${filters.territory}):`, filteredJobs.length)
     }
     
+    // Apply time range filter
+    if (filters.timeRange !== "all") {
+      filteredJobs = filteredJobs.filter(job => {
+        if (!job.scheduled_date) return false
+        
+        // Extract time from scheduled_date
+        let timePart = ''
+        if (job.scheduled_date.includes('T')) {
+          timePart = job.scheduled_date.split('T')[1]
+        } else {
+          timePart = job.scheduled_date.split(' ')[1]
+        }
+        
+        if (!timePart) return false
+        
+        const [hours] = timePart.split(':')
+        const hour = parseInt(hours, 10)
+        
+        switch (filters.timeRange) {
+          case 'morning':
+            return hour < 12
+          case 'afternoon':
+            return hour >= 12 && hour < 17
+          case 'evening':
+            return hour >= 17
+          default:
+            return true
+        }
+      })
+      console.log(`🔍 After time range filter (${filters.timeRange}):`, filteredJobs.length)
+    }
+    
+    console.log('🔍 Final filtered jobs:', filteredJobs.length)
     setJobs(filteredJobs)
   }
 
   const formatDate = (date, view) => {
-    const options = { 
-      weekday: 'short', 
-      year: 'numeric', 
-      month: 'short', 
-      day: 'numeric' 
+    // Use the stored date directly without creating Date objects to avoid timezone conversion
+    const year = date.getFullYear()
+    const month = date.getMonth()
+    const day = date.getDate()
+    
+    // Create weekday and month names arrays
+    const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+    
+    // Calculate weekday using Zeller's congruence to avoid Date object
+    let adjustedMonth = month + 1 // Convert to 1-based month
+    let adjustedYear = year
+    if (adjustedMonth < 3) {
+      adjustedMonth = adjustedMonth + 12
+      adjustedYear = year - 1
     }
     
+    const k = adjustedYear % 100
+    const j = Math.floor(adjustedYear / 100)
+    const h = (day + Math.floor((13 * (adjustedMonth + 1)) / 5) + k + Math.floor(k / 4) + Math.floor(j / 4) - 2 * j) % 7
+    
+    const weekdayIndex = ((h + 5) % 7) // Adjust for Sunday = 0
+    const weekday = weekdays[weekdayIndex]
+    const monthName = months[month]
+    const fullMonthName = monthNames[month]
+    
     if (view === 'day') {
-      return date.toLocaleDateString('en-US', options)
+      return `${weekday}, ${monthName} ${day}, ${year}`
     } else if (view === 'week') {
-      const startOfWeek = new Date(date)
-      startOfWeek.setDate(date.getDate() - date.getDay())
-      const endOfWeek = new Date(startOfWeek)
-      endOfWeek.setDate(startOfWeek.getDate() + 6)
-      return `${startOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${endOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+      // Calculate start and end of week without Date objects
+      const dayOfWeek = ((h + 5) % 7) // 0 = Sunday, 1 = Monday, etc.
+      const startDay = day - dayOfWeek
+      const endDay = startDay + 6
+      
+      // Handle month/year boundaries
+      let startMonth = month
+      let startYear = year
+      let endMonth = month
+      let endYear = year
+      
+      if (startDay < 1) {
+        startMonth = month - 1
+        if (startMonth < 0) {
+          startMonth = 11
+          startYear = year - 1
+        }
+        const daysInPrevMonth = new Date(startYear, startMonth + 1, 0).getDate()
+        const actualStartDay = daysInPrevMonth + startDay
+        return `${months[startMonth]} ${actualStartDay} - ${months[endMonth]} ${endDay}, ${endYear}`
+      } else if (endDay > new Date(year, month + 1, 0).getDate()) {
+        endMonth = month + 1
+        if (endMonth > 11) {
+          endMonth = 0
+          endYear = year + 1
+        }
+        const actualEndDay = endDay - new Date(year, month + 1, 0).getDate()
+        return `${months[startMonth]} ${startDay} - ${months[endMonth]} ${actualEndDay}, ${endYear}`
+      }
+      
+      return `${months[startMonth]} ${startDay} - ${months[endMonth]} ${endDay}, ${year}`
     } else {
-      return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+      return `${fullMonthName} ${year}`
     }
   }
 
