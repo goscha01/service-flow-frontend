@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
+import GoogleOAuth from "../components/GoogleOAuth"
 
 export default function SignInForm() {
   const navigate = useNavigate()
@@ -9,6 +10,7 @@ export default function SignInForm() {
     email: "",
     password: ""
   })
+  const [error, setError] = useState("")
 
   // Refs for autofill sync
   const emailRef = useRef(null)
@@ -264,6 +266,37 @@ export default function SignInForm() {
               </button>
             </div>
           </form>
+
+          {/* Divider */}
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-300" />
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-white text-gray-500">Or continue with</span>
+            </div>
+          </div>
+
+          {/* Google OAuth */}
+          <div className="mt-4">
+            <GoogleOAuth 
+              onSuccess={(result) => {
+                console.log('✅ Google OAuth success:', result);
+                navigate('/dashboard');
+              }}
+              onError={(error) => {
+                console.error('❌ Google OAuth error:', error);
+                setError(error.response?.data?.error || 'Google sign-in failed');
+              }}
+            />
+          </div>
+
+          {/* Error Display */}
+          {error && (
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
+              <p className="text-sm text-red-600">{error}</p>
+            </div>
+          )}
         </div>
 
         {/* Sign Up Section */}

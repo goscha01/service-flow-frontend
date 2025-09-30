@@ -247,16 +247,35 @@ const ServiceFlowJobs = () => {
       jobDateString = dateString.split(' ')[0]
     }
     
-    // Create date from YYYY-MM-DD string to avoid timezone conversion
+    // Use the stored date directly without creating Date objects to avoid timezone conversion
     const [year, month, day] = jobDateString.split('-')
-    const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
     
-    return date.toLocaleDateString('en-US', { 
-      weekday: 'short',
-      month: 'short', 
-      day: 'numeric',
-      year: 'numeric'
-    })
+    // Create weekday names array
+    const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    
+    // Calculate weekday using Zeller's congruence to avoid Date object
+    const y = parseInt(year)
+    const m = parseInt(month)
+    const d = parseInt(day)
+    
+    // Adjust month for Zeller's congruence (March = 1, February = 12)
+    let adjustedMonth = m
+    let adjustedYear = y
+    if (m < 3) {
+      adjustedMonth = m + 12
+      adjustedYear = y - 1
+    }
+    
+    const k = adjustedYear % 100
+    const j = Math.floor(adjustedYear / 100)
+    const h = (d + Math.floor((13 * (adjustedMonth + 1)) / 5) + k + Math.floor(k / 4) + Math.floor(j / 4) - 2 * j) % 7
+    
+    const weekdayIndex = ((h + 5) % 7) // Adjust for Sunday = 0
+    const weekday = weekdays[weekdayIndex]
+    const monthName = months[m - 1]
+    
+    return `${weekday}, ${monthName} ${d}, ${y}`
   }
 
   const formatTime = (dateString) => {

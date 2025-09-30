@@ -460,7 +460,7 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
               </label>
               <AddressAutocomplete
                 value={customerData.address}
-                onChange={(value) => setCustomerData({ ...customerData, address: value })}
+                onChange={(value) => setCustomerData(prev => ({ ...prev, address: value }))}
                 onAddressSelect={handleAddressSelect}
                 placeholder="Street Address"
                 className="w-full"
@@ -480,6 +480,46 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
                 onChange={(e) => setCustomerData({ ...customerData, suite: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-gray-900 text-sm"
               />
+            </div>
+
+            {/* City, State, Zip Code */}
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  City
+                </label>
+                <input
+                  type="text"
+                  placeholder="City"
+                  value={customerData.city}
+                  onChange={(e) => setCustomerData({ ...customerData, city: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-gray-900 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  State
+                </label>
+                <input
+                  type="text"
+                  placeholder="State"
+                  value={customerData.state}
+                  onChange={(e) => setCustomerData({ ...customerData, state: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-gray-900 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Zip Code
+                </label>
+                <input
+                  type="text"
+                  placeholder="12345"
+                  value={customerData.zipCode}
+                  onChange={(e) => setCustomerData({ ...customerData, zipCode: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-gray-900 text-sm"
+                />
+              </div>
             </div>
 
             {/* Phone Number */}

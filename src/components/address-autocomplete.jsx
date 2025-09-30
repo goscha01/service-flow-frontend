@@ -16,6 +16,7 @@ const AddressAutocomplete = ({
   const [error, setError] = useState(null);
   const [selectedAddress, setSelectedAddress] = useState(null);
   const [googleMapsReady, setGoogleMapsReady] = useState(false);
+  const [isProgrammaticUpdate, setIsProgrammaticUpdate] = useState(false);
   const inputRef = useRef(null);
   const autocompleteRef = useRef(null);
 
@@ -92,9 +93,14 @@ const AddressAutocomplete = ({
         };
 
         setSelectedAddress(addressData);
-        setInput(placeDetails.formatted_address);
-        onChange(placeDetails.formatted_address);
+        setIsProgrammaticUpdate(true);
         
+        // Use setTimeout to ensure the flag is set before input change
+        setTimeout(() => {
+          setInput(placeDetails.formatted_address);
+        }, 0);
+        
+        // Only call onAddressSelect when a place is selected, not onChange
         if (onAddressSelect) {
           onAddressSelect(addressData);
         }
@@ -110,7 +116,14 @@ const AddressAutocomplete = ({
   const handleInputChange = (e) => {
     const newValue = e.target.value;
     setInput(newValue);
-    onChange(newValue);
+    
+    // Only call onChange if this is manual typing, not programmatic setting
+    if (!isProgrammaticUpdate) {
+      onChange(newValue);
+    }
+    
+    // Reset flags
+    setIsProgrammaticUpdate(false);
     setSelectedAddress(null);
     setError(null);
   };

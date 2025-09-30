@@ -104,6 +104,15 @@ export const authAPI = {
 
   isAuthenticated: () => {
     return !!localStorage.getItem('authToken');
+  },
+
+  googleAuth: async (idToken) => {
+    try {
+      const response = await api.post('/auth/google', { idToken });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
   }
 };
 
@@ -1462,6 +1471,77 @@ export const notificationAPI = {
   getHistory: async (customerId) => {
     try {
       const response = await api.get(`/customers/${customerId}/notifications/history`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+};
+
+// Google Calendar API functions
+export const calendarAPI = {
+  syncJob: async (jobData) => {
+    try {
+      const response = await api.post('/calendar/sync-job', jobData);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+};
+
+// Google Sheets API functions
+export const sheetsAPI = {
+  exportCustomers: async (userId) => {
+    try {
+      const response = await api.post('/sheets/export-customers', { userId });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  exportJobs: async (userId, dateRange = null) => {
+    try {
+      const response = await api.post('/sheets/export-jobs', { userId, dateRange });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+};
+
+// SMS API functions
+export const smsAPI = {
+  sendSMS: async (to, message) => {
+    try {
+      const response = await api.post('/sms/send', { to, message });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  sendJobConfirmation: async (customerPhone, jobDetails, customerName) => {
+    try {
+      const response = await api.post('/sms/job-confirmation', { 
+        customerPhone, 
+        jobDetails, 
+        customerName 
+      });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  sendPaymentReminder: async (customerPhone, invoiceDetails, customerName) => {
+    try {
+      const response = await api.post('/sms/payment-reminder', { 
+        customerPhone, 
+        invoiceDetails, 
+        customerName 
+      });
       return response.data;
     } catch (error) {
       throw error;

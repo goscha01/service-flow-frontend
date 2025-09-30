@@ -712,16 +712,32 @@ const JobDetails = () => {
     const [year, month, day] = datePart.split('-')
     if (!year || !month || !day) return 'Date placeholder'
     
-    const date = new Date(year, month - 1, day) // month is 0-indexed
-    if (isNaN(date.getTime())) return 'Date placeholder'
+    // Use the stored date directly without creating Date objects to avoid timezone conversion
+    const y = parseInt(year)
+    const m = parseInt(month)
+    const d = parseInt(day)
     
-    const formatted = date.toLocaleDateString('en-US', {
-      weekday: 'long',
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    })
-    return formatted
+    // Create weekday and month names arrays
+    const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    
+    // Calculate weekday using Zeller's congruence to avoid Date object
+    let adjustedMonth = m
+    let adjustedYear = y
+    if (m < 3) {
+      adjustedMonth = m + 12
+      adjustedYear = y - 1
+    }
+    
+    const k = adjustedYear % 100
+    const j = Math.floor(adjustedYear / 100)
+    const h = (d + Math.floor((13 * (adjustedMonth + 1)) / 5) + k + Math.floor(k / 4) + Math.floor(j / 4) - 2 * j) % 7
+    
+    const weekdayIndex = ((h + 5) % 7) // Adjust for Sunday = 0
+    const weekday = weekdays[weekdayIndex]
+    const monthName = months[m - 1]
+    
+    return `${weekday}, ${monthName} ${d}, ${y}`
   }
 
   const formatTime = (dateString) => {
