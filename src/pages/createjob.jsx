@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Search, 
   Plus, 
@@ -249,42 +249,128 @@ export default function CreateJobPage() {
   }, [customerSearch, customers]);
 
 
-  useEffect(() => {
-    // Update price calculations for multiple services
-    if (selectedServices.length > 0) {
-      const basePrice = selectedServices.reduce((total, service) => {
-        const servicePrice = parseFloat(service.price) || 0;
-        console.log(`🔧 PRICING: Service "${service.name}" price: $${servicePrice}`);
-        return total + servicePrice;
-      }, 0);
-      console.log('🔧 PRICING: Total base price from services:', basePrice);
-      const discount = formData.discount || 0;
-      const additionalFees = formData.additionalFees || 0;
-      const taxes = formData.taxes || 0;
+  // Calculate total price including modifiers
+  const calculateTotalPrice = useCallback(() => {
+    try {
+      let basePrice = 0;
       
-      const subtotal = basePrice - discount + additionalFees;
-      const total = subtotal + taxes;
+      // Calculate base price from all selected services
+      selectedServices.forEach(service => {
+        basePrice += parseFloat(service.price) || 0;
+      });
       
-      // Calculate total duration from all services
-      const totalDuration = selectedServices.reduce((total, service) => {
-        let serviceDuration = 0;
-        if (service.duration) {
-          if (typeof service.duration === 'object' && service.duration.hours !== undefined) {
-            serviceDuration = (service.duration.hours * 60) + service.duration.minutes;
-          } else if (typeof service.duration === 'number') {
-            serviceDuration = service.duration;
+      let modifierPrice = 0;
+      
+      console.log('🔧 CALC: Starting - Base:', basePrice);
+      console.log('🔧 CALC: selectedModifiers:', selectedModifiers);
+      console.log('🔧 CALC: selectedModifiers keys:', Object.keys(selectedModifiers));
+      console.log('🔧 CALC: selectedModifiers values:', Object.values(selectedModifiers));
+      console.log('🔧 CALC: editedModifierPrices:', editedModifierPrices);
+      console.log('🔧 CALC: formData.serviceModifiers:', formData.serviceModifiers);
+      
+      // Add prices from selected modifiers
+      console.log('🔧 CALC: Processing', Object.keys(selectedModifiers).length, 'modifiers');
+      Object.entries(selectedModifiers).forEach(([modifierId, modifierData]) => {
+        console.log('🔧 CALC: Processing modifier', modifierId, 'with data:', modifierData);
+        
+        // ✅ FIX 3: Standardize modifier data access with string comparison
+        const modifier = formData.serviceModifiers?.find(m => 
+          String(m.id) === String(modifierId)  // String comparison for safety
+        );
+        
+        if (!modifier) {
+          console.log('🔧 CALC: Modifier not found:', modifierId);
+          return;
+        }
+        
+        console.log('🔧 CALC: Found modifier:', modifier.title, 'type:', modifier.selectionType);
+        
+        if (modifier.selectionType === 'quantity') {
+          // ✅ FIX 4: Handle both data structures
+          const quantities = modifierData.quantities || modifierData;
+          
+          Object.entries(quantities).forEach(([optionId, quantity]) => {
+            const option = modifier.options?.find(o => 
+              String(o.id) === String(optionId)
+            );
+            
+            if (option && quantity > 0) {
+              // ✅ FIX 5: Always check editedModifierPrices first
+              const priceKey = `${modifierId}_option_${optionId}`;
+              const price = editedModifierPrices[priceKey] !== undefined 
+                ? editedModifierPrices[priceKey] 
+                : (parseFloat(option.price) || 0);
+              
+              const total = price * quantity;
+              modifierPrice += total;
+              
+              console.log(`🔧 CALC: ${option.title} - Price: $${price} x ${quantity} = $${total}`);
+            }
+          });
+        } else if (modifier.selectionType === 'multi') {
+          const selections = modifierData.selections || 
+                            (Array.isArray(modifierData) ? modifierData : [modifierData]);
+          
+          selections.forEach(optionId => {
+            const option = modifier.options?.find(o => 
+              String(o.id) === String(optionId)
+            );
+            
+            if (option) {
+              const priceKey = `${modifierId}_option_${optionId}`;
+              const price = editedModifierPrices[priceKey] !== undefined 
+                ? editedModifierPrices[priceKey] 
+                : (parseFloat(option.price) || 0);
+              
+              modifierPrice += price;
+              console.log(`🔧 CALC: ${option.title} - Price: $${price}`);
+            }
+          });
+        } else {
+          // Single selection
+          const selectedOptionId = modifierData.selection || modifierData;
+          const option = modifier.options?.find(o => 
+            String(o.id) === String(selectedOptionId)
+          );
+          
+          if (option) {
+            const priceKey = `${modifierId}_option_${selectedOptionId}`;
+            const price = editedModifierPrices[priceKey] !== undefined 
+              ? editedModifierPrices[priceKey] 
+              : (parseFloat(option.price) || 0);
+            
+            modifierPrice += price;
+            console.log(`🔧 CALC: ${option.title} - Price: $${price}`);
           }
         }
-        return total + serviceDuration;
-      }, 0);
+      });
       
-      setFormData(prev => ({ 
-        ...prev, 
-        price: basePrice,
-        total: total,
-        serviceName: selectedServices.map(s => s.name).join(', '),
-        duration: totalDuration,
-        estimatedDuration: totalDuration
+      const totalPrice = basePrice + modifierPrice;
+      console.log('🔧 CALC: Final - Base:', basePrice, 'Modifiers:', modifierPrice, 'Total:', totalPrice);
+      return totalPrice;
+    } catch (error) {
+      console.error('Error calculating total price:', error);
+      return 0;
+    }
+  }, [selectedServices, selectedModifiers, editedModifierPrices, formData.serviceModifiers]);
+
+  // ✅ FIX 6: Update effect to recalculate on all relevant changes
+  useEffect(() => {
+    if (selectedServices.length > 0) {
+      const newTotalPrice = calculateTotalPrice();
+      const discount = parseFloat(formData.discount) || 0;
+      const additionalFees = parseFloat(formData.additionalFees) || 0;
+      const taxes = parseFloat(formData.taxes) || 0;
+      
+      const subtotal = newTotalPrice - discount + additionalFees;
+      const total = subtotal + taxes;
+      
+      console.log('🔧 EFFECT: Updating prices - Price:', newTotalPrice, 'Total:', total);
+      
+      setFormData(prev => ({
+        ...prev,
+        price: newTotalPrice,
+        total: total
       }));
     } else {
       // Reset when no services are selected
@@ -297,7 +383,16 @@ export default function CreateJobPage() {
         estimatedDuration: 0
       }));
     }
-  }, [selectedServices, formData.discount, formData.additionalFees, formData.taxes]);
+  }, [
+    selectedServices, 
+    selectedModifiers, 
+    editedModifierPrices, 
+    formData.discount, 
+    formData.additionalFees, 
+    formData.taxes,
+    formData.serviceModifiers,
+    calculateTotalPrice
+  ]);
 
   // Sync modifiers and intake questions when services change
   useEffect(() => {
@@ -558,6 +653,15 @@ export default function CreateJobPage() {
     // Keep selectedService for backward compatibility (use the first selected service)
     setSelectedService(service);
     
+    // ✅ FIX 1: Properly handle edited modifier prices from modal
+    if (service.editedModifierPrices) {
+      console.log('🔧 SYNC: Adding editedModifierPrices from service:', service.editedModifierPrices);
+      setEditedModifierPrices(prev => ({
+        ...prev,
+        ...service.editedModifierPrices  // Merge edited prices from modal
+      }));
+    }
+    
     // Handle customized modifiers and intake questions from ServiceSelectionModal
     if (service.selectedModifiers) {
       console.log('🔧 HANDLESERVICESELECT: Updating selectedModifiers state:', service.selectedModifiers);
@@ -571,6 +675,9 @@ export default function CreateJobPage() {
         return updated;
       });
     }
+    
+    // ✅ FIX 2: Trigger recalculation after adding service
+    setCalculationTrigger(prev => prev + 1);
     
     if (service.intakeQuestionAnswers) {
       console.log('🔧 HANDLESERVICESELECT: Updating intakeQuestionAnswers state:', service.intakeQuestionAnswers);
@@ -1297,56 +1404,25 @@ export default function CreateJobPage() {
     console.log('🔧 handleModifiersChange called with:', modifiers);
     console.log('🔧 Current selectedModifiers before update:', selectedModifiers);
     
-    // Convert the new format to the existing format for compatibility
-    const convertedModifiers = {};
-    
-    Object.entries(modifiers).forEach(([modifierId, modifierData]) => {
-      const modifier = formData.serviceModifiers?.find(m => m.id === modifierId);
-      
-      if (!modifier) {
-        console.log('🔧 Modifier not found for ID:', modifierId);
-        return;
-      }
-      
-      console.log('🔧 Processing modifier:', modifierId, 'with data:', modifierData);
-      
-      if (modifier.selectionType === 'quantity') {
-        // Handle quantity selection
-        const quantities = modifierData.quantities || {};
-        const convertedQuantities = {};
-        Object.entries(quantities).forEach(([optionId, quantity]) => {
-          if (quantity > 0) {
-            convertedQuantities[optionId] = quantity;
-          }
-        });
-        if (Object.keys(convertedQuantities).length > 0) {
-          convertedModifiers[modifierId] = convertedQuantities;
-        }
-      } else if (modifier.selectionType === 'multi') {
-        // Handle multi-selection
-        const selections = modifierData.selections || [];
-        if (selections.length > 0) {
-          convertedModifiers[modifierId] = selections;
-        }
-      } else {
-        // Handle single selection
-        const selection = modifierData.selection;
-        if (selection) {
-          convertedModifiers[modifierId] = [selection];
-        }
-      }
-    });
-    
-    console.log('🔧 Converted modifiers:', convertedModifiers);
+    // Keep the new format - no conversion needed
+    console.log('🔧 Keeping new format modifiers:', modifiers);
     
     // Merge with existing selections to preserve other modifiers
     setSelectedModifiers(prev => {
-      console.log('🔧 Frontend: Merging modifiers. Previous:', prev, 'New:', convertedModifiers);
+      console.log('🔧 Frontend: Merging modifiers. Previous:', prev, 'New:', modifiers);
       const updated = {
         ...prev,
-        ...convertedModifiers
+        ...modifiers
       };
       console.log('🔧 Final updated selectedModifiers:', updated);
+      console.log('🔧 Updated selectedModifiers keys:', Object.keys(updated));
+      console.log('🔧 Updated selectedModifiers values:', Object.values(updated));
+      
+      // Test the calculation immediately
+      console.log('🔧 TESTING: Calling calculateTotalPrice with updated modifiers');
+      const testPrice = calculateTotalPrice();
+      console.log('🔧 TESTING: calculateTotalPrice result:', testPrice);
+      
       return updated;
     });
     
@@ -1369,63 +1445,56 @@ setIntakeQuestionAnswers(answers);
   // Handle modifier price changes
   const handleModifierPriceChange = (modifierId, optionId, price) => {
     const priceKey = `${modifierId}_option_${optionId}`;
-    setEditedModifierPrices(prev => ({
-      ...prev,
-      [priceKey]: parseFloat(price) || 0
-    }));
-    setCalculationTrigger(prev => prev + 1); // Trigger recalculation
+    const newPrice = parseFloat(price) || 0;
+    
+    console.log('🔧 handleModifierPriceChange called:', {
+      modifierId,
+      optionId,
+      price,
+      priceKey,
+      newPrice
+    });
+    
+    setEditedModifierPrices(prev => {
+      const updated = {
+        ...prev,
+        [priceKey]: newPrice
+      };
+      console.log('🔧 Updated editedModifierPrices:', updated);
+      return updated;
+    });
+    setCalculationTrigger(prev => {
+      const newTrigger = prev + 1;
+      console.log('🔧 Calculation trigger updated:', newTrigger);
+      return newTrigger;
+    }); // Trigger recalculation
   };
 
-  // Calculate total price including modifiers
-  const calculateTotalPrice = () => {
-    try {
-      // Ensure basePrice is a number
-      let basePrice = parseFloat(formData.price) || 0;
-      let modifierPrice = 0;
+
+  // Recalculate total price when modifier prices change
+  useEffect(() => {
+    console.log('🔧 Recalculation useEffect triggered:', {
+      calculationTrigger,
+      editedModifierPrices,
+      selectedModifiers
+    });
+    
+    if (calculationTrigger > 0) {
+      console.log('🔧 Recalculating total price due to modifier price change');
+      const newTotalPrice = calculateTotalPrice();
+      console.log('🔧 New calculated total price:', newTotalPrice);
+      console.log('🔧 Previous formData.total:', formData.total);
       
-      // Add prices from selected modifiers
-      Object.entries(selectedModifiers).forEach(([modifierId, modifierData]) => {
-        const modifier = formData.serviceModifiers?.find(m => m.id === modifierId);
-        if (!modifier) {
-          return;
-        }
-        
-        if (modifier.selectionType === 'quantity') {
-          // Handle quantity selection - modifierData is { optionId: quantity }
-          Object.entries(modifierData).forEach(([optionId, quantity]) => {
-            const option = modifier.options?.find(o => o.id === optionId);
-            if (option && quantity > 0) {
-              // Use edited price if available, otherwise use original price
-              const priceKey = `${modifierId}_option_${optionId}`;
-              const editedPrice = editedModifierPrices[priceKey];
-              const optionPrice = editedPrice !== undefined ? editedPrice : (parseFloat(option.price) || 0);
-              const optionTotal = optionPrice * quantity;
-              modifierPrice += optionTotal;
-            }
-          });
-        } else {
-          // Handle single/multi selection - modifierData is array of optionIds
-          const selectedOptionIds = Array.isArray(modifierData) ? modifierData : [modifierData];
-          selectedOptionIds.forEach(optionId => {
-            const option = modifier.options?.find(o => o.id === optionId);
-            if (option) {
-              // Use edited price if available, otherwise use original price
-              const priceKey = `${modifierId}_option_${optionId}`;
-              const editedPrice = editedModifierPrices[priceKey];
-              const optionPrice = editedPrice !== undefined ? editedPrice : (parseFloat(option.price) || 0);
-              modifierPrice += optionPrice;
-            }
-          });
-        }
+      setFormData(prev => {
+        const updated = {
+          ...prev,
+          total: newTotalPrice
+        };
+        console.log('🔧 Updated formData:', updated);
+        return updated;
       });
-      
-      const totalPrice = basePrice + modifierPrice;
-      return totalPrice;
-    } catch (error) {
-      console.error('Error calculating total price:', error);
-      return 0;
     }
-  };
+  }, [calculationTrigger, editedModifierPrices, selectedModifiers, calculateTotalPrice]);
 
   // Calculate total duration including modifiers
   const calculateTotalDuration = () => {
@@ -1440,8 +1509,15 @@ setIntakeQuestionAnswers(answers);
         if (!modifier) return;
         
         if (modifier.selectionType === 'quantity') {
-          // Handle quantity selection - modifierData is { optionId: quantity }
-          Object.entries(modifierData).forEach(([optionId, quantity]) => {
+          // Handle quantity selection - modifierData can be { optionId: quantity } or { quantities: { optionId: quantity } }
+          let quantities = {};
+          if (modifierData.quantities) {
+            quantities = modifierData.quantities;
+          } else if (typeof modifierData === 'object' && !Array.isArray(modifierData)) {
+            quantities = modifierData;
+          }
+          
+          Object.entries(quantities).forEach(([optionId, quantity]) => {
             const option = modifier.options?.find(o => o.id === optionId);
             if (option && option.duration && quantity > 0) {
               // Modifier durations are stored in minutes
@@ -1450,9 +1526,17 @@ setIntakeQuestionAnswers(answers);
               modifierDuration += optionDurationInMinutes * quantity;
             }
           });
-        } else {
-          // Handle single/multi selection - modifierData is array of optionIds
-          const selectedOptionIds = Array.isArray(modifierData) ? modifierData : [modifierData];
+        } else if (modifier.selectionType === 'multi') {
+          // Handle multi selection - modifierData can be array of optionIds or { selections: [optionIds] }
+          let selectedOptionIds = [];
+          if (modifierData.selections) {
+            selectedOptionIds = modifierData.selections;
+          } else if (Array.isArray(modifierData)) {
+            selectedOptionIds = modifierData;
+          } else if (modifierData) {
+            selectedOptionIds = [modifierData];
+          }
+          
           selectedOptionIds.forEach(optionId => {
             const option = modifier.options?.find(o => o.id === optionId);
             if (option && option.duration) {
@@ -1462,6 +1546,24 @@ setIntakeQuestionAnswers(answers);
               modifierDuration += optionDurationInMinutes;
             }
           });
+        } else {
+          // Handle single selection - modifierData can be optionId or { selection: optionId }
+          let selectedOptionId = null;
+          if (modifierData.selection) {
+            selectedOptionId = modifierData.selection;
+          } else if (modifierData) {
+            selectedOptionId = modifierData;
+          }
+          
+          if (selectedOptionId) {
+            const option = modifier.options?.find(o => o.id === selectedOptionId);
+            if (option && option.duration) {
+              // Modifier durations are stored in minutes
+              const optionDurationInMinutes = parseFloat(option.duration) || 0;
+              
+              modifierDuration += optionDurationInMinutes;
+            }
+          }
         }
       });
       
@@ -1692,7 +1794,7 @@ setIntakeQuestionAnswers(answers);
                               {selectedServices.length} service{selectedServices.length !== 1 ? 's' : ''} selected
                             </span>
                             <span className="text-sm font-medium text-blue-900">
-                              Total: ${selectedServices.reduce((sum, service) => sum + (parseFloat(service.price) || 0), 0).toFixed(2)}
+                              Total: ${(calculateTotalPrice() || 0).toFixed(2)}
                             </span>
                           </div>
                         </div>
@@ -1829,6 +1931,17 @@ setIntakeQuestionAnswers(answers);
                             </span>
                           )}
                         </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            console.log('🔧 MANUAL TRIGGER: selectedModifiers:', selectedModifiers);
+                            console.log('🔧 MANUAL TRIGGER: calculateTotalPrice():', calculateTotalPrice());
+                            setCalculationTrigger(prev => prev + 1);
+                          }}
+                          className="ml-2 text-xs bg-blue-500 text-white px-2 py-1 rounded"
+                        >
+                          Debug
+                        </button>
                       </div>
                       
                       <div className="flex items-center space-x-2 bg-gray-100 rounded-full px-3 py-2">
@@ -1932,7 +2045,7 @@ setIntakeQuestionAnswers(answers);
                       <div className="space-y-3">
                         <div className="flex justify-between text-sm">
                           <span className="text-gray-600">Services Subtotal:</span>
-                          <span className="font-medium">${selectedServices.reduce((sum, service) => sum + (parseFloat(service.price) || 0), 0).toFixed(2)}</span>
+                          <span className="font-medium">${(calculateTotalPrice() || 0).toFixed(2)}</span>
                         </div>
                         
                         {/* Discount */}

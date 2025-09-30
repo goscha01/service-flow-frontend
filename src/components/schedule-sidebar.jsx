@@ -7,7 +7,7 @@ const ScheduleSidebar = ({ filters, onFilterChange, teamMembers }) => {
     { id: "all", label: "All Statuses", icon: Filter },
     { id: "pending", label: "Pending", icon: AlertCircle, color: "text-yellow-600" },
     { id: "confirmed", label: "Confirmed", icon: CheckCircle, color: "text-blue-600" },
-    { id: "in_progress", label: "In Progress", icon: PlayCircle, color: "text-orange-600" },
+    { id: "in-progress", label: "In Progress", icon: PlayCircle, color: "text-orange-600" },
     { id: "completed", label: "Completed", icon: CheckCircle, color: "text-green-600" },
     { id: "cancelled", label: "Cancelled", icon: XCircle, color: "text-red-600" },
   ]
