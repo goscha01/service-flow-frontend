@@ -237,7 +237,9 @@ const JobDetails = () => {
   useEffect(() => {
     const fetchJob = async () => {
       setLoading(true)
+      setError("") // Clear any previous errors
       try {
+        console.log('🔧 Job Details: Fetching job data for ID:', jobId)
         const jobData = await jobsAPI.getById(jobId)
         
         
@@ -310,13 +312,25 @@ const JobDetails = () => {
           }
         }
       } catch (err) {
-        setError("Failed to load job details")
+        console.error('Error fetching job:', err)
+        
+        // Handle specific error types
+        if (err.code === 'ERR_NETWORK' || err.message?.includes('CORS') || err.message?.includes('preflight')) {
+          setError("Network error: Unable to load job details. Please check your connection and try again.")
+        } else if (err.response?.status === 404) {
+          setError("Job not found. It may have been deleted.")
+        } else if (err.response?.status === 401) {
+          setError("Authentication required. Please log in again.")
+          navigate('/signin')
+        } else {
+          setError(`Failed to load job details: ${err.message || 'Unknown error'}`)
+        }
       } finally {
         setLoading(false)
       }
     }
     if (jobId) fetchJob()
-  }, [jobId])
+  }, [jobId, navigate])
 
   // Fetch supporting data
   useEffect(() => {
