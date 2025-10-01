@@ -67,7 +67,7 @@ export default function DemoSection() {
                 Scheduling software that works the way your service business does.
               </h2>
               <p className="text-xl text-gray-600 leading-relaxed">
-                Let customers book instantly, request preferred times, or ask for a custom quote. Zenbooker handles the
+                Let customers book instantly, request preferred times, or ask for a custom quote. Serviceflow handles the
                 scheduling logic, collects job details, and keeps your calendar accurate—so you can focus on growing
                 your business.
               </p>
@@ -83,7 +83,7 @@ export default function DemoSection() {
                 <div>
                   <h3 className="font-semibold text-gray-900">Embed or link</h3>
                   <p className="text-gray-600">
-                    Embed the widget on any page or share a Zenbooker‑hosted link—same seamless flow for bookings and
+                    Embed the widget on any page or share a Serviceflow‑hosted link—same seamless flow for bookings and
                     requests.
                   </p>
                 </div>
@@ -141,7 +141,7 @@ export default function DemoSection() {
             <div>
               <h3 className="text-xl font-semibold text-gray-900 mb-2">Experience it yourself</h3>
               <p className="text-gray-600">
-                Try scheduling with our demo home service companies to see Zenbooker in action.
+                Try scheduling with our demo home service companies to see Serviceflow in action.
               </p>
             </div>
 

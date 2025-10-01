@@ -126,7 +126,7 @@ const ImportCustomersModal = ({ isOpen, onClose, onImportSuccess }) => {
           </div>
 
           <p className="text-gray-600 text-sm mb-6">
-            You can import your customers into Zenbooker by uploading a .CSV file
+            You can import your customers into Serviceflow by uploading a .CSV file
           </p>
 
           <div className="space-y-8">
@@ -137,7 +137,7 @@ const ImportCustomersModal = ({ isOpen, onClose, onImportSuccess }) => {
                 Download our CSV template file
               </h3>
               <p className="text-sm text-gray-600 mb-3 ml-7">
-                Download and use our customer list template to see exactly how we organize customer data in Zenbooker
+                Download and use our customer list template to see exactly how we organize customer data in Serviceflow
               </p>
               <button 
                 className="ml-7 inline-flex items-center space-x-2 text-sm font-medium text-primary-600 hover:text-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 rounded"
@@ -169,7 +169,7 @@ const ImportCustomersModal = ({ isOpen, onClose, onImportSuccess }) => {
                 </li>
                 <li className="flex items-start">
                   <span className="text-gray-400 mr-2">•</span>
-                  If importing customers with a Stripe Customer ID, make sure the Stripe account the customers were created in is the same Stripe account connected to Zenbooker
+                  If importing customers with a Stripe Customer ID, make sure the Stripe account the customers were created in is the same Stripe account connected to Serviceflow
                 </li>
               </ul>
             </div>

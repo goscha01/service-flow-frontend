@@ -1,6 +1,6 @@
-# ZenBooker Frontend
+# Serviceflow Frontend
 
-A React-based frontend for the ZenBooker application with complete authentication system.
+A React-based frontend for the Serviceflow application with complete authentication system.
 
 ## Features
 

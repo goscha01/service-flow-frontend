@@ -36,7 +36,7 @@ const SMSSettings = () => {
 
     setLoading(true);
     try {
-      await smsAPI.sendSMS(testPhone, `Test SMS from ${user?.businessName || 'ZenBooker'}. SMS notifications are working!`);
+      await smsAPI.sendSMS(testPhone, `Test SMS from ${user?.businessName || 'Serviceflow'}. SMS notifications are working!`);
       setMessage('Test SMS sent successfully!');
       setTimeout(() => setMessage(''), 3000);
     } catch (error) {

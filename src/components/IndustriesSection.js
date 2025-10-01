@@ -33,9 +33,9 @@ export default function IndustriesSection() {
           {/* Left Column - Content */}
           <div className="space-y-8">
             <div className="space-y-6">
-              <h2 className="text-2xl lg:text-3xl font-bold text-gray-900">Who uses Zenbooker?</h2>
+              <h2 className="text-2xl lg:text-3xl font-bold text-gray-900">Who uses Serviceflow?</h2>
               <p className="text-lg text-gray-600 leading-relaxed">
-                From solo operators to national teams, Zenbooker helps service businesses all around the world simplify
+                From solo operators to national teams, Serviceflow helps service businesses all around the world simplify
                 scheduling and grow.
               </p>
             </div>

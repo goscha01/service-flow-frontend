@@ -193,7 +193,7 @@ const ServiceFlowSettings = () => {
           id: "calendar-syncing",
           icon: CalendarDays,
           title: "Calendar Syncing",
-          description: "Sync your Zenbooker schedule to external calendar apps",
+          description: "Sync your Serviceflow schedule to external calendar apps",
         },
         {
           id: "developers",
@@ -238,7 +238,7 @@ const ServiceFlowSettings = () => {
                   </div>
                   <div>
                     <h3 className="font-medium text-gray-900">Just web</h3>
-                    <p className="text-sm text-gray-600">Manage your Zenbooker user account</p>
+                    <p className="text-sm text-gray-600">Manage your Serviceflow user account</p>
                   </div>
                 </div>
                 <ChevronRight className="w-5 h-5 text-gray-400" />
@@ -250,7 +250,7 @@ const ServiceFlowSettings = () => {
               >
                 <div>
                   <h3 className="font-medium text-gray-900">Billing</h3>
-                  <p className="text-sm text-gray-600">Manage your Zenbooker plan and billing information</p>
+                  <p className="text-sm text-gray-600">Manage your Serviceflow plan and billing information</p>
                 </div>
                 <ChevronRight className="w-5 h-5 text-gray-400" />
               </div>

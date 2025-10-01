@@ -8,11 +8,11 @@ export default function CRMSection() {
             <div className="space-y-6">
               <h2 className="text-3xl lg:text-4xl font-bold text-white">Keep track of every customer.</h2>
               <p className="text-lg text-gray-300 leading-relaxed">
-                Zenbooker automatically creates a profile for each of your customers. That means you can easily pull up
+                Serviceflow automatically creates a profile for each of your customers. That means you can easily pull up
                 past and upcoming jobs, unpaid invoices, and notes for any of your customers.
                 <br />
                 <br />
-                And since everything is saved, Zenbooker automatically adds important details to new jobs when repeat
+                And since everything is saved, Serviceflow automatically adds important details to new jobs when repeat
                 customers call up to book again.
               </p>
             </div>

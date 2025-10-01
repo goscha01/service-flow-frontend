@@ -337,10 +337,9 @@ const ServiceSelectionModal = ({
     console.log('🔧 Intake question answers:', intakeQuestionAnswers);
     console.log('🔧 Selected service:', selectedService);
 
-    // Calculate the final dynamic price
-    const dynamicPrice = calculateDynamicPrice(selectedService, selectedModifiers);
+    // Don't calculate total price here - let the main form handle it
+    // Just pass the base service price and let modifiers be calculated separately
     console.log('🔧 SERVICE MODAL: Base price:', selectedService.price);
-    console.log('🔧 SERVICE MODAL: Dynamic price calculated:', dynamicPrice);
     console.log('🔧 SERVICE MODAL: Selected modifiers:', selectedModifiers);
     
     // Create service with proper customization data
@@ -348,8 +347,8 @@ const ServiceSelectionModal = ({
       ...selectedService,
       selectedModifiers: selectedModifiers,
       intakeQuestionAnswers: intakeQuestionAnswers,
-      // Update price with dynamic calculation
-      price: dynamicPrice,
+      // Keep original base price - don't include modifiers here
+      price: editedServicePrice !== null ? editedServicePrice : selectedService.price,
       originalPrice: selectedService.price, // Keep original for reference
       // Include edited prices
       editedServicePrice: editedServicePrice,
@@ -710,10 +709,7 @@ const ServiceSelectionModal = ({
                             {service.price && (
                               <div className="flex items-center space-x-1">
                                 <DollarSign className="w-4 h-4" />
-                                <span>${calculateDynamicPrice(service).toFixed(2)}</span>
-                                {calculateDynamicPrice(service) !== parseFloat(service.price) && (
-                                  <span className="text-xs text-gray-400 line-through">${service.price}</span>
-                                )}
+                                <span>${(editedServicePrice !== null ? parseFloat(editedServicePrice) : parseFloat(service.price)).toFixed(2)}</span>
                               </div>
                             )}
                           </div>
@@ -757,8 +753,8 @@ const ServiceSelectionModal = ({
                             />
                           </div>
                           <div className="flex items-center space-x-1">
-                            <span className="text-xs text-gray-500">Total with options:</span>
-                            <span className="font-semibold text-blue-600">${calculateDynamicPrice(selectedService, selectedModifiers).toFixed(2)}</span>
+                            <span className="text-xs text-gray-500">Base price:</span>
+                            <span className="font-semibold text-blue-600">${(editedServicePrice !== null ? parseFloat(editedServicePrice) : parseFloat(selectedService.price)).toFixed(2)}</span>
                           </div>
                         </div>
                       )}
@@ -811,13 +807,11 @@ const ServiceSelectionModal = ({
           <div className="px-6 py-4 border-t border-gray-200 bg-blue-50">
             <div className="flex items-center justify-between">
               <div className="text-sm text-gray-600">
-                <div>Base Price: ${editedServicePrice !== null ? parseFloat(editedServicePrice).toFixed(2) : selectedService.price}</div>
-                {calculateDynamicPrice(selectedService, selectedModifiers) !== (editedServicePrice !== null ? parseFloat(editedServicePrice) : parseFloat(selectedService.price)) && (
-                  <div>Options: +${(calculateDynamicPrice(selectedService, selectedModifiers) - (editedServicePrice !== null ? parseFloat(editedServicePrice) : parseFloat(selectedService.price))).toFixed(2)}</div>
-                )}
+                <div>Base Price: ${(editedServicePrice !== null ? parseFloat(editedServicePrice) : parseFloat(selectedService.price)).toFixed(2)}</div>
+                <div className="text-xs text-gray-500">Modifiers will be calculated in the main form</div>
               </div>
               <div className="text-lg font-semibold text-blue-600">
-                Total: ${calculateDynamicPrice(selectedService, selectedModifiers).toFixed(2)}
+                Service: ${(editedServicePrice !== null ? parseFloat(editedServicePrice) : parseFloat(selectedService.price)).toFixed(2)}
               </div>
             </div>
           </div>

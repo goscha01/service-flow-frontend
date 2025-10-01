@@ -194,7 +194,7 @@ const Payments = () => {
             <div className="bg-white rounded-lg border border-gray-200 p-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">Payment Processing</h2>
               <p className="text-gray-600 mb-6">
-                Zenbooker Payments lets you securely accept credit card payments online. Your customers can pay when they
+                Serviceflow Payments lets you securely accept credit card payments online. Your customers can pay when they
                 book or when they receive an invoice.
               </p>
 
@@ -284,7 +284,7 @@ const Payments = () => {
             <div className="bg-white rounded-lg border border-gray-200 p-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">Custom Payment Methods</h2>
               <p className="text-gray-600 mb-6">
-                Add other ways customers can pay you outside of Zenbooker. Custom payment methods can be selected by
+                Add other ways customers can pay you outside of Serviceflow. Custom payment methods can be selected by
                 customers booking online.
               </p>
 

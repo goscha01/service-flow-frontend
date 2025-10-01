@@ -97,7 +97,7 @@ const SchedulingBookingModal = ({ isOpen, onClose }) => {
           <div>
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Availability Options</h3>
             <p className="text-sm text-gray-600 mb-4">
-              Control how Zenbooker should calculate bookable timeslots for your business
+              Control how Serviceflow should calculate bookable timeslots for your business
             </p>
 
             <div className="space-y-4">

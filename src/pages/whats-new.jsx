@@ -93,7 +93,7 @@ const WhatsNewPage = () => {
               <ChevronLeft className="w-5 h-5" />
               <span className="text-sm">Back</span>
             </button>
-            <h1 className="text-2xl font-semibold text-gray-900">What's New in Zenbooker</h1>
+            <h1 className="text-2xl font-semibold text-gray-900">What's New in Service Flow</h1>
           </div>
           <p className="text-gray-600 mt-2">Stay up to date with the latest features and improvements</p>
         </div>
@@ -143,18 +143,18 @@ const WhatsNewPage = () => {
                   Want to see what we're working on next?
                 </h3>
                 <p className="text-gray-600 mb-8 text-lg">
-                  Join our community and help shape the future of Zenbooker
+                  Join our community and help shape the future of Service Flow
                 </p>
                 <div className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-6">
                   <button
-                    onClick={() => window.open("https://feedback.zenbooker.com", "_blank")}
+                    onClick={() => window.open("https://feedback.service-flow.com", "_blank")}
                     className="flex items-center space-x-2 px-6 py-3 text-base font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
                   >
                     <span>Request Features</span>
                     <ExternalLink className="w-4 h-4" />
                   </button>
                   <button
-                    onClick={() => window.open("https://roadmap.zenbooker.com", "_blank")}
+                    onClick={() => window.open("https://roadmap.service-flow.com", "_blank")}
                     className="flex items-center space-x-2 px-6 py-3 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
                   >
                     <span>View Roadmap</span>

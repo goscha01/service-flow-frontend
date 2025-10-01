@@ -10,7 +10,7 @@ import LoadingButton from "../components/loading-button"
 import EstimateModal from "../components/estimate-modal"
 import EstimatePreviewModal from "../components/estimate-preview-modal"
 
-const ZenbookerEstimates = () => {
+const ServiceflowEstimates = () => {
   const { user } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [estimates, setEstimates] = useState([])
@@ -532,4 +532,4 @@ const ZenbookerEstimates = () => {
   )
 }
 
-export default ZenbookerEstimates
+export default ServiceflowEstimates

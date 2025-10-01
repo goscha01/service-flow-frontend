@@ -137,7 +137,7 @@ export default function SignupForm() {
               <h1 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-2">Start your free trial</h1>
               <div className="w-32 h-2 bg-green-400 rounded-full mx-auto mb-4"></div>
               <p className="text-gray-600 text-lg leading-relaxed">
-                Try Zenbooker free for 14 days.
+                Try Serviceflow free for 14 days.
                 <br />
                 No credit card required.
               </p>
@@ -290,7 +290,7 @@ export default function SignupForm() {
 
             {/* Sign in link */}
             <div className="text-center mt-6">
-              <span className="text-gray-600 text-sm">Already using Zenbooker? </span>
+              <span className="text-gray-600 text-sm">Already using Serviceflow? </span>
               <button 
                 onClick={handleSignIn} 
                 disabled={isLoading}
@@ -307,7 +307,7 @@ export default function SignupForm() {
           <div className="relative">
             <img
               src="/images/signup-bg.avif"
-              alt="Zenbooker Dashboard"
+              alt="Serviceflow Dashboard"
               className="w-full h-auto rounded-2xl"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-blue-900/20 to-transparent rounded-2xl"></div>

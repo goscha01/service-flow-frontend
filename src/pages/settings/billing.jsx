@@ -343,7 +343,7 @@ const BillingSettings = () => {
               <div className="bg-white rounded-lg border border-gray-200 p-6">
                 <div className="text-center mb-6">
                   <h2 className="text-2xl font-semibold text-gray-900 mb-2">
-                    Subscribe to Zenbooker for ${billingDetails.monthlyPrice}/month USD
+                    Subscribe to Serviceflow for ${billingDetails.monthlyPrice}/month USD
                   </h2>
                   <h3 className="text-lg text-gray-700 mb-4">
                     to keep using your account.

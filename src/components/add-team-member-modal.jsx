@@ -443,7 +443,7 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
                 required
               />
               <p className="mt-1 text-sm text-gray-500">
-                An email will be sent with instructions to log into their Zenbooker account.
+                An email will be sent with instructions to log into their Serviceflow account.
               </p>
             </div>
 

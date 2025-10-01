@@ -32,7 +32,7 @@ const BookingQuoteRequests = () => {
   const navigate = useNavigate()
 
   useEffect(() => {
-    const savedSettings = localStorage.getItem("zenbooker_booking_quote_requests")
+    const savedSettings = localStorage.getItem("service-flow_booking_quote_requests")
     if (savedSettings) {
       setSettings(JSON.parse(savedSettings))
     }
@@ -42,7 +42,7 @@ const BookingQuoteRequests = () => {
     setLoading(true)
     try {
       await new Promise((resolve) => setTimeout(resolve, 1000))
-      localStorage.setItem("zenbooker_booking_quote_requests", JSON.stringify(newSettings))
+      localStorage.setItem("service-flow_booking_quote_requests", JSON.stringify(newSettings))
       setSettings(newSettings)
       setNotification({ type: "success", message: "Booking & quote settings saved successfully!" })
     } catch (error) {

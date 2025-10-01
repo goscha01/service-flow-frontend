@@ -42,7 +42,7 @@ const MobileHeader = ({ onMenuClick }) => {
           <div className="w-6 h-6 bg-blue-600 rounded flex items-center justify-center">
             <span className="text-white font-bold text-sm">Z</span>
           </div>
-          <span className="text-lg font-semibold text-gray-800">zenbooker</span>
+          <span className="text-lg font-semibold text-gray-800">service-flow</span>
         </div>
       </div>
       

@@ -78,7 +78,7 @@ const AppointmentCancelled = () => {
                         <div>
                           <h3 className="font-medium text-gray-900">Enable Appointment Cancelled Email</h3>
                           <p className="text-sm text-gray-600 mt-1">
-                            Sent if a customer cancels their job. Can also be sent when a job is cancelled from the Zenbooker admin.
+                            Sent if a customer cancels their job. Can also be sent when a job is cancelled from the Serviceflow admin.
                           </p>
                         </div>
                         <div className="flex items-center">
@@ -109,7 +109,7 @@ const AppointmentCancelled = () => {
                         <div>
                           <h3 className="font-medium text-gray-900">Enable Appointment Cancelled SMS</h3>
                           <p className="text-sm text-gray-600 mt-1">
-                            Sent if a customer cancels their job. Can also be sent when a job is cancelled from the Zenbooker admin.
+                            Sent if a customer cancels their job. Can also be sent when a job is cancelled from the Serviceflow admin.
                           </p>
                         </div>
                         <div className="flex items-center">
