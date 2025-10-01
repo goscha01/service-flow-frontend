@@ -6,8 +6,8 @@ export default function MobileAppSection() {
           {/* Left Column - Mobile App Image */}
           <div className="relative">
             <img
-              src="/images/zenbooker-mobile-field-app-hero-4.avif"
-              alt="Zenbooker mobile field app"
+              src="/images/Serviceflow-mobile-field-app-hero-4.avif"
+              alt="Service Flow mobile field app"
               className="w-full max-w-sm mx-auto h-auto"
             />
           </div>
@@ -17,7 +17,7 @@ export default function MobileAppSection() {
             <div className="space-y-6">
               <h2 className="text-3xl lg:text-4xl font-bold text-gray-900">Keep your team connected in the field.</h2>
               <p className="text-lg text-gray-600 leading-relaxed">
-                Zenbooker's mobile web app offers your service providers the convenience of viewing their daily
+                Serviceflow's mobile web app offers your service providers the convenience of viewing their daily
                 schedules, upcoming jobs, and accessing customer information right from their smartphone or tablet.
                 <br />
                 <br />

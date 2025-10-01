@@ -22,7 +22,7 @@ export const BrandingProvider = ({ children }) => {
     primaryColor: "#4CAF50",
     headerBackground: "#ffffff",
     headerIcons: "#4CAF50",
-    hideZenbookerBranding: false,
+    hideServiceflowBranding: false,
     favicon: null,
     heroImage: null
   });

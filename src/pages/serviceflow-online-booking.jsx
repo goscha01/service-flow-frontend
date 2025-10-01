@@ -58,7 +58,7 @@ const ServiceFlowOnlineBooking = () => {
     primaryColor: "#4CAF50",
     headerBackground: "#ffffff",
     headerIcons: "#4CAF50",
-    hideZenbookerBranding: false,
+    hideServiceflowBranding: false,
     logo: null,
     favicon: null,
     heroImage: null
@@ -221,7 +221,7 @@ const ServiceFlowOnlineBooking = () => {
     // Get the current domain for local development
     const currentDomain = window.location.hostname === 'localhost' 
       ? 'localhost:3000' 
-      : 'widget.zenbooker.com'
+      : 'widget.service-flow.com'
     
     // If custom URL is provided, use it
     if (customUrl.trim()) {
@@ -247,7 +247,7 @@ const ServiceFlowOnlineBooking = () => {
     // Get the current domain for local development
     const currentDomain = window.location.hostname === 'localhost' 
       ? 'localhost:3000' 
-      : 'widget.zenbooker.com'
+      : 'widget.service-flow.com'
     
     // If custom URL is provided, use it
     if (customUrl.trim()) {
@@ -518,26 +518,26 @@ const ServiceFlowOnlineBooking = () => {
             )}
           </div>
 
-          {/* Hide Zenbooker Branding */}
+          {/* Hide Serviceflow Branding */}
           <div className="flex items-center justify-between">
             <div>
-              <h4 className="text-sm font-medium text-gray-900">Hide Zenbooker branding</h4>
-              <p className="text-sm text-gray-600">Remove the "Powered by Zenbooker" link on your booking page</p>
+              <h4 className="text-sm font-medium text-gray-900">Hide Serviceflow branding</h4>
+              <p className="text-sm text-gray-600">Remove the "Powered by Serviceflow" link on your booking page</p>
             </div>
             <button
               onClick={() =>
                 setBrandingSettings({
                   ...brandingSettings,
-                  hideZenbookerBranding: !brandingSettings.hideZenbookerBranding,
+                  hideServiceflowBranding: !brandingSettings.hideServiceflowBranding,
                 })
               }
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                brandingSettings.hideZenbookerBranding ? "bg-blue-600" : "bg-gray-300"
+                brandingSettings.hideServiceflowBranding ? "bg-blue-600" : "bg-gray-300"
               }`}
             >
               <span
                 className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  brandingSettings.hideZenbookerBranding ? "translate-x-6" : "translate-x-1"
+                  brandingSettings.hideServiceflowBranding ? "translate-x-6" : "translate-x-1"
                 }`}
               />
             </button>
@@ -1015,7 +1015,7 @@ const ServiceFlowOnlineBooking = () => {
                       Custom URL (Optional)
                     </label>
                     <div className="flex items-center space-x-2 mb-2">
-                      <span className="text-sm text-gray-500">widget.zenbooker.com/book/</span>
+                      <span className="text-sm text-gray-500">widget.service-flow.com/book/</span>
                       <input
                         type="text"
                         placeholder="your-custom-name"
@@ -1117,13 +1117,13 @@ const ServiceFlowOnlineBooking = () => {
                         </button>
                       </div>
 
-                      {!brandingSettings.hideZenbookerBranding && (
+                      {!brandingSettings.hideServiceflowBranding && (
                         <div className="text-xs text-gray-500 flex items-center justify-center space-x-1">
                           <span>Powered by</span>
                           <div className="w-4 h-4 bg-blue-600 rounded flex items-center justify-center">
                             <span className="text-white font-bold text-xs">Z</span>
                           </div>
-                          <span>zenbooker</span>
+                          <span>service-flow</span>
                         </div>
                       )}
                     </div>

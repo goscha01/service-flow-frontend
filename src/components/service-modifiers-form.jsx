@@ -222,21 +222,9 @@ const ServiceModifiersForm = ({ modifiers = [], selectedModifiers: parentSelecte
                       </div>
                     </div>
                     <div className="flex items-center space-x-3">
-                      <button
-                        type="button"
-                        onClick={() => handleModifierChange(modifier.id, option.id, -1)}
-                        className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-100 transition-colors"
-                      >
-                        <Minus className="w-3 h-3" />
-                      </button>
-                      <span className="w-8 text-center text-sm font-medium">{quantity}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleModifierChange(modifier.id, option.id, 1)}
-                        className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-100 transition-colors"
-                      >
-                        <Plus className="w-3 h-3" />
-                      </button>
+                      <span className="text-sm font-medium text-gray-700">
+                        {option.label} x {quantity}
+                      </span>
                     </div>
                   </div>
                 </div>

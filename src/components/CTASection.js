@@ -17,7 +17,7 @@ export default function CTASection() {
         <div className="space-y-8">
           <div className="space-y-4">
             <h2 className="text-3xl lg:text-4xl font-bold text-gray-900">Ready to get started?</h2>
-            <p className="text-lg text-gray-600">Try Zenbooker free for 14 days. No credit card required.</p>
+            <p className="text-lg text-gray-600">Try Serviceflow free for 14 days. No credit card required.</p>
           </div>
 
           <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-4 max-w-md mx-auto">

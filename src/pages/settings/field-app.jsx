@@ -19,7 +19,7 @@ const FieldApp = () => {
     installedTeammates: 0,
     notificationsEnabled: 0,
     branding: {
-      appName: "ZenBooker Field App",
+      appName: "Serviceflow Field App",
       primaryColor: "#2563EB",
       secondaryColor: "#10B981",
       logoUrl: null,
@@ -29,7 +29,7 @@ const FieldApp = () => {
   const navigate = useNavigate()
 
   useEffect(() => {
-    const savedSettings = localStorage.getItem("zenbooker_field_app")
+    const savedSettings = localStorage.getItem("service-flow_field_app")
     if (savedSettings) {
       setSettings(JSON.parse(savedSettings))
     }
@@ -39,7 +39,7 @@ const FieldApp = () => {
     setLoading(true)
     try {
       await new Promise((resolve) => setTimeout(resolve, 1000))
-      localStorage.setItem("zenbooker_field_app", JSON.stringify(newSettings))
+      localStorage.setItem("service-flow_field_app", JSON.stringify(newSettings))
       setSettings(newSettings)
       setNotification({ type: "success", message: "Field app settings saved successfully!" })
     } catch (error) {
@@ -162,7 +162,7 @@ const FieldApp = () => {
                   </div>
 
                   <p className="text-gray-600 mb-6">
-                    When your providers login to Zenbooker on their phone, they'll be directed to your mobile field app.
+                    When your providers login to Serviceflow on their phone, they'll be directed to your mobile field app.
                   </p>
 
                   {/* Install Prompt Toggle */}

@@ -15,8 +15,8 @@ const HelpPage = () => {
     {
       icon: Book,
       title: "Getting Started Guide",
-      description: "Learn the basics of setting up your Zenbooker account and creating your first booking",
-      link: "https://help.zenbooker.com/getting-started",
+      description: "Learn the basics of setting up your Serviceflow account and creating your first booking",
+      link: "https://help.service-flow.com/getting-started",
       color: "text-blue-500",
       bg: "bg-blue-100",
       featured: true
@@ -25,7 +25,7 @@ const HelpPage = () => {
       icon: Video,
       title: "Video Tutorials",
       description: "Watch step-by-step video guides covering all major features",
-      link: "https://help.zenbooker.com/videos",
+      link: "https://help.service-flow.com/videos",
       color: "text-green-500",
       bg: "bg-green-100",
       featured: true
@@ -34,7 +34,7 @@ const HelpPage = () => {
       icon: FileText,
       title: "Knowledge Base",
       description: "Browse our comprehensive collection of articles and FAQs",
-      link: "https://help.zenbooker.com/articles",
+      link: "https://help.service-flow.com/articles",
       color: "text-purple-500",
       bg: "bg-purple-100",
       featured: true
@@ -54,28 +54,28 @@ const HelpPage = () => {
     {
       category: "Setup & Configuration",
       links: [
-        { title: "Setting up services", link: "https://help.zenbooker.com/services" },
-        { title: "Managing team members", link: "https://help.zenbooker.com/team" },
-        { title: "Payment setup", link: "https://help.zenbooker.com/payments" },
-        { title: "Online booking configuration", link: "https://help.zenbooker.com/booking" }
+        { title: "Setting up services", link: "https://help.service-flow.com/services" },
+        { title: "Managing team members", link: "https://help.service-flow.com/team" },
+        { title: "Payment setup", link: "https://help.service-flow.com/payments" },
+        { title: "Online booking configuration", link: "https://help.service-flow.com/booking" }
       ]
     },
     {
       category: "Daily Operations",
       links: [
-        { title: "Scheduling appointments", link: "https://help.zenbooker.com/scheduling" },
-        { title: "Managing customer requests", link: "https://help.zenbooker.com/requests" },
-        { title: "Processing payments", link: "https://help.zenbooker.com/payment-processing" },
-        { title: "Generating reports", link: "https://help.zenbooker.com/reports" }
+        { title: "Scheduling appointments", link: "https://help.service-flow.com/scheduling" },
+        { title: "Managing customer requests", link: "https://help.service-flow.com/requests" },
+        { title: "Processing payments", link: "https://help.service-flow.com/payment-processing" },
+        { title: "Generating reports", link: "https://help.service-flow.com/reports" }
       ]
     },
     {
       category: "Integrations",
       links: [
-        { title: "Calendar syncing", link: "https://help.zenbooker.com/calendar" },
-        { title: "Email notifications", link: "https://help.zenbooker.com/notifications" },
-        { title: "API documentation", link: "https://help.zenbooker.com/api" },
-        { title: "Third-party integrations", link: "https://help.zenbooker.com/integrations" }
+        { title: "Calendar syncing", link: "https://help.service-flow.com/calendar" },
+        { title: "Email notifications", link: "https://help.service-flow.com/notifications" },
+        { title: "API documentation", link: "https://help.service-flow.com/api" },
+        { title: "Third-party integrations", link: "https://help.service-flow.com/integrations" }
       ]
     }
   ]
@@ -87,7 +87,7 @@ const HelpPage = () => {
     },
     {
       question: "Can customers book online?",
-      answer: "Yes! Zenbooker provides a customizable online booking page that you can share with customers or embed on your website."
+      answer: "Yes! Serviceflow provides a customizable online booking page that you can share with customers or embed on your website."
     },
     {
       question: "How do I set up payment processing?",
@@ -95,7 +95,7 @@ const HelpPage = () => {
     },
     {
       question: "Can I sync with my Google Calendar?",
-      answer: "Yes, you can sync your Zenbooker schedule with Google Calendar, Outlook, and other calendar apps from Settings > Calendar Syncing."
+      answer: "Yes, you can sync your Serviceflow schedule with Google Calendar, Outlook, and other calendar apps from Settings > Calendar Syncing."
     }
   ]
 
@@ -228,10 +228,10 @@ const HelpPage = () => {
                   <h4 className="text-lg font-medium text-gray-900 mb-2">Email Support</h4>
                   <p className="text-gray-600 mb-4">Get detailed help via email</p>
                   <a 
-                    href="mailto:support@zenbooker.com" 
+                    href="mailto:support@service-flow.com" 
                     className="text-blue-600 hover:text-blue-800 font-medium"
                   >
-                    support@zenbooker.com
+                    support@service-flow.com
                   </a>
                 </div>
                 

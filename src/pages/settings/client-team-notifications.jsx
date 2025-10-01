@@ -29,7 +29,7 @@ const ClientTeamNotifications = () => {
     {
       title: "Appointment Cancelled",
       description:
-        "Sent if a customer cancels their job. Can also be sent when a job is cancelled from the Zenbooker admin.",
+        "Sent if a customer cancels their job. Can also be sent when a job is cancelled from the Serviceflow admin.",
       types: ["SMS", "Email"],
     },
     {
@@ -73,7 +73,7 @@ const ClientTeamNotifications = () => {
     {
       title: "Appointment Rescheduled",
       description:
-        "Sent if a customer reschedules their job. Can also be sent when a job is rescheduled from the Zenbooker admin.",
+        "Sent if a customer reschedules their job. Can also be sent when a job is rescheduled from the Serviceflow admin.",
       types: ["SMS", "Email"],
     },
     {

@@ -240,7 +240,7 @@ const BrandingSettings = () => {
                    </div>
                  )}
                 <div className="mt-4 flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Show logo in Zenbooker admin</span>
+                  <span className="text-sm text-gray-600">Show logo in Serviceflow admin</span>
                   <button
                     onClick={() => setSettings({ ...settings, showLogoInAdmin: !settings.showLogoInAdmin })}
                     className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-600 focus:ring-offset-2 ${

@@ -172,7 +172,7 @@ const TeamMemberInvite = () => {
                             <h3 className="font-medium text-gray-900 mb-2">Next Steps:</h3>
                             <ul className="text-sm text-gray-700 space-y-1">
                               <li>1. Activate your account using the link above</li>
-                              <li>2. Download the Zenbooker mobile app</li>
+                              <li>2. Download the Serviceflow mobile app</li>
                               <li>3. Complete your profile and training modules</li>
                               <li>4. Review your upcoming job assignments</li>
                             </ul>

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import Sidebar from "../components/sidebar"
 import MobileHeader from "../components/mobile-header"
 import CustomerModal from "../components/customer-modal"
+import CalendarPicker from "../components/CalendarPicker"
 import { Plus, ChevronDown, Info, Star, Calendar, ArrowRight, BarChart2, CreditCard, Users, RefreshCw, MapPin, Globe, Check, AlertTriangle } from "lucide-react"
 import { Link, useNavigate } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
@@ -13,6 +14,18 @@ import { normalizeAPIResponse, handleAPIError } from "../utils/dataHandler"
 const ServiceFlowDashboard = () => {
   const { user } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  
+  // Helper function to get today's date in local timezone
+  const getTodayString = () => {
+    const today = new Date()
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+  }
+  
+  // Helper function to parse date string in local timezone
+  const parseLocalDate = (dateString) => {
+    const [year, month, day] = dateString.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  }
   
   // Function to get time-based greeting
   const getGreeting = () => {
@@ -48,17 +61,22 @@ const ServiceFlowDashboard = () => {
 
   // Handle single day selection
   const handleDateSelection = (date) => {
+    console.log('🔧 Dashboard: handleDateSelection called with:', date);
+    console.log('🔧 Dashboard: Date object:', new Date(date));
+    console.log('🔧 Dashboard: Date toLocaleDateString:', new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
     setSelectedDate(date)
     setShowDatePicker(false)
-    fetchDashboardData()
+    // Pass the new date directly to avoid state timing issues
+    fetchDashboardData(date)
   }
 
   // Reset to today
   const resetToToday = () => {
-    const today = new Date().toISOString().split('T')[0]
-    setSelectedDate(today)
+    const todayString = getTodayString()
+    setSelectedDate(todayString)
     setShowDatePicker(false)
-    fetchDashboardData()
+    // Pass the new date directly to avoid state timing issues
+    fetchDashboardData(todayString)
   }
   const [isLoading, setIsLoading] = useState(true)
   const [dateRange, setDateRange] = useState('7') // days
@@ -67,7 +85,7 @@ const ServiceFlowDashboard = () => {
     endDate: ''
   })
   const [showCustomDatePicker, setShowCustomDatePicker] = useState(false)
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]) // Today's date in YYYY-MM-DD format
+  const [selectedDate, setSelectedDate] = useState(getTodayString()) // Today's date in YYYY-MM-DD format using local timezone
   const [showDatePicker, setShowDatePicker] = useState(false)
   const [showNewMenu, setShowNewMenu] = useState(false)
   const [showCustomerModal, setShowCustomerModal] = useState(false)
@@ -429,11 +447,14 @@ const ServiceFlowDashboard = () => {
     clearStaleData()
   }
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = async (overrideDate = null) => {
     if (!user?.id) {
       console.log('No user ID available for dashboard')
       return
     }
+    
+    // Use override date if provided, otherwise use current selectedDate
+    const dateToUse = overrideDate || selectedDate
     
     try {
       setIsLoading(true)
@@ -488,9 +509,10 @@ const ServiceFlowDashboard = () => {
         teamMembers = []
       }
       
-      // Calculate selected day's data - use selectedDate instead of today
-      const selectedDay = new Date(selectedDate)
-      const selectedDayString = selectedDay.toLocaleDateString('en-CA') // Returns YYYY-MM-DD format
+      // Calculate selected day's data - use same format as schedule page
+      // Convert dateToUse string to Date object, then back to string to match schedule page logic
+      const selectedDateObj = new Date(dateToUse + 'T00:00:00') // Add time to avoid timezone issues
+      const selectedDayString = selectedDateObj.toLocaleDateString('en-CA') // Same as schedule page
       
       // Calculate date range data - handle custom date ranges
       let startDate, startDateString
@@ -503,15 +525,18 @@ const ServiceFlowDashboard = () => {
         // Use predefined date range - subtract 1 less day to get exact count
         startDate = new Date()
         startDate.setDate(startDate.getDate() - (parseInt(dateRange) - 1))
-        startDateString = startDate.toLocaleDateString('en-CA') // Returns YYYY-MM-DD format
+        startDateString = startDate.toISOString().split('T')[0] // Returns YYYY-MM-DD format
         console.log('📅 Using predefined date range:', dateRange, 'days')
       }
       
       console.log('🔍 Dashboard date debugging:')
+      console.log('📅 Date to use:', dateToUse)
       console.log('📅 Selected day string:', selectedDayString)
       console.log('📅 All jobs scheduled dates:', jobs.map(job => job.scheduled_date))
       console.log('📅 Date range setting:', dateRange, 'days')
       console.log('📅 Start date for range:', startDateString)
+      console.log('📅 Current time:', new Date().toLocaleString())
+      console.log('📅 Selected date object:', new Date(dateToUse))
       
       const todayJobs = jobs.filter(job => {
         // Handle both ISO format (2025-08-20T09:00:00) and space format (2025-08-20 09:00:00)
@@ -1082,15 +1107,32 @@ const ServiceFlowDashboard = () => {
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-6 space-y-4 lg:space-y-0">
                   <div className="flex items-center space-x-3">
                     <h2 className="text-lg font-display font-semibold text-gray-900">Today</h2>
-                    <button
-                      onClick={() => setShowDatePicker(!showDatePicker)}
-                      className="flex items-center space-x-2 text-sm text-gray-500 bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full transition-colors cursor-pointer"
-                    >
-                      <Calendar className="w-4 h-4" />
-                      <span>{new Date(selectedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
-                    </button>
+                    <div className="relative">
+                      <button
+                        onClick={() => setShowDatePicker(!showDatePicker)}
+                        className="flex items-center space-x-2 text-sm text-gray-500 bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full transition-colors cursor-pointer"
+                      >
+                        <Calendar className="w-4 h-4" />
+                        <span>{(() => {
+                          const displayDate = parseLocalDate(selectedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                          console.log('🔧 Dashboard: Displaying date:', displayDate, 'from selectedDate:', selectedDate);
+                          return displayDate;
+                        })()}</span>
+                      </button>
+                      
+                      <CalendarPicker
+                        selectedDate={parseLocalDate(selectedDate)}
+                        onDateSelect={(date) => {
+                          const dateString = date.toISOString().split('T')[0];
+                          handleDateSelection(dateString);
+                        }}
+                        isOpen={showDatePicker}
+                        onClose={() => setShowDatePicker(false)}
+                        position="bottom-left"
+                      />
+                    </div>
                     
-                    {selectedDate !== new Date().toISOString().split('T')[0] && (
+                    {selectedDate !== getTodayString() && (
                       <button
                         onClick={resetToToday}
                         className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded border border-gray-200 hover:bg-gray-50 transition-colors"
@@ -1112,33 +1154,6 @@ const ServiceFlowDashboard = () => {
                   </div>
                 </div>
 
-                {/* Date Picker */}
-                {showDatePicker && (
-                  <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 space-y-2 sm:space-y-0">
-                      <div className="flex items-center space-x-2">
-                        <Calendar className="w-4 h-4 text-gray-500" />
-                        <span className="text-sm font-medium text-gray-700">Select Date:</span>
-                      </div>
-                      
-                      <div className="flex items-center space-x-2">
-                        <input
-                          type="date"
-                          value={selectedDate}
-                          onChange={(e) => handleDateSelection(e.target.value)}
-                          className="px-3 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        />
-                        
-                        <button
-                          onClick={() => setShowDatePicker(false)}
-                          className="px-3 py-1 bg-gray-200 text-gray-700 text-sm rounded hover:bg-gray-300 transition-colors"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
 
                 <div className="grid grid-cols-3 gap-6 lg:flex lg:items-center lg:space-x-12">
                     <div className="text-center">
@@ -1150,7 +1165,7 @@ const ServiceFlowDashboard = () => {
                       <div className="text-gray-600 text-sm mt-1">Duration</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-xl lg:text-2xl font-bold text-gray-900">${dashboardData.todayEarnings.toLocaleString()}</div>
+                      <div className="text-xl lg:text-2xl font-bold text-gray-900">${dashboardData.todayEarnings}</div>
                       <div className="text-gray-600 text-sm mt-1">Earnings</div>
                     </div>
                   </div>
@@ -1160,7 +1175,7 @@ const ServiceFlowDashboard = () => {
                 <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
                   <div className="flex items-center justify-between p-4 border-b border-gray-200">
                     <h3 className="text-lg font-semibold text-gray-900">
-                      {selectedDate === new Date().toISOString().split('T')[0] ? "Today's Jobs Map" : `${new Date(selectedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} Jobs Map`}
+                      {selectedDate === getTodayString() ? "Today's Jobs Map" : `${parseLocalDate(selectedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} Jobs Map`}
                     </h3>
                     <div className="flex items-center space-x-2">
                       <span className="text-sm text-gray-500">{dashboardData.todayJobs} jobs</span>
@@ -1210,7 +1225,7 @@ const ServiceFlowDashboard = () => {
                             {/* Job Legend Overlay */}
                             <div className="absolute top-4 left-4 bg-white rounded-lg shadow-lg p-3 max-w-xs">
                               <h4 className="text-sm font-semibold text-gray-900 mb-2">
-                                {selectedDate === new Date().toISOString().split('T')[0] ? "Today's Jobs" : `${new Date(selectedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} Jobs`}
+                                {selectedDate === getTodayString() ? "Today's Jobs" : `${parseLocalDate(selectedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} Jobs`}
                               </h4>
                               <div className="space-y-2 max-h-32 overflow-y-auto">
                                 {todayJobsList.map((job, index) => {
@@ -1265,7 +1280,7 @@ const ServiceFlowDashboard = () => {
                             {/* Job Legend Overlay */}
                             <div className="absolute top-4 left-4 bg-white rounded-lg shadow-lg p-3 max-w-xs">
                               <h4 className="text-sm font-semibold text-gray-900 mb-2">
-                                {selectedDate === new Date().toISOString().split('T')[0] ? "Today's Jobs" : `${new Date(selectedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} Jobs`}
+                                {selectedDate === getTodayString() ? "Today's Jobs" : `${parseLocalDate(selectedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} Jobs`}
                               </h4>
                               <div className="space-y-2 max-h-32 overflow-y-auto">
                                 {todayJobsList.map((job, index) => {
@@ -1305,15 +1320,25 @@ const ServiceFlowDashboard = () => {
                         )}
                       </div>
                     ) : (
-                      <div className="h-full flex items-center justify-center bg-gray-50">
-                        <div className="text-center">
-                          <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mb-3 mx-auto shadow-sm">
-                            <Calendar className="w-6 h-6 text-gray-400" />
-                          </div>
-                          <p className="text-gray-900 font-medium">
-                            {selectedDate === new Date().toISOString().split('T')[0] ? "No jobs today" : `No jobs on ${new Date(selectedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
-                          </p>
-                          <p className="text-gray-600 text-sm mt-1">Create your first job to get started</p>
+                      <div className="h-full relative">
+                        <iframe
+                          width="100%"
+                          height="100%"
+                          frameBorder="0"
+                          style={{ border: 0 }}
+                          src={generateMapUrl([], mapView === 'map' ? 'roadmap' : 'satellite')}
+                          allowFullScreen
+                          loading="lazy"
+                          referrerPolicy="no-referrer-when-downgrade"
+                          title="US Map"
+                        />
+                        
+                        {/* No Jobs Overlay */}
+                        <div className="absolute top-4 left-4 bg-white rounded-lg shadow-lg p-3 max-w-xs">
+                          <h4 className="text-sm font-semibold text-gray-900 mb-2">
+                            {selectedDate === getTodayString() ? "No jobs today" : `No jobs on ${parseLocalDate(selectedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
+                          </h4>
+                          <p className="text-gray-600 text-sm">Create your first job to get started</p>
                         </div>
                       </div>
                     )}
@@ -1504,7 +1529,7 @@ const ServiceFlowDashboard = () => {
                       </div>
                       <Info className="w-4 h-4 text-gray-400 hover:text-gray-600 cursor-help transition-colors duration-200" title="Average value per job (total revenue ÷ number of jobs)" />
                     </div>
-                    <div className="text-3xl font-bold text-gray-900">${dashboardData.jobValue.toLocaleString()}</div>
+                    <div className="text-3xl font-bold text-gray-900">${dashboardData.jobValue}</div>
                     <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
                       <div className="h-2 bg-primary-600 rounded-full" style={{ width: `${Math.min((dashboardData.jobValue / dashboardData.maxJobValue) * 100, 100)}%` }}></div>
                     </div>
@@ -1519,7 +1544,7 @@ const ServiceFlowDashboard = () => {
                       </div>
                       <Info className="w-4 h-4 text-gray-400 hover:text-gray-600 cursor-help transition-colors duration-200" title="Total value of all jobs in the selected time period" />
                     </div>
-                    <div className="text-3xl font-bold text-gray-900">${dashboardData.totalRevenue.toLocaleString()}</div>
+                    <div className="text-3xl font-bold text-gray-900">${dashboardData.totalRevenue}</div>
                     <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
                       <div className="h-2 bg-primary-600 rounded-full" style={{ width: `${Math.min((dashboardData.totalRevenue / dashboardData.maxRevenue) * 100, 100)}%` }}></div>
                     </div>

@@ -1565,92 +1565,17 @@ const JobDetails = () => {
                                   • {modifier.title}: {option.label || option.description}
                                 </span>
                                 {option.selectedQuantity && (
-                                  <div className="flex items-center space-x-2 mt-1">
-                                    <span className="text-xs text-gray-500">Quantity:</span>
-                                    <div className="flex items-center space-x-1">
-                                      <button
-                                        onClick={() => {
-                                          const newQuantity = Math.max(0, (option.selectedQuantity || 1) - 1);
-                                          setJob(prev => {
-                                            const updatedModifiers = prev.service_modifiers?.map(mod => {
-                                              if (mod.id === modifier.id) {
-                                                return {
-                                                  ...mod,
-                                                  selectedOptions: mod.selectedOptions?.map(opt => {
-                                                    if (opt.id === option.id) {
-                                                      return { ...opt, selectedQuantity: newQuantity };
-                                                    }
-                                                    return opt;
-                                                  })
-                                                };
-                                              }
-                                              return mod;
-                                            });
-                                            return { ...prev, service_modifiers: updatedModifiers };
-                                          });
-                                        }}
-                                        className="w-6 h-6 rounded-full border border-gray-300 flex items-center justify-center text-gray-600 hover:bg-gray-50"
-                                      >
-                                        -
-                                      </button>
-                                      <span className="w-8 text-center">{option.selectedQuantity || 1}</span>
-                                      <button
-                                        onClick={() => {
-                                          const newQuantity = (option.selectedQuantity || 1) + 1;
-                                          setJob(prev => {
-                                            const updatedModifiers = prev.service_modifiers?.map(mod => {
-                                              if (mod.id === modifier.id) {
-                                                return {
-                                                  ...mod,
-                                                  selectedOptions: mod.selectedOptions?.map(opt => {
-                                                    if (opt.id === option.id) {
-                                                      return { ...opt, selectedQuantity: newQuantity };
-                                                    }
-                                                    return opt;
-                                                  })
-                                                };
-                                              }
-                                              return mod;
-                                            });
-                                            return { ...prev, service_modifiers: updatedModifiers };
-                                          });
-                                        }}
-                                        className="w-6 h-6 rounded-full border border-gray-300 flex items-center justify-center text-gray-600 hover:bg-gray-50"
-                                      >
-                                        +
-                                      </button>
-                                    </div>
+                                  <div className="mt-1">
+                                    <span className="text-sm text-gray-600">
+                                      {option.label || option.description} x {option.selectedQuantity || 1}
+                                    </span>
                                   </div>
                                 )}
                               </div>
                               <div className="flex items-center space-x-2">
-                                <span className="text-sm text-gray-500">$</span>
-                                <input
-                                  type="number"
-                                  step="0.01"
-                                  value={parseFloat(option.price || 0)}
-                                  onChange={e => {
-                                    const newPrice = parseFloat(e.target.value) || 0;
-                                    setJob(prev => {
-                                      const updatedModifiers = prev.service_modifiers?.map(mod => {
-                                        if (mod.id === modifier.id) {
-                                          return {
-                                            ...mod,
-                                            selectedOptions: mod.selectedOptions?.map(opt => {
-                                              if (opt.id === option.id) {
-                                                return { ...opt, price: newPrice };
-                                              }
-                                              return opt;
-                                            })
-                                          };
-                                        }
-                                        return mod;
-                                      });
-                                      return { ...prev, service_modifiers: updatedModifiers };
-                                    });
-                                  }}
-                                  className="w-20 px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                />
+                                <span className="text-sm font-medium text-gray-700">
+                                  ${parseFloat(option.price || 0).toFixed(2)}
+                                </span>
                               </div>
                             </div>
                           ));
@@ -1663,6 +1588,28 @@ const JobDetails = () => {
                       </>
                     );
                   })()}
+                  
+                  {/* Show custom price adjustment if the price has been customized */}
+                  {(() => {
+                    const originalServicePrice = parseFloat(job.service_price) || 0;
+                    const currentServicePrice = formData.service_price !== undefined ? formData.service_price : originalServicePrice;
+                    const modifierPrice = calculateModifierPrice();
+                    const originalTotal = originalServicePrice + modifierPrice;
+                    const currentTotal = calculateTotalPrice();
+                    const customAdjustment = currentTotal - originalTotal;
+                    
+                    if (Math.abs(customAdjustment) > 0.01) { // Only show if there's a meaningful difference
+                      return (
+                        <div className="flex justify-between">
+                          <span>Custom Price Adjustment</span>
+                          <span className={customAdjustment > 0 ? 'text-green-600' : 'text-red-600'}>
+                            {customAdjustment > 0 ? '+' : ''}${customAdjustment.toFixed(2)}
+                          </span>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
 
                 <div className="flex items-center space-x-3">
@@ -1674,42 +1621,6 @@ const JobDetails = () => {
                     Edit Service & Pricing
                   </button>
                   
-                  <button
-                    onClick={async () => {
-                      try {
-                        setLoading(true);
-                        const updatedJob = {
-                          serviceModifiers: job.service_modifiers
-                        };
-                        
-                        await jobsAPI.update(job.id, updatedJob);
-                        setSuccessMessage('Service options updated successfully!');
-                        setTimeout(() => setSuccessMessage(""), 3000);
-                      } catch (error) {
-                        console.error('Error updating service options:', error);
-                        setError('Failed to update service options');
-                        setTimeout(() => setError(""), 3000);
-                      } finally {
-                        setLoading(false);
-                      }
-                    }}
-                    disabled={loading}
-                    className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:opacity-50 flex items-center"
-                  >
-                    {loading ? (
-                      <>
-                        <div className="w-4 h-4 mr-1 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        Saving...
-                      </>
-                    ) : (
-                      <>
-                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        Save Changes
-                      </>
-                    )}
-                  </button>
                 </div>
 
                 <hr className="my-4" />
@@ -2470,6 +2381,11 @@ const JobDetails = () => {
                       type="number"
                           step="0.01"
                           value={formData.service_price || 0}
+                          onFocus={e => {
+                            if (e.target.value === "0" || e.target.value === "0.00") {
+                              e.target.value = "";
+                            }
+                          }}
                           onChange={e => {
                             const newPrice = parseFloat(e.target.value) || 0;
                             setFormData(prev => {
@@ -2497,6 +2413,11 @@ const JobDetails = () => {
                           type="number"
                           step="0.01"
                           value={formData.discount || 0}
+                          onFocus={e => {
+                            if (e.target.value === "0" || e.target.value === "0.00") {
+                              e.target.value = "";
+                            }
+                          }}
                           onChange={e => {
                             const newDiscount = parseFloat(e.target.value) || 0;
                             setFormData(prev => {
@@ -2524,6 +2445,11 @@ const JobDetails = () => {
                           type="number"
                           step="0.01"
                           value={formData.additional_fees || 0}
+                          onFocus={e => {
+                            if (e.target.value === "0" || e.target.value === "0.00") {
+                              e.target.value = "";
+                            }
+                          }}
                           onChange={e => {
                             const newFees = parseFloat(e.target.value) || 0;
                             setFormData(prev => {
@@ -2551,6 +2477,11 @@ const JobDetails = () => {
                           type="number"
                           step="0.01"
                           value={formData.taxes || 0}
+                          onFocus={e => {
+                            if (e.target.value === "0" || e.target.value === "0.00") {
+                              e.target.value = "";
+                            }
+                          }}
                           onChange={e => {
                             const newTaxes = parseFloat(e.target.value) || 0;
                             setFormData(prev => {
@@ -2604,6 +2535,11 @@ const JobDetails = () => {
                                                   type="number"
                                                   step="0.01"
                                                   value={currentPrice}
+                                                  onFocus={e => {
+                                                    if (e.target.value === "0" || e.target.value === "0.00") {
+                                                      e.target.value = "";
+                                                    }
+                                                  }}
                                                   onChange={e => {
                                                     const newPrice = parseFloat(e.target.value) || 0;
                                                     
@@ -2674,6 +2610,80 @@ const JobDetails = () => {
                                 <div className="text-sm text-gray-600">
                                   Total Modifier Price: ${calculateModifierPrice().toFixed(2)}
                                 </div>
+                              </div>
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()}
+                      
+                      {/* Service Adjustment Price */}
+                      {(() => {
+                        const originalServicePrice = parseFloat(job.service_price) || 0;
+                        const currentServicePrice = formData.service_price !== undefined ? formData.service_price : originalServicePrice;
+                        const serviceAdjustment = currentServicePrice - originalServicePrice;
+                        
+                        if (Math.abs(serviceAdjustment) > 0.01) { // Only show if there's a meaningful difference
+                          return (
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">Service Adjustment Price</label>
+                              <div className="flex items-center space-x-2">
+                                <span className="text-sm text-gray-500">$</span>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={serviceAdjustment}
+                                  onFocus={e => {
+                                    if (e.target.value === "0" || e.target.value === "0.00") {
+                                      e.target.value = "";
+                                    }
+                                  }}
+                                  onChange={e => {
+                                    const newAdjustment = parseFloat(e.target.value) || 0;
+                                    const newServicePrice = originalServicePrice + newAdjustment;
+                                    
+                                    setFormData(prev => {
+                                      const modifierPrice = prev.modifier_price || 0;
+                                      const additionalFees = prev.additional_fees || 0;
+                                      const taxes = prev.taxes || 0;
+                                      const discount = prev.discount || 0;
+                                      const newTotal = calculateTotalPriceHelper(newServicePrice, modifierPrice, additionalFees, taxes, discount);
+                                      
+                                      return { 
+                                        ...prev, 
+                                        service_price: newServicePrice,
+                                        total: newTotal,
+                                        total_amount: newTotal
+                                      };
+                                    });
+                                  }}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                  placeholder="0.00"
+                                />
+                                <button
+                                  onClick={() => {
+                                    setFormData(prev => {
+                                      const modifierPrice = prev.modifier_price || 0;
+                                      const additionalFees = prev.additional_fees || 0;
+                                      const taxes = prev.taxes || 0;
+                                      const discount = prev.discount || 0;
+                                      const newTotal = calculateTotalPriceHelper(originalServicePrice, modifierPrice, additionalFees, taxes, discount);
+                                      
+                                      return { 
+                                        ...prev, 
+                                        service_price: originalServicePrice,
+                                        total: newTotal,
+                                        total_amount: newTotal
+                                      };
+                                    });
+                                  }}
+                                  className="text-xs text-red-600 hover:text-red-800 px-2 py-1 border border-red-300 rounded hover:bg-red-50"
+                                >
+                                  Reset
+                                </button>
+                              </div>
+                              <div className="text-xs text-gray-500 mt-1">
+                                Original: ${originalServicePrice.toFixed(2)} | Current: ${currentServicePrice.toFixed(2)}
                               </div>
                             </div>
                           );

@@ -5,15 +5,15 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Company Info */}
           <div className="space-y-4">
-            <img src="/placeholder.svg?height=40&width=160" alt="Zenbooker" className="h-10 w-auto" />
+            <img src="/placeholder.svg?height=40&width=160" alt="Serviceflow" className="h-10 w-auto" />
             <p className="text-gray-600 text-sm">Online scheduling software for home service providers.</p>
             <div className="flex space-x-4">
-              <a href="https://twitter.com/ZenbookerApp" className="text-gray-400 hover:text-gray-600">
+              <a href="https://twitter.com/ServiceflowApp" className="text-gray-400 hover:text-gray-600">
                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M6.29 18.251c7.547 0 11.675-6.253 11.675-11.675 0-.178 0-.355-.012-.53A8.348 8.348 0 0020 3.92a8.19 8.19 0 01-2.357.646 4.118 4.118 0 001.804-2.27 8.224 8.224 0 01-2.605.996 4.107 4.107 0 00-6.993 3.743 11.65 11.65 0 01-8.457-4.287 4.106 4.106 0 001.27 5.477A4.073 4.073 0 01.8 7.713v.052a4.105 4.105 0 003.292 4.022 4.095 4.095 0 01-1.853.07 4.108 4.108 0 003.834 2.85A8.233 8.233 0 010 16.407a11.616 11.616 0 006.29 1.84" />
                 </svg>
               </a>
-              <a href="https://www.facebook.com/ZenbookerApp/" className="text-gray-400 hover:text-gray-600">
+              <a href="https://www.facebook.com/ServiceflowApp/" className="text-gray-400 hover:text-gray-600">
                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                   <path
                     fillRule="evenodd"
@@ -22,7 +22,7 @@ export default function Footer() {
                   />
                 </svg>
               </a>
-              <a href="https://www.youtube.com/@Zenbooker" className="text-gray-400 hover:text-gray-600">
+              <a href="https://www.youtube.com/@Serviceflow" className="text-gray-400 hover:text-gray-600">
                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
                   <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
@@ -130,12 +130,12 @@ export default function Footer() {
                 </a>
               </li>
               <li>
-                <a href="https://help.zenbooker.com/en/" className="text-gray-600 hover:text-gray-900">
+                <a href="https://help.service-flow.com/en/" className="text-gray-600 hover:text-gray-900">
                   Help Center
                 </a>
               </li>
               <li>
-                <a href="https://developers.zenbooker.com/" className="text-gray-600 hover:text-gray-900">
+                <a href="https://developers.service-flow.com/" className="text-gray-600 hover:text-gray-900">
                   API & Developers
                 </a>
               </li>
@@ -169,7 +169,7 @@ export default function Footer() {
                 Terms
               </a>
             </div>
-            <div className="mt-4 md:mt-0 text-sm text-gray-600">© 2025 Zenbooker.</div>
+            <div className="mt-4 md:mt-0 text-sm text-gray-600">© 2025 Serviceflow.</div>
           </div>
         </div>
       </div>

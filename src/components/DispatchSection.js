@@ -32,7 +32,7 @@ export default function DispatchSection() {
               <div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">Auto-assign new bookings</h3>
                 <p className="text-gray-600">
-                  Let Zenbooker automatically assign new jobs to available and qualified techs.
+                  Let Serviceflow automatically assign new jobs to available and qualified techs.
                 </p>
               </div>
 

@@ -61,7 +61,7 @@ const FeedbackReviews = () => {
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Customer feedback form</h3>
                 <p className="text-sm text-gray-600 mb-4">
-                  Zenbooker can automatically send post-job follow up emails to customers, asking them to rate their
+                  Serviceflow can automatically send post-job follow up emails to customers, asking them to rate their
                   service. <button className="text-blue-600 hover:text-blue-700">Learn more</button>
                 </p>
                 <p className="text-sm text-gray-600 mb-6">

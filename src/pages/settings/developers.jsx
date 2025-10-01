@@ -38,7 +38,7 @@ const Developers = () => {
             <div>
               <h2 className="text-xl font-semibold text-gray-900 mb-4">Webhooks</h2>
               <p className="text-gray-600 mb-6">
-                Use webhooks to subscribe to events that happen inside of your Zenbooker account.
+                Use webhooks to subscribe to events that happen inside of your Serviceflow account.
               </p>
               <button className="text-blue-600 hover:text-blue-700 font-medium text-sm mb-8">
                 Learn more about using webhooks
@@ -50,7 +50,7 @@ const Developers = () => {
                 </div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-4">Create your first webhook</h3>
                 <p className="text-gray-600 mb-8 max-w-md mx-auto">
-                  Receive job details in real-time when something happens in Zenbooker.
+                  Receive job details in real-time when something happens in Serviceflow.
                 </p>
                 <button className="bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700">
                   Create a Webhook
@@ -66,7 +66,7 @@ const Developers = () => {
                   <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded font-medium">BETA</span>
                 </div>
                 <p className="text-gray-600 mb-6">
-                  Use the Zenbooker API to access your account data, like jobs and customers.
+                  Use the Serviceflow API to access your account data, like jobs and customers.
                 </p>
 
                 <div className="space-y-4">
@@ -81,7 +81,7 @@ const Developers = () => {
               <div className="bg-gray-900 rounded-lg p-6 text-green-400 font-mono text-sm overflow-hidden">
                 <div className="flex items-center space-x-2 mb-4">
                   <span className="bg-green-600 text-white px-2 py-1 rounded text-xs">POST</span>
-                  <span className="text-gray-300">https://api.zenbooker.com/v1/jobs/1d/assign</span>
+                  <span className="text-gray-300">https://api.service-flow.com/v1/jobs/1d/assign</span>
                 </div>
                 <div className="space-y-1">
                   <div>{"{"}</div>

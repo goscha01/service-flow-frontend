@@ -4,7 +4,7 @@ export default function FeaturesGrid() {
       category: "Service Modifiers",
       title: "Price services dynamically.",
       description:
-        "Provide customers with upfront, accurate pricing for services and extras. Zenbooker lets you add custom questions to the booking flow, which affect the price estimate presented to customers.",
+        "Provide customers with upfront, accurate pricing for services and extras. Serviceflow lets you add custom questions to the booking flow, which affect the price estimate presented to customers.",
       image: "/images/dynamic-pricing-2-good.avif",
       bgColor: "bg-green-50",
     },

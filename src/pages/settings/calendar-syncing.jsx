@@ -42,7 +42,7 @@ const CalendarSyncing = () => {
                 <h2 className="text-xl font-semibold text-gray-900">Sync New Jobs to Your Calendar</h2>
               </div>
               <p className="text-gray-600 mb-6">
-                Add your Zenbooker schedule to your Google Calendar, Outlook, or iCal...
+                Add your Serviceflow schedule to your Google Calendar, Outlook, or iCal...
               </p>
 
               <div className="flex items-center space-x-6 mb-6">

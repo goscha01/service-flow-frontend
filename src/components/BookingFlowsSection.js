@@ -15,7 +15,7 @@ export default function BookingFlowsSection() {
     instant: {
       title: "Instant Online Booking",
       description:
-        "Let customers instantly book services based on your team's real-time availability. They pick a service, select options, answer intake questions, and schedule directly online. Zenbooker can automatically take into account their location and your team's existing jobs when calculating available times.",
+        "Let customers instantly book services based on your team's real-time availability. They pick a service, select options, answer intake questions, and schedule directly online. Serviceflow can automatically take into account their location and your team's existing jobs when calculating available times.",
       image: "/images/online-booking-junk-removal.avif",
       link: "/online-booking-software",
     },

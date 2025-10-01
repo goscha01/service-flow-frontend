@@ -73,7 +73,7 @@ const UserDropdown = ({ isOpen, onClose, onToggle }) => {
     },
     {
       icon: HelpCircle,
-      label: "Zenbooker Help",
+      label: "Serviceflow Help",
       onClick: () => {
         navigate("/help")
         onClose()

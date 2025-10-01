@@ -11,7 +11,7 @@ export default function TestimonialsCarousel() {
       company: "Balcony Cleaners",
       logo: "/images/balcony-cleaners-logo-testimonial.avif",
       quote:
-        "We've tried a lot of scheduling tools over the years, but Zenbooker is hands down the best. It's helped us manage a fast-growing team of workers with ease, and the zones feature has been a game-changer in allowing us to expand into new markets.",
+        "We've tried a lot of scheduling tools over the years, but Serviceflow is hands down the best. It's helped us manage a fast-growing team of workers with ease, and the zones feature has been a game-changer in allowing us to expand into new markets.",
       author: "Matty",
       website: "https://balconycleaners.com/",
       image: "/images/balcony-cleaners-headshot-transp2.avif",
@@ -21,7 +21,7 @@ export default function TestimonialsCarousel() {
       company: "The Mounting Man",
       logo: "/images/mounting-man-logo-testimonial.avif",
       quote:
-        "After trying 15 different platforms over 4 years, Zenbooker became my perfect solution. It allows my contractors across the country to receive immediate job notifications based on their specific skillsets, while clients can see exact pricing based on their selected options.",
+        "After trying 15 different platforms over 4 years, Serviceflow became my perfect solution. It allows my contractors across the country to receive immediate job notifications based on their specific skillsets, while clients can see exact pricing based on their selected options.",
       author: "Marshall Wayne",
       website: "https://www.themountingman.tv/",
       image: "/images/mounting-man-headshot2.avif",
@@ -31,7 +31,7 @@ export default function TestimonialsCarousel() {
       company: "Carole's House Cleaning",
       logo: "/images/caroles-housecleaning-logo-testimonial.avif",
       quote:
-        "Zenbooker has completely changed the way we book services online. It's incredibly easy to use, fast, and super convenient.",
+        "Serviceflow has completely changed the way we book services online. It's incredibly easy to use, fast, and super convenient.",
       author: "Shanti",
       website: "https://www.housecleaningbycarole.com/",
       image: "/images/caroles-house-cleaning-2.avif",

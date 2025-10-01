@@ -68,6 +68,7 @@ import ServiceModifiersForm from "../components/service-modifiers-form";
 import ServiceCustomizationPopup from "../components/service-customization-popup";
 import ServiceSelectionModal from "../components/service-selection-modal";
 import CreateServiceModal from "../components/create-service-modal";
+import CalendarPicker from "../components/CalendarPicker";
 import { useNavigate } from 'react-router-dom';
 import { jobsAPI, customersAPI, servicesAPI, teamAPI, territoriesAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -98,6 +99,7 @@ export default function CreateJobPage() {
   const [showServiceCustomizationPopup, setShowServiceCustomizationPopup] = useState(false);
   const [showServiceSelectionModal, setShowServiceSelectionModal] = useState(false);
   const [showCreateServiceModal, setShowCreateServiceModal] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   // Form data
   const [formData, setFormData] = useState({
@@ -1014,8 +1016,8 @@ export default function CreateJobPage() {
         console.log('Attempting to navigate to job ID:', jobId);
         if (jobId) {
           console.log('Navigating to job details page:', `/job/${jobId}`);
-          // Use React Router navigate instead of window.location.href
-          window.location.href = `/job/${jobId}`;
+          // Force full page reload
+          window.location.assign(`/job/${jobId}`);
         } else {
           console.log('No job ID found, navigating to jobs page');
           // If no job ID returned, navigate to jobs page
@@ -2338,14 +2340,28 @@ setIntakeQuestionAnswers(answers);
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Date *</label>
                     <div className="relative">
-                  <input
-                        type="date"
+                      <input
+                        type="text"
                         required
-                        value={formData.scheduledDate}
-                        onChange={(e) => setFormData(prev => ({ ...prev, scheduledDate: e.target.value }))}
-                    className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
+                        value={formData.scheduledDate ? new Date(formData.scheduledDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
+                        onClick={() => setShowDatePicker(true)}
+                        readOnly
+                        className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer"
+                        placeholder="Select date"
+                      />
                       <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                      
+                      <CalendarPicker
+                        selectedDate={formData.scheduledDate ? new Date(formData.scheduledDate) : new Date()}
+                        onDateSelect={(date) => {
+                          const dateString = date.toISOString().split('T')[0];
+                          setFormData(prev => ({ ...prev, scheduledDate: dateString }));
+                          setShowDatePicker(false);
+                        }}
+                        isOpen={showDatePicker}
+                        onClose={() => setShowDatePicker(false)}
+                        position="bottom-left"
+                      />
                     </div>
                   </div>
                   

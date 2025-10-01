@@ -11,7 +11,7 @@ export default function ContractorSection() {
                 Online booking that works with independent contractors.
               </h2>
               <p className="text-lg text-gray-600 leading-relaxed">
-                With Zenbooker, you can empower your contractors to control their own availability and update their
+                With Serviceflow, you can empower your contractors to control their own availability and update their
                 schedules as needed. This real-time availability is automatically pushed to your online booking page—so
                 customers always see up-to-date openings.
               </p>
