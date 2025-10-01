@@ -236,6 +236,9 @@ const JobDetails = () => {
   // Fetch job data
   useEffect(() => {
     const fetchJob = async () => {
+      // Wait a bit to ensure authentication state is ready
+      await new Promise(resolve => setTimeout(resolve, 100))
+      
       setLoading(true)
       setError("") // Clear any previous errors
       try {
@@ -335,6 +338,9 @@ const JobDetails = () => {
   // Fetch supporting data
   useEffect(() => {
     const fetchData = async () => {
+      // Wait a bit to ensure authentication state is ready
+      await new Promise(resolve => setTimeout(resolve, 200))
+      
       try {
         const user = JSON.parse(localStorage.getItem('user') || '{}')
         if (user.id) {
