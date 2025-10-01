@@ -142,13 +142,15 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
     }
   }, [isOpen, isEditing, customer])
 
-  // Simple, reliable autofill detection
+  // Enhanced autofill detection for production
   useEffect(() => {
     const syncAutofill = () => {
       const firstName = firstNameRef.current?.value || ""
       const lastName = lastNameRef.current?.value || ""
       const email = emailRef.current?.value || ""
       const phone = phoneRef.current?.value || ""
+      
+      console.log('Checking autofill values:', { firstName, lastName, email, phone })
       
       if (firstName || lastName || email || phone) {
         setCustomerData(prev => ({
@@ -158,53 +160,69 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
           email: email || prev.email,
           phone: phone || prev.phone
         }))
-        console.log('Autofill detected in customer modal:', { firstName, lastName, email, phone })
+        console.log('✅ Autofill detected in customer modal:', { firstName, lastName, email, phone })
+      } else {
+        console.log('❌ No autofill values found')
       }
     }
 
     // CSS animation detection (Chrome's autofill trigger)
-    const handleAnimationStart = () => {
+    const handleAnimationStart = (event) => {
+      console.log('🎬 Animation start event:', event.type)
       setTimeout(syncAutofill, 100)
     }
 
+    // Enhanced event listeners for better detection
+    const handleInput = (event) => {
+      console.log('📝 Input event:', event.target.name, event.target.value)
+      setTimeout(syncAutofill, 50)
+    }
+
+    const handleChange = (event) => {
+      console.log('🔄 Change event:', event.target.name, event.target.value)
+      setTimeout(syncAutofill, 50)
+    }
+
     // Multiple timeout checks to catch browser autofill at different speeds
-    const timeouts = [100, 300, 500].map(delay => 
-      setTimeout(syncAutofill, delay)
+    const timeouts = [50, 100, 200, 500, 1000].map(delay => 
+      setTimeout(() => {
+        console.log(`⏰ Timeout check at ${delay}ms`)
+        syncAutofill()
+      }, delay)
     )
 
-    // Add event listeners
+    // Add comprehensive event listeners
     const firstNameInput = firstNameRef.current
     const lastNameInput = lastNameRef.current
     const emailInput = emailRef.current
     const phoneInput = phoneRef.current
 
-    if (firstNameInput) {
-      firstNameInput.addEventListener('animationstart', handleAnimationStart)
-    }
-    if (lastNameInput) {
-      lastNameInput.addEventListener('animationstart', handleAnimationStart)
-    }
-    if (emailInput) {
-      emailInput.addEventListener('animationstart', handleAnimationStart)
-    }
-    if (phoneInput) {
-      phoneInput.addEventListener('animationstart', handleAnimationStart)
-    }
+    const inputs = [
+      { ref: firstNameInput, name: 'firstName' },
+      { ref: lastNameInput, name: 'lastName' },
+      { ref: emailInput, name: 'email' },
+      { ref: phoneInput, name: 'phone' }
+    ]
+
+    inputs.forEach(({ ref, name }) => {
+      if (ref) {
+        ref.addEventListener('animationstart', handleAnimationStart)
+        ref.addEventListener('input', handleInput)
+        ref.addEventListener('change', handleChange)
+        console.log(`📌 Added listeners to ${name}`)
+      }
+    })
 
     return () => {
       timeouts.forEach(clearTimeout)
-      if (firstNameInput) {
-        firstNameInput.removeEventListener('animationstart', handleAnimationStart)
-      }
-      if (lastNameInput) {
-        lastNameInput.removeEventListener('animationstart', handleAnimationStart)
-      }
-      if (emailInput) {
-        emailInput.removeEventListener('animationstart', handleAnimationStart)
-      }
-      if (phoneInput) {
-        phoneInput.removeEventListener('animationstart', handleAnimationStart)
-      }
+      inputs.forEach(({ ref, name }) => {
+        if (ref) {
+          ref.removeEventListener('animationstart', handleAnimationStart)
+          ref.removeEventListener('input', handleInput)
+          ref.removeEventListener('change', handleChange)
+          console.log(`🧹 Removed listeners from ${name}`)
+        }
+      })
     }
   }, [isOpen])
 
