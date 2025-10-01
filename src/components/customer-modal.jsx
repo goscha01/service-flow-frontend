@@ -26,6 +26,12 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
   const [isValidatingEmail, setIsValidatingEmail] = useState(false)
   const [isValidatingPhone, setIsValidatingPhone] = useState(false)
 
+  // Refs for autofill detection
+  const firstNameRef = useRef(null)
+  const lastNameRef = useRef(null)
+  const emailRef = useRef(null)
+  const phoneRef = useRef(null)
+
   // API base URL - using backend proxy for Google Places API to avoid CORS issues
   const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://service-flow-backend-production-4568.up.railway.app/api'
 
@@ -135,6 +141,72 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
       })
     }
   }, [isOpen, isEditing, customer])
+
+  // Simple, reliable autofill detection
+  useEffect(() => {
+    const syncAutofill = () => {
+      const firstName = firstNameRef.current?.value || ""
+      const lastName = lastNameRef.current?.value || ""
+      const email = emailRef.current?.value || ""
+      const phone = phoneRef.current?.value || ""
+      
+      if (firstName || lastName || email || phone) {
+        setCustomerData(prev => ({
+          ...prev,
+          firstName: firstName || prev.firstName,
+          lastName: lastName || prev.lastName,
+          email: email || prev.email,
+          phone: phone || prev.phone
+        }))
+        console.log('Autofill detected in customer modal:', { firstName, lastName, email, phone })
+      }
+    }
+
+    // CSS animation detection (Chrome's autofill trigger)
+    const handleAnimationStart = () => {
+      setTimeout(syncAutofill, 100)
+    }
+
+    // Multiple timeout checks to catch browser autofill at different speeds
+    const timeouts = [100, 300, 500].map(delay => 
+      setTimeout(syncAutofill, delay)
+    )
+
+    // Add event listeners
+    const firstNameInput = firstNameRef.current
+    const lastNameInput = lastNameRef.current
+    const emailInput = emailRef.current
+    const phoneInput = phoneRef.current
+
+    if (firstNameInput) {
+      firstNameInput.addEventListener('animationstart', handleAnimationStart)
+    }
+    if (lastNameInput) {
+      lastNameInput.addEventListener('animationstart', handleAnimationStart)
+    }
+    if (emailInput) {
+      emailInput.addEventListener('animationstart', handleAnimationStart)
+    }
+    if (phoneInput) {
+      phoneInput.addEventListener('animationstart', handleAnimationStart)
+    }
+
+    return () => {
+      timeouts.forEach(clearTimeout)
+      if (firstNameInput) {
+        firstNameInput.removeEventListener('animationstart', handleAnimationStart)
+      }
+      if (lastNameInput) {
+        lastNameInput.removeEventListener('animationstart', handleAnimationStart)
+      }
+      if (emailInput) {
+        emailInput.removeEventListener('animationstart', handleAnimationStart)
+      }
+      if (phoneInput) {
+        phoneInput.removeEventListener('animationstart', handleAnimationStart)
+      }
+    }
+  }, [isOpen])
 
   // Add click-outside handler to close modal (excluding Google Places autocomplete)
   useEffect(() => {
@@ -414,6 +486,7 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
                   First Name <span className="text-red-500">*</span>
                 </label>
                 <input
+                  ref={firstNameRef}
                   type="text"
                   placeholder="First name"
                   value={customerData.firstName}
@@ -435,6 +508,7 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
                   Last Name <span className="text-red-500">*</span>
                 </label>
                 <input
+                  ref={lastNameRef}
                   type="text"
                   placeholder="Last name"
                   value={customerData.lastName}
@@ -529,6 +603,7 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
               </label>
               <div className="relative">
                 <input
+                  ref={phoneRef}
                   type="tel"
                   placeholder="(555) 123-4567"
                   value={customerData.phone}
@@ -564,6 +639,7 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
               </label>
               <div className="relative">
                 <input
+                  ref={emailRef}
                   type="email"
                   placeholder="email@example.com"
                   value={customerData.email}
