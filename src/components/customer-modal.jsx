@@ -27,8 +27,7 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
   const [isValidatingPhone, setIsValidatingPhone] = useState(false)
 
   // Refs for autofill detection
-  const firstNameRef = useRef(null)
-  const lastNameRef = useRef(null)
+  const addressRef = useRef(null)
   const emailRef = useRef(null)
   const phoneRef = useRef(null)
 
@@ -145,22 +144,20 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
   // Enhanced autofill detection for production
   useEffect(() => {
     const syncAutofill = () => {
-      const firstName = firstNameRef.current?.value || ""
-      const lastName = lastNameRef.current?.value || ""
+      const address = addressRef.current?.value || ""
       const email = emailRef.current?.value || ""
       const phone = phoneRef.current?.value || ""
       
-      console.log('Checking autofill values:', { firstName, lastName, email, phone })
+      console.log('Checking autofill values:', { address, email, phone })
       
-      if (firstName || lastName || email || phone) {
+      if (address || email || phone) {
         setCustomerData(prev => ({
           ...prev,
-          firstName: firstName || prev.firstName,
-          lastName: lastName || prev.lastName,
+          address: address || prev.address,
           email: email || prev.email,
           phone: phone || prev.phone
         }))
-        console.log('✅ Autofill detected in customer modal:', { firstName, lastName, email, phone })
+        console.log('✅ Autofill detected in customer modal:', { address, email, phone })
       } else {
         console.log('❌ No autofill values found')
       }
@@ -192,14 +189,12 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
     )
 
     // Add comprehensive event listeners
-    const firstNameInput = firstNameRef.current
-    const lastNameInput = lastNameRef.current
+    const addressInput = addressRef.current
     const emailInput = emailRef.current
     const phoneInput = phoneRef.current
 
     const inputs = [
-      { ref: firstNameInput, name: 'firstName' },
-      { ref: lastNameInput, name: 'lastName' },
+      { ref: addressInput, name: 'address' },
       { ref: emailInput, name: 'email' },
       { ref: phoneInput, name: 'phone' }
     ]
@@ -504,7 +499,6 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
                   First Name <span className="text-red-500">*</span>
                 </label>
                 <input
-                  ref={firstNameRef}
                   type="text"
                   placeholder="First name"
                   value={customerData.firstName}
@@ -526,7 +520,6 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
                   Last Name <span className="text-red-500">*</span>
                 </label>
                 <input
-                  ref={lastNameRef}
                   type="text"
                   placeholder="Last name"
                   value={customerData.lastName}
@@ -551,6 +544,7 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
                 Address
               </label>
               <AddressAutocomplete
+                ref={addressRef}
                 value={customerData.address}
                 onChange={(value) => setCustomerData(prev => ({ ...prev, address: value }))}
                 onAddressSelect={handleAddressSelect}

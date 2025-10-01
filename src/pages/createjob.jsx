@@ -1016,12 +1016,12 @@ export default function CreateJobPage() {
         console.log('Attempting to navigate to job ID:', jobId);
         if (jobId) {
           console.log('Navigating to job details page:', `/job/${jobId}`);
-          // Force full page reload
-          window.location.href = `/job/${jobId}`;
+          // Use React Router navigation instead of window.location.href to avoid CORS issues
+          navigate(`/job/${jobId}`, { replace: true });
         } else {
           console.log('No job ID found, navigating to jobs page');
           // If no job ID returned, navigate to jobs page
-           window.location.href = '/jobs';
+          navigate('/jobs', { replace: true });
         }
       }, 1500);
     } catch (error) {
