@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react"
+import { useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
 import GoogleOAuth from "../components/GoogleOAuth"
@@ -12,39 +12,6 @@ export default function SignInForm() {
   })
   const [error, setError] = useState("")
 
-  // Refs for autofill sync
-  const emailRef = useRef(null)
-  const passwordRef = useRef(null)
-
-  // Simplified autofill detection
-  useEffect(() => {
-    const syncAutofill = () => {
-      const email = emailRef.current?.value || ""
-      const password = passwordRef.current?.value || ""
-      
-      if (email && email !== formData.email) {
-        console.log('📧 Email autofill detected')
-        setFormData(prev => ({ ...prev, email }))
-      }
-      
-      if (password && password !== formData.password) {
-        console.log('🔒 Password autofill detected')
-        setFormData(prev => ({ ...prev, password }))
-      }
-    }
-
-    // Check immediately on mount
-    setTimeout(syncAutofill, 100)
-    
-    // Check periodically for the first 3 seconds
-    const intervals = [200, 500, 1000, 2000, 3000].map(delay => 
-      setTimeout(syncAutofill, delay)
-    )
-
-    return () => {
-      intervals.forEach(clearTimeout)
-    }
-  }, [formData.email, formData.password])
   const [errors, setErrors] = useState({})
   const [isLoading, setIsLoading] = useState(false)
   const [apiError, setApiError] = useState("")
@@ -92,37 +59,8 @@ export default function SignInForm() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     
-    // Always read from refs as fallback for autofill
-    const emailFromRef = emailRef.current?.value || ""
-    const passwordFromRef = passwordRef.current?.value || ""
-    
-    // Use ref values if they exist and formData is empty (autofill case)
-    const finalEmail = emailFromRef || formData.email
-    const finalPassword = passwordFromRef || formData.password
-    
-    // Update formData with final values
-    const finalFormData = {
-      email: finalEmail,
-      password: finalPassword
-    }
-    
-    // Validate with final values
-    const newErrors = {}
-    
-    if (!finalEmail.trim()) {
-      newErrors.email = "Email is required"
-    } else if (!/\S+@\S+\.\S+/.test(finalEmail)) {
-      newErrors.email = "Please enter a valid email address"
-    }
-    
-    if (!finalPassword.trim()) {
-      newErrors.password = "Password is required"
-    } else if (finalPassword.length < 6) {
-      newErrors.password = "Password must be at least 6 characters"
-    }
-    
-    setErrors(newErrors)
-    if (Object.keys(newErrors).length > 0) {
+    // Validate form
+    if (!validateForm()) {
       return
     }
     
@@ -130,7 +68,7 @@ export default function SignInForm() {
     setApiError("")
     
     try {
-      await login(finalFormData)
+      await login(formData)
       navigate('/dashboard')
     } catch (error) {
       console.error('Signin error:', error)
@@ -190,14 +128,6 @@ export default function SignInForm() {
             </div>
           )}
 
-          {/* Autofill Hint */}
-          {!formData.email && (
-            <div className="mb-4 p-2 bg-gray-50 border border-gray-200 rounded-lg">
-              <p className="text-gray-600 text-xs text-center">
-                💡 Click the email field to see saved accounts
-              </p>
-            </div>
-          )}
 
           {/* Sign In Form */}
           <form
@@ -214,14 +144,13 @@ export default function SignInForm() {
               <input
                 id="email"
                 type="email"
-                name="username"
-                autoComplete="username email"
+                name="email"
+                autoComplete="email"
                   placeholder={formData.email ? "" : "Email"}
-                defaultValue={formData.email}
+                value={formData.email}
                 onChange={handleInputChange}
                   onFocus={() => console.log('📧 Email field focused')}
                   onBlur={() => console.log('📧 Email field blurred')}
-                ref={emailRef}
                   className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
                     errors.email 
                       ? "border-red-500 bg-red-50" 
@@ -252,12 +181,11 @@ export default function SignInForm() {
                 type="password"
                 name="password"
                   placeholder={formData.password ? "" : "Password"}
-                defaultValue={formData.password}
+                value={formData.password}
                 onChange={handleInputChange}
                   onFocus={() => console.log('🔒 Password field focused')}
                   onBlur={() => console.log('🔒 Password field blurred')}
                 autoComplete="current-password"
-                ref={passwordRef}
                   className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
                     errors.password 
                       ? "border-red-500 bg-red-50" 
