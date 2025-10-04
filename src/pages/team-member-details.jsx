@@ -460,15 +460,27 @@ const TeamMemberDetails = () => {
   const handleRemoveTerritory = async (territoryToRemove) => {
     try {
       console.log('Removing territory:', territoryToRemove)
+      console.log('Current territories:', territories)
+      
+      // Get the territory ID to remove
+      let territoryIdToRemove
+      if (typeof territoryToRemove === 'object' && territoryToRemove.id) {
+        territoryIdToRemove = territoryToRemove.id
+      } else {
+        territoryIdToRemove = territoryToRemove
+      }
+      
+      console.log('Territory ID to remove:', territoryIdToRemove)
       
       // Remove the territory by its ID from the territories array
       const updatedTerritories = territories.filter(territoryId => {
         const numericId = typeof territoryId === 'string' ? parseInt(territoryId) : territoryId
-        const removeId = typeof territoryToRemove === 'object' ? territoryToRemove.id : territoryToRemove
-        const numericRemoveId = typeof removeId === 'string' ? parseInt(removeId) : removeId
+        const numericRemoveId = typeof territoryIdToRemove === 'string' ? parseInt(territoryIdToRemove) : territoryIdToRemove
         
         console.log('Comparing territory ID:', numericId, 'with remove ID:', numericRemoveId)
-        return numericId !== numericRemoveId
+        const shouldKeep = numericId !== numericRemoveId
+        console.log('Should keep territory:', shouldKeep)
+        return shouldKeep
       })
       
       console.log('Updated territories after removal:', updatedTerritories)
