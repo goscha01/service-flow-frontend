@@ -384,6 +384,7 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
   }
 
   const handleAddressSelect = (addressData) => {
+    console.log('🏠 Address selected from autocomplete:', addressData)
     setCustomerData({
       ...customerData,
       address: addressData.formattedAddress,
@@ -391,6 +392,18 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
       state: addressData.components.state,
       zipCode: addressData.components.zipCode
     })
+  }
+
+  const handleAddressChange = (value) => {
+    console.log('✏️ Address manually changed:', value)
+    setCustomerData(prev => ({ 
+      ...prev, 
+      address: value,
+      // Clear city, state, zipCode when address is manually changed
+      city: "",
+      state: "",
+      zipCode: ""
+    }))
   }
 
 
@@ -546,7 +559,7 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
               <AddressAutocomplete
                 ref={addressRef}
                 value={customerData.address}
-                onChange={(value) => setCustomerData(prev => ({ ...prev, address: value }))}
+                onChange={handleAddressChange}
                 onAddressSelect={handleAddressSelect}
                 placeholder="Street Address"
                 className="w-full"

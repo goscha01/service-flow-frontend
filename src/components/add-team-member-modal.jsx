@@ -56,7 +56,11 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
       let parsedTerritories = []
       if (member.territories) {
         try {
-          parsedTerritories = JSON.parse(member.territories)
+          if (typeof member.territories === 'string') {
+            parsedTerritories = JSON.parse(member.territories)
+          } else if (Array.isArray(member.territories)) {
+            parsedTerritories = member.territories
+          }
           console.log('Parsed territories:', parsedTerritories)
         } catch (error) {
           console.error('Error parsing territories:', error)
@@ -101,13 +105,35 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
         color: member.color || "#2563EB",
         territories: parsedTerritories,
         availability: parsedAvailability,
-        permissions: member.permissions ? JSON.parse(member.permissions) : {
-          viewCustomerNotes: true,
-          modifyJobStatus: true,
-          editJobDetails: true,
-          rescheduleJobs: true,
-          editAvailability: true
-        }
+        permissions: (() => {
+          if (!member.permissions) {
+            return {
+              viewCustomerNotes: true,
+              modifyJobStatus: true,
+              editJobDetails: true,
+              rescheduleJobs: true,
+              editAvailability: true
+            }
+          }
+          
+          try {
+            if (typeof member.permissions === 'string') {
+              return JSON.parse(member.permissions)
+            } else if (typeof member.permissions === 'object' && member.permissions !== null) {
+              return member.permissions
+            }
+          } catch (error) {
+            console.error('Error parsing permissions:', error)
+          }
+          
+          return {
+            viewCustomerNotes: true,
+            modifyJobStatus: true,
+            editJobDetails: true,
+            rescheduleJobs: true,
+            editAvailability: true
+          }
+        })()
       })
     } else if (isOpen && !isEditing) {
       // Reset form for new member
@@ -286,24 +312,29 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
   }
 
   const handleTerritoryToggle = (territoryId) => {
-    console.log('Toggling territory:', territoryId)
+    console.log('🔄 Toggling territory:', territoryId)
+    console.log('🔄 Territory type:', typeof territoryId)
     setFormData(prev => {
       const currentTerritories = prev.territories || []
       const isSelected = currentTerritories.includes(territoryId)
       
-      console.log('Current territories:', currentTerritories)
-      console.log('Is selected:', isSelected)
+      console.log('📋 Current territories before toggle:', currentTerritories)
+      console.log('✅ Is territory selected:', isSelected)
+      console.log('🔍 Territory ID to toggle:', territoryId)
       
       if (isSelected) {
-        const newTerritories = currentTerritories.filter(id => id !== territoryId)
-        console.log('Removing territory, new list:', newTerritories)
+        const newTerritories = currentTerritories.filter(id => {
+          console.log('🔍 Comparing:', id, 'with', territoryId, 'types:', typeof id, typeof territoryId)
+          return id !== territoryId
+        })
+        console.log('❌ Removing territory, new list:', newTerritories)
         return {
           ...prev,
           territories: newTerritories
         }
       } else {
         const newTerritories = [...currentTerritories, territoryId]
-        console.log('Adding territory, new list:', newTerritories)
+        console.log('➕ Adding territory, new list:', newTerritories)
         return {
           ...prev,
           territories: newTerritories
@@ -632,11 +663,16 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
                 <div className="flex flex-wrap gap-2">
                   {territories.map((territory) => {
                     const isSelected = formData.territories.includes(territory.id)
+                    console.log('🎯 Rendering territory:', territory.name, 'ID:', territory.id, 'Selected:', isSelected)
+                    console.log('🎯 Form territories:', formData.territories)
                     return (
                       <button
                         key={territory.id}
                         type="button"
-                        onClick={() => handleTerritoryToggle(territory.id)}
+                        onClick={() => {
+                          console.log('🖱️ Territory button clicked:', territory.name, 'ID:', territory.id)
+                          handleTerritoryToggle(territory.id)
+                        }}
                         className={`inline-flex items-center px-3 py-1.5 border rounded-full text-sm font-medium transition-colors ${
                           isSelected
                             ? 'border-blue-500 bg-blue-100 text-blue-800 hover:bg-blue-200'

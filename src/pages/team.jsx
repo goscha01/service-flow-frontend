@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
 import Sidebar from "../components/sidebar"
 import MobileHeader from "../components/mobile-header"
-import { Plus, Search, Filter, Users, TrendingUp, Calendar, DollarSign, Clock, Eye, Edit, Trash2, UserPlus, BarChart3 } from "lucide-react"
+import { Plus, Search, Filter, Users, TrendingUp, Calendar, DollarSign, Clock, Eye, Edit, Trash2, UserPlus, BarChart3, Mail, Phone, AlertCircle } from "lucide-react"
 import { useAuth } from "../context/AuthContext"
 import { teamAPI } from "../services/api"
 import AddTeamMemberModal from "../components/add-team-member-modal"
@@ -245,6 +245,17 @@ const TeamPage = () => {
                 <BarChart3 className="w-4 h-4 inline mr-2" />
                 Performance Analytics
               </button>
+              <button
+                onClick={() => setActiveTab("deactivate")}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === "deactivate"
+                    ? "border-red-500 text-red-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                <Trash2 className="w-4 h-4 inline mr-2" />
+                Deactivate Members
+              </button>
             </nav>
           </div>
 
@@ -442,13 +453,6 @@ const TeamPage = () => {
                                 >
                                   <Edit className="w-4 h-4" />
                                 </button>
-                                <button
-                                  onClick={() => handleDeleteMember(member.id)}
-                                  className="text-gray-400 hover:text-red-500"
-                                  title="Delete"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
                               </div>
                             </div>
                           </div>
@@ -628,6 +632,111 @@ const TeamPage = () => {
                   <p className="mt-1 text-sm text-gray-500">
                     Analytics will appear once you have team members and completed jobs.
                   </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Deactivate Members Tab */}
+          {activeTab === "deactivate" && (
+            <div>
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <Trash2 className="h-5 w-5 text-red-400" />
+                  </div>
+                  <div className="ml-3">
+                    <h3 className="text-sm font-medium text-red-800">
+                      Deactivate Team Members
+                    </h3>
+                    <div className="mt-2 text-sm text-red-700">
+                      <p>
+                        This action will permanently delete team members and all their associated data. 
+                        This cannot be undone. Please be absolutely certain before proceeding.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {loading ? (
+                <div className="flex justify-center items-center py-12">
+                  <LoadingButton />
+                </div>
+              ) : error ? (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="flex">
+                    <div className="flex-shrink-0">
+                      <AlertCircle className="h-5 w-5 text-red-400" />
+                    </div>
+                    <div className="ml-3">
+                      <h3 className="text-sm font-medium text-red-800">Error</h3>
+                      <div className="mt-2 text-sm text-red-700">
+                        <p>{error}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : teamMembers.length === 0 ? (
+                <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
+                  <Users className="mx-auto h-12 w-12 text-gray-400" />
+                  <h3 className="mt-2 text-sm font-medium text-gray-900">No team members</h3>
+                  <p className="mt-1 text-sm text-gray-500">
+                    There are no team members to deactivate.
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-white shadow overflow-hidden sm:rounded-md">
+                  <ul className="divide-y divide-gray-200">
+                    {teamMembers.map((member) => (
+                      <li key={member.id}>
+                        <div className="px-4 py-4 sm:px-6">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center">
+                              <div className="flex-shrink-0">
+                                <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center">
+                                  <span className="text-sm font-medium text-gray-700">
+                                    {member.first_name?.[0]}{member.last_name?.[0]}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="ml-4">
+                                <div className="flex items-center space-x-2">
+                                  <p className="text-sm font-medium text-gray-900">
+                                    {member.first_name} {member.last_name}
+                                  </p>
+                                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(member.status)}`}>
+                                    {getStatusLabel(member.status)}
+                                  </span>
+                                </div>
+                                <div className="mt-1 flex items-center space-x-4 text-sm text-gray-500">
+                                  <div className="flex items-center space-x-1">
+                                    <Mail className="w-4 h-4" />
+                                    <span>{member.email}</span>
+                                  </div>
+                                  {member.phone && (
+                                    <div className="flex items-center space-x-1">
+                                      <Phone className="w-4 h-4" />
+                                      <span>{member.phone}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <button
+                                onClick={() => handleDeleteMember(member.id)}
+                                className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                              >
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Deactivate
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
             </div>

@@ -113,6 +113,49 @@ const AddressAutocomplete = ({
     }
   };
 
+  // Function to parse manually entered address
+  const parseAddressString = (addressString) => {
+    if (!addressString || addressString.trim() === '') {
+      return null;
+    }
+
+    const addressParts = addressString.split(',').map(part => part.trim());
+    
+    if (addressParts.length < 2) {
+      return null; // Need at least street and city
+    }
+
+    const parsedAddress = {
+      formattedAddress: addressString,
+      placeId: null,
+      components: {
+        streetNumber: null,
+        route: null,
+        city: addressParts[1] || '',
+        state: '',
+        zipCode: '',
+        country: 'USA',
+      },
+      geometry: null,
+    };
+
+    // Parse state and zip code from the last part
+    if (addressParts.length >= 3) {
+      const stateZipPart = addressParts[2];
+      const stateZipMatch = stateZipPart.match(/^([A-Za-z\s]+)\s+(\d{5}(?:-\d{4})?)$/);
+      
+      if (stateZipMatch) {
+        parsedAddress.components.state = stateZipMatch[1].trim();
+        parsedAddress.components.zipCode = stateZipMatch[2];
+      } else {
+        // If no zip code pattern, assume it's just state
+        parsedAddress.components.state = stateZipPart;
+      }
+    }
+
+    return parsedAddress;
+  };
+
   const handleInputChange = (e) => {
     const newValue = e.target.value;
     setInput(newValue);
@@ -120,6 +163,13 @@ const AddressAutocomplete = ({
     // Only call onChange if this is manual typing, not programmatic setting
     if (!isProgrammaticUpdate) {
       onChange(newValue);
+      
+      // Try to parse the manually entered address
+      const parsedAddress = parseAddressString(newValue);
+      if (parsedAddress && onAddressSelect) {
+        // Call onAddressSelect with parsed address data
+        onAddressSelect(parsedAddress);
+      }
     }
     
     // Reset flags

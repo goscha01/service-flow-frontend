@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
 // import { Button } from "../components/ui/button"
@@ -17,6 +17,40 @@ export default function SignupForm() {
   const [errors, setErrors] = useState({})
   const [isLoading, setIsLoading] = useState(false)
   const [apiError, setApiError] = useState("")
+
+  // Refs for autofill sync
+  const emailRef = useRef(null)
+  const passwordRef = useRef(null)
+
+  // Simplified autofill detection
+  useEffect(() => {
+    const syncAutofill = () => {
+      const email = emailRef.current?.value || ""
+      const password = passwordRef.current?.value || ""
+      
+      if (email && email !== formData.email) {
+        console.log('📧 Email autofill detected')
+        setFormData(prev => ({ ...prev, email }))
+      }
+      
+      if (password && password !== formData.password) {
+        console.log('🔒 Password autofill detected')
+        setFormData(prev => ({ ...prev, password }))
+      }
+    }
+
+    // Check immediately on mount
+    setTimeout(syncAutofill, 100)
+    
+    // Check periodically for the first 3 seconds
+    const intervals = [200, 500, 1000, 2000, 3000].map(delay => 
+      setTimeout(syncAutofill, delay)
+    )
+
+    return () => {
+      intervals.forEach(clearTimeout)
+    }
+  }, [formData.email, formData.password])
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -73,7 +107,50 @@ export default function SignupForm() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     
-    if (!validateForm()) {
+    // Always read from refs as fallback for autofill
+    const emailFromRef = emailRef.current?.value || ""
+    const passwordFromRef = passwordRef.current?.value || ""
+    
+    // Use ref values if they exist and formData is empty (autofill case)
+    const finalEmail = emailFromRef || formData.email
+    const finalPassword = passwordFromRef || formData.password
+    
+    // Update formData with final values
+    const finalFormData = {
+      ...formData,
+      email: finalEmail,
+      password: finalPassword
+    }
+    
+    // Validate with final values
+    const newErrors = {}
+    
+    if (!finalEmail.trim()) {
+      newErrors.email = "Email is required"
+    } else if (!/\S+@\S+\.\S+/.test(finalEmail)) {
+      newErrors.email = "Please enter a valid email address"
+    }
+    
+    if (!finalPassword.trim()) {
+      newErrors.password = "Password is required"
+    } else if (finalPassword.length < 6) {
+      newErrors.password = "Password must be at least 6 characters"
+    }
+    
+    if (!formData.firstName.trim()) {
+      newErrors.firstName = "First name is required"
+    }
+    
+    if (!formData.lastName.trim()) {
+      newErrors.lastName = "Last name is required"
+    }
+    
+    if (!formData.businessName.trim()) {
+      newErrors.businessName = "Business name is required"
+    }
+    
+    setErrors(newErrors)
+    if (Object.keys(newErrors).length > 0) {
       return
     }
     
@@ -81,7 +158,7 @@ export default function SignupForm() {
     setApiError("")
     
     try {
-      await signup(formData)
+      await signup(finalFormData)
       navigate('/dashboard')
     } catch (error) {
       console.error('Signup error:', error)
@@ -228,11 +305,13 @@ export default function SignupForm() {
                 </label>
                 <input
                   id="email"
-                  name="email"
+                  name="username"
                   type="email"
+                  autoComplete="username email"
                   placeholder="Your business email"
-                  value={formData.email}
+                  defaultValue={formData.email}
                   onChange={handleInputChange}
+                  ref={emailRef}
                   className={`w-full h-12 px-4 bg-gray-50 border rounded-lg text-base focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                     errors.email ? "border-red-500 bg-red-50" : "border-gray-200"
                   }`}
@@ -253,9 +332,11 @@ export default function SignupForm() {
                   id="password"
                   name="password"
                   type="password"
+                  autoComplete="new-password"
                   placeholder="Choose a password"
-                  value={formData.password}
+                  defaultValue={formData.password}
                   onChange={handleInputChange}
+                  ref={passwordRef}
                   className={`w-full h-12 px-4 bg-gray-50 border rounded-lg text-base focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                     errors.password ? "border-red-500 bg-red-50" : "border-gray-200"
                   }`}
