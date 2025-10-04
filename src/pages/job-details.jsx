@@ -160,7 +160,7 @@ const JobDetails = () => {
         duration: job.duration || job.estimated_duration || 0,
         service_price: totalPrice, // Set backend total as default
         modifier_price: modifierPrice,
-        discount: discount,
+        discount: discount > 0 ? discount : undefined, // Only set if discount exists
         additional_fees: additionalFees,
         taxes: taxes,
         tip: 0,
@@ -2840,7 +2840,7 @@ Your Service Team`}
                         type="number"
                         step="0.01"
                         min="0"
-                        value={formData.discount || 0}
+                        value={formData.discount !== undefined ? formData.discount : ""}
                         onChange={e => {
                           const newDiscount = parseFloat(e.target.value) || 0;
                           setFormData(prev => ({
