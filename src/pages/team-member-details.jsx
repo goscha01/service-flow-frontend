@@ -798,7 +798,7 @@ const TeamMemberDetails = () => {
 
   // Map territory IDs to full territory objects when available territories load
   useEffect(() => {
-    if (availableTerritories.length > 0 && territories.length > 0) {
+    if (availableTerritories.length > 0) {
       const mappedTerritories = territories.map(territoryId => {
         // Ensure territoryId is a number for comparison
         const numericId = typeof territoryId === 'string' ? parseInt(territoryId) : territoryId
@@ -814,6 +814,9 @@ const TeamMemberDetails = () => {
       })
       
       setDisplayedTerritories(mappedTerritories)
+    } else if (territories.length === 0) {
+      // If no territories, clear displayed territories
+      setDisplayedTerritories([])
     }
   }, [availableTerritories, territories])
 
