@@ -31,6 +31,7 @@ const ServiceFlowTerritories = () => {
   const [territories, setTerritories] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+  const [successMessage, setSuccessMessage] = useState("")
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [selectedTerritory, setSelectedTerritory] = useState(null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
@@ -130,6 +131,25 @@ const ServiceFlowTerritories = () => {
     setIsCreateModalOpen(false)
     setIsEditModalOpen(false)
     setSelectedTerritory(null)
+  }
+
+  const handleDeleteTerritory = async (territory) => {
+    if (!window.confirm(`Are you sure you want to delete "${territory.name}"? This action cannot be undone.`)) {
+      return
+    }
+
+    try {
+      setLoading(true)
+      await territoriesAPI.delete(territory.id)
+      setSuccessMessage(`Territory "${territory.name}" deleted successfully`)
+      setTimeout(() => setSuccessMessage(""), 3000)
+      fetchTerritories()
+    } catch (error) {
+      console.error('Error deleting territory:', error)
+      setError(`Failed to delete territory: ${error.response?.data?.error || error.message}`)
+    } finally {
+      setLoading(false)
+    }
   }
 
   if (authLoading) {
@@ -238,6 +258,13 @@ const ServiceFlowTerritories = () => {
               </div>
             </div>
 
+            {/* Success Message */}
+            {successMessage && (
+              <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
+                <p className="text-sm text-green-800">{successMessage}</p>
+              </div>
+            )}
+
             {/* Error Message */}
             {error && (
               <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
@@ -335,7 +362,10 @@ const ServiceFlowTerritories = () => {
                              >
                                <Edit className="w-4 h-4" />
                              </button>
-                             <button className="p-2 text-gray-400 hover:text-red-600">
+                             <button 
+                               onClick={() => handleDeleteTerritory(territory)}
+                               className="p-2 text-gray-400 hover:text-red-600"
+                             >
                                <Trash2 className="w-4 h-4" />
                              </button>
                            </div>

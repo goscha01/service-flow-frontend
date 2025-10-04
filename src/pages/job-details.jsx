@@ -53,7 +53,8 @@ import {
   Calendar as CalendarIcon,
   Copy,
   Trash2,
-  Menu
+  Menu,
+  Search
 } from "lucide-react"
 import { jobsAPI, notificationAPI, territoriesAPI, teamAPI, invoicesAPI } from "../services/api"
 import Sidebar from "../components/sidebar"
@@ -105,6 +106,8 @@ const JobDetails = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [showSendInvoiceModal, setShowSendInvoiceModal] = useState(false)
   const [showAddPaymentModal, setShowAddPaymentModal] = useState(false)
+  const [showDiscountModal, setShowDiscountModal] = useState(false)
+  const [showTipModal, setShowTipModal] = useState(false)
   
   // Address autopopulation state
   const [addressAutoPopulated, setAddressAutoPopulated] = useState(false)
@@ -147,16 +150,20 @@ const JobDetails = () => {
       const modifierPrice = calculateModifierPrice();
       const calculatedTotal = servicePrice + modifierPrice + additionalFees + taxes - discount;
       
+      // Use the backend total as the default value for the input
+      const totalPrice = parseFloat(job.total) || 0;
+      
       setFormData(prev => ({
         ...prev,
         service_name: job.service_name || "",
         bathroom_count: job.bathroom_count || "",
         duration: job.duration || job.estimated_duration || 0,
-        service_price: servicePrice,
+        service_price: totalPrice, // Set backend total as default
         modifier_price: modifierPrice,
         discount: discount,
         additional_fees: additionalFees,
         taxes: taxes,
+        tip: 0,
         total: calculatedTotal
       }))
     }
@@ -286,7 +293,8 @@ const JobDetails = () => {
           service_price: mappedJobData.service_price || 0,
           discount: mappedJobData.discount || 0,
           additional_fees: mappedJobData.additional_fees || 0,
-          taxes: mappedJobData.taxes || 0
+          taxes: mappedJobData.taxes || 0,
+          tip: 0
         })
 
         // Initialize intake question answers
@@ -738,6 +746,46 @@ const JobDetails = () => {
     }
   }
 
+  const handleSaveService = async () => {
+    if (!job) return
+    try {
+      setLoading(true)
+      setError("")
+      
+      // Send only the changed values to backend, let backend calculate total
+      const updatedJob = {
+        service_price: formData.service_price,
+        additional_fees: formData.additional_fees,
+        taxes: formData.taxes,
+        discount: formData.discount
+      }
+      
+      await jobsAPI.update(job.id, updatedJob)
+      
+      setSuccessMessage('Service details updated successfully!')
+      setTimeout(() => setSuccessMessage(""), 3000)
+      
+      // Close the modal
+      setShowEditServiceModal(false)
+      
+      // Update the job state with new data immediately
+      setJob(prev => ({
+        ...prev,
+        ...updatedJob
+      }))
+      
+      // Reload job data to get updated values
+      const jobData = await jobsAPI.getById(jobId)
+      const mappedJobData = mapJobData(jobData)
+      setJob(mappedJobData)
+    } catch (error) {
+      console.error('Error updating service details:', error)
+      setError(error.response?.data?.error || 'Failed to update service details')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const formatDate = (dateString) => {
     if (!dateString) return 'Date placeholder'
     
@@ -868,24 +916,16 @@ const JobDetails = () => {
     }
   }
 
-  // Calculate total price including modifiers for display
+  // Use backend-calculated total as source of truth
   const calculateTotalPrice = () => {
     try {
-      // Use form data if available (when editing), otherwise use job data
-      const servicePrice = formData.service_price !== undefined ? formData.service_price : (parseFloat(job.service_price) || 0);
-      const modifierPrice = formData.modifier_price !== undefined ? formData.modifier_price : calculateModifierPrice();
-      const additionalFees = formData.additional_fees !== undefined ? formData.additional_fees : (parseFloat(job.additional_fees) || 0);
-      const taxes = formData.taxes !== undefined ? formData.taxes : (parseFloat(job.taxes) || 0);
-      const discount = formData.discount !== undefined ? formData.discount : (parseFloat(job.discount) || 0);
-      
-      const total = servicePrice + modifierPrice + additionalFees + taxes - discount;
-      
-      console.log('🔧 calculateTotalPrice: servicePrice:', servicePrice, 'modifierPrice:', modifierPrice, 'additionalFees:', additionalFees, 'taxes:', taxes, 'discount:', discount, 'total:', total);
-      
-      return total;
+      // Use backend-calculated total from job data
+      const baseTotal = parseFloat(job.total) || 0;
+      const tip = formData.tip || 0;
+      return baseTotal + tip;
     } catch (error) {
-      console.error('Error calculating total price:', error);
-      return parseFloat(job.service_price) || 0;
+      console.error('Error getting total price:', error);
+      return 0;
     }
   }
 
@@ -1155,7 +1195,7 @@ const JobDetails = () => {
         {/* Main Content */}
         <div className="flex flex-col lg:flex-row">
           {/* Left Column */}
-          <div className="flex-1 p-4 sm:p-6">
+          <div className="flex-1 lg:max-w-3xl p-4 sm:p-6">
             {/* Map Section */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-4 sm:mb-6">
               <div className="relative">
@@ -1299,8 +1339,6 @@ const JobDetails = () => {
                 </div>
               </div>
             </div>
-
-
 
             {/* Team Assignment Section - Moved from sidebar */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-4 sm:mb-6 p-4 sm:p-6">
@@ -1500,21 +1538,21 @@ const JobDetails = () => {
 
             {/* Invoice Section */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 space-y-2 sm:space-y-0 sm:space-x-2">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 space-y-2 sm:space-y-0 sm:space-x-2">
                 <div>
-                  <div className="flex items-center space-x-2">
-                    <h3 className="text-lg font-semibold text-gray-900">Invoice</h3>
-                    <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded">
-                      {job.invoice_status || 'Draft'}
+                  <div className="flex items-center space-x-3 mb-2">
+                    <h3 className="text-2xl font-bold text-gray-900">Invoice</h3>
+                    <span className="px-3 py-1 bg-yellow-100 text-yellow-800 text-sm font-medium rounded-full">
+                      Unpaid
                     </span>
                   </div>
-                  <p className="text-sm text-gray-600">Due Aug 31, 2025</p>
+                  <p className="text-sm text-gray-600">Due Oct 2, 2025</p>
                 </div>
                 
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
                   <button 
                     onClick={() => setShowAddPaymentModal(true)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center justify-center space-x-2 text-sm"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center space-x-2 text-sm font-medium"
                   >
                     <Plus className="w-4 h-4" />
                     <span>Add Payment</span>
@@ -1522,229 +1560,178 @@ const JobDetails = () => {
                   </button>
                   <button 
                     onClick={() => setShowSendInvoiceModal(true)}
-                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 text-sm"
+                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium"
                   >
                     Send Invoice
                   </button>
                   <div className="flex space-x-2">
-                    <button className="p-2 text-gray-400 hover:text-gray-600 border border-gray-300 rounded">
+                    <button className="p-2 text-gray-400 hover:text-gray-600 border border-gray-300 rounded-lg">
                       <Printer className="w-4 h-4" />
                     </button>
-                    <button className="p-2 text-gray-400 hover:text-gray-600 border border-gray-300 rounded">
+                    <button className="p-2 text-gray-400 hover:text-gray-600 border border-gray-300 rounded-lg">
                       <MoreVertical className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
               </div>
 
-              <div className="space-y-4">
-                <div className="flex justify-between">
-                  <span className="text-lg font-semibold">$0.00</span>
-                  <span className="text-lg font-semibold">${calculateTotalPrice().toFixed(2)}</span>
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Amount paid</p>
+                  <p className="text-lg font-semibold text-gray-900">$0.00</p>
                 </div>
-                <div className="flex justify-between text-sm text-gray-600">
-                  <span>Amount paid</span>
-                  <span>Amount due</span>
+                <div className="text-right">
+                  <p className="text-sm text-gray-600 mb-1">Amount due</p>
+                  <p className="text-lg font-semibold text-red-600 underline">${calculateTotalPrice().toFixed(2)}</p>
+                </div>
                 </div>
 
-                <hr className="my-4" />
-
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span>{job.service_name}</span>
-                    <span>${(formData.service_price !== undefined ? formData.service_price : (parseFloat(job.service_price) || 0)).toFixed(2)}</span>
+              {/* Service Details Section */}
+              <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                <h4 className="font-semibold text-gray-900 mb-4">{job.service_name}</h4>
+                
+                <div className="space-y-3">
+                  {/* Base Price */}
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="text-sm text-gray-600">Base Price (${(parseFloat(job.services?.price) || 0).toFixed(2)})</p>
                   </div>
-                  <div className="text-sm text-gray-600">
-                    Base Service
+                    <span className="text-sm font-medium text-gray-900">${(parseFloat(job.services?.price) || 0).toFixed(2)}</span>
                   </div>
                   
-                  {/* Show modifier breakdown if there are any */}
+                  {/* Modifiers */}
                   {(() => {
                     const serviceModifiers = getServiceModifiers();
-                    console.log('🔧 Modifier display: serviceModifiers:', serviceModifiers);
-                    console.log('🔧 Modifier display: serviceModifiers length:', serviceModifiers.length);
                     let hasModifiers = false;
                     
                     return (
                       <>
                         {serviceModifiers.map((modifier, modifierIndex) => {
-                          console.log(`🔧 Processing modifier ${modifierIndex}:`, modifier);
-                          console.log('🔧 Modifier selectedOptions:', modifier.selectedOptions);
-                          console.log('🔧 Modifier selectedOptions length:', modifier.selectedOptions?.length);
-                          
                           if (!modifier.selectedOptions || modifier.selectedOptions.length === 0) {
-                            console.log('🔧 No selectedOptions for modifier:', modifier.title || modifier.id);
                             return null;
                           }
                           
                           hasModifiers = true;
                           return modifier.selectedOptions.map((option, index) => (
-                            <div key={`${modifier.id}-${option.id}-${index}`} className="flex justify-between items-center text-sm py-2 border-b border-gray-100 last:border-b-0">
-                              <div className="flex-1">
-                                <span className="text-gray-600">
-                                  • {modifier.title}: {option.label || option.description}
-                                </span>
-                                {option.selectedQuantity && (
-                                  <div className="mt-1">
-                                    <span className="text-sm text-gray-600">
-                                      {option.label || option.description} x {option.selectedQuantity || 1}
-                                    </span>
-                                  </div>
-                                )}
+                            <div key={`${modifier.id}-${option.id}-${index}`} className="flex justify-between items-center">
+                              <div>
+                                <p className="text-sm text-gray-600">
+                                  {option.selectedQuantity ? `${option.selectedQuantity} ${option.label || option.description}` : (option.label || option.description)}
+                                </p>
                               </div>
-                              <div className="flex items-center space-x-2">
-                                <span className="text-sm font-medium text-gray-700">
-                                  ${parseFloat(option.price || 0).toFixed(2)}
+                              <span className="text-sm font-medium text-gray-900">
+                                ${parseFloat(option.price || 0).toFixed(2)}
                                 </span>
-                              </div>
                             </div>
                           ));
                         })}
-                        {!hasModifiers && (
-                          <div className="text-sm text-gray-500 italic">
-                            No modifiers selected
-                          </div>
-                        )}
                       </>
                     );
                   })()}
                   
-                  {/* Show custom price adjustment if the price has been customized */}
+                  {/* Discount */}
                   {(() => {
-                    const originalServicePrice = parseFloat(job.service_price) || 0;
-                    const currentServicePrice = formData.service_price !== undefined ? formData.service_price : originalServicePrice;
-                    const modifierPrice = calculateModifierPrice();
-                    const originalTotal = originalServicePrice + modifierPrice;
-                    const currentTotal = calculateTotalPrice();
-                    const customAdjustment = currentTotal - originalTotal;
+                    const discount = formData.discount !== undefined ? formData.discount : (parseFloat(job.discount) || 0);
                     
-                    if (Math.abs(customAdjustment) > 0.01) { // Only show if there's a meaningful difference
+                    if (discount > 0) {
                       return (
-                        <div className="flex justify-between">
-                          <span>Custom Price Adjustment</span>
-                          <span className={customAdjustment > 0 ? 'text-green-600' : 'text-red-600'}>
-                            {customAdjustment > 0 ? '+' : ''}${customAdjustment.toFixed(2)}
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <p className="text-sm text-gray-600">Discount</p>
+                          </div>
+                          <span className="text-sm font-medium text-green-600">
+                            -${discount.toFixed(2)}
                           </span>
                         </div>
                       );
                     }
                     return null;
                   })()}
+                  
+                  {/* Service Adjustment Price */}
+                  {(() => {
+                    const basePrice = parseFloat(job.services?.price) || 0;
+                    const modifierPrice = calculateModifierPrice();
+                    const totalPrice = parseFloat(job.total) || 0;
+                    const serviceAdjustment = totalPrice - (basePrice + modifierPrice);
+                    
+                    if (Math.abs(serviceAdjustment) > 0.01) {
+                      return (
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <p className="text-sm text-gray-600">Service Adjustment Price (${Math.abs(serviceAdjustment).toFixed(2)})</p>
+                          </div>
+                          <span className="text-sm font-medium text-gray-900">
+                            ${Math.abs(serviceAdjustment).toFixed(2)}
+                          </span>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+                  
+                  {/* Total */}
+                  <div className="flex justify-between items-center pt-2 border-t border-gray-200">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">Total</p>
+                    </div>
+                    <span className="text-sm font-semibold text-gray-900">
+                      ${calculateTotalPrice().toFixed(2)}
+                    </span>
+                  </div>
                 </div>
-
-                <div className="flex items-center space-x-3">
+                
+                <div className="mt-4 pt-4 border-t border-gray-200">
                   <button 
                     onClick={() => setShowEditServiceModal(true)}
                     className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center"
                   >
-                    <Edit className="w-4 h-4 mr-1" />
+                    <Edit className="w-4 h-4 mr-2" />
                     Edit Service & Pricing
                   </button>
-                  
-                </div>
+                    </div>
+              </div>
 
-                <hr className="my-4" />
-
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span>Base Service</span>
-                    <span>${(parseFloat(job.service_price) || 0).toFixed(2)}</span>
-                  </div>
-                  
-                  {/* Show modifier breakdown if there are any */}
-                  {(() => {
-                    const serviceModifiers = getServiceModifiers();
-                    const hasModifiers = serviceModifiers.some(modifier => 
-                      modifier.selectedOptions && modifier.selectedOptions.length > 0
-                    );
-                    
-                    if (hasModifiers) {
-                      const totalModifierPrice = calculateModifierPrice();
-                      return (
-                        <div className="flex justify-between">
-                          <span>Modifiers</span>
-                          <span>+${totalModifierPrice.toFixed(2)}</span>
+              {/* Summary Section */}
+              <div className="space-y-4">
+                <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                  <span className="text-sm text-gray-600">Subtotal</span>
+                  <span className="text-sm font-medium text-gray-900">${calculateTotalPrice().toFixed(2)}</span>
+                    </div>
+                
+                <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                  <span className="text-sm text-gray-600">Total</span>
+                  <span className="text-sm font-medium text-gray-900">${calculateTotalPrice().toFixed(2)}</span>
+                    </div>
+                
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-sm text-gray-600">Amount paid</span>
+                  <span className="text-sm font-medium text-gray-900">$0.00</span>
                         </div>
-                      );
-                    }
-                    return null;
-                  })()}
-                  
-                  {/* Show additional fees if they exist */}
-                  {(formData.additional_fees !== undefined ? formData.additional_fees : (parseFloat(job.additional_fees) || 0)) > 0 && (
-                    <div className="flex justify-between">
-                      <span>Additional Fees</span>
-                      <span>+${(formData.additional_fees !== undefined ? formData.additional_fees : (parseFloat(job.additional_fees) || 0)).toFixed(2)}</span>
-                    </div>
-                  )}
-                  
-                  {/* Show taxes if they exist */}
-                  {(formData.taxes !== undefined ? formData.taxes : (parseFloat(job.taxes) || 0)) > 0 && (
-                    <div className="flex justify-between">
-                      <span>Taxes</span>
-                      <span>+${(formData.taxes !== undefined ? formData.taxes : (parseFloat(job.taxes) || 0)).toFixed(2)}</span>
-                    </div>
-                  )}
-                  
-                  {/* Show discount if it exists */}
-                  {(formData.discount !== undefined ? formData.discount : (parseFloat(job.discount) || 0)) > 0 && (
-                    <div className="flex justify-between">
-                      <span>Discount</span>
-                      <span>-${(formData.discount !== undefined ? formData.discount : (parseFloat(job.discount) || 0)).toFixed(2)}</span>
-                    </div>
-                  )}
-                  
-                  {/* Show custom price adjustment if the price has been customized */}
-                  {(() => {
-                    const originalPrice = parseFloat(job.service_price) || 0;
-                    const currentPrice = formData.service_price !== undefined ? formData.service_price : originalPrice;
-                    const adjustment = currentPrice - originalPrice;
-                    
-                    if (Math.abs(adjustment) > 0.01) { // Only show if there's a meaningful difference
-                      return (
-                        <div className="flex justify-between">
-                          <span>Custom Price Adjustment</span>
-                          <span className={adjustment > 0 ? 'text-green-600' : 'text-red-600'}>
-                            {adjustment > 0 ? '+' : ''}${adjustment.toFixed(2)}
-                          </span>
-                        </div>
-                      );
-                    }
-                    return null;
-                  })()}
-                  
-                  <div className="flex justify-between font-semibold">
-                    <span>Total</span>
-                    <span>${calculateTotalPrice().toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Amount paid</span>
-                    <span>$0.00</span>
-                  </div>
-                  <div className="flex justify-between font-semibold text-lg">
-                    <span>Total due</span>
-                    <span>${calculateTotalPrice().toFixed(2)}</span>
+                
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-sm text-gray-600">Total due</span>
+                  <span className="text-sm font-medium text-gray-900">${calculateTotalPrice().toFixed(2)}</span>
                   </div>
                 </div>
 
-                <hr className="my-4" />
-
-                <div>
-                  <h4 className="font-semibold mb-3">Payments</h4>
+              {/* Payments Section */}
+              <div className="mt-8">
+                <h4 className="font-semibold text-gray-900 mb-4">Payments</h4>
                   <div className="text-center py-8">
-                    <CreditCard className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <CreditCard className="w-6 h-6 text-gray-400" />
+                  </div>
                     <p className="text-gray-500 font-medium">No payments</p>
-                    <p className="text-sm text-gray-400">
+                  <p className="text-sm text-gray-400 mt-1">
                       When you process or record a payment for this invoice, it will appear here.
                     </p>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-
-          {/* Right Sidebar */}
-          <div className="hidden lg:block w-80 p-6 space-y-6">
+            {/* Desktop Right Sidebar */}
+          <div className="hidden lg:block w-80 xl:w-96 p-4 sm:p-6 space-y-6">
             {/* Customer Card */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
               <h3 className="font-semibold text-gray-900 mb-4">Customer</h3>
@@ -2092,6 +2079,11 @@ const JobDetails = () => {
               </div>
             </div>
           </div>
+          </div>
+
+          
+
+       
 
           {/* Mobile Sidebar */}
           {showMobileSidebar && (
@@ -2326,16 +2318,15 @@ const JobDetails = () => {
         {/* Edit Service Modal */}
         {showEditServiceModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] flex flex-col">
+            <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col">
               <div className="p-6 flex-1 overflow-y-auto">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Edit Service</h3>
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-2xl font-bold text-gray-900">Edit Job</h3>
+                  <div className="flex space-x-3">
                   <button
                     onClick={() => {
                       setShowEditServiceModal(false);
-                      setOriginalJobData(null); // Clear original data
-                      
-                      // Reset job state to original values
+                        setOriginalJobData(null);
                       if (originalJobData) {
                         setJob(prev => ({
                           ...prev,
@@ -2343,417 +2334,161 @@ const JobDetails = () => {
                         }));
                       }
                     }}
-                    className="text-gray-400 hover:text-gray-600 p-1"
-                  >
-                    <X className="w-5 h-5" />
+                      className="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg text-sm font-medium"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSaveService}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+                    >
+                      Save Job
                   </button>
                 </div>
-                <div className="space-y-4">
+                </div>
+                
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {/* Services Section */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Service Name</label>
+                    <h4 className="text-lg font-semibold text-gray-900 mb-4">Services</h4>
+                    
+                    {/* Search and Add Options */}
+                    <div className="space-y-3 mb-6">
+                      <div className="relative">
                     <input
                       type="text"
-                      value={formData.service_name}
-                      onChange={e => setFormData(prev => ({ ...prev, service_name: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="Search services..."
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
+                        <Search className="absolute right-3 top-2.5 w-4 h-4 text-gray-400" />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Duration</label>
-                    <div className="flex gap-2 items-center">
-                      <input
-                        type="number"
-                        value={Math.floor(formData.duration / 60)}
-                        onChange={e => {
-                          const hours = parseInt(e.target.value) || 0
-                          const minutes = formData.duration % 60
-                          setFormData(prev => ({ ...prev, duration: hours * 60 + minutes }))
-                        }}
-                        className="w-20 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="0"
-                        min="0"
-                      />
-                      <span className="text-sm text-gray-600">hours</span>
-                      <input
-                        type="number"
-                        value={formData.duration % 60}
-                        onChange={e => {
-                          const minutes = parseInt(e.target.value) || 0
-                          const hours = Math.floor(formData.duration / 60)
-                          setFormData(prev => ({ ...prev, duration: hours * 60 + minutes }))
-                        }}
-                        className="w-20 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="0"
-                        min="0"
-                        max="59"
-                      />
-                      <span className="text-sm text-gray-600">minutes</span>
+                      <div className="flex space-x-2">
+                        <button className="px-3 py-2 text-blue-600 hover:text-blue-700 text-sm font-medium border border-blue-200 rounded-lg">
+                          Add Custom Service or Item
+                        </button>
+                        <button className="px-3 py-2 text-gray-600 hover:text-gray-700 text-sm font-medium border border-gray-300 rounded-lg">
+                          Browse Services
+                        </button>
                     </div>
                   </div>
                   
-                  {/* Pricing Section */}
-                  <div className="border-t pt-4">
-                    <h4 className="text-sm font-medium text-gray-700 mb-3">Pricing</h4>
-                    <div className="space-y-3">
+                    {/* Service List */}
+                    <div className="border border-gray-200 rounded-lg">
+                      <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+                        <div className="grid grid-cols-2 gap-4 text-sm font-medium text-gray-600">
+                          <span>SERVICE</span>
+                          <span>PRICE</span>
+                        </div>
+                      </div>
+                      <div className="p-4">
+                        <div className="flex items-center justify-between py-3 border-b border-gray-100">
                   <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Base Service Price ($)</label>
+                            <p className="font-medium text-gray-900">{job.service_name}</p>
+                            <button className="text-blue-600 hover:text-blue-700 text-sm">Edit</button>
+                            <button className="text-gray-600 hover:text-gray-700 text-sm ml-4">Show details &gt;</button>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-sm font-medium text-gray-900">${(parseFloat(job.service_price) || 0).toFixed(2)}</span>
+                            <button className="p-1 text-gray-400 hover:text-gray-600">
+                              <Edit className="w-4 h-4" />
+                            </button>
+                            <button className="p-1 text-gray-400 hover:text-red-600">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                        
+                        {/* Customize Price */}
+                        <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Customize price</label>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-sm text-gray-500">$</span>
                     <input
                       type="number"
                           step="0.01"
-                          value={formData.service_price || 0}
-                          onFocus={e => {
-                            if (e.target.value === "0" || e.target.value === "0.00") {
-                              e.target.value = "";
-                            }
-                          }}
+                          value={formData.service_price === 0 ? "" : formData.service_price}
+                              onFocus={e => {
+                                if (e.target.value === "0" || e.target.value === "0.00") {
+                                  e.target.value = "";
+                                }
+                              }}
                           onChange={e => {
-                            const newPrice = parseFloat(e.target.value) || 0;
-                            setFormData(prev => {
-                              const modifierPrice = prev.modifier_price || 0;
-                              const additionalFees = prev.additional_fees || 0;
-                              const taxes = prev.taxes || 0;
-                              const discount = prev.discount || 0;
-                              const newTotal = calculateTotalPriceHelper(newPrice, modifierPrice, additionalFees, taxes, discount);
-                              
-                              return { 
+                            const newPrice = e.target.value === "" ? 0 : parseFloat(e.target.value) || 0;
+                                setFormData(prev => ({
                                 ...prev, 
-                                service_price: newPrice,
-                                total: newTotal,
-                                total_amount: newTotal
-                              };
-                            });
-                          }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                service_price: newPrice
+                                }));
+                              }}
+                              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                           placeholder="0.00"
                         />
+                            <button className="text-sm text-red-600 hover:text-red-800">Reset</button>
                       </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Discount ($)</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={formData.discount || 0}
-                          onFocus={e => {
-                            if (e.target.value === "0" || e.target.value === "0.00") {
-                              e.target.value = "";
-                            }
-                          }}
-                          onChange={e => {
-                            const newDiscount = parseFloat(e.target.value) || 0;
-                            setFormData(prev => {
-                              const servicePrice = prev.service_price || 0;
-                              const modifierPrice = prev.modifier_price || 0;
-                              const additionalFees = prev.additional_fees || 0;
-                              const taxes = prev.taxes || 0;
-                              const newTotal = calculateTotalPriceHelper(servicePrice, modifierPrice, additionalFees, taxes, newDiscount);
-                              
-                              return { 
-                                ...prev, 
-                                discount: newDiscount,
-                                total: newTotal,
-                                total_amount: newTotal
-                              };
-                            });
-                          }}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          placeholder="0.00"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Additional Fees ($)</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={formData.additional_fees || 0}
-                          onFocus={e => {
-                            if (e.target.value === "0" || e.target.value === "0.00") {
-                              e.target.value = "";
-                            }
-                          }}
-                          onChange={e => {
-                            const newFees = parseFloat(e.target.value) || 0;
-                            setFormData(prev => {
-                              const servicePrice = prev.service_price || 0;
-                              const modifierPrice = prev.modifier_price || 0;
-                              const taxes = prev.taxes || 0;
-                              const discount = prev.discount || 0;
-                              const newTotal = calculateTotalPriceHelper(servicePrice, modifierPrice, newFees, taxes, discount);
-                              
-                              return { 
-                                ...prev, 
-                                additional_fees: newFees,
-                                total: newTotal,
-                                total_amount: newTotal
-                              };
-                            });
-                          }}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          placeholder="0.00"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Taxes ($)</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={formData.taxes || 0}
-                          onFocus={e => {
-                            if (e.target.value === "0" || e.target.value === "0.00") {
-                              e.target.value = "";
-                            }
-                          }}
-                          onChange={e => {
-                            const newTaxes = parseFloat(e.target.value) || 0;
-                            setFormData(prev => {
-                              const servicePrice = prev.service_price || 0;
-                              const modifierPrice = prev.modifier_price || 0;
-                              const additionalFees = prev.additional_fees || 0;
-                              const discount = prev.discount || 0;
-                              const newTotal = calculateTotalPriceHelper(servicePrice, modifierPrice, additionalFees, newTaxes, discount);
-                              
-                              return { 
-                                ...prev, 
-                                taxes: newTaxes,
-                                total: newTotal,
-                                total_amount: newTotal
-                              };
-                            });
-                          }}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          placeholder="0.00"
-                        />
-                      </div>
-                      
-                      {/* Show modifier price editing if there are modifiers */}
-                      {(() => {
-                        const serviceModifiers = getServiceModifiers();
-                        const hasModifiers = serviceModifiers.some(modifier => 
-                          modifier.selectedOptions && modifier.selectedOptions.length > 0
-                        );
-                        
-                        if (hasModifiers) {
-                          return (
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">Modifier Prices</label>
-                              <div className="space-y-3">
-                                {serviceModifiers.map(modifier => {
-                                  if (!modifier.selectedOptions || modifier.selectedOptions.length === 0) return null;
-                                  
-                                  return (
-                                    <div key={modifier.id} className="border border-gray-200 rounded-lg p-3">
-                                      <h4 className="text-sm font-medium text-gray-700 mb-2">{modifier.name}</h4>
-                                      <div className="space-y-2">
-                                        {modifier.selectedOptions.map(option => {
-                                          const currentPrice = parseFloat(option.price || 0);
-                                          
-                                          return (
-                                            <div key={option.id} className="flex items-center justify-between">
-                                              <span className="text-sm text-gray-600">{option.label}</span>
-                                              <div className="flex items-center space-x-2">
-                                                <span className="text-sm text-gray-500">$</span>
-                                                <input
-                                                  type="number"
-                                                  step="0.01"
-                                                  value={currentPrice}
-                                                  onFocus={e => {
-                                                    if (e.target.value === "0" || e.target.value === "0.00") {
-                                                      e.target.value = "";
-                                                    }
-                                                  }}
-                                                  onChange={e => {
-                                                    const newPrice = parseFloat(e.target.value) || 0;
-                                                    
-                                                    // Update the job state with the new modifier price
-                                                    setJob(prev => {
-                                                      const updatedModifiers = prev.service_modifiers?.map(mod => {
-                                                        if (mod.id === modifier.id) {
-                                                          return {
-                                                            ...mod,
-                                                            selectedOptions: mod.selectedOptions?.map(opt => {
-                                                              if (opt.id === option.id) {
-                                                                return { ...opt, price: newPrice };
-                                                              }
-                                                              return opt;
-                                                            })
-                                                          };
-                                                        }
-                                                        return mod;
-                                                      });
-                                                      
-                                                      return {
-                                                        ...prev,
-                                                        service_modifiers: updatedModifiers
-                                                      };
-                                                    });
-                                                  }}
-                                                  className="w-20 px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                                />
-                                                <button
-                                                  onClick={() => {
-                                                    // Reset the job state to original price
-                                                    setJob(prev => {
-                                                      const updatedModifiers = prev.service_modifiers?.map(mod => {
-                                                        if (mod.id === modifier.id) {
-                                                          return {
-                                                            ...mod,
-                                                            selectedOptions: mod.selectedOptions?.map(opt => {
-                                                              if (opt.id === option.id) {
-                                                                // Reset to original price from the service data
-                                                                const originalPrice = parseFloat(option.originalPrice || option.price || 0);
-                                                                return { ...opt, price: originalPrice };
-                                                              }
-                                                              return opt;
-                                                            })
-                                                          };
-                                                        }
-                                                        return mod;
-                                                      });
-                                                      
-                                                      return {
-                                                        ...prev,
-                                                        service_modifiers: updatedModifiers
-                                                      };
-                                                    });
-                                                  }}
-                                                  className="text-xs text-red-600 hover:text-red-800"
-                                                >
-                                                  Reset
-                                                </button>
-                                              </div>
-                                            </div>
-                                          );
-                                        })}
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                                <div className="text-sm text-gray-600">
-                                  Total Modifier Price: ${calculateModifierPrice().toFixed(2)}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        }
-                        return null;
-                      })()}
-                      
-                      {/* Service Adjustment Price */}
-                      {(() => {
-                        const originalServicePrice = parseFloat(job.service_price) || 0;
-                        const currentServicePrice = formData.service_price !== undefined ? formData.service_price : originalServicePrice;
-                        const serviceAdjustment = currentServicePrice - originalServicePrice;
-                        
-                        if (Math.abs(serviceAdjustment) > 0.01) { // Only show if there's a meaningful difference
-                          return (
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">Service Adjustment Price</label>
-                              <div className="flex items-center space-x-2">
-                                <span className="text-sm text-gray-500">$</span>
-                                <input
-                                  type="number"
-                                  step="0.01"
-                                  value={serviceAdjustment}
-                                  onFocus={e => {
-                                    if (e.target.value === "0" || e.target.value === "0.00") {
-                                      e.target.value = "";
-                                    }
-                                  }}
-                                  onChange={e => {
-                                    const newAdjustment = parseFloat(e.target.value) || 0;
-                                    const newServicePrice = originalServicePrice + newAdjustment;
-                                    
-                                    setFormData(prev => {
-                                      const modifierPrice = prev.modifier_price || 0;
-                                      const additionalFees = prev.additional_fees || 0;
-                                      const taxes = prev.taxes || 0;
-                                      const discount = prev.discount || 0;
-                                      const newTotal = calculateTotalPriceHelper(newServicePrice, modifierPrice, additionalFees, taxes, discount);
-                                      
-                                      return { 
-                                        ...prev, 
-                                        service_price: newServicePrice,
-                                        total: newTotal,
-                                        total_amount: newTotal
-                                      };
-                                    });
-                                  }}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                  placeholder="0.00"
-                                />
-                                <button
-                                  onClick={() => {
-                                    setFormData(prev => {
-                                      const modifierPrice = prev.modifier_price || 0;
-                                      const additionalFees = prev.additional_fees || 0;
-                                      const taxes = prev.taxes || 0;
-                                      const discount = prev.discount || 0;
-                                      const newTotal = calculateTotalPriceHelper(originalServicePrice, modifierPrice, additionalFees, taxes, discount);
-                                      
-                                      return { 
-                                        ...prev, 
-                                        service_price: originalServicePrice,
-                                        total: newTotal,
-                                        total_amount: newTotal
-                                      };
-                                    });
-                                  }}
-                                  className="text-xs text-red-600 hover:text-red-800 px-2 py-1 border border-red-300 rounded hover:bg-red-50"
-                                >
-                                  Reset
-                                </button>
-                              </div>
-                              <div className="text-xs text-gray-500 mt-1">
-                                Original: ${originalServicePrice.toFixed(2)} | Current: ${currentServicePrice.toFixed(2)}
-                              </div>
-                            </div>
-                          );
-                        }
-                        return null;
-                      })()}
-                      
-                      <div className="bg-gray-50 p-3 rounded-lg">
-                        <div className="flex justify-between text-sm">
-                          <span className="font-medium">Total:</span>
-                          <span className="font-semibold">
-                            ${(formData.total || 0).toFixed(2)}
-                          </span>
+                          <div className="flex space-x-2 mt-2">
+                            <button 
+                              onClick={() => setShowEditServiceModal(false)}
+                              className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800"
+                            >
+                              Cancel
+                            </button>
+                            <button 
+                              onClick={handleSaveService}
+                              className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+                            >
+                              Save
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
+                    
+                    {/* Cost Breakdown */}
+                    <div className="mt-6 space-y-3">
+                      <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                        <span className="text-sm text-gray-600">Subtotal</span>
+                        <span className="text-sm font-medium text-gray-900">${calculateTotalPrice().toFixed(2)}</span>
+                      </div>
+                      <button 
+                        onClick={() => setShowDiscountModal(true)}
+                        className="text-sm text-blue-600 hover:text-blue-700"
+                      >
+                        Add Discount
+                      </button>
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-sm text-gray-600">Taxes</span>
+                        <span className="text-sm font-medium text-gray-900">$0.00</span>
+                      </div>
+                      <button 
+                        onClick={() => setShowTipModal(true)}
+                        className="text-sm text-blue-600 hover:text-blue-700"
+                      >
+                        Add tip
+                      </button>
+                      <div className="flex justify-between items-center py-2 border-t border-gray-200">
+                        <span className="text-sm font-medium text-gray-900">Total</span>
+                        <span className="text-sm font-medium text-gray-900">${calculateTotalPrice().toFixed(2)}</span>
+                      </div>
+                    </div>
                   </div>
+                  
+                  {/* Summary Section */}
+                      <div>
+                    <h4 className="text-lg font-semibold text-gray-900 mb-4">Summary</h4>
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                        <span className="text-sm text-gray-600">Previous Total</span>
+                        <span className="text-sm font-medium text-gray-900">${calculateTotalPrice().toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                        <span className="text-sm text-gray-600">Updated Total</span>
+                        <span className="text-sm font-medium text-gray-900">${calculateTotalPrice().toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-sm text-gray-600">Estimated duration</span>
+                        <span className="text-sm font-medium text-gray-900">{formatDuration(job.duration || 0)}</span>
+                      </div>
+                    </div>
                   </div>
-                </div>
-                
-              {/* Fixed footer with buttons */}
-              <div className="p-6 border-t border-gray-200 bg-gray-50">
-                <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3">
-                  <button
-                    onClick={() => {
-                      setShowEditServiceModal(false);
-                      setOriginalJobData(null); // Clear original data
-                      
-                      // Reset job state to original values
-                      if (originalJobData) {
-                        setJob(prev => ({
-                          ...prev,
-                          service_modifiers: originalJobData.service_modifiers
-                        }));
-                      }
-                    }}
-                    className="px-4 py-2 text-gray-600 hover:text-gray-800 order-2 sm:order-1"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={() => {
-                      handleSave()
-                      setShowEditServiceModal(false)
-                      setOriginalJobData(null); // Clear original data
-                    }}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 order-1 sm:order-2"
-                  >
-                    Save Changes
-                  </button>
                 </div>
               </div>
             </div>
@@ -3079,10 +2814,133 @@ Your Service Team`}
               </div>
             </div>
           </div>
+          )}
+
+        {/* Discount Modal */}
+        {showDiscountModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Add Discount</h3>
+                  <button
+                    onClick={() => setShowDiscountModal(false)}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Discount Amount</label>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm text-gray-500">$</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={formData.discount || 0}
+                        onChange={e => {
+                          const newDiscount = parseFloat(e.target.value) || 0;
+                          setFormData(prev => ({
+                            ...prev,
+                            discount: newDiscount
+                          }));
+                        }}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="flex space-x-3 pt-4">
+                    <button
+                      onClick={() => setShowDiscountModal(false)}
+                      className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSuccessMessage('Discount added successfully!')
+                        setTimeout(() => setSuccessMessage(""), 3000)
+                        setShowDiscountModal(false)
+                      }}
+                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    >
+                      Add Discount
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
-      </div>
-    </div>
-  )
-}
+
+        {/* Tip Modal */}
+        {showTipModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Add Tip</h3>
+                  <button
+                    onClick={() => setShowTipModal(false)}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Tip Amount</label>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm text-gray-500">$</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={formData.tip || 0}
+                        onChange={e => {
+                          const newTip = parseFloat(e.target.value) || 0;
+                          setFormData(prev => ({
+                            ...prev,
+                            tip: newTip
+                          }));
+                        }}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="flex space-x-3 pt-4">
+                    <button
+                      onClick={() => setShowTipModal(false)}
+                      className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSuccessMessage('Tip added successfully!')
+                        setTimeout(() => setSuccessMessage(""), 3000)
+                        setShowTipModal(false)
+                      }}
+                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    >
+                      Add Tip
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        </div>
+    )
+  }
 
 export default JobDetails 

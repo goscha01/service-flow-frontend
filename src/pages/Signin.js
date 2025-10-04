@@ -11,54 +11,40 @@ export default function SignInForm() {
     password: ""
   })
   const [error, setError] = useState("")
-  const [isEmailFocused, setIsEmailFocused] = useState(false)
-  const [isPasswordFocused, setIsPasswordFocused] = useState(false)
 
   // Refs for autofill sync
   const emailRef = useRef(null)
   const passwordRef = useRef(null)
 
-  // Simple, reliable autofill detection
+  // Simplified autofill detection
   useEffect(() => {
     const syncAutofill = () => {
       const email = emailRef.current?.value || ""
       const password = passwordRef.current?.value || ""
-      if (email || password) {
-        setFormData({ email, password })
+      
+      if (email && email !== formData.email) {
+        console.log('📧 Email autofill detected')
+        setFormData(prev => ({ ...prev, email }))
+      }
+      
+      if (password && password !== formData.password) {
+        console.log('🔒 Password autofill detected')
+        setFormData(prev => ({ ...prev, password }))
       }
     }
 
-    // CSS animation detection (Chrome's autofill trigger)
-    const handleAnimationStart = () => {
-      setTimeout(syncAutofill, 100)
-    }
-
-    // Multiple timeout checks to catch browser autofill at different speeds
-    const timeouts = [100, 300, 500].map(delay => 
+    // Check immediately on mount
+    setTimeout(syncAutofill, 100)
+    
+    // Check periodically for the first 3 seconds
+    const intervals = [200, 500, 1000, 2000, 3000].map(delay => 
       setTimeout(syncAutofill, delay)
     )
 
-    // Add event listeners
-    const emailInput = emailRef.current
-    const passwordInput = passwordRef.current
-
-    if (emailInput) {
-      emailInput.addEventListener('animationstart', handleAnimationStart)
-    }
-    if (passwordInput) {
-      passwordInput.addEventListener('animationstart', handleAnimationStart)
-    }
-
     return () => {
-      timeouts.forEach(clearTimeout)
-      if (emailInput) {
-        emailInput.removeEventListener('animationstart', handleAnimationStart)
-      }
-      if (passwordInput) {
-        passwordInput.removeEventListener('animationstart', handleAnimationStart)
-      }
+      intervals.forEach(clearTimeout)
     }
-  }, [])
+  }, [formData.email, formData.password])
   const [errors, setErrors] = useState({})
   const [isLoading, setIsLoading] = useState(false)
   const [apiError, setApiError] = useState("")
@@ -106,7 +92,37 @@ export default function SignInForm() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     
-    if (!validateForm()) {
+    // Always read from refs as fallback for autofill
+    const emailFromRef = emailRef.current?.value || ""
+    const passwordFromRef = passwordRef.current?.value || ""
+    
+    // Use ref values if they exist and formData is empty (autofill case)
+    const finalEmail = emailFromRef || formData.email
+    const finalPassword = passwordFromRef || formData.password
+    
+    // Update formData with final values
+    const finalFormData = {
+      email: finalEmail,
+      password: finalPassword
+    }
+    
+    // Validate with final values
+    const newErrors = {}
+    
+    if (!finalEmail.trim()) {
+      newErrors.email = "Email is required"
+    } else if (!/\S+@\S+\.\S+/.test(finalEmail)) {
+      newErrors.email = "Please enter a valid email address"
+    }
+    
+    if (!finalPassword.trim()) {
+      newErrors.password = "Password is required"
+    } else if (finalPassword.length < 6) {
+      newErrors.password = "Password must be at least 6 characters"
+    }
+    
+    setErrors(newErrors)
+    if (Object.keys(newErrors).length > 0) {
       return
     }
     
@@ -114,7 +130,7 @@ export default function SignInForm() {
     setApiError("")
     
     try {
-      await login(formData)
+      await login(finalFormData)
       navigate('/dashboard')
     } catch (error) {
       console.error('Signin error:', error)
@@ -195,27 +211,27 @@ export default function SignInForm() {
             <div>
               <label htmlFor="email" className="sr-only">Email Address</label>
               <div className="relative">
-                <input
-                  id="email"
-                  type="email"
-                  name="email"
-                  autoComplete="email"
+              <input
+                id="email"
+                type="email"
+                name="username"
+                autoComplete="username email"
                   placeholder={formData.email ? "" : "Email"}
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  onFocus={() => setIsEmailFocused(true)}
-                  onBlur={() => setIsEmailFocused(false)}
-                  ref={emailRef}
+                defaultValue={formData.email}
+                onChange={handleInputChange}
+                  onFocus={() => console.log('📧 Email field focused')}
+                  onBlur={() => console.log('📧 Email field blurred')}
+                ref={emailRef}
                   className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
                     errors.email 
                       ? "border-red-500 bg-red-50" 
-                      : isEmailFocused || formData.email
+                      : formData.email
                         ? "border-blue-500 bg-blue-50" 
                         : "border-gray-300 bg-white hover:border-gray-400"
                   }`}
-                  required
-                  disabled={isLoading}
-                />
+                required
+                disabled={isLoading}
+              />
                 {formData.email && (
                   <div className="absolute inset-y-0 right-0 flex items-center pr-3">
                     <div className="w-2 h-2 bg-green-500 rounded-full"></div>
@@ -231,26 +247,26 @@ export default function SignInForm() {
             <div>
               <label htmlFor="password" className="sr-only">Password</label>
               <div className="relative">
-                <input
-                  id="password"
-                  type="password"
-                  name="password"
+              <input
+                id="password"
+                type="password"
+                name="password"
                   placeholder={formData.password ? "" : "Password"}
-                  value={formData.password}
-                  onChange={handleInputChange}
-                  onFocus={() => setIsPasswordFocused(true)}
-                  onBlur={() => setIsPasswordFocused(false)}
-                  autoComplete="current-password"
-                  ref={passwordRef}
+                defaultValue={formData.password}
+                onChange={handleInputChange}
+                  onFocus={() => console.log('🔒 Password field focused')}
+                  onBlur={() => console.log('🔒 Password field blurred')}
+                autoComplete="current-password"
+                ref={passwordRef}
                   className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
                     errors.password 
                       ? "border-red-500 bg-red-50" 
-                      : isPasswordFocused || formData.password
+                      : formData.password
                         ? "border-blue-500 bg-blue-50" 
                         : "border-gray-300 bg-white hover:border-gray-400"
-                  }`}
-                  required
-                  disabled={isLoading}
+                }`}
+                required
+                disabled={isLoading}
                 />
                 {formData.password && (
                   <div className="absolute inset-y-0 right-0 flex items-center pr-3">

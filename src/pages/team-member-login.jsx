@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { useNavigate } from "react-router-dom"
-import { Eye, EyeOff, User, Lock, Smartphone } from "lucide-react"
+import { Eye, EyeOff, User, Lock, Smartphone, X } from "lucide-react"
 import { useTeamMemberAuth } from "../context/TeamMemberAuthContext"
 
 const TeamMemberLogin = () => {
@@ -13,6 +13,10 @@ const TeamMemberLogin = () => {
     password: ""
   })
   const [showPassword, setShowPassword] = useState(false)
+  const [showForgotPassword, setShowForgotPassword] = useState(false)
+  const [resetEmail, setResetEmail] = useState("")
+  const [resetLoading, setResetLoading] = useState(false)
+  const [resetMessage, setResetMessage] = useState("")
 
   // Refs for autofill sync
   const usernameRef = useRef(null)
@@ -76,6 +80,44 @@ const TeamMemberLogin = () => {
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }))
+  }
+
+  const handleForgotPassword = async (e) => {
+    e.preventDefault()
+    if (!resetEmail.trim()) {
+      setResetMessage("Please enter your email address")
+      return
+    }
+
+    setResetLoading(true)
+    setResetMessage("")
+
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://service-flow-backend-production-4568.up.railway.app/api'}/team-members/reset-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: resetEmail })
+      })
+
+      if (response.ok) {
+        setResetMessage("Password reset instructions have been sent to your email address.")
+        setResetEmail("")
+        setTimeout(() => {
+          setShowForgotPassword(false)
+          setResetMessage("")
+        }, 3000)
+      } else {
+        const errorData = await response.json()
+        setResetMessage(errorData.error || "Failed to send reset email. Please try again.")
+      }
+    } catch (error) {
+      console.error('Reset password error:', error)
+      setResetMessage("Network error. Please check your connection and try again.")
+    } finally {
+      setResetLoading(false)
+    }
   }
 
   return (
@@ -167,6 +209,17 @@ const TeamMemberLogin = () => {
             >
               {loading ? "Signing in..." : "Sign In"}
             </button>
+
+            {/* Forgot Password Link */}
+            <div className="mt-4 text-center">
+              <button
+                type="button"
+                onClick={() => setShowForgotPassword(true)}
+                className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+              >
+                Forgot your password?
+              </button>
+            </div>
           </form>
 
           {/* Footer */}
@@ -186,6 +239,79 @@ const TeamMemberLogin = () => {
             ← Back to main app
           </button>
         </div>
+
+        {/* Forgot Password Modal */}
+        {showForgotPassword && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Reset Password</h3>
+                <button
+                  onClick={() => {
+                    setShowForgotPassword(false)
+                    setResetMessage("")
+                    setResetEmail("")
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <p className="text-sm text-gray-600 mb-4">
+                Enter your email address and we'll send you instructions to reset your password.
+              </p>
+
+              {resetMessage && (
+                <div className={`mb-4 p-3 rounded-lg text-sm ${
+                  resetMessage.includes("sent") 
+                    ? "bg-green-50 text-green-800 border border-green-200" 
+                    : "bg-red-50 text-red-800 border border-red-200"
+                }`}>
+                  {resetMessage}
+                </div>
+              )}
+
+              <form onSubmit={handleForgotPassword}>
+                <div className="mb-4">
+                  <label htmlFor="resetEmail" className="block text-sm font-medium text-gray-700 mb-2">
+                    Email Address
+                  </label>
+                  <input
+                    id="resetEmail"
+                    type="email"
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Enter your email address"
+                    required
+                  />
+                </div>
+
+                <div className="flex space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowForgotPassword(false)
+                      setResetMessage("")
+                      setResetEmail("")
+                    }}
+                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={resetLoading || !resetEmail.trim()}
+                    className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {resetLoading ? "Sending..." : "Send Reset Email"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
