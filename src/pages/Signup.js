@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
+import GoogleOAuth from "../components/GoogleOAuth"
 // import { Button } from "../components/ui/button"
 // import { Input } from "../components/ui/input"
 
@@ -368,6 +369,30 @@ export default function SignupForm() {
                 )}
               </button>
             </form>
+
+            {/* Divider */}
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300" />
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white text-gray-500">Or continue with</span>
+              </div>
+            </div>
+
+            {/* Google OAuth */}
+            <div className="mb-6">
+              <GoogleOAuth 
+                onSuccess={(result) => {
+                  console.log('✅ Google OAuth signup success:', result);
+                  navigate('/dashboard');
+                }}
+                onError={(error) => {
+                  console.error('❌ Google OAuth signup error:', error);
+                  setApiError(error.response?.data?.error || 'Google signup failed');
+                }}
+              />
+            </div>
 
             {/* Sign in link */}
             <div className="text-center mt-6">
