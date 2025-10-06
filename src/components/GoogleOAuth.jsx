@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { authAPI } from '../services/api';
 
-const GoogleOAuth = ({ onSuccess, onError }) => {
+const GoogleOAuth = ({ onSuccess, onError, buttonText = 'signin_with' }) => {
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
 
@@ -38,7 +38,7 @@ const GoogleOAuth = ({ onSuccess, onError }) => {
             theme: 'outline',
             size: 'large',
             width: '100%',
-            text: 'signin_with',
+            text: buttonText,
             shape: 'rectangular'
           }
         );

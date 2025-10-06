@@ -18,6 +18,7 @@ export default function SignInForm() {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
+    console.log('🔍 Input change:', { name, value })
     setFormData(prev => ({
       ...prev,
       [name]: value
@@ -58,6 +59,9 @@ export default function SignInForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    
+    // Debug: Log form data
+    console.log('🔍 Signin formData:', formData)
     
     // Validate form
     if (!validateForm()) {
