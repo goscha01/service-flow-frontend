@@ -78,9 +78,24 @@ const GoogleOAuth = ({ onSuccess, onError, buttonText = 'signin_with' }) => {
 
   return (
     <div className="w-full">
+      <style>
+        {`
+          #google-signin-button {
+            display: flex !important;
+            justify-content: center !important;
+          }
+          #google-signin-button > div {
+            margin: 0 auto !important;
+          }
+        `}
+      </style>
       <div 
         id="google-signin-button" 
-        className={`w-full ${isLoading ? 'opacity-50 pointer-events-none' : ''}`}
+        className={`w-full flex justify-center ${isLoading ? 'opacity-50 pointer-events-none' : ''}`}
+        style={{
+          display: 'flex',
+          justifyContent: 'center'
+        }}
       />
       {isLoading && (
         <div className="flex items-center justify-center mt-2">
