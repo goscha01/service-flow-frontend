@@ -381,18 +381,20 @@ export default function SignupForm() {
             </div>
 
             {/* Google OAuth */}
-            <div className="mb-6">
-              <GoogleOAuth 
-                buttonText="signup_with"
-                onSuccess={(result) => {
-                  console.log('✅ Google OAuth signup success:', result);
-                  navigate('/dashboard');
-                }}
-                onError={(error) => {
-                  console.error('❌ Google OAuth signup error:', error);
-                  setApiError(error.response?.data?.error || 'Google signup failed');
-                }}
-              />
+            <div className="mb-6 flex justify-center">
+              <div className="w-full max-w-sm">
+                <GoogleOAuth 
+                  buttonText="signup_with"
+                  onSuccess={(result) => {
+                    console.log('✅ Google OAuth signup success:', result);
+                    navigate('/dashboard');
+                  }}
+                  onError={(error) => {
+                    console.error('❌ Google OAuth signup error:', error);
+                    setApiError(error.response?.data?.error || 'Google signup failed');
+                  }}
+                />
+              </div>
             </div>
 
             {/* Sign in link */}
