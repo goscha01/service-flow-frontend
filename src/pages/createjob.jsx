@@ -74,6 +74,7 @@ import { jobsAPI, customersAPI, servicesAPI, teamAPI, territoriesAPI } from '../
 import { useAuth } from '../context/AuthContext';
 import { useCategory } from '../context/CategoryContext';
 import { getImageUrl, handleImageError } from '../utils/imageUtils';
+import { formatDateLocal, formatDateDisplay, parseLocalDate } from '../utils/dateUtils';
 
 
 export default function CreateJobPage() {
@@ -2343,7 +2344,7 @@ setIntakeQuestionAnswers(answers);
                       <input
                         type="text"
                         required
-                        value={formData.scheduledDate ? new Date(formData.scheduledDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
+                        value={formatDateDisplay(formData.scheduledDate)}
                         onClick={() => setShowDatePicker(true)}
                         readOnly
                         className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer"
@@ -2352,9 +2353,10 @@ setIntakeQuestionAnswers(answers);
                       <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                       
                       <CalendarPicker
-                        selectedDate={formData.scheduledDate ? new Date(formData.scheduledDate) : new Date()}
+                        selectedDate={formData.scheduledDate ? parseLocalDate(formData.scheduledDate) : new Date()}
                         onDateSelect={(date) => {
-                          const dateString = date.toISOString().split('T')[0];
+                          // Use local date formatting to avoid timezone issues
+                          const dateString = formatDateLocal(date);
                           setFormData(prev => ({ ...prev, scheduledDate: dateString }));
                           setShowDatePicker(false);
                         }}

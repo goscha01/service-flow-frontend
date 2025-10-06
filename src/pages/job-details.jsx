@@ -63,6 +63,7 @@ import AddressAutocomplete from "../components/address-autocomplete"
 import IntakeAnswersDisplay from "../components/intake-answers-display"
 import IntakeQuestionsForm from "../components/intake-questions-form"
 import { formatPhoneNumber } from "../utils/phoneFormatter"
+import { formatDateLocal } from "../utils/dateUtils"
 
 const JobDetails = () => {
   const { jobId } = useParams();
@@ -229,7 +230,7 @@ const JobDetails = () => {
   useEffect(() => {
     if (showRescheduleModal && job) {
       // Extract date and time directly from the string (format: "2024-01-15 10:00:00")
-      const datePart = job.scheduled_date ? job.scheduled_date.split(' ')[0] : new Date().toISOString().split('T')[0]
+      const datePart = job.scheduled_date ? job.scheduled_date.split(' ')[0] : formatDateLocal(new Date())
       const timePart = job.scheduled_date ? job.scheduled_date.split(' ')[1]?.substring(0, 5) : '09:00'
       
       setFormData(prev => ({
