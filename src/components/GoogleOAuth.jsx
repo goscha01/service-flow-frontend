@@ -37,7 +37,6 @@ const GoogleOAuth = ({ onSuccess, onError, buttonText = 'signin_with' }) => {
           {
             theme: 'outline',
             size: 'large',
-            width: '100%',
             text: buttonText,
             shape: 'rectangular'
           }
