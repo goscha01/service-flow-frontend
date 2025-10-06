@@ -4,7 +4,7 @@ import { authAPI } from '../services/api';
 
 const GoogleOAuth = ({ onSuccess, onError, buttonText = 'signin_with' }) => {
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const { loginWithGoogle } = useAuth();
 
   useEffect(() => {
     // Load Google Identity Services script
@@ -59,12 +59,8 @@ const GoogleOAuth = ({ onSuccess, onError, buttonText = 'signin_with' }) => {
       
       console.log('✅ Google OAuth successful:', result);
       
-      // Store user data and token
-      localStorage.setItem('authToken', result.token);
-      localStorage.setItem('user', JSON.stringify(result.user));
-      
-      // Update auth context
-      login(result);
+      // Update auth context with Google OAuth response
+      loginWithGoogle(result);
       
       if (onSuccess) {
         onSuccess(result);
