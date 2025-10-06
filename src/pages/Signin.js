@@ -257,17 +257,19 @@ export default function SignInForm() {
           </div>
 
           {/* Google OAuth */}
-          <div className="mt-4">
-            <GoogleOAuth 
-              onSuccess={(result) => {
-                console.log('✅ Google OAuth success:', result);
-                navigate('/dashboard');
-              }}
-              onError={(error) => {
-                console.error('❌ Google OAuth error:', error);
-                setError(error.response?.data?.error || 'Google sign-in failed');
-              }}
-            />
+          <div className="mt-4 flex justify-center">
+            <div className="w-full max-w-sm">
+              <GoogleOAuth 
+                onSuccess={(result) => {
+                  console.log('✅ Google OAuth success:', result);
+                  navigate('/dashboard');
+                }}
+                onError={(error) => {
+                  console.error('❌ Google OAuth error:', error);
+                  setError(error.response?.data?.error || 'Google sign-in failed');
+                }}
+              />
+            </div>
           </div>
 
           {/* Error Display */}
