@@ -81,6 +81,23 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const loginWithGoogle = async (googleResponse) => {
+    try {
+      // Google OAuth response already contains user data and token
+      const userData = googleResponse.user;
+      const token = googleResponse.token;
+      
+      // Store user data and token
+      localStorage.setItem('authToken', token);
+      localStorage.setItem('user', JSON.stringify(userData));
+      
+      setUser(userData);
+      return { success: true, user: userData };
+    } catch (error) {
+      throw error;
+    }
+  };
+
   const signup = async (userData) => {
     try {
       const response = await authAPI.signup(userData);
@@ -161,6 +178,7 @@ export const AuthProvider = ({ children }) => {
     user,
     loading,
     login,
+    loginWithGoogle,
     signup,
     logout,
     updateUserProfile,
