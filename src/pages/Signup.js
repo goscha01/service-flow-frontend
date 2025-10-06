@@ -306,7 +306,7 @@ export default function SignupForm() {
                 </label>
                 <input
                   id="email"
-                  name="username"
+                  name="email"
                   type="email"
                   autoComplete="username email"
                   placeholder="Your business email"
@@ -383,6 +383,7 @@ export default function SignupForm() {
             {/* Google OAuth */}
             <div className="mb-6">
               <GoogleOAuth 
+                buttonText="signup_with"
                 onSuccess={(result) => {
                   console.log('✅ Google OAuth signup success:', result);
                   navigate('/dashboard');
