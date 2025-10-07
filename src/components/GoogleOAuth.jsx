@@ -28,7 +28,9 @@ const GoogleOAuth = ({ onSuccess, onError, buttonText = 'signin_with' }) => {
           client_id: process.env.REACT_APP_GOOGLE_CLIENT_ID,
           callback: handleCredentialResponse,
           auto_select: false,
-          cancel_on_tap_outside: true
+          cancel_on_tap_outside: true,
+          // Request additional scopes for Sheets and Calendar
+          scope: 'openid email profile https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/calendar'
         });
 
         // Render the button
@@ -53,8 +55,16 @@ const GoogleOAuth = ({ onSuccess, onError, buttonText = 'signin_with' }) => {
     try {
       console.log('🔍 Google OAuth response received');
       
-      // Send the ID token to your backend
-      const result = await authAPI.googleAuth(response.credential);
+      // Extract access token from the response if available
+      const accessToken = response.access_token || null;
+      const refreshToken = response.refresh_token || null;
+      
+      // Send the ID token and access tokens to your backend
+      const result = await authAPI.googleAuth({
+        idToken: response.credential,
+        accessToken: accessToken,
+        refreshToken: refreshToken
+      });
       
       console.log('✅ Google OAuth successful:', result);
       

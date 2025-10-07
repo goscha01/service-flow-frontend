@@ -81,6 +81,7 @@ import TeamMemberDashboard from "./pages/team-member-dashboard"
 import TeamMemberFieldApp from "./pages/team-member-field-app"
 import TeamMemberSignup from "./pages/team-member-signup"
 import DropdownMultiselectDemo from "./pages/dropdown-multiselect-demo"
+import ImportDataPage from "./pages/import-data"
 import { TeamMemberAuthProvider } from "./context/TeamMemberAuthContext"
 import { CategoryProvider } from "./context/CategoryContext"
 
@@ -161,6 +162,7 @@ root.render(
       <Route path="settings/service-areas" element={<ServiceAreas />} />
       <Route path="settings/booking-quote-requests" element={<BookingQuoteRequests />} />
       <Route path="settings/field-app" element={<FieldApp />} />
+      <Route path="import-data" element={<ProtectedRoute><ImportDataPage /></ProtectedRoute>} />
       
       {/* Public Booking Routes - No authentication required */}
       <Route path="book/:userSlug" element={<PublicBooking />} />

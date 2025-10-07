@@ -98,7 +98,22 @@ const SheetsExport = ({ exportType = 'customers', dateRange = null, onSuccess, o
 
       {!user?.google_access_token && (
         <div className="text-sm text-gray-600 bg-yellow-50 p-3 rounded-lg">
-          <p>⚠️ Google Sheets not connected. Please connect your Google account in settings to export data to Google Sheets.</p>
+          <p>⚠️ Google Sheets not connected. Please sign in with Google or connect your Google account in settings to export data to Google Sheets.</p>
+          <div className="mt-2">
+            <a 
+              href="/signin" 
+              className="text-blue-600 hover:text-blue-800 underline"
+            >
+              Sign in with Google
+            </a>
+            <span className="mx-2">or</span>
+            <a 
+              href="/settings" 
+              className="text-blue-600 hover:text-blue-800 underline"
+            >
+              Connect Google Account
+            </a>
+          </div>
         </div>
       )}
     </div>
