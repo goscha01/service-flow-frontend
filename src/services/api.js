@@ -311,8 +311,17 @@ export const customersAPI = {
 
   export: async (format = 'csv') => {
     try {
-      const response = await api.get(`/customers/export?format=${format}`);
-      return response.data;
+      if (format === 'csv') {
+        // For CSV, we need to get the raw response text
+        const response = await api.get(`/customers/export?format=${format}`, {
+          responseType: 'text'
+        });
+        return response.data;
+      } else {
+        // For JSON, return the parsed data
+        const response = await api.get(`/customers/export?format=${format}`);
+        return response.data;
+      }
     } catch (error) {
       throw error;
     }

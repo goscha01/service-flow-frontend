@@ -98,20 +98,11 @@ const ExportCustomersModal = ({ isOpen, onClose }) => {
                   const format = exportType === "csv_format" ? "csv" : "json"
                   
                   if (format === "csv") {
-                    // For CSV, make a direct fetch request to get the raw CSV data
-                    const apiBaseUrl = process.env.REACT_APP_API_URL || 'https://service-flow-backend-production-4568.up.railway.app/api';
-                    const response = await fetch(`${apiBaseUrl}/customers/export?format=csv`, {
-                      headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-                      }
-                    })
+                    // For CSV, use the API service which handles authentication properly
+                    const response = await customersAPI.export('csv')
                     
-                    if (!response.ok) {
-                      throw new Error('Failed to export customers')
-                    }
-                    
-                    const csvData = await response.text()
-                    const blob = new Blob([csvData], { type: 'text/csv' })
+                    // The API service returns the CSV data directly
+                    const blob = new Blob([response], { type: 'text/csv' })
                     const url = window.URL.createObjectURL(blob)
                     const a = document.createElement('a')
                     a.href = url
