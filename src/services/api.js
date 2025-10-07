@@ -307,6 +307,15 @@ export const customersAPI = {
     } catch (error) {
       throw error;
     }
+  },
+
+  export: async (format = 'csv') => {
+    try {
+      const response = await api.get(`/customers/export?format=${format}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
   }
 };
 
