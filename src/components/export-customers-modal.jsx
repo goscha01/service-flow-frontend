@@ -99,9 +99,10 @@ const ExportCustomersModal = ({ isOpen, onClose }) => {
                   
                   if (format === "csv") {
                     // For CSV, make a direct fetch request to get the raw CSV data
-                    const response = await fetch(`/api/customers/export?format=csv`, {
+                    const apiBaseUrl = process.env.REACT_APP_API_URL || 'https://service-flow-backend-production-4568.up.railway.app/api';
+                    const response = await fetch(`${apiBaseUrl}/customers/export?format=csv`, {
                       headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
                       }
                     })
                     
