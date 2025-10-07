@@ -325,6 +325,15 @@ export const customersAPI = {
     } catch (error) {
       throw error;
     }
+  },
+
+  importCustomers: async (customers) => {
+    try {
+      const response = await api.post('/customers/import', { customers });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
   }
 };
 

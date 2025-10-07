@@ -89,7 +89,7 @@ const ImportCustomersModal = ({ isOpen, onClose, onImportSuccess }) => {
         return
       }
       
-      const result = await customersAPI.import(customers)
+      const result = await customersAPI.importCustomers(customers)
       setImportResult(result)
       
       if (result.imported > 0) {
