@@ -6,15 +6,17 @@ import JobsFilters from "../components/jobs-filters"
 import JobsEmptyState from "../components/jobs-empty-state"
 import JobsPagination from "../components/jobs-pagination"
 
-import { Plus, AlertCircle, Loader2, Eye, Calendar, Clock, MapPin, Users, DollarSign, Phone, Mail, FileText, CheckCircle, XCircle, PlayCircle, PauseCircle, MoreVertical } from "lucide-react"
+import { Plus, AlertCircle, Loader2, Eye, Calendar, Clock, MapPin, Users, DollarSign, Phone, Mail, FileText, CheckCircle, XCircle, PlayCircle, PauseCircle, MoreVertical, Download, Upload } from "lucide-react"
 import { Link, useNavigate } from "react-router-dom"
 import { jobsAPI, invoicesAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
+import ExportJobsModal from "../components/export-jobs-modal"
 
 const ServiceFlowJobs = () => {
   const { user, loading: authLoading } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [activeTab, setActiveTab] = useState("upcoming")
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false)
 
   const [viewMode, setViewMode] = useState("table") // "table" or "cards"
   const navigate = useNavigate()
@@ -215,6 +217,14 @@ const ServiceFlowJobs = () => {
   const handleRetry = () => {
     setError("")
     fetchJobs()
+  }
+
+  const handleExport = () => {
+    setIsExportModalOpen(true)
+  }
+
+  const handleImport = () => {
+    navigate('/import-jobs')
   }
 
   const getJobCount = (status) => {
@@ -435,6 +445,25 @@ const ServiceFlowJobs = () => {
                   Cards
                 </button>
               </div>
+              
+              {/* Export/Import Buttons */}
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={handleExport}
+                  className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Export
+                </button>
+                <button
+                  onClick={handleImport}
+                  className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Import
+                </button>
+              </div>
+              
               <button 
                 onClick={(e) => {
                   e.preventDefault();
@@ -477,6 +506,25 @@ const ServiceFlowJobs = () => {
                   Cards
                 </button>
               </div>
+              
+              {/* Mobile Export/Import Buttons */}
+              <div className="flex items-center space-x-1">
+                <button
+                  onClick={handleExport}
+                  className="inline-flex items-center px-2 py-1 border border-gray-300 rounded text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  <Download className="w-3 h-3 mr-1" />
+                  Export
+                </button>
+                <button
+                  onClick={handleImport}
+                  className="inline-flex items-center px-2 py-1 border border-gray-300 rounded text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  <Upload className="w-3 h-3 mr-1" />
+                  Import
+                </button>
+              </div>
+              
               <button 
                 onClick={(e) => {
                   e.preventDefault();
@@ -911,7 +959,11 @@ const ServiceFlowJobs = () => {
         </div>
       </div>
 
-
+      {/* Export Jobs Modal */}
+      <ExportJobsModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+      />
     </div>
   )
 }
