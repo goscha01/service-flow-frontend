@@ -53,7 +53,17 @@ const GoogleOAuth = ({ onSuccess, onError, buttonText = 'signin_with' }) => {
     setIsLoading(true);
     
     try {
-      console.log('🔍 Google OAuth response received');
+      console.log('🔍 Google OAuth response received:', response);
+      
+      // Extract the ID token from the response
+      const idToken = response.credential || response.id_token || response;
+      
+      // Validate that we have a string ID token
+      if (typeof idToken !== 'string') {
+        throw new Error('Invalid Google OAuth response: ID token is not a string');
+      }
+      
+      console.log('🔍 ID token type:', typeof idToken, 'Length:', idToken.length);
       
       // Extract access token from the response if available
       const accessToken = response.access_token || null;
@@ -61,7 +71,7 @@ const GoogleOAuth = ({ onSuccess, onError, buttonText = 'signin_with' }) => {
       
       // Send the ID token and access tokens to your backend
       const result = await authAPI.googleAuth({
-        idToken: response.credential,
+        idToken: idToken,
         accessToken: accessToken,
         refreshToken: refreshToken
       });
