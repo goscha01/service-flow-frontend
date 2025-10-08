@@ -55,6 +55,7 @@ import ServiceFlowEstimatePage from "./pages/bookableestimate"
 import BrandingSettings from "./pages/settings/branding"
 import AccountDetails from "./pages/settings/account-details"
 import BillingSettings from "./pages/settings/billing"
+import TwilioSettings from "./pages/settings/twilio"
 import CreateRecurringBooking from "./pages/createjob"
 import LocationAvailability from "./pages/settings/location-availability"
 import QuoteRequestProcessing from "./pages/settings/quote-request-processing"
@@ -82,6 +83,8 @@ import TeamMemberFieldApp from "./pages/team-member-field-app"
 import TeamMemberSignup from "./pages/team-member-signup"
 import DropdownMultiselectDemo from "./pages/dropdown-multiselect-demo"
 import ImportDataPage from "./pages/import-data"
+import ImportCustomersPage from "./pages/import-customers"
+import ImportJobsPage from "./pages/import-jobs"
 import { TeamMemberAuthProvider } from "./context/TeamMemberAuthContext"
 import { CategoryProvider } from "./context/CategoryContext"
 
@@ -129,6 +132,7 @@ root.render(
       <Route path="settings" element={<ServiceFlowSettings />} />
       <Route path="settings/account" element={<AccountDetails />} />
       <Route path="settings/billing" element={<BillingSettings />} />
+      <Route path="settings/twilio" element={<TwilioSettings />} />
       <Route path="settings/branding" element={<BrandingSettings />} />
       <Route path="settings/feedback-reviews" element={<FeedbackReviews />} />
       <Route path="settings/client-team-notifications" element={<ClientTeamNotifications />} />
@@ -163,6 +167,8 @@ root.render(
       <Route path="settings/booking-quote-requests" element={<BookingQuoteRequests />} />
       <Route path="settings/field-app" element={<FieldApp />} />
       <Route path="import-data" element={<ProtectedRoute><ImportDataPage /></ProtectedRoute>} />
+      <Route path="import-customers" element={<ProtectedRoute><ImportCustomersPage /></ProtectedRoute>} />
+      <Route path="import-jobs" element={<ProtectedRoute><ImportJobsPage /></ProtectedRoute>} />
       
       {/* Public Booking Routes - No authentication required */}
       <Route path="book/:userSlug" element={<PublicBooking />} />

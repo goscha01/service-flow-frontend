@@ -5,11 +5,10 @@ import Sidebar from "../components/sidebar"
 import MobileHeader from "../components/mobile-header"
 import CustomerModal from "../components/customer-modal"
 import ExportCustomersModal from "../components/export-customers-modal"
-import ImportCustomersModal from "../components/import-customers-modal"
 import { Search, User, Plus, AlertCircle, Loader2, Trash2, Eye, X, Filter, Phone, Mail, Edit } from "lucide-react"
 import { customersAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, Link } from "react-router-dom"
 import he from 'he';
 import { formatPhoneNumber } from "../utils/phoneFormatter"
 
@@ -20,7 +19,6 @@ const ServiceFlowCustomers = () => {
   const [matchBookings, setMatchBookings] = useState(true)
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false)
   const [isExportModalOpen, setIsExportModalOpen] = useState(false)
-  const [isImportModalOpen, setIsImportModalOpen] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [customerToDelete, setCustomerToDelete] = useState(null)
   
@@ -103,7 +101,7 @@ const ServiceFlowCustomers = () => {
   }
 
   const handleImport = () => {
-    setIsImportModalOpen(true)
+    navigate('/import-customers')
   }
 
   const handleCustomerSave = async (customerData) => {
@@ -572,11 +570,6 @@ const ServiceFlowCustomers = () => {
         onClose={() => setIsExportModalOpen(false)}
       />
 
-      <ImportCustomersModal
-        isOpen={isImportModalOpen}
-        onClose={() => setIsImportModalOpen(false)}
-        onSuccess={fetchCustomers}
-      />
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && customerToDelete && (

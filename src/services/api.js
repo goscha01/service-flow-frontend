@@ -249,7 +249,7 @@ export const servicesAPI = {
   }
 };
 
-// Customers API functions
+
 export const customersAPI = {
   getAll: async (userId, params = {}) => {
     try {
@@ -336,6 +336,7 @@ export const customersAPI = {
     }
   }
 };
+
 
 // Estimates API functions
 export const estimatesAPI = {
@@ -784,6 +785,33 @@ export const jobsAPI = {
   getTeamAssignments: async (jobId) => {
     try {
       const response = await api.get(`/jobs/${jobId}/assignments`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  export: async (filters = {}) => {
+    try {
+      const params = new URLSearchParams();
+      Object.keys(filters).forEach(key => {
+        if (filters[key] !== undefined && filters[key] !== null && filters[key] !== '') {
+          params.append(key, filters[key]);
+        }
+      });
+      
+      const response = await api.get(`/jobs/export?${params.toString()}`, {
+        responseType: 'text'
+      });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  importJobs: async (jobs) => {
+    try {
+      const response = await api.post('/jobs/import', { jobs });
       return response.data;
     } catch (error) {
       throw error;
