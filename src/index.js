@@ -56,6 +56,7 @@ import BrandingSettings from "./pages/settings/branding"
 import AccountDetails from "./pages/settings/account-details"
 import BillingSettings from "./pages/settings/billing"
 import TwilioSettings from "./pages/settings/twilio"
+import StripeConnectSettings from "./pages/settings/stripe-connect"
 import CreateRecurringBooking from "./pages/createjob"
 import LocationAvailability from "./pages/settings/location-availability"
 import QuoteRequestProcessing from "./pages/settings/quote-request-processing"
@@ -134,6 +135,7 @@ root.render(
       <Route path="settings/billing" element={<BillingSettings />} />
       <Route path="settings/twilio" element={<TwilioSettings />} />
       <Route path="settings/sms-settings" element={<TwilioSettings />} />
+      <Route path="settings/stripe-connect" element={<StripeConnectSettings />} />
       <Route path="settings/branding" element={<BrandingSettings />} />
       <Route path="settings/feedback-reviews" element={<FeedbackReviews />} />
       <Route path="settings/client-team-notifications" element={<ClientTeamNotifications />} />
