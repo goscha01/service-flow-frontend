@@ -106,9 +106,9 @@ export const authAPI = {
     return !!localStorage.getItem('authToken');
   },
 
-  googleAuth: async (idToken) => {
+  googleAuth: async (googleData) => {
     try {
-      const response = await api.post('/auth/google', { idToken });
+      const response = await api.post('/auth/google', googleData);
       return response.data;
     } catch (error) {
       throw error;
@@ -1597,6 +1597,45 @@ export const smsAPI = {
         invoiceDetails, 
         customerName 
       });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+};
+
+// Twilio Connect API functions
+export const twilioConnectAPI = {
+  createAccountLink: async () => {
+    try {
+      const response = await api.post('/twilio/connect/account-link');
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  getAccountStatus: async () => {
+    try {
+      const response = await api.get('/twilio/connect/account-status');
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  disconnect: async () => {
+    try {
+      const response = await api.delete('/twilio/connect/disconnect');
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  sendSMS: async (to, message) => {
+    try {
+      const response = await api.post('/twilio/connect/send-sms', { to, message });
       return response.data;
     } catch (error) {
       throw error;

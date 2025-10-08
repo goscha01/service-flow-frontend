@@ -133,6 +133,7 @@ root.render(
       <Route path="settings/account" element={<AccountDetails />} />
       <Route path="settings/billing" element={<BillingSettings />} />
       <Route path="settings/twilio" element={<TwilioSettings />} />
+      <Route path="settings/sms-settings" element={<TwilioSettings />} />
       <Route path="settings/branding" element={<BrandingSettings />} />
       <Route path="settings/feedback-reviews" element={<FeedbackReviews />} />
       <Route path="settings/client-team-notifications" element={<ClientTeamNotifications />} />
