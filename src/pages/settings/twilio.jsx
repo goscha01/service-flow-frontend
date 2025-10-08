@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Phone, Settings, CheckCircle, AlertCircle, ExternalLink } from 'lucide-react';
 import TwilioConnectOnboarding from '../../components/TwilioConnectOnboarding';
-import api from '../../services/api';
+import { twilioConnectAPI } from '../../services/api';
 
 const TwilioSettings = () => {
   const [loading, setLoading] = useState(false);
@@ -15,8 +15,8 @@ const TwilioSettings = () => {
   const checkTwilioStatus = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/twilio/connect/account-status');
-      setTwilioStatus(response.data);
+      const response = await twilioConnectAPI.getAccountStatus();
+      setTwilioStatus(response);
     } catch (error) {
       console.error('Error checking Twilio status:', error);
       setError('Failed to check Twilio connection status');
@@ -32,8 +32,7 @@ const TwilioSettings = () => {
 
     try {
       setLoading(true);
-      // Add disconnect endpoint in backend
-      await api.delete('/twilio/connect/disconnect');
+      await twilioConnectAPI.disconnect();
       setTwilioStatus({ connected: false });
     } catch (error) {
       console.error('Error disconnecting Twilio:', error);
@@ -48,10 +47,10 @@ const TwilioSettings = () => {
       <div className="mb-8">
         <div className="flex items-center space-x-3 mb-2">
           <Phone className="w-6 h-6 text-blue-600" />
-          <h1 className="text-2xl font-bold text-gray-900">Twilio SMS Settings</h1>
+          <h1 className="text-2xl font-bold text-gray-900">SMS Notification Settings</h1>
         </div>
         <p className="text-gray-600">
-          Connect your Twilio account to send SMS notifications to customers.
+          Configure SMS notifications by connecting your Twilio account. This allows you to send automated SMS messages to customers for job confirmations, reminders, and updates.
         </p>
       </div>
 

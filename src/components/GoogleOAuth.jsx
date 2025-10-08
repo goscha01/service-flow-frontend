@@ -54,16 +54,34 @@ const GoogleOAuth = ({ onSuccess, onError, buttonText = 'signin_with' }) => {
     
     try {
       console.log('🔍 Google OAuth response received:', response);
+      console.log('🔍 Response type:', typeof response);
+      console.log('🔍 Response keys:', Object.keys(response || {}));
       
-      // Extract the ID token from the response
-      const idToken = response.credential || response.id_token || response;
+      // For Google Identity Services (GSI), the response should be an object with a 'credential' property
+      // The credential is the JWT ID token
+      let idToken = null;
       
-      // Validate that we have a string ID token
-      if (typeof idToken !== 'string') {
-        throw new Error('Invalid Google OAuth response: ID token is not a string');
+      if (response && typeof response === 'object' && response.credential) {
+        // This is the correct format for Google Identity Services
+        idToken = response.credential;
+        console.log('✅ Found credential in response');
+      } else if (typeof response === 'string') {
+        // Fallback if response is already a string
+        idToken = response;
+        console.log('✅ Using response as string');
+      } else {
+        console.error('❌ Unexpected response format:', response);
+        throw new Error('Invalid Google OAuth response format');
       }
       
-      console.log('🔍 ID token type:', typeof idToken, 'Length:', idToken.length);
+      console.log('🔍 Extracted ID token type:', typeof idToken);
+      console.log('🔍 ID token length:', idToken ? idToken.length : 'null');
+      
+      // Validate that we have a string ID token
+      if (!idToken || typeof idToken !== 'string') {
+        console.error('❌ Invalid ID token:', { idToken, type: typeof idToken });
+        throw new Error(`Invalid Google OAuth response: ID token is ${typeof idToken}, expected string`);
+      }
       
       // Extract access token from the response if available
       const accessToken = response.access_token || null;

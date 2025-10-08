@@ -61,6 +61,9 @@ const ServiceFlowSettings = () => {
       case "client-team-notifications":
         navigate("/settings/client-team-notifications")
         break
+      case "sms-settings":
+        navigate("/settings/sms-settings")
+        break
       case "feedback-reviews":
         navigate("/settings/feedback-reviews")
         break
@@ -160,6 +163,12 @@ const ServiceFlowSettings = () => {
           icon: Bell,
           title: "Client & Team Notifications",
           description: "Edit the emails and text messages that are sent to clients and team members",
+        },
+        {
+          id: "sms-settings",
+          icon: MessageSquare,
+          title: "SMS Settings",
+          description: "Configure Twilio SMS integration for customer notifications",
         },
         {
           id: "feedback-reviews",
