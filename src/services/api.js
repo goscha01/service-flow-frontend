@@ -1643,6 +1643,49 @@ export const twilioConnectAPI = {
   }
 };
 
+// Stripe Connect API functions
+export const stripeConnectAPI = {
+  createAccountLink: async () => {
+    try {
+      const response = await api.post('/stripe/connect/account-link');
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  getAccountStatus: async () => {
+    try {
+      const response = await api.get('/stripe/connect/account-status');
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  disconnect: async () => {
+    try {
+      const response = await api.delete('/stripe/connect/disconnect');
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  createPaymentIntent: async (amount, currency = 'usd', metadata = {}) => {
+    try {
+      const response = await api.post('/stripe/connect/create-payment-intent', {
+        amount,
+        currency,
+        metadata
+      });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+};
+
 // Health check API
 export const healthAPI = {
   check: async () => {

@@ -29,41 +29,11 @@ const TwilioConnectOnboarding = ({ onSuccess, onError }) => {
     try {
       const response = await api.post('/twilio/connect/account-link');
       
-      if (response.data.accountLinkUrl) {
-        // Open Twilio Connect authorization in new window
-        const authWindow = window.open(
-          response.data.accountLinkUrl,
-          'twilio-connect',
-          'width=600,height=700,scrollbars=yes,resizable=yes'
-        );
-
-        // Poll for completion
-        const pollInterval = setInterval(async () => {
-          if (authWindow.closed) {
-            clearInterval(pollInterval);
-            setLoading(false);
-            
-            // Check connection status
-            await checkConnectionStatus();
-            
-            if (onSuccess) {
-              onSuccess();
-            }
-          }
-        }, 1000);
-
-        // Timeout after 5 minutes
-        setTimeout(() => {
-          if (!authWindow.closed) {
-            authWindow.close();
-            clearInterval(pollInterval);
-            setLoading(false);
-            setError('Connection timed out. Please try again.');
-          }
-        }, 300000);
-
+      if (response.data.authUrl) {
+        // Redirect to Twilio Connect authorization
+        window.location.href = response.data.authUrl;
       } else {
-        throw new Error('No account link URL received');
+        throw new Error('No authorization URL received');
       }
 
     } catch (error) {

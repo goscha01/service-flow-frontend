@@ -20,6 +20,8 @@ import {
   Globe,
   Settings,
   X,
+  Phone,
+  Zap,
 } from "lucide-react"
 
 const Sidebar = ({ isOpen, onClose }) => {
@@ -46,6 +48,11 @@ const Sidebar = ({ isOpen, onClose }) => {
     { icon: BarChart3, label: "Analytics", path: "/analytics", hidden: true },
     { icon: Globe, label: "Online Booking", path: "/online-booking", hidden: true },
     { icon: Settings, label: "Settings", path: "/settings" },
+  ]
+
+  const integrationItems = [
+    { icon: Phone, label: "SMS Settings", path: "/settings/sms-settings" },
+    { icon: Zap, label: "Stripe Connect", path: "/settings/stripe-connect" },
   ]
 
   const handleNavigation = (path) => {
@@ -105,6 +112,32 @@ const Sidebar = ({ isOpen, onClose }) => {
               )
             })}
           </ul>
+
+          {/* Integrations Section */}
+          <div className="mt-6">
+            <h3 className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+              Integrations
+            </h3>
+            <ul className="space-y-1">
+              {integrationItems.map((item, index) => {
+                const Icon = item.icon
+                const isActive = location.pathname === item.path
+                return (
+                  <li key={`integration-${index}`}>
+                    <button
+                      onClick={() => handleNavigation(item.path)}
+                      className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-left ${
+                        isActive ? "bg-blue-50 text-blue-700" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                      }`}
+                    >
+                      <Icon className="w-5 h-5 flex-shrink-0" />
+                      <span>{item.label}</span>
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
         </nav>
 
         {/* User Profile */}

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Phone, Settings, CheckCircle, AlertCircle, ExternalLink } from 'lucide-react';
 import TwilioConnectOnboarding from '../../components/TwilioConnectOnboarding';
 import { twilioConnectAPI } from '../../services/api';
@@ -7,10 +8,22 @@ const TwilioSettings = () => {
   const [loading, setLoading] = useState(false);
   const [twilioStatus, setTwilioStatus] = useState(null);
   const [error, setError] = useState('');
+  const [searchParams] = useSearchParams();
 
   useEffect(() => {
     checkTwilioStatus();
-  }, []);
+    
+    // Handle OAuth callback
+    const connected = searchParams.get('connected');
+    const errorParam = searchParams.get('error');
+    
+    if (connected === 'true') {
+      setError('');
+      checkTwilioStatus();
+    } else if (errorParam) {
+      setError('Failed to connect Twilio account. Please try again.');
+    }
+  }, [searchParams]);
 
   const checkTwilioStatus = async () => {
     try {
