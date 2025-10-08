@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Phone, Settings, CheckCircle, AlertCircle, ExternalLink } from 'lucide-react';
 import TwilioConnectOnboarding from '../../components/TwilioConnectOnboarding';
-import { api } from '../../services/api';
+import api from '../../services/api';
 
 const TwilioSettings = () => {
   const [loading, setLoading] = useState(false);

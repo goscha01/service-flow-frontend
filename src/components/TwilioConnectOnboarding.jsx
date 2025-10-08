@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Phone, ExternalLink, CheckCircle, AlertCircle, Loader } from 'lucide-react';
-import { api } from '../services/api';
+import api from '../services/api';
 
 const TwilioConnectOnboarding = ({ onSuccess, onError }) => {
   const [loading, setLoading] = useState(false);
