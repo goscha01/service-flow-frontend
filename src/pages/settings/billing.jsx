@@ -3,9 +3,9 @@ import { useNavigate } from "react-router-dom"
 import Sidebar from "../../components/sidebar"
 import MobileHeader from "../../components/mobile-header"
 import PlanSelectionModal from "../../components/plan-selection-modal"
-import StripeConnectOnboarding from "../../components/StripeConnectOnboarding"
+import StripeAPISetup from "../../components/StripeAPISetup"
 import { ChevronLeft, Lock, Check, X, CreditCard, Calendar, AlertCircle } from "lucide-react"
-import { billingAPI } from "../../services/api"
+import { billingAPI, stripeAPI } from "../../services/api"
 import api from "../../services/api"
 import { useAuth } from "../../context/AuthContext"
 import { loadStripe } from "@stripe/stripe-js"
@@ -194,8 +194,8 @@ const BillingSettings = () => {
 
   const loadStripeConnectStatus = async () => {
     try {
-      const response = await api.get('/stripe/connect/account-status')
-      setStripeConnectStatus(response.data)
+      const response = await stripeAPI.testConnection()
+      setStripeConnectStatus({ connected: response.connected })
     } catch (error) {
       console.error('Error loading Stripe Connect status:', error)
     }
@@ -381,7 +381,7 @@ const BillingSettings = () => {
                   </div>
                 </div>
               ) : (
-                <StripeConnectOnboarding 
+                <StripeAPISetup 
                   onSuccess={() => {
                     setMessage({ type: 'success', text: 'Stripe account connected successfully!' })
                     loadStripeConnectStatus()
