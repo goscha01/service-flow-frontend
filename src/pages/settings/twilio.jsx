@@ -1,71 +1,58 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { Phone, Settings, CheckCircle, AlertCircle, ExternalLink } from 'lucide-react';
-import TwilioConnectOnboarding from '../../components/TwilioConnectOnboarding';
-import { twilioConnectAPI } from '../../services/api';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import { Phone, Settings, CheckCircle, AlertCircle, ExternalLink, ChevronLeft } from 'lucide-react';
+import TwilioAPISetup from '../../components/TwilioAPISetup';
+import Sidebar from '../../components/sidebar';
+import MobileHeader from '../../components/mobile-header';
 
 const TwilioSettings = () => {
-  const [loading, setLoading] = useState(false);
-  const [twilioStatus, setTwilioStatus] = useState(null);
   const [error, setError] = useState('');
   const [searchParams] = useSearchParams();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    checkTwilioStatus();
-    
     // Handle OAuth callback
     const connected = searchParams.get('connected');
     const errorParam = searchParams.get('error');
     
     if (connected === 'true') {
       setError('');
-      checkTwilioStatus();
     } else if (errorParam) {
       setError('Failed to connect Twilio account. Please try again.');
     }
   }, [searchParams]);
 
-  const checkTwilioStatus = async () => {
-    try {
-      setLoading(true);
-      const response = await twilioConnectAPI.getAccountStatus();
-      setTwilioStatus(response);
-    } catch (error) {
-      console.error('Error checking Twilio status:', error);
-      setError('Failed to check Twilio connection status');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDisconnect = async () => {
-    if (!window.confirm('Are you sure you want to disconnect your Twilio account? This will stop SMS notifications.')) {
-      return;
-    }
-
-    try {
-      setLoading(true);
-      await twilioConnectAPI.disconnect();
-      setTwilioStatus({ connected: false });
-    } catch (error) {
-      console.error('Error disconnecting Twilio:', error);
-      setError('Failed to disconnect Twilio account');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <div className="mb-8">
-        <div className="flex items-center space-x-3 mb-2">
-          <Phone className="w-6 h-6 text-blue-600" />
-          <h1 className="text-2xl font-bold text-gray-900">SMS Notification Settings</h1>
+    <div className="flex h-screen bg-gray-50 overflow-hidden">
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      
+      <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
+        <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
+        
+        {/* Header */}
+        <div className="bg-white border-b border-gray-200 px-6 py-4">
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={() => navigate("/settings")}
+              className="flex items-center space-x-2 text-gray-600 hover:text-gray-900"
+            >
+              <ChevronLeft className="w-5 h-5" />
+              <span className="text-sm">Settings</span>
+            </button>
+            <div className="flex items-center space-x-3">
+              <Phone className="w-6 h-6 text-blue-600" />
+              <h1 className="text-2xl font-bold text-gray-900">SMS Notification Settings</h1>
+            </div>
+          </div>
+          <p className="text-gray-600 mt-2">
+            Configure SMS notifications by connecting your Twilio account. This allows you to send automated SMS messages to customers for job confirmations, reminders, and updates.
+          </p>
         </div>
-        <p className="text-gray-600">
-          Configure SMS notifications by connecting your Twilio account. This allows you to send automated SMS messages to customers for job confirmations, reminders, and updates.
-        </p>
-      </div>
+
+        {/* Main Content */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-4xl mx-auto p-6">
 
       {error && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
@@ -77,48 +64,9 @@ const TwilioSettings = () => {
       )}
 
       <div className="space-y-6">
-        {/* Connection Status */}
-        {twilioStatus && (
-          <div className="bg-white border border-gray-200 rounded-lg p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Connection Status</h2>
-            
-            {twilioStatus.connected ? (
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <CheckCircle className="w-5 h-5 text-green-600" />
-                  <div>
-                    <p className="text-sm font-medium text-green-800">Twilio Connected</p>
-                    <p className="text-sm text-green-600">
-                      Account: {twilioStatus.friendlyName || 'Connected'}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={handleDisconnect}
-                  disabled={loading}
-                  className="px-4 py-2 text-red-600 hover:text-red-800 border border-red-300 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
-                >
-                  Disconnect
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center space-x-3">
-                <AlertCircle className="w-5 h-5 text-yellow-600" />
-                <div>
-                  <p className="text-sm font-medium text-yellow-800">Not Connected</p>
-                  <p className="text-sm text-yellow-600">
-                    Connect your Twilio account to enable SMS notifications
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Twilio Connect Onboarding */}
-        <TwilioConnectOnboarding
+        {/* Twilio API Setup */}
+        <TwilioAPISetup
           onSuccess={() => {
-            checkTwilioStatus();
             setError('');
           }}
           onError={(error) => {
@@ -197,7 +145,10 @@ const TwilioSettings = () => {
             </a>
           </div>
         </div>
+        </div>
       </div>
+    </div>
+    </div>
     </div>
   );
 };

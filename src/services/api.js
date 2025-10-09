@@ -1604,38 +1604,69 @@ export const smsAPI = {
   }
 };
 
-// Twilio Connect API functions
-export const twilioConnectAPI = {
-  createAccountLink: async () => {
+// Twilio OAuth/API Integration functions
+export const twilioAPI = {
+  // Simple OAuth setup - user provides their own Twilio credentials
+  setupCredentials: async (accountSid, authToken, phoneNumber) => {
     try {
-      const response = await api.post('/twilio/connect/account-link');
+      const response = await api.post('/twilio/setup-credentials', {
+        accountSid,
+        authToken,
+        phoneNumber
+      });
       return response.data;
     } catch (error) {
       throw error;
     }
   },
 
-  getAccountStatus: async () => {
+  // Get user's Twilio phone numbers
+  getPhoneNumbers: async () => {
     try {
-      const response = await api.get('/twilio/connect/account-status');
+      const response = await api.get('/twilio/phone-numbers');
       return response.data;
     } catch (error) {
       throw error;
     }
   },
 
-  disconnect: async () => {
+  // Setup SMS messaging for notifications
+  setupSMSNotifications: async (phoneNumber, notificationTypes) => {
     try {
-      const response = await api.delete('/twilio/connect/disconnect');
+      const response = await api.post('/twilio/setup-sms-notifications', {
+        phoneNumber,
+        notificationTypes
+      });
       return response.data;
     } catch (error) {
       throw error;
     }
   },
 
+  // Send SMS using user's Twilio account
   sendSMS: async (to, message) => {
     try {
-      const response = await api.post('/twilio/connect/send-sms', { to, message });
+      const response = await api.post('/twilio/send-sms', { to, message });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Test SMS functionality
+  testSMS: async (phoneNumber) => {
+    try {
+      const response = await api.post('/twilio/test-sms', { phoneNumber });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Disconnect Twilio integration
+  disconnect: async () => {
+    try {
+      const response = await api.delete('/twilio/disconnect');
       return response.data;
     } catch (error) {
       throw error;
@@ -1643,42 +1674,102 @@ export const twilioConnectAPI = {
   }
 };
 
-// Stripe Connect API functions
-export const stripeConnectAPI = {
-  createAccountLink: async () => {
+// Stripe OAuth/API Integration functions
+export const stripeAPI = {
+  // Simple OAuth setup - user provides their own Stripe API keys
+  setupCredentials: async (publishableKey, secretKey) => {
     try {
-      const response = await api.post('/stripe/connect/account-link');
+      const response = await api.post('/stripe/setup-credentials', {
+        publishableKey,
+        secretKey
+      });
       return response.data;
     } catch (error) {
       throw error;
     }
   },
 
-  getAccountStatus: async () => {
+  // Create invoice using user's Stripe account
+  createInvoice: async (customerId, amount, description, dueDate) => {
     try {
-      const response = await api.get('/stripe/connect/account-status');
+      const response = await api.post('/stripe/create-invoice', {
+        customerId,
+        amount,
+        description,
+        dueDate
+      });
       return response.data;
     } catch (error) {
       throw error;
     }
   },
 
-  disconnect: async () => {
+  // Send invoice to customer
+  sendInvoice: async (invoiceId, customerEmail) => {
     try {
-      const response = await api.delete('/stripe/connect/disconnect');
+      const response = await api.post('/stripe/send-invoice', {
+        invoiceId,
+        customerEmail
+      });
       return response.data;
     } catch (error) {
       throw error;
     }
   },
 
-  createPaymentIntent: async (amount, currency = 'usd', metadata = {}) => {
+  // Create payment intent for direct payments
+  createPaymentIntent: async (amount, currency = 'usd', customerId, metadata = {}) => {
     try {
-      const response = await api.post('/stripe/connect/create-payment-intent', {
+      const response = await api.post('/stripe/create-payment-intent', {
         amount,
         currency,
+        customerId,
         metadata
       });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Get payment status
+  getPaymentStatus: async (paymentIntentId) => {
+    try {
+      const response = await api.get(`/stripe/payment-status/${paymentIntentId}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Create customer in user's Stripe account
+  createCustomer: async (email, name, phone) => {
+    try {
+      const response = await api.post('/stripe/create-customer', {
+        email,
+        name,
+        phone
+      });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Test Stripe connection
+  testConnection: async () => {
+    try {
+      const response = await api.get('/stripe/test-connection');
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Disconnect Stripe integration
+  disconnect: async () => {
+    try {
+      const response = await api.delete('/stripe/disconnect');
       return response.data;
     } catch (error) {
       throw error;
