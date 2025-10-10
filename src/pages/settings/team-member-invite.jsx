@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import Sidebar from "../../components/sidebar"
 import MobileHeader from "../../components/mobile-header"
+import NotificationTestButton from "../../components/NotificationTestButton"
 import { ChevronLeft, Mail } from "lucide-react"
 
 const TeamMemberInvite = () => {
@@ -72,6 +73,13 @@ const TeamMemberInvite = () => {
                       </span>
                     </div>
                   </div>
+                  
+                  {/* Test Button for Email */}
+                  <NotificationTestButton 
+                    notificationType="Team Member Invite"
+                    messageType="email"
+                    templateContent="<h2>Welcome to the Team!</h2><p>Hi Sarah,</p><p>You've been invited to join our team at Just web Agency!</p><p><strong>Your Role:</strong> Service Provider</p><p><strong>Account Status:</strong> Pending Activation</p><p>To activate your account, please click the link below:</p><div style='text-align: center; margin: 20px 0;'><button style='background-color: #3B82F6; color: white; padding: 12px 24px; border-radius: 8px; border: none; font-weight: bold;'>Activate Account</button></div><p>Once activated, you'll be able to view and accept job assignments.</p><p>Welcome aboard!</p><p>Best regards,<br />The Team at Just web Agency</p>"
+                  />
                 </div>
 
                 {/* Logo Settings */}

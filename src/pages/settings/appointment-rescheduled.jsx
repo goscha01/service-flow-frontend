@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import Sidebar from "../../components/sidebar"
 import MobileHeader from "../../components/mobile-header"
+import NotificationTestButton from "../../components/NotificationTestButton"
 import { ChevronLeft, Mail, MessageSquare } from "lucide-react"
 
 const AppointmentRescheduled = () => {
@@ -99,6 +100,13 @@ const AppointmentRescheduled = () => {
                           </span>
                         </div>
                       </div>
+                      
+                      {/* Test Button for Email */}
+                      <NotificationTestButton 
+                        notificationType="Appointment Rescheduled"
+                        messageType="email"
+                        templateContent="<h2>Appointment Rescheduled</h2><p>Hi John,</p><p>Your appointment has been rescheduled.</p><p><strong>Service:</strong> Home Cleaning</p><p><strong>New Date:</strong> March 16, 2025</p><p><strong>New Time:</strong> 2:00 PM - 4:00 PM</p><p><strong>Previous Date:</strong> March 15, 2025 at 10:00 AM</p><p>If you have any questions, please contact us.</p><p>Best regards,<br />The Team at Just web Agency</p>"
+                      />
                     </div>
                   )}
 
@@ -130,6 +138,13 @@ const AppointmentRescheduled = () => {
                           </span>
                         </div>
                       </div>
+                      
+                      {/* Test Button for SMS */}
+                      <NotificationTestButton 
+                        notificationType="Appointment Rescheduled"
+                        messageType="sms"
+                        templateContent="Hi John! Your Home Cleaning appointment has been rescheduled to March 16, 2025 at 2:00 PM. Previous time: March 15 at 10:00 AM. Contact us with any questions. - Just web Agency"
+                      />
                     </div>
                   )}
                 </div>

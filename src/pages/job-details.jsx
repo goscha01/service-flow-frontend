@@ -57,6 +57,8 @@ import {
   Search
 } from "lucide-react"
 import { jobsAPI, notificationAPI, territoriesAPI, teamAPI, invoicesAPI } from "../services/api"
+import api from "../services/api"
+import { useAuth } from "../context/AuthContext"
 import Sidebar from "../components/sidebar"
 import MobileHeader from "../components/mobile-header"
 import AddressAutocomplete from "../components/address-autocomplete"
@@ -68,6 +70,7 @@ import { formatDateLocal } from "../utils/dateUtils"
 const JobDetails = () => {
   const { jobId } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [job, setJob] = useState(null)
   const [loading, setLoading] = useState(false)
   const [successMessage, setSuccessMessage] = useState("")
@@ -109,6 +112,7 @@ const JobDetails = () => {
   const [showAddPaymentModal, setShowAddPaymentModal] = useState(false)
   const [showDiscountModal, setShowDiscountModal] = useState(false)
   const [showTipModal, setShowTipModal] = useState(false)
+  const [includePaymentLink, setIncludePaymentLink] = useState(true)
   
   // Address autopopulation state
   const [addressAutoPopulated, setAddressAutoPopulated] = useState(false)
@@ -601,11 +605,71 @@ const JobDetails = () => {
     }
   }
 
-  const handleSendInvoice = async (emailData) => {
+  const handleTestEmail = async () => {
+    try {
+      setLoading(true)
+      
+      const response = await api.post('/test-sendgrid', {
+        testEmail: job.customer_email
+      })
+      
+      console.log('Test email result:', response.data)
+      setSuccessMessage('Test email sent successfully!')
+      setTimeout(() => setSuccessMessage(""), 3000)
+    } catch (error) {
+      console.error('Error sending test email:', error)
+      setError('Failed to send test email: ' + (error.response?.data?.error || error.message))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSendInvoice = async () => {
     if (!job) return
     try {
       setLoading(true)
-      // Update invoice status to 'invoiced'
+      
+      // First, create an invoice record
+      const calculatedAmount = calculateTotalPrice();
+      console.log('💰 Creating invoice with amount:', calculatedAmount);
+      
+      const invoiceResponse = await api.post('/create-invoice', {
+        jobId: job.id,
+        customerId: job.customer_id,
+        amount: calculatedAmount,
+        taxAmount: 0, // You can calculate tax if needed
+        totalAmount: calculatedAmount,
+        dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] // 7 days from now
+      })
+      
+      const invoice = invoiceResponse.data
+      console.log('📄 Invoice created:', invoice)
+      
+      // Send invoice email with the created invoice ID
+      const invoiceData = {
+        invoiceId: invoice.id,
+        jobId: job.id,
+        customerEmail: job.customer_email,
+        customerName: `${job.customer_first_name} ${job.customer_last_name}`,
+        amount: calculateTotalPrice(),
+        serviceName: job.service_name,
+        serviceDate: job.scheduled_date,
+        address: job.customer_address,
+        includePaymentLink: includePaymentLink
+      }
+      
+      console.log('📧 Sending invoice email with data:', invoiceData)
+      console.log('📧 Include payment link state:', includePaymentLink)
+      
+      const emailResponse = await api.post('/send-invoice-email', invoiceData)
+      console.log('Invoice email sent:', emailResponse.data)
+      
+      // Update invoice status to 'sent'
+      await api.put(`/invoices/${invoice.id}`, {
+        status: 'sent'
+      })
+      
+      // Update job invoice status to 'invoiced'
       await jobsAPI.update(job.id, {
         invoiceStatus: 'invoiced'
       })
@@ -614,6 +678,7 @@ const JobDetails = () => {
       setTimeout(() => setSuccessMessage(""), 3000)
       setShowSendInvoiceModal(false)
     } catch (error) {
+      console.error('Error sending invoice:', error)
       setError('Failed to send invoice')
     } finally {
       setLoading(false)
@@ -923,7 +988,23 @@ const JobDetails = () => {
       // Use backend-calculated total from job data
       const baseTotal = parseFloat(job.total) || 0;
       const tip = formData.tip || 0;
-      return baseTotal + tip;
+      const calculatedTotal = baseTotal + tip;
+      
+      console.log('💰 Price calculation:', {
+        jobTotal: job.total,
+        baseTotal,
+        tip,
+        calculatedTotal,
+        jobData: {
+          service_price: job.service_price,
+          additional_fees: job.additional_fees,
+          taxes: job.taxes,
+          discount: job.discount,
+          total: job.total
+        }
+      });
+      
+      return calculatedTotal;
     } catch (error) {
       console.error('Error getting total price:', error);
       return 0;
@@ -2674,10 +2755,10 @@ const JobDetails = () => {
         {/* Send Invoice Modal */}
         {showSendInvoiceModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
               <div className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Send Invoice</h3>
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-xl font-semibold text-gray-900">Email Invoice</h3>
                   <button
                     onClick={() => setShowSendInvoiceModal(false)}
                     className="text-gray-400 hover:text-gray-600 p-1"
@@ -2685,9 +2766,29 @@ const JobDetails = () => {
                     <X className="w-5 h-5" />
                   </button>
                 </div>
-                <div className="space-y-4">
+
+                <div className="space-y-6">
+                  {/* Payment Link Option */}
+                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+                      <h4 className="font-medium text-gray-900">Include a link to pay this invoice online</h4>
+                      <p className="text-sm text-gray-600">Allow customer to pay directly via Stripe</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="sr-only peer"
+                        defaultChecked
+                        onChange={(e) => setIncludePaymentLink(e.target.checked)}
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                  </div>
+
+                  {/* Email Details */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Send to</label>
                     <input
                       type="email"
                       defaultValue={job.customer_email}
@@ -2699,30 +2800,104 @@ const JobDetails = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-2">Subject</label>
                     <input
                       type="text"
-                      defaultValue={`Invoice for ${job.service_names && job.service_names.length > 1 ? job.service_names.join(', ') : (job.service_name || 'Service')}`}
+                        defaultValue={`You have a new invoice from ${user?.business_name || 'Your Business'}`}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Message</label>
-                    <textarea
-                      rows={4}
-                      defaultValue={`Hi ${job.customer_first_name},
+                  </div>
 
-Please find attached the invoice for your recent service.
+                  {/* Invoice Summary */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h4 className="font-medium text-gray-900 mb-4">Invoice Summary</h4>
+                    <div className="space-y-3">
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">AMOUNT DUE</span>
+                        <span className="font-semibold">${calculateTotalPrice().toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">DUE BY</span>
+                        <span className="text-sm">{new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">SERVICE DATE</span>
+                        <span className="text-sm">{new Date(job.scheduled_date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">SERVICE ADDRESS</span>
+                        <span className="text-sm">{job.customer_address || 'Address not provided'}</span>
+                      </div>
+                    </div>
+                  </div>
 
-Total Amount: $${calculateTotalPrice().toFixed(2)}
+                  {/* Service Details */}
+                  <div className="bg-white border border-gray-200 rounded-lg p-4">
+                    <h4 className="font-medium text-gray-900 mb-3">Service Details</h4>
+                    <div className="space-y-2">
+                      {job.service_names && job.service_names.length > 0 ? (
+                        job.service_names.map((service, index) => (
+                          <div key={index} className="flex justify-between text-sm">
+                            <span>{service}</span>
+                            <span>${job.service_prices && job.service_prices[index] ? job.service_prices[index].toFixed(2) : '0.00'}</span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="flex justify-between text-sm">
+                          <span>{job.service_name || 'Service'}</span>
+                          <span>${calculateTotalPrice().toFixed(2)}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
 
-Thank you for choosing our services.
+                  {/* Financial Summary */}
+                  <div className="bg-white border border-gray-200 rounded-lg p-4">
+                    <h4 className="font-medium text-gray-900 mb-3">Financial Summary</h4>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span>Subtotal</span>
+                        <span>${calculateTotalPrice().toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span>Total</span>
+                        <span>${calculateTotalPrice().toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span>Total Paid</span>
+                        <span>$0.00</span>
+                      </div>
+                      <div className="flex justify-between font-semibold border-t pt-2">
+                        <span>Total Due</span>
+                        <span>${calculateTotalPrice().toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
 
-Best regards,
-Your Service Team`}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
+                  {/* Closing Message */}
+                  <div className="text-center text-sm text-gray-600">
+                    We appreciate your business.
+                  </div>
+
+                  {/* Pay Invoice Button (if payment link is enabled) */}
+                  {includePaymentLink && (
+                    <div className="text-center">
+                      <button className="px-6 py-3 bg-yellow-500 text-white font-semibold rounded-lg hover:bg-yellow-600 transition-colors">
+                        Pay Invoice
+                      </button>
+                </div>
+                  )}
+
+                  {/* Test Email Button */}
+                  <div className="text-center">
+                    <button 
+                      onClick={handleTestEmail}
+                      className="px-4 py-2 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600 transition-colors"
+                    >
+                      Test Email
+                    </button>
                   </div>
                 </div>
                 
-                <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 mt-6">
+                <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 mt-6 pt-4 border-t">
                   <button
                     onClick={() => setShowSendInvoiceModal(false)}
                     className="px-4 py-2 text-gray-600 hover:text-gray-800 order-2 sm:order-1"
@@ -2733,7 +2908,7 @@ Your Service Team`}
                     onClick={handleSendInvoice}
                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 order-1 sm:order-2"
                   >
-                    Send Invoice
+                    Send
                   </button>
                 </div>
               </div>

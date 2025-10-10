@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import Sidebar from "../../components/sidebar"
 import MobileHeader from "../../components/mobile-header"
+import NotificationTestButton from "../../components/NotificationTestButton"
 import { ChevronLeft, Mail, MessageSquare, Check, X } from "lucide-react"
 import { notificationTemplatesAPI, notificationSettingsAPI } from "../../services/api"
 import { useAuth } from "../../context/AuthContext"
@@ -231,6 +232,13 @@ const AppointmentConfirmation = () => {
                           </span>
                         </div>
                       </div>
+                      
+                      {/* Test Button for Email */}
+                      <NotificationTestButton 
+                        notificationType="Appointment Confirmation"
+                        messageType="email"
+                        templateContent="<h2>Appointment Confirmed!</h2><p>Hi John,</p><p>Great news! Your appointment has been confirmed.</p><p><strong>Service:</strong> Home Cleaning</p><p><strong>Date:</strong> March 15, 2025</p><p><strong>Time:</strong> 10:00 AM - 12:00 PM</p><p><strong>Location:</strong> 123 Main St, Brooklyn, NY</p><p>We look forward to serving you!</p><p>Best regards,<br />The Team at Just web Agency</p>"
+                      />
                     </div>
                   )}
 
@@ -262,6 +270,13 @@ const AppointmentConfirmation = () => {
                           </span>
                         </div>
                       </div>
+                      
+                      {/* Test Button for SMS */}
+                      <NotificationTestButton 
+                        notificationType="Appointment Confirmation"
+                        messageType="sms"
+                        templateContent="Hi John! Your appointment for Home Cleaning on March 15, 2025 at 10:00 AM has been confirmed. We look forward to serving you! - Just web Agency"
+                      />
                     </div>
                   )}
                 </div>

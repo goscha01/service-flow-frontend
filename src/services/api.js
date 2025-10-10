@@ -1671,6 +1671,28 @@ export const twilioAPI = {
     } catch (error) {
       throw error;
     }
+  },
+
+  // Get current default phone number
+  getDefaultPhoneNumber: async () => {
+    try {
+      const response = await api.get('/twilio/default-phone-number');
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Set default phone number
+  setDefaultPhoneNumber: async (phoneNumber) => {
+    try {
+      const response = await api.post('/twilio/set-default-phone-number', {
+        phoneNumber
+      });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
   }
 };
 

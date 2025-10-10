@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import Sidebar from "../../components/sidebar"
 import MobileHeader from "../../components/mobile-header"
+import NotificationTestButton from "../../components/NotificationTestButton"
 import { ChevronLeft, Mail } from "lucide-react"
 
 const Invoice = () => {
@@ -72,6 +73,13 @@ const Invoice = () => {
                       </span>
                     </div>
                   </div>
+                  
+                  {/* Test Button for Email */}
+                  <NotificationTestButton 
+                    notificationType="Invoice"
+                    messageType="email"
+                    templateContent="<h2>Invoice #INV-001</h2><p>Hi John,</p><p>Please find attached your invoice for the services provided.</p><p><strong>Service:</strong> Home Cleaning</p><p><strong>Date:</strong> March 15, 2025</p><p><strong>Amount:</strong> $150.00</p><p><strong>Due Date:</strong> March 22, 2025</p><p>Thank you for your business!</p><p>Best regards,<br />The Team at Just web Agency</p>"
+                  />
                 </div>
 
                 {/* Logo Settings */}
