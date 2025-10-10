@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { Phone, Settings, CheckCircle, AlertCircle, ExternalLink, ChevronLeft } from 'lucide-react';
+import { Phone, CheckCircle, AlertCircle, ExternalLink, ChevronLeft } from 'lucide-react';
 import TwilioAPISetup from '../../components/TwilioAPISetup';
+import DefaultPhoneSelector from '../../components/DefaultPhoneSelector';
 import Sidebar from '../../components/sidebar';
 import MobileHeader from '../../components/mobile-header';
 
@@ -73,6 +74,9 @@ const TwilioSettings = () => {
             setError(error.message || 'Failed to connect Twilio account');
           }}
         />
+
+        {/* Default Phone Number Selector */}
+        <DefaultPhoneSelector />
 
         {/* Features */}
         <div className="bg-white border border-gray-200 rounded-lg p-6">

@@ -36,6 +36,9 @@ import PublicBooking from "./pages/public-booking"
 import PublicQuote from "./pages/public-quote"
 import DemoPublicPages from "./pages/demo-public-pages"
 import CustomerPortal from "./pages/customer-portal"
+import PaymentSuccess from "./pages/payment-success"
+import InvoiceDisplay from "./pages/invoice-display"
+import PaymentProcessing from "./pages/payment-processing"
 
 // Settings Pages
 import FeedbackReviews from "./pages/settings/feedback-reviews"
@@ -57,6 +60,7 @@ import AccountDetails from "./pages/settings/account-details"
 import BillingSettings from "./pages/settings/billing"
 import TwilioSettings from "./pages/settings/twilio"
 import StripeConnectSettings from "./pages/settings/stripe-connect"
+import NotificationTestingSettings from "./pages/settings/notification-testing"
 import CreateRecurringBooking from "./pages/createjob"
 import LocationAvailability from "./pages/settings/location-availability"
 import QuoteRequestProcessing from "./pages/settings/quote-request-processing"
@@ -139,6 +143,7 @@ root.render(
       <Route path="settings/branding" element={<BrandingSettings />} />
       <Route path="settings/feedback-reviews" element={<FeedbackReviews />} />
       <Route path="settings/client-team-notifications" element={<ClientTeamNotifications />} />
+      <Route path="settings/client-team-notifications/notification-testing" element={<NotificationTestingSettings />} />
       <Route path="settings/client-team-notifications/quote-request-processing" element={<QuoteRequestProcessing />} />
       <Route path="settings/client-team-notifications/job-follow-up" element={<JobFollowUp />} />
       <Route path="settings/client-team-notifications/booking-request-acknowledgment" element={<BookingRequestAcknowledgment />} />
@@ -180,6 +185,12 @@ root.render(
       <Route path="quote" element={<PublicQuote />} />
       <Route path="demo-public-pages" element={<DemoPublicPages />} />
       <Route path="customer-portal" element={<CustomerPortal />} />
+      <Route path="payment-success" element={<PaymentSuccess />} />
+      
+      {/* Public Invoice Payment Routes - No authentication required */}
+      <Route path="public/invoice/:invoiceId" element={<InvoiceDisplay />} />
+      <Route path="public/payment/:invoiceId" element={<PaymentProcessing />} />
+      <Route path="public/payment-success/:invoiceId" element={<PaymentSuccess />} />
       
       {/* Team Member Routes */}
       <Route path="team-member/login" element={<TeamMemberLogin />} />

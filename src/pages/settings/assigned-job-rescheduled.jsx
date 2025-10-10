@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import Sidebar from "../../components/sidebar"
 import MobileHeader from "../../components/mobile-header"
+import NotificationTestButton from "../../components/NotificationTestButton"
 import { ChevronLeft, Mail, MessageSquare, Bell } from "lucide-react"
 
 const AssignedJobRescheduled = () => {
@@ -120,6 +121,13 @@ const AssignedJobRescheduled = () => {
                         </span>
                       </div>
                     </div>
+                    
+                    {/* Test Button */}
+                    <NotificationTestButton 
+                      notificationType="Assigned Job Rescheduled"
+                      messageType={activeTab === "email" ? "email" : activeTab === "sms" ? "sms" : "both"}
+                      templateContent={activeTab === "email" ? "<h2>Job Rescheduled</h2><p>Hi Sarah,</p><p>The job you were assigned to has been rescheduled.</p><p><strong>Service:</strong> Home Cleaning</p><p><strong>New Date:</strong> March 16, 2025</p><p><strong>New Time:</strong> 2:00 PM - 4:00 PM</p><p><strong>Previous Date:</strong> March 15, 2025 at 10:00 AM</p><p><strong>Customer:</strong> John Doe</p><p>Please update your schedule accordingly.</p><p>Best regards,<br />The Team at Just web Agency</p>" : activeTab === "sms" ? "Hi Sarah! The Home Cleaning job has been rescheduled to March 16, 2025 at 2:00 PM. Previous: March 15 at 10:00 AM. Customer: John Doe. Please update your schedule. - Just web Agency" : ""}
+                    />
                   </div>
                 </div>
 

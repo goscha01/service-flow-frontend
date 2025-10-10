@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import Sidebar from "../../components/sidebar"
 import MobileHeader from "../../components/mobile-header"
+import NotificationTestButton from "../../components/NotificationTestButton"
 import { ChevronLeft, Mail, MessageSquare } from "lucide-react"
 
 const RecurringBookingCancelled = () => {
@@ -99,6 +100,13 @@ const RecurringBookingCancelled = () => {
                           </span>
                         </div>
                       </div>
+                      
+                      {/* Test Button for Email */}
+                      <NotificationTestButton 
+                        notificationType="Recurring Booking Cancelled"
+                        messageType="email"
+                        templateContent="<h2>Recurring Booking Cancelled</h2><p>Hi John,</p><p>Your recurring booking has been cancelled.</p><p><strong>Service:</strong> Standard Home Cleaning</p><p><strong>Frequency:</strong> Every 2 weeks</p><p><strong>Last Appointment:</strong> March 15, 2025</p><p>All future appointments have been removed from your schedule.</p><p>If you'd like to reschedule or set up a new recurring service, please contact us.</p><p>Best regards,<br />The Team at Just web Agency</p>"
+                      />
                     </div>
                   )}
 
@@ -130,6 +138,13 @@ const RecurringBookingCancelled = () => {
                           </span>
                         </div>
                       </div>
+                      
+                      {/* Test Button for SMS */}
+                      <NotificationTestButton 
+                        notificationType="Recurring Booking Cancelled"
+                        messageType="sms"
+                        templateContent="Hi John! Your recurring booking for Standard Home Cleaning (every 2 weeks) has been cancelled. All future appointments are removed. Contact us to reschedule or set up a new recurring service. - Just web Agency"
+                      />
                     </div>
                   )}
                 </div>

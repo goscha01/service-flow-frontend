@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import Sidebar from "../../components/sidebar"
 import MobileHeader from "../../components/mobile-header"
+import NotificationTestButton from "../../components/NotificationTestButton"
 import { ChevronLeft, Mail } from "lucide-react"
 
 const ContactCustomer = () => {
@@ -72,6 +73,13 @@ const ContactCustomer = () => {
                       </span>
                     </div>
                   </div>
+                  
+                  {/* Test Button for Email */}
+                  <NotificationTestButton 
+                    notificationType="Contact Customer"
+                    messageType="email"
+                    templateContent="<h2>Message from Just web Agency</h2><p>Hi John,</p><p>We hope this message finds you well.</p><p>We wanted to reach out regarding your recent service with us.</p><p>If you have any questions or concerns, please don't hesitate to contact us.</p><p>Thank you for choosing our services!</p><p>Best regards,<br />The Team at Just web Agency</p>"
+                  />
                 </div>
 
                 {/* Logo Settings */}

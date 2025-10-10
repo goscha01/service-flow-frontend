@@ -14,17 +14,17 @@ const ClientTeamNotifications = () => {
     {
       title: "Quote Request Processing",
       description: "Sent automatically to the customer after a quote request is made.",
-      types: ["Email"],
+      types: ["SMS", "Email"],
     },
     {
       title: "Job Follow-up",
       description: "Sent to customers after a job is marked as complete, prompting them to rate their service.",
-      types: ["Email"],
+      types: ["SMS", "Email"],
     },
     {
       title: "Booking Request Acknowledgment",
       description: "Sent automatically to the customer after a booking request is submitted.",
-      types: ["Email"],
+      types: ["SMS", "Email"],
     },
     {
       title: "Appointment Cancelled",
@@ -98,7 +98,7 @@ const ClientTeamNotifications = () => {
     {
       title: "Team Member Invite",
       description: "Sent to newly added team members with account activation instructions.",
-      types: [],
+      types: ["SMS", "Email"],
     },
     {
       title: "Recurring Assignment",
@@ -238,6 +238,34 @@ const ClientTeamNotifications = () => {
                 {teamNotifications.map((notification, index) => (
                   <NotificationRow key={index} notification={notification} isTeam />
                 ))}
+              </div>
+            </div>
+
+            {/* Notification Testing */}
+            <div>
+              <div className="mb-6">
+                <h2 className="text-xl font-semibold text-gray-900 mb-2">Notification Testing</h2>
+                <p className="text-gray-600">
+                  Test your email and SMS notifications to ensure they're working correctly. Send test messages to verify your notification setup.
+                </p>
+              </div>
+
+              <div className="bg-white rounded-lg border border-gray-200 p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">Test Notifications</h3>
+                    <p className="text-gray-600 mt-1">
+                      Send test emails and SMS messages to verify your notification configuration is working properly.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => navigate("/settings/client-team-notifications/notification-testing")}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 flex items-center space-x-2"
+                  >
+                    <span>Test Notifications</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             </div>
 

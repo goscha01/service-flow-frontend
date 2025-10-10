@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import Sidebar from "../../components/sidebar"
 import MobileHeader from "../../components/mobile-header"
+import NotificationTestButton from "../../components/NotificationTestButton"
 import { ChevronLeft, Mail, MessageSquare, Bell } from "lucide-react"
 
 const AssignedJobCancelled = () => {
@@ -121,6 +122,13 @@ const AssignedJobCancelled = () => {
                         </span>
                       </div>
                     </div>
+                    
+                    {/* Test Button */}
+                    <NotificationTestButton 
+                      notificationType="Assigned Job Cancelled"
+                      messageType={activeTab === "email" ? "email" : activeTab === "sms" ? "sms" : "both"}
+                      templateContent={activeTab === "email" ? "<h2>Job Cancelled</h2><p>Hi Sarah,</p><p>Unfortunately, the job you were assigned to has been cancelled.</p><p><strong>Service:</strong> Home Cleaning</p><p><strong>Date:</strong> March 15, 2025</p><p><strong>Time:</strong> 10:00 AM - 12:00 PM</p><p><strong>Customer:</strong> John Doe</p><p>We apologize for any inconvenience. You will be notified of new job opportunities.</p><p>Best regards,<br />The Team at Just web Agency</p>" : activeTab === "sms" ? "Hi Sarah! The Home Cleaning job for March 15 at 10:00 AM has been cancelled. Customer: John Doe. We'll notify you of new opportunities. - Just web Agency" : ""}
+                    />
                   </div>
                 </div>
 
