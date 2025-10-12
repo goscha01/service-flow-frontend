@@ -9,6 +9,8 @@ const PaymentSuccess = () => {
   const [loading, setLoading] = useState(true);
   const [payment, setPayment] = useState(null);
   const [invoice, setInvoice] = useState(null);
+  const [downloading, setDownloading] = useState(false);
+  const [emailing, setEmailing] = useState(false);
 
   const paymentIntentId = searchParams.get('payment_intent');
   const transactionId = searchParams.get('transaction_id');
@@ -58,18 +60,82 @@ const PaymentSuccess = () => {
     }
   };
 
-  const handleDownloadReceipt = () => {
-    // In production, this would generate and download a PDF receipt
-    console.log('Downloading receipt...');
-    // For now, just show an alert
-    alert('Receipt download functionality will be implemented');
+  const handleDownloadReceipt = async () => {
+    try {
+      setDownloading(true);
+      console.log('📄 Downloading receipt...');
+      
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://service-flow-backend-production-4568.up.railway.app/api'}/generate-receipt-pdf`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          invoiceId: invoiceId,
+          paymentIntentId: payment.id,
+          transactionId: payment.transaction_id,
+          amount: payment.amount
+        })
+      });
+      
+      if (response.ok) {
+        // Create a blob from the response
+        const blob = await response.blob();
+        
+        // Create a download link
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `receipt-${invoiceId}-${new Date().toISOString().split('T')[0]}.html`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        
+        console.log('✅ Receipt downloaded successfully');
+      } else {
+        throw new Error('Failed to generate receipt');
+      }
+    } catch (error) {
+      console.error('❌ Error downloading receipt:', error);
+      alert('Failed to download receipt. Please try again.');
+    } finally {
+      setDownloading(false);
+    }
   };
 
-  const handleEmailReceipt = () => {
-    // In production, this would send an email receipt
-    console.log('Emailing receipt...');
-    // For now, just show an alert
-    alert('Email receipt functionality will be implemented');
+  const handleEmailReceipt = async () => {
+    try {
+      setEmailing(true);
+      console.log('📧 Sending receipt email...');
+      
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://service-flow-backend-production-4568.up.railway.app/api'}/send-receipt-email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          invoiceId: invoiceId,
+          customerEmail: invoice.customerEmail,
+          paymentIntentId: payment.id,
+          amount: payment.amount
+        })
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ Receipt email sent successfully');
+        alert(`Receipt sent to ${result.email}`);
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to send email');
+      }
+    } catch (error) {
+      console.error('❌ Error sending receipt email:', error);
+      alert(`Failed to send receipt email: ${error.message}`);
+    } finally {
+      setEmailing(false);
+    }
   };
 
   if (loading) {
@@ -164,18 +230,38 @@ const PaymentSuccess = () => {
             <div className="space-y-3">
               <button
                 onClick={handleDownloadReceipt}
-                className="w-full flex items-center justify-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg transition-colors"
+                disabled={downloading}
+                className="w-full flex items-center justify-center space-x-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed text-white font-medium py-3 px-4 rounded-lg transition-colors"
               >
-                <Download className="h-4 w-4" />
-                <span>Download Receipt</span>
+                {downloading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Downloading...</span>
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4" />
+                    <span>Download Receipt</span>
+                  </>
+                )}
               </button>
               
               <button
                 onClick={handleEmailReceipt}
-                className="w-full flex items-center justify-center space-x-2 bg-gray-600 hover:bg-gray-700 text-white font-medium py-3 px-4 rounded-lg transition-colors"
+                disabled={emailing}
+                className="w-full flex items-center justify-center space-x-2 bg-gray-600 hover:bg-gray-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-medium py-3 px-4 rounded-lg transition-colors"
               >
-                <Mail className="h-4 w-4" />
-                <span>Email Receipt</span>
+                {emailing ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Sending...</span>
+                  </>
+                ) : (
+                  <>
+                    <Mail className="h-4 w-4" />
+                    <span>Email Receipt</span>
+                  </>
+                )}
               </button>
             </div>
           </div>
