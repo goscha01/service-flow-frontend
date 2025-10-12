@@ -1693,6 +1693,17 @@ export const twilioAPI = {
     } catch (error) {
       throw error;
     }
+  },
+
+  // Check if Stripe is connected
+  checkStripeStatus: async () => {
+    try {
+      const response = await api.get('/stripe/status');
+      return response.data;
+    } catch (error) {
+      console.error('Error checking Stripe status:', error);
+      throw error;
+    }
   }
 };
 

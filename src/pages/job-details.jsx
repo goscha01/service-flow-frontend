@@ -57,7 +57,7 @@ import {
   Search
 } from "lucide-react"
 import { jobsAPI, notificationAPI, territoriesAPI, teamAPI, invoicesAPI } from "../services/api"
-import api from "../services/api"
+import api, { stripeAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
 import Sidebar from "../components/sidebar"
 import MobileHeader from "../components/mobile-header"
@@ -113,6 +113,7 @@ const JobDetails = () => {
   const [showDiscountModal, setShowDiscountModal] = useState(false)
   const [showTipModal, setShowTipModal] = useState(false)
   const [includePaymentLink, setIncludePaymentLink] = useState(true)
+  const [stripeConnected, setStripeConnected] = useState(false)
   
   // Address autopopulation state
   const [addressAutoPopulated, setAddressAutoPopulated] = useState(false)
@@ -245,6 +246,39 @@ const JobDetails = () => {
     }
   }, [showRescheduleModal, job])
 
+  // Fetch invoice status for payment information
+  const fetchInvoiceStatus = async (jobId) => {
+    try {
+      console.log('💳 Fetching invoice status for job:', jobId)
+      
+      // Check if there's an invoice for this job
+      const response = await api.get(`/invoices?job_id=${jobId}`)
+      
+      if (response.data && response.data.length > 0) {
+        const invoice = response.data[0] // Get the first invoice
+        console.log('💳 Invoice found:', invoice)
+        
+        // Update job with invoice status
+        setJob(prev => ({
+          ...prev,
+          invoice_status: invoice.status,
+          invoice_id: invoice.id
+        }))
+      } else {
+        console.log('💳 No invoice found for job')
+        // Set to no invoice status
+        setJob(prev => ({
+          ...prev,
+          invoice_status: 'none',
+          invoice_id: null
+        }))
+      }
+    } catch (error) {
+      console.error('💳 Error fetching invoice status:', error)
+      // Don't show error to user, just log it
+    }
+  }
+
   // Fetch job data
   useEffect(() => {
     const fetchJob = async () => {
@@ -275,6 +309,9 @@ const JobDetails = () => {
         });
         
         setJob(mappedJobData)
+        
+        // Fetch invoice status to show payment information
+        await fetchInvoiceStatus(mappedJobData.id)
         
         // Initialize form data
         setFormData({
@@ -384,6 +421,31 @@ const JobDetails = () => {
     }
     fetchInvoice()
   }, [job])
+
+  // Check Stripe connection status
+  useEffect(() => {
+    const checkStripeStatus = async () => {
+      try {
+        console.log('🔍 Checking Stripe status...')
+        const response = await stripeAPI.testConnection()
+        console.log('🔍 Stripe status response:', response)
+        setStripeConnected(response.connected)
+        // If Stripe is not connected, disable payment link
+        if (!response.connected) {
+          setIncludePaymentLink(false)
+        } else {
+          // If Stripe is connected, enable payment link by default
+          setIncludePaymentLink(true)
+        }
+      } catch (error) {
+        console.error('Error checking Stripe status:', error)
+        setStripeConnected(false)
+        setIncludePaymentLink(false)
+      }
+    }
+    
+    checkStripeStatus()
+  }, [])
 
   const statusOptions = [
     { key: 'pending', label: 'Pending', color: 'bg-gray-400' },
@@ -632,15 +694,33 @@ const JobDetails = () => {
       // First, create an invoice record
       const calculatedAmount = calculateTotalPrice();
       console.log('💰 Creating invoice with amount:', calculatedAmount);
+      console.log('💰 Job data for calculation:', {
+        jobTotal: job.total,
+        servicePrice: job.service_price,
+        additionalFees: job.additional_fees,
+        taxes: job.taxes,
+        discount: job.discount,
+        tip: formData.tip
+      });
       
-      const invoiceResponse = await api.post('/create-invoice', {
+      // Validate amount before sending
+      if (calculatedAmount <= 0) {
+        setError('Invoice amount must be greater than $0. Please check the job pricing.');
+        return;
+      }
+      
+      const createInvoiceData = {
         jobId: job.id,
         customerId: job.customer_id,
         amount: calculatedAmount,
         taxAmount: 0, // You can calculate tax if needed
         totalAmount: calculatedAmount,
         dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] // 7 days from now
-      })
+      };
+      
+      console.log('💰 Sending invoice data to server:', createInvoiceData);
+      
+      const invoiceResponse = await api.post('/create-invoice', createInvoiceData)
       
       const invoice = invoiceResponse.data
       console.log('📄 Invoice created:', invoice)
@@ -1665,6 +1745,33 @@ const JobDetails = () => {
                 <div className="text-right">
                   <p className="text-sm text-gray-600 mb-1">Amount due</p>
                   <p className="text-lg font-semibold text-red-600 underline">${calculateTotalPrice().toFixed(2)}</p>
+                </div>
+                </div>
+
+              {/* Payment Status Section */}
+              <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className={`w-3 h-3 rounded-full ${job.invoice_status === 'paid' ? 'bg-green-500' : job.invoice_status === 'invoiced' || job.invoice_status === 'sent' ? 'bg-yellow-500' : 'bg-gray-300'}`}></div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">
+                        {job.invoice_status === 'paid' ? 'Payment Received' : 
+                         job.invoice_status === 'invoiced' || job.invoice_status === 'sent' ? 'Invoice Sent' : 
+                         'No Invoice Sent'}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {job.invoice_status === 'paid' ? 'Customer has paid the invoice' : 
+                         job.invoice_status === 'invoiced' || job.invoice_status === 'sent' ? 'Invoice sent to customer, awaiting payment' : 
+                         'Invoice not yet sent to customer'}
+                      </p>
+                    </div>
+                  </div>
+                  {job.invoice_status === 'paid' && (
+                    <div className="flex items-center space-x-2 text-green-600">
+                      <CheckCircle className="w-5 h-5" />
+                      <span className="text-sm font-medium">Paid</span>
+                    </div>
+                  )}
                 </div>
                 </div>
 
@@ -2769,25 +2876,51 @@ const JobDetails = () => {
 
                 <div className="space-y-6">
                   {/* Payment Link Option */}
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                  <div>
+                  <div className={`flex items-center justify-between p-4 rounded-lg ${stripeConnected ? 'bg-gray-50' : 'bg-red-50 border border-red-200'}`}>
+                    <div className="flex-1">
                       <h4 className="font-medium text-gray-900">Include a link to pay this invoice online</h4>
-                      <p className="text-sm text-gray-600">Allow customer to pay directly via Stripe</p>
+                      <p className="text-sm text-gray-600">
+                        {stripeConnected 
+                          ? 'Allow customer to pay directly via Stripe' 
+                          : 'Stripe is not connected. Please connect Stripe in Settings to enable online payments.'
+                        }
+                      </p>
+                      {!stripeConnected && (
+                        <button
+                          onClick={async () => {
+                            try {
+                              console.log('🔄 Refreshing Stripe status...')
+                              const response = await stripeAPI.testConnection()
+                              console.log('🔄 Stripe refresh response:', response)
+                              setStripeConnected(response.connected)
+                              if (response.connected) {
+                                setIncludePaymentLink(true)
+                              }
+                            } catch (error) {
+                              console.error('Error refreshing Stripe status:', error)
+                            }
+                          }}
+                          className="mt-2 text-sm text-blue-600 hover:text-blue-700 underline"
+                        >
+                          Refresh Stripe Status
+                        </button>
+                      )}
                     </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
+                    <label className={`relative inline-flex items-center ${stripeConnected ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}>
                       <input
                         type="checkbox"
                         className="sr-only peer"
-                        defaultChecked
+                        checked={includePaymentLink}
+                        disabled={!stripeConnected}
                         onChange={(e) => setIncludePaymentLink(e.target.checked)}
                       />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                      <div className={`w-11 h-6 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 ${stripeConnected ? 'bg-gray-200' : 'bg-gray-300'}`}></div>
                     </label>
                   </div>
 
                   {/* Email Details */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
+                  <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Send to</label>
                     <input
                       type="email"

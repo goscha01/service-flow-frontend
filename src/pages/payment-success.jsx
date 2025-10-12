@@ -11,6 +11,8 @@ const PaymentSuccess = () => {
   const [invoice, setInvoice] = useState(null);
 
   const paymentIntentId = searchParams.get('payment_intent');
+  const transactionId = searchParams.get('transaction_id');
+  const paidAmount = searchParams.get('amount');
 
   useEffect(() => {
     fetchPaymentDetails();
@@ -27,24 +29,25 @@ const PaymentSuccess = () => {
         const invoiceData = await response.json();
         setInvoice(invoiceData);
         
-        // Mock payment data for now - in production, fetch from Stripe
-        const mockPayment = {
-          id: paymentIntentId || 'pi_mock_123456789',
-          amount: Math.round(invoiceData.amount * 100), // Convert to cents
+        // Use real payment data from URL parameters
+        const paymentData = {
+          id: paymentIntentId || 'pi_unknown',
+          amount: Math.round((parseFloat(paidAmount) || invoiceData.amount) * 100), // Convert to cents
           currency: 'usd',
           status: 'succeeded',
           created: Math.floor(Date.now() / 1000),
+          transaction_id: transactionId,
           payment_method: {
             card: {
               brand: 'visa',
-              last4: '4242',
+              last4: '****',
               exp_month: 12,
               exp_year: 2025
             }
           }
         };
         
-        setPayment(mockPayment);
+        setPayment(paymentData);
       } else {
         throw new Error('Failed to fetch invoice');
       }

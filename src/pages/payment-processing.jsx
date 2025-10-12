@@ -4,65 +4,15 @@ import { CreditCard, Lock, CheckCircle, AlertCircle, ArrowLeft } from 'lucide-re
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 
-// Initialize Stripe with error handling
-const stripePromise = (() => {
-  const publishableKey = process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY;
+// Dynamic Stripe initialization
+const initializeStripe = async (publishableKey) => {
   if (!publishableKey) {
-    console.warn('⚠️ Stripe publishable key not found. Please set REACT_APP_STRIPE_PUBLISHABLE_KEY in your .env file');
-    // Return a mock promise that will be handled in the component
-    return Promise.resolve(null);
+    console.warn('⚠️ No Stripe publishable key provided');
+    return null;
   }
   return loadStripe(publishableKey);
-})();
-
-const StripePaymentForm = ({ invoice, onSuccess, onError }) => {
-  const [stripeLoaded, setStripeLoaded] = useState(false);
-  const [stripeError, setStripeError] = useState(false);
-
-  useEffect(() => {
-    stripePromise.then((stripe) => {
-      if (stripe) {
-        setStripeLoaded(true);
-      } else {
-        setStripeError(true);
-      }
-    }).catch((error) => {
-      console.error('Error loading Stripe:', error);
-      setStripeError(true);
-    });
-  }, []);
-
-  if (stripeError) {
-    return (
-      <div className="text-center p-6 bg-red-50 border border-red-200 rounded-lg">
-        <AlertCircle className="h-8 w-8 text-red-600 mx-auto mb-2" />
-        <h3 className="text-lg font-semibold text-red-800 mb-2">Payment System Not Configured</h3>
-        <p className="text-red-600">
-          Stripe payment processing is not configured. Please contact support.
-        </p>
-      </div>
-    );
-  }
-
-  if (!stripeLoaded) {
-    return (
-      <div className="text-center p-6">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-        <p className="text-gray-600">Loading payment form...</p>
-      </div>
-    );
-  }
-
-  return (
-    <Elements stripe={stripePromise}>
-      <PaymentForm 
-        invoice={invoice} 
-        onSuccess={onSuccess}
-        onError={onError}
-      />
-    </Elements>
-  );
 };
+
 
 const PaymentForm = ({ invoice, onSuccess, onError }) => {
   const stripe = useStripe();
@@ -72,19 +22,22 @@ const PaymentForm = ({ invoice, onSuccess, onError }) => {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    console.log('💳 Payment form submitted');
 
     if (!stripe || !elements) {
+      console.error('💳 Stripe or elements not available');
       return;
     }
 
     setProcessing(true);
     setError('');
+    console.log('💳 Starting payment processing...');
 
     const cardElement = elements.getElement(CardElement);
 
     try {
       // Create payment intent on the server
-      const response = await fetch('/api/create-payment-intent', {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://service-flow-backend-production-4568.up.railway.app/api'}/create-payment-intent`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -96,6 +49,16 @@ const PaymentForm = ({ invoice, onSuccess, onError }) => {
           customerEmail: invoice.customerEmail || 'customer@example.com',
         }),
       });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('❌ Payment intent creation failed:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData
+        });
+        throw new Error(errorData.error || 'Failed to create payment intent');
+      }
 
       const { clientSecret } = await response.json();
 
@@ -114,9 +77,53 @@ const PaymentForm = ({ invoice, onSuccess, onError }) => {
         setError(stripeError.message);
         onError(stripeError.message);
       } else if (paymentIntent.status === 'succeeded') {
-        onSuccess(paymentIntent);
+        console.log('Payment succeeded:', paymentIntent);
+        
+        // Call payment success endpoint to save transaction and update invoice
+        try {
+          const successResponse = await fetch(`${process.env.REACT_APP_API_URL || 'https://service-flow-backend-production-4568.up.railway.app/api'}/payment-success`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              paymentIntentId: paymentIntent.id,
+              invoiceId: invoice.id,
+            }),
+          });
+
+          if (!successResponse.ok) {
+            const errorData = await successResponse.json();
+            throw new Error(errorData.error || 'Failed to process payment success');
+          }
+
+          const successData = await successResponse.json();
+          
+          if (successData.success) {
+            console.log('✅ Payment processed successfully:', successData);
+            onSuccess(paymentIntent, successData);
+          } else {
+            throw new Error(successData.error || 'Payment processing failed');
+          }
+        } catch (error) {
+          console.error('❌ Error processing payment success:', error);
+          console.error('❌ Error details:', {
+            message: error.message,
+            stack: error.stack,
+            paymentIntent: paymentIntent.id,
+            invoiceId: invoice.id
+          });
+          setError(`Payment succeeded but failed to process: ${error.message}`);
+          onError(error.message);
+        }
       }
     } catch (err) {
+      console.error('❌ Payment processing error:', err);
+      console.error('❌ Error details:', {
+        message: err.message,
+        stack: err.stack,
+        name: err.name
+      });
       setError('An error occurred while processing your payment.');
       onError(err.message);
     } finally {
@@ -183,22 +190,39 @@ const PaymentProcessing = () => {
   const [invoice, setInvoice] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [stripePromise, setStripePromise] = useState(null);
+  const [stripeConfig, setStripeConfig] = useState(null);
+  const [invoicePaid, setInvoicePaid] = useState(false);
 
   useEffect(() => {
     fetchInvoice();
+    fetchStripeConfig();
   }, [invoiceId]);
 
   const fetchInvoice = async () => {
     try {
       setLoading(true);
+      console.log('📄 Fetching invoice:', invoiceId);
       
       // Fetch real invoice data from backend
       const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://service-flow-backend-production-4568.up.railway.app/api'}/public/invoice/${invoiceId}`);
       
+      console.log('📄 Invoice response status:', response.status);
+      
       if (response.ok) {
         const invoiceData = await response.json();
+        console.log('📄 Invoice data:', invoiceData);
         setInvoice(invoiceData);
+        
+        // Check if invoice is already paid
+        if (invoiceData.status === 'paid') {
+          console.log('📄 Invoice already paid');
+          setError('This invoice has already been paid');
+          setInvoicePaid(true);
+        }
       } else {
+        const errorData = await response.json();
+        console.error('📄 Invoice fetch failed:', errorData);
         throw new Error('Failed to fetch invoice');
       }
     } catch (error) {
@@ -209,9 +233,46 @@ const PaymentProcessing = () => {
     }
   };
 
-  const handlePaymentSuccess = (paymentIntent) => {
-    console.log('Payment succeeded:', paymentIntent);
-    navigate(`/public/payment-success/${invoiceId}?payment_intent=${paymentIntent.id}`);
+  const fetchStripeConfig = async () => {
+    try {
+      console.log('🔑 Fetching Stripe config for invoice:', invoiceId);
+      
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://service-flow-backend-production-4568.up.railway.app/api'}/public/stripe-config/${invoiceId}`);
+      
+      if (response.ok) {
+        const config = await response.json();
+        console.log('🔑 Stripe config received:', config);
+        setStripeConfig(config);
+        
+        // Initialize Stripe with the publishable key
+        const stripe = await initializeStripe(config.publishableKey);
+        setStripePromise(stripe);
+      } else {
+        console.error('❌ Failed to fetch Stripe config:', response.status);
+        setError('Payment system not configured');
+      }
+    } catch (error) {
+      console.error('❌ Error fetching Stripe config:', error);
+      setError('Failed to load payment system');
+    }
+  };
+
+  const handlePaymentSuccess = (paymentIntent, successData) => {
+    console.log('✅ Payment succeeded:', paymentIntent);
+    console.log('✅ Payment success data:', successData);
+    console.log('✅ Navigating to receipt page...');
+    
+    // Navigate to receipt page with payment details
+    const params = new URLSearchParams({
+      payment_intent: paymentIntent.id,
+      transaction_id: successData?.transactionId || '',
+      amount: successData?.amount || invoice?.amount || 0
+    });
+    
+    const receiptUrl = `/public/payment-success/${invoiceId}?${params.toString()}`;
+    console.log('✅ Receipt URL:', receiptUrl);
+    
+    navigate(receiptUrl);
   };
 
   const handlePaymentError = (errorMessage) => {
@@ -237,6 +298,37 @@ const PaymentProcessing = () => {
           <div className="text-red-600 text-xl mb-4">❌</div>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Invoice Not Found</h2>
           <p className="text-gray-600">The invoice you're looking for doesn't exist or has been removed.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (invoicePaid) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-green-600 text-6xl mb-4">✅</div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Invoice Already Paid</h2>
+          <p className="text-gray-600 mb-6">This invoice has already been paid and cannot be paid again.</p>
+          <div className="bg-white rounded-lg shadow-lg p-6 max-w-md mx-auto">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Payment Details</h3>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Amount:</span>
+                <span className="font-semibold">${invoice.amount}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Status:</span>
+                <span className="text-green-600 font-semibold">Paid</span>
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={() => navigate(`/public/invoice/${invoiceId}`)}
+            className="mt-6 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
+          >
+            View Invoice
+          </button>
         </div>
       </div>
     );
@@ -336,11 +428,36 @@ const PaymentProcessing = () => {
               </div>
             </div>
 
-            <StripePaymentForm 
-              invoice={invoice} 
-              onSuccess={handlePaymentSuccess}
-              onError={handlePaymentError}
-            />
+            {!stripeConfig ? (
+              <div className="text-center p-6">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                <p className="text-gray-600">Loading payment system...</p>
+              </div>
+            ) : !stripeConfig.connected ? (
+              <div className="text-center p-6 bg-red-50 border border-red-200 rounded-lg">
+                <AlertCircle className="h-8 w-8 text-red-600 mx-auto mb-2" />
+                <h3 className="text-lg font-semibold text-red-800 mb-2">Payment Not Available</h3>
+                <p className="text-red-600">
+                  Online payments are not configured for this invoice. Please contact the business directly.
+                </p>
+              </div>
+            ) : stripePromise ? (
+              <Elements stripe={stripePromise}>
+                <PaymentForm 
+                  invoice={invoice} 
+                  onSuccess={handlePaymentSuccess}
+                  onError={handlePaymentError}
+                />
+              </Elements>
+            ) : (
+              <div className="text-center p-6 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <AlertCircle className="h-8 w-8 text-yellow-600 mx-auto mb-2" />
+                <h3 className="text-lg font-semibold text-yellow-800 mb-2">Payment System Error</h3>
+                <p className="text-yellow-600">
+                  There was an error loading the payment system. Please try again.
+                </p>
+              </div>
+            )}
 
             <div className="mt-6 flex items-center space-x-2 text-sm text-gray-500">
               <Lock className="h-4 w-4" />
