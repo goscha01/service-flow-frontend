@@ -246,38 +246,127 @@ const JobDetails = () => {
     }
   }, [showRescheduleModal, job])
 
-  // Fetch invoice status for payment information
+  // Fetch payment status from transactions table
   const fetchInvoiceStatus = async (jobId) => {
     try {
-      console.log('💳 Fetching invoice status for job:', jobId)
+      console.log('💳 Checking payment status for job:', jobId)
+      console.log('💳 API URL:', `${process.env.REACT_APP_API_URL || 'https://service-flow-backend-production-4568.up.railway.app/api'}/transactions/job/${jobId}`)
       
-      // Check if there's an invoice for this job
-      const response = await api.get(`/invoices?job_id=${jobId}`)
+      // Check transactions for this job
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://service-flow-backend-production-4568.up.railway.app/api'}/transactions/job/${jobId}`)
       
-      if (response.data && response.data.length > 0) {
-        const invoice = response.data[0] // Get the first invoice
-        console.log('💳 Invoice found:', invoice)
+      console.log('💳 Transaction API response status:', response.status)
+      
+      if (response.ok) {
+        const data = await response.json()
+        console.log('💳 Transaction API response data:', data)
         
-        // Update job with invoice status
-        setJob(prev => ({
-          ...prev,
-          invoice_status: invoice.status,
-          invoice_id: invoice.id
-        }))
+        const { hasPayment, totalPaid, transactionCount, transactions } = data
+        
+        console.log('💳 Payment status:', { hasPayment, totalPaid, transactionCount })
+        
+        if (hasPayment && totalPaid > 0) {
+          // Payment found - job is paid
+          console.log('💳 Job is PAID - found', transactionCount, 'transactions totaling $', totalPaid)
+          
+          setJob(prev => {
+            console.log('💳 Updating job status to PAID')
+            return {
+              ...prev,
+              invoice_status: 'paid',
+              total_paid_amount: totalPaid,
+              total_invoice_amount: totalPaid, // For paid jobs, invoice amount = paid amount
+              transaction_count: transactionCount
+            }
+          })
+        } else {
+          // No payment found - check if there are invoices
+          console.log('💳 No payment found, checking for invoices...')
+          
+          try {
+            const invoiceResponse = await api.get(`/invoices?job_id=${jobId}`)
+            console.log('💳 Invoice check result:', invoiceResponse.data)
+            
+            if (invoiceResponse.data && invoiceResponse.data.length > 0) {
+              const invoices = invoiceResponse.data
+              let overallStatus = 'none'
+              let totalAmount = 0
+              let latestInvoice = null
+              
+              invoices.forEach(invoice => {
+                totalAmount += parseFloat(invoice.total_amount || 0)
+                
+                if (invoice.status === 'sent' || invoice.status === 'invoiced') {
+                  if (overallStatus === 'none') {
+                    overallStatus = 'invoiced'
+                    latestInvoice = invoice
+                  }
+                } else if (invoice.status === 'draft') {
+                  if (overallStatus === 'none') {
+                    overallStatus = 'draft'
+                    latestInvoice = invoice
+                  }
+                }
+              })
+              
+              setJob(prev => ({
+                ...prev,
+                invoice_status: overallStatus,
+                invoice_id: latestInvoice?.id,
+                total_invoice_amount: totalAmount,
+                total_paid_amount: 0
+              }))
+            } else {
+              // No invoices or payments
+              setJob(prev => ({
+                ...prev,
+                invoice_status: 'none',
+                invoice_id: null,
+                total_invoice_amount: 0,
+                total_paid_amount: 0
+              }))
+            }
+          } catch (invoiceError) {
+            console.error('💳 Error checking invoices:', invoiceError)
+            // Set to no invoice if we can't check
+            setJob(prev => ({
+              ...prev,
+              invoice_status: 'none',
+              invoice_id: null,
+              total_invoice_amount: 0,
+              total_paid_amount: 0
+            }))
+          }
+        }
       } else {
-        console.log('💳 No invoice found for job')
-        // Set to no invoice status
+        console.error('💳 Transaction API error:', response.status)
+        // Fallback to no payment status
         setJob(prev => ({
           ...prev,
           invoice_status: 'none',
-          invoice_id: null
+          invoice_id: null,
+          total_invoice_amount: 0,
+          total_paid_amount: 0
         }))
       }
     } catch (error) {
-      console.error('💳 Error fetching invoice status:', error)
+      console.error('💳 Error checking payment status:', error)
       // Don't show error to user, just log it
     }
   }
+
+  // Auto-refresh invoice status every 30 seconds if there's an invoice
+  useEffect(() => {
+    if (job?.id && job?.invoice_status && job.invoice_status !== 'paid') {
+      console.log('💳 Setting up auto-refresh for invoice status')
+      const interval = setInterval(() => {
+        console.log('💳 Auto-refreshing invoice status...')
+        fetchInvoiceStatus(job.id)
+      }, 30000) // 30 seconds
+
+      return () => clearInterval(interval)
+    }
+  }, [job?.id, job?.invoice_status])
 
   // Fetch job data
   useEffect(() => {
@@ -311,6 +400,7 @@ const JobDetails = () => {
         setJob(mappedJobData)
         
         // Fetch invoice status to show payment information
+        console.log('💳 About to fetch invoice status for job ID:', mappedJobData.id)
         await fetchInvoiceStatus(mappedJobData.id)
         
         // Initialize form data
@@ -1704,8 +1794,22 @@ const JobDetails = () => {
                 <div>
                   <div className="flex items-center space-x-3 mb-2">
                     <h3 className="text-2xl font-bold text-gray-900">Invoice</h3>
-                    <span className="px-3 py-1 bg-yellow-100 text-yellow-800 text-sm font-medium rounded-full">
-                      Unpaid
+                    <span className={`px-3 py-1 text-sm font-medium rounded-full ${
+                      job.invoice_status === 'paid' 
+                        ? 'bg-green-100 text-green-800' 
+                        : job.invoice_status === 'invoiced' || job.invoice_status === 'sent'
+                        ? 'bg-yellow-100 text-yellow-800'
+                        : job.invoice_status === 'draft'
+                        ? 'bg-blue-100 text-blue-800'
+                        : 'bg-gray-100 text-gray-800'
+                    }`}>
+                      {job.invoice_status === 'paid' 
+                        ? 'Paid' 
+                        : job.invoice_status === 'invoiced' || job.invoice_status === 'sent'
+                        ? 'Unpaid'
+                        : job.invoice_status === 'draft'
+                        ? 'Draft'
+                        : 'No Invoice'}
                     </span>
                   </div>
                   <p className="text-sm text-gray-600">Due Oct 2, 2025</p>
@@ -1740,11 +1844,15 @@ const JobDetails = () => {
               <div className="grid grid-cols-2 gap-4 mb-6">
                 <div>
                   <p className="text-sm text-gray-600 mb-1">Amount paid</p>
-                  <p className="text-lg font-semibold text-gray-900">$0.00</p>
+                  <p className="text-lg font-semibold text-gray-900">
+                    ${job.total_paid_amount ? job.total_paid_amount.toFixed(2) : '0.00'}
+                  </p>
                 </div>
                 <div className="text-right">
                   <p className="text-sm text-gray-600 mb-1">Amount due</p>
-                  <p className="text-lg font-semibold text-red-600 underline">${calculateTotalPrice().toFixed(2)}</p>
+                  <p className={`text-lg font-semibold ${job.invoice_status === 'paid' ? 'text-green-600' : 'text-red-600 underline'}`}>
+                    ${job.invoice_status === 'paid' ? '0.00' : (job.total_invoice_amount ? job.total_invoice_amount.toFixed(2) : calculateTotalPrice().toFixed(2))}
+                  </p>
                 </div>
                 </div>
 
@@ -1766,14 +1874,28 @@ const JobDetails = () => {
                       </p>
                     </div>
                   </div>
-                  {job.invoice_status === 'paid' && (
-                    <div className="flex items-center space-x-2 text-green-600">
-                      <CheckCircle className="w-5 h-5" />
-                      <span className="text-sm font-medium">Paid</span>
-                    </div>
-                  )}
+                  <div className="flex items-center space-x-2">
+                    {job.invoice_status === 'paid' && (
+                      <div className="flex items-center space-x-2 text-green-600">
+                        <CheckCircle className="w-5 h-5" />
+                        <span className="text-sm font-medium">Paid</span>
+                      </div>
+                    )}
+                    <button
+                      onClick={() => {
+                        console.log('💳 Manual refresh clicked for job ID:', job.id)
+                        fetchInvoiceStatus(job.id)
+                      }}
+                      className="text-gray-400 hover:text-gray-600 transition-colors"
+                      title="Refresh payment status"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
-                </div>
+              </div>
 
               {/* Service Details Section */}
               <div className="bg-gray-50 rounded-lg p-4 mb-6">
@@ -1895,12 +2017,16 @@ const JobDetails = () => {
                 
                 <div className="flex justify-between items-center py-2">
                   <span className="text-sm text-gray-600">Amount paid</span>
-                  <span className="text-sm font-medium text-gray-900">$0.00</span>
+                  <span className="text-sm font-medium text-gray-900">
+                    ${job.total_paid_amount ? job.total_paid_amount.toFixed(2) : '0.00'}
+                  </span>
                         </div>
                 
                 <div className="flex justify-between items-center py-2">
                   <span className="text-sm text-gray-600">Total due</span>
-                  <span className="text-sm font-medium text-gray-900">${calculateTotalPrice().toFixed(2)}</span>
+                  <span className={`text-sm font-medium ${job.invoice_status === 'paid' ? 'text-green-600' : 'text-gray-900'}`}>
+                    ${job.invoice_status === 'paid' ? '0.00' : (job.total_invoice_amount ? job.total_invoice_amount.toFixed(2) : calculateTotalPrice().toFixed(2))}
+                  </span>
                   </div>
                 </div>
 
@@ -2996,11 +3122,13 @@ const JobDetails = () => {
                       </div>
                       <div className="flex justify-between text-sm">
                         <span>Total Paid</span>
-                        <span>$0.00</span>
+                        <span>${job.total_paid_amount ? job.total_paid_amount.toFixed(2) : '0.00'}</span>
                       </div>
                       <div className="flex justify-between font-semibold border-t pt-2">
                         <span>Total Due</span>
-                        <span>${calculateTotalPrice().toFixed(2)}</span>
+                        <span className={job.invoice_status === 'paid' ? 'text-green-600' : ''}>
+                          ${job.invoice_status === 'paid' ? '0.00' : (job.total_invoice_amount ? job.total_invoice_amount.toFixed(2) : calculateTotalPrice().toFixed(2))}
+                        </span>
                       </div>
                     </div>
                   </div>
