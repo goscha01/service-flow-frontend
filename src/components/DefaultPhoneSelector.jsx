@@ -41,8 +41,11 @@ const DefaultPhoneSelector = () => {
 
   const loadCurrentDefault = async () => {
     try {
+      console.log('📞 Loading current default phone number...');
       const response = await twilioAPI.getDefaultPhoneNumber();
+      console.log('📞 Default phone response:', response);
       if (response.defaultPhoneNumber) {
+        console.log('📞 Setting selected phone to:', response.defaultPhoneNumber);
         setSelectedPhone(response.defaultPhoneNumber);
       }
     } catch (error) {
@@ -62,9 +65,11 @@ const DefaultPhoneSelector = () => {
       return;
     }
 
+    console.log('📞 Saving default phone number:', selectedPhone);
     setSaving(true);
     try {
-      await twilioAPI.setDefaultPhoneNumber(selectedPhone);
+      const response = await twilioAPI.setDefaultPhoneNumber(selectedPhone);
+      console.log('📞 Save response:', response);
       setModal({
         isOpen: true,
         title: 'Default Phone Updated',
