@@ -12,17 +12,27 @@ const DefaultPhoneSelector = () => {
 
   useEffect(() => {
     loadPhoneNumbers();
-    loadCurrentDefault();
   }, []);
+
+  // Load current default after phone numbers are loaded
+  useEffect(() => {
+    if (phoneNumbers.length > 0) {
+      loadCurrentDefault();
+    }
+  }, [phoneNumbers]);
 
   const loadPhoneNumbers = async () => {
     setLoading(true);
     try {
+      console.log('📞 Loading phone numbers...');
       const response = await twilioAPI.getPhoneNumbers();
+      console.log('📞 Phone numbers response:', response);
       if (response.phoneNumbers && response.phoneNumbers.length > 0) {
         setPhoneNumbers(response.phoneNumbers);
+        console.log('📞 Set phone numbers:', response.phoneNumbers);
         // Set first number as default if none selected
         if (!selectedPhone && response.phoneNumbers[0]) {
+          console.log('📞 Setting first phone as default:', response.phoneNumbers[0].phoneNumber);
           setSelectedPhone(response.phoneNumbers[0].phoneNumber);
         }
       }
@@ -47,10 +57,20 @@ const DefaultPhoneSelector = () => {
       if (response.defaultPhoneNumber) {
         console.log('📞 Setting selected phone to:', response.defaultPhoneNumber);
         setSelectedPhone(response.defaultPhoneNumber);
+      } else {
+        // If no default is set, use the first available phone number
+        if (phoneNumbers.length > 0) {
+          console.log('📞 No default set, using first available phone:', phoneNumbers[0].phoneNumber);
+          setSelectedPhone(phoneNumbers[0].phoneNumber);
+        }
       }
     } catch (error) {
       console.error('Error loading default phone number:', error);
-      // Don't show error modal for this, just use first available number
+      // If error loading default, use first available number
+      if (phoneNumbers.length > 0) {
+        console.log('📞 Error loading default, using first available phone:', phoneNumbers[0].phoneNumber);
+        setSelectedPhone(phoneNumbers[0].phoneNumber);
+      }
     }
   };
 
