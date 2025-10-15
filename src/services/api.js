@@ -44,11 +44,19 @@ api.interceptors.response.use(
       
       switch (status) {
         case 401:
-          console.error('Unauthorized - redirecting to login');
-          localStorage.removeItem('authToken');
-          localStorage.removeItem('user');
-          // Redirect to signin page
-          window.location.href = '/signin';
+          console.error('Unauthorized - checking if payment context');
+          // Only redirect to login if not in payment context
+          const isPaymentContext = window.location.pathname.includes('/payment') || 
+                                   window.location.pathname.includes('/public/');
+          
+          if (!isPaymentContext) {
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('user');
+            // Redirect to signin page
+            window.location.href = '/signin';
+          } else {
+            console.log('Payment context detected - not redirecting to login');
+          }
           break;
         case 403:
           console.error('Access forbidden');
