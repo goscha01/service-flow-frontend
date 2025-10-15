@@ -185,6 +185,8 @@ const JobDetails = () => {
   const [smsNotifications, setSmsNotifications] = useState(false)
   const [intakeQuestionAnswers, setIntakeQuestionAnswers] = useState({})
   const [originalJobData, setOriginalJobData] = useState(null)
+  const [manualEmail, setManualEmail] = useState('')
+  const [isRetrying, setIsRetrying] = useState(false)
 
   // Helper function to map job data from API response
   const mapJobData = (jobData) => {
@@ -368,16 +370,16 @@ const JobDetails = () => {
     }
   }, [job?.id, job?.invoice_status])
 
-  // Fetch job data
+  // Fetch job data with Windows Defender/Firewall retry logic
   useEffect(() => {
-    const fetchJob = async () => {
+    const fetchJob = async (retryCount = 0) => {
       // Wait a bit to ensure authentication state is ready
       await new Promise(resolve => setTimeout(resolve, 100))
       
       setLoading(true)
       setError("") // Clear any previous errors
       try {
-        console.log('🔧 Job Details: Fetching job data for ID:', jobId)
+        console.log('🔧 Job Details: Fetching job data for ID:', jobId, retryCount > 0 ? `(retry ${retryCount})` : '')
         const jobData = await jobsAPI.getById(jobId)
         
         
@@ -457,9 +459,22 @@ const JobDetails = () => {
       } catch (err) {
         console.error('Error fetching job:', err)
         
+        // Handle Windows Defender/Firewall CORS preflight issues with retry
+        if ((err.code === 'ERR_NETWORK' || err.message?.includes('CORS') || err.message?.includes('preflight') || err.message?.includes('Failed to fetch')) && retryCount < 3) {
+          console.log(`🔄 Windows Defender/Firewall CORS issue detected, retrying in ${(retryCount + 1) * 2} seconds... (attempt ${retryCount + 1}/3)`)
+          
+          setIsRetrying(true)
+          
+          // Wait longer between retries for Windows Defender/firewall issues
+          await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 2000))
+          
+          // Retry the request
+          return fetchJob(retryCount + 1)
+        }
+        
         // Handle specific error types
         if (err.code === 'ERR_NETWORK' || err.message?.includes('CORS') || err.message?.includes('preflight')) {
-          setError("Network error: Unable to load job details. Please check your connection and try again.")
+          setError("Network error: Unable to load job details. This may be due to Windows Defender/firewall blocking the request. Please check your connection and try again.")
         } else if (err.response?.status === 404) {
           setError("Job not found. It may have been deleted.")
         } else if (err.response?.status === 401) {
@@ -470,6 +485,7 @@ const JobDetails = () => {
         }
       } finally {
         setLoading(false)
+        setIsRetrying(false)
       }
     }
     if (jobId) fetchJob()
@@ -816,10 +832,18 @@ const JobDetails = () => {
       console.log('📄 Invoice created:', invoice)
       
       // Send invoice email with the created invoice ID
+      // Use manual email if provided, otherwise fall back to customer email
+      const emailToUse = manualEmail || job.customer_email;
+      
+      if (!emailToUse) {
+        setError('Please enter a customer email address');
+        return;
+      }
+      
       const invoiceData = {
         invoiceId: invoice.id,
         jobId: job.id,
-        customerEmail: job.customer_email,
+        customerEmail: emailToUse,
         customerName: `${job.customer_first_name} ${job.customer_last_name}`,
         amount: calculateTotalPrice(),
         serviceName: job.service_name,
@@ -847,6 +871,7 @@ const JobDetails = () => {
       setSuccessMessage('Invoice sent successfully!')
       setTimeout(() => setSuccessMessage(""), 3000)
       setShowSendInvoiceModal(false)
+      setManualEmail('') // Clear manual email after successful send
     } catch (error) {
       console.error('Error sending invoice:', error)
       setError('Failed to send invoice')
@@ -1254,7 +1279,17 @@ const JobDetails = () => {
   if (loading || !job) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <span className="text-gray-500 text-lg">Loading job details...</span>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <span className="text-gray-500 text-lg">
+            {isRetrying ? 'Retrying connection...' : 'Loading job details...'}
+          </span>
+          {isRetrying && (
+            <p className="text-sm text-gray-400 mt-2">
+              Windows Defender/firewall may be blocking the request. Retrying...
+            </p>
+          )}
+        </div>
       </div>
     )
   }
@@ -2993,7 +3028,10 @@ const JobDetails = () => {
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="text-xl font-semibold text-gray-900">Email Invoice</h3>
                   <button
-                    onClick={() => setShowSendInvoiceModal(false)}
+                    onClick={() => {
+                      setShowSendInvoiceModal(false);
+                      setManualEmail('');
+                    }}
                     className="text-gray-400 hover:text-gray-600 p-1"
                   >
                     <X className="w-5 h-5" />
@@ -3050,7 +3088,8 @@ const JobDetails = () => {
                       <label className="block text-sm font-medium text-gray-700 mb-2">Send to</label>
                     <input
                       type="email"
-                      defaultValue={job.customer_email}
+                      value={manualEmail || job.customer_email || ''}
+                      onChange={(e) => setManualEmail(e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       placeholder="Enter email address"
                     />
@@ -3160,7 +3199,10 @@ const JobDetails = () => {
                 
                 <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 mt-6 pt-4 border-t">
                   <button
-                    onClick={() => setShowSendInvoiceModal(false)}
+                    onClick={() => {
+                      setShowSendInvoiceModal(false);
+                      setManualEmail('');
+                    }}
                     className="px-4 py-2 text-gray-600 hover:text-gray-800 order-2 sm:order-1"
                   >
                     Cancel

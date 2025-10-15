@@ -14,6 +14,7 @@ import { normalizeAPIResponse, handleAPIError } from "../utils/dataHandler"
 const ServiceFlowDashboard = () => {
   const { user } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [isWakingUp, setIsWakingUp] = useState(true)
   
   // Helper function to get today's date in local timezone
   const getTodayString = () => {
@@ -333,6 +334,52 @@ const ServiceFlowDashboard = () => {
     
     console.log('🔍 Setup section dismissed from localStorage:', dismissed)
     console.log('✅ Complete cache and cookie cleanup completed')
+  }, [])
+
+  // Keepalive ping to prevent Railway backend from sleeping
+  useEffect(() => {
+    const backendUrl = process.env.REACT_APP_API_URL || 'https://service-flow-backend-production-4568.up.railway.app/api';
+    
+    // Ping the backend every 10 minutes to keep it warm
+    const keepWarm = setInterval(async () => {
+      try {
+        await fetch(`${backendUrl}/health`, {
+          method: 'HEAD',
+        });
+        console.log('✅ Backend keepalive ping successful');
+      } catch (error) {
+        console.log('⚠️ Keepalive ping failed (normal if backend is sleeping)');
+      }
+    }, 10 * 60 * 1000); // 10 minutes
+
+    // Initial ping on app load
+    fetch(`${backendUrl}/health`, {
+      method: 'HEAD',
+    }).then(() => {
+      console.log('✅ Initial backend ping successful');
+    }).catch(() => {
+      console.log('⚠️ Initial backend ping failed (normal if backend is sleeping)');
+    });
+
+    return () => clearInterval(keepWarm);
+  }, [])
+
+  // Check if backend is ready on initial load
+  useEffect(() => {
+    const checkBackend = async () => {
+      try {
+        const backendUrl = process.env.REACT_APP_API_URL || 'https://service-flow-backend-production-4568.up.railway.app/api';
+        await fetch(`${backendUrl}/health`, { method: 'HEAD' });
+        setIsWakingUp(false);
+        console.log('✅ Backend is ready');
+      } catch (error) {
+        console.log('⚠️ Backend not ready, retrying in 2 seconds...');
+        // Retry after a delay
+        setTimeout(checkBackend, 2000);
+      }
+    };
+    
+    checkBackend();
   }, [])
 
   // Silent background check if setup section should be shown based on user's data
@@ -874,6 +921,19 @@ const ServiceFlowDashboard = () => {
     console.log(`✅ Setup tasks completed: ${completedCount}/${updatedTasks.length}`)
     
     return updatedTasks
+  }
+
+  // Show loading state while backend is waking up
+  if (isWakingUp) {
+    return (
+      <div className="flex h-screen bg-gray-50 items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Connecting to server...</h2>
+          <p className="text-gray-600">Please wait while we wake up the backend</p>
+        </div>
+      </div>
+    );
   }
 
   return (
