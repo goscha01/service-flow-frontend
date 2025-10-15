@@ -24,13 +24,70 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor for error handling
+// Response interceptor for error handling with retry logic
 api.interceptors.response.use(
   (response) => {
     console.log('API Response:', response.status, response.config.url);
     return response;
   },
-  (error) => {
+  async (error) => {
+    const config = error.config;
+    
+    // Don't retry if we've already retried or if it's not a network error
+    if (config.__retryCount >= 2 || error.response?.status) {
+      // Handle non-network errors normally
+      if (error.response) {
+        const { status, data } = error.response;
+        
+        switch (status) {
+          case 401:
+            console.error('Unauthorized - checking if payment context');
+            // Only redirect to login if not in payment context
+            const isPaymentContext = window.location.pathname.includes('/payment') || 
+                                     window.location.pathname.includes('/public/');
+            
+            if (!isPaymentContext) {
+              localStorage.removeItem('authToken');
+              localStorage.removeItem('user');
+              // Redirect to signin page
+              window.location.href = '/signin';
+            } else {
+              console.log('Payment context detected - not redirecting to login');
+            }
+            break;
+          case 403:
+            console.error('Access forbidden');
+            break;
+          case 404:
+            console.error('Resource not found');
+            break;
+          case 500:
+            console.error('Server error occurred');
+            break;
+          default:
+            console.error('API error:', data?.error || 'Unknown error');
+        }
+      } else if (error.request) {
+        console.error('Network error - no response received');
+      } else {
+        console.error('Request setup error:', error.message);
+      }
+      
+      return Promise.reject(error);
+    }
+    
+    // Only retry on network errors (ERR_NETWORK, ERR_FAILED, timeout)
+    if (error.code === 'ERR_NETWORK' || error.message === 'Network Error' || error.code === 'ECONNABORTED') {
+      config.__retryCount = (config.__retryCount || 0) + 1;
+      
+      console.log(`🔄 Retrying request (attempt ${config.__retryCount}/2):`, config.url);
+      
+      // Wait a bit before retrying (exponential backoff)
+      await new Promise(resolve => setTimeout(resolve, 1000 * config.__retryCount));
+      
+      return api(config);
+    }
+    
     // Don't log canceled requests as errors - they're expected behavior
     if (error.message === 'canceled' || error.code === 'ERR_CANCELED') {
       console.log('🔄 Request was canceled - this is expected behavior');
@@ -38,44 +95,6 @@ api.interceptors.response.use(
     }
     
     console.error('API Error:', error.response?.status, error.response?.config?.url, error.message);
-    
-    if (error.response) {
-      const { status, data } = error.response;
-      
-      switch (status) {
-        case 401:
-          console.error('Unauthorized - checking if payment context');
-          // Only redirect to login if not in payment context
-          const isPaymentContext = window.location.pathname.includes('/payment') || 
-                                   window.location.pathname.includes('/public/');
-          
-          if (!isPaymentContext) {
-            localStorage.removeItem('authToken');
-            localStorage.removeItem('user');
-            // Redirect to signin page
-            window.location.href = '/signin';
-          } else {
-            console.log('Payment context detected - not redirecting to login');
-          }
-          break;
-        case 403:
-          console.error('Access forbidden');
-          break;
-        case 404:
-          console.error('Resource not found');
-          break;
-        case 500:
-          console.error('Server error occurred');
-          break;
-        default:
-          console.error('API error:', data?.error || 'Unknown error');
-      }
-    } else if (error.request) {
-      console.error('Network error - no response received');
-    } else {
-      console.error('Request setup error:', error.message);
-    }
-    
     return Promise.reject(error);
   }
 );
