@@ -193,6 +193,7 @@ const PaymentProcessing = () => {
   const [stripePromise, setStripePromise] = useState(null);
   const [stripeConfig, setStripeConfig] = useState(null);
   const [invoicePaid, setInvoicePaid] = useState(false);
+  const [paymentError, setPaymentError] = useState(false);
 
   useEffect(() => {
     fetchInvoice();
@@ -278,6 +279,9 @@ const PaymentProcessing = () => {
   const handlePaymentError = (errorMessage) => {
     console.error('Payment failed:', errorMessage);
     setError(errorMessage);
+    setPaymentError(true);
+    // Prevent the component from re-fetching invoice data on payment errors
+    setLoading(false);
   };
 
   if (loading) {
@@ -291,7 +295,7 @@ const PaymentProcessing = () => {
     );
   }
 
-  if (error || !invoice) {
+  if (error && !paymentError && !invoice) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -329,6 +333,36 @@ const PaymentProcessing = () => {
           >
             View Invoice
           </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Show payment error modal if there's a payment error
+  if (paymentError && error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-red-600 text-6xl mb-4">❌</div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Payment Error</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <div className="space-x-4">
+            <button
+              onClick={() => {
+                setPaymentError(false);
+                setError('');
+              }}
+              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
+            >
+              Try Again
+            </button>
+            <button
+              onClick={() => navigate(`/public/invoice/${invoiceId}`)}
+              className="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700"
+            >
+              Back to Invoice
+            </button>
+          </div>
         </div>
       </div>
     );
