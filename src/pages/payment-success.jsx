@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
-import { CheckCircle, Download, Mail, ArrowLeft, CreditCard, Calendar, MapPin, FileText } from 'lucide-react';
+import { CheckCircle, Download, Mail, ArrowLeft, CreditCard, Calendar, MapPin, FileText, X } from 'lucide-react';
 
 const PaymentSuccess = () => {
   const { invoiceId } = useParams();
@@ -11,6 +11,8 @@ const PaymentSuccess = () => {
   const [invoice, setInvoice] = useState(null);
   const [downloading, setDownloading] = useState(false);
   const [emailing, setEmailing] = useState(false);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [emailAddress, setEmailAddress] = useState('');
 
   const paymentIntentId = searchParams.get('payment_intent');
   const transactionId = searchParams.get('transaction_id');
@@ -86,7 +88,7 @@ const PaymentSuccess = () => {
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `receipt-${invoiceId}-${new Date().toISOString().split('T')[0]}.html`;
+        link.download = `receipt-${invoiceId}-${new Date().toISOString().split('T')[0]}.pdf`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -105,10 +107,19 @@ const PaymentSuccess = () => {
     }
   };
 
-  const handleEmailReceipt = async () => {
+  const handleEmailReceipt = () => {
+    setShowEmailModal(true);
+  };
+
+  const handleSendEmailReceipt = async () => {
+    if (!emailAddress.trim()) {
+      alert('Please enter a valid email address');
+      return;
+    }
+
     try {
       setEmailing(true);
-      console.log('📧 Sending receipt email...');
+      console.log('📧 Sending receipt email to:', emailAddress);
       
       const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://service-flow-backend-production-4568.up.railway.app/api'}/send-receipt-email`, {
         method: 'POST',
@@ -117,7 +128,7 @@ const PaymentSuccess = () => {
         },
         body: JSON.stringify({
           invoiceId: invoiceId,
-          customerEmail: invoice.customerEmail,
+          customerEmail: emailAddress,
           paymentIntentId: payment.id,
           amount: payment.amount
         })
@@ -127,6 +138,8 @@ const PaymentSuccess = () => {
         const result = await response.json();
         console.log('✅ Receipt email sent successfully');
         alert(`Receipt sent to ${result.email}`);
+        setShowEmailModal(false);
+        setEmailAddress('');
       } else {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to send email');
@@ -164,6 +177,61 @@ const PaymentSuccess = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+      {/* Email Modal */}
+      {showEmailModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Send Receipt by Email</h3>
+              <button
+                onClick={() => {
+                  setShowEmailModal(false);
+                  setEmailAddress('');
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  id="email"
+                  value={emailAddress}
+                  onChange={(e) => setEmailAddress(e.target.value)}
+                  placeholder="Enter email address"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                />
+              </div>
+              
+              <div className="flex space-x-3 pt-4">
+                <button
+                  onClick={() => {
+                    setShowEmailModal(false);
+                    setEmailAddress('');
+                  }}
+                  className="flex-1 px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSendEmailReceipt}
+                  disabled={emailing || !emailAddress.trim()}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed"
+                >
+                  {emailing ? 'Sending...' : 'Send Receipt'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="max-w-4xl mx-auto">
         {/* Success Header */}
         <div className="text-center mb-8">
