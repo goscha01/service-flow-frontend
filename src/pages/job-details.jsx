@@ -777,8 +777,16 @@ const JobDetails = () => {
     try {
       setLoading(true)
       
+      // Use manual email if provided, otherwise fall back to customer email
+      const emailToUse = manualEmail || job.customer_email;
+      
+      if (!emailToUse) {
+        setError('Please enter a customer email address');
+        return;
+      }
+      
       const response = await api.post('/test-sendgrid', {
-        testEmail: job.customer_email
+        testEmail: emailToUse
       })
       
       console.log('Test email result:', response.data)
