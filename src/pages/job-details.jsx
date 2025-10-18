@@ -114,6 +114,22 @@ const JobDetails = () => {
   const [showTipModal, setShowTipModal] = useState(false)
   const [includePaymentLink, setIncludePaymentLink] = useState(true)
   const [stripeConnected, setStripeConnected] = useState(false)
+  const [manualEmail, setManualEmail] = useState('')
+  const [showEmailRequiredModal, setShowEmailRequiredModal] = useState(false)
+  const [showEditCustomerModal, setShowEditCustomerModal] = useState(false)
+  const [pendingAction, setPendingAction] = useState(null) // 'send' or 'resend'
+  const [showNotificationModal, setShowNotificationModal] = useState(false)
+  const [notificationType, setNotificationType] = useState(null) // 'confirmation' or 'reminder'
+  const [notificationEmail, setNotificationEmail] = useState('')
+  const [showCustomMessageModal, setShowCustomMessageModal] = useState(false)
+  const [customMessage, setCustomMessage] = useState('')
+  const [customMessageEmail, setCustomMessageEmail] = useState('')
+  const [editCustomerData, setEditCustomerData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: ''
+  })
   
   // Address autopopulation state
   const [addressAutoPopulated, setAddressAutoPopulated] = useState(false)
@@ -185,7 +201,6 @@ const JobDetails = () => {
   const [smsNotifications, setSmsNotifications] = useState(false)
   const [intakeQuestionAnswers, setIntakeQuestionAnswers] = useState({})
   const [originalJobData, setOriginalJobData] = useState(null)
-  const [manualEmail, setManualEmail] = useState('')
   const [isRetrying, setIsRetrying] = useState(false)
 
   // Helper function to map job data from API response
@@ -1868,7 +1883,14 @@ const JobDetails = () => {
                     <ChevronDown className="w-4 h-4" />
                   </button>
                   <button 
-                    onClick={() => setShowSendInvoiceModal(true)}
+                    onClick={() => {
+                      if (!job.customer_email) {
+                        setPendingAction('send')
+                        setShowEmailRequiredModal(true)
+                      } else {
+                        setShowSendInvoiceModal(true)
+                      }
+                    }}
                     className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium"
                   >
                     Send Invoice
@@ -2118,9 +2140,26 @@ const JobDetails = () => {
                 <div className="flex items-center space-x-2 text-sm">
                   <Mail className="w-4 h-4 text-gray-400" />
                   <a href={`mailto:${job.customer_email}`} className="text-blue-600 hover:text-blue-700 truncate">
-                    {job.customer_email || 'Email placeholder'}
+                    {job.customer_email || 'No email address'}
                   </a>
                 </div>
+              </div>
+
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <button
+                  onClick={() => {
+                    setEditCustomerData({
+                      firstName: job.customer_first_name || '',
+                      lastName: job.customer_last_name || '',
+                      email: job.customer_email || '',
+                      phone: job.customer_phone || ''
+                    })
+                    setShowEditCustomerModal(true)
+                  }}
+                  className="w-full px-3 py-2 text-sm text-blue-600 hover:text-blue-700 border border-blue-200 hover:border-blue-300 rounded-lg transition-colors"
+                >
+                  Edit Customer
+                </button>
               </div>
 
               <div className="mt-4 pt-4 border-t border-gray-200">
@@ -2355,8 +2394,9 @@ const JobDetails = () => {
                         <h4 className="text-sm font-medium text-gray-700">Confirmation</h4>
                         <button 
                           onClick={() => {
-                            setSuccessMessage('Confirmation sent to customer!')
-                            setTimeout(() => setSuccessMessage(""), 3000)
+                            setNotificationType('confirmation')
+                            setNotificationEmail(job.customer_email || '')
+                            setShowNotificationModal(true)
                           }}
                           className="text-blue-600 hover:text-blue-700 text-xs font-medium"
                         >
@@ -2379,8 +2419,9 @@ const JobDetails = () => {
                         <h4 className="text-sm font-medium text-gray-700">Reminder</h4>
                         <button 
                           onClick={() => {
-                            setSuccessMessage('Reminder sent to customer!')
-                            setTimeout(() => setSuccessMessage(""), 3000)
+                            setNotificationType('reminder')
+                            setNotificationEmail(job.customer_email || '')
+                            setShowNotificationModal(true)
                           }}
                           className="text-blue-600 hover:text-blue-700 text-xs font-medium"
                         >
@@ -2401,8 +2442,9 @@ const JobDetails = () => {
                     </div>
                     <button 
                       onClick={() => {
-                        setSuccessMessage('Custom notification sent!')
-                        setTimeout(() => setSuccessMessage(""), 3000)
+                        setCustomMessageEmail(job.customer_email || '')
+                        setCustomMessage('')
+                        setShowCustomMessageModal(true)
                       }}
                       className="px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700"
                     >
@@ -3221,6 +3263,525 @@ const JobDetails = () => {
                   >
                     Send
                   </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Email Required Modal */}
+        {showEmailRequiredModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Email Required</h3>
+                <button
+                  onClick={() => {
+                    setShowEmailRequiredModal(false);
+                    setPendingAction(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                <p className="text-gray-600">
+                  This customer doesn't have an email address. Please provide an email to {pendingAction === 'send' ? 'send the invoice' : 'resend the notification'}.
+                </p>
+                
+                <div>
+                  <label htmlFor="customer-email" className="block text-sm font-medium text-gray-700 mb-2">
+                    Customer Email
+                  </label>
+                  <input
+                    type="email"
+                    id="customer-email"
+                    value={manualEmail}
+                    onChange={(e) => setManualEmail(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Enter customer email address"
+                    required
+                  />
+                </div>
+                
+                <div className="flex space-x-3 pt-4">
+                  <button
+                    onClick={() => {
+                      setShowEmailRequiredModal(false);
+                      setPendingAction(null);
+                      setManualEmail('');
+                    }}
+                    className="flex-1 px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (manualEmail.trim()) {
+                        if (pendingAction === 'send') {
+                          setShowSendInvoiceModal(true);
+                        } else if (pendingAction === 'resend') {
+                          setSuccessMessage('Confirmation sent to customer!');
+                          setTimeout(() => setSuccessMessage(""), 3000);
+                        }
+                        setShowEmailRequiredModal(false);
+                        setPendingAction(null);
+                      } else {
+                        setError('Please enter a valid email address');
+                      }
+                    }}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  >
+                    {pendingAction === 'send' ? 'Send Invoice' : 'Resend'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Customer Modal */}
+        {showEditCustomerModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Edit Customer</h3>
+                <button
+                  onClick={() => setShowEditCustomerModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="edit-first-name" className="block text-sm font-medium text-gray-700 mb-2">
+                    First Name
+                  </label>
+                  <input
+                    type="text"
+                    id="edit-first-name"
+                    value={editCustomerData.firstName}
+                    onChange={(e) => setEditCustomerData(prev => ({ ...prev, firstName: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                
+                <div>
+                  <label htmlFor="edit-last-name" className="block text-sm font-medium text-gray-700 mb-2">
+                    Last Name
+                  </label>
+                  <input
+                    type="text"
+                    id="edit-last-name"
+                    value={editCustomerData.lastName}
+                    onChange={(e) => setEditCustomerData(prev => ({ ...prev, lastName: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                
+                <div>
+                  <label htmlFor="edit-email" className="block text-sm font-medium text-gray-700 mb-2">
+                    Email Address
+                  </label>
+                  <input
+                    type="email"
+                    id="edit-email"
+                    value={editCustomerData.email}
+                    onChange={(e) => setEditCustomerData(prev => ({ ...prev, email: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Enter email address"
+                  />
+                </div>
+                
+                <div>
+                  <label htmlFor="edit-phone" className="block text-sm font-medium text-gray-700 mb-2">
+                    Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    id="edit-phone"
+                    value={editCustomerData.phone}
+                    onChange={(e) => setEditCustomerData(prev => ({ ...prev, phone: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Enter phone number"
+                  />
+                </div>
+                
+                <div className="flex space-x-3 pt-4">
+                  <button
+                    onClick={() => setShowEditCustomerModal(false)}
+                    className="flex-1 px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={async () => {
+                      // Frontend validation
+                      if (editCustomerData.firstName && editCustomerData.firstName.trim() && (editCustomerData.firstName.trim().length < 2 || editCustomerData.firstName.trim().length > 50)) {
+                        setError('First name must be between 2 and 50 characters');
+                        return;
+                      }
+                      
+                      if (editCustomerData.lastName && editCustomerData.lastName.trim() && (editCustomerData.lastName.trim().length < 2 || editCustomerData.lastName.trim().length > 50)) {
+                        setError('Last name must be between 2 and 50 characters');
+                        return;
+                      }
+                      
+                      if (editCustomerData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editCustomerData.email)) {
+                        setError('Please enter a valid email address');
+                        return;
+                      }
+
+                      try {
+                        setLoading(true);
+                        setError(''); // Clear any previous errors
+                        
+                        const response = await api.put(`/customers/${job.customer_id}`, {
+                          firstName: editCustomerData.firstName,
+                          lastName: editCustomerData.lastName,
+                          email: editCustomerData.email,
+                          phone: editCustomerData.phone
+                        });
+
+                        console.log('✅ Customer updated successfully:', response.data);
+                        
+                        // Update the job data with new customer info
+                        setJob(prev => ({
+                          ...prev,
+                          customer_first_name: editCustomerData.firstName,
+                          customer_last_name: editCustomerData.lastName,
+                          customer_email: editCustomerData.email,
+                          customer_phone: editCustomerData.phone
+                        }));
+
+                        setSuccessMessage('Customer updated successfully!');
+                        setTimeout(() => setSuccessMessage(""), 3000);
+                        setShowEditCustomerModal(false);
+                      } catch (error) {
+                        console.error('❌ Error updating customer:', error);
+                        setError(`Failed to update customer: ${error.response?.data?.error || error.message}`);
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    disabled={loading}
+                  >
+                    {loading ? 'Saving...' : 'Save Changes'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Notification Modal */}
+        {showNotificationModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-xl font-semibold text-gray-900">
+                    {notificationType === 'confirmation' ? 'Appointment Confirmation' : 'Appointment Reminder'}
+                  </h3>
+                  <button
+                    onClick={() => {
+                      setShowNotificationModal(false);
+                      setNotificationType(null);
+                      setNotificationEmail('');
+                    }}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="space-y-6">
+                  {/* Email Address */}
+                  <div>
+                    <label htmlFor="notification-email" className="block text-sm font-medium text-gray-700 mb-2">
+                      Send to
+                    </label>
+                    <input
+                      type="email"
+                      id="notification-email"
+                      value={notificationEmail}
+                      onChange={(e) => setNotificationEmail(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Enter email address"
+                      required
+                    />
+                  </div>
+
+                  {/* Email Content Preview */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Email Content
+                    </label>
+                    <div className="border border-gray-300 rounded-lg p-4 bg-gray-50 max-h-60 overflow-y-auto">
+                      {notificationType === 'confirmation' ? (
+                        <div className="space-y-3">
+                          <div className="font-semibold text-gray-900">
+                            Hi {job?.customer_first_name || 'Customer'},
+                          </div>
+                          <div className="text-gray-700">
+                            Your appointment has been confirmed for <strong>{new Date(job?.scheduled_date).toLocaleDateString('en-US', { 
+                              weekday: 'long', 
+                              month: 'long', 
+                              day: 'numeric', 
+                              year: 'numeric' 
+                            })} at {new Date(job?.scheduled_date).toLocaleTimeString('en-US', { 
+                              hour: 'numeric', 
+                              minute: '2-digit',
+                              hour12: true 
+                            })}</strong>.
+                          </div>
+                          <div className="text-gray-700">
+                            <strong>Service:</strong> {job?.service_name || 'Service'}
+                          </div>
+                          <div className="text-gray-700">
+                            <strong>Location:</strong> {job?.service_address_street || 'Service Address'}, {job?.service_address_city || 'City'}, {job?.service_address_state || 'State'} {job?.service_address_zip || 'ZIP'}
+                          </div>
+                          <div className="text-gray-700">
+                            We look forward to serving you!
+                          </div>
+                          <div className="text-gray-700">
+                            Best regards,<br />
+                            Your Service Team
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <div className="font-semibold text-gray-900">
+                            Hi {job?.customer_first_name || 'Customer'},
+                          </div>
+                          <div className="text-gray-700">
+                            This is a friendly reminder that you have an appointment scheduled for <strong>{new Date(job?.scheduled_date).toLocaleDateString('en-US', { 
+                              weekday: 'long', 
+                              month: 'long', 
+                              day: 'numeric', 
+                              year: 'numeric' 
+                            })} at {new Date(job?.scheduled_date).toLocaleTimeString('en-US', { 
+                              hour: 'numeric', 
+                              minute: '2-digit',
+                              hour12: true 
+                            })}</strong>.
+                          </div>
+                          <div className="text-gray-700">
+                            <strong>Service:</strong> {job?.service_name || 'Service'}
+                          </div>
+                          <div className="text-gray-700">
+                            <strong>Location:</strong> {job?.service_address_street || 'Service Address'}, {job?.service_address_city || 'City'}, {job?.service_address_state || 'State'} {job?.service_address_zip || 'ZIP'}
+                          </div>
+                          <div className="text-gray-700">
+                            Please arrive on time. If you need to reschedule, please contact us as soon as possible.
+                          </div>
+                          <div className="text-gray-700">
+                            Best regards,<br />
+                            Your Service Team
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 pt-4 border-t">
+                    <button
+                      onClick={() => {
+                        setShowNotificationModal(false);
+                        setNotificationType(null);
+                        setNotificationEmail('');
+                      }}
+                      className="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 order-2 sm:order-1"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (notificationEmail.trim()) {
+                          try {
+                            setLoading(true);
+                            
+                            // Construct service address
+                            const serviceAddress = (() => {
+                              if (job?.service_address_street) {
+                                const addressParts = [
+                                  job.service_address_street,
+                                  job.service_address_city,
+                                  job.service_address_state,
+                                  job.service_address_zip,
+                                  job.service_address_country
+                                ].filter(Boolean);
+                                return addressParts.join(', ');
+                              }
+                              return 'Service Address';
+                            })();
+
+                            const response = await api.post('/send-appointment-notification', {
+                              notificationType,
+                              customerEmail: notificationEmail,
+                              jobId: job.id,
+                              customerName: `${job.customer_first_name || ''} ${job.customer_last_name || ''}`.trim() || 'Customer',
+                              serviceName: job.service_name || 'Service',
+                              scheduledDate: job.scheduled_date,
+                              serviceAddress: serviceAddress
+                            });
+
+                            console.log('📧 Notification sent successfully:', response.data);
+                            setSuccessMessage(`${notificationType === 'confirmation' ? 'Confirmation' : 'Reminder'} sent to ${notificationEmail}!`);
+                            setTimeout(() => setSuccessMessage(""), 3000);
+                            setShowNotificationModal(false);
+                            setNotificationType(null);
+                            setNotificationEmail('');
+                          } catch (error) {
+                            console.error('❌ Error sending notification:', error);
+                            setError(`Failed to send ${notificationType === 'confirmation' ? 'confirmation' : 'reminder'}: ${error.response?.data?.error || error.message}`);
+                          } finally {
+                            setLoading(false);
+                          }
+                        } else {
+                          setError('Please enter a valid email address');
+                        }
+                      }}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 order-1 sm:order-2"
+                      disabled={loading}
+                    >
+                      {loading ? 'Sending...' : (notificationType === 'confirmation' ? 'Resend Confirmation' : 'Send Reminder')}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Custom Message Modal */}
+        {showCustomMessageModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-xl font-semibold text-gray-900">Send Custom Message</h3>
+                  <button
+                    onClick={() => {
+                      setShowCustomMessageModal(false);
+                      setCustomMessage('');
+                      setCustomMessageEmail('');
+                    }}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="space-y-6">
+                  {/* Email Address */}
+                  <div>
+                    <label htmlFor="custom-message-email" className="block text-sm font-medium text-gray-700 mb-2">
+                      Send to
+                    </label>
+                    <input
+                      type="email"
+                      id="custom-message-email"
+                      value={customMessageEmail}
+                      onChange={(e) => setCustomMessageEmail(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Enter email address"
+                      required
+                    />
+                  </div>
+
+                  {/* Custom Message */}
+                  <div>
+                    <label htmlFor="custom-message-text" className="block text-sm font-medium text-gray-700 mb-2">
+                      Message
+                    </label>
+                    <textarea
+                      id="custom-message-text"
+                      value={customMessage}
+                      onChange={(e) => setCustomMessage(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      rows={6}
+                      placeholder="Enter your custom message here..."
+                      required
+                    />
+                  </div>
+
+                  {/* Message Preview */}
+                  {customMessage && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Message Preview
+                      </label>
+                      <div className="border border-gray-300 rounded-lg p-4 bg-gray-50 max-h-40 overflow-y-auto">
+                        <div className="space-y-2">
+                          <div className="font-semibold text-gray-900">
+                            Hi {job?.customer_first_name || 'Customer'},
+                          </div>
+                          <div className="text-gray-700 whitespace-pre-wrap">
+                            {customMessage}
+                          </div>
+                          <div className="text-gray-700">
+                            Best regards,<br />
+                            Your Service Team
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Action Buttons */}
+                  <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 pt-4 border-t">
+                    <button
+                      onClick={() => {
+                        setShowCustomMessageModal(false);
+                        setCustomMessage('');
+                        setCustomMessageEmail('');
+                      }}
+                      className="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 order-2 sm:order-1"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (customMessageEmail.trim() && customMessage.trim()) {
+                          try {
+                            setLoading(true);
+                            
+                            const response = await api.post('/send-custom-message', {
+                              customerEmail: customMessageEmail,
+                              jobId: job.id,
+                              customerName: `${job.customer_first_name || ''} ${job.customer_last_name || ''}`.trim() || 'Customer',
+                              message: customMessage
+                            });
+
+                            console.log('📧 Custom message sent successfully:', response.data);
+                            setSuccessMessage(`Custom message sent to ${customMessageEmail}!`);
+                            setTimeout(() => setSuccessMessage(""), 3000);
+                            setShowCustomMessageModal(false);
+                            setCustomMessage('');
+                            setCustomMessageEmail('');
+                          } catch (error) {
+                            console.error('❌ Error sending custom message:', error);
+                            setError(`Failed to send custom message: ${error.response?.data?.error || error.message}`);
+                          } finally {
+                            setLoading(false);
+                          }
+                        } else {
+                          setError('Please enter both email address and message');
+                        }
+                      }}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 order-1 sm:order-2"
+                      disabled={loading}
+                    >
+                      {loading ? 'Sending...' : 'Send Message'}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
