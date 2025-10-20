@@ -703,7 +703,7 @@ const ServiceFlowDashboard = () => {
         return sum + jobValue
       }, 0)
       
-      const avgJobValue = rangeJobs.length > 0 ? totalRevenue / rangeJobs.length : 0
+      const avgJobValue = rangeJobs.length > 0 ? Math.round((totalRevenue / rangeJobs.length) * 100) / 100 : 0
       
       // Calculate max values for progress bars (for better visualization)
       const maxJobValue = Math.max(avgJobValue, 100) // Use $100 as minimum scale

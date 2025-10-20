@@ -2114,7 +2114,23 @@ const JobDetails = () => {
           <div className="hidden lg:block w-80 xl:w-96 p-4 sm:p-6 space-y-6">
             {/* Customer Card */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-              <h3 className="font-semibold text-gray-900 mb-4">Customer</h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-gray-900">Customer</h3>
+                <button
+                  onClick={() => {
+                    setEditCustomerData({
+                      firstName: job.customer_first_name || '',
+                      lastName: job.customer_last_name || '',
+                      email: job.customer_email || '',
+                      phone: job.customer_phone || ''
+                    })
+                    setShowEditCustomerModal(true)
+                  }}
+                  className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                >
+                  Edit
+                </button>
+              </div>
               
               <div className="flex items-center space-x-3 mb-4">
                 <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center">
@@ -2133,34 +2149,18 @@ const JobDetails = () => {
               <div className="space-y-3">
                 <div className="flex items-center space-x-2 text-sm">
                   <Phone className="w-4 h-4 text-gray-400" />
-                  <a href={`tel:${job.customer_phone}`} className="text-blue-600 hover:text-blue-700">
+                  <span className="text-gray-700">
                     {job.customer_phone ? formatPhoneNumber(job.customer_phone) : 'Phone placeholder'}
-                  </a>
+                  </span>
                 </div>
                 <div className="flex items-center space-x-2 text-sm">
                   <Mail className="w-4 h-4 text-gray-400" />
-                  <a href={`mailto:${job.customer_email}`} className="text-blue-600 hover:text-blue-700 truncate">
+                  <span className="text-gray-700 truncate">
                     {job.customer_email || 'No email address'}
-                  </a>
+                  </span>
                 </div>
               </div>
 
-              <div className="mt-4 pt-4 border-t border-gray-200">
-                <button
-                  onClick={() => {
-                    setEditCustomerData({
-                      firstName: job.customer_first_name || '',
-                      lastName: job.customer_last_name || '',
-                      email: job.customer_email || '',
-                      phone: job.customer_phone || ''
-                    })
-                    setShowEditCustomerModal(true)
-                  }}
-                  className="w-full px-3 py-2 text-sm text-blue-600 hover:text-blue-700 border border-blue-200 hover:border-blue-300 rounded-lg transition-colors"
-                >
-                  Edit Customer
-                </button>
-              </div>
 
               <div className="mt-4 pt-4 border-t border-gray-200">
                 <div className="flex justify-between items-center text-sm">
@@ -2386,8 +2386,20 @@ const JobDetails = () => {
 
                 <div className="pt-4 border-t border-gray-200">
                   <div className="flex items-start space-x-3">
-                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                      <CheckCircle className="w-4 h-4 text-blue-600" />
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                      job.confirmation_sent 
+                        ? 'bg-green-100' 
+                        : job.confirmation_failed 
+                          ? 'bg-red-100' 
+                          : 'bg-yellow-100'
+                    }`}>
+                      {job.confirmation_sent ? (
+                        <CheckCircle className="w-4 h-4 text-green-600" />
+                      ) : job.confirmation_failed ? (
+                        <AlertCircle className="w-4 h-4 text-red-600" />
+                      ) : (
+                        <Bell className="w-4 h-4 text-yellow-600" />
+                      )}
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center justify-between">
@@ -2400,19 +2412,42 @@ const JobDetails = () => {
                           }}
                           className="text-blue-600 hover:text-blue-700 text-xs font-medium"
                         >
-                          Resend
+                          {job.confirmation_sent ? 'Resend' : 'Send Now'}
                         </button>
                       </div>
                       <p className="text-sm font-semibold text-gray-900">Appointment Confirmation</p>
-                      <p className="text-xs text-gray-500">10 minutes ago • Email • Opened</p>
+                      <p className="text-xs text-gray-500">
+                        {job.confirmation_sent 
+                          ? `Sent on ${new Date(job.confirmation_sent_at).toLocaleString()}` 
+                          : job.confirmation_failed 
+                            ? `Failed to send: ${job.confirmation_error || 'Unknown error'}`
+                            : job.confirmation_no_email 
+                              ? "No email address - click 'Send Now' to add email and send"
+                              : job.customer_email 
+                                ? "Sent automatically when job was created" 
+                                : "No email address - click 'Send Now' to add email and send"
+                        }
+                      </p>
                     </div>
                   </div>
                 </div>
 
                 <div className="pt-4 border-t border-gray-200">
                   <div className="flex items-start space-x-3">
-                    <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center flex-shrink-0">
-                      <Bell className="w-4 h-4 text-orange-600" />
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                      job.reminder_sent 
+                        ? 'bg-green-100' 
+                        : job.reminder_failed 
+                          ? 'bg-red-100' 
+                          : 'bg-orange-100'
+                    }`}>
+                      {job.reminder_sent ? (
+                        <CheckCircle className="w-4 h-4 text-green-600" />
+                      ) : job.reminder_failed ? (
+                        <AlertCircle className="w-4 h-4 text-red-600" />
+                      ) : (
+                        <Bell className="w-4 h-4 text-orange-600" />
+                      )}
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center justify-between">
@@ -2425,11 +2460,22 @@ const JobDetails = () => {
                           }}
                           className="text-blue-600 hover:text-blue-700 text-xs font-medium"
                         >
-                          Send Now
+                          {job.reminder_sent ? 'Resend' : 'Send Now'}
                         </button>
                       </div>
                       <p className="text-sm font-semibold text-gray-900">Appointment Reminder</p>
-                      <p className="text-xs text-gray-500">Scheduled for 2 hours before appointment</p>
+                      <p className="text-xs text-gray-500">
+                        {job.reminder_sent 
+                          ? `Sent on ${new Date(job.reminder_sent_at).toLocaleString()}` 
+                          : job.reminder_failed 
+                            ? `Failed to send: ${job.reminder_error || 'Unknown error'}`
+                            : job.reminder_no_email 
+                              ? "No email address - click 'Send Now' to add email and send"
+                              : job.customer_email 
+                                ? "Scheduled for 2 hours before appointment" 
+                                : "No email address - click 'Send Now' to add email and send"
+                        }
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -2523,15 +2569,15 @@ const JobDetails = () => {
                     <div className="space-y-3">
                       <div className="flex items-center space-x-2 text-sm">
                         <Phone className="w-4 h-4 text-gray-400" />
-                        <a href={`tel:${job.customer_phone}`} className="text-blue-600 hover:text-blue-700">
+                        <span className="text-gray-700">
                           {formatPhoneNumber(job.customer_phone)}
-                        </a>
+                        </span>
                       </div>
                       <div className="flex items-center space-x-2 text-sm">
                         <Mail className="w-4 h-4 text-gray-400" />
-                        <a href={`mailto:${job.customer_email}`} className="text-blue-600 hover:text-blue-700 truncate">
+                        <span className="text-gray-700 truncate">
                           {job.customer_email}
-                        </a>
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -3633,13 +3679,56 @@ const JobDetails = () => {
                             });
 
                             console.log('📧 Notification sent successfully:', response.data);
-                            setSuccessMessage(`${notificationType === 'confirmation' ? 'Confirmation' : 'Reminder'} sent to ${notificationEmail}!`);
+                            
+                            // Update job status instantly if it's a confirmation or reminder
+                            if (notificationType === 'confirmation') {
+                              setJob(prev => ({
+                                ...prev,
+                                confirmation_sent: true,
+                                confirmation_sent_at: new Date().toISOString(),
+                                confirmation_email: notificationEmail,
+                                confirmation_failed: false,
+                                confirmation_error: null,
+                                confirmation_no_email: false
+                              }));
+                            } else if (notificationType === 'reminder') {
+                              setJob(prev => ({
+                                ...prev,
+                                reminder_sent: true,
+                                reminder_sent_at: new Date().toISOString(),
+                                reminder_email: notificationEmail,
+                                reminder_failed: false,
+                                reminder_error: null,
+                                reminder_no_email: false
+                              }));
+                            }
+                            
+                            const isResend = (notificationType === 'confirmation' && job.confirmation_sent) || (notificationType === 'reminder' && job.reminder_sent);
+                            setSuccessMessage(`${notificationType === 'confirmation' ? (isResend ? 'Confirmation resent' : 'Confirmation sent') : (isResend ? 'Reminder resent' : 'Reminder sent')} to ${notificationEmail}!`);
                             setTimeout(() => setSuccessMessage(""), 3000);
                             setShowNotificationModal(false);
                             setNotificationType(null);
                             setNotificationEmail('');
                           } catch (error) {
                             console.error('❌ Error sending notification:', error);
+                            
+                            // Update job status instantly if it's a confirmation or reminder and failed
+                            if (notificationType === 'confirmation') {
+                              setJob(prev => ({
+                                ...prev,
+                                confirmation_sent: false,
+                                confirmation_failed: true,
+                                confirmation_error: error.response?.data?.error || error.message
+                              }));
+                            } else if (notificationType === 'reminder') {
+                              setJob(prev => ({
+                                ...prev,
+                                reminder_sent: false,
+                                reminder_failed: true,
+                                reminder_error: error.response?.data?.error || error.message
+                              }));
+                            }
+                            
                             setError(`Failed to send ${notificationType === 'confirmation' ? 'confirmation' : 'reminder'}: ${error.response?.data?.error || error.message}`);
                           } finally {
                             setLoading(false);
