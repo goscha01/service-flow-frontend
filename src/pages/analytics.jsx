@@ -107,7 +107,7 @@ const Analytics = () => {
     const completedJobs = filteredJobs.filter(job => job.status === 'completed').length
     const totalJobs = filteredJobs.length
     const completionRate = totalJobs > 0 ? (completedJobs / totalJobs * 100).toFixed(1) : 0
-    const avgJobValue = completedJobs > 0 ? totalRevenue / completedJobs : 0
+    const avgJobValue = completedJobs > 0 ? Math.round((totalRevenue / completedJobs) * 100) / 100 : 0
     
     return {
       totalRevenue,
@@ -185,7 +185,7 @@ const Analytics = () => {
         completedJobs: completedJobs.length,
         completionRate: parseFloat(completionRate),
         avgJobValue: completedJobs.length > 0 ? 
-          completedJobs.reduce((sum, job) => sum + (parseFloat(job.service_price) || 0), 0) / completedJobs.length : 0
+          Math.round((completedJobs.reduce((sum, job) => sum + (parseFloat(job.service_price) || 0), 0) / completedJobs.length) * 100) / 100 : 0
       }
     })
   }
