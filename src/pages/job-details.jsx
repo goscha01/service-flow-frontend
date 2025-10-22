@@ -56,7 +56,7 @@ import {
   Menu,
   Search
 } from "lucide-react"
-import { jobsAPI, notificationAPI, territoriesAPI, teamAPI, invoicesAPI } from "../services/api"
+import { jobsAPI, notificationAPI, territoriesAPI, teamAPI, invoicesAPI, twilioAPI } from "../services/api"
 import api, { stripeAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
 import Sidebar from "../components/sidebar"
@@ -121,6 +121,8 @@ const JobDetails = () => {
   const [showNotificationModal, setShowNotificationModal] = useState(false)
   const [notificationType, setNotificationType] = useState(null) // 'confirmation' or 'reminder'
   const [notificationEmail, setNotificationEmail] = useState('')
+  const [notificationPhone, setNotificationPhone] = useState('')
+  const [selectedNotificationMethod, setSelectedNotificationMethod] = useState('email') // 'email' or 'sms'
   const [showCustomMessageModal, setShowCustomMessageModal] = useState(false)
   const [customMessage, setCustomMessage] = useState('')
   const [customMessageEmail, setCustomMessageEmail] = useState('')
@@ -199,6 +201,7 @@ const JobDetails = () => {
   const [invoice, setInvoice] = useState(null)
   const [emailNotifications, setEmailNotifications] = useState(true)
   const [smsNotifications, setSmsNotifications] = useState(false)
+  const [userTwilioConnected, setUserTwilioConnected] = useState(false)
   const [intakeQuestionAnswers, setIntakeQuestionAnswers] = useState({})
   const [originalJobData, setOriginalJobData] = useState(null)
   const [isRetrying, setIsRetrying] = useState(false)
@@ -457,13 +460,24 @@ const JobDetails = () => {
           setIntakeQuestionAnswers(initialAnswers)
         }
 
+        // Check if user has Twilio configured first
+        try {
+          const twilioResponse = await twilioAPI.getPhoneNumbers()
+          console.log('📱 User Twilio status:', twilioResponse)
+          setUserTwilioConnected(twilioResponse.phoneNumbers && twilioResponse.phoneNumbers.length > 0)
+        } catch (error) {
+          console.error('❌ Error checking Twilio status:', error)
+          setUserTwilioConnected(false)
+        }
+
         // Fetch notification preferences
         if (jobData.customer_id) {
           try {
             const prefs = await notificationAPI.getPreferences(jobData.customer_id)
     
             setEmailNotifications(!!prefs.email_notifications)
-            setSmsNotifications(!!prefs.sms_notifications)
+            // Only enable SMS if user has Twilio connected AND customer wants SMS
+            setSmsNotifications(!!prefs.sms_notifications && userTwilioConnected)
           } catch (e) {
             console.error('Failed to load notification preferences:', e)
             // Use defaults - don't show error to user for notification preferences
@@ -954,7 +968,9 @@ const JobDetails = () => {
     if (!job || !job.customer_id) return
     try {
       setLoading(true)
+      setError("") // Clear any previous errors
 
+      console.log('🔄 Toggling notification:', { type, value, customerId: job.customer_id })
       
       if (type === 'email') {
         setEmailNotifications(value)
@@ -968,14 +984,19 @@ const JobDetails = () => {
         sms_notifications: type === 'sms' ? value : smsNotifications
       }
       
-      
-      await notificationAPI.updatePreferences(job.customer_id, preferences)
+      console.log('📧 Sending preferences to server:', preferences)
+      const result = await notificationAPI.updatePreferences(job.customer_id, preferences)
+      console.log('✅ Server response:', result)
       
       setSuccessMessage(`${type === 'email' ? 'Email' : 'SMS'} notifications ${value ? 'enabled' : 'disabled'}`)
       setTimeout(() => setSuccessMessage(""), 3000)
     } catch (error) {
       console.error('Failed to update notification preferences:', error)
-      setError('Failed to update notification preferences')
+      
+      // Show more specific error message
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to update notification preferences'
+      setError(errorMessage)
+      
       // Revert the toggle if update failed
       if (type === 'email') {
         setEmailNotifications(!value)
@@ -2369,16 +2390,19 @@ const JobDetails = () => {
                     </div>
                     
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-700">Text messages</span>
-                      <label className="relative inline-flex items-center cursor-pointer">
+                      <span className={`text-sm ${!userTwilioConnected ? 'text-gray-400' : 'text-gray-700'}`}>
+                        Text messages
+                        {!userTwilioConnected && <span className="text-xs block text-red-500">(Twilio not connected)</span>}
+                      </span>
+                      <label className={`relative inline-flex items-center ${!userTwilioConnected ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
                         <input 
                           type="checkbox" 
                           checked={smsNotifications}
                           onChange={(e) => handleNotificationToggle('sms', e.target.checked)}
-                          disabled={loading}
+                          disabled={loading || !userTwilioConnected}
                           className="sr-only peer" 
                         />
-                        <div className={`w-9 h-5 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all ${smsNotifications ? 'bg-blue-600 peer-checked:after:translate-x-full peer-checked:after:border-white' : 'bg-gray-200'} ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}></div>
+                        <div className={`w-9 h-5 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all ${smsNotifications ? 'bg-blue-600 peer-checked:after:translate-x-full peer-checked:after:border-white' : 'bg-gray-200'} ${loading || !userTwilioConnected ? 'opacity-50 cursor-not-allowed' : ''}`}></div>
                       </label>
                     </div>
                   </div>
@@ -2407,25 +2431,44 @@ const JobDetails = () => {
                         <button 
                           onClick={() => {
                             setNotificationType('confirmation')
-                            setNotificationEmail(job.customer_email || '')
+                            // Auto-select the first available method and pre-fill contact info
+                            if (emailNotifications) {
+                              setSelectedNotificationMethod('email')
+                              setNotificationEmail(job.customer_email || '')
+                            } else if (smsNotifications) {
+                              setSelectedNotificationMethod('sms')
+                              setNotificationPhone(job.customer_phone || '')
+                            }
                             setShowNotificationModal(true)
                           }}
-                          className="text-blue-600 hover:text-blue-700 text-xs font-medium"
+                          className={`text-xs font-medium ${
+                            !emailNotifications && !smsNotifications 
+                              ? 'text-gray-400 cursor-not-allowed' 
+                              : 'text-blue-600 hover:text-blue-700'
+                          }`}
+                          disabled={!emailNotifications && !smsNotifications}
+                          title={
+                            !emailNotifications && !smsNotifications 
+                              ? 'Notifications are disabled for this customer' 
+                              : ''
+                          }
                         >
                           {job.confirmation_sent ? 'Resend' : 'Send Now'}
                         </button>
                       </div>
                       <p className="text-sm font-semibold text-gray-900">Appointment Confirmation</p>
                       <p className="text-xs text-gray-500">
-                        {job.confirmation_sent 
-                          ? `Sent on ${new Date(job.confirmation_sent_at).toLocaleString()}` 
-                          : job.confirmation_failed 
-                            ? `Failed to send: ${job.confirmation_error || 'Unknown error'}`
-                            : job.confirmation_no_email 
-                              ? "No email address - click 'Send Now' to add email and send"
-                              : job.customer_email 
-                                ? "Sent automatically when job was created" 
-                                : "No email address - click 'Send Now' to add email and send"
+                        {!emailNotifications && !smsNotifications 
+                          ? "Notifications are disabled for this customer"
+                          : job.confirmation_sent 
+                            ? `Sent on ${new Date(job.confirmation_sent_at).toLocaleString()}` 
+                            : job.confirmation_failed 
+                              ? `Failed to send: ${job.confirmation_error || 'Unknown error'}`
+                              : job.confirmation_no_email 
+                                ? "No email address - click 'Send Now' to add email and send"
+                                : job.customer_email 
+                                  ? "Sent automatically when job was created" 
+                                  : "No email address - click 'Send Now' to add email and send"
                         }
                       </p>
                     </div>
@@ -2455,25 +2498,44 @@ const JobDetails = () => {
                         <button 
                           onClick={() => {
                             setNotificationType('reminder')
-                            setNotificationEmail(job.customer_email || '')
+                            // Auto-select the first available method and pre-fill contact info
+                            if (emailNotifications) {
+                              setSelectedNotificationMethod('email')
+                              setNotificationEmail(job.customer_email || '')
+                            } else if (smsNotifications) {
+                              setSelectedNotificationMethod('sms')
+                              setNotificationPhone(job.customer_phone || '')
+                            }
                             setShowNotificationModal(true)
                           }}
-                          className="text-blue-600 hover:text-blue-700 text-xs font-medium"
+                          className={`text-xs font-medium ${
+                            !emailNotifications && !smsNotifications 
+                              ? 'text-gray-400 cursor-not-allowed' 
+                              : 'text-blue-600 hover:text-blue-700'
+                          }`}
+                          disabled={!emailNotifications && !smsNotifications}
+                          title={
+                            !emailNotifications && !smsNotifications 
+                              ? 'Notifications are disabled for this customer' 
+                              : ''
+                          }
                         >
                           {job.reminder_sent ? 'Resend' : 'Send Now'}
                         </button>
                       </div>
                       <p className="text-sm font-semibold text-gray-900">Appointment Reminder</p>
                       <p className="text-xs text-gray-500">
-                        {job.reminder_sent 
-                          ? `Sent on ${new Date(job.reminder_sent_at).toLocaleString()}` 
-                          : job.reminder_failed 
-                            ? `Failed to send: ${job.reminder_error || 'Unknown error'}`
-                            : job.reminder_no_email 
-                              ? "No email address - click 'Send Now' to add email and send"
-                              : job.customer_email 
-                                ? "Scheduled for 2 hours before appointment" 
-                                : "No email address - click 'Send Now' to add email and send"
+                        {!emailNotifications && !smsNotifications 
+                          ? "Notifications are disabled for this customer"
+                          : job.reminder_sent 
+                            ? `Sent on ${new Date(job.reminder_sent_at).toLocaleString()}` 
+                            : job.reminder_failed 
+                              ? `Failed to send: ${job.reminder_error || 'Unknown error'}`
+                              : job.reminder_no_email 
+                                ? "No email address - click 'Send Now' to add email and send"
+                                : job.customer_email 
+                                  ? "Scheduled for 2 hours before appointment" 
+                                  : "No email address - click 'Send Now' to add email and send"
                         }
                       </p>
                     </div>
@@ -2644,16 +2706,19 @@ const JobDetails = () => {
                           </div>
                           
                           <div className="flex items-center justify-between">
-                            <span className="text-sm text-gray-700">Text messages</span>
-                            <label className="relative inline-flex items-center cursor-pointer">
+                            <span className={`text-sm ${!userTwilioConnected ? 'text-gray-400' : 'text-gray-700'}`}>
+                              Text messages
+                              {!userTwilioConnected && <span className="text-xs block text-red-500">(Twilio not connected)</span>}
+                            </span>
+                            <label className={`relative inline-flex items-center ${!userTwilioConnected ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
                               <input 
                                 type="checkbox" 
                                 checked={smsNotifications}
                                 onChange={(e) => handleNotificationToggle('sms', e.target.checked)}
-                                disabled={loading}
+                                disabled={loading || !userTwilioConnected}
                                 className="sr-only peer" 
                               />
-                              <div className={`w-9 h-5 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all ${smsNotifications ? 'bg-blue-600 peer-checked:after:translate-x-full peer-checked:after:border-white' : 'bg-gray-200'} ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}></div>
+                              <div className={`w-9 h-5 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all ${smsNotifications ? 'bg-blue-600 peer-checked:after:translate-x-full peer-checked:after:border-white' : 'bg-gray-200'} ${loading || !userTwilioConnected ? 'opacity-50 cursor-not-allowed' : ''}`}></div>
                             </label>
                           </div>
                         </div>
@@ -3547,90 +3612,215 @@ const JobDetails = () => {
                 </div>
 
                 <div className="space-y-6">
-                  {/* Email Address */}
+                  {/* Notification Method Selection */}
                   <div>
-                    <label htmlFor="notification-email" className="block text-sm font-medium text-gray-700 mb-2">
-                      Send to
+                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                      Send via
                     </label>
-                    <input
-                      type="email"
-                      id="notification-email"
-                      value={notificationEmail}
-                      onChange={(e) => setNotificationEmail(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="Enter email address"
-                      required
-                    />
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        onClick={() => {
+                          if (emailNotifications) {
+                            setSelectedNotificationMethod('email')
+                            setNotificationEmail(job.customer_email || '')
+                          }
+                        }}
+                        disabled={!emailNotifications}
+                        className={`p-3 border rounded-lg text-center transition-colors ${
+                          !emailNotifications
+                            ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed'
+                            : selectedNotificationMethod === 'email'
+                            ? 'border-blue-500 bg-blue-50 text-blue-700'
+                            : 'border-gray-300 hover:border-gray-400'
+                        }`}
+                        title={!emailNotifications ? 'Email notifications are disabled' : ''}
+                      >
+                        <Mail className={`w-5 h-5 mx-auto mb-1 ${!emailNotifications ? 'text-gray-400' : ''}`} />
+                        <div className={`text-sm font-medium ${!emailNotifications ? 'text-gray-400' : ''}`}>
+                          Email
+                          {!emailNotifications && <span className="text-xs block text-red-500">(Disabled)</span>}
+                        </div>
+                        <div className="text-xs text-gray-500">Send via email</div>
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (smsNotifications) {
+                            setSelectedNotificationMethod('sms')
+                            setNotificationPhone(job.customer_phone || '')
+                          }
+                        }}
+                        disabled={!smsNotifications}
+                        className={`p-3 border rounded-lg text-center transition-colors ${
+                          !smsNotifications
+                            ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed'
+                            : selectedNotificationMethod === 'sms'
+                            ? 'border-blue-500 bg-blue-50 text-blue-700'
+                            : 'border-gray-300 hover:border-gray-400'
+                        }`}
+                        title={!smsNotifications ? 'SMS notifications are disabled' : ''}
+                      >
+                        <Phone className={`w-5 h-5 mx-auto mb-1 ${!smsNotifications ? 'text-gray-400' : ''}`} />
+                        <div className={`text-sm font-medium ${!smsNotifications ? 'text-gray-400' : ''}`}>
+                          SMS
+                          {!smsNotifications && <span className="text-xs block text-red-500">(Disabled)</span>}
+                        </div>
+                        <div className="text-xs text-gray-500">Send via text</div>
+                      </button>
+                    </div>
                   </div>
 
-                  {/* Email Content Preview */}
+                  {/* Contact Information Input */}
+                  {selectedNotificationMethod === 'email' ? (
+                    <div>
+                      <label htmlFor="notification-email" className={`block text-sm font-medium mb-2 ${
+                        !emailNotifications ? 'text-gray-400' : 'text-gray-700'
+                      }`}>
+                        Email Address
+                        {!emailNotifications && <span className="text-red-500 ml-1">(Disabled)</span>}
+                      </label>
+                      <input
+                        type="email"
+                        id="notification-email"
+                        value={notificationEmail}
+                        onChange={(e) => setNotificationEmail(e.target.value)}
+                        disabled={!emailNotifications}
+                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-blue-500 ${
+                          !emailNotifications 
+                            ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed' 
+                            : 'border-gray-300 focus:ring-blue-500'
+                        }`}
+                        placeholder={!emailNotifications ? "Email notifications are disabled" : "Enter email address"}
+                        required
+                      />
+                    </div>
+                  ) : (
+                    <div>
+                      <label htmlFor="notification-phone" className={`block text-sm font-medium mb-2 ${
+                        !smsNotifications ? 'text-gray-400' : 'text-gray-700'
+                      }`}>
+                        Phone Number
+                        {!smsNotifications && <span className="text-red-500 ml-1">(Disabled)</span>}
+                      </label>
+                      <input
+                        type="tel"
+                        id="notification-phone"
+                        value={notificationPhone}
+                        onChange={(e) => setNotificationPhone(e.target.value)}
+                        disabled={!smsNotifications}
+                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-blue-500 ${
+                          !smsNotifications 
+                            ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed' 
+                            : 'border-gray-300 focus:ring-blue-500'
+                        }`}
+                        placeholder={!smsNotifications ? "SMS notifications are disabled" : "Enter phone number (e.g., +1234567890)"}
+                        required
+                      />
+                      <p className={`text-xs mt-1 ${
+                        !smsNotifications ? 'text-gray-400' : 'text-gray-500'
+                      }`}>
+                        {!smsNotifications ? "SMS notifications are disabled for this customer" : "Include country code (e.g., +1 for US)"}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Message Preview */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Email Content
+                      Message Preview
                     </label>
-                    <div className="border border-gray-300 rounded-lg p-4 bg-gray-50 max-h-60 overflow-y-auto">
-                      {notificationType === 'confirmation' ? (
-                        <div className="space-y-3">
-                          <div className="font-semibold text-gray-900">
-                            Hi {job?.customer_first_name || 'Customer'},
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 max-h-60 overflow-y-auto">
+                      {selectedNotificationMethod === 'email' ? (
+                        // Email preview
+                        notificationType === 'confirmation' ? (
+                          <div className="space-y-3">
+                            <div className="font-semibold text-gray-900">
+                              Hi {job?.customer_first_name || 'Customer'},
+                            </div>
+                            <div className="text-gray-700">
+                              Your appointment has been confirmed for <strong>{new Date(job?.scheduled_date).toLocaleDateString('en-US', { 
+                                weekday: 'long', 
+                                month: 'long', 
+                                day: 'numeric', 
+                                year: 'numeric' 
+                              })} at {new Date(job?.scheduled_date).toLocaleTimeString('en-US', { 
+                                hour: 'numeric', 
+                                minute: '2-digit',
+                                hour12: true 
+                              })}</strong>.
+                            </div>
+                            <div className="text-gray-700">
+                              <strong>Service:</strong> {job?.service_name || 'Service'}
+                            </div>
+                            <div className="text-gray-700">
+                              <strong>Location:</strong> {job?.service_address_street || 'Service Address'}, {job?.service_address_city || 'City'}, {job?.service_address_state || 'State'} {job?.service_address_zip || 'ZIP'}
+                            </div>
+                            <div className="text-gray-700">
+                              We look forward to serving you!
+                            </div>
+                            <div className="text-gray-700">
+                              Best regards,<br />
+                              Your Service Team
+                            </div>
                           </div>
-                          <div className="text-gray-700">
-                            Your appointment has been confirmed for <strong>{new Date(job?.scheduled_date).toLocaleDateString('en-US', { 
-                              weekday: 'long', 
-                              month: 'long', 
-                              day: 'numeric', 
-                              year: 'numeric' 
-                            })} at {new Date(job?.scheduled_date).toLocaleTimeString('en-US', { 
-                              hour: 'numeric', 
-                              minute: '2-digit',
-                              hour12: true 
-                            })}</strong>.
+                        ) : (
+                          <div className="space-y-3">
+                            <div className="font-semibold text-gray-900">
+                              Hi {job?.customer_first_name || 'Customer'},
+                            </div>
+                            <div className="text-gray-700">
+                              This is a friendly reminder that you have an appointment scheduled for <strong>{new Date(job?.scheduled_date).toLocaleDateString('en-US', { 
+                                weekday: 'long', 
+                                month: 'long', 
+                                day: 'numeric', 
+                                year: 'numeric' 
+                              })} at {new Date(job?.scheduled_date).toLocaleTimeString('en-US', { 
+                                hour: 'numeric', 
+                                minute: '2-digit',
+                                hour12: true 
+                              })}</strong>.
+                            </div>
+                            <div className="text-gray-700">
+                              <strong>Service:</strong> {job?.service_name || 'Service'}
+                            </div>
+                            <div className="text-gray-700">
+                              <strong>Location:</strong> {job?.service_address_street || 'Service Address'}, {job?.service_address_city || 'City'}, {job?.service_address_state || 'State'} {job?.service_address_zip || 'ZIP'}
+                            </div>
+                            <div className="text-gray-700">
+                              Please arrive on time. If you need to reschedule, please contact us as soon as possible.
+                            </div>
+                            <div className="text-gray-700">
+                              Best regards,<br />
+                              Your Service Team
+                            </div>
                           </div>
-                          <div className="text-gray-700">
-                            <strong>Service:</strong> {job?.service_name || 'Service'}
-                          </div>
-                          <div className="text-gray-700">
-                            <strong>Location:</strong> {job?.service_address_street || 'Service Address'}, {job?.service_address_city || 'City'}, {job?.service_address_state || 'State'} {job?.service_address_zip || 'ZIP'}
-                          </div>
-                          <div className="text-gray-700">
-                            We look forward to serving you!
-                          </div>
-                          <div className="text-gray-700">
-                            Best regards,<br />
-                            Your Service Team
-                          </div>
-                        </div>
+                        )
                       ) : (
-                        <div className="space-y-3">
-                          <div className="font-semibold text-gray-900">
-                            Hi {job?.customer_first_name || 'Customer'},
-                          </div>
+                        // SMS preview
+                        notificationType === 'confirmation' ? (
                           <div className="text-gray-700">
-                            This is a friendly reminder that you have an appointment scheduled for <strong>{new Date(job?.scheduled_date).toLocaleDateString('en-US', { 
+                            Hi {job?.customer_first_name || 'Customer'}! Your appointment is confirmed for {job?.service_name || 'Service'} on {new Date(job?.scheduled_date).toLocaleDateString('en-US', { 
                               weekday: 'long', 
                               month: 'long', 
-                              day: 'numeric', 
-                              year: 'numeric' 
+                              day: 'numeric' 
                             })} at {new Date(job?.scheduled_date).toLocaleTimeString('en-US', { 
                               hour: 'numeric', 
                               minute: '2-digit',
                               hour12: true 
-                            })}</strong>.
+                            })}. We'll see you soon! - Your Service Team
                           </div>
+                        ) : (
                           <div className="text-gray-700">
-                            <strong>Service:</strong> {job?.service_name || 'Service'}
+                            Hi {job?.customer_first_name || 'Customer'}! Reminder: You have an appointment for {job?.service_name || 'Service'} on {new Date(job?.scheduled_date).toLocaleDateString('en-US', { 
+                              weekday: 'long', 
+                              month: 'long', 
+                              day: 'numeric' 
+                            })} at {new Date(job?.scheduled_date).toLocaleTimeString('en-US', { 
+                              hour: 'numeric', 
+                              minute: '2-digit',
+                              hour12: true 
+                            })}. Please arrive on time! - Your Service Team
                           </div>
-                          <div className="text-gray-700">
-                            <strong>Location:</strong> {job?.service_address_street || 'Service Address'}, {job?.service_address_city || 'City'}, {job?.service_address_state || 'State'} {job?.service_address_zip || 'ZIP'}
-                          </div>
-                          <div className="text-gray-700">
-                            Please arrive on time. If you need to reschedule, please contact us as soon as possible.
-                          </div>
-                          <div className="text-gray-700">
-                            Best regards,<br />
-                            Your Service Team
-                          </div>
-                        </div>
+                        )
                       )}
                     </div>
                   </div>
@@ -3642,6 +3832,8 @@ const JobDetails = () => {
                         setShowNotificationModal(false);
                         setNotificationType(null);
                         setNotificationEmail('');
+                        setNotificationPhone('');
+                        setSelectedNotificationMethod('email');
                       }}
                       className="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 order-2 sm:order-1"
                     >
@@ -3649,7 +3841,27 @@ const JobDetails = () => {
                     </button>
                     <button
                       onClick={async () => {
-                        if (notificationEmail.trim()) {
+                        // Check if notifications are disabled
+                        if (!emailNotifications && !smsNotifications) {
+                          setError('Notifications are disabled for this customer. Please enable notifications first.');
+                          return;
+                        }
+                        
+                        // Check if the selected method is disabled
+                        if (selectedNotificationMethod === 'email' && !emailNotifications) {
+                          setError('Email notifications are disabled for this customer.');
+                          return;
+                        }
+                        
+                        if (selectedNotificationMethod === 'sms' && !smsNotifications) {
+                          setError('SMS notifications are disabled for this customer.');
+                          return;
+                        }
+                        
+                        const isValidEmail = selectedNotificationMethod === 'email' && notificationEmail.trim();
+                        const isValidPhone = selectedNotificationMethod === 'sms' && notificationPhone.trim();
+                        
+                        if (isValidEmail || isValidPhone) {
                           try {
                             setLoading(true);
                             
@@ -3668,79 +3880,153 @@ const JobDetails = () => {
                               return 'Service Address';
                             })();
 
-                            const response = await api.post('/send-appointment-notification', {
-                              notificationType,
-                              customerEmail: notificationEmail,
-                              jobId: job.id,
-                              customerName: `${job.customer_first_name || ''} ${job.customer_last_name || ''}`.trim() || 'Customer',
-                              serviceName: job.service_name || 'Service',
-                              scheduledDate: job.scheduled_date,
-                              serviceAddress: serviceAddress
-                            });
+                            if (selectedNotificationMethod === 'email') {
+                              // Send email notification
+                              const response = await api.post('/send-appointment-notification', {
+                                notificationType,
+                                customerEmail: notificationEmail,
+                                jobId: job.id,
+                                customerName: `${job.customer_first_name || ''} ${job.customer_last_name || ''}`.trim() || 'Customer',
+                                serviceName: job.service_name || 'Service',
+                                scheduledDate: job.scheduled_date,
+                                serviceAddress: serviceAddress
+                              });
 
-                            console.log('📧 Notification sent successfully:', response.data);
-                            
-                            // Update job status instantly if it's a confirmation or reminder
-                            if (notificationType === 'confirmation') {
-                              setJob(prev => ({
-                                ...prev,
-                                confirmation_sent: true,
-                                confirmation_sent_at: new Date().toISOString(),
-                                confirmation_email: notificationEmail,
-                                confirmation_failed: false,
-                                confirmation_error: null,
-                                confirmation_no_email: false
-                              }));
-                            } else if (notificationType === 'reminder') {
-                              setJob(prev => ({
-                                ...prev,
-                                reminder_sent: true,
-                                reminder_sent_at: new Date().toISOString(),
-                                reminder_email: notificationEmail,
-                                reminder_failed: false,
-                                reminder_error: null,
-                                reminder_no_email: false
-                              }));
+                              console.log('📧 Email notification sent successfully:', response.data);
+                              
+                              // Update job status
+                              if (notificationType === 'confirmation') {
+                                setJob(prev => ({
+                                  ...prev,
+                                  confirmation_sent: true,
+                                  confirmation_sent_at: new Date().toISOString(),
+                                  confirmation_email: notificationEmail,
+                                  confirmation_failed: false,
+                                  confirmation_error: null,
+                                  confirmation_no_email: false
+                                }));
+                              } else if (notificationType === 'reminder') {
+                                setJob(prev => ({
+                                  ...prev,
+                                  reminder_sent: true,
+                                  reminder_sent_at: new Date().toISOString(),
+                                  reminder_email: notificationEmail,
+                                  reminder_failed: false,
+                                  reminder_error: null,
+                                  reminder_no_email: false
+                                }));
+                              }
+                              
+                              const isResend = (notificationType === 'confirmation' && job.confirmation_sent) || (notificationType === 'reminder' && job.reminder_sent);
+                              setSuccessMessage(`${notificationType === 'confirmation' ? (isResend ? 'Confirmation email resent' : 'Confirmation email sent') : (isResend ? 'Reminder email resent' : 'Reminder email sent')} to ${notificationEmail}!`);
+                            } else {
+                              // Send SMS notification
+                              const smsMessage = notificationType === 'confirmation' 
+                                ? `Hi ${job?.customer_first_name || 'Customer'}! Your appointment is confirmed for ${job?.service_name || 'Service'} on ${new Date(job?.scheduled_date).toLocaleDateString('en-US', { 
+                                    weekday: 'long', 
+                                    month: 'long', 
+                                    day: 'numeric' 
+                                  })} at ${new Date(job?.scheduled_date).toLocaleTimeString('en-US', { 
+                                    hour: 'numeric', 
+                                    minute: '2-digit',
+                                    hour12: true 
+                                  })}. We'll see you soon! - Your Service Team`
+                                : `Hi ${job?.customer_first_name || 'Customer'}! Reminder: You have an appointment for ${job?.service_name || 'Service'} on ${new Date(job?.scheduled_date).toLocaleDateString('en-US', { 
+                                    weekday: 'long', 
+                                    month: 'long', 
+                                    day: 'numeric' 
+                                  })} at ${new Date(job?.scheduled_date).toLocaleTimeString('en-US', { 
+                                    hour: 'numeric', 
+                                    minute: '2-digit',
+                                    hour12: true 
+                                  })}. Please arrive on time! - Your Service Team`;
+
+                              const response = await twilioAPI.sendSMS(notificationPhone, smsMessage);
+
+                              console.log('📱 SMS notification sent successfully:', response);
+                              
+                              // Update job status for SMS
+                              if (notificationType === 'confirmation') {
+                                setJob(prev => ({
+                                  ...prev,
+                                  sms_sent: true,
+                                  sms_sent_at: new Date().toISOString(),
+                                  sms_phone: notificationPhone,
+                                  sms_sid: response.sid,
+                                  sms_failed: false,
+                                  sms_error: null
+                                }));
+                              }
+                              
+                              const isResend = (notificationType === 'confirmation' && job.sms_sent);
+                              setSuccessMessage(`${notificationType === 'confirmation' ? (isResend ? 'Confirmation SMS resent' : 'Confirmation SMS sent') : (isResend ? 'Reminder SMS resent' : 'Reminder SMS sent')} to ${notificationPhone}!`);
                             }
                             
-                            const isResend = (notificationType === 'confirmation' && job.confirmation_sent) || (notificationType === 'reminder' && job.reminder_sent);
-                            setSuccessMessage(`${notificationType === 'confirmation' ? (isResend ? 'Confirmation resent' : 'Confirmation sent') : (isResend ? 'Reminder resent' : 'Reminder sent')} to ${notificationEmail}!`);
                             setTimeout(() => setSuccessMessage(""), 3000);
                             setShowNotificationModal(false);
                             setNotificationType(null);
                             setNotificationEmail('');
+                            setNotificationPhone('');
+                            setSelectedNotificationMethod('email');
                           } catch (error) {
                             console.error('❌ Error sending notification:', error);
                             
-                            // Update job status instantly if it's a confirmation or reminder and failed
-                            if (notificationType === 'confirmation') {
-                              setJob(prev => ({
-                                ...prev,
-                                confirmation_sent: false,
-                                confirmation_failed: true,
-                                confirmation_error: error.response?.data?.error || error.message
-                              }));
-                            } else if (notificationType === 'reminder') {
-                              setJob(prev => ({
-                                ...prev,
-                                reminder_sent: false,
-                                reminder_failed: true,
-                                reminder_error: error.response?.data?.error || error.message
-                              }));
+                            // Update job status for failures
+                            if (selectedNotificationMethod === 'email') {
+                              if (notificationType === 'confirmation') {
+                                setJob(prev => ({
+                                  ...prev,
+                                  confirmation_sent: false,
+                                  confirmation_failed: true,
+                                  confirmation_error: error.response?.data?.error || error.message
+                                }));
+                              } else if (notificationType === 'reminder') {
+                                setJob(prev => ({
+                                  ...prev,
+                                  reminder_sent: false,
+                                  reminder_failed: true,
+                                  reminder_error: error.response?.data?.error || error.message
+                                }));
+                              }
+                            } else {
+                              if (notificationType === 'confirmation') {
+                                setJob(prev => ({
+                                  ...prev,
+                                  sms_sent: false,
+                                  sms_failed: true,
+                                  sms_error: error.response?.data?.error || error.message
+                                }));
+                              }
                             }
                             
-                            setError(`Failed to send ${notificationType === 'confirmation' ? 'confirmation' : 'reminder'}: ${error.response?.data?.error || error.message}`);
+                            setError(`Failed to send ${notificationType === 'confirmation' ? 'confirmation' : 'reminder'} ${selectedNotificationMethod.toUpperCase()}: ${error.response?.data?.error || error.message}`);
                           } finally {
                             setLoading(false);
                           }
                         } else {
-                          setError('Please enter a valid email address');
+                          setError(`Please enter a valid ${selectedNotificationMethod === 'email' ? 'email address' : 'phone number'}`);
                         }
                       }}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 order-1 sm:order-2"
-                      disabled={loading}
+                      className={`px-4 py-2 rounded-lg order-1 sm:order-2 ${
+                        (!emailNotifications && !smsNotifications) || 
+                        (selectedNotificationMethod === 'email' && !emailNotifications) ||
+                        (selectedNotificationMethod === 'sms' && !smsNotifications)
+                          ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                          : 'bg-blue-600 text-white hover:bg-blue-700'
+                      }`}
+                      disabled={
+                        loading || 
+                        (!emailNotifications && !smsNotifications) ||
+                        (selectedNotificationMethod === 'email' && !emailNotifications) ||
+                        (selectedNotificationMethod === 'sms' && !smsNotifications)
+                      }
                     >
-                      {loading ? 'Sending...' : (notificationType === 'confirmation' ? 'Resend Confirmation' : 'Send Reminder')}
+                      {loading ? 'Sending...' : 
+                        (!emailNotifications && !smsNotifications) ? 'Notifications Disabled' :
+                        (selectedNotificationMethod === 'email' && !emailNotifications) ? 'Email Disabled' :
+                        (selectedNotificationMethod === 'sms' && !smsNotifications) ? 'SMS Disabled' :
+                        `${selectedNotificationMethod === 'email' ? 'Send Email' : 'Send SMS'} ${notificationType === 'confirmation' ? 'Confirmation' : 'Reminder'}`
+                      }
                     </button>
                   </div>
                 </div>
