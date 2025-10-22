@@ -16,6 +16,28 @@ const ServiceFlowDashboard = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [isWakingUp, setIsWakingUp] = useState(true)
   
+  // Keepalive functionality to prevent Railway backend from sleeping
+  useEffect(() => {
+    const keepWarm = async () => {
+      try {
+        await fetch(`${process.env.REACT_APP_API_URL || 'https://service-flow-backend-production-4568.up.railway.app/api'}/health`, {
+          method: 'HEAD',
+        });
+        console.log('✅ Backend keepalive ping');
+      } catch (error) {
+        console.log('⚠️ Keepalive ping failed (normal if backend is sleeping)');
+      }
+    };
+
+    // Initial ping on dashboard load
+    keepWarm();
+
+    // Set up interval to ping every 10 minutes
+    const keepaliveInterval = setInterval(keepWarm, 10 * 60 * 1000); // 10 minutes
+
+    return () => clearInterval(keepaliveInterval);
+  }, []);
+  
   // Helper function to get today's date in local timezone
   const getTodayString = () => {
     const today = new Date()
