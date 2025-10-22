@@ -34,7 +34,7 @@ api.interceptors.response.use(
     const config = error.config;
     
     // Don't retry if we've already retried or if it's not a network error
-    if (config.__retryCount >= 2 || error.response?.status) {
+    if (config.__retryCount >= 3 || error.response?.status) {
       // Handle non-network errors normally
       if (error.response) {
         const { status, data } = error.response;
@@ -76,14 +76,18 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
     
-    // Only retry on network errors (ERR_NETWORK, ERR_FAILED, timeout)
-    if (error.code === 'ERR_NETWORK' || error.message === 'Network Error' || error.code === 'ECONNABORTED') {
+    // Only retry on network errors (ERR_NETWORK, ERR_FAILED, timeout, Railway cold start)
+    if (error.code === 'ERR_NETWORK' || error.message === 'Network Error' || error.code === 'ECONNABORTED' || 
+        error.message?.includes('Failed to fetch') || error.message?.includes('CORS') || 
+        error.message?.includes('preflight')) {
       config.__retryCount = (config.__retryCount || 0) + 1;
       
-      console.log(`🔄 Retrying request (attempt ${config.__retryCount}/2):`, config.url);
+      console.log(`🔄 Retrying request (attempt ${config.__retryCount}/3):`, config.url);
+      console.log(`🔄 Error details:`, error.message);
       
-      // Wait a bit before retrying (exponential backoff)
-      await new Promise(resolve => setTimeout(resolve, 1000 * config.__retryCount));
+      // Wait longer for Railway cold start (exponential backoff with longer delays)
+      const delay = 2000 * config.__retryCount; // 2s, 4s, 6s
+      await new Promise(resolve => setTimeout(resolve, delay));
       
       return api(config);
     }

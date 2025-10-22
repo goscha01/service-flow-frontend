@@ -204,6 +204,28 @@ const JobDetails = () => {
   const [userTwilioConnected, setUserTwilioConnected] = useState(false)
   const [intakeQuestionAnswers, setIntakeQuestionAnswers] = useState({})
   const [originalJobData, setOriginalJobData] = useState(null)
+  
+  // Keepalive functionality to prevent Railway backend from sleeping
+  useEffect(() => {
+    const keepWarm = async () => {
+      try {
+        await fetch(`${process.env.REACT_APP_API_URL || 'https://service-flow-backend-production-4568.up.railway.app/api'}/health`, {
+          method: 'HEAD',
+        });
+        console.log('✅ Backend keepalive ping');
+      } catch (error) {
+        console.log('⚠️ Keepalive ping failed (normal if backend is sleeping)');
+      }
+    };
+
+    // Initial ping on job details load
+    keepWarm();
+
+    // Set up interval to ping every 10 minutes
+    const keepaliveInterval = setInterval(keepWarm, 10 * 60 * 1000); // 10 minutes
+
+    return () => clearInterval(keepaliveInterval);
+  }, []);
   const [isRetrying, setIsRetrying] = useState(false)
 
   // Helper function to map job data from API response
@@ -470,14 +492,40 @@ const JobDetails = () => {
           setUserTwilioConnected(false)
         }
 
-        // Fetch notification preferences
+        // Fetch customer notification preferences
         if (jobData.customer_id) {
           try {
             const prefs = await notificationAPI.getPreferences(jobData.customer_id)
+            console.log('📧 Loaded customer notification preferences:', prefs)
     
+            // Always use the saved customer preferences
             setEmailNotifications(!!prefs.email_notifications)
-            // Only enable SMS if user has Twilio connected AND customer wants SMS
-            setSmsNotifications(!!prefs.sms_notifications && userTwilioConnected)
+            setSmsNotifications(!!prefs.sms_notifications)
+            
+            console.log('📧 Setting notification states:', {
+              email: !!prefs.email_notifications,
+              sms: !!prefs.sms_notifications,
+              userTwilioConnected,
+              rawEmail: prefs.email_notifications,
+              rawSms: prefs.sms_notifications
+            })
+            
+            // Only auto-enable SMS for customers without email if they don't have preferences yet
+            const hasEmail = jobData.customer_email && jobData.customer_email.trim() !== ''
+            if (!hasEmail && userTwilioConnected && !prefs.sms_notifications) {
+              // Customer has no email and no SMS preference set - auto-enable SMS
+              setSmsNotifications(true)
+              
+              try {
+                await notificationAPI.updatePreferences(jobData.customer_id, {
+                  email_notifications: false,
+                  sms_notifications: true
+                })
+                console.log('📱 Auto-enabled SMS for customer without email')
+              } catch (updateError) {
+                console.error('Failed to auto-update notification preferences:', updateError)
+              }
+            }
           } catch (e) {
             console.error('Failed to load notification preferences:', e)
             // Use defaults - don't show error to user for notification preferences
@@ -972,10 +1020,13 @@ const JobDetails = () => {
 
       console.log('🔄 Toggling notification:', { type, value, customerId: job.customer_id })
       
+      // Update local state first
       if (type === 'email') {
         setEmailNotifications(value)
+        console.log('📧 Email notification set to:', value)
       } else if (type === 'sms') {
         setSmsNotifications(value)
+        console.log('📱 SMS notification set to:', value)
       }
       
       // Update notification preferences in backend
@@ -987,6 +1038,14 @@ const JobDetails = () => {
       console.log('📧 Sending preferences to server:', preferences)
       const result = await notificationAPI.updatePreferences(job.customer_id, preferences)
       console.log('✅ Server response:', result)
+      
+      // Verify the save was successful by re-fetching preferences
+      try {
+        const verifyPrefs = await notificationAPI.getPreferences(job.customer_id)
+        console.log('✅ Verified saved preferences:', verifyPrefs)
+      } catch (verifyError) {
+        console.error('❌ Failed to verify saved preferences:', verifyError)
+      }
       
       setSuccessMessage(`${type === 'email' ? 'Email' : 'SMS'} notifications ${value ? 'enabled' : 'disabled'}`)
       setTimeout(() => setSuccessMessage(""), 3000)
@@ -2431,13 +2490,20 @@ const JobDetails = () => {
                         <button 
                           onClick={() => {
                             setNotificationType('confirmation')
-                            // Auto-select the first available method and pre-fill contact info
-                            if (emailNotifications) {
+                            
+                            // Check if customer has email address
+                            const hasEmail = job.customer_email && job.customer_email.trim() !== ''
+                            
+                            // Auto-select the best available method and pre-fill contact info
+                            if (hasEmail && emailNotifications) {
                               setSelectedNotificationMethod('email')
                               setNotificationEmail(job.customer_email || '')
                             } else if (smsNotifications) {
                               setSelectedNotificationMethod('sms')
                               setNotificationPhone(job.customer_phone || '')
+                            } else if (emailNotifications) {
+                              setSelectedNotificationMethod('email')
+                              setNotificationEmail(job.customer_email || '')
                             }
                             setShowNotificationModal(true)
                           }}
@@ -2468,7 +2534,9 @@ const JobDetails = () => {
                                 ? "No email address - click 'Send Now' to add email and send"
                                 : job.customer_email 
                                   ? "Sent automatically when job was created" 
-                                  : "No email address - click 'Send Now' to add email and send"
+                                  : smsNotifications 
+                                    ? "No email address - SMS enabled automatically" 
+                                    : "No email address - click 'Send Now' to add email and send"
                         }
                       </p>
                     </div>
@@ -2498,13 +2566,20 @@ const JobDetails = () => {
                         <button 
                           onClick={() => {
                             setNotificationType('reminder')
-                            // Auto-select the first available method and pre-fill contact info
-                            if (emailNotifications) {
+                            
+                            // Check if customer has email address
+                            const hasEmail = job.customer_email && job.customer_email.trim() !== ''
+                            
+                            // Auto-select the best available method and pre-fill contact info
+                            if (hasEmail && emailNotifications) {
                               setSelectedNotificationMethod('email')
                               setNotificationEmail(job.customer_email || '')
                             } else if (smsNotifications) {
                               setSelectedNotificationMethod('sms')
                               setNotificationPhone(job.customer_phone || '')
+                            } else if (emailNotifications) {
+                              setSelectedNotificationMethod('email')
+                              setNotificationEmail(job.customer_email || '')
                             }
                             setShowNotificationModal(true)
                           }}
@@ -2535,7 +2610,9 @@ const JobDetails = () => {
                                 ? "No email address - click 'Send Now' to add email and send"
                                 : job.customer_email 
                                   ? "Scheduled for 2 hours before appointment" 
-                                  : "No email address - click 'Send Now' to add email and send"
+                                  : smsNotifications 
+                                    ? "No email address - SMS enabled automatically" 
+                                    : "No email address - click 'Send Now' to add email and send"
                         }
                       </p>
                     </div>
