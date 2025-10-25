@@ -5,6 +5,10 @@ import Sidebar from "../components/sidebar"
 import MobileHeader from "../components/mobile-header"
 import CustomerModal from "../components/customer-modal"
 import CalendarPicker from "../components/CalendarPicker"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
+import { Button } from "../components/ui/button"
+import { Badge } from "../components/ui/badge"
+import { Progress } from "../components/ui/progress"
 import { Plus, ChevronDown, Info, Star, Calendar, ArrowRight, BarChart2, CreditCard, Users, RefreshCw, MapPin, Globe, Check, AlertTriangle } from "lucide-react"
 import { Link, useNavigate } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
@@ -1525,112 +1529,130 @@ const ServiceFlowDashboard = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                   {/* New jobs */}
-                  <div className="space-y-4 p-4 bg-gray-50 rounded-xl">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <BarChart2 className="w-5 h-5 text-primary-600" />
-                        <h3 className="text-sm font-medium text-gray-900">New jobs</h3>
-                      </div>
-                      <Info className="w-4 h-4 text-gray-400 hover:text-gray-600 cursor-help transition-colors duration-200" />
-                    </div>
-                    {isLoading ? (
-                      <div className="animate-pulse space-y-4">
-                        <div className="h-8 bg-gray-200 rounded w-16"></div>
-                        <div className="h-2 bg-gray-200 rounded-full"></div>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="text-3xl font-bold text-gray-900">{dashboardData.newJobs}</div>
-                        <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                          <div className="h-2 bg-primary-600 rounded-full" style={{ width: `${(dashboardData.newJobs / dashboardData.totalJobs) * 100}%` }}></div>
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">New jobs</CardTitle>
+                      <Info className="h-4 w-4 text-gray-400" />
+                    </CardHeader>
+                    <CardContent>
+                      {isLoading ? (
+                        <div className="animate-pulse space-y-4">
+                          <div className="h-8 bg-gray-200 rounded w-16"></div>
+                          <div className="h-2 bg-gray-200 rounded-full"></div>
                         </div>
-                      </>
-                    )}
-                  </div>
+                      ) : (
+                        <>
+                          <div className="text-3xl font-bold text-gray-900">{dashboardData.newJobs}</div>
+                          <div className="flex items-center space-x-2 mt-2">
+                            <Progress value={dashboardData.totalJobs > 0 ? (dashboardData.newJobs / dashboardData.totalJobs) * 100 : 0} className="flex-1" />
+                            <span className="text-xs text-gray-500">7 days</span>
+                          </div>
+                        </>
+                      )}
+                    </CardContent>
+                  </Card>
 
                   {/* Jobs */}
-                  <div className="space-y-4 p-4 bg-gray-50 rounded-xl">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <RefreshCw className="w-5 h-5 text-primary-600" />
-                        <h3 className="text-sm font-medium text-gray-900">Jobs</h3>
-                      </div>
-                      <Info className="w-4 h-4 text-gray-400 hover:text-gray-600 cursor-help transition-colors duration-200" />
-                    </div>
-                    {isLoading ? (
-                      <div className="animate-pulse space-y-4">
-                        <div className="h-8 bg-gray-200 rounded w-16"></div>
-                        <div className="h-2 bg-gray-200 rounded-full"></div>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="text-3xl font-bold text-gray-900">{dashboardData.totalJobs}</div>
-                        <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                          <div className="h-2 bg-primary-600 rounded-full" style={{ width: `${(dashboardData.totalJobs / Math.max(dashboardData.totalJobs, 1)) * 100}%` }}></div>
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Jobs</CardTitle>
+                      <Info className="h-4 w-4 text-gray-400" />
+                    </CardHeader>
+                    <CardContent>
+                      {isLoading ? (
+                        <div className="animate-pulse space-y-4">
+                          <div className="h-8 bg-gray-200 rounded w-16"></div>
+                          <div className="h-2 bg-gray-200 rounded-full"></div>
                         </div>
-                      </>
-                    )}
-                  </div>
+                      ) : dashboardData.totalJobs > 0 ? (
+                        <>
+                          <div className="text-3xl font-bold text-gray-900">{dashboardData.totalJobs}</div>
+                          <div className="flex items-center space-x-2 mt-2">
+                            <Progress value={100} className="flex-1" />
+                            <span className="text-xs text-gray-500">Total</span>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="text-center py-4">
+                          <p className="text-gray-900 font-medium">No data to display</p>
+                          <p className="text-gray-600 text-sm mt-1">
+                            Try changing the date range filter at the top of the page
+                          </p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
 
                   {/* New recurring bookings */}
-                  <div className="space-y-4 p-4 bg-gray-50 rounded-xl">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <Calendar className="w-5 h-5 text-primary-600" />
-                        <h3 className="text-sm font-medium text-gray-900">New recurring bookings</h3>
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">New recurring bookings</CardTitle>
+                      <Info className="h-4 w-4 text-gray-400" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-3xl font-bold text-gray-900">{dashboardData.newRecurringBookings}</div>
+                      <div className="flex items-center space-x-2 mt-2">
+                        <Progress value={dashboardData.recurringBookings > 0 ? (dashboardData.newRecurringBookings / dashboardData.recurringBookings) * 100 : 0} className="flex-1" />
+                        <span className="text-xs text-gray-500">7 days</span>
                       </div>
-                      <Info className="w-4 h-4 text-gray-400 hover:text-gray-600 cursor-help transition-colors duration-200" />
-                    </div>
-                    <div className="text-3xl font-bold text-gray-900">{dashboardData.newRecurringBookings}</div>
-                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <div className="h-2 bg-primary-600 rounded-full" style={{ width: `${(dashboardData.newRecurringBookings / dashboardData.recurringBookings) * 100}%` }}></div>
-                    </div>
-                  </div>
+                    </CardContent>
+                  </Card>
 
                   {/* Recurring bookings */}
-                  <div className="space-y-4 p-4 bg-gray-50 rounded-xl">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <RefreshCw className="w-5 h-5 text-primary-600" />
-                        <h3 className="text-sm font-medium text-gray-900">Recurring bookings</h3>
-                      </div>
-                      <Info className="w-4 h-4 text-gray-400 hover:text-gray-600 cursor-help transition-colors duration-200" />
-                    </div>
-                    <div className="text-3xl font-bold text-gray-900">{dashboardData.recurringBookings}</div>
-                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <div className="h-2 bg-primary-600 rounded-full" style={{ width: `${(dashboardData.recurringBookings / Math.max(dashboardData.recurringBookings, 1)) * 100}%` }}></div>
-                    </div>
-                  </div>
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Recurring bookings</CardTitle>
+                      <Info className="h-4 w-4 text-gray-400" />
+                    </CardHeader>
+                    <CardContent>
+                      {dashboardData.recurringBookings > 0 ? (
+                        <>
+                          <div className="text-3xl font-bold text-gray-900">{dashboardData.recurringBookings}</div>
+                          <div className="flex items-center space-x-2 mt-2">
+                            <Progress value={100} className="flex-1" />
+                            <span className="text-xs text-gray-500">Total</span>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="text-center py-4">
+                          <p className="text-gray-900 font-medium">No data to display</p>
+                          <p className="text-gray-600 text-sm mt-1">
+                            Try changing the date range filter at the top of the page
+                          </p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
 
                   {/* Job value */}
-                  <div className="space-y-4 p-4 bg-gray-50 rounded-xl">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <CreditCard className="w-5 h-5 text-primary-600" />
-                        <h3 className="text-sm font-medium text-gray-900">Avg job value</h3>
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Job value</CardTitle>
+                      <Info className="h-4 w-4 text-gray-400" title="Average value per job (total revenue ÷ number of jobs)" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-3xl font-bold text-gray-900">${dashboardData.jobValue}</div>
+                      <div className="flex items-center space-x-2 mt-2">
+                        <Progress value={Math.min((dashboardData.jobValue / dashboardData.maxJobValue) * 100, 100)} className="flex-1" />
+                        <span className="text-xs text-gray-500">Avg</span>
                       </div>
-                      <Info className="w-4 h-4 text-gray-400 hover:text-gray-600 cursor-help transition-colors duration-200" title="Average value per job (total revenue ÷ number of jobs)" />
-                    </div>
-                    <div className="text-3xl font-bold text-gray-900">${dashboardData.jobValue}</div>
-                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <div className="h-2 bg-primary-600 rounded-full" style={{ width: `${Math.min((dashboardData.jobValue / dashboardData.maxJobValue) * 100, 100)}%` }}></div>
-                    </div>
-                  </div>
+                    </CardContent>
+                  </Card>
 
                   {/* Payments collected */}
-                  <div className="space-y-4 p-4 bg-gray-50 rounded-xl">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <CreditCard className="w-5 h-5 text-primary-600" />
-                        <h3 className="text-sm font-medium text-gray-900">Total revenue</h3>
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Payments collected</CardTitle>
+                      <Info className="h-4 w-4 text-gray-400" title="Total value of all jobs in the selected time period" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-3xl font-bold text-gray-900">${dashboardData.totalRevenue}</div>
+                      <div className="flex items-center space-x-2 mt-2">
+                        <Progress value={Math.min((dashboardData.totalRevenue / dashboardData.maxRevenue) * 100, 100)} className="flex-1" />
+                        <span className="text-xs text-gray-500">Total</span>
                       </div>
-                      <Info className="w-4 h-4 text-gray-400 hover:text-gray-600 cursor-help transition-colors duration-200" title="Total value of all jobs in the selected time period" />
-                    </div>
-                    <div className="text-3xl font-bold text-gray-900">${dashboardData.totalRevenue}</div>
-                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <div className="h-2 bg-primary-600 rounded-full" style={{ width: `${Math.min((dashboardData.totalRevenue / dashboardData.maxRevenue) * 100, 100)}%` }}></div>
-                    </div>
-                  </div>
+                    </CardContent>
+                  </Card>
                 </div>
 
                 {/* Rating Section */}

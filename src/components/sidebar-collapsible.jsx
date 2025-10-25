@@ -24,7 +24,7 @@ import {
   Zap,
 } from "lucide-react"
 
-const Sidebar = ({ isOpen, onClose }) => {
+const Sidebar = ({ isOpen, onClose, forceCollapsed = false }) => {
   const navigate = useNavigate()
   const location = useLocation()
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false)
@@ -80,7 +80,7 @@ const Sidebar = ({ isOpen, onClose }) => {
       {/* Sidebar */}
       <div
         className={`
-        fixed inset-y-0 left-0 z-40 w-64 md:w-20 lg:w-64 xl:w-72 bg-white border-r border-gray-200 
+        fixed inset-y-0 left-0 z-40 ${forceCollapsed ? 'w-20' : 'w-64 md:w-20 lg:w-64 xl:w-72'} bg-white border-r border-gray-200 
         transform transition-all duration-300 ease-in-out
         ${isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
         flex flex-col shadow-lg
@@ -94,14 +94,14 @@ const Sidebar = ({ isOpen, onClose }) => {
         </div>
 
         {/* Logo */}
-        <div className="p-4 border-b border-gray-200 md:flex md:justify-center lg:justify-start">
+        <div className={`p-4 border-b border-gray-200 ${forceCollapsed ? 'flex justify-center' : 'md:flex md:justify-center lg:justify-start'}`}>
           <div className="flex items-center space-x-2 cursor-pointer" onClick={() => handleNavigation("/dashboard")}>
-           <img src="/logo.svg" alt="ServiceFlow Logo" className="md:w-8 lg:w-auto" />
+           <img src="/logo.svg" alt="ServiceFlow Logo" className={`${forceCollapsed ? 'w-8' : 'md:w-8 lg:w-auto'}`} />
           </div>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 md:px-2 lg:p-4 overflow-y-auto scrollbar-hide">
+        <nav className={`flex-1 ${forceCollapsed ? 'p-4 px-2' : 'p-4 md:px-2 lg:p-4'} overflow-y-auto scrollbar-hide`}>
           <ul className="space-y-1">
             {sidebarItems.map((item, index) => {
               const Icon = item.icon
@@ -110,15 +110,15 @@ const Sidebar = ({ isOpen, onClose }) => {
                 <li key={index} className={item.hidden ? "feature-hidden" : ""}>
                   <button
                     onClick={() => handleNavigation(item.path)}
-                    className={`w-full flex items-center space-x-3 md:justify-center lg:justify-start px-3 py-2 rounded-lg text-sm font-medium transition-colors text-left group relative ${
+                    className={`w-full flex items-center ${forceCollapsed ? 'justify-center' : 'space-x-3 md:justify-center lg:justify-start'} px-3 py-2 rounded-lg text-sm font-medium transition-colors text-left group relative ${
                       isActive ? "bg-blue-50 text-blue-700" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                     }`}
                   >
                     <Icon className="w-5 h-5 flex-shrink-0" />
-                    <span className="md:hidden lg:inline">{item.label}</span>
+                    <span className={forceCollapsed ? 'hidden' : 'md:hidden lg:inline'}>{item.label}</span>
                     
-                    {/* Tooltip for collapsed state on tablets */}
-                    <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded-md opacity-0 invisible md:group-hover:opacity-100 md:group-hover:visible lg:opacity-0 lg:invisible transition-all duration-200 whitespace-nowrap z-50">
+                    {/* Tooltip for collapsed state */}
+                    <div className={`absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded-md opacity-0 invisible ${forceCollapsed ? 'group-hover:opacity-100 group-hover:visible' : 'md:group-hover:opacity-100 md:group-hover:visible lg:opacity-0 lg:invisible'} transition-all duration-200 whitespace-nowrap z-50`}>
                       {item.label}
                     </div>
                   </button>
@@ -129,7 +129,7 @@ const Sidebar = ({ isOpen, onClose }) => {
 
           {/* Integrations Section */}
           <div className="mt-6">
-            <h3 className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 md:hidden lg:block">
+            <h3 className={`px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 ${forceCollapsed ? 'hidden' : 'md:hidden lg:block'}`}>
               Integrations
             </h3>
             <ul className="space-y-1">
@@ -140,15 +140,15 @@ const Sidebar = ({ isOpen, onClose }) => {
                   <li key={`integration-${index}`}>
                     <button
                       onClick={() => handleNavigation(item.path)}
-                      className={`w-full flex items-center space-x-3 md:justify-center lg:justify-start px-3 py-2 rounded-lg text-sm font-medium transition-colors text-left group relative ${
+                      className={`w-full flex items-center ${forceCollapsed ? 'justify-center' : 'space-x-3 md:justify-center lg:justify-start'} px-3 py-2 rounded-lg text-sm font-medium transition-colors text-left group relative ${
                         isActive ? "bg-blue-50 text-blue-700" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                       }`}
                     >
                       <Icon className="w-5 h-5 flex-shrink-0" />
-                      <span className="md:hidden lg:inline">{item.label}</span>
+                      <span className={forceCollapsed ? 'hidden' : 'md:hidden lg:inline'}>{item.label}</span>
                       
-                      {/* Tooltip for collapsed state on tablets */}
-                      <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded-md opacity-0 invisible md:group-hover:opacity-100 md:group-hover:visible lg:opacity-0 lg:invisible transition-all duration-200 whitespace-nowrap z-50">
+                      {/* Tooltip for collapsed state */}
+                      <div className={`absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded-md opacity-0 invisible ${forceCollapsed ? 'group-hover:opacity-100 group-hover:visible' : 'md:group-hover:opacity-100 md:group-hover:visible lg:opacity-0 lg:invisible'} transition-all duration-200 whitespace-nowrap z-50`}>
                         {item.label}
                       </div>
                     </button>
@@ -171,7 +171,7 @@ const Sidebar = ({ isOpen, onClose }) => {
           
           <button
             onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)}
-            className="w-full flex items-center space-x-3 md:justify-center lg:justify-start hover:bg-gray-50 rounded-lg p-2 transition-colors"
+            className={`w-full flex items-center ${forceCollapsed ? 'justify-center' : 'space-x-3 md:justify-center lg:justify-start'} hover:bg-gray-50 rounded-lg p-2 transition-colors`}
           >
             <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden">
               {user?.profilePicture ? (
@@ -193,7 +193,7 @@ const Sidebar = ({ isOpen, onClose }) => {
                 </span>
               )}
             </div>
-            <div className="flex-1 min-w-0 text-left md:hidden lg:block">
+            <div className={`flex-1 min-w-0 text-left ${forceCollapsed ? 'hidden' : 'md:hidden lg:block'}`}>
               <p className="text-sm font-medium text-gray-900 truncate">
                 {user?.firstName && user?.lastName 
                   ? `${user.firstName} ${user.lastName}`
