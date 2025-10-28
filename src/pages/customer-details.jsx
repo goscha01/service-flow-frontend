@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useParams, useNavigate } from "react-router-dom"
-import { ChevronLeft, Edit, Trash2, Phone, Mail, MapPin, Calendar, DollarSign, FileText, AlertCircle, Loader2, CheckCircle } from "lucide-react"
+import { ChevronLeft, Edit, Trash2, Phone, Mail, MapPin, Calendar, DollarSign, FileText, AlertCircle, Loader2, CheckCircle, MoreVertical, Plus, Info } from "lucide-react"
 import { customersAPI, jobsAPI, estimatesAPI, invoicesAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
 import Sidebar from "../components/sidebar"
@@ -21,7 +21,6 @@ const CustomerDetails = () => {
   const [invoices, setInvoices] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
-  const [activeTab, setActiveTab] = useState("overview")
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -29,12 +28,13 @@ const CustomerDetails = () => {
   const [showEditModal, setShowEditModal] = useState(false)
   const [successMessage, setSuccessMessage] = useState("")
 
+  // New state for job filters
+  const [jobFilter, setJobFilter] = useState("upcoming") // upcoming, past, canceled
+
   useEffect(() => {
-    // Wait for auth to finish loading before trying to fetch data
     if (!authLoading && customerId && user?.id) {
       fetchCustomerData()
     } else if (!authLoading && !user?.id) {
-      // If auth is done loading but no user, redirect to signin
       navigate('/signin')
     }
   }, [customerId, user?.id, authLoading])
@@ -44,18 +44,15 @@ const CustomerDetails = () => {
       setLoading(true)
       setError("")
 
-      // Fetch customer details
       const customerData = await customersAPI.getById(customerId)
       setCustomer(customerData)
 
-      // Fetch related data with server-side filtering
       const [jobsData, estimatesData, invoicesData] = await Promise.all([
         jobsAPI.getAll(user.id, "", "", 1, 50, "", "", "scheduled_date", "DESC", "", "", customerId),
         estimatesAPI.getAll(user.id, { customerId: customerId }),
         invoicesAPI.getAll(user.id, { customerId: customerId })
       ])
 
-      // Use the filtered data directly from the server
       setJobs(jobsData.jobs || jobsData)
       setEstimates(estimatesData.estimates || estimatesData)
       setInvoices(invoicesData.invoices || invoicesData)
@@ -69,7 +66,6 @@ const CustomerDetails = () => {
   }
 
   const handleEditCustomer = () => {
-    // Open edit modal with customer data
     console.log('Opening edit modal for customer:', customer)
     setShowEditModal(true)
   }
@@ -80,20 +76,17 @@ const CustomerDetails = () => {
       console.log('Updating customer:', customerData)
       const response = await customersAPI.update(customerId, customerData)
       console.log('Customer updated successfully:', response)
-      
-      // Update local state
+
       setCustomer(response.customer || response)
-      
-      // Show success message
+
       setSuccessMessage('Customer updated successfully!')
       setTimeout(() => setSuccessMessage(''), 3000)
-      
-      // Close modal
+
       setShowEditModal(false)
     } catch (error) {
       console.error('Error updating customer:', error)
       setError("Failed to update customer. Please try again.")
-      throw error // Re-throw to prevent modal from closing
+      throw error
     }
   }
 
@@ -119,8 +112,6 @@ const CustomerDetails = () => {
     navigate(`/job/${job.id}`)
   }
 
-
-
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString()
   }
@@ -142,7 +133,55 @@ const CustomerDetails = () => {
     }
   }
 
-  // Show loading spinner while auth is loading
+  // Filter jobs based on status
+  const getFilteredJobs = () => {
+    const now = new Date()
+    if (jobFilter === "upcoming") {
+      return jobs.filter(job =>
+        new Date(job.scheduled_date) >= now &&
+        job.status !== 'cancelled' &&
+        job.status !== 'completed'
+      )
+    } else if (jobFilter === "past") {
+      return jobs.filter(job => job.status === 'completed')
+    } else if (jobFilter === "canceled") {
+      return jobs.filter(job => job.status === 'cancelled')
+    }
+    return jobs
+  }
+
+  const upcomingCount = jobs.filter(job => {
+    const now = new Date()
+    return new Date(job.scheduled_date) >= now &&
+           job.status !== 'cancelled' &&
+           job.status !== 'completed'
+  }).length
+
+  const pastCount = jobs.filter(job => job.status === 'completed').length
+  const canceledCount = jobs.filter(job => job.status === 'cancelled').length
+
+  // Format job date for calendar display
+  const getJobDateDisplay = (dateString) => {
+    const date = new Date(dateString)
+    return {
+      month: date.toLocaleString('en-US', { month: 'short' }).toUpperCase(),
+      day: date.getDate()
+    }
+  }
+
+  // Format job time display
+  const getJobTimeDisplay = (dateString) => {
+    const date = new Date(dateString)
+    return date.toLocaleString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    }).toUpperCase()
+  }
+
   if (authLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -196,340 +235,347 @@ const CustomerDetails = () => {
     )
   }
 
+  const filteredJobs = getFilteredJobs()
+
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      
+
       <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
         <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
-        
+
         <div className="flex-1 overflow-auto">
-          <div className="px-4 sm:px-6 lg:px-8 py-8">
-            {/* Header */}
-            <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
-              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="py-4">
-                  <div className="flex flex-col space-y-4 sm:space-y-0">
-                    {/* Top Row - Back Button and Actions */}
-                    <div className="flex items-center justify-between">
-                      <button
-                        onClick={() => navigate('/customers')}
-                        className="flex items-center text-sm text-gray-500 hover:text-gray-700 transition-colors"
-                      >
-                        <ChevronLeft className="w-4 h-4 mr-1" />
-                        <span className="hidden sm:inline">Back to Customers</span>
-                        <span className="sm:hidden">Back</span>
-                      </button>
-                      {/* Desktop-only action buttons */}
-                      <div className="hidden sm:flex items-center space-x-3">
-                        <button
-                          onClick={handleEditCustomer}
-                          className="inline-flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
-                        >
-                          <Edit className="w-4 h-4 mr-2" />
-                          Edit
-                        </button>
-                        <button
-                          onClick={handleDeleteCustomer}
-                          className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4 mr-2" />
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                    
-                    {/* Bottom Row - Customer Name and Details */}
-                    <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between space-y-2 sm:space-y-0">
-                      <div>
-                        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
-                          {customer.first_name} {customer.last_name}
-                        </h1>
-                        <p className="text-sm text-gray-500 mt-1">Customer Details</p>
-                      </div>
-                      
-                      {/* Mobile-only action buttons for better accessibility */}
-                      <div className="flex sm:hidden items-center justify-center space-x-2 pt-2 border-t border-gray-100">
-                        <button
-                          onClick={handleEditCustomer}
-                          className="flex-1 inline-flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-                        >
-                          <Edit className="w-4 h-4 mr-2" />
-                          Edit
-                        </button>
-                        <button
-                          onClick={handleDeleteCustomer}
-                          className="flex-1 inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700"
-                        >
-                          <Trash2 className="w-4 h-4 mr-2" />
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  </div>
+          {/* Header */}
+          <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
+            <div className="px-4 sm:px-6 lg:px-8 py-4">
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={() => navigate('/customers')}
+                  className="flex items-center text-sm text-gray-600 hover:text-gray-900"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  <span className="ml-1">All Customers</span>
+                </button>
+                <button className="p-2 hover:bg-gray-100 rounded-lg">
+                  <MoreVertical className="w-5 h-5 text-gray-600" />
+                </button>
+              </div>
+              <h1 className="text-2xl font-semibold text-gray-900 mt-3">
+                {customer.first_name} {customer.last_name}
+              </h1>
+            </div>
+          </div>
+
+          {/* Success Message */}
+          {successMessage && (
+            <div className="px-4 sm:px-6 lg:px-8 pt-4">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div className="flex">
+                  <CheckCircle className="h-5 w-5 text-green-400" />
+                  <p className="ml-3 text-sm font-medium text-green-800">{successMessage}</p>
                 </div>
               </div>
             </div>
+          )}
 
-            {/* Success Message */}
-            {successMessage && (
-              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-4">
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                  <div className="flex">
-                    <div className="flex-shrink-0">
-                      <CheckCircle className="h-5 w-5 text-green-400" />
-                    </div>
-                    <div className="ml-3">
-                      <p className="text-sm font-medium text-green-800">{successMessage}</p>
+          <div className="px-4 sm:px-6 lg:px-8 py-6">
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+              {/* Left Sidebar - Customer Details */}
+              <div className="lg:col-span-1">
+                <div className="bg-white rounded-lg border border-gray-200 p-6">
+                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">
+                    DETAILS
+                  </h3>
+
+                  <div className="space-y-4">
+                    {customer.phone && (
+                      <div className="flex items-start">
+                        <Phone className="w-4 h-4 text-gray-400 mt-0.5" />
+                        <span className="ml-3 text-sm text-gray-900">{formatPhoneNumber(customer.phone)}</span>
+                      </div>
+                    )}
+
+                    {customer.email && (
+                      <div className="flex items-start">
+                        <Mail className="w-4 h-4 text-gray-400 mt-0.5" />
+                        <span className="ml-3 text-sm text-gray-900 break-all">{customer.email}</span>
+                      </div>
+                    )}
+
+                    {customer.address && (
+                      <div className="flex items-start">
+                        <MapPin className="w-4 h-4 text-gray-400 mt-0.5" />
+                        <span className="ml-3 text-sm text-gray-900">
+                          {customer.address}
+                          {customer.suite && `, ${customer.suite}`}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mt-8 pt-6 border-t border-gray-200">
+                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                      CUSTOMER SINCE
+                    </h3>
+                    <p className="text-sm text-gray-900">
+                      {customer.created_at ? new Date(customer.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'October, 2025'}
+                    </p>
+                  </div>
+
+                  <div className="mt-6 pt-6 border-t border-gray-200">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        TOTAL REVENUE
+                      </h3>
+                      <Info className="w-4 h-4 text-gray-400" />
                     </div>
                   </div>
                 </div>
               </div>
-            )}
 
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Customer Information */}
-                <div className="lg:col-span-1">
-                  <div className="bg-white rounded-lg shadow p-6">
-                    <h2 className="text-lg font-medium text-gray-900 mb-4">Customer Information</h2>
-                    
-                    <div className="space-y-4">
-                      {customer.email && (
-                        <div className="flex items-center">
-                          <Mail className="w-4 h-4 text-gray-400 mr-3" />
-                          <span className="text-sm text-gray-900">{customer.email}</span>
-                        </div>
-                      )}
-                      
-                      {customer.phone && (
-                        <div className="flex items-center">
-                          <Phone className="w-4 h-4 text-gray-400 mr-3" />
-                          <span className="text-sm text-gray-900">{formatPhoneNumber(customer.phone)}</span>
-                        </div>
-                      )}
-                      
-                      {customer.address && (
-                        <div className="flex items-start">
-                          <MapPin className="w-4 h-4 text-gray-400 mr-3 mt-0.5" />
-                          <span className="text-sm text-gray-900">
-                            {customer.address}
-                            {customer.suite && `, ${customer.suite}`}
-                          </span>
-                        </div>
-                      )}
-                      
-                      {customer.notes && (
-                        <div className="pt-4 border-t border-gray-200">
-                          <h3 className="text-sm font-medium text-gray-900 mb-2">Notes</h3>
-                          <p className="text-sm text-gray-600">{customer.notes}</p>
-                        </div>
-                      )}
+              {/* Main Content Area */}
+              <div className="lg:col-span-3 space-y-6">
+                {/* Jobs Section */}
+                <div className="bg-white rounded-lg border border-gray-200">
+                  <div className="px-6 py-4 border-b border-gray-200">
+                    <div className="flex items-center justify-between">
+                      <h2 className="text-lg font-semibold text-gray-900">Jobs</h2>
+                      <button className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                        <Plus className="w-4 h-4 mr-1" />
+                        New Job
+                      </button>
+                    </div>
+
+                    {/* Job Filter Tabs */}
+                    <div className="flex items-center space-x-6 mt-4">
+                      <button
+                        onClick={() => setJobFilter("upcoming")}
+                        className={`pb-2 text-sm font-medium border-b-2 transition-colors ${
+                          jobFilter === "upcoming"
+                            ? "border-blue-600 text-blue-600"
+                            : "border-transparent text-gray-500 hover:text-gray-700"
+                        }`}
+                      >
+                        Upcoming <span className="ml-1">{upcomingCount}</span>
+                      </button>
+                      <button
+                        onClick={() => setJobFilter("past")}
+                        className={`pb-2 text-sm font-medium border-b-2 transition-colors ${
+                          jobFilter === "past"
+                            ? "border-blue-600 text-blue-600"
+                            : "border-transparent text-gray-500 hover:text-gray-700"
+                        }`}
+                      >
+                        Past <span className="ml-1">{pastCount}</span>
+                      </button>
+                      <button
+                        onClick={() => setJobFilter("canceled")}
+                        className={`pb-2 text-sm font-medium border-b-2 transition-colors ${
+                          jobFilter === "canceled"
+                            ? "border-blue-600 text-blue-600"
+                            : "border-transparent text-gray-500 hover:text-gray-700"
+                        }`}
+                      >
+                        Canceled <span className="ml-1">{canceledCount}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="p-6">
+                    {filteredJobs.length === 0 ? (
+                      <div className="text-center py-12">
+                        <Calendar className="mx-auto h-12 w-12 text-gray-300" />
+                        <p className="mt-2 text-sm text-gray-500">No {jobFilter} jobs</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {filteredJobs.map((job) => {
+                          const dateDisplay = getJobDateDisplay(job.scheduled_date)
+                          const timeDisplay = getJobTimeDisplay(job.scheduled_date)
+
+                          return (
+                            <div
+                              key={job.id}
+                              className="flex items-center p-4 border border-gray-200 rounded-lg hover:border-gray-300 cursor-pointer transition-colors"
+                              onClick={() => handleViewJob(job)}
+                            >
+                              {/* Calendar Date */}
+                              <div className="flex-shrink-0 w-14 h-14 bg-blue-600 rounded-lg flex flex-col items-center justify-center text-white mr-4">
+                                <span className="text-xs font-semibold">{dateDisplay.month}</span>
+                                <span className="text-xl font-bold leading-none">{dateDisplay.day}</span>
+                              </div>
+
+                              {/* Job Details */}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <p className="text-sm font-medium text-gray-500 mb-0.5">
+                                      JOB #{job.id}
+                                    </p>
+                                    <p className="text-base font-medium text-gray-900">
+                                      {job.service_name}
+                                    </p>
+                                  </div>
+                                  <p className="text-sm text-gray-500 text-right ml-4">
+                                    {timeDisplay}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Requests Section */}
+                <div className="bg-white rounded-lg border border-gray-200">
+                  <div className="px-6 py-4 border-b border-gray-200">
+                    <h2 className="text-lg font-semibold text-gray-900">Requests</h2>
+                  </div>
+                  <div className="p-12">
+                    <div className="text-center">
+                      <div className="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-lg mb-3">
+                        <FileText className="w-6 h-6 text-gray-400" />
+                      </div>
+                      <p className="text-sm text-gray-500">
+                        This customer hasn't submitted any booking or quote requests
+                      </p>
                     </div>
                   </div>
                 </div>
 
-                {/* Main Content */}
-                <div className="lg:col-span-2">
-                  {/* Tabs */}
-                  <div className="bg-white rounded-lg shadow">
-                    <div className="border-b border-gray-200">
-                      <nav className="-mb-px flex space-x-8 px-6">
-                        <button
-                          onClick={() => setActiveTab("overview")}
-                          className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                            activeTab === "overview"
-                              ? "border-primary-500 text-primary-600"
-                              : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                          }`}
-                        >
-                          Overview
-                        </button>
-                        <button
-                          onClick={() => setActiveTab("jobs")}
-                          className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                            activeTab === "jobs"
-                              ? "border-primary-500 text-primary-600"
-                              : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                          }`}
-                        >
-                          Jobs ({jobs.length})
-                        </button>
-                        <button
-                          onClick={() => setActiveTab("estimates")}
-                          className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                            activeTab === "estimates"
-                              ? "border-primary-500 text-primary-600"
-                              : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                          }`}
-                        >
-                          Estimates ({estimates.length})
-                        </button>
-                        <button
-                          onClick={() => setActiveTab("invoices")}
-                          className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                            activeTab === "invoices"
-                              ? "border-primary-500 text-primary-600"
-                              : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                          }`}
-                        >
-                          Invoices ({invoices.length})
-                        </button>
-                      </nav>
+                {/* Estimates Section */}
+                <div className="bg-white rounded-lg border border-gray-200">
+                  <div className="px-6 py-4 border-b border-gray-200">
+                    <div className="flex items-center justify-between">
+                      <h2 className="text-lg font-semibold text-gray-900">Estimates</h2>
+                      <button className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                        <Plus className="w-4 h-4 mr-1" />
+                        New Estimate
+                      </button>
                     </div>
+                  </div>
+                  <div className="p-12">
+                    <div className="text-center">
+                      <div className="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-lg mb-3">
+                        <FileText className="w-6 h-6 text-gray-400" />
+                      </div>
+                      <p className="text-sm text-gray-500">
+                        No bookable estimates have been sent to this customer
+                      </p>
+                    </div>
+                  </div>
+                </div>
 
-                    <div className="p-6">
-                      {/* Overview Tab */}
-                      {activeTab === "overview" && (
-                        <div className="space-y-6">
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div className="bg-blue-50 rounded-lg p-4">
-                              <div className="flex items-center">
-                                <Calendar className="w-8 h-8 text-blue-600" />
-                                <div className="ml-4">
-                                  <p className="text-sm font-medium text-blue-600">Total Jobs</p>
-                                  <p className="text-2xl font-bold text-blue-900">{jobs.length}</p>
-                                </div>
-                              </div>
-                            </div>
-                            
-                            <div className="bg-green-50 rounded-lg p-4">
-                              <div className="flex items-center">
-                                <FileText className="w-8 h-8 text-green-600" />
-                                <div className="ml-4">
-                                  <p className="text-sm font-medium text-green-600">Total Estimates</p>
-                                  <p className="text-2xl font-bold text-green-900">{estimates.length}</p>
-                                </div>
-                              </div>
-                            </div>
-                            
-                            <div className="bg-purple-50 rounded-lg p-4">
-                              <div className="flex items-center">
-                                <DollarSign className="w-8 h-8 text-purple-600" />
-                                <div className="ml-4">
-                                  <p className="text-sm font-medium text-purple-600">Total Invoices</p>
-                                  <p className="text-2xl font-bold text-purple-900">{invoices.length}</p>
-                                </div>
-                              </div>
-                            </div>
+                {/* Notes and Files Section */}
+                <div className="bg-white rounded-lg border border-gray-200">
+                  <div className="px-6 py-4 border-b border-gray-200">
+                    <div className="flex items-center justify-between">
+                      <h2 className="text-lg font-semibold text-gray-900">Notes and Files</h2>
+                      <button className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                        <Plus className="w-4 h-4 mr-1" />
+                        New Note
+                      </button>
+                    </div>
+                  </div>
+                  <div className="p-12">
+                    <div className="text-center">
+                      <div className="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-lg mb-3">
+                        <FileText className="w-6 h-6 text-gray-400" />
+                      </div>
+                      <p className="text-sm text-gray-500">
+                        This customer doesn't have any notes attached to them
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Properties Section */}
+                <div className="bg-white rounded-lg border border-gray-200">
+                  <div className="px-6 py-4 border-b border-gray-200">
+                    <div className="flex items-center justify-between">
+                      <h2 className="text-lg font-semibold text-gray-900">Properties</h2>
+                      <button className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                        <Plus className="w-4 h-4 mr-1" />
+                        Add Property
+                      </button>
+                    </div>
+                  </div>
+                  <div className="p-6">
+                    {customer.address ? (
+                      <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                        <div className="flex items-center">
+                          <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
+                            <MapPin className="w-5 h-5 text-blue-600" />
                           </div>
-
-                          {jobs.length > 0 && (
-                            <div>
-                              <h3 className="text-lg font-medium text-gray-900 mb-4">Recent Jobs</h3>
-                              <div className="space-y-3">
-                                {jobs.slice(0, 3).map((job) => (
-                                  <div key={job.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                                    <div>
-                                      <p className="font-medium text-gray-900">{job.service_name}</p>
-                                      <p className="text-sm text-gray-500">{formatDate(job.scheduled_date)}</p>
-                                    </div>
-                                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(job.status)}`}>
-                                      {job.status.replace('_', ' ')}
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
+                          <div>
+                            <div className="flex items-center">
+                              <p className="text-sm font-medium text-gray-900">
+                                {customer.address.split(',')[0]}
+                              </p>
+                              <span className="ml-2 px-2 py-0.5 text-xs font-medium text-blue-700 bg-blue-50 rounded">
+                                Default
+                              </span>
                             </div>
-                          )}
+                            <p className="text-sm text-gray-500">{customer.address}</p>
+                          </div>
                         </div>
-                      )}
+                        <button className="p-2 hover:bg-gray-100 rounded-lg">
+                          <MoreVertical className="w-5 h-5 text-gray-400" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="text-center py-12">
+                        <MapPin className="mx-auto h-12 w-12 text-gray-300" />
+                        <p className="mt-2 text-sm text-gray-500">No properties added</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
 
-                      {/* Jobs Tab */}
-                      {activeTab === "jobs" && (
-                        <div>
-                          {jobs.length === 0 ? (
-                            <p className="text-gray-500 text-center py-8">No jobs found for this customer.</p>
-                          ) : (
-                            <div className="space-y-3">
-                              {jobs.map((job) => (
-                                <div key={job.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                                  <div>
-                                    <p className="font-medium text-gray-900">{job.service_name}</p>
-                                    <p className="text-sm text-gray-500">{formatDate(job.scheduled_date)}</p>
-                                    {job.notes && <p className="text-sm text-gray-500 mt-1">{job.notes}</p>}
-                                  </div>
-                                  <div className="flex items-center space-x-4">
-                                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(job.status)}`}>
-                                      {job.status.replace('_', ' ')}
-                                    </span>
-                                    <button
-                                      onClick={() => handleViewJob(job)}
-                                      className="text-primary-600 hover:text-primary-700 text-sm font-medium"
-                                    >
-                                      View
-                                    </button>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )}
+                {/* Recurring Bookings Section */}
+                <div className="bg-white rounded-lg border border-gray-200">
+                  <div className="px-6 py-4 border-b border-gray-200">
+                    <h2 className="text-lg font-semibold text-gray-900">Recurring Bookings</h2>
+                  </div>
+                  <div className="p-12">
+                    <div className="text-center">
+                      <div className="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-lg mb-3">
+                        <Calendar className="w-6 h-6 text-gray-400" />
+                      </div>
+                      <p className="text-sm text-gray-500">
+                        This customer doesn't have any recurring bookings
+                      </p>
+                    </div>
+                  </div>
+                </div>
 
-                      {/* Estimates Tab */}
-                      {activeTab === "estimates" && (
-                        <div>
-                          {estimates.length === 0 ? (
-                            <p className="text-gray-500 text-center py-8">No estimates found for this customer.</p>
-                          ) : (
-                            <div className="space-y-3">
-                              {estimates.map((estimate) => (
-                                <div key={estimate.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                                  <div>
-                                    <p className="font-medium text-gray-900">Estimate #{estimate.id}</p>
-                                    <p className="text-sm text-gray-500">{formatDate(estimate.created_at)}</p>
-                                    <p className="text-sm text-gray-500">{formatCurrency(estimate.total_amount)}</p>
-                                  </div>
-                                  <div className="flex items-center space-x-4">
-                                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(estimate.status)}`}>
-                                      {estimate.status}
-                                    </span>
-                                    <button
-                                      onClick={() => navigate(`/estimates/${estimate.id}`)}
-                                      className="text-primary-600 hover:text-primary-700 text-sm font-medium"
-                                    >
-                                      View
-                                    </button>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Invoices Tab */}
-                      {activeTab === "invoices" && (
-                        <div>
-                          {invoices.length === 0 ? (
-                            <p className="text-gray-500 text-center py-8">No invoices found for this customer.</p>
-                          ) : (
-                            <div className="space-y-3">
-                              {invoices.map((invoice) => (
-                                <div key={invoice.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                                  <div>
-                                    <p className="font-medium text-gray-900">Invoice #{invoice.id}</p>
-                                    <p className="text-sm text-gray-500">{formatDate(invoice.created_at)}</p>
-                                    <p className="text-sm text-gray-500">{formatCurrency(invoice.total_amount)}</p>
-                                  </div>
-                                  <div className="flex items-center space-x-4">
-                                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(invoice.status)}`}>
-                                      {invoice.status}
-                                    </span>
-                                    <button
-                                      onClick={() => navigate(`/invoices/${invoice.id}`)}
-                                      className="text-primary-600 hover:text-primary-700 text-sm font-medium"
-                                    >
-                                      View
-                                    </button>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )}
+                {/* Payment Methods Section */}
+                <div className="bg-white rounded-lg border border-gray-200">
+                  <div className="px-6 py-4 border-b border-gray-200">
+                    <div className="flex items-center justify-between">
+                      <h2 className="text-lg font-semibold text-gray-900">Payment Methods</h2>
+                      <div className="flex items-center space-x-2">
+                        <button className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                          <Plus className="w-4 h-4 mr-1" />
+                          Add Card
+                        </button>
+                        <button className="p-2 hover:bg-gray-100 rounded-lg">
+                          <MoreVertical className="w-5 h-5 text-gray-600" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-12">
+                    <div className="text-center">
+                      <div className="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-lg mb-3">
+                        <DollarSign className="w-6 h-6 text-gray-400" />
+                      </div>
+                      <p className="text-sm text-gray-500">
+                        This customer doesn't have any payment cards on file
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -538,8 +584,6 @@ const CustomerDetails = () => {
           </div>
         </div>
       </div>
-
-
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && customer && (
@@ -550,7 +594,7 @@ const CustomerDetails = () => {
               <h3 className="text-lg font-medium text-gray-900">Delete Customer</h3>
             </div>
             <p className="text-sm text-gray-500 mb-6">
-              Are you sure you want to delete <strong>{customer.first_name} {customer.last_name}</strong>? 
+              Are you sure you want to delete <strong>{customer.first_name} {customer.last_name}</strong>?
               This action cannot be undone.
               {(jobs.length > 0 || estimates.length > 0 || invoices.length > 0) ? (
                 <span className="block mt-2 text-red-600">
@@ -582,11 +626,11 @@ const CustomerDetails = () => {
         isOpen={showEditModal}
         onClose={() => setShowEditModal(false)}
         onSave={handleCustomerSave}
-        customer={customer} // Pass current customer data for editing
+        customer={customer}
         isEditing={true}
       />
     </div>
   )
 }
 
-export default CustomerDetails 
+export default CustomerDetails

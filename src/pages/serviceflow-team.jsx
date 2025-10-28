@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
 import Sidebar from "../components/sidebar"
 import MobileHeader from "../components/mobile-header"
-import { Plus, Search, Filter, Users, TrendingUp, Calendar, DollarSign, Clock, Eye, Edit, Trash2, UserPlus, BarChart3, AlertCircle, MapPin, Loader2, Power, PowerOff } from "lucide-react"
+import { Plus, Search, Filter, Users, TrendingUp, Calendar, DollarSign, Clock, Eye, Edit, Trash2, UserPlus, BarChart3, AlertCircle, MapPin, Loader2, Power, PowerOff, Zap, Settings, ChevronLeft, ChevronRight, HelpCircle } from "lucide-react"
 import { useAuth } from "../context/AuthContext"
 import { teamAPI } from "../services/api"
 import LoadingButton from "../components/loading-button"
@@ -14,7 +14,7 @@ const ServiceFlowTeam = () => {
   console.log('Current user:', user)
   console.log('Auth loading:', authLoading)
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [activeTab, setActiveTab] = useState("all")
+  const [activeTab, setActiveTab] = useState("active")
   const [selectedMember, setSelectedMember] = useState(null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
@@ -28,7 +28,7 @@ const ServiceFlowTeam = () => {
   const [memberToResend, setMemberToResend] = useState(null)
   const [notification, setNotification] = useState(null)
   const [deleteError, setDeleteError] = useState("")
-  
+
   // API State
   const [teamMembers, setTeamMembers] = useState([])
   const [analytics, setAnalytics] = useState(null)
@@ -76,11 +76,11 @@ const ServiceFlowTeam = () => {
       console.log('No user ID found, skipping fetch')
       return
     }
-    
+
     try {
       setLoading(true)
       setError("")
-      
+
       console.log('Calling teamAPI.getAll with params:', {
         userId: user.id,
         status: filters.status,
@@ -90,7 +90,7 @@ const ServiceFlowTeam = () => {
         page: 1,
         limit: 50
       })
-      
+
       const response = await teamAPI.getAll(user.id, {
         status: filters.status,
         search: filters.search,
@@ -99,9 +99,8 @@ const ServiceFlowTeam = () => {
         page: 1,
         limit: 50
       })
-      
+
       console.log('Team API response:', response)
-      // The backend returns { teamMembers: [...], pagination: {...} }
       setTeamMembers(response.teamMembers || [])
     } catch (error) {
       console.error('Error fetching team members:', error)
@@ -113,11 +112,11 @@ const ServiceFlowTeam = () => {
 
   const fetchAnalytics = async () => {
     if (!user?.id) return
-    
+
     try {
       setLoading(true)
       setError("")
-      
+
       const response = await teamAPI.getAnalytics(user.id)
       setAnalytics(response)
     } catch (error) {
@@ -138,7 +137,6 @@ const ServiceFlowTeam = () => {
   }
 
   const handleViewMember = (member) => {
-    // Navigate to team member details page
     navigate(`/team/${member.id}`)
   }
 
@@ -149,40 +147,34 @@ const ServiceFlowTeam = () => {
 
   const confirmDeleteMember = async () => {
     if (!memberToDelete) return
-    
+
     try {
       setDeleteLoading(true)
-      setDeleteError("") // Clear any previous errors
+      setDeleteError("")
       console.log('Deleting team member:', memberToDelete.id)
       const response = await teamAPI.delete(memberToDelete.id)
       console.log('Delete response:', response)
-      
-      // Show success notification
+
       setNotification(createSuccessNotification(
         `Team member ${memberToDelete.first_name} ${memberToDelete.last_name} has been deleted successfully.`
       ))
-      
+
       setShowDeleteModal(false)
       setMemberToDelete(null)
       fetchTeamMembers()
-      
-      // Clear success notification after 3 seconds
+
       setTimeout(() => setNotification(null), 3000)
     } catch (error) {
       console.error('Error deleting team member:', error)
-      
-      // Use the enhanced error handling utility
+
       const errorInfo = handleTeamDeletionError(error)
       setDeleteError(errorInfo.message)
-      
-      // Log additional details for debugging
+
       console.log('Error details:', {
         type: errorInfo.type,
         status: errorInfo.status,
         details: errorInfo.details
       })
-      
-      // Don't close the modal on error - let user see the error message
     } finally {
       setDeleteLoading(false)
     }
@@ -201,7 +193,7 @@ const ServiceFlowTeam = () => {
 
   const confirmResendInvite = async () => {
     if (!memberToResend) return
-    
+
     try {
       setResendLoading(true)
       await teamAPI.resendInvite(memberToResend.id)
@@ -211,7 +203,6 @@ const ServiceFlowTeam = () => {
         type: 'success',
         message: 'Invitation resent successfully!'
       })
-      // Clear notification after 3 seconds
       setTimeout(() => setNotification(null), 3000)
     } catch (error) {
       console.error('Error resending invite:', error)
@@ -219,7 +210,6 @@ const ServiceFlowTeam = () => {
         type: 'error',
         message: 'Failed to resend invitation. Please try again.'
       })
-      // Clear notification after 5 seconds
       setTimeout(() => setNotification(null), 5000)
     } finally {
       setResendLoading(false)
@@ -233,19 +223,18 @@ const ServiceFlowTeam = () => {
 
   const confirmToggleActivation = async () => {
     if (!memberToToggle) return
-    
+
     try {
       setActivationLoading(true)
       const newStatus = memberToToggle.status === 'active' ? 'inactive' : 'active';
       await teamAPI.update(memberToToggle.id, { status: newStatus });
-      fetchTeamMembers(); // Refresh the list
+      fetchTeamMembers();
       setShowActivationModal(false)
       setMemberToToggle(null)
       setNotification({
         type: 'success',
         message: `${memberToToggle.first_name} ${memberToToggle.last_name} has been ${newStatus === 'active' ? 'activated' : 'deactivated'} successfully.`
       })
-      // Clear notification after 3 seconds
       setTimeout(() => setNotification(null), 3000)
     } catch (error) {
       console.error('Error toggling team member activation:', error);
@@ -262,24 +251,24 @@ const ServiceFlowTeam = () => {
   const getStatusColor = (status) => {
     switch (status) {
       case 'active':
-        return 'bg-green-100 text-green-800'
+        return 'bg-green-100 text-green-700'
       case 'pending':
-        return 'bg-yellow-100 text-yellow-800'
+        return 'bg-yellow-100 text-yellow-700'
       case 'invited':
-        return 'bg-blue-100 text-blue-800'
+        return 'bg-blue-100 text-blue-700'
       case 'inactive':
-        return 'bg-red-100 text-red-800'
+        return 'bg-gray-100 text-gray-700'
       case 'on_leave':
-        return 'bg-gray-100 text-gray-800'
+        return 'bg-gray-100 text-gray-700'
       default:
-        return 'bg-gray-100 text-gray-800'
+        return 'bg-gray-100 text-gray-700'
     }
   }
 
   const getStatusLabel = (status) => {
     switch (status) {
       case 'active':
-        return 'ACTIVE'
+        return 'ACTIVATED'
       case 'pending':
         return 'PENDING'
       case 'invited':
@@ -307,17 +296,29 @@ const ServiceFlowTeam = () => {
     return `${hours}h ${mins}m`
   }
 
+  const getFilteredMembers = () => {
+    if (!Array.isArray(teamMembers)) return [];
+
+    return teamMembers.filter(member => {
+      if (activeTab === "active") return member.status === 'active';
+      if (activeTab === "invited") return member.status === 'invited' || member.status === 'pending';
+      if (activeTab === "deactivated") return member.status === 'inactive' || member.status === 'on_leave';
+      return true;
+    });
+  }
+
+  const filteredMembers = getFilteredMembers();
+
   return (
     <>
       <div className="flex h-screen bg-gray-50 overflow-hidden">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-        
+
         <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
           <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
-          
+
           <div className="flex-1 overflow-auto">
             <div className="px-4 sm:px-6 lg:px-8 py-8">
-              {/* Show loading spinner while auth is loading */}
               {authLoading ? (
                 <div className="flex items-center justify-center h-64">
                   <div className="flex items-center space-x-2">
@@ -328,382 +329,244 @@ const ServiceFlowTeam = () => {
               ) : (
                 <>
                   {/* Header */}
-                  <div className="mb-8">
+                  <div className="mb-6">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
-                      <div>
-                        <h1 className="text-2xl font-bold text-gray-900">Team Members</h1>
-                        <p className="mt-1 text-sm text-gray-500">
-                          Manage your team members and their permissions
-                        </p>
-                      </div>
+                      <h1 className="text-2xl font-semibold text-gray-900">Team Members</h1>
                       <button
                         onClick={handleAddMember}
-                        className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        className="inline-flex items-center justify-center px-5 py-2.5 text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
                       >
-                        <UserPlus className="w-4 h-4 mr-2" />
                         Add Team Member
                       </button>
                     </div>
                   </div>
 
-                  {/* Tabs */}
-                  <div className="border-b border-gray-200 mb-6">
-                    <nav className="-mb-px flex space-x-8 overflow-x-auto">
-                      <button
-                        onClick={() => setActiveTab("all")}
-                        className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
-                          activeTab === "all"
-                            ? "border-blue-500 text-blue-600"
-                            : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                        }`}
-                      >
-                        <Users className="w-4 h-4 inline mr-2" />
-                        All ({teamMembers.length})
-                      </button>
-                      <button
-                        onClick={() => setActiveTab("active")}
-                        className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
-                          activeTab === "active"
-                            ? "border-blue-500 text-blue-600"
-                            : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                        }`}
-                      >
-                        <Users className="w-4 h-4 inline mr-2" />
-                        Active ({teamMembers.filter(m => m.status === 'active').length})
-                      </button>
-                      <button
-                        onClick={() => setActiveTab("pending")}
-                        className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
-                          activeTab === "pending"
-                            ? "border-blue-500 text-blue-600"
-                            : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                        }`}
-                      >
-                        <AlertCircle className="w-4 h-4 inline mr-2" />
-                        Pending ({teamMembers.filter(m => m.status === 'pending').length})
-                      </button>
-                      <button
-                        onClick={() => setActiveTab("invited")}
-                        className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
-                          activeTab === "invited"
-                            ? "border-blue-500 text-blue-600"
-                            : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                        }`}
-                      >
-                        <AlertCircle className="w-4 h-4 inline mr-2" />
-                        Invited ({teamMembers.filter(m => m.status === 'invited').length})
-                      </button>
-                      <button
-                        onClick={() => setActiveTab("deactivated")}
-                        className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
-                          activeTab === "deactivated"
-                            ? "border-blue-500 text-blue-600"
-                            : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                        }`}
-                      >
-                        <Users className="w-4 h-4 inline mr-2" />
-                        Deactivated ({teamMembers.filter(m => m.status === 'inactive' || m.status === 'on_leave').length})
-                      </button>
-                      <button
-                        onClick={() => setActiveTab("analytics")}
-                        className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
-                          activeTab === "analytics"
-                            ? "border-blue-500 text-blue-600"
-                            : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                        }`}
-                      >
-                        <BarChart3 className="w-4 h-4 inline mr-2" />
-                        Analytics
-                      </button>
-                    </nav>
-                  </div>
+                  {/* Content Card */}
+                  <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+                    {/* Tabs */}
+                    <div className="border-b border-gray-200">
+                      <nav className="flex">
+                        <button
+                          onClick={() => setActiveTab("active")}
+                          className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                            activeTab === "active"
+                              ? "border-blue-600 text-blue-600"
+                              : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
+                          }`}
+                        >
+                          Active ({teamMembers.filter(m => m.status === 'active').length})
+                        </button>
+                        <button
+                          onClick={() => setActiveTab("invited")}
+                          className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                            activeTab === "invited"
+                              ? "border-blue-600 text-blue-600"
+                              : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
+                          }`}
+                        >
+                          Invited ({teamMembers.filter(m => m.status === 'invited' || m.status === 'pending').length})
+                        </button>
+                        <button
+                          onClick={() => setActiveTab("deactivated")}
+                          className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                            activeTab === "deactivated"
+                              ? "border-blue-600 text-blue-600"
+                              : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
+                          }`}
+                        >
+                          Deactivated ({teamMembers.filter(m => m.status === 'inactive' || m.status === 'on_leave').length})
+                        </button>
+                      </nav>
+                    </div>
 
-                  {/* Team Members Tab */}
-                  {(activeTab === "all" || activeTab === "active" || activeTab === "pending" || activeTab === "invited" || activeTab === "deactivated") && (
-                    <div>
-                      {/* Filters */}
-                      <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6">
-                        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
-                          <div className="relative flex-1 max-w-md">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                            <input
-                              type="text"
-                              placeholder="Search team members..."
-                              value={filters.search}
-                              onChange={(e) => handleFilterChange({ search: e.target.value })}
-                              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                            />
-                          </div>
+                    {/* Filters */}
+                    <div className="p-6 border-b border-gray-200">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div className="w-full sm:w-64">
+                          <select
+                            value={filters.status}
+                            onChange={(e) => handleFilterChange({ status: e.target.value })}
+                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          >
+                            <option value="">All team members</option>
+                            <option value="active">Active only</option>
+                            <option value="invited">Invited only</option>
+                            <option value="inactive">Inactive only</option>
+                          </select>
+                        </div>
 
-                          <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
-                            <select
-                              value={filters.status}
-                              onChange={(e) => handleFilterChange({ status: e.target.value })}
-                              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                            >
-                              <option value="">All Status</option>
-                              <option value="active">Active</option>
-                              <option value="pending">Pending</option>
-                              <option value="inactive">Inactive</option>
-                              <option value="on_leave">On Leave</option>
-                            </select>
-
-                            <select
-                              value={filters.sortBy}
-                              onChange={(e) => handleFilterChange({ sortBy: e.target.value })}
-                              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                            >
-                              <option value="first_name">Sort by Name</option>
-                              <option value="created_at">Sort by Date Added</option>
-                              <option value="role">Sort by Role</option>
-                            </select>
-
-                            <button
-                              onClick={() => handleFilterChange({ sortOrder: filters.sortOrder === 'ASC' ? 'DESC' : 'ASC' })}
-                              className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                            >
-                              <Filter className="w-4 h-4 mr-2" />
-                              {filters.sortOrder === 'ASC' ? 'A-Z' : 'Z-A'}
-                            </button>
-                          </div>
+                        <div className="relative w-full sm:w-80">
+                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                          <input
+                            type="text"
+                            placeholder="Search team members..."
+                            value={filters.search}
+                            onChange={(e) => handleFilterChange({ search: e.target.value })}
+                            className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          />
                         </div>
                       </div>
+                    </div>
 
-                      {/* Error Message */}
-                      {error && (
-                        <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
-                          <div className="flex">
-                            <AlertCircle className="h-5 w-5 text-red-400 mr-3" />
-                            <p className="text-sm text-red-700">{error}</p>
-                          </div>
+                    {/* Error Message */}
+                    {error && (
+                      <div className="mx-6 mt-6 bg-red-50 border border-red-200 rounded-lg p-4">
+                        <div className="flex">
+                          <AlertCircle className="h-5 w-5 text-red-400 mr-3" />
+                          <p className="text-sm text-red-700">{error}</p>
                         </div>
-                      )}
+                      </div>
+                    )}
 
-                      {/* Success Notification */}
-                      {notification && (
-                        <div className={`mb-6 border rounded-lg p-4 ${
-                          notification.type === 'success' 
-                            ? 'bg-green-50 border-green-200' 
-                            : 'bg-red-50 border-red-200'
-                        }`}>
-                          <div className="flex">
-                            {notification.type === 'success' ? (
-                              <svg className="h-5 w-5 text-green-400 mr-3" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                              </svg>
-                            ) : (
-                              <AlertCircle className="h-5 w-5 text-red-400 mr-3" />
-                            )}
-                            <p className={`text-sm ${notification.type === 'success' ? 'text-green-700' : 'text-red-700'}`}>
-                              {notification.message}
-                            </p>
-                          </div>
+                    {/* Loading State */}
+                    {loading ? (
+                      <div className="flex items-center justify-center py-16">
+                        <div className="flex items-center space-x-2">
+                          <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+                          <span className="text-gray-600">Loading team members...</span>
                         </div>
-                      )}
-
-                      {/* Loading State */}
-                      {loading ? (
-                        <div className="flex items-center justify-center h-64">
-                          <div className="flex items-center space-x-2">
-                            <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
-                            <span className="text-gray-600">Loading team members...</span>
+                      </div>
+                    ) : filteredMembers.length === 0 ? (
+                      <div className="text-center py-16">
+                        <Users className="mx-auto h-12 w-12 text-gray-400" />
+                        <h3 className="mt-2 text-sm font-medium text-gray-900">No team members found</h3>
+                        <p className="mt-1 text-sm text-gray-500">
+                          {filters.search || filters.status
+                            ? "Try adjusting your search or filter criteria."
+                            : "Get started by adding your first team member."}
+                        </p>
+                        {!filters.search && !filters.status && (
+                          <div className="mt-6">
+                            <button
+                              onClick={handleAddMember}
+                              className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                            >
+                              <UserPlus className="w-4 h-4 mr-2" />
+                              Add Team Member
+                            </button>
                           </div>
-                        </div>
-                      ) : (
-                        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                          {teamMembers.length === 0 ? (
-                            <div className="text-center py-12">
-                              <Users className="mx-auto h-12 w-12 text-gray-400" />
-                              <h3 className="mt-2 text-sm font-medium text-gray-900">No team members found</h3>
-                              <p className="mt-1 text-sm text-gray-500">
-                                {filters.search || filters.status
-                                  ? "Try adjusting your search or filter criteria."
-                                  : "Get started by adding your first team member."}
-                              </p>
-                              {!filters.search && !filters.status && (
-                                <div className="mt-6">
-                                  <button
-                                    onClick={handleAddMember}
-                                    className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                                  >
-                                    <UserPlus className="w-4 h-4 mr-2" />
-                                    Add Team Member
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <ul className="divide-y divide-gray-200">
-                              {Array.isArray(teamMembers) ? teamMembers
-                                .filter(member => {
-                                  if (activeTab === "all") return true;
-                                  if (activeTab === "active") return member.status === 'active';
-                                  if (activeTab === "pending") return member.status === 'pending';
-                                  if (activeTab === "invited") return member.status === 'invited';
-                                  if (activeTab === "deactivated") return member.status === 'inactive' || member.status === 'on_leave';
-                                  return true;
-                                })
-                                .map((member) => (
-                                  <li key={member.id}>
-                                    <div className="px-4 py-4 sm:px-6">
-                                      <div className="flex items-start space-x-4">
-                                        <div className="flex-shrink-0">
-                                          <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
-                                            <span className="text-sm font-medium text-blue-600">
-                                              {member.first_name?.[0]}{member.last_name?.[0]}
+                        )}
+                      </div>
+                    ) : (
+                      <>
+                        {/* Table */}
+                        <div className="overflow-x-auto">
+                          <table className="w-full">
+                            <thead>
+                              <tr className="border-b border-gray-200">
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                  Team Member
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                  Access Role
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                  <div className="flex items-center">
+                                    Service Provider
+                                    <HelpCircle className="w-3.5 h-3.5 ml-1.5 text-gray-400" />
+                                  </div>
+                                </th>
+                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                  Actions
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200">
+                              {filteredMembers.map((member) => (
+                                <tr key={member.id} className="hover:bg-gray-50 transition-colors">
+                                  <td className="px-6 py-4">
+                                    <div className="flex items-center">
+                                      <div className="flex-shrink-0 h-10 w-10 rounded-full bg-orange-300 flex items-center justify-center">
+                                        <span className="text-sm font-semibold text-white">
+                                          {member.first_name?.[0]}{member.last_name?.[0]}
+                                        </span>
+                                      </div>
+                                      <div className="ml-4">
+                                        <div className="flex items-center space-x-2">
+                                          <div className="text-sm font-medium text-gray-900">
+                                            {member.first_name} {member.last_name}
+                                          </div>
+                                          {member.status === 'active' && (
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">
+                                              {getStatusLabel(member.status)}
                                             </span>
-                                          </div>
+                                          )}
+                                          {member.status === 'invited' && (
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">
+                                              {getStatusLabel(member.status)}
+                                            </span>
+                                          )}
                                         </div>
-                                        <div className="flex-1 min-w-0">
-                                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-                                            <div className="flex-1 min-w-0">
-                                              <div className="flex flex-col space-y-1">
-                                                <div className="flex items-center space-x-2">
-                                                  <p className="text-sm font-medium text-gray-900 truncate">
-                                                    {member.first_name} {member.last_name}
-                                                  </p>
-                                                  <div className="flex-shrink-0">
-                                                    {member.status === 'active' && (
-                                                      <div className="w-2 h-2 bg-green-500 rounded-full" title="Active"></div>
-                                                    )}
-                                                    {member.status === 'pending' && (
-                                                      <div className="w-2 h-2 bg-yellow-500 rounded-full" title="Pending"></div>
-                                                    )}
-                                                    {member.status === 'invited' && (
-                                                      <div className="w-2 h-2 bg-blue-500 rounded-full" title="Invited"></div>
-                                                    )}
-                                                    {(member.status === 'inactive' || member.status === 'on_leave') && (
-                                                      <div className="w-2 h-2 bg-red-500 rounded-full" title="Inactive"></div>
-                                                    )}
-                                                  </div>
-                                                </div>
-                                                <div className="flex items-center space-x-2">
-                                                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(member.status)}`}>
-                                                    {getStatusLabel(member.status)}
-                                                  </span>
-                                                </div>
-                                              </div>
-                                              <div className="mt-2 flex flex-col space-y-1 text-sm text-gray-500">
-                                                {member.phone && (
-                                                  <span className="truncate">{member.phone}</span>
-                                                )}
-                                                {member.territories && (() => {
-                                                  let territories = [];
-                                                  try {
-                                                    territories = typeof member.territories === 'string' 
-                                                      ? JSON.parse(member.territories || '[]') 
-                                                      : member.territories || [];
-                                                  } catch (error) {
-                                                    console.error('Error parsing territories:', error);
-                                                    territories = [];
-                                                  }
-                                                  
-                                                  // Ensure territories is an array
-                                                  if (!Array.isArray(territories)) {
-                                                    territories = [];
-                                                  }
-                                                  
-                                                  return territories.length > 0 && (
-                                                    <div className="flex flex-wrap gap-1 mt-1">
-                                                      {territories.map((territory, index) => {
-                                                        // Handle different territory formats
-                                                        let territoryDisplay = '';
-                                                        if (typeof territory === 'object' && territory.name) {
-                                                          territoryDisplay = territory.name;
-                                                        } else if (typeof territory === 'number' || typeof territory === 'string') {
-                                                          territoryDisplay = `Territory ${territory}`;
-                                                        } else {
-                                                          territoryDisplay = String(territory);
-                                                        }
-                                                        
-                                                        return (
-                                                          <span
-                                                            key={index}
-                                                            className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
-                                                          >
-                                                            <MapPin className="w-3 h-3 mr-1" />
-                                                            {territoryDisplay}
-                                                          </span>
-                                                        );
-                                                      })}
-                                                    </div>
-                                                  );
-                                                })()}
-                                              </div>
-                                            </div>
-                                            <div className="mt-3 sm:mt-0 flex items-center justify-end space-x-2">
-                                              {/* Activation/Deactivation Toggle */}
-                                              {(member.status === 'active' || member.status === 'inactive' || member.status === 'pending' || member.status === 'invited') && (
-                                                <button
-                                                  onClick={() => handleToggleActivation(member)}
-                                                  className={`inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                                                    member.status === 'active' 
-                                                      ? 'text-red-700 bg-red-100 hover:bg-red-200 focus:ring-red-500' 
-                                                      : 'text-green-700 bg-green-100 hover:bg-green-200 focus:ring-green-500'
-                                                  }`}
-                                                >
-                                                  {member.status === 'active' ? (
-                                                    <>
-                                                      <PowerOff className="w-3 h-3 mr-1" />
-                                                      Deactivate
-                                                    </>
-                                                  ) : member.status === 'invited' ? (
-                                                    <>
-                                                      <Power className="w-3 h-3 mr-1" />
-                                                      Activate (Skip Invite)
-                                                    </>
-                                                  ) : (
-                                                    <>
-                                                      <Power className="w-3 h-3 mr-1" />
-                                                      Activate
-                                                    </>
-                                                  )}
-                                                </button>
-                                              )}
-                                              
-                                              {member.status === 'invited' && (
-                                                <button
-                                                  onClick={() => handleResendInvite(member)}
-                                                  className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                                                >
-                                                  Resend Invite
-                                                </button>
-                                              )}
-                                              <button
-                                                onClick={() => handleViewMember(member)}
-                                                className="p-2 text-gray-400 hover:text-gray-600"
-                                              >
-                                                <Eye className="w-4 h-4" />
-                                              </button>
-                                              <button
-                                                onClick={() => handleEditMember(member)}
-                                                className="p-2 text-gray-400 hover:text-blue-600"
-                                              >
-                                                <Edit className="w-4 h-4" />
-                                              </button>
-                                              <button
-                                                onClick={() => handleDeleteMember(member)}
-                                                className="p-2 text-gray-400 hover:text-red-600"
-                                              >
-                                                <Trash2 className="w-4 h-4" />
-                                              </button>
-                                            </div>
-                                          </div>
+                                        <div className="text-sm text-gray-500">
+                                          {member.email || member.phone}
                                         </div>
                                       </div>
                                     </div>
-                                  </li>
-                                )) : (
-                                  <li className="px-4 py-4 text-center text-gray-500">
-                                    No team members found or data is not in expected format.
-                                  </li>
-                                )}
-                            </ul>
-                          )}
+                                  </td>
+                                  <td className="px-6 py-4">
+                                    <div className="text-sm text-gray-900">
+                                      {member.role === 'owner' || member.role === 'admin' ? 'Account Owner' :
+                                       member.role === 'manager' ? 'Manager' :
+                                       member.role === 'technician' ? 'Technician' :
+                                       'Team Member'}
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-4">
+                                    <div className="text-sm text-gray-900">
+                                      {member.is_service_provider ? 'Yes' : 'No'}
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-4 text-right">
+                                    <div className="flex items-center justify-end space-x-3">
+                                      <button
+                                        onClick={() => handleViewMember(member)}
+                                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                                        title="View schedule"
+                                      >
+                                        <Clock className="w-5 h-5" />
+                                      </button>
+                                      <button
+                                        onClick={() => handleToggleActivation(member)}
+                                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                                        title={member.status === 'active' ? 'Deactivate' : 'Activate'}
+                                      >
+                                        <Zap className="w-5 h-5" />
+                                      </button>
+                                      <button
+                                        onClick={() => handleEditMember(member)}
+                                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                                        title="More options"
+                                      >
+                                        <Settings className="w-5 h-5" />
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
                         </div>
-                      )}
-                    </div>
-                  )}
+
+                        {/* Pagination */}
+                        <div className="px-6 py-4 border-t border-gray-200">
+                          <div className="flex items-center justify-center space-x-2">
+                            <button
+                              disabled
+                              className="p-2 rounded-lg border border-gray-300 text-gray-400 cursor-not-allowed"
+                            >
+                              <ChevronLeft className="w-5 h-5" />
+                            </button>
+                            <button
+                              disabled
+                              className="p-2 rounded-lg border border-gray-300 text-gray-400 cursor-not-allowed"
+                            >
+                              <ChevronRight className="w-5 h-5" />
+                            </button>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </>
               )}
             </div>
@@ -733,8 +596,7 @@ const ServiceFlowTeam = () => {
                 <AlertCircle className="h-6 w-6 text-red-600 mr-3" />
                 <h3 className="text-lg font-medium text-gray-900">Delete Team Member</h3>
               </div>
-              
-              {/* Enhanced Error Message Display */}
+
               {deleteError && (
                 <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
                   <div className="flex items-start">
@@ -742,84 +604,33 @@ const ServiceFlowTeam = () => {
                     <div className="flex-1">
                       <h4 className="text-sm font-medium text-red-800 mb-1">Unable to Delete Team Member</h4>
                       <p className="text-sm text-red-700 leading-relaxed">{deleteError}</p>
-                      {/* Show additional help text for specific error types */}
-                      {deleteError.includes('active job assignment') && (
-                        <div className="mt-2 text-xs text-red-600">
-                          <p className="font-medium">What you can do:</p>
-                          <ul className="list-disc list-inside mt-1 space-y-1">
-                            <li>Complete or reassign their active jobs first</li>
-                            <li>Deactivate the team member instead of deleting</li>
-                            <li>Contact support if you need assistance</li>
-                          </ul>
-                        </div>
-                      )}
-                      {deleteError.includes('only admin') && (
-                        <div className="mt-2 text-xs text-red-600">
-                          <p className="font-medium">What you can do:</p>
-                          <ul className="list-disc list-inside mt-1 space-y-1">
-                            <li>Assign another team member as admin first</li>
-                            <li>Deactivate this team member instead of deleting</li>
-                          </ul>
-                        </div>
-                      )}
-                      {deleteError.includes('network') && (
-                        <div className="mt-2 text-xs text-red-600">
-                          <p className="font-medium">Troubleshooting:</p>
-                          <ul className="list-disc list-inside mt-1 space-y-1">
-                            <li>Check your internet connection</li>
-                            <li>Try refreshing the page</li>
-                            <li>Contact support if the problem persists</li>
-                          </ul>
-                        </div>
-                      )}
                     </div>
                   </div>
                 </div>
               )}
-              
+
               <p className="text-sm text-gray-500 mb-6">
-                Are you sure you want to delete <strong>{memberToDelete.first_name} {memberToDelete.last_name}</strong>? 
+                Are you sure you want to delete <strong>{memberToDelete.first_name} {memberToDelete.last_name}</strong>?
                 This action cannot be undone.
               </p>
-              
-              {/* Warning for active team members */}
-              {memberToDelete.status === 'active' && (
-                <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-                  <div className="flex items-start">
-                    <AlertCircle className="h-4 w-4 text-yellow-600 mr-2 mt-0.5 flex-shrink-0" />
-                    <div className="text-sm text-yellow-700">
-                      <p className="font-medium">Warning:</p>
-                      <p>This team member is currently active. If they have active job assignments, deletion will be blocked.</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-              
+
               <div className="flex justify-end space-x-3">
                 <button
                   onClick={() => {
                     setShowDeleteModal(false)
                     setMemberToDelete(null)
-                    setDeleteError("") // Clear error when closing modal
+                    setDeleteError("")
                   }}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={confirmDeleteMember}
                   disabled={deleteLoading}
-                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-50"
                 >
-                  {deleteLoading ? (
-                    <div className="flex items-center">
-                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Deleting...
-                    </div>
-                  ) : "Delete"}
+                  {deleteLoading ? "Deleting..." : "Delete"}
                 </button>
               </div>
             </div>
@@ -842,11 +653,9 @@ const ServiceFlowTeam = () => {
               </div>
               <p className="text-sm text-gray-500 mb-6">
                 {memberToToggle.status === 'active' ? (
-                  <>Are you sure you want to deactivate <strong>{memberToToggle.first_name} {memberToToggle.last_name}</strong>? They will no longer be able to access the system.</>
-                ) : memberToToggle.status === 'invited' ? (
-                  <>Are you sure you want to activate <strong>{memberToToggle.first_name} {memberToToggle.last_name}</strong>? This will skip the invitation process and make them immediately active.</>
+                  <>Are you sure you want to deactivate <strong>{memberToToggle.first_name} {memberToToggle.last_name}</strong>?</>
                 ) : (
-                  <>Are you sure you want to activate <strong>{memberToToggle.first_name} {memberToToggle.last_name}</strong>? They will be able to access the system.</>
+                  <>Are you sure you want to activate <strong>{memberToToggle.first_name} {memberToToggle.last_name}</strong>?</>
                 )}
               </p>
               <div className="flex justify-end space-x-3">
@@ -855,18 +664,18 @@ const ServiceFlowTeam = () => {
                     setShowActivationModal(false)
                     setMemberToToggle(null)
                   }}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={confirmToggleActivation}
                   disabled={activationLoading}
-                  className={`px-4 py-2 text-sm font-medium text-white border border-transparent rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 ${
-                    memberToToggle.status === 'active' 
-                      ? 'bg-red-600 hover:bg-red-700 focus:ring-red-500' 
-                      : 'bg-green-600 hover:bg-green-700 focus:ring-green-500'
-                  }`}
+                  className={`px-4 py-2 text-sm font-medium text-white rounded-md ${
+                    memberToToggle.status === 'active'
+                      ? 'bg-red-600 hover:bg-red-700'
+                      : 'bg-green-600 hover:bg-green-700'
+                  } disabled:opacity-50`}
                 >
                   {activationLoading ? "Updating..." : (memberToToggle.status === 'active' ? "Deactivate" : "Activate")}
                 </button>
@@ -884,8 +693,7 @@ const ServiceFlowTeam = () => {
                 <h3 className="text-lg font-medium text-gray-900">Resend Invitation</h3>
               </div>
               <p className="text-sm text-gray-500 mb-6">
-                Are you sure you want to resend the invitation to <strong>{memberToResend.first_name} {memberToResend.last_name}</strong>? 
-                A new invitation email will be sent to {memberToResend.email}.
+                Are you sure you want to resend the invitation to <strong>{memberToResend.first_name} {memberToResend.last_name}</strong>?
               </p>
               <div className="flex justify-end space-x-3">
                 <button
@@ -893,14 +701,14 @@ const ServiceFlowTeam = () => {
                     setShowResendModal(false)
                     setMemberToResend(null)
                   }}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={confirmResendInvite}
                   disabled={resendLoading}
-                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
                 >
                   {resendLoading ? "Sending..." : "Resend Invitation"}
                 </button>
@@ -911,9 +719,9 @@ const ServiceFlowTeam = () => {
 
         {/* Notification */}
         {notification && (
-          <div className={`fixed top-4 right-4 z-50 p-4 rounded-md shadow-lg ${
-            notification.type === 'success' 
-              ? 'bg-green-50 text-green-800 border border-green-200' 
+          <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg ${
+            notification.type === 'success'
+              ? 'bg-green-50 text-green-800 border border-green-200'
               : 'bg-red-50 text-red-800 border border-red-200'
           }`}>
             <div className="flex items-center">
