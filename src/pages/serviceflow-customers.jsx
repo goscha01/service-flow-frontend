@@ -5,7 +5,7 @@ import Sidebar from "../components/sidebar"
 import MobileHeader from "../components/mobile-header"
 import CustomerModal from "../components/customer-modal"
 import ExportCustomersModal from "../components/export-customers-modal"
-import { Search, User, Plus, AlertCircle, Loader2, Trash2, Eye, X, Filter, Phone, Mail, Edit } from "lucide-react"
+import { Search, User, Plus, AlertCircle, Loader2, Trash2, Eye, X } from "lucide-react"
 import { customersAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
 import { useNavigate, Link } from "react-router-dom"
@@ -21,7 +21,7 @@ const ServiceFlowCustomers = () => {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [customerToDelete, setCustomerToDelete] = useState(null)
-  
+
   // API State
   const [customers, setCustomers] = useState([])
   const [loading, setLoading] = useState(true)
@@ -29,8 +29,6 @@ const ServiceFlowCustomers = () => {
   const [successMessage, setSuccessMessage] = useState("")
   const [searchTerm, setSearchTerm] = useState("")
   const [deleteLoading, setDeleteLoading] = useState(null)
-  const [selectedCity, setSelectedCity] = useState("")
-  const [showCityFilter, setShowCityFilter] = useState(false)
 
   // Fetch customers when user is available
   useEffect(() => {
@@ -56,27 +54,13 @@ const ServiceFlowCustomers = () => {
     }
   }, [user?.id, loading])
 
-  // Close city filter dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (showCityFilter && !event.target.closest('.city-filter-container')) {
-        setShowCityFilter(false)
-      }
-    }
-
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [showCityFilter])
-
   const fetchCustomers = async () => {
     if (!user?.id) {
       console.log('No user ID found:', user)
       setLoading(false)
       return
     }
-    
+
     try {
       setLoading(true)
       setError("")
@@ -106,31 +90,31 @@ const ServiceFlowCustomers = () => {
 
   const handleCustomerSave = async (customerData) => {
     if (!user?.id) return
-    
+
     try {
       setError("")
       console.log('Saving customer:', customerData)
       const response = await customersAPI.create(customerData)
       console.log('Customer saved successfully:', response)
-      
+
       // Add the new customer to the list
       setCustomers(prev => [response.customer || response, ...prev])
-      
+
       // Show success message
       setSuccessMessage('Customer created successfully!')
       setTimeout(() => setSuccessMessage(''), 3000)
-      
+
       // Navigate to customer details page
       const customerId = response.customer?.id || response.id
       if (customerId) {
         navigate(`/customer/${customerId}`)
       }
-      
+
       // Return the customer data for navigation
       return response.customer || response
     } catch (error) {
       console.error('Error creating customer:', error)
-      
+
       if (error.response) {
         const { status, data } = error.response
         switch (status) {
@@ -148,7 +132,7 @@ const ServiceFlowCustomers = () => {
       } else {
         setError("An unexpected error occurred.")
       }
-      
+
       // Don't close the modal if there's an error
       console.log('Customer creation failed, keeping modal open')
       throw error // Re-throw to prevent modal from closing
@@ -162,27 +146,27 @@ const ServiceFlowCustomers = () => {
 
   const confirmDeleteCustomer = async () => {
     if (!customerToDelete) return
-    
+
     try {
       setDeleteLoading(customerToDelete.id)
       setError("")
       setSuccessMessage("")
-      
+
       await customersAPI.delete(customerToDelete.id, user.id)
-      
+
       // Remove from local state
       setCustomers(prev => prev.filter(customer => customer.id !== customerToDelete.id))
       setShowDeleteConfirm(false)
       setCustomerToDelete(null)
-      
+
       // Show success message
       setSuccessMessage(`Customer "${customerToDelete.first_name} ${customerToDelete.last_name}" deleted successfully.`)
-      
+
       // Clear success message after 3 seconds
       setTimeout(() => setSuccessMessage(""), 3000)
     } catch (error) {
       console.error('Error deleting customer:', error)
-      
+
       // Handle specific error messages from server
       if (error.response) {
         const { status, data } = error.response
@@ -212,24 +196,14 @@ const ServiceFlowCustomers = () => {
     navigate(`/customer/${customer.id}`)
   }
 
-  const handleEditCustomer = (customer) => {
-    // For now, navigate to customer details page where editing can be done
-    // In the future, this could open an edit modal directly
-    navigate(`/customer/${customer.id}`)
-  }
-
   const handleRetry = () => {
     fetchCustomers()
   }
 
-  // Get unique cities for filtering
-  const uniqueCities = [...new Set(customers.map(customer => customer.city).filter(Boolean))].sort()
-
   const filteredCustomers = customers.filter(customer => {
-    // Search filter
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase()
-      const matchesSearch = (
+      return (
         customer.first_name?.toLowerCase().includes(searchLower) ||
         customer.last_name?.toLowerCase().includes(searchLower) ||
         customer.email?.toLowerCase().includes(searchLower) ||
@@ -237,24 +211,9 @@ const ServiceFlowCustomers = () => {
         customer.city?.toLowerCase().includes(searchLower) ||
         customer.state?.toLowerCase().includes(searchLower)
       )
-      if (!matchesSearch) return false
     }
-    
-    // City filter
-    if (selectedCity && customer.city !== selectedCity) {
-      return false
-    }
-    
     return true
   })
-
-  const clearSearch = () => {
-    setSearchTerm("")
-  }
-
-  const clearCityFilter = () => {
-    setSelectedCity("")
-  }
 
   // Show loading spinner while auth is loading
   if (authLoading) {
@@ -268,131 +227,87 @@ const ServiceFlowCustomers = () => {
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      
-      <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
+
+      <div className="flex-1 flex flex-col min-w-0 ml-16 lg:mx-80 xl:mx-92">
         <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
-        
+
         <div className="flex-1 overflow-auto">
-          <div className="px-4 sm:px-6 lg:px-8 py-8">
-            {/* Header */}
-            <div className="mb-8">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
-                <div>
+          <div className="px-4 sm:px-6 lg:px-8 py-6">
+            {/* Header with Title, Search, and Actions */}
+            <div className="mb-6">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                {/* Title and Count */}
+                <div className="flex-shrink-0">
                   <h1 className="text-2xl font-bold text-gray-900">Customers</h1>
-                  <p className="mt-1 text-sm text-gray-500">
-                    Manage your customer database and track relationships
+                  <p className="mt-0.5 text-sm text-gray-500">
+                    {customers.length} {customers.length === 1 ? 'customer' : 'customers'}
                   </p>
                 </div>
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
-                  <button
-                    onClick={handleImport}
-                    className="inline-flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-                  >
-                    Import
-                  </button>
+
+                {/* Search Bar */}
+                <div className="flex-1 max-w-md">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <input
+                      type="text"
+                      placeholder="Search customers..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 bg-gray-50 border-0 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:bg-white"
+                    />
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex items-center gap-3 flex-shrink-0">
                   <button
                     onClick={handleExport}
-                    className="inline-flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
                   >
                     Export
                   </button>
                   <button
-                    onClick={handleAddCustomer}
-                    className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                    onClick={handleImport}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
                   >
-                    <Plus className="w-4 h-4 mr-2" />
+                    Import
+                  </button>
+                  <button
+                    onClick={handleAddCustomer}
+                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
                     Add Customer
                   </button>
                 </div>
               </div>
             </div>
 
-            {/* Search and Filters */}
-            <div className="mb-6 space-y-4">
-              {/* Search Bar */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <input
-                  type="text"
-                  placeholder="Search customers by name, email, phone, or location..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                />
-                {searchTerm && (
-                  <button
-                    onClick={clearSearch}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-
-              {/* Filters and Results Count */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  {/* City Filter */}
-                  <div className="relative city-filter-container">
-                    <button
-                      onClick={() => setShowCityFilter(!showCityFilter)}
-                      className={`inline-flex items-center px-3 py-1.5 border rounded-md text-sm font-medium ${
-                        selectedCity 
-                          ? 'border-primary-500 text-primary-700 bg-primary-50' 
-                          : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'
-                      }`}
-                    >
-                      <Filter className="w-4 h-4 mr-1" />
-                      {selectedCity || 'Filter by City'}
-                    </button>
-                    
-                    {showCityFilter && (
-                      <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto">
-                        <div className="p-2">
-                          <button
-                            onClick={() => {
-                              setSelectedCity("")
-                              setShowCityFilter(false)
-                            }}
-                            className="w-full text-left px-2 py-1 text-sm text-gray-700 hover:bg-gray-100 rounded"
-                          >
-                            All Cities
-                          </button>
-                          {uniqueCities.map(city => (
-                            <button
-                              key={city}
-                              onClick={() => {
-                                setSelectedCity(city)
-                                setShowCityFilter(false)
-                              }}
-                              className="w-full text-left px-2 py-1 text-sm text-gray-700 hover:bg-gray-100 rounded"
-                            >
-                              {city}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Clear City Filter */}
-                  {selectedCity && (
-                    <button
-                      onClick={clearCityFilter}
-                      className="inline-flex items-center px-2 py-1 text-sm text-gray-500 hover:text-gray-700"
-                    >
-                      <X className="w-3 h-3 mr-1" />
-                      Clear city filter
-                    </button>
-                  )}
+            {/* Match Bookings Card */}
+            <div className="mb-6 bg-gray-100 rounded-lg p-6">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <h3 className="text-base font-semibold text-gray-900 mb-2">
+                    Match Bookings to Existing Customers
+                  </h3>
+                  <p className="text-sm text-gray-600 leading-relaxed">
+                    When enabled, Zenbooker links new online bookings to existing customers based on email.
+                    <br />
+                    New customers are created for emails without a match.
+                  </p>
                 </div>
-
-                {/* Results Count */}
-                <div className="text-sm text-gray-500">
-                  {filteredCustomers.length} of {customers.length} customers
-                  {(searchTerm || selectedCity) && (
-                    <span className="text-gray-400"> (filtered)</span>
-                  )}
+                <div className="ml-6 flex-shrink-0">
+                  <button
+                    onClick={() => setMatchBookings(!matchBookings)}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${
+                      matchBookings ? 'bg-green-500' : 'bg-gray-300'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        matchBookings ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
                 </div>
               </div>
             </div>
@@ -433,103 +348,79 @@ const ServiceFlowCustomers = () => {
                 <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
               </div>
             ) : filteredCustomers.length === 0 ? (
-              <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
+              <div className="bg-white border border-gray-200 rounded-lg p-12 text-center">
                 <User className="mx-auto h-12 w-12 text-gray-400" />
-                <h3 className="mt-2 text-sm font-medium text-gray-900">No customers found</h3>
-                <p className="mt-1 text-sm text-gray-500">
-                  {(searchTerm || selectedCity) 
-                    ? "Try adjusting your search terms or filters." 
+                <h3 className="mt-4 text-base font-medium text-gray-900">No customers found</h3>
+                <p className="mt-2 text-sm text-gray-500">
+                  {searchTerm
+                    ? "Try adjusting your search terms."
                     : "Get started by adding your first customer."
                   }
                 </p>
-                {!searchTerm && !selectedCity && (
+                {!searchTerm && (
                   <div className="mt-6">
                     <button
                       onClick={handleAddCustomer}
-                      className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                      className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                     >
                       <Plus className="w-4 h-4 mr-2" />
                       Add Customer
                     </button>
                   </div>
                 )}
-                {(searchTerm || selectedCity) && (
-                  <div className="mt-6 space-x-3">
-                    {searchTerm && (
-                      <button
-                        onClick={clearSearch}
-                        className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-                      >
-                        <X className="w-4 h-4 mr-1" />
-                        Clear Search
-                      </button>
-                    )}
-                    {selectedCity && (
-                      <button
-                        onClick={clearCityFilter}
-                        className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-                      >
-                        <X className="w-4 h-4 mr-1" />
-                        Clear City Filter
-                      </button>
-                    )}
-                  </div>
-                )}
               </div>
             ) : (
-              <div className="bg-white shadow overflow-hidden sm:rounded-md">
+              <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
                 <ul className="divide-y divide-gray-200">
                   {filteredCustomers.map((customer) => (
                     <li key={customer.id}>
-                      <div className="px-4 py-4 sm:px-6">
+                      <div className="px-6 py-4 hover:bg-gray-50 transition-colors">
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-4">
-                            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                              <span className="text-blue-600 font-medium text-sm">
-                                {customer.first_name?.[0]}{customer.last_name?.[0]}
+                          <div className="flex items-center gap-4 flex-1 min-w-0">
+                            {/* Avatar */}
+                            <div className="w-12 h-12 bg-pink-500 rounded-full flex items-center justify-center flex-shrink-0">
+                              <span className="text-white font-medium text-sm">
+                                {customer.first_name?.[0]?.toUpperCase()}{customer.last_name?.[0]?.toUpperCase()}
                               </span>
                             </div>
-                            <div>
-                              <div className="flex flex-row justify-start items-center gap-3">
-                              <button
-                                onClick={() => handleViewCustomer(customer)}
-                                style={{textDecoration: 'none'}}
-                                className="font-bold decoration-none text-gray-900 hover:text-primary-600 hover:underline cursor-pointer transition-colors duration-200"
-                              >
-                                {customer.first_name} {customer.last_name} 
-                              </button>
-                              {(customer.city || customer.state) && (
-                            
 
-                               <p className="text-xs text-gray-500">
-                                 {he.decode(`${customer.city}${customer.city && customer.state ? ', ' : ''}${customer.state}`)}
-                               </p>
-                              )}
+                            {/* Customer Info */}
+                            <div className="flex-1 min-w-0">
+                              {/* Name and Location */}
+                              <div className="flex items-center gap-2 mb-1">
+                                <button
+                                  onClick={() => handleViewCustomer(customer)}
+                                  className="font-semibold text-gray-900 hover:text-primary-600 transition-colors text-left"
+                                >
+                                  {customer.first_name} {customer.last_name}
+                                </button>
+                                {customer.city && (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">
+                                    {he.decode(customer.city)}
+                                  </span>
+                                )}
                               </div>
-                              <div className="flex flex-col space-y-2 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
-                                <div className="flex flex-col space-y-1 sm:flex-row sm:items-center sm:space-y-0 sm:space-x-4">
-                                  <div className="flex items-center space-x-2">
-                                    <Phone className="w-4 h-4 text-gray-400" />
-                                    <span className="text-sm text-gray-600">
-                                      {customer.phone ? formatPhoneNumber(customer.phone) : 'No phone'}
-                                    </span>
-                                  </div>
-                                  {/* {customer.email && (
-                                    <div className="flex items-center space-x-2">
-                                      <Mail className="w-4 h-4 text-gray-400" />
-                                      <span className="text-sm text-gray-600">{customer.email}</span>
-                                    </div>
-                                  )} */}
-                                </div>
-                                
+
+                              {/* Contact Info */}
+                              <div className="flex items-center gap-4 text-sm text-gray-600">
+                                {customer.email && (
+                                  <span>{customer.email}</span>
+                                )}
+                                {customer.email && customer.phone && (
+                                  <span className="text-gray-400">•</span>
+                                )}
+                                {customer.phone && (
+                                  <span>{formatPhoneNumber(customer.phone)}</span>
+                                )}
                               </div>
-                              
                             </div>
                           </div>
-                          <div className="flex items-center space-x-2">
+
+                          {/* Action Buttons */}
+                          <div className="flex items-center gap-2 ml-4">
                             <button
                               onClick={() => handleViewCustomer(customer)}
-                              className="text-gray-400 hover:text-gray-600 p-1"
+                              className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
                               title="View customer details"
                             >
                               <Eye className="w-4 h-4" />
@@ -537,7 +428,7 @@ const ServiceFlowCustomers = () => {
                             <button
                               onClick={() => handleDeleteCustomer(customer)}
                               disabled={deleteLoading === customer.id}
-                              className="text-red-600 hover:text-red-700 p-1 disabled:opacity-50"
+                              className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
                               title="Delete customer"
                             >
                               {deleteLoading === customer.id ? (
@@ -570,7 +461,6 @@ const ServiceFlowCustomers = () => {
         onClose={() => setIsExportModalOpen(false)}
       />
 
-
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && customerToDelete && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -580,7 +470,7 @@ const ServiceFlowCustomers = () => {
               <h3 className="text-lg font-medium text-gray-900">Delete Customer</h3>
             </div>
             <p className="text-sm text-gray-500 mb-6">
-              Are you sure you want to delete <strong>{customerToDelete.first_name} {customerToDelete.last_name}</strong>? 
+              Are you sure you want to delete <strong>{customerToDelete.first_name} {customerToDelete.last_name}</strong>?
               This action cannot be undone.
               {customerToDelete.jobs_count > 0 || customerToDelete.estimates_count > 0 ? (
                 <span className="block mt-2 text-red-600">
@@ -594,14 +484,14 @@ const ServiceFlowCustomers = () => {
                   setShowDeleteConfirm(false)
                   setCustomerToDelete(null)
                 }}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
               >
                 Cancel
               </button>
               <button
                 onClick={confirmDeleteCustomer}
                 disabled={deleteLoading === customerToDelete.id}
-                className="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
               >
                 {deleteLoading === customerToDelete.id ? "Deleting..." : "Delete"}
               </button>
