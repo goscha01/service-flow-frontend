@@ -28,7 +28,7 @@ import { useAuth } from "../context/AuthContext"
 import { jobsAPI } from "../services/api"
 import { normalizeAPIResponse } from "../utils/dataHandler"
 
-const ScheduleRedesigned = () => {
+const ServiceFlowSchedule = () => {
   const { user } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [selectedDate, setSelectedDate] = useState(new Date())
@@ -2467,4 +2467,4 @@ const ScheduleRedesigned = () => {
   )
 }
 
-export default ScheduleRedesigned
+export default ServiceFlowSchedule

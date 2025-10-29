@@ -14,7 +14,7 @@ import ServiceModifiersForm from "../components/service-modifiers-form"
 import ExcelListboxMultiselect from "../components/excel-listbox-multiselect"
 import { servicesAPI, serviceAvailabilityAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
-import { 
+import {
   ChevronLeft,
   ChevronRight,
   Settings,
@@ -45,6 +45,52 @@ const ServiceDetails = () => {
   const { user } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [expandedSection, setExpandedSection] = useState(null)
+
+  // Add CSS animation styles
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      @keyframes slideDown {
+        from {
+          opacity: 0;
+          transform: translateY(-10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      @keyframes scaleIn {
+        from {
+          transform: scale(0);
+        }
+        to {
+          transform: scale(1);
+        }
+      }
+      .animate-fadeIn {
+        animation: fadeIn 0.4s ease-out;
+      }
+      .animate-slideDown {
+        animation: slideDown 0.3s ease-out;
+      }
+      .animate-scaleIn {
+        animation: scaleIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      }
+    `;
+    document.head.appendChild(style);
+    return () => document.head.removeChild(style);
+  }, [])
   const [editingModifier, setEditingModifier] = useState(null)
   const [isCreateModifierGroupModalOpen, setIsCreateModifierGroupModalOpen] = useState(false)
   const [isIntakeDropdownOpen, setIsIntakeDropdownOpen] = useState(false)
@@ -57,7 +103,7 @@ const ServiceDetails = () => {
   const [recurringOptions, setRecurringOptions] = useState([])
   const [territoryRules, setTerritoryRules] = useState([])
   const [copiedModifier, setCopiedModifier] = useState(null)
-  
+
   // Availability State
   const [availabilityData, setAvailabilityData] = useState({
     availabilityType: 'default',
@@ -72,33 +118,33 @@ const ServiceDetails = () => {
   const [availabilityLoading, setAvailabilityLoading] = useState(false)
   const [availabilitySaving, setAvailabilitySaving] = useState(false)
   const [imageUploading, setImageUploading] = useState(false)
-  
+
   // API State
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
   const [successMessage, setSuccessMessage] = useState("")
-  
+
   // Save state for modifiers and intake questions
   const [savingModifiers, setSavingModifiers] = useState(false)
   const [savingIntakeQuestions, setSavingIntakeQuestions] = useState(false)
   const [modifiersChanged, setModifiersChanged] = useState(false)
   const [intakeQuestionsChanged, setIntakeQuestionsChanged] = useState(false)
-  
+
   // Interactive preview state
   const [previewAnswers, setPreviewAnswers] = useState({})
   const [previewQuantities, setPreviewQuantities] = useState({})
-  
+
   // Default selections from service customizations
   const [defaultModifierSelections, setDefaultModifierSelections] = useState({})
   const [defaultIntakeAnswers, setDefaultIntakeAnswers] = useState({})
-  
+
   // Editable modifier prices state
   const [editedModifierPrices, setEditedModifierPrices] = useState({})
-  
+
   // Hidden sections state - not needed when sections are commented out
   // const [hiddenSections, setHiddenSections] = useState([])
-  
+
   const [serviceData, setServiceData] = useState({
     name: "",
     description: "",
@@ -120,24 +166,24 @@ const ServiceDetails = () => {
   // Add categories state
   const [categories, setCategories] = useState([])
   const [categoriesLoading, setCategoriesLoading] = useState(false)
-  
+
   // Load service data on component mount
   useEffect(() => {
     console.log('ServiceDetails useEffect - serviceId:', serviceId, 'user:', user?.id)
     console.log('Current URL:', window.location.href)
-    
+
     if (!user?.id) {
       console.log('No user found, redirecting to signin')
       navigate('/signin')
       return
     }
-    
+
     if (!serviceId) {
       console.log('No service ID found, redirecting to services')
       navigate('/services')
       return
     }
-    
+
     console.log('Starting to load service data...')
     loadServiceData()
   }, [serviceId, user?.id])
@@ -172,14 +218,14 @@ const ServiceDetails = () => {
       console.log('Loading service data for ID:', serviceId)
       setLoading(true)
       setError("")
-      
+
       if (!serviceId) {
         console.error('No service ID provided')
         setError("No service ID provided")
         setLoading(false)
         return
       }
-      
+
       // First check if backend is running
       try {
         const healthResponse = await fetch('https://service-flow-backend-production-4568.up.railway.app/api/health')
@@ -193,15 +239,15 @@ const ServiceDetails = () => {
         setLoading(false)
         return
       }
-      
+
       // Add timeout to prevent infinite loading
-      const timeoutPromise = new Promise((_, reject) => 
+      const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('Request timeout')), 10000)
       )
-      
+
       const servicePromise = servicesAPI.getById(serviceId)
       const service = await Promise.race([servicePromise, timeoutPromise])
-      
+
       console.log('Service data received:', service)
       console.log('Service data type:', typeof service)
       console.log('Service data keys:', service ? Object.keys(service) : 'No service data')
@@ -214,13 +260,13 @@ const ServiceDetails = () => {
       console.log('Service modifiers is undefined?', service.modifiers === undefined)
       console.log('Service modifiers raw value:', JSON.stringify(service.modifiers))
       console.log('Service modifiers length:', service.modifiers ? service.modifiers.length : 'null/undefined')
-      
+
       // Test the parsing logic step by step
       if (service.modifiers) {
         console.log('🔍 Testing modifiers parsing step by step:');
         console.log('🔍 Step 1 - Raw modifiers:', service.modifiers);
         console.log('🔍 Step 1 - Type:', typeof service.modifiers);
-        
+
         try {
           // Step 2 - First parse attempt
           let firstParse;
@@ -231,7 +277,7 @@ const ServiceDetails = () => {
             console.log('🔍 Step 2 - Is array?', Array.isArray(firstParse));
           } catch (firstError) {
             console.log('🔍 Step 2 - First parse failed:', firstError.message);
-            
+
             // Step 3 - Second parse attempt (double-escaped)
             try {
               firstParse = JSON.parse(JSON.parse(service.modifiers));
@@ -243,29 +289,29 @@ const ServiceDetails = () => {
               throw secondError;
             }
           }
-          
+
           console.log('🔍 Final parsed modifiers:', firstParse);
           console.log('🔍 Final modifiers is array?', Array.isArray(firstParse));
           console.log('🔍 Final modifiers length:', Array.isArray(firstParse) ? firstParse.length : 'not an array');
-          
+
         } catch (error) {
           console.error('🔍 Error in step-by-step parsing:', error);
         }
       } else {
         console.log('No modifiers data from backend')
       }
-      
+
       if (!service) {
         console.error('No service found')
         setError("Service not found")
         setLoading(false)
         return
       }
-      
+
       // Convert backend data to frontend format
       const hours = Math.floor(service.duration / 60)
       const minutes = service.duration % 60
-      
+
       const newServiceData = {
         id: service.id,
         name: service.name,
@@ -284,7 +330,7 @@ const ServiceDetails = () => {
           console.log('🔍 Starting modifiers parsing function...');
           console.log('🔍 Input service.modifiers:', service.modifiers);
           console.log('🔍 Input type:', typeof service.modifiers);
-          
+
           try {
             if (!service.modifiers) {
               console.log('🔍 No modifiers, returning empty array');
@@ -292,14 +338,14 @@ const ServiceDetails = () => {
             }
             if (typeof service.modifiers === 'string') {
               console.log('🔍 Modifiers is string, attempting to parse...');
-              
+
               // Try to parse as regular JSON first
               try {
                 const firstParse = JSON.parse(service.modifiers);
                 console.log('🔍 First parse result:', firstParse);
                 console.log('🔍 First parse type:', typeof firstParse);
                 console.log('🔍 First parse is array?', Array.isArray(firstParse));
-                
+
                 // If first parse is still a string, it's double-encoded
                 if (typeof firstParse === 'string') {
                   console.log('🔍 First parse is still string, attempting second parse...');
@@ -307,7 +353,7 @@ const ServiceDetails = () => {
                   console.log('🔍 Second parse result:', secondParse);
                   console.log('🔍 Second parse type:', typeof secondParse);
                   console.log('🔍 Second parse is array?', Array.isArray(secondParse));
-                  
+
                   const result = Array.isArray(secondParse) ? secondParse : [];
                   console.log('🔍 Returning result from double parse:', result);
                   return result;
@@ -359,14 +405,14 @@ const ServiceDetails = () => {
         })(),
         require_payment_method: !!service.require_payment_method
       }
-      
+
       console.log('Setting service data to:', newServiceData)
       console.log('Final modifiers in serviceData:', newServiceData.modifiers)
       console.log('Final modifiers type:', typeof newServiceData.modifiers)
       console.log('Final modifiers is array?', Array.isArray(newServiceData.modifiers))
       console.log('Final modifiers length:', Array.isArray(newServiceData.modifiers) ? newServiceData.modifiers.length : 'not an array')
       setServiceData(newServiceData)
-      
+
       console.log('Parsed modifiers:', (() => {
         try {
           if (!service.modifiers) return [];
@@ -380,16 +426,16 @@ const ServiceDetails = () => {
           return [];
         }
       })())
-      
+
       console.log('Service data set successfully')
-      
+
       // Load default selections if they exist
       try {
         console.log('📋 Checking for default selections in service:', {
           default_modifier_selections: service.default_modifier_selections,
           default_intake_answers: service.default_intake_answers
         });
-        
+
         if (service.default_modifier_selections) {
           const defaultSelections = JSON.parse(service.default_modifier_selections);
           setDefaultModifierSelections(defaultSelections);
@@ -397,7 +443,7 @@ const ServiceDetails = () => {
         } else {
           console.log('📋 No default modifier selections found');
         }
-        
+
         if (service.default_intake_answers) {
           const defaultAnswers = JSON.parse(service.default_intake_answers);
           setDefaultIntakeAnswers(defaultAnswers);
@@ -409,15 +455,15 @@ const ServiceDetails = () => {
       } catch (error) {
         console.error('Error parsing default selections:', error);
       }
-      
+
       // Load categories
       await loadCategories()
-      
+
       // Load availability data
       await loadAvailabilityData()
     } catch (error) {
       console.error('Error loading service:', error)
-      
+
       if (error.message === 'Request timeout') {
         setError("Request timed out. Please check your connection and try again.")
       } else if (error.response) {
@@ -463,16 +509,16 @@ const ServiceDetails = () => {
       console.log('📋 Categories data received:', categoriesData)
       console.log('📋 Categories data type:', typeof categoriesData)
       console.log('📋 Is array?', Array.isArray(categoriesData))
-      
+
       // Ensure categoriesData is always an array
       const categoriesArray = Array.isArray(categoriesData) ? categoriesData : []
       console.log('📋 Setting categories array:', categoriesArray)
       console.log('📋 Categories array length:', categoriesArray.length)
-      
+
       if (categoriesArray.length > 0) {
         console.log('📋 First category:', categoriesArray[0])
       }
-      
+
       setCategories(categoriesArray)
     } catch (error) {
       console.error('❌ Error loading categories:', error)
@@ -501,26 +547,26 @@ const ServiceDetails = () => {
     try {
       console.log('💾 Current serviceData state:', serviceData);
       console.log('💾 dataToSave parameter:', dataToSave);
-      
+
       // Check if service data is loaded
       if (loading) {
         console.error('💾 Service data still loading');
         setError("Service data is still loading. Please wait and try again.");
         return;
       }
-      
+
       if (!serviceData.id) {
         console.error('💾 Service data not loaded yet');
         setError("Service data is still loading. Please wait and try again.");
         return;
       }
-      
+
       const data = dataToSave || serviceData;
       console.log('💾 Final data to save:', data);
       setSaving(true)
       setError("")
       setSuccessMessage("")
-      
+
       const updateData = {
         name: data.name,
         description: data.description,
@@ -532,14 +578,14 @@ const ServiceDetails = () => {
         intake_questions: JSON.stringify(data.intakeQuestions || []),
         require_payment_method: !!data.require_payment_method
       }
-      
+
       console.log('💾 Update data being sent to backend:', updateData);
       console.log('💾 Category being sent:', data.category);
       console.log('💾 Category type:', typeof data.category);
       console.log('💾 Modifiers JSON:', JSON.stringify(serviceData.modifiers));
-      
+
       await servicesAPI.update(serviceData.id, updateData)
-      
+
       // Show success message
       setSuccessMessage("Service updated successfully!")
       setTimeout(() => setSuccessMessage(""), 3000)
@@ -557,8 +603,8 @@ const ServiceDetails = () => {
 
   // Section visibility functions - not needed when sections are commented out
   // const toggleSectionVisibility = (sectionId) => {
-  //   setHiddenSections(prev => 
-  //     prev.includes(sectionId) 
+  //   setHiddenSections(prev =>
+  //     prev.includes(sectionId)
   //       ? prev.filter(id => id !== sectionId)
   //       : [...prev, sectionId]
   //   )
@@ -579,10 +625,10 @@ const ServiceDetails = () => {
     try {
       console.log('🔄 Saving modifier group:', modifierGroupData);
       console.log('🔄 Editing modifier:', editingModifier);
-      
+
       let updatedModifiers
       const currentModifiers = serviceData.modifiers || []
-      
+
       // Convert the new format to the existing format for compatibility
       const convertedModifier = {
         id: editingModifier ? editingModifier.id : Date.now(),
@@ -601,13 +647,13 @@ const ServiceDetails = () => {
           convertToServiceRequest: option.convertToServiceRequest
         }))
       }
-      
+
       console.log('🔄 Converted modifier:', convertedModifier);
-      
+
       if (editingModifier) {
         // Update existing modifier
         console.log('🔄 Updating existing modifier with ID:', editingModifier.id);
-        updatedModifiers = currentModifiers.map(mod => 
+        updatedModifiers = currentModifiers.map(mod =>
           mod.id === editingModifier.id ? convertedModifier : mod
         )
         console.log('🔄 Updated modifiers array:', updatedModifiers);
@@ -616,29 +662,29 @@ const ServiceDetails = () => {
         console.log('🔄 Adding new modifier');
         updatedModifiers = [...currentModifiers, convertedModifier]
       }
-      
+
       console.log('🔄 Setting service data with updated modifiers');
-      
+
       // Update the service data immediately
       const updatedServiceData = {
         ...serviceData,
         modifiers: updatedModifiers
       };
-      
+
       setServiceData(updatedServiceData);
       setModifiersChanged(true);
-      
+
       // Auto-save immediately
       await handleSaveService(updatedServiceData);
-      
+
       setIsCreateModifierGroupModalOpen(false)
       setEditingModifier(null)
       setModifiersChanged(false); // Reset changed flag since we saved
       setSuccessMessage(editingModifier ? "Modifier group updated successfully!" : "Modifier group created successfully!")
-      
+
       // Clear success message after 3 seconds
       setTimeout(() => setSuccessMessage(""), 3000)
-      
+
     } catch (error) {
       console.error('Error saving modifier group:', error)
       setError("Failed to save modifier group. Please try again.")
@@ -650,19 +696,19 @@ const ServiceDetails = () => {
       try {
         const currentModifiers = serviceData.modifiers || []
         const updatedModifiers = currentModifiers.filter(mod => mod.id !== modifierId)
-        
+
         // Update service data immediately
         const updatedServiceData = {
           ...serviceData,
           modifiers: updatedModifiers
         };
-        
+
         setServiceData(updatedServiceData);
         setModifiersChanged(true);
-        
+
         // Auto-save immediately
         await handleSaveService(updatedServiceData);
-        
+
         setModifiersChanged(false); // Reset changed flag since we saved
         setSuccessMessage("Modifier deleted successfully!")
         setTimeout(() => setSuccessMessage(""), 3000)
@@ -676,11 +722,11 @@ const ServiceDetails = () => {
   const handleSaveIntakeQuestion = async (questionData) => {
     try {
       let updatedServiceData;
-      
+
       if (editingIntakeQuestion) {
         // Update existing question
         const currentQuestions = serviceData.intakeQuestions || [];
-        const updatedQuestions = currentQuestions.map(q => 
+        const updatedQuestions = currentQuestions.map(q =>
           q.id === editingIntakeQuestion.id ? {
             ...q,
             questionType: questionData.questionType,
@@ -691,20 +737,20 @@ const ServiceDetails = () => {
             options: questionData.options || []
           } : q
         );
-        
+
         updatedServiceData = {
           ...serviceData,
           intakeQuestions: updatedQuestions
         };
-        
+
         setSuccessMessage("Intake question updated successfully!")
       } else {
         // Create new question
         const currentQuestions = serviceData.intakeQuestions || [];
-        const maxId = currentQuestions.length > 0 
+        const maxId = currentQuestions.length > 0
           ? Math.max(...currentQuestions.map(q => typeof q.id === 'number' ? q.id : parseInt(q.id) || 0))
           : 0;
-        
+
         const newIntakeQuestion = {
           id: maxId + 1, // Use sequential numeric IDs
           questionType: questionData.questionType,
@@ -714,30 +760,30 @@ const ServiceDetails = () => {
           required: questionData.required,
           options: questionData.options || []
         }
-        
+
         updatedServiceData = {
           ...serviceData,
           intakeQuestions: [...(serviceData.intakeQuestions || []), newIntakeQuestion]
         };
-        
+
         setSuccessMessage("Intake question created successfully!")
       }
-      
+
       // Update state
       setServiceData(updatedServiceData)
       setIntakeQuestionsChanged(true);
-      
+
       // Auto-save immediately
       await handleSaveService(updatedServiceData);
-      
+
       setIsIntakeModalOpen(false)
       setSelectedQuestionType(null)
       setEditingIntakeQuestion(null) // Clear editing state
       setIntakeQuestionsChanged(false); // Reset changed flag since we saved
-      
+
       // Clear success message after 3 seconds
       setTimeout(() => setSuccessMessage(""), 3000)
-      
+
     } catch (error) {
       console.error('Error saving intake question:', error)
       setError("Failed to save intake question. Please try again.")
@@ -748,20 +794,20 @@ const ServiceDetails = () => {
     try {
       setSavingModifiers(true)
       setError("")
-      
+
       // Apply edited modifier prices to the service data
       let updatedServiceData = { ...serviceData };
-      
+
       if (Object.keys(editedModifierPrices).length > 0) {
         console.log('🔧 Applying edited modifier prices:', editedModifierPrices);
-        
+
         // Update modifier prices in the service data
         updatedServiceData.modifiers = serviceData.modifiers?.map(modifier => ({
           ...modifier,
           options: modifier.options?.map(option => {
             const priceKey = `${modifier.id}_option_${option.id}`;
             const editedPrice = editedModifierPrices[priceKey];
-            
+
             if (editedPrice !== undefined) {
               console.log(`🔧 Updating ${priceKey} price from ${option.price} to ${editedPrice}`);
               return {
@@ -772,13 +818,13 @@ const ServiceDetails = () => {
             return option;
           })
         }));
-        
+
         // Update the service data state
         setServiceData(updatedServiceData);
       }
-      
+
       await handleSaveService(updatedServiceData)
-      
+
       setModifiersChanged(false)
       setSuccessMessage("Modifiers saved successfully!")
       setTimeout(() => setSuccessMessage(""), 3000)
@@ -794,9 +840,9 @@ const ServiceDetails = () => {
     try {
       setSavingIntakeQuestions(true)
       setError("")
-      
+
       await handleSaveService(serviceData)
-      
+
       setIntakeQuestionsChanged(false)
       setSuccessMessage("Intake questions saved successfully!")
       setTimeout(() => setSuccessMessage(""), 3000)
@@ -846,20 +892,20 @@ const ServiceDetails = () => {
       try {
         const currentQuestions = serviceData.intakeQuestions || []
         const updatedQuestions = currentQuestions.filter(q => q.id !== questionId)
-        
+
         // Update service data
         const updatedServiceData = {
           ...serviceData,
           intakeQuestions: updatedQuestions
         }
-        
+
         // Update state
         setServiceData(updatedServiceData)
         setIntakeQuestionsChanged(true);
-        
+
         // Auto-save immediately
         await handleSaveService(updatedServiceData);
-        
+
         setIntakeQuestionsChanged(false); // Reset changed flag since we saved
         setSuccessMessage("Intake question deleted successfully!")
         setTimeout(() => setSuccessMessage(""), 3000)
@@ -889,14 +935,14 @@ const ServiceDetails = () => {
         id: Date.now().toString(), // Generate new ID
         question: `${question.question} (Copy)`
       }
-      
+
       const updatedServiceData = {
         ...serviceData,
         intakeQuestions: [...(serviceData.intakeQuestions || []), copiedQuestion]
       }
-      
+
       setServiceData(updatedServiceData)
-      
+
       const updateData = {
         name: updatedServiceData.name,
         description: updatedServiceData.description,
@@ -907,9 +953,9 @@ const ServiceDetails = () => {
         intake_questions: JSON.stringify(updatedServiceData.intakeQuestions),
         require_payment_method: !!updatedServiceData.require_payment_method
       }
-      
+
       await servicesAPI.update(updatedServiceData.id, updateData)
-      
+
       setSuccessMessage("Intake question copied successfully!")
       setTimeout(() => setSuccessMessage(""), 3000)
     } catch (error) {
@@ -925,14 +971,14 @@ const ServiceDetails = () => {
         id: Date.now().toString(), // Generate new ID
         title: `${modifier.title} (Copy)`
       }
-      
+
       const updatedServiceData = {
         ...serviceData,
         modifiers: [...(serviceData.modifiers || []), copiedModifier]
       }
-      
+
       setServiceData(updatedServiceData)
-      
+
       const updateData = {
         name: updatedServiceData.name,
         description: updatedServiceData.description,
@@ -943,13 +989,13 @@ const ServiceDetails = () => {
         intake_questions: JSON.stringify(updatedServiceData.intakeQuestions),
         require_payment_method: !!updatedServiceData.require_payment_method
       }
-      
+
       await servicesAPI.update(updatedServiceData.id, updateData)
-      
+
       // Show visual feedback
       setCopiedModifier(modifier.id)
       setTimeout(() => setCopiedModifier(null), 2000)
-      
+
       setSuccessMessage("Modifier copied successfully!")
       setTimeout(() => setSuccessMessage(""), 3000)
     } catch (error) {
@@ -1002,21 +1048,21 @@ const ServiceDetails = () => {
       }
 
       const data = await response.json();
-      
+
       console.log('Image upload response:', data);
-      
+
       if (!data.imageUrl) {
         throw new Error('No image URL received from server');
       }
-      
+
       // Update service data with new image URL
       const updatedServiceData = {
         ...serviceData,
         image: data.imageUrl
       };
-      
+
       setServiceData(updatedServiceData);
-      
+
       // Update service in backend with the new image URL
       const updateData = {
         name: updatedServiceData.name,
@@ -1030,7 +1076,7 @@ const ServiceDetails = () => {
         require_payment_method: !!updatedServiceData.require_payment_method,
         image: data.imageUrl
       };
-      
+
       await servicesAPI.update(serviceId, updateData);
 
       setSuccessMessage("Image uploaded successfully!");
@@ -1052,9 +1098,9 @@ const ServiceDetails = () => {
         ...serviceData,
         image: null
       };
-      
+
       setServiceData(updatedServiceData);
-      
+
       // Update service in backend
       await servicesAPI.update(serviceId, {
         ...serviceData,
@@ -1095,9 +1141,9 @@ const ServiceDetails = () => {
       const handleClickOutside = (event) => {
         const dropdownContainer = document.getElementById('intake-dropdown-container');
         const dropdownButton = document.getElementById('intake-dropdown-button');
-        
-        if (isIntakeDropdownOpen && 
-            dropdownContainer && 
+
+        if (isIntakeDropdownOpen &&
+            dropdownContainer &&
             !dropdownContainer.contains(event.target) &&
             dropdownButton &&
             !dropdownButton.contains(event.target)) {
@@ -1119,13 +1165,13 @@ const ServiceDetails = () => {
             console.log('🔄 Intake dropdown button clicked, current state:', isIntakeDropdownOpen);
             setIsIntakeDropdownOpen(!isIntakeDropdownOpen);
           }}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          className="bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium"
         >
-          New Intake Question
+          + New Intake Question
         </button>
-        
+
         {isIntakeDropdownOpen && (
-          <div 
+          <div
             id="intake-dropdown-container"
             className="absolute left-0 bottom-full mb-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50 max-h-60 overflow-y-auto"
           >
@@ -1164,7 +1210,7 @@ const ServiceDetails = () => {
         <div className="bg-white rounded-lg w-full max-w-md">
           <div className="p-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-6">Create a skill tag</h2>
-            
+
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1204,7 +1250,7 @@ const ServiceDetails = () => {
     switch (section.id) {
       case "intake":
         return (
-          <div className="p-4 space-y-6">
+          <div className="p-6 space-y-6">
             <div className="flex items-start space-x-2">
               <p className="text-sm text-gray-600 flex-1">
                 Intake questions allow you to collect extra information from your customers during the booking process using custom fields.
@@ -1256,19 +1302,19 @@ const ServiceDetails = () => {
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <button 
+                        <button
                           onClick={() => handleEditIntakeQuestion(question)}
                           className="text-sm text-blue-600 hover:text-blue-800"
                         >
                           Edit
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleCopyIntakeQuestion(question)}
                           className="text-sm text-green-600 hover:text-green-800"
                         >
                           Copy
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleDeleteIntakeQuestion(question.id)}
                           className="text-sm text-red-600 hover:text-red-800"
                         >
@@ -1309,7 +1355,7 @@ const ServiceDetails = () => {
                     <span className="text-xs text-green-600 font-medium">INTERACTIVE PREVIEW - Test your questions</span>
                   </div>
                 </div>
-                
+
                 <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm relative">
                   <div className="space-y-6">
                     {serviceData.intakeQuestions.map((question, index) => (
@@ -1323,7 +1369,7 @@ const ServiceDetails = () => {
                             <p className="text-sm text-gray-600 mb-3">{question.description}</p>
                           )}
                         </div>
-                        
+
                         {/* Preview based on question type */}
                         {question.questionType === 'multiple_choice' && (
                           <div className="space-y-2">
@@ -1333,7 +1379,7 @@ const ServiceDetails = () => {
                                   type={question.selectionType === 'multi' ? 'checkbox' : 'radio'}
                                   name={`question-${question.id}`}
                                   value={option.id}
-                                  checked={question.selectionType === 'multi' 
+                                  checked={question.selectionType === 'multi'
                                     ? (previewAnswers[question.id] || []).includes(option.id)
                                     : previewAnswers[question.id] === option.id
                                   }
@@ -1423,7 +1469,7 @@ const ServiceDetails = () => {
                                     type={question.selectionType === 'multi' ? 'checkbox' : 'radio'}
                                     name={`question-${question.id}`}
                                     value={option.id}
-                                    checked={question.selectionType === 'multi' 
+                                    checked={question.selectionType === 'multi'
                                       ? (previewAnswers[question.id] || []).includes(option.id)
                                       : previewAnswers[question.id] === option.id
                                     }
@@ -1464,7 +1510,7 @@ const ServiceDetails = () => {
                                   type={question.selectionType === 'multi' ? 'checkbox' : 'radio'}
                                   name={`question-${question.id}`}
                                   value={option.id}
-                                  checked={question.selectionType === 'multi' 
+                                  checked={question.selectionType === 'multi'
                                     ? (previewAnswers[question.id] || []).includes(option.id)
                                     : previewAnswers[question.id] === option.id
                                   }
@@ -1543,7 +1589,7 @@ const ServiceDetails = () => {
 
             <div className="bg-gray-50 rounded-lg p-6 flex flex-col items-center justify-center text-center">
               <IntakeQuestionDropdown />
-              
+
               {/* Save button for intake questions */}
               {intakeQuestionsChanged && (
                 <div className="mt-4 pt-4 border-t border-gray-200">
@@ -1569,7 +1615,7 @@ const ServiceDetails = () => {
 
       case "availability":
         return (
-          <div className="p-4 space-y-6">
+          <div className="p-6 space-y-6">
             <p className="text-sm text-gray-600">
               You can override your default business hours and availability settings, and offer custom timeslots for this service using a timeslot template.
             </p>
@@ -1619,7 +1665,7 @@ const ServiceDetails = () => {
                 {availabilityData.availabilityType === 'custom' && (
                   <div className="space-y-4 p-4 bg-gray-50 rounded-lg">
                     <h4 className="text-sm font-medium text-gray-900">Custom Availability Settings</h4>
-                    
+
                     {/* Minimum Booking Notice */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1628,9 +1674,9 @@ const ServiceDetails = () => {
                   <input
                         type="number"
                         value={Math.floor(availabilityData.minimumBookingNotice / 60)}
-                        onChange={(e) => setAvailabilityData(prev => ({ 
-                          ...prev, 
-                          minimumBookingNotice: parseInt(e.target.value) * 60 
+                        onChange={(e) => setAvailabilityData(prev => ({
+                          ...prev,
+                          minimumBookingNotice: parseInt(e.target.value) * 60
                         }))}
                         min="0"
                         className="w-32 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -1645,9 +1691,9 @@ const ServiceDetails = () => {
                       <input
                         type="number"
                         value={Math.floor(availabilityData.maximumBookingAdvance / 1440)}
-                        onChange={(e) => setAvailabilityData(prev => ({ 
-                          ...prev, 
-                          maximumBookingAdvance: parseInt(e.target.value) * 1440 
+                        onChange={(e) => setAvailabilityData(prev => ({
+                          ...prev,
+                          maximumBookingAdvance: parseInt(e.target.value) * 1440
                         }))}
                         min="1"
                         max="365"
@@ -1662,9 +1708,9 @@ const ServiceDetails = () => {
                       </label>
                       <select
                         value={availabilityData.bookingInterval}
-                        onChange={(e) => setAvailabilityData(prev => ({ 
-                          ...prev, 
-                          bookingInterval: parseInt(e.target.value) 
+                        onChange={(e) => setAvailabilityData(prev => ({
+                          ...prev,
+                          bookingInterval: parseInt(e.target.value)
                         }))}
                         className="w-32 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       >
@@ -1702,7 +1748,7 @@ const ServiceDetails = () => {
 
       case "team":
         return (
-          <div className="p-4 space-y-6">
+          <div className="p-6 space-y-6">
             <div className="space-y-6">
               <div>
                 <div className="flex items-center justify-between mb-2">
@@ -1716,7 +1762,7 @@ const ServiceDetails = () => {
                 </p>
                 <div className="border border-gray-200 rounded-lg p-4 bg-gray-50 text-center">
                   <p className="text-sm text-gray-500 mb-2">No skill tags available</p>
-                  <button 
+                  <button
                     onClick={() => setIsSkillTagModalOpen(true)}
                     className="text-sm text-blue-600 hover:text-blue-700"
                   >
@@ -1809,7 +1855,7 @@ const ServiceDetails = () => {
 
       case "recurring":
         return (
-          <div className="p-4 space-y-6">
+          <div className="p-6 space-y-6">
             {recurringOptions.length === 0 ? (
               <div className="bg-white rounded-lg p-6 text-center space-y-4">
                 <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto">
@@ -1821,7 +1867,7 @@ const ServiceDetails = () => {
                     Let customers schedule this service as a recurring booking by adding recurring frequencies that customers will be able to choose from. You can also offer discounts for certain frequencies.
                   </p>
                 </div>
-                <button 
+                <button
                   onClick={() => setIsRecurringModalOpen(true)}
                   className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
                 >
@@ -1835,7 +1881,7 @@ const ServiceDetails = () => {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-medium text-gray-900">Recurring Options</h3>
-                  <button 
+                  <button
                     onClick={() => setIsRecurringModalOpen(true)}
                     className="bg-blue-600 text-white px-3 py-1.5 text-sm rounded-lg hover:bg-blue-700 transition-colors"
                   >
@@ -1865,7 +1911,7 @@ const ServiceDetails = () => {
 
       case "territory":
         return (
-          <div className="p-4 space-y-6">
+          <div className="p-6 space-y-6">
             <p className="text-sm text-gray-600">
               Territory adjustments allow you to dynamically increase or decrease this service's price for specific territories
             </p>
@@ -1874,7 +1920,7 @@ const ServiceDetails = () => {
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-medium text-gray-900">Service territory price rules</h3>
                 {territoryRules.length > 0 && (
-                  <button 
+                  <button
                     onClick={() => setIsTerritoryModalOpen(true)}
                     className="bg-blue-600 text-white px-3 py-1.5 text-sm rounded-lg hover:bg-blue-700 transition-colors"
                   >
@@ -1882,7 +1928,7 @@ const ServiceDetails = () => {
                   </button>
                 )}
               </div>
-              
+
               {territoryRules.length === 0 ? (
                 <div>
                   <div className="bg-gray-50 rounded-lg p-4 mb-4">
@@ -1893,7 +1939,7 @@ const ServiceDetails = () => {
                       </p>
                     </div>
                   </div>
-                  <button 
+                  <button
                     onClick={() => setIsTerritoryModalOpen(true)}
                     className="w-full border border-gray-300 rounded-lg p-3 text-center text-sm font-medium text-gray-700 hover:bg-gray-50"
                   >
@@ -1924,7 +1970,7 @@ const ServiceDetails = () => {
 
       case "payments":
         return (
-          <div className="p-4 space-y-6">
+          <div className="p-6 space-y-6">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-medium text-gray-900">Require payment method</h3>
@@ -1950,7 +1996,7 @@ const ServiceDetails = () => {
 
       case "howItWorks":
         return (
-          <div className="p-4 space-y-6">
+          <div className="p-6 space-y-6">
             <p className="text-sm text-gray-600">
               Highlight the features of this service or your business, answer common questions customers might have, and showcase reviews from other customers.
             </p>
@@ -2018,7 +2064,7 @@ const ServiceDetails = () => {
 
       case "bookingPage":
         return (
-          <div className="p-4 space-y-6">
+          <div className="p-6 space-y-6">
             <div>
               <h3 className="text-sm font-medium text-gray-900 mb-2">Visibility</h3>
               <p className="text-sm text-gray-600 mb-4">
@@ -2083,7 +2129,7 @@ const ServiceDetails = () => {
 
       case "bookingLink":
         return (
-          <div className="p-4 space-y-6">
+          <div className="p-6 space-y-6">
             <p className="text-sm text-gray-600">
               Customers can book this service from your booking page. You can also link directly to this service or embed it inside a widget.
             </p>
@@ -2136,7 +2182,7 @@ const ServiceDetails = () => {
                   className="w-full border border-gray-300 rounded-md px-3 py-2"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
                 <textarea
@@ -2158,8 +2204,8 @@ const ServiceDetails = () => {
                       console.log('🔄 Available categories:', categories);
                       const selectedCategory = categories.find(cat => cat.id == selectedCategoryId);
                       console.log('🔄 Selected category object:', selectedCategory);
-                      setServiceData({ 
-                        ...serviceData, 
+                      setServiceData({
+                        ...serviceData,
                         category: selectedCategory ? selectedCategory.name : "",
                         category_id: selectedCategoryId || null
                       });
@@ -2194,8 +2240,8 @@ const ServiceDetails = () => {
                       <input
                         type="text"
                         value={serviceData.category}
-                        onChange={(e) => setServiceData({ 
-                          ...serviceData, 
+                        onChange={(e) => setServiceData({
+                          ...serviceData,
                           category: e.target.value,
                           category_id: null // Clear category_id when typing new category
                         })}
@@ -2210,8 +2256,8 @@ const ServiceDetails = () => {
                     <input
                       type="text"
                       value={serviceData.category}
-                      onChange={(e) => setServiceData({ 
-                        ...serviceData, 
+                      onChange={(e) => setServiceData({
+                        ...serviceData,
                         category: e.target.value,
                         category_id: null // Clear category_id when typing new category
                       })}
@@ -2333,7 +2379,7 @@ const ServiceDetails = () => {
                   <div className="mt-6">
                     <label className="block text-sm font-medium text-gray-700 mb-3">Price display options</label>
                     <p className="text-sm text-gray-500 mb-3">Control how pricing should be displayed to customers.</p>
-                    
+
                     <div className="mb-3">
                       <label className="flex items-center">
                         <input
@@ -2385,8 +2431,8 @@ const ServiceDetails = () => {
                     )}
                     {serviceData.image ? (
                       <div className="relative">
-                        <img 
-                          src={serviceData.image} 
+                        <img
+                          src={serviceData.image}
                           alt={serviceData.name}
                           className="w-full h-32 object-cover rounded-lg mb-2"
                         />
@@ -2428,7 +2474,7 @@ const ServiceDetails = () => {
         console.log('🔍 serviceData.modifiers length:', Array.isArray(serviceData.modifiers) ? serviceData.modifiers.length : 'not an array')
         console.log('🔍 serviceData:', serviceData)
         return (
-          <div className="p-4 space-y-6">
+          <div className="p-6 space-y-6">
             <p className="text-sm text-gray-600">Service modifiers are groups of options that can adjust this service's price and duration when selected.</p>
             <a href="#" className="text-sm text-blue-600 hover:text-blue-700 flex items-center">
               <Info className="w-4 h-4 mr-1" />
@@ -2462,8 +2508,8 @@ const ServiceDetails = () => {
                         </div>
                         {modifier.selectionType && (
                           <p className="text-sm text-gray-500 mt-1">
-                            {modifier.selectionType === 'single' ? 'Single Select' : 
-                             modifier.selectionType === 'multi' ? 'Multi-Select' : 
+                            {modifier.selectionType === 'single' ? 'Single Select' :
+                             modifier.selectionType === 'multi' ? 'Multi-Select' :
                              modifier.selectionType === 'quantity' ? 'Quantity Select' : 'Select'}
                           </p>
                         )}
@@ -2481,13 +2527,13 @@ const ServiceDetails = () => {
                           <Copy className="w-4 h-4" />
                         )}
                       </button>
-                      <button 
+                      <button
                         onClick={() => handleEditModifier(modifier)}
                         className="text-sm text-gray-600 hover:text-gray-800"
                       >
                         Edit
                       </button>
-                      <button 
+                      <button
                         onClick={() => handleDeleteModifier(modifier.id)}
                         className="text-sm text-gray-600 hover:text-gray-800"
                       >
@@ -2529,9 +2575,9 @@ const ServiceDetails = () => {
                   <h3 className="text-lg font-medium text-gray-900 mb-2">Customer Preview</h3>
                   <p className="text-sm text-gray-600">This is how your modifiers will appear to customers during booking.</p>
                 </div>
-                
+
                 <div className="bg-gray-50 rounded-lg p-6">
-                  <ServiceModifiersForm 
+                  <ServiceModifiersForm
                     modifiers={serviceData.modifiers}
                     selectedModifiers={defaultModifierSelections}
                     onModifiersChange={handleModifiersChange}
@@ -2551,15 +2597,17 @@ const ServiceDetails = () => {
               </div>
             )}
 
-            <button 
-              onClick={() => {
-                setEditingModifier(null)
-                setIsCreateModifierGroupModalOpen(true)
-              }}
-              className="w-full border border-gray-300 rounded-lg p-3 text-center text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
-              New Modifier Group
-            </button>
+            <div className="pt-4">
+              <button
+                onClick={() => {
+                  setEditingModifier(null)
+                  setIsCreateModifierGroupModalOpen(true)
+                }}
+                className="w-full bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+              >
+                + New Modifier Group
+              </button>
+            </div>
           </div>
         )
 
@@ -2576,6 +2624,26 @@ const ServiceDetails = () => {
     setTerritoryRules(prev => [...prev, rule])
   }
 
+  // Loading Skeleton Component
+  const SectionSkeleton = ({ delay = 0 }) => (
+    <div
+      className="bg-white rounded-lg border border-gray-200 animate-pulse"
+      style={{ animationDelay: `${delay}ms` }}
+    >
+      <div className="px-6 py-5 flex items-center space-x-4">
+        <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gray-200"></div>
+        <div className="flex-1 space-y-2.5">
+          <div className="flex items-center space-x-2">
+            <div className="h-4 bg-gray-200 rounded w-32"></div>
+            <div className="h-5 bg-gray-100 rounded-full w-20"></div>
+          </div>
+          <div className="h-3 bg-gray-100 rounded w-3/4"></div>
+        </div>
+        <div className="w-5 h-5 bg-gray-200 rounded"></div>
+      </div>
+    </div>
+  )
+
   const allSections = [
     {
       id: "details",
@@ -2587,15 +2655,15 @@ const ServiceDetails = () => {
       id: "modifiers",
       icon: Sliders,
       title: "Service Modifiers",
-      description: "Add selectable options that can adjust this service's price and duration",
-      badge: modifiersChanged ? "Unsaved Changes" : `${(serviceData.modifiers && Array.isArray(serviceData.modifiers) ? serviceData.modifiers.length : 0)} Modifier Group${(serviceData.modifiers && Array.isArray(serviceData.modifiers) ? serviceData.modifiers.length : 0) !== 1 ? 's' : ''}`
+      description: "Add selectable options that can be used to customize this service's price and duration",
+      badge: (serviceData.modifiers && Array.isArray(serviceData.modifiers) && serviceData.modifiers.length > 0) ? `${serviceData.modifiers.length} Modifier Group${serviceData.modifiers.length !== 1 ? 's' : ''}` : null
     },
     {
       id: "intake",
       icon: ListChecks,
       title: "Intake Questions",
       description: "Add custom form fields to collect additional info",
-      badge: intakeQuestionsChanged ? "Unsaved Changes" : `${(serviceData.intakeQuestions && Array.isArray(serviceData.intakeQuestions) ? serviceData.intakeQuestions.length : 0)} Question${(serviceData.intakeQuestions && Array.isArray(serviceData.intakeQuestions) ? serviceData.intakeQuestions.length : 0) !== 1 ? 's' : ''}`
+      badge: (serviceData.intakeQuestions && Array.isArray(serviceData.intakeQuestions) && serviceData.intakeQuestions.length > 0) ? `${serviceData.intakeQuestions.length} Intake Question${serviceData.intakeQuestions.length !== 1 ? 's' : ''}` : null
     },
     // TODO: Integrate availability functionality
     // {
@@ -2660,7 +2728,7 @@ const ServiceDetails = () => {
   const sections = allSections
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen bg-white overflow-hidden">
       {/* Image Upload Loading Overlay */}
       {imageUploading && (
         <div className="fixed inset-0 bg-black bg-opacity-25 flex items-center justify-center z-50">
@@ -2678,34 +2746,48 @@ const ServiceDetails = () => {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} activePage="services" />
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72 bg-gray-50/50">
         {/* Mobile Header */}
         <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
 
         {/* Header */}
         <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="py-4">
+          <div className="max-w-6xl mx-auto px-6 sm:px-8 lg:px-10">
+            <div className="py-6">
               <button
                 onClick={() => navigate("/services")}
-                className="flex items-center text-sm text-gray-500 hover:text-gray-700"
+                className="flex items-center text-sm text-gray-500 hover:text-gray-900 mb-4 transition-colors"
               >
                 <ChevronLeft className="w-4 h-4 mr-1" />
                 Services
               </button>
-              <h1 className="text-2xl font-semibold text-gray-900 mt-2">
-                {serviceData.name}
-              </h1>
+              <div className="flex items-center justify-between">
+                <h1 className="text-2xl font-bold text-gray-900">
+                  {serviceData.name}
+                </h1>
+                <div className="flex items-center space-x-3">
+                  <button className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <span>Visible</span>
+                    <ChevronDown className="w-4 h-4 text-gray-400" />
+                  </button>
+                  <button className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                    <ExternalLink className="w-4 h-4" />
+                    <span>Booking Link</span>
+                    <ChevronDown className="w-4 h-4 text-gray-400" />
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Content */}
         <div className="flex-1 overflow-auto">
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="max-w-6xl mx-auto px-6 sm:px-8 lg:px-10 py-8">
             {/* Error Display */}
             {error && (
-              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg animate-slideDown">
                 <div className="flex items-center space-x-2">
                   <AlertCircle className="w-5 h-5 text-red-500" />
                   <p className="text-red-700">{error}</p>
@@ -2721,9 +2803,9 @@ const ServiceDetails = () => {
 
             {/* Success Display */}
             {successMessage && (
-              <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+              <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg animate-slideDown">
                 <div className="flex items-center space-x-2">
-                  <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                  <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center animate-scaleIn">
                     <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                     </svg>
@@ -2734,11 +2816,10 @@ const ServiceDetails = () => {
             )}
 
             {loading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="text-center">
-                  <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
-                  <p className="text-gray-600">Loading service details...</p>
-                </div>
+              <div className="space-y-4">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <SectionSkeleton key={i} delay={i * 50} />
+                ))}
               </div>
             ) : error && error.includes("not found") ? (
               <div className="flex items-center justify-center py-12">
@@ -2759,36 +2840,58 @@ const ServiceDetails = () => {
                 </div>
               </div>
             ) : (
-            <div className="space-y-4">
-              {sections.map((section) => (
-                <div key={section.id} className="bg-white rounded-lg border border-gray-200">
+            <div className="space-y-4 animate-fadeIn">
+              {sections.map((section, index) => (
+                <div
+                  key={section.id}
+                  className="bg-white rounded-lg border border-gray-200 transition-all duration-200 hover:shadow-lg group cursor-pointer overflow-hidden"
+                  style={{
+                    animation: `fadeIn 0.4s ease-out ${index * 0.05}s both`
+                  }}
+                >
                   <button
                     onClick={() => toggleSection(section.id)}
-                    className="w-full p-4 text-left group"
+                    className="w-full px-6 py-5 text-left flex items-center justify-between"
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-4">
-                        <section.icon className="w-5 h-5 text-gray-400 group-hover:text-gray-500" />
-                        <div>
-                          <h2 className="text-sm font-medium text-gray-900 flex items-center space-x-2">
-                            <span>{section.title}</span>
-                            {section.badge && (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
-                                {section.badge}
-                              </span>
-                            )}
-                          </h2>
-                          <p className="text-sm text-gray-500 mt-0.5">{section.description}</p>
-                        </div>
+                    <div className="flex items-center space-x-4 flex-1">
+                      <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center group-hover:bg-blue-50 transition-colors">
+                        <section.icon className="w-5 h-5 text-gray-700 group-hover:text-blue-600 transition-colors" />
                       </div>
-                      <ChevronDown
-                        className={`w-5 h-5 text-gray-400 group-hover:text-gray-500 transition-transform ${
-                          expandedSection === section.id ? "transform rotate-180" : ""
-                        }`}
-                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center space-x-2 mb-1">
+                          <h2 className="text-base font-semibold text-gray-900">
+                            {section.title}
+                          </h2>
+                          {section.badge && (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                              {section.badge}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-500">{section.description}</p>
+                      </div>
                     </div>
+                    <ChevronRight
+                      className={`w-5 h-5 text-gray-400 flex-shrink-0 ml-4 transition-all duration-300 group-hover:text-gray-600 ${
+                        expandedSection === section.id ? "transform rotate-90" : ""
+                      }`}
+                    />
                   </button>
-                  {expandedSection === section.id && renderSectionContent(section)}
+
+                  {/* Animated Content */}
+                  <div
+                    className={`transition-all duration-500 ease-in-out overflow-hidden ${
+                      expandedSection === section.id
+                        ? "max-h-[5000px] opacity-100"
+                        : "max-h-0 opacity-0"
+                    }`}
+                  >
+                    {expandedSection === section.id && (
+                      <div className="border-t border-gray-100 animate-slideDown">
+                        {renderSectionContent(section)}
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -2806,7 +2909,7 @@ const ServiceDetails = () => {
         onSave={handleSaveModifierGroup}
         editingModifier={editingModifier}
       />
-              <IntakeQuestionModal
+      <IntakeQuestionModal
           isOpen={isIntakeModalOpen}
           onClose={handleCloseIntakeModal}
           selectedQuestionType={selectedQuestionType}
@@ -2828,4 +2931,4 @@ const ServiceDetails = () => {
   )
 }
 
-export default ServiceDetails 
+export default ServiceDetails
