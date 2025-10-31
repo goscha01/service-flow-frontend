@@ -23,6 +23,7 @@ import ServiceFlowServices from "./pages/serviceflow-services"
 import ServiceFlowCoupons from "./pages/serviceflow-coupons"
 import CreateCoupon from "./pages/create-coupon"
 import ServiceFlowTerritories from "./pages/serviceflow-territories"
+import TerritoryDetails from "./pages/territory-details"
 import Analytics from "./pages/analytics"
 import ServiceFlowOnlineBooking from "./pages/serviceflow-online-booking"
 import ServiceFlowWebsiteEmbed from "./pages/serviceflow-website-embed"
@@ -126,6 +127,7 @@ root.render(
       <Route path="coupons" element={<ServiceFlowCoupons />} />
       <Route path="coupons/create" element={<CreateCoupon />} />
       <Route path="territories" element={<ServiceFlowTerritories />} />
+      <Route path="territories/:territoryId" element={<TerritoryDetails />} />
       <Route path="analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
       <Route path="online-booking" element={<ServiceFlowOnlineBooking />} />
       <Route path="embed" element={<ServiceFlowWebsiteEmbed />} />
