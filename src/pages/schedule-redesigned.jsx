@@ -836,7 +836,7 @@ const ServiceFlowSchedule = () => {
       />
 
       {/* Main Content */}
-      <div className="flex-1 flex min-w-0">
+      <div className="flex-1 flex min-w-0 ml-20">
         {/* Filter Sidebar - Hidden on mobile */}
         <div className="hidden lg:flex w-64 bg-white border-r border-gray-200 flex-shrink-0 flex-col h-screen">
           {/* Fixed Header */}
