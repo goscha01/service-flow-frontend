@@ -205,39 +205,40 @@ const DashboardRedesigned = () => {
   }, [])
 
   const checkSetupTaskCompletion = useCallback(async (services, jobs, teamMembers) => {
-    const updatedTasks = setupTasks.map(task => {
-      let completed = false
+    setSetupTasks(prevTasks => {
+      const updatedTasks = prevTasks.map(task => {
+        let completed = false
 
-      switch (task.number) {
-        case 1: // Create your services
-          completed = services && services.length > 0
-          break
-        case 2: // Create a test job
-          completed = jobs && jobs.length > 0
-          break
-        case 3: // Configure booking settings
-          completed = services && services.length > 0
-          break
-        case 4: // Set business hours
-          completed = services && services.length > 0
-          break
-        case 5: // Set service area
-          completed = jobs && jobs.length > 0
-          break
-        case 6: // Set up online booking site
-          completed = services && services.length > 0
-          break
-        case 7: // Add team members
-          completed = teamMembers && teamMembers.length > 0
-          break
-        default:
-          completed = false
-      }
+        switch (task.number) {
+          case 1: // Create your services
+            completed = services && services.length > 0
+            break
+          case 2: // Create a test job
+            completed = jobs && jobs.length > 0
+            break
+          case 3: // Configure booking settings
+            completed = services && services.length > 0
+            break
+          case 4: // Set business hours
+            completed = services && services.length > 0
+            break
+          case 5: // Set service area
+            completed = jobs && jobs.length > 0
+            break
+          case 6: // Set up online booking site
+            completed = services && services.length > 0
+            break
+          case 7: // Add team members
+            completed = teamMembers && teamMembers.length > 0
+            break
+          default:
+            completed = false
+        }
 
-      return { ...task, completed }
+        return { ...task, completed }
+      })
+      return updatedTasks
     })
-
-    setSetupTasks(updatedTasks)
 
     // Show setup section for new users
     const hasAnyActivity = (services?.length || 0) > 0 || (jobs?.length || 0) > 0 || (teamMembers?.length || 0) > 0
@@ -250,7 +251,7 @@ const DashboardRedesigned = () => {
     }
 
     setSetupCheckCompleted(true)
-  }, [setupTasks])
+  }, [])
 
   const fetchDashboardData = useCallback(async () => {
     if (!user?.id) {
