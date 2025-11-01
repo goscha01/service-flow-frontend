@@ -250,6 +250,7 @@ const JobDetails = () => {
   const [showAssignModal, setShowAssignModal] = useState(false)
   const mainRef = useRef(null)
   const moreRef = useRef(null)
+  const territoryRef = useRef(null)
 
   // Progress tracker steps - 4 step system
   const getProgressSteps = () => {
@@ -425,11 +426,16 @@ const JobDetails = () => {
       if (moreRef.current && !moreRef.current.contains(event.target)) {
         setMoreDropdown(false)
       }
+      if (territoryRef.current && !territoryRef.current.contains(event.target)) {
+        if (editingField === 'territory') {
+          setEditingField(null)
+        }
+      }
     }
 
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
+  }, [editingField])
 
   // Helper function to map job data from API response
   const mapJobData = (jobData) => {
@@ -1599,6 +1605,56 @@ const JobDetails = () => {
               >
                 <Menu className="w-5 h-5 text-gray-600" />
               </button>
+              
+              {/* Territory Assignment */}
+              <div className="hidden sm:flex items-center space-x-2 relative" ref={territoryRef}>
+                <span className="text-sm text-gray-600">Territory</span>
+                <div className="flex items-center bg-gray-100 px-3 py-2 rounded-lg cursor-pointer hover:bg-gray-200 transition-colors relative"
+                  onClick={() => setEditingField(editingField === 'territory' ? null : 'territory')}
+                >
+                  {job?.territory_id ? (
+                    <Target className="w-4 h-4 text-blue-500 mr-2" />
+                  ) : (
+                    <Target className="w-4 h-4 text-gray-400 mr-2" />
+                  )}
+                  <span className="text-sm font-medium mr-2">
+                    {territories.find(t => t.id === job?.territory_id)?.name || 'Unassigned'}
+                  </span>
+                  <ChevronDown className="w-4 h-4 text-gray-500" />
+                </div>
+                {editingField === 'territory' && (
+                  <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-64 overflow-y-auto">
+                    <button
+                      className={`w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-2 ${
+                        !job?.territory_id ? 'font-semibold bg-gray-50' : ''
+                      }`}
+                      onClick={() => {
+                        handleTerritoryChange(null)
+                        setEditingField(null)
+                      }}
+                    >
+                      <Target className="w-4 h-4 text-gray-400" />
+                      <span>Unassigned</span>
+                    </button>
+                    {territories.map(t => (
+                      <button
+                        key={t.id}
+                        className={`w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-2 ${
+                          job?.territory_id === t.id ? 'font-semibold bg-blue-50' : ''
+                        }`}
+                        onClick={() => {
+                          handleTerritoryChange(t.id)
+                          setEditingField(null)
+                        }}
+                      >
+                        <Target className={`w-4 h-4 ${job?.territory_id === t.id ? 'text-blue-500' : 'text-gray-400'}`} />
+                        <span>{t.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <div className="flex items-center gap-3 ">
       {/* Main Button with Dropdown */}
       <div className="relative flex" ref={mainRef}>
@@ -1682,36 +1738,6 @@ const JobDetails = () => {
         )}
       </div>
     </div>
-              {/* <div className="hidden sm:flex items-center space-x-2 relative">
-                <span className="text-sm text-gray-600">Territory</span>
-                <div className="flex items-center bg-gray-100 px-2 py-1 rounded cursor-pointer relative"
-                  onClick={() => setEditingField('territory')}
-                >
-                  <MapPin className="w-3 h-3 text-gray-500 mr-1" />
-                  <span className="text-sm font-medium mr-1">
-                    {territories.find(t => t.id === job.territory_id)?.name || 'Unassigned'}
-                  </span>
-                  <ChevronDown className="w-3 h-3 text-gray-500" />
-                </div>
-                {editingField === 'territory' && (
-                  <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-gray-200 rounded shadow z-50">
-                    {territories.map(t => (
-                      <button
-                        key={t.id}
-                        className={`w-full text-left px-4 py-2 hover:bg-gray-100 ${job.territory_id === t.id ? 'font-semibold bg-gray-100' : ''}`}
-                        onClick={() => {
-                          handleTerritoryChange(t.id)
-                          setEditingField(null)
-                        }}
-                      >
-                        {t.name}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div> */}
-              
-              
             </div>
           </div>
 
@@ -1872,10 +1898,11 @@ const JobDetails = () => {
                   )}
                 </div>
                 <button
-                   className="text-gray-600 hover:text-blue-700 bg-gray-300/50 hover:bg-blue-300/30 rounded-sm px-3 py-2 text-xs font-medium"
+                   className="px-3 py-1 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 flex items-center space-x-2 text-sm font-medium"
                    onClick={() => setShowEditAddressModal(true)}
                 >
-                  Edit Address
+                  <Edit className="w-4 h-4" />
+                  <span>Edit Address</span>
                 </button>
               </div>
             </div>
@@ -1913,10 +1940,11 @@ const JobDetails = () => {
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-medium text-gray-600">JOB DETAILS</h3>
                 <button
-                  className="text-gray-600 hover:text-blue-700 bg-gray-300/50 hover:bg-blue-300/30 rounded-sm px-3 py-2 text-xs font-medium"
+                  className="px-3 py-1 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 flex items-center space-x-2 text-sm font-medium"
                   onClick={() => setShowEditServiceModal(true)}
                 >
-                  Edit Service
+                  <Edit className="w-4 h-4" />
+                  <span>Edit Service</span>
                 </button>
               </div>
               <div className="flex items-start space-x-4">
@@ -1944,6 +1972,227 @@ const JobDetails = () => {
                   <p className="text-sm text-gray-600 mt-2">{formatDuration(job.duration || 0)}</p>
                 </div>
               </div>
+
+              {/* Service Modifiers */}
+              {(() => {
+                const serviceModifiers = getServiceModifiers();
+                if (!serviceModifiers || serviceModifiers.length === 0) return null;
+
+                return (
+                  <div className="mt-6 pt-6 border-t border-gray-200 space-y-4">
+                    {serviceModifiers.map((modifier, modifierIndex) => {
+                      if (!modifier.selectedOptions || modifier.selectedOptions.length === 0) return null;
+                      
+                      const modifierTitle = modifier.title || modifier.name || 'Modifier';
+                      
+                      return (
+                        <div key={modifier.id || modifierIndex} className="space-y-2">
+                          <p className="font-semibold text-gray-900">{modifierTitle}:</p>
+                          <div className="space-y-1">
+                            {modifier.selectedOptions.map((option, optionIndex) => {
+                              const optionLabel = option.selectedQuantity 
+                                ? `${option.selectedQuantity}x ${option.label || option.description || option.name || 'Item'}`
+                                : (option.label || option.description || option.name || 'Item');
+                              
+                              return (
+                                <p key={option.id || optionIndex} className="text-gray-700 text-sm">
+                                  {optionLabel}
+                                </p>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+
+              {/* Intake Questions & Answers */}
+              {(() => {
+                const intakeQuestions = getServiceIntakeQuestions();
+                if (!intakeQuestions || intakeQuestions.length === 0) return null;
+
+                return (
+                  <div className="mt-6 pt-6 border-t border-gray-200 space-y-4">
+                    {intakeQuestions.map((question, index) => {
+                      // Get answer from multiple possible locations
+                      const answer = intakeQuestionAnswers[question.id] || 
+                                    question.answer || 
+                                    question.answer_text || 
+                                    (job.intake_answers && job.intake_answers.find(ans => ans.question_id === question.id)?.answer) ||
+                                    null;
+                      const questionText = question.question || question.question_text || 'Question';
+
+                      // Parse answer if it's a JSON string
+                      let parsedAnswer = answer;
+                      if (typeof answer === 'string' && (answer.startsWith('[') || answer.startsWith('{'))) {
+                        try {
+                          parsedAnswer = JSON.parse(answer);
+                        } catch (e) {
+                          parsedAnswer = answer;
+                        }
+                      }
+
+                      // Check if answer is a JSON object with text, image, and/or color (e.g., {"text":"ring","image":"url","color":"blue"})
+                      const isObjectAnswer = parsedAnswer && typeof parsedAnswer === 'object' && !Array.isArray(parsedAnswer) && 
+                        (parsedAnswer.text || parsedAnswer.image || parsedAnswer.color);
+                      
+                      // Check if answer is an array of objects with text/image/color
+                      const isObjectArrayAnswer = parsedAnswer && Array.isArray(parsedAnswer) && parsedAnswer.length > 0 && 
+                        parsedAnswer.every(item => typeof item === 'object' && item !== null && (item.text || item.image || item.color));
+
+                      // Check if answer is an image URL (string)
+                      const isImageAnswer = parsedAnswer && typeof parsedAnswer === 'string' && (
+                        parsedAnswer.startsWith('http://') || 
+                        parsedAnswer.startsWith('https://') ||
+                        parsedAnswer.startsWith('data:image/')
+                      );
+
+                      // Check if answer is multiple images (array of URLs)
+                      const isMultipleImages = parsedAnswer && Array.isArray(parsedAnswer) && parsedAnswer.length > 0 && 
+                        parsedAnswer.every(item => typeof item === 'string' && (item.startsWith('http://') || item.startsWith('https://') || item.startsWith('data:image/')));
+
+                      const displayAnswer = parsedAnswer || answer;
+
+                      // Handle text answers - check if it's a list or single value
+                      const isListAnswer = typeof displayAnswer === 'string' && displayAnswer.includes('\n');
+                      const answerList = isListAnswer ? displayAnswer.split('\n').filter(line => line.trim()) : null;
+                      
+                      // Handle comma-separated answers
+                      const isCommaSeparated = typeof displayAnswer === 'string' && displayAnswer.includes(',') && !isImageAnswer;
+                      const commaSeparatedList = isCommaSeparated ? displayAnswer.split(',').map(item => item.trim()).filter(item => item) : null;
+                      
+                      // Handle array answers (multiple selected items)
+                      const isArrayAnswer = Array.isArray(displayAnswer) && !isMultipleImages && 
+                        displayAnswer.every(item => typeof item === 'string' && !item.startsWith('http') && !item.startsWith('data:image'));
+
+                      return (
+                        <div key={question.id || index} className="space-y-2">
+                          <p className="font-semibold text-gray-900">{questionText}</p>
+                          {displayAnswer ? (
+                            <div className="space-y-1">
+                              {isObjectArrayAnswer ? (
+                                // Array of objects with text/image/color
+                                displayAnswer.map((item, itemIndex) => (
+                                  <div key={itemIndex} className="space-y-2">
+                                    {item.text && (
+                                      <p className="text-gray-700 text-sm">{item.text}</p>
+                                    )}
+                                    {item.color && (
+                                      <>
+                                        {item.text && <div className="border-t border-gray-200 pt-2 mt-2"></div>}
+                                        <div 
+                                          className="w-8 h-8 rounded-full border border-gray-300 flex-shrink-0"
+                                          style={{ backgroundColor: item.color }}
+                                        />
+                                      </>
+                                    )}
+                                    {item.image && (
+                                      <div className="mt-1">
+                                        <img 
+                                          src={item.image} 
+                                          alt={item.text || `Answer ${index + 1} - Image ${itemIndex + 1}`}
+                                          className="max-w-full h-auto max-h-48 object-contain rounded border border-gray-200 hover:shadow-md transition-shadow cursor-pointer"
+                                          onClick={() => window.open(item.image, '_blank')}
+                                          onError={(e) => {
+                                            e.target.style.display = 'none';
+                                          }}
+                                        />
+                                      </div>
+                                    )}
+                                  </div>
+                                ))
+                              ) : isObjectAnswer ? (
+                                // Single object with text/image/color
+                                <div className="space-y-2">
+                                  {parsedAnswer.text && (
+                                    <p className="text-gray-700 text-sm">{parsedAnswer.text}</p>
+                                  )}
+                                  {parsedAnswer.color && (
+                                    <>
+                                      {parsedAnswer.text && <div className="border-t border-gray-200 pt-2 mt-2"></div>}
+                                      <div 
+                                        className="w-8 h-8 rounded-full border border-gray-300 flex-shrink-0"
+                                        style={{ backgroundColor: parsedAnswer.color }}
+                                      />
+                                    </>
+                                  )}
+                                  {parsedAnswer.image && (
+                                    <div className="mt-1">
+                                      <img 
+                                        src={parsedAnswer.image} 
+                                        alt={parsedAnswer.text || `Answer ${index + 1}`}
+                                        className="max-w-full h-auto max-h-48 object-contain rounded border border-gray-200 hover:shadow-md transition-shadow cursor-pointer"
+                                        onClick={() => window.open(parsedAnswer.image, '_blank')}
+                                        onError={(e) => {
+                                          e.target.style.display = 'none';
+                                        }}
+                                      />
+                                    </div>
+                                  )}
+                                </div>
+                              ) : isMultipleImages ? (
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-2">
+                                  {displayAnswer.map((imageUrl, imgIndex) => (
+                                    <div key={imgIndex} className="relative">
+                                      <img 
+                                        src={imageUrl} 
+                                        alt={`Answer ${index + 1} - ${imgIndex + 1}`}
+                                        className="w-full h-24 sm:h-32 object-cover rounded border border-gray-200 hover:shadow-md transition-shadow cursor-pointer"
+                                        onClick={() => window.open(imageUrl, '_blank')}
+                                        onError={(e) => {
+                                          e.target.style.display = 'none';
+                                        }}
+                                      />
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : isImageAnswer ? (
+                                <div className="mt-2">
+                                  <img 
+                                    src={displayAnswer} 
+                                    alt={`Answer ${index + 1}`}
+                                    className="max-w-full h-auto max-h-48 object-contain rounded border border-gray-200 hover:shadow-md transition-shadow cursor-pointer"
+                                    onClick={() => window.open(displayAnswer, '_blank')}
+                                    onError={(e) => {
+                                      e.target.style.display = 'none';
+                                    }}
+                                  />
+                                </div>
+                              ) : isListAnswer && answerList ? (
+                                answerList.map((line, lineIndex) => (
+                                  <p key={lineIndex} className="text-gray-700 text-sm">
+                                    {line.trim()}
+                                  </p>
+                                ))
+                              ) : isCommaSeparated && commaSeparatedList ? (
+                                commaSeparatedList.map((item, itemIndex) => (
+                                  <p key={itemIndex} className="text-gray-700 text-sm">
+                                    {item}
+                                  </p>
+                                ))
+                              ) : isArrayAnswer ? (
+                                displayAnswer.map((item, itemIndex) => (
+                                  <p key={itemIndex} className="text-gray-700 text-sm">
+                                    {item}
+                                  </p>
+                                ))
+                              ) : (
+                                <p className="text-gray-700 text-sm">
+                                  {typeof displayAnswer === 'string' ? displayAnswer : JSON.stringify(displayAnswer)}
+                                </p>
+                              )}
+                            </div>
+                          ) : (
+                            <p className="text-gray-400 text-sm italic">No answer provided</p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </div>
             </div>
 
@@ -2241,10 +2490,10 @@ const JobDetails = () => {
                 <div className="mt-4 pt-4 border-t border-gray-200">
                   <button 
                     onClick={() => setShowEditServiceModal(true)}
-                    className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center"
+                    className="px-3 py-1 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 flex items-center space-x-2 text-sm font-medium"
                   >
-                    <Edit className="w-4 h-4 mr-2" />
-                    Edit Service & Pricing
+                    <Edit className="w-4 h-4" />
+                    <span>Edit Service & Pricing</span>
                   </button>
                     </div>
               </div>
@@ -2308,9 +2557,10 @@ const JobDetails = () => {
                     })
                     setShowEditCustomerModal(true)
                   }}
-                  className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                  className="px-3 py-1 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 flex items-center space-x-2 text-sm font-medium"
                 >
-                  Edit
+                  <Edit className="w-4 h-4" />
+                  <span>Edit</span>
                 </button>
               </div>
               
@@ -2347,7 +2597,10 @@ const JobDetails = () => {
               <div className="mb-6 border-t border-gray-200 px-6 pt-6">
                 <div className="flex justify-between items-center mb-2">
                   <span className="font-bold text-gray-700 text-xs">BILLING ADDRESS</span>
-                  <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">Edit</button>
+                  <button className="px-3 py-1 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 flex items-center space-x-2 text-sm font-medium">
+                    <Edit className="w-4 h-4" />
+                    <span>Edit</span>
+                  </button>
                 </div>
                 <p className="text-sm text-gray-600">Same as service address</p>
               </div>
@@ -2376,7 +2629,10 @@ const JobDetails = () => {
                 <div className="px-6">
                   <div className="flex justify-between items-center mb-3">
                     <span className="font-bold text-gray-700 text-xs">JOB REQUIREMENTS</span>
-                    <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">Edit</button>
+                    <button className="px-3 py-1 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 flex items-center space-x-2 text-sm font-medium">
+                      <Edit className="w-4 h-4" />
+                      <span>Edit</span>
+                    </button>
                   </div>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
@@ -2387,6 +2643,16 @@ const JobDetails = () => {
                       <span className="text-gray-600">Skills needed</span>
                       <span className="font-medium">
                         {job.skills && job.skills.length ? job.skills.join(', ') : 'No skill tags required'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Intake questions</span>
+                      <span className="font-medium">
+                        {(() => {
+                          const intakeQuestions = getServiceIntakeQuestions();
+                          const count = intakeQuestions ? intakeQuestions.length : 0;
+                          return count > 0 ? `${count} question${count !== 1 ? 's' : ''}` : 'No questions';
+                        })()}
                       </span>
                     </div>
                   </div>
@@ -2908,6 +3174,16 @@ const JobDetails = () => {
                           {job.skills && job.skills.length ? job.skills.join(', ') : 'No skill tags required'}
                         </span>
                       </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Intake questions</span>
+                        <span className="font-medium">
+                          {(() => {
+                            const intakeQuestions = getServiceIntakeQuestions();
+                            const count = intakeQuestions ? intakeQuestions.length : 0;
+                            return count > 0 ? `${count} question${count !== 1 ? 's' : ''}` : 'No questions';
+                          })()}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
@@ -3145,7 +3421,10 @@ const JobDetails = () => {
                         <div className="flex items-center justify-between py-3 border-b border-gray-100">
                   <div>
                             <p className="font-medium text-gray-900">{job.service_name}</p>
-                            <button className="text-blue-600 hover:text-blue-700 text-sm">Edit</button>
+                            <button className="px-3 py-1 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 flex items-center space-x-2 text-sm font-medium">
+                              <Edit className="w-4 h-4" />
+                              <span>Edit</span>
+                            </button>
                             <button className="text-gray-600 hover:text-gray-700 text-sm ml-4">Show details &gt;</button>
                           </div>
                           <div className="flex items-center space-x-2">
