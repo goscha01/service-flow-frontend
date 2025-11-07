@@ -93,10 +93,11 @@ import ImportCustomersPage from "./pages/import-customers"
 import ImportJobsPage from "./pages/import-jobs"
 import { TeamMemberAuthProvider } from "./context/TeamMemberAuthContext"
 import { CategoryProvider } from "./context/CategoryContext"
+import AppLayout from "./components/app-layout"
 
 const root = ReactDOM.createRoot(document.getElementById("root"))
 root.render(
-  <BrowserRouter>
+  <BrowserRouter style={{fontFamily: 'ProximaNova-medium'}}>
     <AuthProvider>
       <CategoryProvider>
         <TeamMemberAuthProvider>
@@ -104,90 +105,91 @@ root.render(
       <Route index element={<App />} />
       <Route path="signup" element={<SignupForm />} />
       <Route path="signin" element={<SignInForm />} />
-      <Route path="dashboard" element={<ProtectedRoute><ServiceFlowDashboard /></ProtectedRoute>} />
-      <Route path="request" element={<ProtectedRoute><ServiceFlowRequests /></ProtectedRoute>} />
-      <Route path="schedule" element={<ProtectedRoute><ServiceFlowSchedule /></ProtectedRoute>} />
-      <Route path="jobs" element={<ProtectedRoute><ServiceFlowJobs /></ProtectedRoute>} />
-      <Route path="job/:jobId" element={<ProtectedRoute><JobDetails /></ProtectedRoute>} />
-      <Route path="estimates" element={<ProtectedRoute><ServiceFlowEstimates /></ProtectedRoute>} />
-      <Route path="recurring" element={<ServiceFlowRecurring />} />
-      <Route path="recurring/create" element={<CreateRecurringBooking />} />
-      <Route path="payments" element={<ServiceFlowPayments />} />
-      <Route path="invoices" element={<ProtectedRoute><ServiceFlowInvoices /></ProtectedRoute>} />
-      <Route path="customers" element={<ServiceFlowCustomers />} />
-      <Route path="customer/:customerId" element={<ProtectedRoute><CustomerDetails /></ProtectedRoute>} />
-      <Route path="invoices/:invoiceId" element={<ProtectedRoute><InvoiceDetails /></ProtectedRoute>} />
-      <Route path="invoices/:invoiceId/edit" element={<ProtectedRoute><InvoiceEdit /></ProtectedRoute>} />
-      <Route path="team" element={<ServiceFlowTeam />} />
-      <Route path="team/:memberId" element={<ProtectedRoute><TeamMemberDetails /></ProtectedRoute>} />
-      <Route path="add-team-member" element={<AddTeamMember />} />
-      <Route path="services" element={<ServiceFlowServices />} />
-      <Route path="services/:serviceId" element={<ServiceDetails />} />
-      <Route path="services/:serviceId/:section" element={<ServiceDetails />} />
-      <Route path="coupons" element={<ServiceFlowCoupons />} />
-      <Route path="coupons/create" element={<CreateCoupon />} />
-      <Route path="territories" element={<ServiceFlowTerritories />} />
-      <Route path="territories/:territoryId" element={<TerritoryDetails />} />
-      <Route path="analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
-      <Route path="online-booking" element={<ServiceFlowOnlineBooking />} />
-      <Route path="embed" element={<ServiceFlowWebsiteEmbed />} />
-      <Route path="createjob" element={<CreateJobPage />} />
-      <Route path="bookable-estimate" element={<ServiceFlowEstimatePage />} />
-      <Route path="whats-new" element={<WhatsNewPage />} />
-      <Route path="help" element={<HelpPage />} />
+      <Route element={<AppLayout />}>
+      <Route path="/dashboard" element={<ProtectedRoute><ServiceFlowDashboard /></ProtectedRoute>} />
+      <Route path="/request" element={<ProtectedRoute><ServiceFlowRequests /></ProtectedRoute>} />
+      <Route path="/schedule" element={<ProtectedRoute><ServiceFlowSchedule /></ProtectedRoute>} />
+      <Route path="/jobs" element={<ProtectedRoute><ServiceFlowJobs /></ProtectedRoute>} />
+      <Route path="/job/:jobId" element={<ProtectedRoute><JobDetails /></ProtectedRoute>} />
+      <Route path="/estimates" element={<ProtectedRoute><ServiceFlowEstimates /></ProtectedRoute>} />
+      <Route path="/recurring" element={<ServiceFlowRecurring />} />
+      <Route path="/recurring/create" element={<CreateRecurringBooking />} />
+      <Route path="/payments" element={<ServiceFlowPayments />} />
+      <Route path="/invoices" element={<ProtectedRoute><ServiceFlowInvoices /></ProtectedRoute>} />
+      <Route path="/customers" element={<ServiceFlowCustomers />} />
+      <Route path="/customer/:customerId" element={<ProtectedRoute><CustomerDetails /></ProtectedRoute>} />
+      <Route path="/invoices/:invoiceId" element={<ProtectedRoute><InvoiceDetails /></ProtectedRoute>} />
+      <Route path="/invoices/:invoiceId/edit" element={<ProtectedRoute><InvoiceEdit /></ProtectedRoute>} />
+      <Route path="/team" element={<ServiceFlowTeam />} />
+      <Route path="/team/:memberId" element={<ProtectedRoute><TeamMemberDetails /></ProtectedRoute>} />
+      <Route path="/add-team-member" element={<AddTeamMember />} />
+      <Route path="/services" element={<ServiceFlowServices />} />
+      <Route path="/services/:serviceId" element={<ServiceDetails />} />
+      <Route path="/services/:serviceId/:section" element={<ServiceDetails />} />
+      <Route path="/coupons" element={<ServiceFlowCoupons />} />
+      <Route path="/coupons/create" element={<CreateCoupon />} />
+      <Route path="/territories" element={<ServiceFlowTerritories />} />
+      <Route path="/territories/:territoryId" element={<TerritoryDetails />} />
+      <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
+      <Route path="/online-booking" element={<ServiceFlowOnlineBooking />} />
+      <Route path="/embed" element={<ServiceFlowWebsiteEmbed />} />
+      <Route path="/createjob" element={<CreateJobPage />} />
+      <Route path="/bookable-estimate" element={<ServiceFlowEstimatePage />} />
+      <Route path="/whats-new" element={<WhatsNewPage />} />
+      <Route path="/help" element={<HelpPage />} />
       {/* Settings Routes */}
-      <Route path="settings" element={<ServiceFlowSettings />} />
-      <Route path="settings/account" element={<AccountDetails />} />
-      <Route path="settings/billing" element={<BillingSettings />} />
-      <Route path="settings/twilio" element={<TwilioSettings />} />
-      <Route path="settings/sms-settings" element={<TwilioSettings />} />
-      <Route path="settings/stripe-connect" element={<StripeConnectSettings />} />
-      <Route path="settings/branding" element={<BrandingSettings />} />
-      <Route path="settings/feedback-reviews" element={<FeedbackReviews />} />
-      <Route path="settings/client-team-notifications" element={<ClientTeamNotifications />} />
-      <Route path="settings/client-team-notifications/notification-testing" element={<NotificationTestingSettings />} />
-      <Route path="settings/client-team-notifications/quote-request-processing" element={<QuoteRequestProcessing />} />
-      <Route path="settings/client-team-notifications/job-follow-up" element={<JobFollowUp />} />
-      <Route path="settings/client-team-notifications/booking-request-acknowledgment" element={<BookingRequestAcknowledgment />} />
-      <Route path="settings/client-team-notifications/appointment-cancelled" element={<AppointmentCancelled />} />
-      <Route path="settings/client-team-notifications/enroute" element={<Enroute />} />
-      <Route path="settings/client-team-notifications/recurring-booking-cancelled" element={<RecurringBookingCancelled />} />
-      <Route path="settings/client-team-notifications/payment-receipt" element={<PaymentReceipt />} />
-      <Route path="settings/client-team-notifications/invoice" element={<Invoice />} />
-      <Route path="settings/client-team-notifications/contact-customer" element={<ContactCustomer />} />
-      <Route path="settings/client-team-notifications/appointment-confirmation" element={<AppointmentConfirmation />} />
-      <Route path="settings/client-team-notifications/estimate" element={<Estimate />} />
-      <Route path="settings/client-team-notifications/appointment-rescheduled" element={<AppointmentRescheduled />} />
-      <Route path="settings/client-team-notifications/appointment-reminder" element={<AppointmentReminder />} />
-      <Route path="settings/client-team-notifications/assigned-job-cancelled" element={<AssignedJobCancelled />} />
-      <Route path="settings/client-team-notifications/assigned-job-rescheduled" element={<AssignedJobRescheduled />} />
-      <Route path="settings/client-team-notifications/team-member-invite" element={<TeamMemberInvite />} />
-      <Route path="settings/client-team-notifications/recurring-assignment" element={<RecurringAssignment />} />
-      <Route path="settings/client-team-notifications/job-offer" element={<JobOffer />} />
-      <Route path="settings/client-team-notifications/job-assignment" element={<JobAssignmentTeam />} />
-      <Route path="settings/job-assignment" element={<JobAssignment />} />
-      <Route path="settings/availability" element={<Availability />} />
-      <Route path="settings/availability/:location" element={<LocationAvailability />} />
-      <Route path="settings/rescheduling-cancellation" element={<ReschedulingCancellation />} />
-      <Route path="settings/developers" element={<Developers />} />
-      <Route path="settings/calendar-syncing" element={<CalendarSyncing />} />
-      <Route path="settings/taxes-fees" element={<TaxesFees />} />
-      <Route path="settings/payments" element={<PaymentsSettings />} />
-      <Route path="settings/service-areas" element={<ServiceAreas />} />
-      <Route path="settings/booking-quote-requests" element={<BookingQuoteRequests />} />
-      <Route path="settings/field-app" element={<FieldApp />} />
-      <Route path="import-data" element={<ProtectedRoute><ImportDataPage /></ProtectedRoute>} />
-      <Route path="import-customers" element={<ProtectedRoute><ImportCustomersPage /></ProtectedRoute>} />
-      <Route path="import-jobs" element={<ProtectedRoute><ImportJobsPage /></ProtectedRoute>} />
-      
+      <Route path="/settings" element={<ServiceFlowSettings />} />
+      <Route path="/settings/account" element={<AccountDetails />} />
+      <Route path="/settings/billing" element={<BillingSettings />} />
+      <Route path="/settings/twilio" element={<TwilioSettings />} />
+      <Route path="/settings/sms-settings" element={<TwilioSettings />} />
+      <Route path="/settings/stripe-connect" element={<StripeConnectSettings />} />
+      <Route path="/settings/branding" element={<BrandingSettings />} />
+      <Route path="/settings/feedback-reviews" element={<FeedbackReviews />} />
+      <Route path="/settings/client-team-notifications" element={<ClientTeamNotifications />} />
+      <Route path="/settings/client-team-notifications/notification-testing" element={<NotificationTestingSettings />} />
+      <Route path="/settings/client-team-notifications/quote-request-processing" element={<QuoteRequestProcessing />} />
+      <Route path="/settings/client-team-notifications/job-follow-up" element={<JobFollowUp />} />
+      <Route path="/settings/client-team-notifications/booking-request-acknowledgment" element={<BookingRequestAcknowledgment />} />
+      <Route path="/settings/client-team-notifications/appointment-cancelled" element={<AppointmentCancelled />} />
+      <Route path="/settings/client-team-notifications/enroute" element={<Enroute />} />
+      <Route path="/settings/client-team-notifications/recurring-booking-cancelled" element={<RecurringBookingCancelled />} />
+      <Route path="/settings/client-team-notifications/payment-receipt" element={<PaymentReceipt />} />
+      <Route path="/settings/client-team-notifications/invoice" element={<Invoice />} />
+      <Route path="/settings/client-team-notifications/contact-customer" element={<ContactCustomer />} />
+      <Route path="/settings/client-team-notifications/appointment-confirmation" element={<AppointmentConfirmation />} />
+      <Route path="/settings/client-team-notifications/estimate" element={<Estimate />} />
+      <Route path="/settings/client-team-notifications/appointment-rescheduled" element={<AppointmentRescheduled />} />
+      <Route path="/settings/client-team-notifications/appointment-reminder" element={<AppointmentReminder />} />
+      <Route path="/settings/client-team-notifications/assigned-job-cancelled" element={<AssignedJobCancelled />} />
+      <Route path="/settings/client-team-notifications/assigned-job-rescheduled" element={<AssignedJobRescheduled />} />
+      <Route path="/settings/client-team-notifications/team-member-invite" element={<TeamMemberInvite />} />
+      <Route path="/settings/client-team-notifications/recurring-assignment" element={<RecurringAssignment />} />
+      <Route path="/settings/client-team-notifications/job-offer" element={<JobOffer />} />
+      <Route path="/settings/client-team-notifications/job-assignment" element={<JobAssignmentTeam />} />
+      <Route path="/settings/job-assignment" element={<JobAssignment />} />
+      <Route path="/settings/availability" element={<Availability />} />
+      <Route path="/settings/availability/:location" element={<LocationAvailability />} />
+      <Route path="/settings/rescheduling-cancellation" element={<ReschedulingCancellation />} />
+      <Route path="/settings/developers" element={<Developers />} />
+      <Route path="/settings/calendar-syncing" element={<CalendarSyncing />} />
+      <Route path="/settings/taxes-fees" element={<TaxesFees />} />
+      <Route path="/settings/payments" element={<PaymentsSettings />} />
+      <Route path="/settings/service-areas" element={<ServiceAreas />} />
+      <Route path="/settings/booking-quote-requests" element={<BookingQuoteRequests />} />
+      <Route path="/settings/field-app" element={<FieldApp />} />
+      <Route path="/import-data" element={<ProtectedRoute><ImportDataPage /></ProtectedRoute>} />
+      <Route path="/import-customers" element={<ProtectedRoute><ImportCustomersPage /></ProtectedRoute>} />
+      <Route path="/import-jobs" element={<ProtectedRoute><ImportJobsPage /></ProtectedRoute>} />
+      </Route>
       {/* Public Booking Routes - No authentication required */}
-      <Route path="book/:userSlug" element={<PublicBooking />} />
-      <Route path="booking" element={<PublicBooking />} />
-      <Route path="quote/:userSlug" element={<PublicQuote />} />
-      <Route path="quote" element={<PublicQuote />} />
-      <Route path="demo-public-pages" element={<DemoPublicPages />} />
-      <Route path="customer-portal" element={<CustomerPortal />} />
-      <Route path="payment-success" element={<PaymentSuccess />} />
+      <Route path="/book/:userSlug" element={<PublicBooking />} />
+      <Route path="/booking" element={<PublicBooking />} />
+      <Route path="/quote/:userSlug" element={<PublicQuote />} />
+      <Route path="/quote" element={<PublicQuote />} />
+      <Route path="/demo-public-pages" element={<DemoPublicPages />} />
+      <Route path="/customer-portal" element={<CustomerPortal />} />
+      <Route path="/payment-success" element={<PaymentSuccess />} />
       
       {/* Public Invoice Payment Routes - No authentication required */}
       <Route path="public/invoice/:invoiceId" element={<InvoiceDisplay />} />

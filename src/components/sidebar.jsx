@@ -80,10 +80,10 @@ const Sidebar = ({ isOpen, onClose }) => {
       {/* Sidebar */}
       <div
         className={`
-        fixed inset-y-0 left-0 z-40 w-64 md:w-20 lg:w-64 xl:w-72 bg-white border-r border-gray-200 
+        fixed inset-y-0 left-0 z-40 w-64 md:w-20 lg:w-52 xl:w-52 bg-white border-r border-gray-200 
         transform transition-all duration-300 ease-in-out
         ${isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
-        flex flex-col shadow-lg
+        flex flex-col
       `}
       >
         {/* Mobile Close Button */}
@@ -94,14 +94,14 @@ const Sidebar = ({ isOpen, onClose }) => {
         </div>
 
         {/* Logo */}
-        <div className="p-4 border-b border-gray-200 md:flex md:justify-center lg:justify-start">
+        <div className="p-1 border-b border-gray-200 md:flex md:justify-center lg:justify-start">
           <div className="flex items-center space-x-2 cursor-pointer" onClick={() => handleNavigation("/dashboard")}>
            <img src="/logo.svg" alt="ServiceFlow Logo" className="md:w-8 lg:w-auto" />
           </div>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 md:px-2 lg:p-4 overflow-y-auto scrollbar-hide">
+        <nav className="flex-1 p-2 md:px-2 lg:p-2 overflow-y-auto scrollbar-hide">
           <ul className="space-y-1">
             {sidebarItems.map((item, index) => {
               const Icon = item.icon
@@ -115,7 +115,7 @@ const Sidebar = ({ isOpen, onClose }) => {
                     }`}
                   >
                     <Icon className="w-5 h-5 flex-shrink-0" />
-                    <span className="md:hidden lg:inline">{item.label}</span>
+                    <span style={{fontFamily: 'ProximaNova-Medium'}} className="md:hidden lg:inline">{item.label}</span>
                     
                     {/* Tooltip for collapsed state on tablets */}
                     <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded-md opacity-0 invisible md:group-hover:opacity-100 md:group-hover:visible lg:opacity-0 lg:invisible transition-all duration-200 whitespace-nowrap z-50">
@@ -160,7 +160,7 @@ const Sidebar = ({ isOpen, onClose }) => {
         </nav>
 
         {/* User Profile */}
-        <div className="p-4 border-t border-gray-200 relative">
+        <div className="p-2 border-t border-gray-200 relative">
           {/* Debug: Log user object to see what fields are available */}
           {user && (
             <div className="hidden">

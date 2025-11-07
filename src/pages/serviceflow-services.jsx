@@ -568,12 +568,10 @@ const ServiceFlowServices = () => {
   );
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
-      {/* Main Sidebar */}
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} activePage="services" />
-
+    <div style={{fontFamily: 'ProximaNova-medium'}} className="flex h-screen bg-gray-50 overflow-hidden">
+   
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
+      <div className="flex-1 flex flex-col min-w-0 ">
         {/* Mobile Header */}
         <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
 

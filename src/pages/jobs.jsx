@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Sidebar from "../components/sidebar"
 import MobileHeader from "../components/mobile-header"
 import JobsEmptyState from "../components/jobs-empty-state"
 
-import { Plus, AlertCircle, Loader2, Eye, Calendar, Clock, MapPin, Users, DollarSign, Phone, Mail, FileText, CheckCircle, XCircle, PlayCircle, PauseCircle, MoreVertical, Download, Upload, ChevronDown, Search } from "lucide-react"
+import { Plus, AlertCircle, Loader2, Eye, Calendar, Clock, MapPin, Users, DollarSign, Phone, Mail, FileText, CheckCircle, XCircle, PlayCircle, PauseCircle, MoreVertical, Download, Upload, ChevronDown, Search, ChevronUp } from "lucide-react"
 import { Link, useNavigate } from "react-router-dom"
-import { jobsAPI, invoicesAPI } from "../services/api"
+import { jobsAPI, invoicesAPI, territoriesAPI, teamAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
 
 const ServiceFlowJobs = () => {
@@ -24,6 +24,8 @@ const ServiceFlowJobs = () => {
   const [totalJobs, setTotalJobs] = useState(0)
   const [hasMore, setHasMore] = useState(true)
   const [limit] = useState(50)
+  const [territories, setTerritories] = useState([])
+  const [teamMembers, setTeamMembers] = useState([])
   const [filters, setFilters] = useState({
     status: "",
     dateRange: "",
@@ -33,15 +35,83 @@ const ServiceFlowJobs = () => {
     invoiceStatus: "",
     sortBy: "scheduled_date",
     sortOrder: "DESC",
-    territoryId: ""
+    territoryId: "",
+    paymentMethod: "",
+    tag: ""
   })
+  
+  // Dropdown state
+  const [openDropdown, setOpenDropdown] = useState(null)
+  const tagDropdownRef = useRef(null)
+  const paymentMethodDropdownRef = useRef(null)
+  const invoiceStatusDropdownRef = useRef(null)
+  const territoryDropdownRef = useRef(null)
+  const assignedDropdownRef = useRef(null)
+  const sortDropdownRef = useRef(null)
+  
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (openDropdown) {
+        const refs = {
+          tag: tagDropdownRef,
+          paymentMethod: paymentMethodDropdownRef,
+          invoiceStatus: invoiceStatusDropdownRef,
+          territory: territoryDropdownRef,
+          assigned: assignedDropdownRef,
+          sort: sortDropdownRef
+        }
+        const ref = refs[openDropdown]
+        if (ref && ref.current && !ref.current.contains(event.target)) {
+          setOpenDropdown(null)
+        }
+      }
+    }
+    
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [openDropdown])
+  
+  const getFilterLabel = (type) => {
+    switch (type) {
+      case 'tag':
+        return filters.tag || 'Tag'
+      case 'paymentMethod':
+        return filters.paymentMethod ? filters.paymentMethod.charAt(0).toUpperCase() + filters.paymentMethod.slice(1) : 'Payment method'
+      case 'invoiceStatus':
+        return filters.invoiceStatus ? filters.invoiceStatus.charAt(0).toUpperCase() + filters.invoiceStatus.slice(1) : 'Any invoice status'
+      case 'territory':
+        if (filters.territoryId) {
+          const territory = territories.find(t => t.id.toString() === filters.territoryId)
+          return territory ? territory.name : 'Territory'
+        }
+        return 'Territory'
+      case 'assigned':
+        if (filters.teamMember === 'unassigned') return 'Unassigned'
+        if (filters.teamMember) {
+          const member = teamMembers.find(m => m.id.toString() === filters.teamMember)
+          if (member) {
+            return member.name || `${member.first_name || ''} ${member.last_name || ''}`.trim() || `Member ${member.id}`
+          }
+        }
+        return 'Assigned All'
+      case 'sort':
+        if (filters.sortBy === 'scheduled_date' && filters.sortOrder === 'DESC') return 'Sort by: Recent'
+        if (filters.sortBy === 'scheduled_date' && filters.sortOrder === 'ASC') return 'Sort by: Oldest'
+        if (filters.sortBy === 'total_amount' && filters.sortOrder === 'DESC') return 'Sort by: Highest Amount'
+        if (filters.sortBy === 'total_amount' && filters.sortOrder === 'ASC') return 'Sort by: Lowest Amount'
+        return 'Sort by: Recent'
+      default:
+        return ''
+    }
+  }
 
   // Reset page and jobs when filters or tab change
   useEffect(() => {
     setPage(1)
     setJobs([])
     setHasMore(true)
-  }, [activeTab, filters.search, filters.status, filters.teamMember, filters.invoiceStatus, filters.sortBy, filters.sortOrder])
+  }, [activeTab, filters.search, filters.status, filters.teamMember, filters.invoiceStatus, filters.sortBy, filters.sortOrder, filters.territoryId, filters.paymentMethod, filters.tag])
 
   // Infinite scroll handler
   useEffect(() => {
@@ -63,6 +133,40 @@ const ServiceFlowJobs = () => {
       return () => scrollContainer.removeEventListener('scroll', handleScroll)
     }
   }, [loadingMore, hasMore])
+
+  // Fetch territories and team members
+  useEffect(() => {
+    if (!authLoading && user?.id) {
+      const fetchTerritoriesData = async () => {
+        try {
+          const territoriesResponse = await territoriesAPI.getAll(user.id, { page: 1, limit: 1000 })
+          const territoriesList = territoriesResponse.territories || territoriesResponse || []
+          setTerritories(Array.isArray(territoriesList) ? territoriesList : [])
+        } catch (error) {
+          console.error('Error fetching territories:', error)
+          setTerritories([])
+        }
+      }
+
+      const fetchTeamMembersData = async () => {
+        try {
+          const teamResponse = await teamAPI.getAll(user.id, { page: 1, limit: 1000 })
+          const members = teamResponse.teamMembers || teamResponse || []
+          // Filter to only active team members
+          const activeMembers = Array.isArray(members) 
+            ? members.filter(member => member.status === 'active' || !member.status || member.status !== 'inactive')
+            : []
+          setTeamMembers(activeMembers)
+        } catch (error) {
+          console.error('Error fetching team members:', error)
+          setTeamMembers([])
+        }
+      }
+
+      fetchTerritoriesData()
+      fetchTeamMembersData()
+    }
+  }, [user?.id, authLoading])
 
   // Debounced search to prevent too many API calls
   useEffect(() => {
@@ -261,7 +365,18 @@ const ServiceFlowJobs = () => {
     }
   }
 
-  const getStatusLabel = (status) => {
+  const isJobPast = (job) => {
+    if (!job.scheduled_date) return false
+    const scheduledDate = new Date(job.scheduled_date)
+    const now = new Date()
+    return scheduledDate < now
+  }
+
+  const getStatusLabel = (status, job = null) => {
+    // If job is past scheduled time and not completed, show "Late"
+    if (job && isJobPast(job) && status !== 'completed' && status !== 'cancelled') {
+      return 'Late'
+    }
     return status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())
   }
 
@@ -292,21 +407,20 @@ const ServiceFlowJobs = () => {
   ]
 
   return (
-    <div className="flex h-screen bg-white overflow-hidden">
-      {/* Main Sidebar */}
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+    <div className="flex h-screen overflow-hidden">
+     
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
+      <div className="flex-1 flex flex-col min-w-0 ">
         {/* Mobile Header */}
         <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
 
         {/* Desktop Header */}
-        <div className="hidden lg:flex bg-white border-b border-gray-200 px-8 py-6 items-center justify-between">
-          <h1 className="text-3xl font-semibold text-gray-900">Jobs</h1>
+        <div className="hidden lg:flex bg-white border-b border-gray-200 px-4 pt-4 pb-2 items-center justify-between">
+          <h1 className="text-3xl font-semibold text-gray-900 " style={{fontFamily: 'ProximaNova-Bold'}}>Jobs</h1>
           <button
             onClick={handleCreateJob}
-            className="px-6 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
           >
             Create Job
           </button>
@@ -315,11 +429,13 @@ const ServiceFlowJobs = () => {
         {/* Mobile Header Content */}
         <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-4">
           <div className="flex items-center justify-between">
-            <h1 className="text-xl font-semibold text-gray-900">Jobs</h1>
+            <h1 className="text-xl font-semibold text-gray-900 " style={{fontFamily: 'ProximaNova-Bold'}}>Jobs</h1>
             <button
               onClick={handleCreateJob}
               className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+              style={{fontFamily: 'ProximaNova-Bold'}}
             >
+              <Plus className="w-4 h-4 mr-2 text-white" />
               Create Job
             </button>
           </div>
@@ -344,17 +460,18 @@ const ServiceFlowJobs = () => {
         )}
 
         {/* Tabs */}
-        <div className="bg-white border-b border-gray-200 px-8">
-          <div className="flex space-x-8">
+        <div className="bg-white border-b border-gray-200 px-4">
+          <div className="flex space-x-4">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                className={`py-3 border-b-2 font-medium text-sm transition-colors ${
                   activeTab === tab.id
                     ? "border-blue-600 text-blue-600"
                     : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
                 }`}
+                style={{fontFamily: 'ProximaNova-Bold'}}
               >
                 {tab.label}
               </button>
@@ -377,63 +494,266 @@ const ServiceFlowJobs = () => {
               />
             </div>
 
-            {/* Filter Dropdowns */}
-            <div className="flex items-center gap-3">
+            {/* Filter Buttons */}
+            <div className="flex items-center gap-2">
+              {/* Tag Filter */}
+              <div className="relative" ref={tagDropdownRef}>
+                <button
+                  onClick={() => setOpenDropdown(openDropdown === 'tag' ? null : 'tag')}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-200 transition-colors flex items-center gap-2"
+                >
+                  {getFilterLabel('tag')}
+                  {openDropdown === 'tag' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </button>
+                {openDropdown === 'tag' && (
+                  <div className="absolute top-full mt-1 right-0 bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[160px] z-50">
+                    <button
+                      onClick={() => {
+                        setFilters(prev => ({ ...prev, tag: '' }))
+                        setOpenDropdown(null)
+                      }}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${!filters.tag ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
+                    >
+                      Tag
+                    </button>
+                  </div>
+                )}
+              </div>
+
               {/* Payment Method Filter */}
-              <select
-                value={filters.paymentMethod || ""}
-                onChange={(e) => setFilters(prev => ({ ...prev, paymentMethod: e.target.value }))}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-              >
-                <option value="">Payment method</option>
-                <option value="card">Card</option>
-                <option value="cash">Cash</option>
-                <option value="check">Check</option>
-              </select>
+              <div className="relative" ref={paymentMethodDropdownRef}>
+                <button
+                  onClick={() => setOpenDropdown(openDropdown === 'paymentMethod' ? null : 'paymentMethod')}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-200 transition-colors flex items-center gap-2"
+                >
+                  {getFilterLabel('paymentMethod')}
+                  {openDropdown === 'paymentMethod' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </button>
+                {openDropdown === 'paymentMethod' && (
+                  <div className="absolute top-full mt-1 right-0 bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[180px] z-50">
+                    <button
+                      onClick={() => {
+                        setFilters(prev => ({ ...prev, paymentMethod: '' }))
+                        setOpenDropdown(null)
+                      }}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${!filters.paymentMethod ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
+                    >
+                      Payment method
+                    </button>
+                    <button
+                      onClick={() => {
+                        setFilters(prev => ({ ...prev, paymentMethod: 'card' }))
+                        setOpenDropdown(null)
+                      }}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${filters.paymentMethod === 'card' ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
+                    >
+                      Card
+                    </button>
+                    <button
+                      onClick={() => {
+                        setFilters(prev => ({ ...prev, paymentMethod: 'cash' }))
+                        setOpenDropdown(null)
+                      }}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${filters.paymentMethod === 'cash' ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
+                    >
+                      Cash
+                    </button>
+                    <button
+                      onClick={() => {
+                        setFilters(prev => ({ ...prev, paymentMethod: 'check' }))
+                        setOpenDropdown(null)
+                      }}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${filters.paymentMethod === 'check' ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
+                    >
+                      Check
+                    </button>
+                  </div>
+                )}
+              </div>
 
               {/* Invoice Status Filter */}
-              <select
-                value={filters.invoiceStatus}
-                onChange={(e) => setFilters(prev => ({ ...prev, invoiceStatus: e.target.value }))}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-              >
-                <option value="">Any invoice status</option>
-                <option value="paid">Paid</option>
-                <option value="unpaid">Unpaid</option>
-                <option value="invoiced">Invoiced</option>
-              </select>
+              <div className="relative" ref={invoiceStatusDropdownRef}>
+                <button
+                  onClick={() => setOpenDropdown(openDropdown === 'invoiceStatus' ? null : 'invoiceStatus')}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-200 transition-colors flex items-center gap-2"
+                >
+                  {getFilterLabel('invoiceStatus')}
+                  {openDropdown === 'invoiceStatus' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </button>
+                {openDropdown === 'invoiceStatus' && (
+                  <div className="absolute top-full mt-1 right-0 bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[200px] z-50">
+                    <button
+                      onClick={() => {
+                        setFilters(prev => ({ ...prev, invoiceStatus: '' }))
+                        setOpenDropdown(null)
+                      }}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${!filters.invoiceStatus ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
+                    >
+                      Any invoice status
+                    </button>
+                    <button
+                      onClick={() => {
+                        setFilters(prev => ({ ...prev, invoiceStatus: 'unpaid' }))
+                        setOpenDropdown(null)
+                      }}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${filters.invoiceStatus === 'unpaid' ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
+                    >
+                      Unpaid
+                    </button>
+                    <button
+                      onClick={() => {
+                        setFilters(prev => ({ ...prev, invoiceStatus: 'paid' }))
+                        setOpenDropdown(null)
+                      }}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${filters.invoiceStatus === 'paid' ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
+                    >
+                      Paid
+                    </button>
+                  </div>
+                )}
+              </div>
 
-              {/* Team Member Filter */}
-              <select
-                value={filters.teamMember}
-                onChange={(e) => setFilters(prev => ({ ...prev, teamMember: e.target.value }))}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-              >
-                <option value="">Assigned All</option>
-                <option value="unassigned">Unassigned</option>
-              </select>
+              {/* Territory Filter */}
+              <div className="relative" ref={territoryDropdownRef}>
+                <button
+                  onClick={() => setOpenDropdown(openDropdown === 'territory' ? null : 'territory')}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-200 transition-colors flex items-center gap-2"
+                >
+                  {getFilterLabel('territory')}
+                  {openDropdown === 'territory' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </button>
+                {openDropdown === 'territory' && (
+                  <div className="absolute top-full mt-1 right-0 bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[180px] z-50 max-h-60 overflow-y-auto">
+                    <button
+                      onClick={() => {
+                        setFilters(prev => ({ ...prev, territoryId: '' }))
+                        setOpenDropdown(null)
+                      }}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${!filters.territoryId ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
+                    >
+                      All
+                    </button>
+                    {territories.map((territory) => (
+                      <button
+                        key={territory.id}
+                        onClick={() => {
+                          setFilters(prev => ({ ...prev, territoryId: territory.id.toString() }))
+                          setOpenDropdown(null)
+                        }}
+                        className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${filters.territoryId === territory.id.toString() ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
+                      >
+                        {territory.name || `Territory ${territory.id}`}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
 
-              {/* Sort By Filter */}
-              <select
-                value={`${filters.sortBy}-${filters.sortOrder}`}
-                onChange={(e) => {
-                  const [sortBy, sortOrder] = e.target.value.split('-')
-                  setFilters(prev => ({ ...prev, sortBy, sortOrder }))
-                }}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-              >
-                <option value="scheduled_date-DESC">Sort by: Newest</option>
-                <option value="scheduled_date-ASC">Sort by: Oldest</option>
-                <option value="total_amount-DESC">Sort by: Highest Amount</option>
-                <option value="total_amount-ASC">Sort by: Lowest Amount</option>
-              </select>
+              {/* Assigned Filter */}
+              <div className="relative" ref={assignedDropdownRef}>
+                <button
+                  onClick={() => setOpenDropdown(openDropdown === 'assigned' ? null : 'assigned')}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-200 transition-colors flex items-center gap-2"
+                >
+                  {getFilterLabel('assigned')}
+                  {openDropdown === 'assigned' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </button>
+                {openDropdown === 'assigned' && (
+                  <div className="absolute top-full mt-1 right-0 bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[180px] z-50 max-h-60 overflow-y-auto">
+                    <button
+                      onClick={() => {
+                        setFilters(prev => ({ ...prev, teamMember: '' }))
+                        setOpenDropdown(null)
+                      }}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${!filters.teamMember ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
+                    >
+                      All
+                    </button>
+                    <button
+                      onClick={() => {
+                        setFilters(prev => ({ ...prev, teamMember: 'unassigned' }))
+                        setOpenDropdown(null)
+                      }}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${filters.teamMember === 'unassigned' ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
+                    >
+                      Unassigned
+                    </button>
+                    {teamMembers.map((member) => {
+                      const memberName = member.name || `${member.first_name || ''} ${member.last_name || ''}`.trim() || `Member ${member.id}`
+                      return (
+                        <button
+                          key={member.id}
+                          onClick={() => {
+                            setFilters(prev => ({ ...prev, teamMember: member.id.toString() }))
+                            setOpenDropdown(null)
+                          }}
+                          className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${filters.teamMember === member.id.toString() ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
+                        >
+                          {memberName}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Sort Filter */}
+              <div className="relative" ref={sortDropdownRef}>
+                <button
+                  onClick={() => setOpenDropdown(openDropdown === 'sort' ? null : 'sort')}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-200 transition-colors flex items-center gap-2"
+                >
+                  {getFilterLabel('sort')}
+                  {openDropdown === 'sort' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </button>
+                {openDropdown === 'sort' && (
+                  <div className="absolute top-full mt-1 right-0 bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[200px] z-50">
+                    <button
+                      onClick={() => {
+                        setFilters(prev => ({ ...prev, sortBy: 'scheduled_date', sortOrder: 'DESC' }))
+                        setOpenDropdown(null)
+                      }}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${filters.sortBy === 'scheduled_date' && filters.sortOrder === 'DESC' ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
+                    >
+                      Sort by: Recent
+                    </button>
+                    <button
+                      onClick={() => {
+                        setFilters(prev => ({ ...prev, sortBy: 'scheduled_date', sortOrder: 'ASC' }))
+                        setOpenDropdown(null)
+                      }}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${filters.sortBy === 'scheduled_date' && filters.sortOrder === 'ASC' ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
+                    >
+                      Sort by: Oldest
+                    </button>
+                    <button
+                      onClick={() => {
+                        setFilters(prev => ({ ...prev, sortBy: 'total_amount', sortOrder: 'DESC' }))
+                        setOpenDropdown(null)
+                      }}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${filters.sortBy === 'total_amount' && filters.sortOrder === 'DESC' ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
+                    >
+                      Sort by: Highest Amount
+                    </button>
+                    <button
+                      onClick={() => {
+                        setFilters(prev => ({ ...prev, sortBy: 'total_amount', sortOrder: 'ASC' }))
+                        setOpenDropdown(null)
+                      }}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${filters.sortBy === 'total_amount' && filters.sortOrder === 'ASC' ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
+                    >
+                      Sort by: Lowest Amount
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
 
         {/* Jobs List */}
         <div className="flex-1 overflow-auto bg-gray-50 jobs-scroll-container">
-          <div className="px-8 py-6">
+          <div className="">
             {loading ? (
               <div className="flex items-center justify-center py-12">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -442,10 +762,10 @@ const ServiceFlowJobs = () => {
             ) : jobs.length === 0 ? (
               <JobsEmptyState onCreateJob={handleCreateJob} />
             ) : (
-              <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+              <div className="bg-white border border-gray-200 overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-white">
+                    <thead style={{fontFamily: 'ProximaNova-Bold'}} className="bg-white">
                       <tr>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Date
@@ -478,27 +798,27 @@ const ServiceFlowJobs = () => {
                           >
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex flex-col">
-                                <span className="text-sm font-medium text-blue-600">
+                                <span style={{fontFamily: 'ProximaNova-Medium'}} className="text-sm  font-medium text-blue-500">
                                   {job.scheduled_date ? `${dateInfo.weekday} - ${dateInfo.monthName} ${dateInfo.day}, ${dateInfo.year}` : 'Date not set'}
                                 </span>
-                                <span className="text-sm text-gray-600">
+                                <span style={{fontFamily: 'ProximaNova-Medium'}} className="text-xs text-gray-600">
                                   {job.scheduled_date ? formatTime(job.scheduled_date) : 'Time not set'}
                                 </span>
                               </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex flex-col">
-                                <span className="text-sm font-medium text-gray-900">
+                                <span style={{fontFamily: 'ProximaNova-Medium'}} className="text-sm capitalize font-medium text-gray-900">
                                   {job.service_name || 'Service'}
                                 </span>
-                                <span className="text-sm text-gray-500">
+                                <span style={{fontFamily: 'ProximaNova-Medium'}} className="text-xs text-gray-500">
                                   Job #{job.id}
                                 </span>
                               </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex flex-col">
-                                <span className="text-sm font-medium text-gray-900">
+                                <span style={{fontFamily: 'ProximaNova-Medium'}} className="text-sm font-medium text-gray-900">
                                   {job.customer_first_name && job.customer_last_name
                                     ? `${job.customer_first_name} ${job.customer_last_name}`
                                     : job.customer_email
@@ -506,11 +826,9 @@ const ServiceFlowJobs = () => {
                                     : 'Customer Name'
                                   }
                                 </span>
-                                <span className="text-sm text-gray-500">
+                                <span style={{fontFamily: 'ProximaNova-Medium'}} className="text-xs text-gray-500">
                                   {job.customer_city && job.customer_state
                                     ? `${job.customer_city}, ${job.customer_state}`
-                                    : job.customer_phone
-                                    ? job.customer_phone
                                     : 'Location not specified'
                                   }
                                 </span>
@@ -519,7 +837,7 @@ const ServiceFlowJobs = () => {
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex items-center gap-2">
                                 <Users className="w-4 h-4 text-gray-400" />
-                                <span className="text-sm text-gray-600">
+                                <span style={{fontFamily: 'ProximaNova-Medium'}} className="text-xs text-gray-600">
                                   {job.team_assignments && job.team_assignments.length > 0
                                     ? `${job.team_assignments.length} / ${job.team_assignments.length} assigned`
                                     : '0 / 1 assigned'
@@ -527,17 +845,17 @@ const ServiceFlowJobs = () => {
                                 </span>
                               </div>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className={`inline-flex items-center px-3 py-1 rounded-md text-xs font-medium border ${getStatusColor(job.status)}`}>
-                                {getStatusLabel(job.status || 'pending')}
+                            <td className="px-4 py-4 whitespace-nowrap">
+                              <span style={{fontFamily: 'ProximaNova-Medium'}} className={`inline-flex items-center px-3 py-1 rounded-l-sm rounded-r-xl text-xs font-medium border ${getStatusLabel(job.status || 'pending', job) === 'Late' ? 'bg-orange-50 text-orange-700 border-orange-200' : getStatusColor(job.status)}`}>
+                                {getStatusLabel(job.status || 'pending', job)}
                               </span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex flex-col">
-                                <span className="text-sm font-semibold text-gray-900">
+                              <div className="flex flex-row space-x-1 items-center">
+                                <span style={{fontFamily: 'ProximaNova-Medium'}} className="text-sm font-semibold text-gray-900">
                                   {formatCurrency(job.total_amount || job.service_price || 0)}
                                 </span>
-                                <span className="text-sm text-gray-500">
+                                <span style={{fontFamily: 'ProximaNova-Medium'}} className="flex px-2 text-xs text-gray-700 bg-gray-100 px-2 py-1 rounded-sm">
                                   {job.invoice_status === 'paid' ? 'Paid' :
                                    job.invoice_status === 'unpaid' ? 'Unpaid' :
                                    job.invoice_status === 'invoiced' ? 'Invoiced' :

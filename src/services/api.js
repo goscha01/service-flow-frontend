@@ -1060,9 +1060,21 @@ export const serviceAvailabilityAPI = {
 export const availabilityAPI = {
   getAvailability: async (userId) => {
     try {
+      // Try with userId in query first, then fallback to using auth token
       const response = await api.get(`/user/availability?userId=${userId}`);
       return response.data;
     } catch (error) {
+      console.error('Error fetching availability:', error);
+      // If it fails with userId, try without (uses auth token)
+      if (error.response?.status === 401 || error.response?.status === 400) {
+        try {
+          const response = await api.get('/user/availability');
+          return response.data;
+        } catch (retryError) {
+          console.error('Retry also failed:', retryError);
+          throw retryError;
+        }
+      }
       throw error;
     }
   },
@@ -1072,6 +1084,7 @@ export const availabilityAPI = {
       const response = await api.put('/user/availability', availabilityData);
       return response.data;
     } catch (error) {
+      console.error('Error updating availability:', error);
       throw error;
     }
   }
