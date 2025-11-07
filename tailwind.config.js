@@ -69,8 +69,9 @@ module.exports = {
         sm: "calc(var(--radius, 0.5rem) - 4px)",
       },
       fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"],
-        display: ["Sofia Pro", "Inter", "system-ui", "sans-serif"],
+        sans: [ "Proxima Nova", "Sofia Pro", "system-ui", "sans-serif"],
+        display: ["Sofia Pro", "Proxima Nova", "Inter", "system-ui", "sans-serif"],
+        body: [ "Proxima Nova", "system-ui", "sans-serif"],
       },
       animation: {
         "fade-in": "smoothFadeIn 1s ease-out",

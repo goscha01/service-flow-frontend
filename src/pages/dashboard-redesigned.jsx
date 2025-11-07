@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import Sidebar from "../components/sidebar"
 import MobileHeader from "../components/mobile-header"
 import CustomerModal from "../components/customer-modal"
@@ -16,12 +16,17 @@ import {
   MapPin,
   Globe,
   Check,
-  AlertTriangle
+  AlertTriangle,
+  BookAlert,
+  Book,
+  ChevronRight,
+  ChevronDown
 } from "lucide-react"
 import { Link, useNavigate } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
-import { jobsAPI, customersAPI, servicesAPI, invoicesAPI, teamAPI } from "../services/api"
+import { jobsAPI, customersAPI, servicesAPI, invoicesAPI, teamAPI, territoriesAPI } from "../services/api"
 import { normalizeAPIResponse } from "../utils/dataHandler"
+import MiniChart from "../components/mini-chart"
 
 const DashboardRedesigned = () => {
   const { user } = useAuth()
@@ -36,9 +41,13 @@ const DashboardRedesigned = () => {
   const [showDatePicker, setShowDatePicker] = useState(false)
   const [showNewMenu, setShowNewMenu] = useState(false)
   const [showCustomerModal, setShowCustomerModal] = useState(false)
+  const [showDateRangeDropdown, setShowDateRangeDropdown] = useState(false)
+  const [territoryViewMode, setTerritoryViewMode] = useState('jobs') // 'jobs' or 'value'
+  const [territories, setTerritories] = useState([])
   const [error, setError] = useState("")
   const [retryCount, setRetryCount] = useState(0)
   const newMenuRef = useRef(null)
+  const dateRangeDropdownRef = useRef(null)
   const navigate = useNavigate()
 
   // Dashboard data state
@@ -54,6 +63,30 @@ const DashboardRedesigned = () => {
     customerSatisfaction: 0,
     totalRevenue: 0
   })
+
+  // Chart data state for time-series
+  const [chartData, setChartData] = useState({
+    newJobs: [],
+    totalJobs: [],
+    newRecurringBookings: [],
+    recurringBookings: [],
+    jobValue: [],
+    totalRevenue: []
+  })
+
+  // Territory performance data (unsorted)
+  const [territoryPerformanceData, setTerritoryPerformanceData] = useState([])
+
+  // Sort territory performance based on view mode
+  const territoryPerformance = useMemo(() => {
+    return [...territoryPerformanceData].sort((a, b) => {
+      if (territoryViewMode === 'jobs') {
+        return b.jobCount - a.jobCount
+      } else {
+        return b.totalValue - a.totalValue
+      }
+    })
+  }, [territoryPerformanceData, territoryViewMode])
 
   // Store today's jobs for the map
   const [todayJobsList, setTodayJobsList] = useState([])
@@ -204,6 +237,23 @@ const DashboardRedesigned = () => {
     checkBackend();
   }, [])
 
+  // Handle click outside for date range dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dateRangeDropdownRef.current && !dateRangeDropdownRef.current.contains(event.target)) {
+        setShowDateRangeDropdown(false);
+      }
+    };
+
+    if (showDateRangeDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showDateRangeDropdown])
+
   const checkSetupTaskCompletion = useCallback(async (services, jobs, teamMembers) => {
     setSetupTasks(prevTasks => {
       const updatedTasks = prevTasks.map(task => {
@@ -282,6 +332,19 @@ const DashboardRedesigned = () => {
         teamMembers = teamResponse.teamMembers || teamResponse || []
       } catch (teamError) {
         teamMembers = []
+      }
+
+      // Fetch territories data
+      let territoriesList = []
+      try {
+        const territoriesResponse = await territoriesAPI.getAll(user.id, { page: 1, limit: 1000 })
+        territoriesList = normalizeAPIResponse(territoriesResponse, 'territories')
+        setTerritories(territoriesList)
+        console.log('Fetched territories:', territoriesList.length, territoriesList)
+      } catch (territoryError) {
+        console.error('Error fetching territories:', territoryError)
+        territoriesList = []
+        setTerritories([])
       }
 
       // Calculate today's data
@@ -394,6 +457,156 @@ const DashboardRedesigned = () => {
       setDashboardData(newDashboardData)
       setTodayJobsList(todayJobs)
 
+      // Calculate chart data for time-series
+      const calculateChartData = () => {
+        const days = parseInt(dateRange)
+        // Determine number of data points based on range
+        const chartDataPoints = days <= 7 ? days : (days <= 30 ? Math.ceil(days / 2) : Math.ceil(days / 7))
+        const interval = days / chartDataPoints
+        
+        const chartStartDate = new Date()
+        chartStartDate.setDate(chartStartDate.getDate() - (parseInt(dateRange) - 1))
+        chartStartDate.setHours(0, 0, 0, 0)
+        
+        const newJobsData = []
+        const totalJobsData = []
+        const newRecurringData = []
+        const recurringData = []
+        const jobValueData = []
+        const revenueData = []
+
+        for (let i = 0; i < chartDataPoints; i++) {
+          const periodStart = new Date(chartStartDate)
+          periodStart.setDate(periodStart.getDate() + (i * interval))
+          const periodStartString = periodStart.toISOString().split('T')[0]
+          
+          const periodEnd = new Date(periodStart)
+          periodEnd.setDate(periodEnd.getDate() + interval)
+          const periodEndString = periodEnd.toISOString().split('T')[0]
+          
+          // Get jobs scheduled in this period
+          const periodJobs = rangeJobs.filter(job => {
+            let jobDateString = ''
+            if (job.scheduled_date) {
+              if (job.scheduled_date.includes('T')) {
+                jobDateString = job.scheduled_date.split('T')[0]
+              } else {
+                jobDateString = job.scheduled_date.split(' ')[0]
+              }
+            }
+            return jobDateString >= periodStartString && jobDateString < periodEndString
+          })
+
+          // Get new jobs created in this period
+          const periodNewJobs = rangeJobs.filter(job => {
+            let jobDateString = ''
+            if (job.created_at) {
+              if (job.created_at.includes('T')) {
+                jobDateString = job.created_at.split('T')[0]
+              } else {
+                jobDateString = job.created_at.split(' ')[0]
+              }
+            }
+            return jobDateString >= periodStartString && jobDateString < periodEndString
+          }).length
+
+          // Get recurring jobs in this period
+          const periodRecurring = periodJobs.filter(job => job.is_recurring === true)
+          const periodNewRecurring = periodRecurring.filter(job => {
+            let jobDateString = ''
+            if (job.created_at) {
+              if (job.created_at.includes('T')) {
+                jobDateString = job.created_at.split('T')[0]
+              } else {
+                jobDateString = job.created_at.split(' ')[0]
+              }
+            }
+            return jobDateString >= periodStartString && jobDateString < periodEndString
+          }).length
+
+          // Calculate revenue for this period
+          const periodRevenue = periodJobs.reduce((sum, job) => {
+            const invoice = invoices.find(inv =>
+              inv.job_id === job.id ||
+              inv.jobId === job.id ||
+              inv.job === job.id ||
+              inv.id === job.invoice_id
+            )
+            return sum + parseFloat(invoice?.total_amount || invoice?.amount || invoice?.total ||
+                                   job.total || job.price || job.service_price || 0)
+          }, 0)
+
+          // Calculate average job value for this period
+          const periodJobValue = periodJobs.length > 0 ? periodRevenue / periodJobs.length : 0
+
+          newJobsData.push(periodNewJobs)
+          totalJobsData.push(periodJobs.length)
+          newRecurringData.push(periodNewRecurring)
+          recurringData.push(periodRecurring.length)
+          jobValueData.push(Math.round(periodJobValue * 100) / 100)
+          revenueData.push(Math.round(periodRevenue * 100) / 100)
+        }
+
+        return {
+          newJobs: newJobsData,
+          totalJobs: totalJobsData,
+          newRecurringBookings: newRecurringData,
+          recurringBookings: recurringData,
+          jobValue: jobValueData,
+          totalRevenue: revenueData
+        }
+      }
+
+      const calculatedChartData = calculateChartData()
+      setChartData(calculatedChartData)
+
+      // Calculate territory performance
+      if (territoriesList && territoriesList.length > 0) {
+        // Group jobs by territory
+        const territoryStats = territoriesList.map(territory => {
+          const territoryJobs = rangeJobs.filter(job => {
+            // Check if job has territory_id or territory field
+            const jobTerritoryId = job.territory_id || job.territory?.id || job.territory
+            return jobTerritoryId === territory.id || jobTerritoryId === territory.id?.toString()
+          })
+
+          const jobCount = territoryJobs.length
+          
+          // Calculate total job value for this territory
+          const totalValue = territoryJobs.reduce((sum, job) => {
+            const invoice = invoices.find(inv =>
+              inv.job_id === job.id ||
+              inv.jobId === job.id ||
+              inv.job === job.id ||
+              inv.id === job.invoice_id
+            )
+            return sum + parseFloat(invoice?.total_amount || invoice?.amount || invoice?.total ||
+                                   job.total || job.price || job.service_price || 0)
+          }, 0)
+
+          return {
+            id: territory.id,
+            name: territory.name,
+            jobCount: jobCount,
+            totalValue: totalValue
+          }
+        }).filter(stat => stat.jobCount > 0) // Only show territories with jobs
+
+        // Calculate percentages
+        const totalJobs = territoryStats.reduce((sum, stat) => sum + stat.jobCount, 0)
+        const totalValue = territoryStats.reduce((sum, stat) => sum + stat.totalValue, 0)
+
+        const territoryPerf = territoryStats.map(stat => ({
+          ...stat,
+          jobPercentage: totalJobs > 0 ? (stat.jobCount / totalJobs) * 100 : 0,
+          valuePercentage: totalValue > 0 ? (stat.totalValue / totalValue) * 100 : 0
+        }))
+        
+        setTerritoryPerformanceData(territoryPerf)
+      } else {
+        setTerritoryPerformanceData([])
+      }
+
       // Check setup task completion
       await checkSetupTaskCompletion(services, jobs, teamMembers)
 
@@ -471,10 +684,9 @@ const DashboardRedesigned = () => {
 
   return (
     <>
-      <div className="flex h-screen bg-gray-50 overflow-hidden">
+      <div className="flex h-screen overflow-hidden">
         {/* Sidebar */}
-        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
+       
         {/* Customer Modal */}
         <CustomerModal
           isOpen={showCustomerModal}
@@ -483,12 +695,12 @@ const DashboardRedesigned = () => {
         />
 
         {/* Main Content */}
-        <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
+        <div className="flex-1 flex flex-col min-w-0 lg:mx-40 xl:mx-40">
           {/* Mobile Header */}
           <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
 
         {/* Trial Banner */}
-        <div className="bg-amber-50 border-b border-amber-100 px-4 lg:px-6 py-3">
+        <div className="bg-amber-50 border  m-4 rounded-lg border-amber-500 px-4 lg:px-6 py-3">
           <div className="max-w-7xl mx-auto flex items-center justify-center">
             <p className="text-sm text-gray-700">
               12 days left in free trial
@@ -497,11 +709,11 @@ const DashboardRedesigned = () => {
         </div>
 
           {/* Desktop Header */}
-          <div className="hidden lg:block bg-white border-b border-gray-200 px-6 py-5">
+          <div className="hidden lg:block px-6 py-5">
             <div className="max-w-7xl mx-auto flex items-center justify-between">
               <div>
-                <h1 className="text-lg sm:text-xl font-display font-semibold text-gray-900">{getGreeting()}, {getUserDisplayName()}.</h1>
-                <p className="text-sm text-gray-600 mt-1">Here's how Just_web is doing today.</p>
+                <h1 className="text-xl sm:text-xl font-display font-bold text-gray-900" style={{fontFamily: 'ProximaNova-Bold'}}>{getGreeting()}, {getUserDisplayName()}.</h1>
+                <p className="text-sm text-gray-600 mt-1 ">Here's how {getUserDisplayName()} is doing today.</p>
               </div>
               <div className="relative" ref={newMenuRef}>
                 <button
@@ -647,10 +859,17 @@ const DashboardRedesigned = () => {
                     </div>
                   </div>
                 )}
-
+                {/* Incomplete Jobs Section */}
+                <div className="bg-white flex items-center justify-between rounded-lg border border-gray-200 px-3 py-3">
+                  <h2 className="text-base font-medium text-gray-600 flex items-center gap-2"> <BookAlert className="w-4 h-4" />  2 Incomplete Jobs</h2>
+                  <button className="text-gray-400 hover:text-gray-600 transition-colors">
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+                
                 {/* Today Section */}
-                <div className="bg-white rounded-lg border border-gray-200 p-6">
-                  <div className="flex items-center justify-between mb-6">
+                <div className="bg-white rounded-lg border border-gray-200 py-6">
+                  <div className="flex items-center justify-between px-6 py-3 border-b border-gray-200 pb-3">
                     <div className="flex items-center gap-3">
                       <h2 className="text-base font-semibold text-gray-900">Today</h2>
                       <div className="relative">
@@ -674,31 +893,40 @@ const DashboardRedesigned = () => {
                         />
                       </div>
                     </div>
+                    <div className="flex gap-4 items-center">
+                    <div className="items-center justify-center flex-1">
+                      <div className="text-lg font-medium text-gray-900">{dashboardData.todayJobs} jobs</div>
+                      <div className="text-xs text-gray-400 mb-1">On the schedule</div>
+                      </div>
+                    <div>
+                    <div className="text-lg font-medium text-gray-900">{Math.floor(dashboardData.todayDuration / 60)}h {dashboardData.todayDuration % 60}m</div>
+                    <div className="text-xs text-gray-400 mb-1">Est. duration</div>
+                    </div>
+                    <div>
+                    <div className="text-lg font-medium text-gray-900">${dashboardData.todayEarnings}</div>
+                    <div className="text-xs text-gray-400 mb-1">Est. earnings</div>
+                       </div>
+                  </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-8 mb-6">
-                    <div>
-                      <div className="text-xs text-gray-600 mb-1">On the schedule</div>
-                      <div className="text-2xl font-semibold text-gray-900">{dashboardData.todayJobs} jobs</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-gray-600 mb-1">Est. duration</div>
-                      <div className="text-2xl font-semibold text-gray-900">{Math.floor(dashboardData.todayDuration / 60)}h {dashboardData.todayDuration % 60}m</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-gray-600 mb-1">Est. earnings</div>
-                      <div className="text-2xl font-semibold text-gray-900">${dashboardData.todayEarnings}</div>
-                    </div>
-                  </div>
+                 
 
                   {/* Today's Jobs Map */}
-                  <div className="border border-gray-200 rounded-lg overflow-hidden">
-                    <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
-                      <span className="text-sm font-medium text-gray-900">{dashboardData.todayJobs} jobs</span>
-                      <div className="flex bg-white rounded-md shadow-sm border border-gray-200">
+                  <div className="border border-gray-200 flex flex-row overflow-hidden">
+                   
+                  <div className="h-80 w-1/2 relative bg-gray-50 flex flex-col items-center justify-center">
+                   <div className="flex items-center justify-center w-12 h-12 bg-gray-100 rounded-lg mb-3 items-center justify-center">
+                              <Calendar className="w-6 h-6 text-gray-400" />
+                            </div>
+                            <h4 className="text-sm font-semibold text-gray-900 mb-1">No scheduled jobs</h4>
+                            <p className="text-xs text-gray-600">Looks like you don't have anything to do today.</p>
+                        
+                  </div>
+                    <div className="h-80 w-1/2 relative bg-gray-50">
+                    <div className="flex absolute mt-7 right-4  bg-white   rounded-md shadow-sm border border-gray-200">
                         <button
                           onClick={() => setMapView('map')}
-                          className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                          className={`px-3 py-1.5 text-md font-medium transition-colors ${
                             mapView === 'map'
                               ? 'bg-gray-100 text-gray-900'
                               : 'text-gray-600 hover:text-gray-900'
@@ -708,7 +936,7 @@ const DashboardRedesigned = () => {
                         </button>
                         <button
                           onClick={() => setMapView('satellite')}
-                          className={`px-3 py-1.5 text-xs font-medium transition-colors border-l border-gray-200 ${
+                          className={`px-3 py-1.5 text-md font-medium transition-colors border-l border-gray-200 ${
                             mapView === 'satellite'
                               ? 'bg-gray-100 text-gray-900'
                               : 'text-gray-600 hover:text-gray-900'
@@ -717,9 +945,6 @@ const DashboardRedesigned = () => {
                           Satellite
                         </button>
                       </div>
-                    </div>
-
-                    <div className="h-80 relative bg-gray-50">
                       {dashboardData.todayJobs > 0 ? (
                         <iframe
                           width="100%"
@@ -746,14 +971,7 @@ const DashboardRedesigned = () => {
                             title="Map"
                           />
 
-                          {/* No Jobs Overlay */}
-                          <div className="absolute top-4 left-4 bg-white rounded-lg shadow-sm border border-gray-200 p-4 max-w-xs">
-                            <div className="flex items-center justify-center w-12 h-12 bg-gray-100 rounded-lg mb-3">
-                              <Calendar className="w-6 h-6 text-gray-400" />
-                            </div>
-                            <h4 className="text-sm font-semibold text-gray-900 mb-1">No scheduled jobs</h4>
-                            <p className="text-xs text-gray-600">Looks like you don't have anything to do today.</p>
-                          </div>
+                          
                         </>
                       )}
                     </div>
@@ -761,39 +979,110 @@ const DashboardRedesigned = () => {
                 </div>
 
                 {/* Overview Section */}
-                <div className="bg-white rounded-lg border border-gray-200 p-6">
+                <div className="">
                   <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-base font-semibold text-gray-900">Overview Oct 19 - Today</h2>
+                    <h2 className="text-md font-semibold text-gray-600"><span className="text-gray-900 font-bold text-2xl">Overview </span>Oct 19 - Today</h2>
 
-                    <select
-                      value={dateRange}
-                      onChange={(e) => setDateRange(e.target.value)}
-                      className="text-sm border-gray-300 rounded-md text-gray-600 focus:border-blue-500 focus:ring-blue-500"
-                    >
-                      <option value="7">Last 7 days</option>
-                      <option value="30">Last 30 days</option>
-                      <option value="90">Last 90 days</option>
-                      <option value="365">Last year</option>
-                    </select>
+                    {/* Custom Date Range Dropdown */}
+                    <div className="relative" ref={dateRangeDropdownRef}>
+                      <button
+                        type="button"
+                        onClick={() => setShowDateRangeDropdown(!showDateRangeDropdown)}
+                        className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-md px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors duration-200 min-w-[140px]"
+                      >
+                        <span>
+                          {dateRange === '7' && 'Last 7 days'}
+                          {dateRange === '30' && 'Last 4 weeks'}
+                          {dateRange === '90' && 'Last 3 months'}
+                          {dateRange === '365' && 'Last 12 months'}
+                        </span>
+                        <ChevronDown className={`w-4 h-4 text-gray-500 ml-2 transition-transform duration-200 ${showDateRangeDropdown ? 'transform rotate-180' : ''}`} />
+                      </button>
+
+                      {/* Dropdown Menu */}
+                      {showDateRangeDropdown && (
+                        <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDateRange('7');
+                              setShowDateRangeDropdown(false);
+                            }}
+                            className={`w-full flex items-center justify-between px-4 py-2.5 text-sm transition-colors ${
+                              dateRange === '7' 
+                                ? 'text-blue-600 font-medium' 
+                                : 'text-gray-700 hover:bg-gray-50'
+                            }`}
+                          >
+                            <span>Last 7 days</span>
+                            {dateRange === '7' && <Check className="w-4 h-4 text-blue-600" />}
+                          </button>
+                          
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDateRange('30');
+                              setShowDateRangeDropdown(false);
+                            }}
+                            className={`w-full flex items-center justify-between px-4 py-2.5 text-sm transition-colors ${
+                              dateRange === '30' 
+                                ? 'text-blue-600 font-medium' 
+                                : 'text-gray-700 hover:bg-gray-50'
+                            }`}
+                          >
+                            <span>Last 4 weeks</span>
+                            {dateRange === '30' && <Check className="w-4 h-4 text-blue-600" />}
+                          </button>
+                          
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDateRange('90');
+                              setShowDateRangeDropdown(false);
+                            }}
+                            className={`w-full flex items-center justify-between px-4 py-2.5 text-sm transition-colors ${
+                              dateRange === '90' 
+                                ? 'text-blue-600 font-medium' 
+                                : 'text-gray-700 hover:bg-gray-50'
+                            }`}
+                          >
+                            <span>Last 3 months</span>
+                            {dateRange === '90' && <Check className="w-4 h-4 text-blue-600" />}
+                          </button>
+                          
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDateRange('365');
+                              setShowDateRangeDropdown(false);
+                            }}
+                            className={`w-full flex items-center justify-between px-4 py-2.5 text-sm transition-colors ${
+                              dateRange === '365' 
+                                ? 'text-blue-600 font-medium' 
+                                : 'text-gray-700 hover:bg-gray-50'
+                            }`}
+                          >
+                            <span>Last 12 months</span>
+                            {dateRange === '365' && <Check className="w-4 h-4 text-blue-600" />}
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* New jobs */}
-                    <div className="border border-gray-200 rounded-lg p-4">
+                    <div className="border bg-white border-gray-200 rounded-lg p-4">
                       <div className="flex items-center justify-between mb-3">
                         <h3 className="text-sm font-medium text-gray-900">New jobs</h3>
                         <Info className="h-4 w-4 text-gray-400" />
                       </div>
                       <div className="text-3xl font-semibold text-gray-900 mb-4">{dashboardData.newJobs}</div>
-                      <div className="h-24 flex items-end">
-                        <div className="w-full h-1 bg-gray-200 rounded-full">
-                          <div className="h-1 bg-blue-600 rounded-full" style={{ width: "100%" }}></div>
-                        </div>
-                      </div>
+                      <MiniChart data={chartData.newJobs} color="blue" />
                     </div>
 
                     {/* Jobs */}
-                    <div className="border border-gray-200 rounded-lg p-4">
+                    <div className="border bg-white border-gray-200 rounded-lg p-4">
                       <div className="flex items-center justify-between mb-3">
                         <h3 className="text-sm font-medium text-gray-900">Jobs</h3>
                         <Info className="h-4 w-4 text-gray-400" />
@@ -801,11 +1090,7 @@ const DashboardRedesigned = () => {
                       {dashboardData.totalJobs > 0 ? (
                         <>
                           <div className="text-3xl font-semibold text-gray-900 mb-4">{dashboardData.totalJobs}</div>
-                          <div className="h-24 flex items-end">
-                            <div className="w-full h-1 bg-gray-200 rounded-full">
-                              <div className="h-1 bg-blue-600 rounded-full" style={{ width: "100%" }}></div>
-                            </div>
-                          </div>
+                          <MiniChart data={chartData.totalJobs} color="blue" />
                         </>
                       ) : (
                         <div className="py-8">
@@ -818,21 +1103,17 @@ const DashboardRedesigned = () => {
                     </div>
 
                     {/* New recurring bookings */}
-                    <div className="border border-gray-200 rounded-lg p-4">
+                    <div className="border bg-white border-gray-200 rounded-lg p-4">
                       <div className="flex items-center justify-between mb-3">
                         <h3 className="text-sm font-medium text-gray-900">New recurring bookings</h3>
                         <Info className="h-4 w-4 text-gray-400" />
                       </div>
                       <div className="text-3xl font-semibold text-gray-900 mb-4">{dashboardData.newRecurringBookings}</div>
-                      <div className="h-24 flex items-end">
-                        <div className="w-full h-1 bg-gray-200 rounded-full">
-                          <div className="h-1 bg-blue-600 rounded-full" style={{ width: "0%" }}></div>
-                        </div>
-                      </div>
+                      <MiniChart data={chartData.newRecurringBookings} color="purple" />
                     </div>
 
                     {/* Recurring bookings */}
-                    <div className="border border-gray-200 rounded-lg p-4">
+                    <div className="border bg-white border-gray-200 rounded-lg p-4">
                       <div className="flex items-center justify-between mb-3">
                         <h3 className="text-sm font-medium text-gray-900">Recurring bookings</h3>
                         <Info className="h-4 w-4 text-gray-400" />
@@ -840,11 +1121,7 @@ const DashboardRedesigned = () => {
                       {dashboardData.recurringBookings > 0 ? (
                         <>
                           <div className="text-3xl font-semibold text-gray-900 mb-4">{dashboardData.recurringBookings}</div>
-                          <div className="h-24 flex items-end">
-                            <div className="w-full h-1 bg-gray-200 rounded-full">
-                              <div className="h-1 bg-blue-600 rounded-full" style={{ width: "100%" }}></div>
-                            </div>
-                          </div>
+                          <MiniChart data={chartData.recurringBookings} color="purple" />
                         </>
                       ) : (
                         <div className="py-8">
@@ -857,88 +1134,87 @@ const DashboardRedesigned = () => {
                     </div>
 
                     {/* Job value */}
-                    <div className="border border-gray-200 rounded-lg p-4">
+                    <div className="border bg-white border-gray-200 rounded-lg p-4">
                       <div className="flex items-center justify-between mb-3">
                         <h3 className="text-sm font-medium text-gray-900">Job value</h3>
                         <Info className="h-4 w-4 text-gray-400" />
                       </div>
                       <div className="text-3xl font-semibold text-gray-900 mb-4">${dashboardData.jobValue}</div>
-                      <div className="h-24 flex items-end">
-                        <div className="w-full h-1 bg-gray-200 rounded-full">
-                          <div className="h-1 bg-blue-600 rounded-full" style={{ width: "0%" }}></div>
-                        </div>
-                      </div>
+                      <MiniChart data={chartData.jobValue} color="green" />
                     </div>
 
                     {/* Payments collected */}
-                    <div className="border border-gray-200 rounded-lg p-4">
+                    <div className="border bg-white border-gray-200 rounded-lg p-4">
                       <div className="flex items-center justify-between mb-3">
                         <h3 className="text-sm font-medium text-gray-900">Payments collected</h3>
                         <Info className="h-4 w-4 text-gray-400" />
                       </div>
                       <div className="text-3xl font-semibold text-gray-900 mb-4">${dashboardData.totalRevenue}</div>
-                      <div className="h-24 flex items-end">
-                        <div className="w-full h-1 bg-gray-200 rounded-full">
-                          <div className="h-1 bg-blue-600 rounded-full" style={{ width: "0%" }}></div>
-                        </div>
-                      </div>
+                      <MiniChart data={chartData.totalRevenue} color="indigo" />
                     </div>
                   </div>
 
                   {/* Rating Section */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 pt-6 border-t border-gray-200">
-                    {/* Average feedback rating */}
-                    <div className="space-y-6">
-                      <div className="flex items-center justify-between">
+                    {/* Left Card - Average feedback rating */}
+                    <div className="bg-white border border-gray-200 rounded-lg">
+                      {/* Top Section - Average feedback rating */}
+                      <div className="p-4 border-b border-gray-200">
+                        <div className="flex items-center justify-between mb-4">
                         <h3 className="text-sm font-medium text-gray-900">Average feedback rating</h3>
-                        <Info className="h-4 w-4 text-gray-400" />
+                          <div className="w-4 h-4 rounded-full bg-gray-100 flex items-center justify-center">
+                            <Info className="h-3 w-3 text-gray-500" />
+                          </div>
                       </div>
                       <div className="flex items-center space-x-3">
                         <span className="text-4xl font-semibold text-gray-900">0.0</span>
-                        <div className="flex space-x-1">
+                          <div className="flex space-x-0.5">
                           {[1, 2, 3, 4, 5].map((star) => (
-                            <Star key={star} className="w-5 h-5 text-gray-300" />
+                              <Star key={star} className="w-5 h-5 text-gray-300 fill-none stroke-2" />
                           ))}
+                          </div>
                         </div>
                       </div>
 
-                      <div className="border border-gray-200 rounded-lg p-4">
-                        <div className="flex items-center justify-between">
+                      {/* Bottom Section - Total ratings */}
+                      <div className="p-4">
+                        <div className="flex items-center justify-between mb-4">
                           <span className="text-sm font-medium text-gray-900">Total ratings</span>
-                          <span className="text-2xl font-semibold text-gray-900">0</span>
+                          <div className="w-4 h-4 rounded-full bg-gray-100 flex items-center justify-center">
+                            <Info className="h-3 w-3 text-gray-500" />
                         </div>
                       </div>
-
-                      <div className="border border-gray-200 rounded-lg p-4">
-                        <div className="flex items-center justify-between mb-3">
-                          <span className="text-sm font-medium text-gray-900">Recent ratings</span>
-                        </div>
-                        <div className="text-center py-6">
-                          <p className="text-sm font-medium text-gray-900">No data to display</p>
-                          <p className="text-xs text-gray-500 mt-1">Try changing the date range filter at the top of the page</p>
-                        </div>
+                        <span className="text-4xl font-semibold text-gray-900">0</span>
                       </div>
                     </div>
 
-                    {/* Rating breakdown */}
-                    <div className="space-y-6">
-                      <div className="flex items-center justify-between">
+                    {/* Right Card - Rating breakdown */}
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-6">
                         <h3 className="text-sm font-medium text-gray-900">Rating breakdown</h3>
-                        <Info className="h-4 w-4 text-gray-400" />
+                        <div className="w-4 h-4 rounded-full bg-gray-100 flex items-center justify-center">
+                          <Info className="h-3 w-3 text-gray-500" />
                       </div>
-                      <div className="space-y-4">
-                        {ratingBreakdown.map((rating) => (
-                          <div key={rating.stars} className="flex items-center gap-4">
-                            <div className="flex items-center gap-2 w-20">
-                              <span className="text-sm font-medium text-gray-900">{rating.stars}</span>
-                              <Star className="w-4 h-4 text-gray-400" />
                             </div>
+                      <div className="space-y-4">
+                        {ratingBreakdown.map((rating) => {
+                          const maxCount = Math.max(...ratingBreakdown.map(r => r.count), 1)
+                          const percentage = maxCount > 0 ? (rating.count / maxCount) * 100 : 0
+                          return (
+                            <div key={rating.stars} className="flex items-center gap-3">
+                              <span className="text-sm font-medium text-gray-900 w-16">{rating.stars} star</span>
                             <div className="flex-1 bg-gray-200 rounded-full h-2 overflow-hidden">
-                              <div className="bg-blue-600 h-2 rounded-full" style={{ width: "0%" }}></div>
+                                {rating.count > 0 && (
+                                  <div 
+                                    className="bg-gray-400 h-2 rounded-full" 
+                                    style={{ width: `${percentage}%` }}
+                                  ></div>
+                                )}
                             </div>
                             <span className="text-sm font-medium text-gray-900 w-8 text-right">{rating.count}</span>
                           </div>
-                        ))}
+                          )
+                        })}
                       </div>
                     </div>
                   </div>
@@ -948,19 +1224,90 @@ const DashboardRedesigned = () => {
                     <div className="flex items-center justify-between mb-6">
                       <div className="flex items-center gap-2">
                         <h3 className="text-sm font-medium text-gray-900">Service territory performance</h3>
-                        <Info className="h-4 w-4 text-gray-400" />
+                        <div className="w-4 h-4 rounded-full bg-gray-100 flex items-center justify-center">
+                          <Info className="h-3 w-3 text-gray-500" />
                       </div>
-                      <div className="flex items-center gap-6 text-sm">
-                        <button className="font-medium text-gray-900">Number of jobs</button>
-                        <button className="text-gray-500">Job value</button>
                       </div>
+                      <div className="flex items-center gap-2 text-sm">
+                        <button
+                          type="button"
+                          onClick={() => setTerritoryViewMode('jobs')}
+                          className={`px-3 py-1.5 rounded-md font-medium transition-colors ${
+                            territoryViewMode === 'jobs'
+                              ? 'bg-blue-600 text-white'
+                              : 'text-gray-500 hover:text-gray-700'
+                          }`}
+                        >
+                          Number of jobs
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setTerritoryViewMode('value')}
+                          className={`px-3 py-1.5 rounded-md font-medium transition-colors ${
+                            territoryViewMode === 'value'
+                              ? 'bg-blue-600 text-white'
+                              : 'text-gray-500 hover:text-gray-700'
+                          }`}
+                        >
+                          Job value
+                        </button>
                     </div>
-                    <div className="border border-gray-200 rounded-lg p-12 text-center">
+                    </div>
+                    
+                    {territoryPerformance.length > 0 ? (
+                      <div className="bg-white border border-gray-200 rounded-lg p-4">
+                        <div className="space-y-4">
+                          {territoryPerformance.map((territory) => {
+                            const percentage = territoryViewMode === 'jobs' 
+                              ? territory.jobPercentage 
+                              : territory.valuePercentage
+                            const displayValue = territoryViewMode === 'jobs'
+                              ? `${territory.jobCount} job${territory.jobCount !== 1 ? 's' : ''}`
+                              : `$${territory.totalValue.toFixed(2)}`
+                            
+                            return (
+                              <div key={territory.id} className="flex items-center gap-3">
+                                <MapPin className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                <span className="text-sm font-medium text-gray-900 flex-shrink-0 min-w-[100px]">
+                                  {territory.name}
+                                </span>
+                                <span className="text-sm text-gray-600 flex-shrink-0">
+                                  {displayValue}
+                                </span>
+                                <div className="flex-1 bg-gray-200 rounded-full h-2 overflow-hidden">
+                                  <div 
+                                    className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                                    style={{ width: `${percentage}%` }}
+                                  ></div>
+                                </div>
+                                <span className="text-sm font-medium text-gray-900 flex-shrink-0 min-w-[60px] text-right">
+                                  {percentage.toFixed(1)}%
+                                </span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-white border border-gray-200 rounded-lg p-12 text-center">
                       <p className="text-sm font-medium text-gray-900">No data to display</p>
                       <p className="text-xs text-gray-500 mt-1">
-                        Enable <button className="text-blue-600 underline">service territories</button> to see a breakdown of job data by location
+                          {territories.length === 0 ? (
+                            <>
+                              Enable <button 
+                                type="button"
+                                onClick={() => navigate('/territories')}
+                                className="text-blue-600 underline hover:text-blue-700"
+                              >
+                                service territories
+                              </button> to see a breakdown of job data by location
+                            </>
+                          ) : (
+                            'No jobs assigned to territories in the selected date range'
+                          )}
                       </p>
                     </div>
+                    )}
                   </div>
                 </div>
               </div>

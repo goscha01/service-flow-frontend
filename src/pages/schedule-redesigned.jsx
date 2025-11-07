@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import Sidebar from "../components/sidebar-collapsible"
 import MobileHeader from "../components/mobile-header"
-import { teamAPI, territoriesAPI } from "../services/api"
+import { teamAPI, territoriesAPI, availabilityAPI } from "../services/api"
 import api from "../services/api"
 import { 
   Plus, 
@@ -24,7 +24,8 @@ import {
   CheckCircle,
   Play,
   XCircle,
-  ChevronDown
+  ChevronDown,
+  NotepadText
 } from "lucide-react"
 import { useAuth } from "../context/AuthContext"
 import { jobsAPI } from "../services/api"
@@ -36,6 +37,10 @@ const ServiceFlowSchedule = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [viewMode, setViewMode] = useState('day') // day, week, month
+  const [activeTab, setActiveTab] = useState('jobs') // jobs, availability
+  const [availabilityMonth, setAvailabilityMonth] = useState(new Date()) // Current month for availability view
+  const [userBusinessHours, setUserBusinessHours] = useState(null) // User's business hours from backend
+  const [isLoadingAvailability, setIsLoadingAvailability] = useState(false)
   const [jobs, setJobs] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [mapView, setMapView] = useState('roadmap') // roadmap, satellite
@@ -251,6 +256,50 @@ const ServiceFlowSchedule = () => {
     setFilteredJobs(filtered)
   }, [jobs, selectedFilter, statusFilter, timeRangeFilter, territoryFilter])
 
+  // Fetch user availability/business hours
+  const fetchUserAvailability = useCallback(async () => {
+    if (!user?.id) return
+    
+    try {
+      setIsLoadingAvailability(true)
+      const response = await availabilityAPI.getAvailability(user.id)
+      const businessHours = response.businessHours || response.business_hours
+      
+      if (businessHours) {
+        // Parse if it's a string
+        const parsedHours = typeof businessHours === 'string' 
+          ? JSON.parse(businessHours) 
+          : businessHours
+        setUserBusinessHours(parsedHours)
+      } else {
+        // Default business hours
+        setUserBusinessHours({
+          monday: { enabled: true, start: '09:00', end: '18:00' },
+          tuesday: { enabled: true, start: '09:00', end: '18:00' },
+          wednesday: { enabled: true, start: '09:00', end: '18:00' },
+          thursday: { enabled: true, start: '09:00', end: '18:00' },
+          friday: { enabled: true, start: '09:00', end: '18:00' },
+          saturday: { enabled: false, start: '09:00', end: '18:00' },
+          sunday: { enabled: false, start: '09:00', end: '18:00' }
+        })
+      }
+    } catch (error) {
+      console.error('Error fetching user availability:', error)
+      // Default business hours on error
+      setUserBusinessHours({
+        monday: { enabled: true, start: '09:00', end: '18:00' },
+        tuesday: { enabled: true, start: '09:00', end: '18:00' },
+        wednesday: { enabled: true, start: '09:00', end: '18:00' },
+        thursday: { enabled: true, start: '09:00', end: '18:00' },
+        friday: { enabled: true, start: '09:00', end: '18:00' },
+        saturday: { enabled: false, start: '09:00', end: '18:00' },
+        sunday: { enabled: false, start: '09:00', end: '18:00' }
+      })
+    } finally {
+      setIsLoadingAvailability(false)
+    }
+  }, [user])
+
   useEffect(() => {
     if (user?.id) {
       fetchJobs()
@@ -258,6 +307,13 @@ const ServiceFlowSchedule = () => {
       fetchTerritories()
     }
   }, [user, selectedDate, viewMode, fetchJobs, fetchTeamMembers, fetchTerritories])
+
+  // Fetch availability when switching to availability tab
+  useEffect(() => {
+    if (activeTab === 'availability' && user?.id && !userBusinessHours) {
+      fetchUserAvailability()
+    }
+  }, [activeTab, user, userBusinessHours, fetchUserAvailability])
 
   useEffect(() => {
     applyFilters()
@@ -293,7 +349,19 @@ const ServiceFlowSchedule = () => {
   }
 
   // Format status for display
-  const formatStatus = (status) => {
+  const isJobPast = (job) => {
+    if (!job.scheduled_date) return false
+    const scheduledDate = new Date(job.scheduled_date)
+    const now = new Date()
+    return scheduledDate < now
+  }
+
+  const formatStatus = (status, job = null) => {
+    // If job is past scheduled time and not completed, show "Late"
+    if (job && isJobPast(job) && status !== 'completed' && status !== 'cancelled') {
+      return 'Late'
+    }
+    
     const normalized = normalizeStatus(status)
     const statusMap = {
       'scheduled': 'Scheduled',
@@ -307,7 +375,12 @@ const ServiceFlowSchedule = () => {
   }
 
   // Get status color
-  const getStatusColor = (status) => {
+  const getStatusColor = (status, job = null) => {
+    // If job is past scheduled time and not completed, show orange for "Late"
+    if (job && isJobPast(job) && status !== 'completed' && status !== 'cancelled') {
+      return 'bg-orange-100 text-orange-800 border-orange-200'
+    }
+    
     const normalized = normalizeStatus(status)
     const colorMap = {
       'scheduled': 'bg-blue-100 text-blue-800 border-blue-200',
@@ -397,6 +470,149 @@ const ServiceFlowSchedule = () => {
 
   const getMonthDays = () => {
     return generateCalendarDays()
+  }
+
+  // Generate calendar days for availability view
+  const generateAvailabilityCalendarDays = (month) => {
+    const year = month.getFullYear()
+    const monthIndex = month.getMonth()
+    const firstDay = new Date(year, monthIndex, 1)
+    const startDate = new Date(firstDay)
+    startDate.setDate(startDate.getDate() - firstDay.getDay())
+    
+    const days = []
+    for (let i = 0; i < 42; i++) {
+      const date = new Date(startDate)
+      date.setDate(startDate.getDate() + i)
+      days.push(date)
+    }
+    return days
+  }
+
+  // Get business hours - prioritize user availability, fallback to territory
+  const getBusinessHours = () => {
+    // First, try to use user's business hours from backend
+    if (userBusinessHours) {
+      return userBusinessHours
+    }
+
+    // If territory is selected and has business hours, use that
+    if (territoryFilter !== 'all' && territoryFilter) {
+      const territory = territories.find(t => t.id === territoryFilter || t.id === parseInt(territoryFilter))
+      if (territory && territory.business_hours) {
+        try {
+          const hours = typeof territory.business_hours === 'string' 
+            ? JSON.parse(territory.business_hours) 
+            : territory.business_hours
+          return hours
+        } catch (error) {
+          console.error('Error parsing territory business hours:', error)
+        }
+      }
+    }
+
+    // Default business hours (Monday-Friday 9 AM - 6 PM)
+    return {
+      monday: { enabled: true, start: '09:00', end: '18:00' },
+      tuesday: { enabled: true, start: '09:00', end: '18:00' },
+      wednesday: { enabled: true, start: '09:00', end: '18:00' },
+      thursday: { enabled: true, start: '09:00', end: '18:00' },
+      friday: { enabled: true, start: '09:00', end: '18:00' },
+      saturday: { enabled: false, start: '09:00', end: '18:00' },
+      sunday: { enabled: false, start: '09:00', end: '18:00' }
+    }
+  }
+
+  // Check if a day has jobs scheduled
+  const getDayJobs = (date) => {
+    const dateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+    
+    return jobs.filter(job => {
+      if (!job.scheduled_date) return false
+      
+      let jobDateString = ''
+      if (job.scheduled_date.includes('T')) {
+        jobDateString = job.scheduled_date.split('T')[0]
+      } else if (job.scheduled_date.includes(' ')) {
+        jobDateString = job.scheduled_date.split(' ')[0]
+      } else {
+        jobDateString = job.scheduled_date
+      }
+      
+      return jobDateString === dateString && 
+             job.status !== 'cancelled' && 
+             job.status !== 'completed'
+    })
+  }
+
+  // Check if a day is open and get hours, considering jobs
+  const getDayAvailability = (date) => {
+    const dayOfWeek = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][date.getDay()]
+    const hours = getBusinessHours()
+    const dayHours = hours[dayOfWeek] || { enabled: false, start: '09:00', end: '18:00' }
+    
+    // Check for jobs on this day
+    const dayJobs = getDayJobs(date)
+    
+    if (!dayHours.enabled) {
+      return { isOpen: false, hours: null, jobCount: dayJobs.length }
+    }
+
+    // Format hours (e.g., "09:00" -> "9 AM", "18:00" -> "6 PM")
+    const formatTime = (time24) => {
+      const [hours] = time24.split(':')
+      const hour = parseInt(hours)
+      const ampm = hour >= 12 ? 'PM' : 'AM'
+      const hour12 = hour % 12 || 12
+      return `${hour12} ${ampm}`
+    }
+
+    return {
+      isOpen: true,
+      hours: `${formatTime(dayHours.start)} - ${formatTime(dayHours.end)}`,
+      jobCount: dayJobs.length,
+      hasJobs: dayJobs.length > 0
+    }
+  }
+
+  // Navigate availability month
+  const navigateAvailabilityMonth = (direction) => {
+    const newMonth = new Date(availabilityMonth)
+    newMonth.setMonth(availabilityMonth.getMonth() + direction)
+    setAvailabilityMonth(newMonth)
+    // Sync selectedDate to first day of new month
+    const firstDay = new Date(newMonth.getFullYear(), newMonth.getMonth(), 1)
+    setSelectedDate(firstDay)
+  }
+
+  // Navigate availability date (day by day)
+  const navigateAvailabilityDate = (direction) => {
+    const newDate = new Date(selectedDate)
+    newDate.setDate(selectedDate.getDate() + direction)
+    setSelectedDate(newDate)
+    // Sync availabilityMonth if we cross month boundary
+    if (newDate.getMonth() !== availabilityMonth.getMonth() || newDate.getFullYear() !== availabilityMonth.getFullYear()) {
+      setAvailabilityMonth(new Date(newDate.getFullYear(), newDate.getMonth(), 1))
+    }
+  }
+
+  // Format date for display (e.g., "Wed, Nov 5, 2025")
+  const formatDateDisplay = (date) => {
+    return date.toLocaleDateString('en-US', { 
+      weekday: 'short', 
+      month: 'short', 
+      day: 'numeric', 
+      year: 'numeric' 
+    })
+  }
+
+  // Get selected territory name
+  const getSelectedTerritoryName = () => {
+    if (territoryFilter === 'all' || !territoryFilter) {
+      return null
+    }
+    const territory = territories.find(t => t.id === territoryFilter || t.id === parseInt(territoryFilter))
+    return territory?.name || null
   }
 
   const toggleDayExpansion = (dayKey) => {
@@ -925,20 +1141,15 @@ const ServiceFlowSchedule = () => {
       `}</style>
       <div className="min-h-screen bg-gray-50 flex">
       {/* Sidebar - Always Collapsed */}
-      <Sidebar 
-        isOpen={sidebarOpen} 
-        onClose={() => setSidebarOpen(false)}
-        forceCollapsed={true}
-      />
-
+     
       {/* Main Content */}
-      <div className="flex-1 flex min-w-0 ml-20">
+      <div className="flex-1 flex min-w-0 ">
         {/* Filter Sidebar - Hidden on mobile */}
-        <div className="hidden lg:flex w-64 bg-white border-r border-gray-200 flex-shrink-0 flex-col h-screen">
+        <div className="hidden lg:flex w-56 bg-white border-r border-gray-200 flex-shrink-0 flex-col h-screen">
           {/* Fixed Header */}
           <div className="p-4 border-b border-gray-200 flex-shrink-0">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">Schedule</h2>
+              <h2 style={{fontFamily: 'ProximaNova-Bold'}} className="text-2xl font-bold text-gray-900">Schedule</h2>
               <button 
                 onClick={() => {
                   // Navigate to create new job page
@@ -951,25 +1162,50 @@ const ServiceFlowSchedule = () => {
               </button>
             </div>
           </div>
-          
+          <div className="p-1 border-b bg-gray-100 border-gray-200 flex-shrink-0 flex justify-center items-center">
+            <div className="relative bg-gray-50 rounded-2xl p-1 inline-flex gap-1">
+              <button
+                type="button"
+                onClick={() => setActiveTab('jobs')}
+                className={`relative px-2 py-1 rounded-xl text-xs font-medium transition-all duration-200 whitespace-nowrap ${
+                  activeTab === 'jobs'
+                    ? 'text-blue-600 bg-white'
+                    : 'text-gray-900'
+                }`}
+              >
+                Jobs
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('availability')}
+                className={`relative px-2 py-1 rounded-xl text-xs font-medium transition-all duration-200 whitespace-nowrap ${
+                  activeTab === 'availability'
+                    ? 'text-blue-600 bg-white'
+                    : 'text-gray-900'
+                }`}
+              >
+                Availability
+              </button>
+            </div>
+          </div>
           {/* Scrollable Filter Content */}
-          <div className="flex-1 overflow-y-auto p-4 scrollbar-hide">
+          <div className="flex-1 bg-gray-100 overflow-y-auto p-2 scrollbar-hide">
             
             {/* Assignment Filter */}
             <div className="mb-6">
-              <h3 className="text-sm font-semibold text-gray-700 mb-3">JOBS ASSIGNED TO</h3>
+              <h3 className="text-xs font-semibold text-gray-700 mb-3 justify-self-center items-center">JOBS ASSIGNED TO</h3>
               
               {/* All Jobs Filter */}
               <button
                 onClick={() => setSelectedFilter('all')}
-                className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors mb-2 ${
+                className={`w-full flex items-center space-x-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors mb-2 ${
                   selectedFilter === 'all' 
-                    ? 'bg-blue-50 text-blue-700' 
+                    ? 'bg-white text-blue-700' 
                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                 }`}
               >
-                <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
-                  <Users className="w-4 h-4 text-blue-600" />
+                <div className="w-5 h-5 bg-blue-100 rounded-full flex items-center justify-center">
+                  <Users className="w-3 h-3 text-blue-600" />
                 </div>
                 <span>All Jobs</span>
               </button>
@@ -977,14 +1213,14 @@ const ServiceFlowSchedule = () => {
               {/* Unassigned Filter */}
               <button
                 onClick={() => setSelectedFilter('unassigned')}
-                className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors mb-2 ${
+                className={`w-full flex items-center space-x-1 px-2 py-1 rounded-lg text-sm font-medium transition-colors mb-2 ${
                   selectedFilter === 'unassigned' 
-                    ? 'bg-blue-50 text-blue-700' 
+                   ? 'bg-white text-blue-700' 
                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                 }`}
               >
-                <div className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center">
-                  <User className="w-4 h-4 text-gray-600" />
+                <div className="w-5 h-5 bg-gray-100 rounded-full flex items-center justify-center">
+                  <User className="w-3 h-3 text-gray-600" />
                 </div>
                 <span>Unassigned</span>
               </button>
@@ -994,14 +1230,14 @@ const ServiceFlowSchedule = () => {
                 <button
                   key={member.id}
                   onClick={() => setSelectedFilter(member.id)}
-                  className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors mb-2 ${
+                  className={`w-full flex items-center space-x-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors mb-2 ${
                     selectedFilter === member.id 
-                      ? 'bg-blue-50 text-blue-700' 
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                      ? 'bg-white text-blue-700' 
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                   }`}
                 >
-                  <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center">
-                    <span className="text-white text-xs font-bold">
+                  <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-[8px] font-semibold">
                       {member.first_name?.charAt(0)}{member.last_name?.charAt(0)}
                     </span>
                   </div>
@@ -1012,21 +1248,21 @@ const ServiceFlowSchedule = () => {
 
             {/* Status Filter */}
             <div className="mb-6">
-              <h3 className="text-sm font-semibold text-gray-700 mb-3">STATUS</h3>
+              <h3 className="text-xs font-semibold text-gray-700 mb-3 justify-self-center items-center">STATUS</h3>
               
               {/* All Statuses */}
               <button
                 onClick={() => setStatusFilter('all')}
-                className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors mb-2 ${
+                className={`w-full flex items-center space-x-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors mb-2 ${
                   statusFilter === 'all' 
-                    ? 'bg-blue-50 text-blue-700 border border-blue-200' 
+                    ? 'bg-white text-blue-700' 
                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                 }`}
               >
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
                   statusFilter === 'all' ? 'bg-blue-100' : 'bg-gray-100'
                 }`}>
-                  <Filter className={`w-4 h-4 ${statusFilter === 'all' ? 'text-blue-600' : 'text-gray-600'}`} />
+                  <Filter className={`w-3 h-3 ${statusFilter === 'all' ? 'text-blue-600' : 'text-gray-600'}`} />
                 </div>
                 <span>All Statuses</span>
               </button>
@@ -1034,14 +1270,14 @@ const ServiceFlowSchedule = () => {
               {/* Pending */}
               <button
                 onClick={() => setStatusFilter('pending')}
-                className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors mb-2 ${
+                className={`w-full flex items-center space-x-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors mb-2 ${
                   statusFilter === 'pending' 
-                    ? 'bg-blue-50 text-blue-700 border border-blue-200' 
+                   ? 'bg-white text-blue-700' 
                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                 }`}
               >
-                <div className="w-6 h-6 bg-yellow-100 rounded-full flex items-center justify-center">
-                  <AlertTriangle className="w-4 h-4 text-yellow-600" />
+                <div className="w-5 h-5 bg-yellow-100 rounded-full flex items-center justify-center">
+                  <AlertTriangle className="w-3 h-3 text-yellow-600" />
                 </div>
                 <span>Pending</span>
               </button>
@@ -1049,14 +1285,14 @@ const ServiceFlowSchedule = () => {
               {/* Confirmed */}
               <button
                 onClick={() => setStatusFilter('confirmed')}
-                className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors mb-2 ${
+                className={`w-full flex items-center space-x-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors mb-2 ${
                   statusFilter === 'confirmed' 
-                    ? 'bg-blue-50 text-blue-700 border border-blue-200' 
+                    ? 'bg-white text-blue-700' 
                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                 }`}
               >
-                <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
-                  <CheckCircle className="w-4 h-4 text-blue-600" />
+                <div className="w-5 h-5 bg-blue-100 rounded-full flex items-center justify-center">
+                  <CheckCircle className="w-3 h-3 text-blue-600" />
                 </div>
                 <span>Confirmed</span>
               </button>
@@ -1064,14 +1300,14 @@ const ServiceFlowSchedule = () => {
               {/* In Progress */}
               <button
                 onClick={() => setStatusFilter('in_progress')}
-                className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors mb-2 ${
+                className={`w-full flex items-center space-x-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors mb-2 ${
                   statusFilter === 'in_progress' 
-                    ? 'bg-blue-50 text-blue-700 border border-blue-200' 
+                    ? 'bg-white text-blue-700' 
                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                 }`}
               >
-                <div className="w-6 h-6 bg-orange-100 rounded-full flex items-center justify-center">
-                  <Play className="w-4 h-4 text-orange-600" />
+                <div className="w-5 h-5 bg-orange-100 rounded-full flex items-center justify-center">
+                  <Play className="w-3 h-3 text-orange-600" />
                 </div>
                 <span>In Progress</span>
               </button>
@@ -1079,14 +1315,14 @@ const ServiceFlowSchedule = () => {
               {/* Completed */}
               <button
                 onClick={() => setStatusFilter('completed')}
-                className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors mb-2 ${
+                className={`w-full flex items-center space-x-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors mb-2 ${
                   statusFilter === 'completed' 
-                    ? 'bg-blue-50 text-blue-700 border border-blue-200' 
+                    ? 'bg-white text-blue-700' 
                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                 }`}
               >
-                <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
-                  <CheckCircle className="w-4 h-4 text-green-600" />
+                <div className="w-5 h-5 bg-green-100 rounded-full flex items-center justify-center">
+                  <CheckCircle className="w-3 h-3 text-green-600" />
                 </div>
                 <span>Completed</span>
               </button>
@@ -1094,14 +1330,14 @@ const ServiceFlowSchedule = () => {
               {/* Cancelled */}
               <button
                 onClick={() => setStatusFilter('cancelled')}
-                className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors mb-2 ${
+                className={`w-full flex items-center space-x-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors mb-2 ${
                   statusFilter === 'cancelled' 
-                    ? 'bg-blue-50 text-blue-700 border border-blue-200' 
+                   ? 'bg-white text-blue-700' 
                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                 }`}
               >
-                <div className="w-6 h-6 bg-red-100 rounded-full flex items-center justify-center">
-                  <XCircle className="w-4 h-4 text-red-600" />
+                <div className="w-5 h-5 bg-red-100 rounded-full flex items-center justify-center">
+                  <XCircle className="w-3 h-3 text-red-600" />
                 </div>
                 <span>Cancelled</span>
               </button>
@@ -1109,21 +1345,21 @@ const ServiceFlowSchedule = () => {
 
             {/* Territory Filter */}
             <div className="mb-6">
-              <h3 className="text-sm font-semibold text-gray-700 mb-3">TERRITORIES</h3>
+              <h3 className="text-xs font-semibold text-gray-700 mb-3 justify-self-center items-center">TERRITORIES</h3>
               
               {/* All Territories */}
               <button
                 onClick={() => setTerritoryFilter('all')}
-                className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors mb-2 ${
+                className={`w-full flex items-center space-x-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors mb-2 ${
                   territoryFilter === 'all' 
-                    ? 'bg-blue-50 text-blue-700 border border-blue-200' 
+                   ? 'bg-white text-blue-700' 
                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                 }`}
               >
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
                   territoryFilter === 'all' ? 'bg-blue-100' : 'bg-gray-100'
                 }`}>
-                  <MapPin className={`w-4 h-4 ${territoryFilter === 'all' ? 'text-blue-600' : 'text-gray-600'}`} />
+                  <MapPin className={`w-3 h-3 ${territoryFilter === 'all' ? 'text-blue-600' : 'text-gray-600'}`} />
                 </div>
                 <span>All Territories</span>
               </button>
@@ -1133,16 +1369,16 @@ const ServiceFlowSchedule = () => {
                 <button
                   key={territory.id}
                   onClick={() => setTerritoryFilter(territory.id)}
-                  className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors mb-2 ${
+                  className={`w-full flex items-center space-x-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors mb-2 ${
                     territoryFilter === territory.id 
                       ? 'bg-blue-50 text-blue-700 border border-blue-200' 
                       : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                   }`}
                 >
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
                     territoryFilter === territory.id ? 'bg-blue-100' : 'bg-gray-100'
                   }`}>
-                    <MapPin className={`w-4 h-4 ${territoryFilter === territory.id ? 'text-blue-600' : 'text-gray-600'}`} />
+                    <MapPin className={`w-3 h-3 ${territoryFilter === territory.id ? 'text-blue-600' : 'text-gray-600'}`} />
                   </div>
                   <span>{territory.name}</span>
                 </button>
@@ -1151,21 +1387,21 @@ const ServiceFlowSchedule = () => {
 
             {/* Time Range Filter */}
             <div className="mb-6">
-              <h3 className="text-sm font-semibold text-gray-700 mb-3">TIME RANGE</h3>
+              <h3 className="text-xs font-semibold text-gray-700 mb-3 justify-self-center items-center">TIME RANGE</h3>
               
               {/* All Day */}
               <button
                 onClick={() => setTimeRangeFilter('all')}
-                className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors mb-2 ${
+                className={`w-full flex items-center space-x-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors mb-2 ${
                   timeRangeFilter === 'all' 
-                    ? 'bg-blue-50 text-blue-700 border border-blue-200' 
+                    ? 'bg-white text-blue-700' 
                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                 }`}
               >
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
                   timeRangeFilter === 'all' ? 'bg-blue-100' : 'bg-gray-100'
                 }`}>
-                  <Calendar className={`w-4 h-4 ${timeRangeFilter === 'all' ? 'text-blue-600' : 'text-gray-600'}`} />
+                  <Calendar className={`w-3 h-3 ${timeRangeFilter === 'all' ? 'text-blue-600' : 'text-gray-600'}`} />
                 </div>
                 <span>All Day</span>
               </button>
@@ -1173,16 +1409,16 @@ const ServiceFlowSchedule = () => {
               {/* Morning */}
               <button
                 onClick={() => setTimeRangeFilter('morning')}
-                className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors mb-2 ${
+                className={`w-full flex items-center space-x-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors mb-2 ${
                   timeRangeFilter === 'morning' 
-                    ? 'bg-blue-50 text-blue-700 border border-blue-200' 
+                    ? 'bg-white text-blue-700' 
                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                 }`}
               >
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
                   timeRangeFilter === 'morning' ? 'bg-blue-100' : 'bg-gray-100'
                 }`}>
-                  <Clock className={`w-4 h-4 ${timeRangeFilter === 'morning' ? 'text-blue-600' : 'text-gray-600'}`} />
+                  <Clock className={`w-3 h-3 ${timeRangeFilter === 'morning' ? 'text-blue-600' : 'text-gray-600'}`} />
                 </div>
                 <span>Morning (Before 12 PM)</span>
               </button>
@@ -1190,16 +1426,16 @@ const ServiceFlowSchedule = () => {
               {/* Afternoon */}
               <button
                 onClick={() => setTimeRangeFilter('afternoon')}
-                className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors mb-2 ${
+                className={`w-full flex items-center space-x-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors mb-2 ${
                   timeRangeFilter === 'afternoon' 
-                    ? 'bg-blue-50 text-blue-700 border border-blue-200' 
+                   ? 'bg-white text-blue-700' 
                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                 }`}
               >
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
                   timeRangeFilter === 'afternoon' ? 'bg-blue-100' : 'bg-gray-100'
                 }`}>
-                  <Clock className={`w-4 h-4 ${timeRangeFilter === 'afternoon' ? 'text-blue-600' : 'text-gray-600'}`} />
+                  <Clock className={`w-3 h-3 ${timeRangeFilter === 'afternoon' ? 'text-blue-600' : 'text-gray-600'}`} />
                 </div>
                 <span>Afternoon (12 PM - 5 PM)</span>
               </button>
@@ -1207,16 +1443,16 @@ const ServiceFlowSchedule = () => {
               {/* Evening */}
               <button
                 onClick={() => setTimeRangeFilter('evening')}
-                className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors mb-2 ${
+                className={`w-full flex items-center space-x-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors mb-2 ${
                   timeRangeFilter === 'evening' 
-                    ? 'bg-blue-50 text-blue-700 border border-blue-200' 
+                   ? 'bg-white text-blue-700' 
                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                 }`}
               >
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
                   timeRangeFilter === 'evening' ? 'bg-blue-100' : 'bg-gray-100'
                 }`}>
-                  <Clock className={`w-4 h-4 ${timeRangeFilter === 'evening' ? 'text-blue-600' : 'text-gray-600'}`} />
+                  <Clock className={`w-3 h-3 ${timeRangeFilter === 'evening' ? 'text-blue-600' : 'text-gray-600'}`} />
                 </div>
                 <span>Evening (After 5 PM)</span>
               </button>
@@ -1231,134 +1467,165 @@ const ServiceFlowSchedule = () => {
 
         {/* Top Header Bar */}
         <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
-            {/* Left side - Date navigation */}
-            <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
-              <div className="flex items-center space-x-2 relative">
-                <button 
-                  onClick={() => navigateDate(-1)}
-                  className="p-1 hover:bg-gray-100 rounded"
+          {activeTab === 'availability' ? (
+            /* Availability View Header */
+            <div className="flex items-center justify-between">
+              {/* Left - Month Navigation (Pill Shape) */}
+              <div className="flex items-center bg-gray-200 rounded-full px-3 py-1.5">
+                <button
+                  onClick={() => navigateAvailabilityMonth(-1)}
+                  className="p-1 hover:bg-gray-300 rounded-full transition-colors"
                 >
-                  <ChevronLeft className="w-4 h-4" />
+                  <ChevronLeft className="w-4 h-4 text-gray-700" />
                 </button>
-                <button 
-                  onClick={() => setShowCalendar(!showCalendar)}
-                  className="text-xs sm:text-sm font-medium text-gray-900 min-w-[120px] sm:min-w-[140px] text-center hover:bg-gray-100 rounded px-2 py-1 transition-colors"
+                <span className="text-sm font-semibold text-gray-900 mx-3">
+                  {availabilityMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                </span>
+                <button
+                  onClick={() => navigateAvailabilityMonth(1)}
+                  className="p-1 hover:bg-gray-300 rounded-full transition-colors"
                 >
-                  {formatDate(selectedDate)}
+                  <ChevronRight className="w-4 h-4 text-gray-700" />
                 </button>
-                <button 
-                  onClick={() => navigateDate(1)}
-                  className="p-1 hover:bg-gray-100 rounded"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-
-                {/* Calendar Popup */}
-                {showCalendar && (
-                  <div ref={calendarRef} className="absolute top-full left-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 p-4 w-72 sm:w-80">
-                    <div className="grid grid-cols-7 gap-1">
-                      {/* Calendar Header */}
-                      <div className="col-span-7 flex items-center justify-between mb-2">
-                        <button 
-                          onClick={() => {
-                            const newDate = new Date(selectedDate)
-                            newDate.setMonth(newDate.getMonth() - 1)
-                            setSelectedDate(newDate)
-                          }}
-                          className="p-1 hover:bg-gray-100 rounded"
-                        >
-                          <ChevronLeft className="w-4 h-4" />
-                        </button>
-                        <span className="text-sm font-medium">
-                          {selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-                        </span>
-                        <button 
-                          onClick={() => {
-                            const newDate = new Date(selectedDate)
-                            newDate.setMonth(newDate.getMonth() + 1)
-                            setSelectedDate(newDate)
-                          }}
-                          className="p-1 hover:bg-gray-100 rounded"
-                        >
-                          <ChevronRight className="w-4 h-4" />
-                        </button>
-                      </div>
-
-                      {/* Day Headers */}
-                      {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(day => (
-                        <div key={day} className="text-xs font-medium text-gray-500 text-center py-1">
-                          {day}
-                        </div>
-                      ))}
-
-                      {/* Calendar Days */}
-                      {generateCalendarDays().map((day, index) => {
-                        const isCurrentMonth = day.getMonth() === selectedDate.getMonth()
-                        const isSelected = day.toDateString() === selectedDate.toDateString()
-                        const isToday = day.toDateString() === new Date().toDateString()
-                        
-                        return (
-                          <button
-                            key={index}
-                            onClick={() => handleDateChange(day)}
-                            className={`text-xs p-2 rounded hover:bg-gray-100 transition-colors ${
-                              isCurrentMonth ? 'text-gray-900' : 'text-gray-400'
-                            } ${
-                              isSelected ? 'bg-blue-600 text-white hover:bg-blue-700' : ''
-                            } ${
-                              isToday && !isSelected ? 'bg-blue-50 text-blue-600' : ''
-                            }`}
-                          >
-                            {day.getDate()}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
               </div>
-            </div>
 
-            {/* Center - View mode selector */}
-            <div className="flex items-center space-x-1 bg-gray-100 rounded-lg p-1 w-full sm:w-auto justify-center">
-              <button
-                onClick={() => setViewMode('day')}
-                className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-md transition-colors flex-1 sm:flex-none ${
-                  viewMode === 'day' 
-                    ? 'bg-white text-gray-900 shadow-sm' 
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                Day
-              </button>
-              <button
-                onClick={() => setViewMode('week')}
-                className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-md transition-colors flex-1 sm:flex-none ${
-                  viewMode === 'week' 
-                    ? 'bg-white text-gray-900 shadow-sm' 
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                Week
-              </button>
-              <button
-                onClick={() => setViewMode('month')}
-                className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-md transition-colors flex-1 sm:flex-none ${
-                  viewMode === 'month' 
-                    ? 'bg-white text-gray-900 shadow-sm' 
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                Month
-              </button>
+              {/* Right - Territory Name */}
+              {getSelectedTerritoryName() && (
+                <div className="flex items-center space-x-2 text-gray-700">
+                  <MapPin className="w-4 h-4" />
+                  <span className="text-sm font-medium">{getSelectedTerritoryName()} Hours</span>
+                </div>
+              )}
             </div>
+          ) : ( 
+            /* Jobs View Header */
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
+              {/* Left side - Date navigation */}
+              <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
+                <div className="flex items-center space-x-2 relative bg-gray-100 rounded-full p-1">
+                  <button 
+                    onClick={() => navigateDate(-1)}
+                    className=" hover:text-blue-600 rounded"
+                  >
+                    <ChevronLeft className="w-6 h-6" />
+                  </button>
+                  <button 
+                    onClick={() => setShowCalendar(!showCalendar)}
+                    className="text-xs sm:text-sm font-medium hover:text-blue-600 text-gray-900 min-w-[120px] sm:min-w-[140px] text-center shadow-sm bg-white rounded-full px-3 py-2 transition-colors"
+                  >
+                    {formatDate(selectedDate)}
+                  </button>
+                <button 
+                    onClick={() => navigateDate(1)}
+                    className=" hover:text-blue-600 rounded"
+                  >
+                    <ChevronRight className="w-6 h-6" />
+                  </button>
 
-            {/* Right side - Full screen button */}
-            <button className="p-2 hover:bg-gray-100 rounded">
-              <Maximize2 className="w-4 h-4" />
-            </button>
-          </div>
+                  {/* Calendar Popup */}
+                  {showCalendar && (
+                    <div ref={calendarRef} className="absolute top-full left-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 p-4 w-72 sm:w-80">
+                      <div className="grid grid-cols-7 gap-1">
+                        {/* Calendar Header */}
+                        <div className="col-span-7 flex items-center justify-between mb-2">
+                          <button 
+                            onClick={() => {
+                              const newDate = new Date(selectedDate)
+                              newDate.setMonth(newDate.getMonth() - 1)
+                              setSelectedDate(newDate)
+                            }}
+                            className="p-1 hover:bg-gray-100 rounded"
+                          >
+                            <ChevronLeft className="w-4 h-4" />
+                          </button>
+                          <span className="text-sm font-medium">
+                            {selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                          </span>
+                          <button 
+                            onClick={() => {
+                              const newDate = new Date(selectedDate)
+                              newDate.setMonth(newDate.getMonth() + 1)
+                              setSelectedDate(newDate)
+                            }}
+                            className="p-1 hover:bg-gray-100 rounded"
+                          >
+                            <ChevronRight className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        {/* Day Headers */}
+                        {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(day => (
+                          <div key={day} className="text-xs font-medium text-gray-500 text-center py-1">
+                            {day}
+                          </div>
+                        ))}
+
+                        {/* Calendar Days */}
+                        {generateCalendarDays().map((day, index) => {
+                          const isCurrentMonth = day.getMonth() === selectedDate.getMonth()
+                          const isSelected = day.toDateString() === selectedDate.toDateString()
+                          const isToday = day.toDateString() === new Date().toDateString()
+                          
+                          return (
+                            <button
+                              key={index}
+                              onClick={() => handleDateChange(day)}
+                              className={`text-xs p-2 rounded hover:bg-gray-100 transition-colors ${
+                                isCurrentMonth ? 'text-gray-900' : 'text-gray-400'
+                              } ${
+                                isSelected ? 'bg-blue-600 text-white hover:bg-blue-700' : ''
+                              } ${
+                                isToday && !isSelected ? 'bg-blue-50 text-blue-600' : ''
+                              }`}
+                            >
+                              {day.getDate()}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Center - View mode selector */}
+              <div className="flex items-center space-x-1 bg-gray-100 rounded-lg p-1 w-full sm:w-auto justify-center">
+                <button
+                  onClick={() => setViewMode('day')}
+                  className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-md transition-colors flex-1 sm:flex-none ${
+                    viewMode === 'day' 
+                      ? 'bg-white text-gray-900 shadow-sm' 
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                  
+                >
+                  Day
+                </button>
+                <button
+                  onClick={() => setViewMode('week')}
+                  className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-md transition-colors flex-1 sm:flex-none ${
+                    viewMode === 'week' 
+                      ? 'bg-white text-gray-900 shadow-sm' 
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Week
+                </button>
+                <button
+                  onClick={() => setViewMode('month')}
+                  className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-md transition-colors flex-1 sm:flex-none ${
+                    viewMode === 'month' 
+                      ? 'bg-white text-gray-900 shadow-sm' 
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Month
+                </button>
+              </div>
+
+             
+            </div>
+          )}
         </div>
 
         {/* Mobile Filter Bar */}
@@ -1434,23 +1701,89 @@ const ServiceFlowSchedule = () => {
 
         {/* Main Content Area */}
         <div className="flex-1 flex">
-          {/* Left Panel - Job Details or Calendar View */}
-          <div className={`${viewMode === 'day' ? 'w-full lg:w-1/2' : 'w-full'} p-4 sm:p-6 space-y-6 bg-gray-50`}>
+          {/* Availability View */}
+          {activeTab === 'availability' ? (
+            <div className="w-full h-full flex flex-col bg-gray-50">
+              {/* Calendar Grid - Full Height */}
+              <div className="flex-1 overflow-auto ">
+                <div className="bg-white  h-full">
+                  <div className="grid grid-cols-7 divide-x divide-gray-200 h-full">
+                    {/* Days of Week Header */}
+                    {['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'].map((day) => (
+                      <div key={day} className="text-center p-2 border-b border-gray-200 text-xs font-semibold text-gray-700 py-2 border-b border-gray-200">
+                        {day}
+                      </div>
+                    ))}
+                    
+                    {/* Calendar Days */}
+                    {generateAvailabilityCalendarDays(availabilityMonth).map((day, index) => {
+                      const isCurrentMonth = day.getMonth() === availabilityMonth.getMonth()
+                      const availability = getDayAvailability(day)
+                      const isSelected = day.toDateString() === selectedDate.toDateString()
+                      
+                      if (!isCurrentMonth) {
+                        return (
+                          <div key={index} className="min-h-[120px]"></div>
+                        )
+                      }
+
+                      return (
+                        <div
+                          key={index}
+                          className={`min-h-[120px] border border-gray-200 p-2 ${
+                            isSelected 
+                              ? 'border-blue-500 bg-blue-50' 
+                              : availability.isOpen 
+                                ? 'bg-white' 
+                                : 'bg-gray-50'
+                          }`}
+                          style={!availability.isOpen && !isSelected ? {
+                            backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(0,0,0,.05) 7px, rgba(0,0,0,.05) 9px)'
+                          } : {}}
+                        >
+                          <div className={`text-sm font-semibold mb-1 ${
+                            isSelected ? 'text-blue-900' : 'text-gray-900'
+                          }`}>
+                            {day.getDate()}
+                          </div>
+                          {availability.isOpen ? (
+                            <>
+                              <div className="text-xs font-medium text-green-600 mb-1">Open</div>
+                              <div className="text-xs text-gray-600 mb-1">{availability.hours}</div>
+                              {availability.hasJobs && (
+                                <div className="text-xs font-medium text-orange-600 mt-1">
+                                  {availability.jobCount} job{availability.jobCount !== 1 ? 's' : ''}
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            <div className="text-xs font-medium text-gray-500">Closed</div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* Left Panel - Job Details or Calendar View */
+            <div className={`${viewMode === 'day' ? 'w-full lg:w-1/2' : 'w-full'} ${viewMode === 'day' ? 'flex flex-col h-[calc(100vh-200px)]' : 'space-y-6'} bg-gray-50`}>
             {/* Summary Statistics (only in day view) */}
             {viewMode === 'day' && (
-              <div className="bg-white rounded-lg border border-gray-200 p-4">
+              <div className="flex-shrink-0 py-4 px-6 bg-white border-b border-gray-200">
                 <div className="flex items-center justify-between">
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-gray-900">{stats.jobs}</div>
-                    <div className="text-sm text-gray-600">On the schedule</div>
+                    <div className="text-lg font-semibold text-gray-900">{stats.jobs}</div>
+                    <div className="text-xs text-gray-600">On the schedule</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-gray-900">{stats.duration}</div>
-                    <div className="text-sm text-gray-600">Est. duration</div>
+                    <div className="text-lg font-semibold text-gray-900">{stats.duration}</div>
+                    <div className="text-xs text-gray-600">Est. duration</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-gray-900">{stats.earnings}</div>
-                    <div className="text-sm text-gray-600">Est. earnings</div>
+                    <div className="text-lg font-semibold text-gray-900">{stats.earnings}</div>
+                    <div className="text-xs text-gray-600">Est. earnings</div>
                   </div>
                 </div>
               </div>
@@ -1458,9 +1791,8 @@ const ServiceFlowSchedule = () => {
 
             {/* Calendar Grid Views */}
             {viewMode === 'week' && (
-              <div className="bg-white rounded-lg border border-gray-200 p-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Weekly View</h3>
-                <div className="grid grid-cols-7 gap-2">
+              <div className="h-[calc(100vh-200px)]">
+               <div className="grid grid-cols-7 divide-x divide-gray-200 h-full">
                   {getWeekDays().map((day, index) => {
                     const dayJobs = filteredJobs.filter(job => {
                       if (!job.scheduled_date) return false
@@ -1482,7 +1814,7 @@ const ServiceFlowSchedule = () => {
                     return (
                       <div 
                         key={index} 
-                        className={`border rounded-lg p-2 min-h-[120px] cursor-pointer transition-colors ${
+                        className={` min-h-[120px] cursor-pointer transition-colors ${
                           isSelected 
                             ? 'border-blue-500 bg-blue-50' 
                             : isToday 
@@ -1491,14 +1823,14 @@ const ServiceFlowSchedule = () => {
                         }`}
                         onClick={() => handleDayClick(day)}
                       >
-                        <div className={`text-xs font-medium mb-2 ${
+                        <div className={`text-xs p-3 border-b border-gray-200 font-medium mb-2 uppercase text-center ${
                           isSelected ? 'text-blue-900 font-semibold' : 'text-gray-600'
-                        }`}>
+                        }`}  style={{fontFamily: 'ProximaNova-Bold'}}>
                           {day.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
                         </div>
                         {dayJobs.map((job, jobIndex) => {
-                          const statusColor = getStatusColor(job.status)
-                          const statusDisplay = formatStatus(job.status)
+                          const statusColor = getStatusColor(job.status, job)
+                          const statusDisplay = formatStatus(job.status, job)
                           const jobTime = new Date(job.scheduled_date)
                           const timeString = jobTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
                           const assignedTeamMember = teamMembers.find(m => m.id === job.assigned_team_member_id || m.id === job.team_member_id)
@@ -1510,23 +1842,32 @@ const ServiceFlowSchedule = () => {
                           return (
                             <div 
                               key={jobIndex} 
-                              className={`${statusColor} rounded p-2 mb-1 text-xs cursor-pointer hover:opacity-80 transition-opacity border`}
+                              className={`${statusColor} rounded-sm m-2 p-1 mb-1 text-xs cursor-pointer hover:opacity-80 transition-opacity border`}
                               onClick={(e) => {
                                 e.stopPropagation()
                                 handleJobClick(job)
                               }}
                             >
-                              <div className="flex items-center justify-between mb-1">
+                              <div className="flex items-center justify-between">
                                 <div className="font-medium truncate">{timeString}</div>
-                                <div className="flex items-center space-x-1">
+                                <div className="flex items-center ">
                                   {territoryName && (
                                     <span className="text-[10px] text-blue-600 font-medium truncate max-w-[60px]">
                                       {territoryName}
                                     </span>
                                   )}
-                                  {assignedTeamMember ? (
+                                  
+                                </div>
+                              </div>
+                              <div 
+                                className="truncate font-medium cursor-pointer hover:text-blue-600 transition-colors"
+                                onClick={(e) => handleCustomerClick(e, job.customer_id || job.customer?.id || job.customers?.id)}
+                              >
+                                {customerName}
+                              </div>
+                              {assignedTeamMember ? (
                                     <div 
-                                      className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-white text-[10px] font-medium flex-shrink-0 ml-1 cursor-pointer hover:opacity-80 transition-opacity"
+                                      className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-white text-[10px] font-medium flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
                                       onClick={(e) => handleTeamMemberClick(e, assignedTeamMember.id)}
                                     >
                                       {assignedTeamMember.profile_picture ? (
@@ -1540,23 +1881,10 @@ const ServiceFlowSchedule = () => {
                                       )}
                                     </div>
                                   ) : (
-                                    <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-gray-400 flex-shrink-0 ml-1">
+                                    <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-gray-400 flex-shrink-0">
                                       <UserX className="w-3 h-3" />
                                     </div>
                                   )}
-                                </div>
-                              </div>
-                              <div 
-                                className="truncate font-medium cursor-pointer hover:text-blue-600 transition-colors"
-                                onClick={(e) => handleCustomerClick(e, job.customer_id || job.customer?.id || job.customers?.id)}
-                              >
-                                {customerName}
-                              </div>
-                              <div className="truncate">{job.service_name || job.service_type || 'Service'}</div>
-                              {!territoryName && (
-                                <div className="text-[10px] text-gray-400 mt-0.5">No territory</div>
-                              )}
-                              <div className="text-[10px] mt-0.5 font-medium">{statusDisplay}</div>
                             </div>
                           )
                         })}
@@ -1568,12 +1896,11 @@ const ServiceFlowSchedule = () => {
             )}
 
             {viewMode === 'month' && (
-              <div className="bg-white rounded-lg border border-gray-200 p-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Monthly View</h3>
-                <div className="grid grid-cols-7 gap-1">
+              <div className=" ">
+                <div className="grid grid-cols-7">
                   {/* Month header */}
                   {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map(day => (
-                    <div key={day} className="text-center text-xs font-medium text-gray-600 py-2">
+                    <div key={day} className="text-center text-xs border-[0.5px] border-gray-200 font-medium text-gray-600 py-3">
                       {day}
                     </div>
                   ))}
@@ -1603,7 +1930,7 @@ const ServiceFlowSchedule = () => {
                     return (
                       <div 
                         key={index} 
-                        className={`border rounded p-1 min-h-[60px] cursor-pointer transition-colors ${
+                        className={`border p-1 min-h-[100px] cursor-pointer transition-colors ${
                           !isCurrentMonth 
                             ? 'bg-gray-50 text-gray-400 border-gray-100' 
                             : isSelected 
@@ -1614,11 +1941,11 @@ const ServiceFlowSchedule = () => {
                         }`}
                         onClick={() => handleDayClick(day)}
                       >
-                        <div className={`text-xs font-medium mb-1 ${
+                        <div className={`text-md text-right right-3 font-medium mb-1 ${
                           isSelected && isCurrentMonth ? 'text-blue-900 font-semibold' : ''
                         }`}>{day.getDate()}</div>
                         {showJobs.map((job, jobIndex) => {
-                          const statusColor = getStatusColor(job.status)
+                          const statusColor = getStatusColor(job.status, job)
                           const jobTime = new Date(job.scheduled_date)
                           const timeString = jobTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
                           const assignedTeamMember = teamMembers.find(m => m.id === job.assigned_team_member_id || m.id === job.team_member_id)
@@ -1672,7 +1999,7 @@ const ServiceFlowSchedule = () => {
                               >
                                 {customerName}
                               </div>
-                              <div className="truncate text-[10px]">{job.service_name || job.service_type || 'Service'}</div>
+                              {/* <div className="truncate text-[10px]">{job.service_name || job.service_type || 'Service'}</div> */}
                             </div>
                           )
                         })}
@@ -1694,8 +2021,11 @@ const ServiceFlowSchedule = () => {
               </div>
             )}
 
+            {/* Scrollable Jobs Container (only in day view) */}
+            {viewMode === 'day' && (
+              <div className="flex-1 overflow-y-auto px-4 sm:px-6 pt-4">
             {/* Job Details Card (only in day view) */}
-            {viewMode === 'day' && filteredJobs.map((job) => {
+            {filteredJobs.map((job) => {
               // Format job data
               const jobDate = new Date(job.scheduled_date)
               const timeString = jobDate.toLocaleTimeString('en-US', { 
@@ -1717,29 +2047,40 @@ const ServiceFlowSchedule = () => {
               const address = job.customer_address || job.address || job.service_address || 'Address not provided'
               const assignedTeamMember = teamMembers.find(m => m.id === job.assigned_team_member_id || m.id === job.team_member_id)
               const teamMemberName = assignedTeamMember ? (assignedTeamMember.name || `${assignedTeamMember.first_name || ''} ${assignedTeamMember.last_name || ''}`.trim()) : 'Unassigned'
-              const statusDisplay = formatStatus(job.status)
-              const statusColor = getStatusColor(job.status)
+              const statusDisplay = formatStatus(job.status, job)
+              const statusColor = getStatusColor(job.status, job)
               const territory = territories.find(t => t.id === job.territory_id)
               const territoryName = territory?.name || null
               
               return (
-                <div key={job.id} className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6 relative mb-4 cursor-pointer hover:shadow-md transition-shadow" onClick={() => handleJobClick(job)}>
-                  <div className="absolute top-2 sm:top-4 right-2 sm:right-4">
-                    <span className={`${statusColor} text-xs font-medium px-2 sm:px-3 py-1 rounded-full border`}>
+                <div key={job.id} className="bg-white rounded-lg border border-gray-200 p-2 sm:p-2 relative mb-4 last:mb-0 cursor-pointer hover:shadow-md transition-shadow" onClick={() => handleJobClick(job)}>
+                  <div className="absolute top-[-1px] sm:top-[-1px] right-2 sm:right-4">
+                    <span className={`${statusColor} text-xs font-medium px-2 sm:px-3 py-1 rounded-b-lg border`}>
                       {statusDisplay}
                     </span>
                   </div>
                   
-                  <div className="mb-3 sm:mb-4 pr-20">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-base sm:text-lg font-semibold text-gray-900">JOB #{job.id}</h3>
+                  
+
+                  <div className="space-x-1 space-y-0.5">
+                  <h3 className="text-[10px] sm:text-[10px] font-semibold text-gray-500 pl-1">JOB #{job.id}</h3>
+                     
+                    {/* Time and Duration */}
+                    <div className="flex flex-col sm:flex-row sm:items-center  space-y-1 sm:space-y-0 sm:space-x-3">
+                      <div className="flex items-center space-x-2">
+                        <Clock className="w-3 h-3 text-gray-400" />
+                        <span className="text-xs sm:text-xs font-medium text-gray-900">{timeString} - {endTimeString}</span>
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        <span className="text-xs sm:text-xs text-gray-500">{duration}</span>
+                        <div className="flex items-center justify-between">
                       {/* Team Member Avatar */}
                       {assignedTeamMember ? (
                         <div 
                           className="flex items-center space-x-2 cursor-pointer hover:opacity-80 transition-opacity"
                           onClick={(e) => handleTeamMemberClick(e, assignedTeamMember.id)}
                         >
-                          <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-medium flex-shrink-0">
+                          <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-medium flex-shrink-0">
                             {assignedTeamMember.profile_picture ? (
                               <img 
                                 src={assignedTeamMember.profile_picture} 
@@ -1750,66 +2091,39 @@ const ServiceFlowSchedule = () => {
                               getInitials(teamMemberName)
                             )}
                           </div>
-                          <span className="text-xs sm:text-sm text-gray-700 font-medium hidden sm:block hover:text-blue-600 transition-colors">
-                            {teamMemberName}
-                          </span>
+                          
                         </div>
                       ) : (
-                        <div className="flex items-center space-x-2">
-                          <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-400 flex-shrink-0">
-                            <UserX className="w-4 h-4" />
+                        <div className="flex items-center ">
+                          <div className="w-4 h-4 rounded-full bg-gray-200 flex items-center justify-center text-gray-400 flex-shrink-0">
+                            <UserX className="w-2.5 h-2.5" />
                           </div>
-                          <span className="text-xs sm:text-sm text-gray-400 font-medium hidden sm:block">
-                            Unassigned
-                          </span>
+                          
                         </div>
                       )}
                     </div>
-                    
-                    {/* Customer Name */}
+                      </div>
+                    </div>
                     <div 
-                      className="text-sm sm:text-base font-medium text-gray-700 cursor-pointer hover:text-blue-600 transition-colors"
+                      className="text-xs sm:text-xs font-medium text-gray-700 cursor-pointer hover:text-blue-600 transition-colors"
                       onClick={(e) => handleCustomerClick(e, job.customer_id || job.customer?.id || job.customers?.id)}
                     >
                       {customerName}
                     </div>
-                  </div>
-
-                  <div className="space-y-3 sm:space-y-4">
-                    {/* Time and Duration */}
-                    <div className="flex flex-col sm:flex-row sm:items-center space-y-1 sm:space-y-0 sm:space-x-3">
-                      <div className="flex items-center space-x-2">
-                        <Clock className="w-4 h-4 text-gray-400" />
-                        <span className="text-xs sm:text-sm font-medium text-gray-900">{timeString} - {endTimeString}</span>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <span className="text-xs sm:text-sm text-gray-500">{duration}</span>
-                        <User className="w-4 h-4 text-gray-400" />
-                      </div>
-                    </div>
-
                     {/* Service Details */}
                     <div className="space-y-2">
-                      <div className="text-sm sm:text-base font-medium text-gray-900">{serviceName}</div>
+                      <div className="text-xs sm:text-xs font-medium text-gray-600 text-capitalize">{serviceName}</div>
                       
-                      {/* Customer Contact Info */}
-                      <div className="space-y-1">
-                        {customerEmail && (
-                          <div className="text-xs text-gray-600">{customerEmail}</div>
-                        )}
-                        {customerPhone && (
-                          <div className="text-xs text-gray-600">{customerPhone}</div>
-                        )}
-                      </div>
+                     
 
                       {/* Address */}
-                      <div className="flex items-start space-x-2 text-xs sm:text-sm text-gray-500">
-                        <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                      <div className="flex items-start space-x-1 text-xs sm:text-xs text-gray-500">
+                        <MapPin className="w-3 h-3 flex-shrink-0" />
                         <span className="break-words">{address}</span>
                       </div>
 
                       {/* Territory */}
-                      <div className="flex items-center space-x-2 text-xs sm:text-sm">
+                      <div className="flex items-center space-x-1 text-xs sm:text-xs">
                         {territoryName ? (
                           <span className="text-gray-700 font-medium">{territoryName}</span>
                         ) : (
@@ -1830,48 +2144,27 @@ const ServiceFlowSchedule = () => {
             })}
 
             {/* Empty state when no jobs (only in day view) */}
-            {viewMode === 'day' && filteredJobs.length === 0 && !isLoading && (
-              <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
-                <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No jobs scheduled</h3>
-                <p className="text-gray-600">No jobs are scheduled for this date.</p>
-              </div>
-            )}
-          </div>
-
-          {/* Right Panel - Map (only in day view) */}
-          {viewMode === 'day' && (
-            <div className="hidden lg:block w-1/2 bg-white border-l border-gray-200">
-            {/* Map Header */}
-            <div className="p-4 border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-1 bg-gray-100 rounded-lg p-1">
-                  <button
-                    onClick={() => setMapView('roadmap')}
-                    className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-                      mapView === 'roadmap' 
-                        ? 'bg-white text-gray-900 shadow-sm' 
-                        : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    Map
-                  </button>
-                  <button
-                    onClick={() => setMapView('satellite')}
-                    className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-                      mapView === 'satellite' 
-                        ? 'bg-white text-gray-900 shadow-sm' 
-                        : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    Satellite
-                  </button>
+            {filteredJobs.length === 0 && !isLoading && (
+              <div className="flex-1 flex items-center justify-center">
+                <div className="text-center">
+                  <NotepadText className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-500 mb-2">No jobs scheduled</h3>
+                  <p className="text-gray-400">No jobs are scheduled for this date.</p>
                 </div>
               </div>
+            )}
+              </div>
+            )}
             </div>
+          )}
+
+          {/* Right Panel - Map (only in day view) */}
+          {activeTab === 'jobs' && viewMode === 'day' && (
+            <div className="hidden lg:block w-1/2 bg-white border-l border-gray-200">
+            
 
             {/* Map Container - Hidden on mobile */}
-            <div className="hidden lg:block h-[calc(100vh-200px)] relative">
+            <div className="hidden lg:block h-[calc(100vh-100px)] relative">
               {filteredJobs.length > 0 ? (
                 <div className="h-full">
                   {(() => {
@@ -1893,6 +2186,28 @@ const ServiceFlowSchedule = () => {
                     
                     return (
                       <>
+                      <div className="flex absolute z-50 top-4 right-4 items-center space-x-1 bg-gray-100 rounded-lg p-1">
+                  <button
+                    onClick={() => setMapView('roadmap')}
+                    className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                      mapView === 'roadmap' 
+                        ? 'bg-white text-gray-900 shadow-sm' 
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Map
+                  </button>
+                  <button
+                    onClick={() => setMapView('satellite')}
+                    className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                      mapView === 'satellite' 
+                        ? 'bg-white text-gray-900 shadow-sm' 
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Satellite
+                  </button>
+                </div>
                         <iframe
                           src={`https://www.google.com/maps/embed/v1/place?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&q=${mapQuery}&zoom=12&maptype=${mapView === 'satellite' ? 'satellite' : 'roadmap'}`}
                           width="100%"
@@ -1928,12 +2243,40 @@ const ServiceFlowSchedule = () => {
                   })()}
                 </div>
               ) : (
-                <div className="h-full flex items-center justify-center bg-gray-50">
-                  <div className="text-center">
-                    <MapPin className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">No locations to show</h3>
-                    <p className="text-gray-600">No jobs with locations for this date.</p>
-                  </div>
+                <div className="h-full">
+                    <div className="flex absolute z-50 top-4 right-4 items-center space-x-1 bg-gray-100 rounded-lg p-1">
+                  <button
+                    onClick={() => setMapView('roadmap')}
+                    className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                      mapView === 'roadmap' 
+                        ? 'bg-white text-gray-900 shadow-sm' 
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Map
+                  </button>
+                  <button
+                    onClick={() => setMapView('satellite')}
+                    className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                      mapView === 'satellite' 
+                        ? 'bg-white text-gray-900 shadow-sm' 
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Satellite
+                  </button>
+                </div>
+                  {/* Display US map when no jobs */}
+                  <iframe
+                    src={`https://www.google.com/maps/embed/v1/view?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&center=39.8283,-98.5795&zoom=4&maptype=${mapView === 'satellite' ? 'satellite' : 'roadmap'}`}
+                    width="100%"
+                    height="100%"
+                    style={{ border: 0 }}
+                    allowFullScreen=""
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    title="US Map"
+                  />
                 </div>
               )}
 

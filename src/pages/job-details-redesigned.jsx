@@ -57,8 +57,10 @@ import {
   Menu,
   Search,
   ChevronLeft,
- MoreHorizontal,  Timer,  ClipboardList,
- MailCheck
+  MoreHorizontal,  Timer,  ClipboardList,
+  MailCheck,
+  Eye,
+  RotateCw
 } from "lucide-react"
 import { jobsAPI, notificationAPI, territoriesAPI, teamAPI, invoicesAPI, twilioAPI } from "../services/api"
 import api, { stripeAPI } from "../services/api"
@@ -130,6 +132,11 @@ const JobDetails = () => {
   const [showCustomMessageModal, setShowCustomMessageModal] = useState(false)
   const [customMessage, setCustomMessage] = useState('')
   const [customMessageEmail, setCustomMessageEmail] = useState('')
+  const [openNotificationMenu, setOpenNotificationMenu] = useState(null) // 'confirmation' or 'reminder'
+  const [showMessageViewer, setShowMessageViewer] = useState(false)
+  const [viewingMessageType, setViewingMessageType] = useState(null) // 'confirmation' or 'reminder'
+  const confirmationMenuRef = useRef(null)
+  const reminderMenuRef = useRef(null)
   const [editCustomerData, setEditCustomerData] = useState({
     firstName: '',
     lastName: '',
@@ -143,6 +150,12 @@ const JobDetails = () => {
       }
       if (moreRef.current && !moreRef.current.contains(event.target)) {
         setMoreDropdown(false);
+      }
+      if (confirmationMenuRef.current && !confirmationMenuRef.current.contains(event.target)) {
+        setOpenNotificationMenu(null);
+      }
+      if (reminderMenuRef.current && !reminderMenuRef.current.contains(event.target)) {
+        setOpenNotificationMenu(null);
       }
     }
 
@@ -295,6 +308,26 @@ const JobDetails = () => {
   }
 
   const steps = getProgressSteps()
+
+  // Helper function to format time ago
+  const getTimeAgo = (dateString) => {
+    if (!dateString) return ''
+    const date = new Date(dateString)
+    const now = new Date()
+    const diffInSeconds = Math.floor((now - date) / 1000)
+    
+    if (diffInSeconds < 60) return 'Just now'
+    if (diffInSeconds < 3600) {
+      const minutes = Math.floor(diffInSeconds / 60)
+      return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'} ago`
+    }
+    if (diffInSeconds < 86400) {
+      const hours = Math.floor(diffInSeconds / 3600)
+      return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`
+    }
+    const days = Math.floor(diffInSeconds / 86400)
+    return `${days} ${days === 1 ? 'day' : 'days'} ago`
+  }
 
   // Status update handlers for progress tracker
   const handleStatusUpdate = async (newStatus) => {
@@ -1564,10 +1597,8 @@ const JobDetails = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
-      {/* Sidebar */}
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
-      <div className="flex-1 min-w-0 overflow-hidden ml-16 lg:ml-64 xl:ml-72">
+      <div className="flex-1 min-w-0 overflow-hidden px-40">
         {/* Mobile Header */}
         <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
         
@@ -1586,11 +1617,11 @@ const JobDetails = () => {
              
               
               <div className="min-w-0 flex-1">
-                <h1 className="text-base sm:text-lg lg:text-xl font-bold text-capitalize text-gray-900 truncate">
+                <h1 style={{fontFamily: 'ProximaNova-bold'}} className="text-base capitalize sm:text-lg lg:text-xl font-bold text-capitalize text-gray-900 truncate">
                   {job.service_names && job.service_names.length > 1 
                     ? `${job.service_names.length} Services` 
                     : (job.service_name || 'Service')
-                  } for {job.customer_first_name} {job.customer_last_name}
+                  } <span className="text-md lowercase sm:text-md font-medium text-gray-500">for</span> {job.customer_first_name} {job.customer_last_name}
                   <span className="text-xs sm:text-sm font-medium text-gray-500"> Job #{job.id}</span>
                 </h1>
                 
@@ -1661,41 +1692,42 @@ const JobDetails = () => {
         <button 
           onClick={() => handleStatusUpdate('confirmed')}
           disabled={loading}
-          className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-3 rounded-l-lg transition-colors text-sm disabled:opacity-50"
+          style={{fontFamily: 'ProximaNova-bold'}}
+          className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-3 py-2 rounded-l-lg transition-colors text-xs disabled:opacity-50"
         >
           {loading ? 'Updating...' : 'Mark as Confirmed'}
         </button>
         <button 
           onClick={() => setMainDropdown(!mainDropdown)}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-3 rounded-r-lg border-l border-blue-500 transition-colors"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-r-lg border-l border-blue-500 transition-colors"
         >
-          <ChevronDown size={18} />
+          <ChevronDown size={12} />
         </button>
         
         {mainDropdown && (
-          <div className="absolute top-full mt-2 left-0 bg-white rounded-lg shadow-xl border border-gray-200 py-2 min-w-[220px] z-10">
+          <div style={{fontFamily: 'ProximaNova-Medium'}} className="absolute top-full mt-2 left-0 bg-white rounded-lg shadow-xl border border-gray-200 py-2 min-w-[220px] z-10">
             <button 
               onClick={() => handleStatusUpdate('confirmed')}
               disabled={loading}
-              className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm disabled:opacity-50"
+              className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-xs disabled:opacity-50"
             >
-              <CheckCircle size={18} className="text-gray-600" />
+              <CheckCircle size={12} className="text-gray-600" />
               Mark as Confirmed
             </button>
             <button 
               onClick={() => handleStatusUpdate('in_progress')}
               disabled={loading}
-              className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm disabled:opacity-50"
+              className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-xs disabled:opacity-50"
             >
-              <Navigation size={18} className="text-gray-600" />
+              <Navigation size={12} className="text-gray-600" />
               Mark as In Progress
             </button>
             <button 
               onClick={() => handleStatusUpdate('completed')}
               disabled={loading}
-              className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm disabled:opacity-50"
+              className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-xs disabled:opacity-50"
             >
-              <CheckCircle size={18} className="text-gray-600" />
+              <CheckCircle size={12} className="text-gray-600" />
               Mark as Complete
             </button>
           </div>
@@ -1876,9 +1908,10 @@ const JobDetails = () => {
               </div>
               <div className=" m-4 sm:mb-6 p-3 sm:p-4 lg:p-6">
               <div className="flex items-start justify-between">
+                <MapPin className="w-5 h-5 text-gray-700 flex-shrink-0 mt-5 mr-2" />
                 <div className="min-w-0 flex-1">
-                  <h3 className="font-semibold text-gray-900 mb-1 text-sm sm:text-base">JOB LOCATION</h3>
-                  <p className="text-gray-700 font-medium text-sm sm:text-base truncate">
+                  <h3 style={{fontFamily: 'ProximaNova-medium'}} className="font-medium text-gray-500 mb-1 text-xs sm:text-xs">JOB LOCATION</h3>
+                  <p style={{fontFamily: 'ProximaNova-bold'}} className="text-gray-700 capitalize font-medium text-lg sm:text-md truncate">
                     {job.service_address_street || 'Address not set'}
                   </p>
                   <p className="text-gray-700 text-sm sm:text-base">
@@ -1898,36 +1931,39 @@ const JobDetails = () => {
                   )}
                 </div>
                 <button
-                   className="px-3 py-1 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 flex items-center space-x-2 text-sm font-medium"
+                   className="text-gray-600 hover:text-blue-700 bg-gray-300/50 hover:bg-blue-300/30 rounded-sm px-3 py-2 text-xs font-medium"
                    onClick={() => setShowEditAddressModal(true)}
                 >
-                  <Edit className="w-4 h-4" />
+                 
                   <span>Edit Address</span>
                 </button>
               </div>
             </div>
             <div className="border-t border-gray-500 m-4 sm:mb-6 p-3 sm:p-4 lg:p-6">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-1 sm:space-y-0">
+             
                 <div>
-                  <h3 className="text-sm font-medium text-gray-600 mb-2">DATE & TIME</h3>
+                  <h3 style={{fontFamily: 'ProximaNova-medium'}} className="text-xs font-medium text-gray-600 mb-2 ml-5">DATE & TIME</h3>
                   <div className="flex items-center space-x-3">
-                    <Calendar className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                  <Calendar className="w-5 h-5 text-gray-400 flex-shrink-0 mr-2" />
                     <div>
-                      <p className="text-lg sm:text-xl font-semibold text-gray-900">
+                      <p style={{fontFamily: 'ProximaNova-bold'}} className="text-lg sm:text-xl font-semibold text-gray-900">
                         {formatTime(job.scheduled_date) || 'Time placeholder'}
                       </p>
-                      <p className="text-gray-600 text-sm sm:text-base">{formatDate(job.scheduled_date) || 'Date placeholder'}</p>
+                      <p style={{fontFamily: 'ProximaNova-medium'}} className="text-gray-600 text-sm sm:text-base">{formatDate(job.scheduled_date) || 'Date placeholder'}</p>
                     </div>
                   </div>
                 </div>
                 <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
                   <button 
+                  style={{fontFamily: 'ProximaNova-medium'}}
                     onClick={() => setShowCancelModal(true)}
                     className="px-3 py-2 text-red-600 hover:bg-red-50 rounded hover:border hover:border-red-200 text-sm"
                   >
                     Cancel
                   </button>
                   <button 
+                  style={{fontFamily: 'ProximaNova-medium'}}
                     onClick={() => setShowRescheduleModal(true)}
                     className="text-gray-600 hover:text-blue-700 bg-gray-300/50 hover:bg-blue-300/30 rounded-sm px-3 py-2 text-xs font-medium"
                     >
@@ -1936,23 +1972,17 @@ const JobDetails = () => {
                 </div>
               </div>
             </div>
-            <div className=" m-4 sm:mb-6 p-3 sm:p-4 lg:p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-medium text-gray-600">JOB DETAILS</h3>
-                <button
-                  className="px-3 py-1 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 flex items-center space-x-2 text-sm font-medium"
-                  onClick={() => setShowEditServiceModal(true)}
-                >
-                  <Edit className="w-4 h-4" />
-                  <span>Edit Service</span>
-                </button>
-              </div>
-              <div className="flex items-start space-x-4">
-                <Clipboard className="w-5 h-5 text-gray-400 mt-1 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
+            <div className=" m-4 sm:mb-6 p-3 sm:p-4 lg:p-6    ">
+            <div className="flex flex-row items-start space-x-4 justify-between">
+              <div className="flex flex-row items-start space-x-4">
+              <Clipboard className="w-5 h-5 text-gray-400 mt-1 flex-shrink-0" />
+            
+               <div className="flex-1 min-w-0">
+               <h3 style={{fontFamily: 'ProximaNova-medium'}} className="text-xs font-medium text-gray-600">JOB DETAILS</h3>
+              
                   {/* Display multiple services if available */}
                   {job.service_names && Array.isArray(job.service_names) && job.service_names.length > 1 ? (
-                    <div className="space-y-2">
+                    <div className="">
                       <p className="font-semibold text-gray-900">Multiple Services</p>
                       <div className="space-y-1">
                         {job.service_names.map((serviceName, index) => (
@@ -1970,16 +2000,12 @@ const JobDetails = () => {
                     {job.service_names && job.service_names.length > 1 ? `${job.service_names.length} services` : 'Default service category'}
                   </p>
                   <p className="text-sm text-gray-600 mt-2">{formatDuration(job.duration || 0)}</p>
-                </div>
-              </div>
-
-              {/* Service Modifiers */}
-              {(() => {
+                  {(() => {
                 const serviceModifiers = getServiceModifiers();
                 if (!serviceModifiers || serviceModifiers.length === 0) return null;
 
                 return (
-                  <div className="mt-6 pt-6 border-t border-gray-200 space-y-4">
+                  <div className="mt-6 pt-6 space-y-1">
                     {serviceModifiers.map((modifier, modifierIndex) => {
                       if (!modifier.selectedOptions || modifier.selectedOptions.length === 0) return null;
                       
@@ -2014,7 +2040,7 @@ const JobDetails = () => {
                 if (!intakeQuestions || intakeQuestions.length === 0) return null;
 
                 return (
-                  <div className="mt-6 pt-6 border-t border-gray-200 space-y-4">
+                  <div className=" pt-2 space-y-4">
                     {intakeQuestions.map((question, index) => {
                       // Get answer from multiple possible locations
                       const answer = intakeQuestionAnswers[question.id] || 
@@ -2069,7 +2095,7 @@ const JobDetails = () => {
 
                       return (
                         <div key={question.id || index} className="space-y-2">
-                          <p className="font-semibold text-gray-900">{questionText}</p>
+                          <p style={{fontFamily: 'ProximaNova-medium'}} className="font-semibold text-sm text-gray-700">{questionText}</p>
                           {displayAnswer ? (
                             <div className="space-y-1">
                               {isObjectArrayAnswer ? (
@@ -2077,7 +2103,7 @@ const JobDetails = () => {
                                 displayAnswer.map((item, itemIndex) => (
                                   <div key={itemIndex} className="space-y-2">
                                     {item.text && (
-                                      <p className="text-gray-700 text-sm">{item.text}</p>
+                                      <p style={{fontFamily: 'ProximaNova-medium'}} className="text-gray-700 text-xs">{item.text}</p>
                                     )}
                                     {item.color && (
                                       <>
@@ -2093,7 +2119,7 @@ const JobDetails = () => {
                                         <img 
                                           src={item.image} 
                                           alt={item.text || `Answer ${index + 1} - Image ${itemIndex + 1}`}
-                                          className="max-w-full h-auto max-h-48 object-contain rounded border border-gray-200 hover:shadow-md transition-shadow cursor-pointer"
+                                          className="max-w-full h-auto max-h-32 object-contain rounded  cursor-pointer"
                                           onClick={() => window.open(item.image, '_blank')}
                                           onError={(e) => {
                                             e.target.style.display = 'none';
@@ -2193,7 +2219,20 @@ const JobDetails = () => {
                   </div>
                 );
               })()}
+                </div>
+                
+              </div>
+              
+              <button
+                   className="text-gray-600 hover:text-blue-700 bg-gray-300/50 hover:bg-blue-300/30 rounded-sm px-3 py-2 text-xs font-medium"
+                   onClick={() => setShowEditServiceModal(true)}
+                >
+                  <span>Edit Service</span>
+                </button>
+                </div>
             </div>
+              {/* Service Modifiers */}
+              
             </div>
 
             
@@ -2543,10 +2582,10 @@ const JobDetails = () => {
             {/* Right Sidebar - Mobile Collapsible */}
           <div className="lg:block w-full lg:w-80 xl:w-96 p-3 sm:p-4 lg:p-6 space-y-4 lg:space-y-6">
             {/* Customer Card */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 py-6">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 py-2">
               {/* Customer Section */}
-              <div className="flex items-center justify-between mb-6 px-6">
-                <h3 className="font-medium text-gray-700 text-md">Customer</h3>
+              <div className="flex items-center justify-between mb-1 px-4">
+                <h3 style={{fontFamily: 'ProximaNova-medium'}} className="font-medium text-gray-700 text-md">Customer</h3>
                 <button
                   onClick={() => {
                     setEditCustomerData({
@@ -2557,19 +2596,19 @@ const JobDetails = () => {
                     })
                     setShowEditCustomerModal(true)
                   }}
-                  className="px-3 py-1 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 flex items-center space-x-2 text-sm font-medium"
+                  style={{fontFamily: 'ProximaNova-medium'}}
+                  className=" text-blue-700 rounded hover:bg-blue-800 flex items-center space-x-2 text-sm font-medium"
                 >
-                  <Edit className="w-4 h-4" />
                   <span>Edit</span>
                 </button>
               </div>
               
-              <div className="flex items-center space-x-4 mb-6 px-6">
-                <div className="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center">
-                  <span className="text-white font-bold text-lg">{getCustomerInitials()}</span>
+              <div className="flex items-center space-x-2 mb-2 px-4">
+                <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center">
+                  <span style={{fontFamily: 'ProximaNova-medium'}} className="text-white font-semibold text-sm">{getCustomerInitials()}</span>
                 </div>
                 <div>
-                  <p className="font-bold text-gray-900 text-lg">
+                  <p style={{fontFamily: 'ProximaNova-bold'}} className="font-bold text-gray-900 text-lg">
                     {job.customer_first_name && job.customer_last_name 
                       ? `${job.customer_first_name} ${job.customer_last_name}`
                       : job.customer_first_name || job.customer_last_name || 'Client name placeholder'
@@ -2594,23 +2633,23 @@ const JobDetails = () => {
               </div>
 
               {/* Billing Address Section */}
-              <div className="mb-6 border-t border-gray-200 px-6 pt-6">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="font-bold text-gray-700 text-xs">BILLING ADDRESS</span>
-                  <button className="px-3 py-1 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 flex items-center space-x-2 text-sm font-medium">
-                    <Edit className="w-4 h-4" />
+              <div className="mb-6 border-t border-gray-200 px-6 pt-3">
+                <div className="flex justify-between items-center mb-1">
+                  <span style={{fontFamily: 'ProximaNova-medium'}} className="font-bold text-gray-700 text-xs">BILLING ADDRESS</span>
+                  <button style={{fontFamily: 'ProximaNova-medium'}} className=" text-blue-700 rounded hover:bg-blue-50 flex items-center space-x-2 text-sm font-medium">
+                   
                     <span>Edit</span>
                   </button>
                 </div>
-                <p className="text-sm text-gray-600">Same as service address</p>
+                <p style={{fontFamily: 'ProximaNova-medium'}} className="text-xs text-gray-600">Same as service address</p>
               </div>
 
               {/* Expected Payment Method Section */}
-              <div className="border-t border-gray-200 px-6 pt-6">
-                <div className="mb-3">
-                  <span className="font-bold text-gray-700 text-xs">EXPECTED PAYMENT METHOD</span>
+              <div className="border-t border-gray-200 px-6 py-3">
+                <div className="mb-1">
+                  <span style={{fontFamily: 'ProximaNova-medium'}} className="font-bold text-gray-600 text-xs">EXPECTED PAYMENT METHOD</span>
                 </div>
-                <div className="flex items-center space-x-3 text-gray-600 mb-2">
+                <div className="flex items-center space-x-3 text-gray-600 mb-1">
                   <CreditCard className="w-4 h-4 text-gray-400" />
                   <span className="text-sm">No payment method on file</span>
                 </div>
@@ -2621,32 +2660,32 @@ const JobDetails = () => {
             </div>
 
             {/* Team Section */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 py-6">
-              <h3 className="font-bold text-gray-900 text-lg mb-6 px-6">Team</h3>
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 py-3">
+              <h3 style={{fontFamily: 'ProximaNova-bold'}} className="font-semibold text-gray-700 text-lg mb-2 px-6">Team</h3>
               
-              <div className="space-y-6">
+              <div className="space-y-4">
                 {/* Job Requirements Section */}
                 <div className="px-6">
-                  <div className="flex justify-between items-center mb-3">
-                    <span className="font-bold text-gray-700 text-xs">JOB REQUIREMENTS</span>
-                    <button className="px-3 py-1 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 flex items-center space-x-2 text-sm font-medium">
-                      <Edit className="w-4 h-4" />
-                      <span>Edit</span>
-                    </button>
+                  <div className="flex justify-between items-center mb-1">
+                    <span style={{fontFamily: 'ProximaNova-medium'}} className="font-bold text-gray-700 text-xs">JOB REQUIREMENTS</span>
+                    <button style={{fontFamily: 'ProximaNova-medium'}} className=" text-blue-700 rounded hover:bg-blue-50 flex items-center space-x-2 text-sm font-medium">
+                   
+                   <span>Edit</span>
+                 </button>
                   </div>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Workers needed</span>
+                      <span style={{fontFamily: 'ProximaNova-medium'}} className="text-gray-600">Workers needed</span>
                       <span className="font-medium">{job.workers_needed || 1} service provider</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Skills needed</span>
+                      <span style={{fontFamily: 'ProximaNova-medium'}} className="text-gray-600">Skills needed</span>
                       <span className="font-medium">
                         {job.skills && job.skills.length ? job.skills.join(', ') : 'No skill tags required'}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Intake questions</span>
+                      <span style={{fontFamily: 'ProximaNova-medium'}} className="text-gray-600">Intake questions</span>
                       <span className="font-medium">
                         {(() => {
                           const intakeQuestions = getServiceIntakeQuestions();
@@ -2659,19 +2698,20 @@ const JobDetails = () => {
                 </div>
 
                 {/* Assigned Section */}
-                <div className="px-6">
-                  <div className="flex justify-between items-center mb-4">
-                    <span className="font-bold text-gray-700 text-xs">ASSIGNED</span>
+                <div className="px-6 border-y border-gray-200 py-3">
+                  <div className="flex justify-between items-center mb-2">
+                    <span style={{fontFamily: 'ProximaNova-medium'}} className="font-bold text-gray-700 text-xs">ASSIGNED</span>
                     <button 
                       onClick={() => setShowAssignModal(true)}
-                      className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                      style={{fontFamily: 'ProximaNova-medium'}}
+                      className="text-blue-700 rounded hover:bg-blue-50 flex items-center space-x-2 text-sm font-medium"
                     >
                       Assign
                     </button>
                   </div>
                   
                   {job.assigned_team_member ? (
-                    <div className="flex items-center space-x-3">
+                    <div className="flex items-center space-x-2">
                       <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
                         <span className="text-white font-semibold text-sm">
                           {job.assigned_team_member.first_name?.[0]}{job.assigned_team_member.last_name?.[0]}
@@ -2685,20 +2725,20 @@ const JobDetails = () => {
                       </div>
                     </div>
                   ) : (
-                    <div className="text-center py-4">
+                    <div className="text-center py-2">
                       <div className="w-16 h-16 mx-auto mb-3 flex items-center justify-center">
                         <UserX className="w-8 h-8 text-gray-400" />
                       </div>
-                      <p className="font-semibold text-gray-900 mb-1">Unassigned</p>
-                      <p className="text-sm text-gray-600">No service providers are assigned to this job</p>
+                      <p style={{fontFamily: 'ProximaNova-medium'}} className="font-semibold text-sm text-gray-700 mb-1">Unassigned</p>
+                      <p style={{fontFamily: 'ProximaNova-medium'}} className="text-xs text-gray-400">No service providers are assigned to this job</p>
                     </div>
                   )}
                 </div>
 
                 {/* Offer job to service providers Section */}
-                <div className="border-t border-gray-200 px-6 pt-6">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-bold text-gray-700 text-sm">Offer job to service providers</span>
+                <div className="px-6 pt-1 pb-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span style={{fontFamily: 'ProximaNova-medium'}} className="font-medium text-gray-700 text-sm">Offer job to service providers</span>
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input 
                         type="checkbox" 
@@ -2712,7 +2752,7 @@ const JobDetails = () => {
                       <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
                     </label>
                   </div>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-gray-600">
                     Allows qualified, available providers to see and claim this job. 
                     <button className="text-blue-600 hover:text-blue-700 ml-1">Learn more</button>
                   </p>
@@ -2720,79 +2760,12 @@ const JobDetails = () => {
               </div>
             </div>
 
-            {/* Intake Questions & Answers */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-gray-900 flex items-center">
-                  <MessageSquare className="w-5 h-5 mr-2 text-gray-400" />
-                  Customer Questions & Answers
-                </h3>
-                <button
-                  onClick={() => {
-                    const newEditingField = editingField === 'intakeQuestions' ? null : 'intakeQuestions';
-                    console.log('🔄 Job Details: Edit button clicked', { 
-                      currentEditingField: editingField, 
-                      newEditingField,
-                      intakeQuestionAnswers,
-                      serviceIntakeQuestions: job?.service_intake_questions 
-                    });
-                    setEditingField(newEditingField);
-                  }}
-                  className="px-3 py-1 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 flex items-center space-x-2"
-                >
-                  <Edit className="w-4 h-4" />
-                  <span>{editingField === 'intakeQuestions' ? 'Cancel' : 'Edit Answers'}</span>
-                </button>
-              </div>
-              
-              {editingField === 'intakeQuestions' ? (
-                <div>
-                  <IntakeQuestionsForm
-                    key={`intake-questions-${editingField}`}
-                    questions={job.service_intake_questions || []}
-                    onAnswersChange={handleIntakeQuestionsChange}
-                    isEditable={true}
-                    isSaving={loading}
-                    initialAnswers={intakeQuestionAnswers}
-                  />
-                  <div className="mt-4 flex justify-end space-x-2">
-                    <button
-                      onClick={() => setEditingField(null)}
-                      className="px-3 py-1 text-gray-600 border border-gray-300 rounded hover:bg-gray-50"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={handleSaveIntakeQuestions}
-                      disabled={loading}
-                      className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-                    >
-                      {loading ? 'Saving...' : 'Save Answers'}
-                    </button>
-                  </div>
-                </div>
-              ) : (
-            <IntakeAnswersDisplay intakeAnswers={(() => {
-              // Get intake questions and answers from job data
-              const intakeQuestionsAndAnswers = job.service_intake_questions || [];
-              
-              // Convert to the format expected by IntakeAnswersDisplay
-              return intakeQuestionsAndAnswers.map(question => {
-                return {
-                  question_text: question.question,
-                  question_type: question.questionType,
-                  answer: question.answer || null,
-                  created_at: job.created_at
-                };
-              });
-            })()} />
-              )}
-            </div>
+          
 
             {/* Notes & Files */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
               <h3 className="font-semibold text-gray-900 mb-4">Notes & Files</h3>
-              <div className="py-4">
+              <div className="py-4 justify-center items-center">
                 <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                 {editingField === 'notes' ? (
                   <>
@@ -2815,14 +2788,15 @@ const JobDetails = () => {
                   </>
                 ) : (
                   <>
-                    <p className="text-gray-700 mb-2 whitespace-pre-line min-h-[48px]">
-                      {job.notes || <span className="text-gray-400">No notes</span>}
-                    </p>
+                    <p className="text-gray-700 mb-2 whitespace-pre-line min-h-[48px] text-center">
+                      {job.notes || <span style={{fontFamily: 'ProximaNova-medium'}} className="text-gray-600">No internal job or customer notes </span>}<br/>
+                      {job.notes || <span className="text-gray-400 text-xs">Notes and attachments are only visible to employees with appropriate permissions. </span>}
+                      </p>
                     <button
-                      className="px-3 py-1 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 flex items-center space-x-2"
+                      className="px-3 py-1 border border-gray-300 border-dashed text-blue-500 rounded hover:text-blue-700 hover:border-blue-500 flex items-center justify-self-center space-x-2"
                       onClick={() => setEditingField('notes')}
                     >
-                      <Edit className="w-4 h-4" />
+                      <Plus className="w-4 h-4" />
                       <span>{job.notes ? "Edit Note" : "Add Note"}</span>
                     </button>
                   </>
@@ -2836,7 +2810,7 @@ const JobDetails = () => {
               
               <div className="space-y-4">
                 <div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-3">NOTIFICATION PREFERENCES</h4>
+                  <h4 className="text-xs font-medium text-gray-600 mb-3">NOTIFICATION PREFERENCES</h4>
                   
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
@@ -2873,154 +2847,142 @@ const JobDetails = () => {
                 </div>
 
                 <div className="pt-4 border-t border-gray-200">
-                  <div className="flex items-start space-x-3">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                      job.confirmation_sent 
-                        ? 'bg-green-100' 
-                        : job.confirmation_failed 
-                          ? 'bg-red-100' 
-                          : 'bg-yellow-100'
-                    }`}>
-                      {job.confirmation_sent ? (
-                        <CheckCircle className="w-4 h-4 text-green-600" />
-                      ) : job.confirmation_failed ? (
-                        <AlertCircle className="w-4 h-4 text-red-600" />
-                      ) : (
-                        <Bell className="w-4 h-4 text-yellow-600" />
-                      )}
+                  <div className="flex items-start space-x-3 items-center">
+                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                      <Mail className="w-5 h-5 text-blue-600" />
                     </div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-sm font-medium text-gray-700">Confirmation</h4>
-                        <button 
-                          onClick={() => {
-                            setNotificationType('confirmation')
-                            
-                            // Check if customer has email address
-                            const hasEmail = job.customer_email && job.customer_email.trim() !== ''
-                            
-                            // Auto-select the best available method and pre-fill contact info
-                            if (hasEmail && emailNotifications) {
-                              setSelectedNotificationMethod('email')
-                              setNotificationEmail(job.customer_email || '')
-                            } else if (smsNotifications) {
-                              setSelectedNotificationMethod('sms')
-                              setNotificationPhone(job.customer_phone || '')
-                            } else if (emailNotifications) {
-                              setSelectedNotificationMethod('email')
-                              setNotificationEmail(job.customer_email || '')
-                            }
-                            setShowNotificationModal(true)
-                          }}
-                          className={`text-xs font-medium ${
-                            !emailNotifications && !smsNotifications 
-                              ? 'text-gray-400 cursor-not-allowed' 
-                              : 'text-blue-600 hover:text-blue-700'
-                          }`}
-                          disabled={!emailNotifications && !smsNotifications}
-                          title={
-                            !emailNotifications && !smsNotifications 
-                              ? 'Notifications are disabled for this customer' 
-                              : ''
-                          }
-                        >
-                          {job.confirmation_sent ? 'Resend' : 'Send Now'}
-                        </button>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between ">
+                        <span className="text-xs text-gray-500">Confirmation</span>
+                       
                       </div>
-                      <p className="text-sm font-semibold text-gray-900">Appointment Confirmation</p>
+                      <p className="text-sm font-semibold text-gray-900 ">Appointment Confirmation</p>
                       <p className="text-xs text-gray-500">
-                        {!emailNotifications && !smsNotifications 
-                          ? "Notifications are disabled for this customer"
-                          : job.confirmation_sent 
-                            ? `Sent on ${new Date(job.confirmation_sent_at).toLocaleString()}` 
-                            : job.confirmation_failed 
-                              ? `Failed to send: ${job.confirmation_error || 'Unknown error'}`
-                              : job.confirmation_no_email 
-                                ? "No email address - click 'Send Now' to add email and send"
-                                : job.customer_email 
-                                  ? "Sent automatically when job was created" 
-                                  : smsNotifications 
-                                    ? "No email address - SMS enabled automatically" 
-                                    : "No email address - click 'Send Now' to add email and send"
-                        }
+                        {job.confirmation_sent && job.confirmation_sent_at
+                          ? `${getTimeAgo(job.confirmation_sent_at)} • Email Sent`
+                          : job.confirmation_failed
+                            ? `Failed to send: ${job.confirmation_error || 'Unknown error'}`
+                            : !emailNotifications && !smsNotifications
+                              ? "Notifications are disabled for this customer"
+                              : "Not sent yet"}
                       </p>
                     </div>
+                    <div className="relative" ref={confirmationMenuRef}>
+                          <button
+                            onClick={() => setOpenNotificationMenu(openNotificationMenu === 'confirmation' ? null : 'confirmation')}
+                            className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
+                          >
+                            <MoreVertical className="w-4 h-4 text-blue-600" />
+                          </button>
+                          {openNotificationMenu === 'confirmation' && (
+                            <div className="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[180px] z-50">
+                              <button
+                                onClick={() => {
+                                  setViewingMessageType('confirmation')
+                                  setShowMessageViewer(true)
+                                  setOpenNotificationMenu(null)
+                                }}
+                                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                              >
+                                <Eye className="w-4 h-4" />
+                                View Message
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setNotificationType('confirmation')
+                                  const hasEmail = job.customer_email && job.customer_email.trim() !== ''
+                                  if (hasEmail && emailNotifications) {
+                                    setSelectedNotificationMethod('email')
+                                    setNotificationEmail(job.customer_email || '')
+                                  } else if (smsNotifications) {
+                                    setSelectedNotificationMethod('sms')
+                                    setNotificationPhone(job.customer_phone || '')
+                                  } else if (emailNotifications) {
+                                    setSelectedNotificationMethod('email')
+                                    setNotificationEmail(job.customer_email || '')
+                                  }
+                                  setShowNotificationModal(true)
+                                  setOpenNotificationMenu(null)
+                                }}
+                                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                                disabled={!emailNotifications && !smsNotifications}
+                              >
+                                <RotateCw className="w-4 h-4" />
+                                Resend Email
+                              </button>
+                            </div>
+                          )}
+                        </div>
                   </div>
                 </div>
 
                 <div className="pt-4 border-t border-gray-200">
-                  <div className="flex items-start space-x-3">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                      job.reminder_sent 
-                        ? 'bg-green-100' 
-                        : job.reminder_failed 
-                          ? 'bg-red-100' 
-                          : 'bg-orange-100'
-                    }`}>
-                      {job.reminder_sent ? (
-                        <CheckCircle className="w-4 h-4 text-green-600" />
-                      ) : job.reminder_failed ? (
-                        <AlertCircle className="w-4 h-4 text-red-600" />
-                      ) : (
-                        <Bell className="w-4 h-4 text-orange-600" />
-                      )}
+                  <div className="flex items-start space-x-3 items-center">
+                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center  flex-shrink-0">
+                      <Mail className="w-5 h-5 text-blue-600" />
                     </div>
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
-                        <h4 className="text-sm font-medium text-gray-700">Reminder</h4>
-                        <button 
-                          onClick={() => {
-                            setNotificationType('reminder')
-                            
-                            // Check if customer has email address
-                            const hasEmail = job.customer_email && job.customer_email.trim() !== ''
-                            
-                            // Auto-select the best available method and pre-fill contact info
-                            if (hasEmail && emailNotifications) {
-                              setSelectedNotificationMethod('email')
-                              setNotificationEmail(job.customer_email || '')
-                            } else if (smsNotifications) {
-                              setSelectedNotificationMethod('sms')
-                              setNotificationPhone(job.customer_phone || '')
-                            } else if (emailNotifications) {
-                              setSelectedNotificationMethod('email')
-                              setNotificationEmail(job.customer_email || '')
-                            }
-                            setShowNotificationModal(true)
-                          }}
-                          className={`text-xs font-medium ${
-                            !emailNotifications && !smsNotifications 
-                              ? 'text-gray-400 cursor-not-allowed' 
-                              : 'text-blue-600 hover:text-blue-700'
-                          }`}
-                          disabled={!emailNotifications && !smsNotifications}
-                          title={
-                            !emailNotifications && !smsNotifications 
-                              ? 'Notifications are disabled for this customer' 
-                              : ''
-                          }
-                        >
-                          {job.reminder_sent ? 'Resend' : 'Send Now'}
-                        </button>
+                        <span className="text-xs text-gray-500">Reminder</span>
+                        
                       </div>
-                      <p className="text-sm font-semibold text-gray-900">Appointment Reminder</p>
+                      <p className="text-sm font-semibold text-gray-900 ">Appointment Reminder</p>
                       <p className="text-xs text-gray-500">
-                        {!emailNotifications && !smsNotifications 
-                          ? "Notifications are disabled for this customer"
-                          : job.reminder_sent 
-                            ? `Sent on ${new Date(job.reminder_sent_at).toLocaleString()}` 
-                            : job.reminder_failed 
-                              ? `Failed to send: ${job.reminder_error || 'Unknown error'}`
-                              : job.reminder_no_email 
-                                ? "No email address - click 'Send Now' to add email and send"
-                                : job.customer_email 
-                                  ? "Scheduled for 2 hours before appointment" 
-                                  : smsNotifications 
-                                    ? "No email address - SMS enabled automatically" 
-                                    : "No email address - click 'Send Now' to add email and send"
-                        }
+                        {job.reminder_sent && job.reminder_sent_at
+                          ? `${getTimeAgo(job.reminder_sent_at)} • Email Sent`
+                          : job.reminder_failed
+                            ? `Failed to send: ${job.reminder_error || 'Unknown error'}`
+                            : !emailNotifications && !smsNotifications
+                              ? "Notifications are disabled for this customer"
+                              : "Scheduled for 2 hours before appointment"}
                       </p>
                     </div>
+                    <div className="relative" ref={reminderMenuRef}>
+                          <button
+                            onClick={() => setOpenNotificationMenu(openNotificationMenu === 'reminder' ? null : 'reminder')}
+                            className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
+                          >
+                            <MoreVertical className="w-4 h-4 text-blue-600" />
+                          </button>
+                          {openNotificationMenu === 'reminder' && (
+                            <div className="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[180px] z-50">
+                              <button
+                                onClick={() => {
+                                  setViewingMessageType('reminder')
+                                  setShowMessageViewer(true)
+                                  setOpenNotificationMenu(null)
+                                }}
+                                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                              >
+                                <Eye className="w-4 h-4" />
+                                View Message
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setNotificationType('reminder')
+                                  const hasEmail = job.customer_email && job.customer_email.trim() !== ''
+                                  if (hasEmail && emailNotifications) {
+                                    setSelectedNotificationMethod('email')
+                                    setNotificationEmail(job.customer_email || '')
+                                  } else if (smsNotifications) {
+                                    setSelectedNotificationMethod('sms')
+                                    setNotificationPhone(job.customer_phone || '')
+                                  } else if (emailNotifications) {
+                                    setSelectedNotificationMethod('email')
+                                    setNotificationEmail(job.customer_email || '')
+                                  }
+                                  setShowNotificationModal(true)
+                                  setOpenNotificationMenu(null)
+                                }}
+                                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                                disabled={!emailNotifications && !smsNotifications}
+                              >
+                                <RotateCw className="w-4 h-4" />
+                                Resend Email
+                              </button>
+                            </div>
+                          )}
+                        </div>
                   </div>
                 </div>
 
@@ -3128,10 +3090,10 @@ const JobDetails = () => {
                     </button>
                   </div>
                 </div>
-                <div className="p-4 space-y-6">
+                <div className="p-2 space-y-2">
                   {/* Customer Card */}
-                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-                    <h3 className="font-semibold text-gray-900 mb-4">Customer</h3>
+                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-1">
+                    <h3 style={{fontFamily: 'ProximaNova-medium'}} className="font-semibold text-gray-900 mb-4 text-xs">Customer</h3>
                     
                     <div className="flex items-center space-x-3 mb-4">
                       <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center">
@@ -4559,6 +4521,121 @@ const JobDetails = () => {
                     </button>
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Message Viewer Modal */}
+        {showMessageViewer && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+              <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  {viewingMessageType === 'confirmation' ? 'Appointment Confirmation' : 'Appointment Reminder'}
+                </h3>
+                <button
+                  onClick={() => {
+                    setShowMessageViewer(false)
+                    setViewingMessageType(null)
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              
+              <div className="p-6 overflow-y-auto flex-1">
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 space-y-4">
+                  {viewingMessageType === 'confirmation' ? (
+                    <div className="space-y-3">
+                      <div className="font-semibold text-gray-900">
+                        Hi {job?.customer_first_name || 'Customer'},
+                      </div>
+                      <div className="text-gray-700">
+                        Your appointment has been confirmed for <strong>{job?.scheduled_date ? new Date(job.scheduled_date).toLocaleDateString('en-US', { 
+                          weekday: 'long', 
+                          month: 'long', 
+                          day: 'numeric', 
+                          year: 'numeric' 
+                        }) : 'Date TBD'} at {job?.scheduled_date ? new Date(job.scheduled_date).toLocaleTimeString('en-US', { 
+                          hour: 'numeric', 
+                          minute: '2-digit',
+                          hour12: true 
+                        }) : 'Time TBD'}</strong>.
+                      </div>
+                      <div className="text-gray-700">
+                        <strong>Service:</strong> {job?.service_name || 'Service'}
+                      </div>
+                      <div className="text-gray-700">
+                        <strong>Location:</strong> {job?.service_address_street || 'Service Address'}, {job?.service_address_city || 'City'}, {job?.service_address_state || 'State'} {job?.service_address_zip || 'ZIP'}
+                      </div>
+                      <div className="text-gray-700">
+                        We look forward to serving you!
+                      </div>
+                      <div className="text-gray-700 pt-2">
+                        Best regards,<br />
+                        Your Service Team
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="font-semibold text-gray-900">
+                        Hi {job?.customer_first_name || 'Customer'},
+                      </div>
+                      <div className="text-gray-700">
+                        This is a friendly reminder that you have an appointment scheduled for <strong>{job?.scheduled_date ? new Date(job.scheduled_date).toLocaleDateString('en-US', { 
+                          weekday: 'long', 
+                          month: 'long', 
+                          day: 'numeric', 
+                          year: 'numeric' 
+                        }) : 'Date TBD'} at {job?.scheduled_date ? new Date(job.scheduled_date).toLocaleTimeString('en-US', { 
+                          hour: 'numeric', 
+                          minute: '2-digit',
+                          hour12: true 
+                        }) : 'Time TBD'}</strong>.
+                      </div>
+                      <div className="text-gray-700">
+                        <strong>Service:</strong> {job?.service_name || 'Service'}
+                      </div>
+                      <div className="text-gray-700">
+                        <strong>Location:</strong> {job?.service_address_street || 'Service Address'}, {job?.service_address_city || 'City'}, {job?.service_address_state || 'State'} {job?.service_address_zip || 'ZIP'}
+                      </div>
+                      <div className="text-gray-700">
+                        Please arrive on time. If you need to reschedule, please contact us as soon as possible.
+                      </div>
+                      <div className="text-gray-700 pt-2">
+                        Best regards,<br />
+                        Your Service Team
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                {viewingMessageType && (job.confirmation_sent_at || job.reminder_sent_at) && (
+                  <div className="mt-4 text-sm text-gray-500">
+                    <p>
+                      <strong>Sent:</strong> {viewingMessageType === 'confirmation' 
+                        ? (job.confirmation_sent_at ? new Date(job.confirmation_sent_at).toLocaleString() : 'N/A')
+                        : (job.reminder_sent_at ? new Date(job.reminder_sent_at).toLocaleString() : 'N/A')}
+                    </p>
+                    <p className="mt-1">
+                      <strong>To:</strong> {job.customer_email || 'N/A'}
+                    </p>
+                  </div>
+                )}
+              </div>
+              
+              <div className="flex justify-end p-6 border-t border-gray-200">
+                <button
+                  onClick={() => {
+                    setShowMessageViewer(false)
+                    setViewingMessageType(null)
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Close
+                </button>
               </div>
             </div>
           </div>

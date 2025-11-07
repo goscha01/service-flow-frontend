@@ -2,15 +2,12 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
-import Sidebar from "../../components/sidebar"
-import MobileHeader from "../../components/mobile-header"
 import { ChevronLeft, MapPin, ChevronRight, Check, X } from "lucide-react"
 import TimeslotTemplateModal from "../../components/timeslot-template-modal"
 import { availabilityAPI } from "../../services/api"
 import { useAuth } from "../../context/AuthContext"
 
 const Availability = () => {
-  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [isTimeslotTemplateModalOpen, setIsTimeslotTemplateModalOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -48,28 +45,7 @@ const Availability = () => {
     navigate('/signin')
   }, [navigate])
 
-  useEffect(() => {
-    console.log('🔄 Availability useEffect triggered:', { user: !!user, hasLoaded })
-    
-    let isMounted = true
-    
-    if (user?.id && !hasLoaded) {
-      console.log('✅ Loading availability data...')
-      setHasLoaded(true)
-      loadAvailabilityData()
-    } else if (user === null) {
-      console.log('❌ No current user, redirecting to signin')
-      handleNavigate()
-    } else {
-      console.log('⏭️ Skipping load - already loaded or no user')
-    }
-    
-    return () => {
-      isMounted = false
-    }
-  }, [user?.id, hasLoaded, handleNavigate])
-
-  const loadAvailabilityData = async () => {
+  const loadAvailabilityData = useCallback(async () => {
     try {
       setLoading(true)
       setMessage({ type: '', text: '' })
@@ -78,25 +54,68 @@ const Availability = () => {
       const availability = await availabilityAPI.getAvailability(user.id)
       console.log('✅ Availability data loaded:', availability)
       
-      // Set default data if none exists
-      if (!availability || !availability.businessHours) {
-        setAvailabilityData({
-          businessHours: {
-            monday: { start: '09:00', end: '17:00', enabled: true },
-            tuesday: { start: '09:00', end: '17:00', enabled: true },
-            wednesday: { start: '09:00', end: '17:00', enabled: true },
-            thursday: { start: '09:00', end: '17:00', enabled: true },
-            friday: { start: '09:00', end: '17:00', enabled: true },
-            saturday: { start: '09:00', end: '17:00', enabled: false },
-            sunday: { start: '09:00', end: '17:00', enabled: false }
-          },
-          timeslotTemplates: availability?.timeslotTemplates || []
-        })
-      } else {
-        setAvailabilityData(availability)
+      if (!availability) {
+        console.warn('⚠️ No availability data returned, using defaults')
+        throw new Error('No availability data returned')
       }
+      
+      // Parse business hours - handle different response formats
+      let businessHours = availability?.businessHours || availability?.business_hours
+      
+      // If businessHours is a string, parse it
+      if (typeof businessHours === 'string') {
+        try {
+          businessHours = JSON.parse(businessHours)
+        } catch (e) {
+          console.error('Error parsing businessHours string:', e)
+          businessHours = null
+        }
+      }
+      
+      // If no business hours, use defaults
+      if (!businessHours || typeof businessHours !== 'object') {
+        businessHours = {
+          monday: { start: '09:00', end: '17:00', enabled: true },
+          tuesday: { start: '09:00', end: '17:00', enabled: true },
+          wednesday: { start: '09:00', end: '17:00', enabled: true },
+          thursday: { start: '09:00', end: '17:00', enabled: true },
+          friday: { start: '09:00', end: '17:00', enabled: true },
+          saturday: { start: '09:00', end: '17:00', enabled: false },
+          sunday: { start: '09:00', end: '17:00', enabled: false }
+        }
+      }
+      
+      // Ensure all days have the correct structure
+      const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+      const normalizedBusinessHours = {}
+      days.forEach(day => {
+        if (businessHours[day]) {
+          normalizedBusinessHours[day] = {
+            start: businessHours[day].start || '09:00',
+            end: businessHours[day].end || '17:00',
+            enabled: businessHours[day].enabled !== undefined ? businessHours[day].enabled : true
+          }
+        } else {
+          normalizedBusinessHours[day] = {
+            start: '09:00',
+            end: '17:00',
+            enabled: day === 'saturday' || day === 'sunday' ? false : true
+          }
+        }
+      })
+      
+      setAvailabilityData({
+        businessHours: normalizedBusinessHours,
+        timeslotTemplates: availability?.timeslotTemplates || availability?.timeslot_templates || []
+      })
     } catch (error) {
       console.error('❌ Error loading availability data:', error)
+      console.error('Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        stack: error.stack
+      })
       
       // Set default data on error
       setAvailabilityData({
@@ -112,17 +131,36 @@ const Availability = () => {
         timeslotTemplates: []
       })
       
+      // Show more detailed error message
+      const errorMessage = error.response?.data?.error || error.message || 'Unknown error'
       if (error.response?.status === 404) {
         setMessage({ type: 'error', text: 'Availability settings not found. Using default settings.' })
       } else if (error.response?.status === 500) {
-        setMessage({ type: 'error', text: 'Server error. Using default availability settings.' })
+        setMessage({ type: 'error', text: `Server error: ${errorMessage}. Using default availability settings.` })
+      } else if (error.message?.includes('Network') || error.code === 'NETWORK_ERROR') {
+        setMessage({ type: 'error', text: 'Network error. Please check your connection and try again.' })
       } else {
-        setMessage({ type: 'error', text: 'Failed to load availability settings. Using defaults.' })
+        setMessage({ type: 'error', text: `Failed to load availability settings: ${errorMessage}. Using defaults.` })
       }
     } finally {
       setLoading(false)
     }
-  }
+  }, [user])
+
+  useEffect(() => {
+    console.log('🔄 Availability useEffect triggered:', { user: !!user, userId: user?.id, hasLoaded })
+    
+    if (user?.id && !hasLoaded) {
+      console.log('✅ Loading availability data...')
+      setHasLoaded(true)
+      loadAvailabilityData()
+    } else if (user === null) {
+      console.log('❌ No current user, redirecting to signin')
+      handleNavigate()
+    } else {
+      console.log('⏭️ Skipping load - already loaded or no user')
+    }
+  }, [user?.id, hasLoaded, handleNavigate, loadAvailabilityData, user])
 
   const handleSaveTimeslotTemplate = async (template) => {
     try {
@@ -153,18 +191,32 @@ const Availability = () => {
   const handleSaveBusinessHours = async () => {
     try {
       setSaving(true)
-      await availabilityAPI.updateAvailability({
+      setMessage({ type: '', text: '' })
+      
+      console.log('💾 Saving business hours:', {
         userId: user.id,
         businessHours: availabilityData.businessHours,
         timeslotTemplates: availabilityData.timeslotTemplates
       })
       
+      const response = await availabilityAPI.updateAvailability({
+        userId: user.id,
+        businessHours: availabilityData.businessHours,
+        timeslotTemplates: availabilityData.timeslotTemplates
+      })
+      
+      console.log('✅ Save response:', response)
+      
       setMessage({ type: 'success', text: 'Business hours saved successfully!' })
       setTimeout(() => setMessage({ type: '', text: '' }), 3000)
       setShowBusinessHoursEditor(false)
+      
+      // Refresh data to ensure it's in sync
+      await loadAvailabilityData()
     } catch (error) {
-      console.error('Error saving business hours:', error)
-      setMessage({ type: 'error', text: error.response?.data?.error || 'Failed to save business hours' })
+      console.error('❌ Error saving business hours:', error)
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to save business hours'
+      setMessage({ type: 'error', text: errorMessage })
     } finally {
       setSaving(false)
     }
@@ -185,28 +237,17 @@ const Availability = () => {
 
   if (loading) {
     return (
-      <div className="flex h-screen bg-gray-50 overflow-hidden">
-        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-        <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
-          <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-              <p className="mt-4 text-gray-600">Loading availability settings...</p>
-            </div>
-          </div>
+      <div className="flex-1 flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading availability settings...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
-      <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
-        <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
-
+    <div className="min-h-screen bg-gray-50">
         {/* Header */}
         <div className="bg-white border-b border-gray-200 px-6 py-4">
           <div className="flex items-center space-x-4">
@@ -370,7 +411,6 @@ const Availability = () => {
             </div>
           </div>
         </div>
-      </div>
 
       <TimeslotTemplateModal 
         isOpen={isTimeslotTemplateModalOpen}

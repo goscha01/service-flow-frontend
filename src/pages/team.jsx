@@ -196,10 +196,8 @@ const TeamPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Sidebar open={sidebarOpen} setOpen={setSidebarOpen} />
-      <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
-      
-      <div className="lg:pl-72">
+     
+      <div className="">
         <div className="px-4 sm:px-6 lg:px-8 py-8">
           {/* Header */}
           <div className="mb-8">

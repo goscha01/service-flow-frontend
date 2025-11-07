@@ -225,10 +225,9 @@ const ServiceFlowCustomers = () => {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+    <div style={{fontFamily: 'ProximaNova-medium'}} className="flex h-screen bg-gray-50 overflow-hidden">
 
-      <div className="flex-1 flex flex-col min-w-0 ml-16 lg:mx-80 xl:mx-92">
+      <div className="flex-1 flex flex-col min-w-0  lg:mx-44 xl:mx-48">
         <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
 
         <div className="flex-1 overflow-auto">
