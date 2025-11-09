@@ -847,6 +847,21 @@ export const jobsAPI = {
     } catch (error) {
       throw error;
     }
+  },
+
+  getAvailableSlots: async ({ date, duration, workerId, serviceId }) => {
+    try {
+      const params = new URLSearchParams();
+      if (date) params.append('date', date);
+      if (duration) params.append('duration', duration);
+      if (workerId) params.append('workerId', workerId);
+      if (serviceId) params.append('serviceId', serviceId);
+      
+      const response = await api.get(`/jobs/available-slots?${params.toString()}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
   }
 };
 

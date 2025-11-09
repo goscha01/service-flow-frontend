@@ -543,9 +543,9 @@ const ServiceSelectionModal = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col" style={{ fontFamily: 'ProximaNova-Regular' }}>
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <div className="flex items-center justify-between px-8 py-5 border-b border-gray-200">
           <div className="flex items-center space-x-4">
             {currentView !== 'categories' && categoriesEnabled && (
               <button
@@ -555,17 +555,18 @@ const ServiceSelectionModal = ({
                 <ChevronLeft className="w-5 h-5" />
               </button>
             )}
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900">
+            <div className="flex-1">
+              <h2 className="text-xl font-semibold text-gray-900" style={{ fontFamily: currentView === 'customize' ? 'ProximaNova-Bold' : 'ProximaNova-Semibold' }}>
                 {currentView === 'categories' && 'Select Service Category'}
-                {currentView === 'services' && (categoriesEnabled ? `Services in ${selectedCategory?.name}` : 'All Services')}
-                {currentView === 'customize' && `Customize ${selectedService?.name}`}
+                {currentView === 'services' && (categoriesEnabled ? `Services in ${selectedCategory?.name}` : 'Select Service')}
+                {currentView === 'customize' && selectedService?.name}
               </h2>
-              <p className="text-sm text-gray-600 mt-1">
-                {currentView === 'categories' && 'Choose a category to see available services'}
-                {currentView === 'services' && (categoriesEnabled ? 'Select a service to add to your job' : 'Select a service to add to your job')}
-                {currentView === 'customize' && 'Configure options and provide additional information'}
-              </p>
+              {currentView !== 'customize' && (
+                <p className="text-sm text-gray-600 mt-1" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                  {currentView === 'categories' && 'Choose a category to see available services'}
+                  {currentView === 'services' && (categoriesEnabled ? 'Select a service to add to your job' : 'Select a service to add to your job')}
+                </p>
+              )}
             </div>
           </div>
           <button
@@ -576,25 +577,28 @@ const ServiceSelectionModal = ({
           </button>
         </div>
 
-        {/* Search */}
-        <div className="p-6 border-b border-gray-200">
-          <div className="relative">
-            <input
-              type="text"
-              placeholder={
-                currentView === 'categories' 
-                  ? 'Search categories...' 
-                  : 'Search services...'
-              }
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
+        {/* Search - Hide in customize view */}
+        {currentView !== 'customize' && (
+          <div className="px-8 py-5 border-b border-gray-200 bg-gray-50">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder={
+                  currentView === 'categories' 
+                    ? 'Search categories...' 
+                    : 'Search services...'
+                }
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                style={{ fontFamily: 'ProximaNova-Regular' }}
+              />
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Content */}
-        <div className="flex-1 p-6 overflow-y-auto">
+        <div className="flex-1 px-8 py-6 overflow-y-auto">
           {loading ? (
             <div className="flex items-center justify-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -725,52 +729,17 @@ const ServiceSelectionModal = ({
               {/* Customize View */}
               {currentView === 'customize' && selectedService && (
                 <div className="space-y-6">
-                  {/* Service Info */}
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <h3 className="font-medium text-gray-900">{selectedService.name}</h3>
-                    {selectedService.description && (
-                      <p className="text-sm text-gray-600 mt-1">{selectedService.description}</p>
-                    )}
-                    <div className="flex items-center space-x-4 mt-2 text-sm text-gray-500">
-                      {selectedService.duration && (
-                        <div className="flex items-center space-x-1">
-                          <Clock className="w-4 h-4" />
-                          <span>{Math.floor(selectedService.duration / 60)}h {selectedService.duration % 60}m</span>
-                        </div>
-                      )}
-                      {selectedService.price && (
-                        <div className="space-y-2">
-                          <div className="flex items-center space-x-2">
-                            <DollarSign className="w-4 h-4" />
-                            <label className="text-sm font-medium text-gray-700">Base Price:</label>
-                            <input
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              value={editedServicePrice !== null ? editedServicePrice : selectedService.price}
-                              onChange={(e) => setEditedServicePrice(e.target.value)}
-                              className="w-20 px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            />
-                          </div>
-                          <div className="flex items-center space-x-1">
-                            <span className="text-xs text-gray-500">Base price:</span>
-                            <span className="font-semibold text-blue-600">${(editedServicePrice !== null ? parseFloat(editedServicePrice) : parseFloat(selectedService.price)).toFixed(2)}</span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
                   {/* Modifiers */}
                   {selectedService.parsedModifiers && selectedService.parsedModifiers.length > 0 && (
                     <div>
-                      <h4 className="text-lg font-medium text-gray-900 mb-4">Service Options</h4>
+                      <h4 className="text-base font-bold text-gray-900 mb-4" style={{ fontFamily: 'ProximaNova-Bold' }}>Select Your Items</h4>
                       <ServiceModifiersForm
                         modifiers={selectedService.parsedModifiers}
                         selectedModifiers={selectedModifiers}
                         onModifiersChange={setSelectedModifiers}
                         editedModifierPrices={editedModifierPrices}
-                        onModifierPriceChange={(priceKey, value) => {
+                        onModifierPriceChange={(modifierId, optionId, value) => {
+                          const priceKey = `${modifierId}_option_${optionId}`;
                           console.log('🔧 MODIFIER PRICE CHANGE:', priceKey, '=', value);
                           setEditedModifierPrices(prev => {
                             const updated = {
@@ -788,7 +757,6 @@ const ServiceSelectionModal = ({
                   {/* Intake Questions */}
                   {selectedService.parsedIntakeQuestions && selectedService.parsedIntakeQuestions.length > 0 && (
                     <div>
-                      <h4 className="text-lg font-medium text-gray-900 mb-4">Additional Information</h4>
                       <IntakeQuestionsForm
                         questions={selectedService.parsedIntakeQuestions}
                         initialAnswers={intakeQuestionAnswers}
@@ -802,42 +770,21 @@ const ServiceSelectionModal = ({
           )}
         </div>
 
-        {/* Price Summary */}
-        {currentView === 'customize' && selectedService && (
-          <div className="px-6 py-4 border-t border-gray-200 bg-blue-50">
-            <div className="flex items-center justify-between">
-              <div className="text-sm text-gray-600">
-                <div>Base Price: ${(editedServicePrice !== null ? parseFloat(editedServicePrice) : parseFloat(selectedService.price)).toFixed(2)}</div>
-                <div className="text-xs text-gray-500">Modifiers will be calculated in the main form</div>
-              </div>
-              <div className="text-lg font-semibold text-blue-600">
-                Service: ${(editedServicePrice !== null ? parseFloat(editedServicePrice) : parseFloat(selectedService.price)).toFixed(2)}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Footer */}
+        {/* Footer - Single Save Button */}
         {currentView === 'customize' && (
-          <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200 bg-gray-50 flex-shrink-0">
-            <button
-              type="button"
-              onClick={handleBack}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-            >
-              Back
-            </button>
+          <div className="flex items-center justify-end px-8 py-5 border-t border-gray-200 bg-white flex-shrink-0">
             <button
               type="button"
               onClick={handleAddService}
               disabled={!validateCustomization()}
-              className={`px-6 py-2 text-sm font-medium border border-transparent rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors ${
+              className={`px-10 py-3 text-base font-semibold rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors shadow-sm ${
                 validateCustomization()
                   ? 'text-white bg-blue-600 hover:bg-blue-700'
-                  : 'text-gray-400 bg-gray-200 cursor-not-allowed'
+                  : 'text-gray-400 bg-gray-300 cursor-not-allowed'
               }`}
+              style={{ fontFamily: 'ProximaNova-Semibold' }}
             >
-              Continue & Add Service
+              Save
             </button>
           </div>
         )}

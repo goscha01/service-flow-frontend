@@ -173,12 +173,12 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
           return (
             <div key={questionId} className="mb-6">
               <div className="mb-3">
-                <label className="block text-lg font-medium text-gray-900 mb-1">
+                <label className="block text-base font-bold text-gray-900 mb-1" style={{ fontFamily: 'ProximaNova-Bold' }}>
                   {question.question}
                   {question.required && <span className="text-red-500 ml-1">*</span>}
                 </label>
                 {question.description && (
-                  <p className="text-sm text-gray-600">{question.description}</p>
+                  <p className="text-sm text-gray-600" style={{ fontFamily: 'ProximaNova-Regular' }}>{question.description}</p>
                 )}
               </div>
               
@@ -200,12 +200,12 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
           return (
             <div key={questionId} className="mb-6">
               <div className="mb-3">
-                <label className="block text-lg font-medium text-gray-900 mb-1">
+                <label className="block text-base font-bold text-gray-900 mb-1" style={{ fontFamily: 'ProximaNova-Bold' }}>
                   {question.question}
                   {question.required && <span className="text-red-500 ml-1">*</span>}
                 </label>
                 {question.description && (
-                  <p className="text-sm text-gray-600">{question.description}</p>
+                  <p className="text-sm text-gray-600" style={{ fontFamily: 'ProximaNova-Regular' }}>{question.description}</p>
                 )}
               </div>
               
@@ -221,7 +221,7 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
                       required={question.required}
                       className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
                     />
-                    <span className="ml-3 text-sm font-medium text-gray-900">{option.text}</span>
+                    <span className="ml-3 text-sm font-medium text-gray-900" style={{ fontFamily: 'ProximaNova-Medium' }}>{option.text}</span>
                   </label>
                 ))}
               </div>
@@ -282,6 +282,7 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
                 onChange={(e) => handleAnswerChange(questionId, e.target.value)}
                 required={question.required}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              style={{ fontFamily: 'ProximaNova-Regular' }}
               >
                 <option value="">Select an option...</option>
                 {question.options?.map((option, index) => (
@@ -308,7 +309,7 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
             </div>
             <div className="grid grid-cols-2 gap-4">
               {question.options?.map((option, index) => (
-                <label key={index} className="relative cursor-pointer">
+                <label key={index} className="relative cursor-pointer group">
                   <input
                     type={question.selectionType === 'multi' ? 'checkbox' : 'radio'}
                     name={questionId}
@@ -333,11 +334,11 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
                     required={question.required}
                     className="sr-only"
                   />
-                  <div className={`border-2 rounded-lg overflow-hidden transition-all ${
+                  <div className={`border-2 rounded-lg overflow-hidden transition-all shadow-sm ${
                     (question.selectionType === 'multi'
                       ? (currentAnswer || []).includes(option.text)
                       : (currentAnswer && currentAnswer.text === option.text))
-                      ? 'border-blue-500 bg-blue-50'
+                      ? 'border-blue-500 bg-blue-50 shadow-md'
                       : 'border-gray-200 hover:border-gray-300'
                   }`}>
                     {option.image ? (
@@ -352,7 +353,7 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
                       </div>
                     )}
                     <div className="p-3 text-center">
-                      <span className="text-sm font-medium text-gray-900">{option.text}</span>
+                      <span className="text-sm font-medium text-gray-900" style={{ fontFamily: 'ProximaNova-Medium' }}>{option.text}</span>
                     </div>
                   </div>
                 </label>
@@ -388,9 +389,9 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
                       />
                     )}
                     <div className="text-center mb-3">
-                      <div className="text-sm font-medium text-gray-900">{option.text}</div>
+                      <div className="text-sm font-medium text-gray-900" style={{ fontFamily: 'ProximaNova-Medium' }}>{option.text}</div>
                       {option.price && (
-                        <div className="text-sm text-gray-600">${option.price}</div>
+                        <div className="text-sm text-gray-600" style={{ fontFamily: 'ProximaNova-Regular' }}>${option.price}</div>
                       )}
                     </div>
                     <div className="flex items-center justify-center space-x-3">
@@ -401,7 +402,7 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
                       >
                         <Minus className="w-3 h-3" />
                       </button>
-                      <span className="w-8 text-center text-sm font-medium">{quantity}</span>
+                      <span className="w-8 text-center text-sm font-medium" style={{ fontFamily: 'ProximaNova-Medium' }}>{quantity}</span>
                       <button
                         type="button"
                         onClick={() => handleQuantityChange(questionId, option.id, 1)}
@@ -429,7 +430,7 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
                 <p className="text-sm text-gray-600">{question.description}</p>
               )}
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               {question.options?.map((option, index) => (
                 <label key={index} className="relative cursor-pointer group">
                   <input
@@ -453,27 +454,27 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
                     required={question.required}
                     className="sr-only"
                   />
-                  <div className={`relative border-2 rounded-lg p-3 transition-all ${
+                  <div className={`relative border-2 rounded-lg p-4 transition-all shadow-sm ${
                     (question.selectionType === 'multi'
                       ? (currentAnswer || []).includes(option.text)
                       : currentAnswer === option.text)
                       ? 'border-blue-500 bg-blue-50 shadow-md'
-                      : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'
+                      : 'border-gray-200 hover:border-gray-300'
                   }`}>
                     {/* Color Swatch */}
                     <div 
-                      className="w-full h-16 rounded-lg mb-2 shadow-inner"
+                      className="w-full h-20 rounded-lg mb-3 shadow-sm border border-gray-200"
                       style={{ backgroundColor: option.text }}
                     />
                     {/* Color Label */}
                     <div className="text-center">
-                      <span className="text-sm font-medium text-gray-900">{option.text}</span>
+                      <span className="text-sm font-medium text-gray-900" style={{ fontFamily: 'ProximaNova-Medium' }}>{option.text}</span>
                     </div>
                     {/* Selection Indicator */}
                     {(question.selectionType === 'multi'
                       ? (currentAnswer || []).includes(option.text)
                       : currentAnswer === option.text) && (
-                      <div className="absolute -top-1 -right-1 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+                      <div className="absolute -top-2 -right-2 w-7 h-7 bg-blue-600 rounded-full flex items-center justify-center shadow-lg">
                         <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                         </svg>
@@ -504,6 +505,7 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
               onChange={(e) => handleAnswerChange(questionId, e.target.value)}
               required={question.required}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              style={{ fontFamily: 'ProximaNova-Regular' }}
               placeholder="Enter your answer"
             />
           </div>
@@ -527,6 +529,7 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
               required={question.required}
               rows={4}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              style={{ fontFamily: 'ProximaNova-Regular' }}
               placeholder="Enter your answer"
             />
           </div>
@@ -620,6 +623,7 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
               onChange={(e) => handleAnswerChange(questionId, e.target.value)}
               required={question.required}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              style={{ fontFamily: 'ProximaNova-Regular' }}
               placeholder="Enter your answer"
             />
           </div>

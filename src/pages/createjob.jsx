@@ -68,6 +68,7 @@ import ServiceCustomizationPopup from "../components/service-customization-popup
 import ServiceSelectionModal from "../components/service-selection-modal";
 import CreateServiceModal from "../components/create-service-modal";
 import CalendarPicker from "../components/CalendarPicker";
+import DiscountModal from "../components/discount-modal";
 import { useNavigate } from 'react-router-dom';
 import { jobsAPI, customersAPI, servicesAPI, teamAPI, territoriesAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -82,6 +83,7 @@ export default function CreateJobPage() {
   const { user, loading: authLoading } = useAuth();
   const { selectedCategoryId, selectedCategoryName } = useCategory();
   const [jobselected, setJobselected] = useState(false);
+  const [customerSelected, setCustomerSelected] = useState(false);
   const [serviceSelected, setServiceSelected] = useState(false);
   // Debug category context
   console.log('🔧 CreateJob - selectedCategoryId:', selectedCategoryId);
@@ -102,6 +104,8 @@ export default function CreateJobPage() {
   const [showServiceSelectionModal, setShowServiceSelectionModal] = useState(false);
   const [showCreateServiceModal, setShowCreateServiceModal] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showDiscountModal, setShowDiscountModal] = useState(false);
+  const [discountType, setDiscountType] = useState('fixed'); // 'fixed' or 'percentage'
 
   // Form data
   const [formData, setFormData] = useState({
@@ -159,6 +163,7 @@ export default function CreateJobPage() {
     customerSignature: false,
     photosRequired: false,
     qualityCheck: true,
+    arrivalWindow: false,
     // Service modifiers and intake questions
     serviceModifiers: [],
     serviceIntakeQuestions: [],
@@ -208,6 +213,11 @@ export default function CreateJobPage() {
     advanced: false,
     notifications: false
   });
+  const [expandedCustomerSections, setExpandedCustomerSections] = useState({
+    contact: false,
+    notes: false
+  });
+  const [expandedServiceIds, setExpandedServiceIds] = useState([]);
 
   // Status options
   const statusOptions = [
@@ -287,127 +297,124 @@ export default function CreateJobPage() {
   }, [serviceSearch, services]);
 
 
-  // Calculate total price including modifiers
+  // Calculate total price including modifiers - iterate through each service
   const calculateTotalPrice = useCallback(() => {
     try {
-      let basePrice = 0;
+      let totalPrice = 0;
       
-      // Calculate base price from all selected services
+      console.log('🔧 CALC: Starting calculation for', selectedServices.length, 'services');
+      
+      // Calculate price for each service individually
       selectedServices.forEach(service => {
-        basePrice += parseFloat(service.price) || 0;
-      });
-      
-      let modifierPrice = 0;
-      
-      console.log('🔧 CALC: Starting - Base:', basePrice);
-      console.log('🔧 CALC: selectedModifiers:', selectedModifiers);
-      console.log('🔧 CALC: selectedModifiers keys:', Object.keys(selectedModifiers));
-      console.log('🔧 CALC: selectedModifiers values:', Object.values(selectedModifiers));
-      console.log('🔧 CALC: editedModifierPrices:', editedModifierPrices);
-      console.log('🔧 CALC: formData.serviceModifiers:', formData.serviceModifiers);
-      
-      // Add prices from selected modifiers
-      console.log('🔧 CALC: Processing', Object.keys(selectedModifiers).length, 'modifiers');
-      Object.entries(selectedModifiers).forEach(([modifierId, modifierData]) => {
-        console.log('🔧 CALC: Processing modifier', modifierId, 'with data:', modifierData);
+        let serviceTotal = parseFloat(service.price) || 0;
+        console.log(`🔧 CALC: Service "${service.name}" - Base price: $${serviceTotal}`);
         
-        // ✅ FIX 3: Standardize modifier data access with string comparison
-        const modifier = formData.serviceModifiers?.find(m => 
-          String(m.id) === String(modifierId)  // String comparison for safety
-        );
+        // Get this service's modifiers and prices
+        const serviceModifiers = service.serviceModifiers || service.parsedModifiers || [];
+        const serviceSelectedModifiers = service.selectedModifiers || {};
+        const serviceEditedPrices = service.editedModifierPrices || {};
+        
+        console.log(`  Modifiers available:`, serviceModifiers.length);
+        console.log(`  Selected modifiers:`, serviceSelectedModifiers);
+        console.log(`  Edited prices:`, serviceEditedPrices);
+        
+        // Calculate modifier prices for this service
+        Object.entries(serviceSelectedModifiers).forEach(([modifierId, modifierData]) => {
+          const modifier = serviceModifiers.find(m => String(m.id) === String(modifierId));
         
         if (!modifier) {
-          console.log('🔧 CALC: Modifier not found:', modifierId);
+            console.log(`  Modifier ${modifierId} not found`);
           return;
         }
         
-        console.log('🔧 CALC: Found modifier:', modifier.title, 'type:', modifier.selectionType);
-        
-        if (modifier.selectionType === 'quantity') {
-          // ✅ FIX 4: Handle both data structures
-          const quantities = modifierData.quantities || modifierData;
+          console.log(`  Processing modifier: ${modifier.name || modifier.title}`);
           
-          Object.entries(quantities).forEach(([optionId, quantity]) => {
-            const option = modifier.options?.find(o => 
-              String(o.id) === String(optionId)
-            );
+          if (modifier.selectionType === 'quantity' && modifierData?.quantities) {
+            Object.entries(modifierData.quantities).forEach(([optionId, quantity]) => {
+              const option = modifier.options?.find(o => String(o.id) === String(optionId));
             
             if (option && quantity > 0) {
-              // ✅ FIX 5: Always check editedModifierPrices first
               const priceKey = `${modifierId}_option_${optionId}`;
-              const price = editedModifierPrices[priceKey] !== undefined 
-                ? editedModifierPrices[priceKey] 
-                : (parseFloat(option.price) || 0);
-              
-              const total = price * quantity;
-              modifierPrice += total;
-              
-              console.log(`🔧 CALC: ${option.title} - Price: $${price} x ${quantity} = $${total}`);
-            }
-          });
-        } else if (modifier.selectionType === 'multi') {
-          const selections = modifierData.selections || 
-                            (Array.isArray(modifierData) ? modifierData : [modifierData]);
+                const price = parseFloat(serviceEditedPrices[priceKey] !== undefined 
+                  ? serviceEditedPrices[priceKey] 
+                  : option.price) || 0;
+                
+                const optionTotal = price * quantity;
+                serviceTotal += optionTotal;
+                
+                console.log(`    ${option.name || option.label || option.title}: $${price} x ${quantity} = $${optionTotal}`);
+              }
+            });
+          } else if (modifier.selectionType === 'multi' && modifierData?.selections) {
+            const selections = Array.isArray(modifierData.selections) ? modifierData.selections : [modifierData.selections];
           
           selections.forEach(optionId => {
-            const option = modifier.options?.find(o => 
-              String(o.id) === String(optionId)
-            );
+              const option = modifier.options?.find(o => String(o.id) === String(optionId));
             
             if (option) {
               const priceKey = `${modifierId}_option_${optionId}`;
-              const price = editedModifierPrices[priceKey] !== undefined 
-                ? editedModifierPrices[priceKey] 
-                : (parseFloat(option.price) || 0);
-              
-              modifierPrice += price;
-              console.log(`🔧 CALC: ${option.title} - Price: $${price}`);
-            }
-          });
-        } else {
+                const price = parseFloat(serviceEditedPrices[priceKey] !== undefined 
+                  ? serviceEditedPrices[priceKey] 
+                  : option.price) || 0;
+                
+                serviceTotal += price;
+                console.log(`    ${option.name || option.label || option.title}: $${price}`);
+              }
+            });
+          } else if (modifierData?.selection) {
           // Single selection
-          const selectedOptionId = modifierData.selection || modifierData;
-          const option = modifier.options?.find(o => 
-            String(o.id) === String(selectedOptionId)
-          );
+            const option = modifier.options?.find(o => String(o.id) === String(modifierData.selection));
           
           if (option) {
-            const priceKey = `${modifierId}_option_${selectedOptionId}`;
-            const price = editedModifierPrices[priceKey] !== undefined 
-              ? editedModifierPrices[priceKey] 
-              : (parseFloat(option.price) || 0);
-            
-            modifierPrice += price;
-            console.log(`🔧 CALC: ${option.title} - Price: $${price}`);
+              const priceKey = `${modifierId}_option_${modifierData.selection}`;
+              const price = parseFloat(serviceEditedPrices[priceKey] !== undefined 
+                ? serviceEditedPrices[priceKey] 
+                : option.price) || 0;
+              
+              serviceTotal += price;
+              console.log(`    ${option.name || option.label || option.title}: $${price}`);
           }
         }
       });
       
-      const totalPrice = basePrice + modifierPrice;
-      console.log('🔧 CALC: Final - Base:', basePrice, 'Modifiers:', modifierPrice, 'Total:', totalPrice);
-      return totalPrice;
+        console.log(`  Service "${service.name}" total: $${serviceTotal}`);
+        totalPrice += serviceTotal;
+      });
+      
+      console.log('🔧 CALC: Grand total:', totalPrice);
+      return parseFloat(totalPrice) || 0;
     } catch (error) {
       console.error('Error calculating total price:', error);
       return 0;
     }
-  }, [selectedServices, selectedModifiers, editedModifierPrices, formData.serviceModifiers]);
+  }, [selectedServices]);
 
   // ✅ FIX 6: Update effect to recalculate on all relevant changes
   useEffect(() => {
     if (selectedServices.length > 0) {
-      const newTotalPrice = calculateTotalPrice();
-      const discount = parseFloat(formData.discount) || 0;
+      const subtotal = calculateTotalPrice();
+      let discountAmount = 0;
+      const discountValue = parseFloat(formData.discount) || 0;
+      
+      // Calculate discount based on type
+      if (discountValue > 0) {
+        if (discountType === 'percentage') {
+          discountAmount = (subtotal * discountValue) / 100;
+        } else {
+          discountAmount = discountValue;
+        }
+      }
+      
       const additionalFees = parseFloat(formData.additionalFees) || 0;
       const taxes = parseFloat(formData.taxes) || 0;
       
-      const subtotal = newTotalPrice - discount + additionalFees;
-      const total = subtotal + taxes;
+      const total = subtotal - discountAmount + additionalFees + taxes;
       
-      console.log('🔧 EFFECT: Updating prices - Price:', newTotalPrice, 'Total:', total);
+      console.log('🔧 EFFECT: Updating prices - Subtotal:', subtotal, 'Discount:', discountAmount, 'Total:', total);
       
       setFormData(prev => ({
         ...prev,
-        price: newTotalPrice,
+        price: subtotal,
         total: total
       }));
     } else {
@@ -423,12 +430,10 @@ export default function CreateJobPage() {
     }
   }, [
     selectedServices, 
-    selectedModifiers, 
-    editedModifierPrices, 
     formData.discount, 
     formData.additionalFees, 
     formData.taxes,
-    formData.serviceModifiers,
+    discountType,
     calculateTotalPrice
   ]);
 
@@ -1330,9 +1335,42 @@ export default function CreateJobPage() {
   };
 
   const handleSaveServiceCustomization = () => {
+    console.log('💾 Saving service customization for service:', selectedService?.id);
+    console.log('💾 Current selectedModifiers:', selectedModifiers);
+    console.log('💾 Current intakeQuestionAnswers:', intakeQuestionAnswers);
+    console.log('💾 Current editedModifierPrices:', editedModifierPrices);
+    
+    // Update the service in selectedServices array with the new customization
+    if (selectedService) {
+      setSelectedServices(prev => prev.map(service => {
+        if (service.id === selectedService.id) {
+          const updatedService = {
+            ...service,
+            selectedModifiers: { ...selectedModifiers },
+            intakeQuestionAnswers: { ...intakeQuestionAnswers },
+            editedModifierPrices: { ...editedModifierPrices }
+          };
+          console.log('💾 Updated service with all customizations:', updatedService);
+          return updatedService;
+        }
+        return service;
+      }));
+      
+      // Trigger price recalculation
+      setCalculationTrigger(prev => prev + 1);
+    }
+    
     setShowServiceCustomizationPopup(false);
-    // The modifiers and intake questions are already saved in state
-    // via the existing handlers
+  };
+
+  // Discount modal handlers
+  const handleSaveDiscount = (value, type) => {
+    console.log('💰 Saving discount:', value, type);
+    setDiscountType(type);
+    setFormData(prev => ({
+      ...prev,
+      discount: value
+    }));
   };
 
   // Service selection modal handlers
@@ -1724,12 +1762,12 @@ setIntakeQuestionAnswers(answers);
         {/* Header */}
         <div className="bg-white border-b border-gray-200  sm:px-32 py-4 px-40">
           <div className="flex items-center justify-between">
-            <h1 style={{fontFamily: 'ProximaNova-bold'}} className="text-lg sm:text-xl font-semibold text-gray-900">Create Job</h1>
+            <h1 style={{fontFamily: 'ProximaNova-Bold'}} className="text-lg sm:text-xl font-semibold text-gray-900">Create Job</h1>
             <div className="flex items-center space-x-3">
               <button
                 type="button"
                 onClick={() => navigate('/jobs')}
-                style={{fontFamily: 'ProximaNova-medium'}}
+                style={{fontFamily: 'ProximaNova-Medium'}}
                 className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium"
               >
                 Cancel
@@ -1737,7 +1775,7 @@ setIntakeQuestionAnswers(answers);
               <button
                 type="submit"
                 form="create-job-form"
-                style={{fontFamily: 'ProximaNova-medium'}}
+                style={{fontFamily: 'ProximaNova-Medium'}}
                 disabled={loading || !selectedCustomer || selectedServices.length === 0}
                 className={`px-4 py-2 rounded-lg font-medium ${
                   loading || !selectedCustomer || selectedServices.length === 0
@@ -1767,20 +1805,21 @@ setIntakeQuestionAnswers(answers);
         )}
 
         {/* Main Content */}
-        <div className="p-4 sm:p-6 mx-56">
-          {!jobselected && (
-            <div className="max-w-5xl mx-auto space-y-4">
+        <div className="p-4 sm:p-6 max-w-5xl mx-auto">
+          {!customerSelected && (
+            <div className="space-y-4">
               {/* Customer Section */}
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+              <div className="bg-white rounded-lg border border-gray-200 p-5">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 style={{fontFamily: 'ProximaNova-medium'}} className="text-lg font-semibold text-gray-900">Customer</h2>
+                  <h2 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'ProximaNova-Semibold' }}>Customer</h2>
                   <button
                     type="button"
                     onClick={() => {
-                      setEditingCustomer(null); // Clear editing state for new customer
+                      setEditingCustomer(null);
                       setIsCustomerModalOpen(true);
                     }}
                     className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                    style={{ fontFamily: 'ProximaNova-Medium' }}
                   >
                     New Customer
                   </button>
@@ -1802,7 +1841,8 @@ setIntakeQuestionAnswers(answers);
                       }
                     }}
                     placeholder="Search customers"
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                    className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                    style={{ fontFamily: 'ProximaNova-Regular' }}
                   />
                   {showCustomerDropdown && filteredCustomers.length > 0 && (
                       <>
@@ -1816,12 +1856,13 @@ setIntakeQuestionAnswers(answers);
                             key={customer.id}
                             type="button"
                             onClick={() => {
-                              // Directly select the customer
                               handleCustomerSelect(customer);
                               setShowCustomerDropdown(false);
                               setCustomerSearch('');
+                              setCustomerSelected(true);
+                              setJobselected(true);
                             }}
-                            className="w-full text-left px-4 py-2 hover:bg-gray-100 border-b border-gray-100 last:border-b-0"
+                            className="w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
                           >
                             <p className="font-medium text-gray-900">{customer.first_name} {customer.last_name}</p>
                             <p className="text-sm text-gray-600">{customer.email || 'No email address'}</p>
@@ -1833,53 +1874,56 @@ setIntakeQuestionAnswers(answers);
                   </div>
               </div>
 
-              {/* Services Section */}
-              <div className="bg-gray-100 rounded-lg p-4 flex ">
-                <p  style={{fontFamily: 'ProximaNova-bold'}} className="text-gray-600 text-left text-lg ">Services</p>
+              {/* Services Section - Disabled */}
+              <div className="bg-gray-100 rounded-lg p-5">
+                <h2 className="text-lg font-semibold text-gray-500" style={{ fontFamily: 'ProximaNova-Semibold' }}>Services</h2>
               </div>
 
-              {/* Schedule Section */}
-              <div className="bg-gray-100 rounded-lg p-4 flex ">
-                <p  style={{fontFamily: 'ProximaNova-bold'}} className="text-gray-600 text-left text-lg ">Schedule</p>
+              {/* Schedule Section - Disabled */}
+              <div className="bg-gray-100 rounded-lg p-5">
+                <h2 className="text-lg font-semibold text-gray-500" style={{ fontFamily: 'ProximaNova-Semibold' }}>Schedule</h2>
               </div>
             </div>
           )}
-         {jobselected &&
+         {customerSelected && (
           <form id="create-job-form" onSubmit={handleSubmit} className="max-w-7xl mx-auto" noValidate>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Left Column - Services and Schedule */}
               <div className="lg:col-span-2 space-y-6">
                 {/* Services Section */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-                  <div className="p-4 border-b border-gray-200">
+            <div className="bg-white rounded-lg border border-gray-200">
+                  <div className="px-6 py-4 border-b border-gray-200">
                 <div className="flex items-center justify-between">
-                      <h2 className="text-base font-semibold text-gray-900">Services</h2>
+                      <h2 className="text-lg font-bold text-gray-900" style={{ fontFamily: 'ProximaNova-Bold' }}>Services</h2>
                   <button
                     type="button"
                         onClick={() => setShowCreateServiceModal(true)}
                         className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                        style={{ fontFamily: 'ProximaNova-Medium' }}
                   >
                         Add Custom Service or Item
                   </button>
                 </div>
                   </div>
-                  <div className="p-4 bg-gray-50 space-y-3">
+                  <div className="px-6 py-5 space-y-4">
                     {/* Service Search */}
-                    <div className="flex flex-row items-center justify-between">
-                  <div className="relative w-8/12 space-x-2">
-                      <Search className="absolute left-5 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <div className="flex gap-3">
+                  <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <input
                       type="text"
                         placeholder="Search services"
                         value={serviceSearch}
                         onChange={(e) => setServiceSearch(e.target.value)}
-                        className="w-full text-xs pl-10 pr-2 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                        style={{ fontFamily: 'ProximaNova-Regular' }}
                       />
                     </div>
                       <button
                         type="button"
                       onClick={() => setShowServiceSelectionModal(true)}
-                      className="w-3/12 px-2 py-2 bg-white border text-xs border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium"
+                      className="px-5 py-2.5 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium text-sm"
+                      style={{ fontFamily: 'ProximaNova-Medium' }}
                       >
                       Browse Services
                       </button>
@@ -1887,106 +1931,458 @@ setIntakeQuestionAnswers(answers);
                     {/* Selected Services List */}
                     
                     {selectedServices.length > 0 && (
-                      <div className="space-y-0 pt-2">
+                      <div className="space-y-0">
                         {/* Service List Header */}
-                        <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200">
-                          <span className="text-xs font-semibold text-gray-700 uppercase">SERVICE</span>
-                          <span className="text-xs font-semibold text-gray-700 uppercase">PRICE</span>
+                        <div className="flex items-center justify-between py-3 border-b border-gray-200">
+                          <span className="text-xs font-bold text-gray-900 uppercase tracking-wide" style={{ fontFamily: 'ProximaNova-Bold' }}>Service</span>
+                          <span className="text-xs font-bold text-gray-900 uppercase tracking-wide" style={{ fontFamily: 'ProximaNova-Bold' }}>Price</span>
                         </div>
                         
                         {/* Service Items */}
-                        {selectedServices.map((service) => (
-                          <div key={service.id} className="bg-white border-b border-gray-200 px-3 py-3">
-                            <div className="flex items-start justify-between">
+                        {selectedServices.map((service) => {
+                          const isExpanded = expandedServiceIds.includes(service.id);
+                          
+                          // Parse modifiers - check all possible field names
+                          let parsedModifiers = [];
+                          const modifiersData = service.serviceModifiers || service.parsedModifiers || service.modifiers || service.service_modifiers;
+                          if (modifiersData) {
+                            try {
+                              if (typeof modifiersData === 'string') {
+                                parsedModifiers = JSON.parse(modifiersData);
+                              } else if (Array.isArray(modifiersData)) {
+                                parsedModifiers = modifiersData;
+                              }
+                            } catch (error) {
+                              console.error('Error parsing modifiers:', error);
+                            }
+                          }
+                          
+                          // Parse intake questions - check all possible field names
+                          let parsedIntakeQuestions = [];
+                          const intakeData = service.serviceIntakeQuestions || service.parsedIntakeQuestions || service.intake_questions || service.intakeQuestions;
+                          if (intakeData) {
+                            try {
+                              if (typeof intakeData === 'string') {
+                                parsedIntakeQuestions = JSON.parse(intakeData);
+                              } else if (Array.isArray(intakeData)) {
+                                parsedIntakeQuestions = intakeData;
+                              }
+                            } catch (error) {
+                              console.error('Error parsing intake questions:', error);
+                            }
+                          }
+                          
+                          const hasModifiers = parsedModifiers.length > 0;
+                          const hasIntakeQuestions = parsedIntakeQuestions.length > 0;
+                          
+                          // Debug logging
+                          if (isExpanded) {
+                            console.log('🔍 Expanded service:', service.name);
+                            console.log('🔍 Service object:', service);
+                            console.log('🔍 Has modifiers?', hasModifiers);
+                            console.log('🔍 Parsed modifiers:', parsedModifiers);
+                            console.log('🔍 Has intake questions?', hasIntakeQuestions);
+                            console.log('🔍 Parsed intake questions:', parsedIntakeQuestions);
+                            console.log('🔍 Selected modifiers state:', selectedModifiers);
+                            console.log('🔍 Intake answers state:', intakeQuestionAnswers);
+                          }
+                          
+                          return (
+                          <div key={service.id} className="py-4 border-b border-gray-200">
+                            <div className="flex items-start justify-between mb-2">
                               <div className="flex-1">
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    setSelectedService(service);
-                                    setShowServiceCustomizationPopup(true);
+                                    if (isExpanded) {
+                                      setExpandedServiceIds(prev => prev.filter(id => id !== service.id));
+                                    } else {
+                                      setExpandedServiceIds(prev => [...prev, service.id]);
+                                    }
                                   }}
                                   className="text-left"
                                 >
-                                  <div className="text-sm font-semibold text-blue-600 hover:text-blue-700 mb-1">
+                                  <div className="text-sm font-semibold text-blue-600 hover:text-blue-700 mb-1" style={{ fontFamily: 'ProximaNova-Semibold' }}>
                                     {service.name}
                                   </div>
-                                  <div className="text-xs text-gray-500 hover:text-gray-700">
-                                    Show details &gt;
+                                  <div className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                                    Show details {isExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
                                   </div>
                                 </button>
                               </div>
-                              <div className="flex items-center space-x-2">
-                                <div className="relative">
-                                  <input
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    value={parseFloat(service.price) || 0}
-                                    onChange={(e) => {
-                                      const newPrice = parseFloat(e.target.value) || 0;
-                                      setSelectedServices(prev => prev.map(s => 
-                                        s.id === service.id ? { ...s, price: newPrice } : s
-                                      ));
-                                    }}
-                                    className="w-24 px-2 py-1 text-sm text-right border-0 border-b-2 border-dotted border-gray-400 focus:border-blue-500 focus:outline-none focus:ring-0 bg-transparent"
-                                  />
-                                </div>
+                              <div className="flex items-center gap-3">
+                                <span className="text-base font-medium text-gray-900" style={{ fontFamily: 'ProximaNova-Medium' }}>
+                                  ${parseFloat(service.price || 0).toFixed(2)}
+                                </span>
                                 <button
                                   type="button"
                                   onClick={() => {
+                                    console.log('✏️ Opening customization for service:', service.name);
+                                    console.log('✏️ Service modifiers:', service.selectedModifiers);
+                                    console.log('✏️ Service answers:', service.intakeQuestionAnswers);
+                                    console.log('✏️ Service edited prices:', service.editedModifierPrices);
+                                    
+                                    // Load this service's specific modifiers, answers, and prices into state
+                                    if (service.selectedModifiers) {
+                                      setSelectedModifiers(service.selectedModifiers);
+                                    } else {
+                                      setSelectedModifiers({});
+                                    }
+                                    
+                                    if (service.intakeQuestionAnswers) {
+                                      setIntakeQuestionAnswers(service.intakeQuestionAnswers);
+                                    } else {
+                                      setIntakeQuestionAnswers({});
+                                    }
+                                    
+                                    if (service.editedModifierPrices) {
+                                      setEditedModifierPrices(service.editedModifierPrices);
+                                    } else {
+                                      setEditedModifierPrices({});
+                                    }
+                                    
                                     setSelectedService(service);
                                     setShowServiceCustomizationPopup(true);
                                   }}
-                                  className="text-gray-400 hover:text-gray-600"
+                                  className="text-gray-400 hover:text-gray-600 transition-colors"
                                 >
                                   <Edit className="w-4 h-4" />
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => removeService(service.id)}
-                                  className="text-gray-400 hover:text-red-600"
+                                  className="text-gray-400 hover:text-red-600 transition-colors"
                                 >
-                                  <Trash2 className="w-4 h-4" />
+                                  <Trash2 className="w-5 h-5" />
                                 </button>
                               </div>
                             </div>
+                            
+                            {/* Expanded Details */}
+                            {isExpanded && (
+                              <div className="mt-4 space-y-4 bg-gray-50 -mx-6 px-6 py-4 rounded-lg">
+                                {/* Service Modifiers */}
+                                {hasModifiers && (
+                                  <div>
+                                    <h4 className="text-sm font-bold text-gray-900 mb-2" style={{ fontFamily: 'ProximaNova-Bold' }}>
+                                      Select Your Items
+                                    </h4>
+                                    <div className="space-y-1">
+                                      {parsedModifiers.map((modifier) => {
+                                        // Check if service has its own selectedModifiers object
+                                        let modifierData = null;
+                                        if (service.selectedModifiers && typeof service.selectedModifiers === 'object') {
+                                          modifierData = service.selectedModifiers[modifier.id];
+                                        } else {
+                                          // Fallback to global state
+                                          modifierData = selectedModifiers[modifier.id];
+                                        }
+                                        
+                                        // Debug logging
+                                        console.log(`🔍 Modifier ${modifier.name}:`, {
+                                          modifierId: modifier.id,
+                                          modifierData,
+                                          options: modifier.options,
+                                          selectionType: modifier.selectionType,
+                                          fullModifier: modifier
+                                        });
+                                        
+                                        // Log each option structure
+                                        modifier.options?.forEach(opt => {
+                                          console.log('  Option:', opt.id, {
+                                            name: opt.name,
+                                            label: opt.label,
+                                            text: opt.text,
+                                            title: opt.title,
+                                            allKeys: Object.keys(opt)
+                                          });
+                                        });
+                                        
+                                        const isColorType = modifier.type?.toLowerCase() === 'color' || modifier.name?.toLowerCase().includes('color');
+                                        const isImageType = modifier.type?.toLowerCase() === 'image' || modifier.displayType?.toLowerCase() === 'image';
+                                        
+                                        // Get selected options
+                                        let selectedOptions = [];
+                                        if (modifier.selectionType === 'quantity' && modifierData?.quantities) {
+                                          Object.entries(modifierData.quantities).forEach(([optionId, quantity]) => {
+                                            if (quantity > 0) {
+                                              const option = modifier.options?.find(o => o.id === optionId || o.id == optionId);
+                                              if (option) {
+                                                const displayName = option.name || option.label || option.text || option.title || option.value || `Option ${optionId}`;
+                                                console.log(`  Found option ${optionId}:`, displayName, option);
+                                                selectedOptions.push({ 
+                                                  ...option, 
+                                                  quantity,
+                                                  displayName
+                                                });
+                                              } else {
+                                                console.warn(`  Option ${optionId} not found in modifier ${modifier.name}`);
+                                              }
+                                            }
+                                          });
+                                        } else if (modifierData?.selections && Array.isArray(modifierData.selections)) {
+                                          selectedOptions = (modifier.options?.filter(o => modifierData.selections.includes(o.id)) || []).map(opt => {
+                                            const displayName = opt.name || opt.label || opt.text || opt.title || opt.value || `Option ${opt.id}`;
+                                            console.log(`  Found multi-select option ${opt.id}:`, displayName, opt);
+                                            return {
+                                              ...opt,
+                                              displayName
+                                            };
+                                          });
+                                        } else if (modifierData?.selection) {
+                                          const option = modifier.options?.find(o => o.id === modifierData.selection || o.id == modifierData.selection);
+                                          if (option) {
+                                            const displayName = option.name || option.label || option.text || option.title || option.value || `Option ${option.id}`;
+                                            console.log(`  Found single-select option ${modifierData.selection}:`, displayName, option);
+                                            selectedOptions.push({
+                                              ...option,
+                                              displayName
+                                            });
+                                          } else {
+                                            console.warn(`  Option ${modifierData.selection} not found in modifier ${modifier.name}`);
+                                          }
+                                        }
+                                        
+                                        // Only show modifiers that have selections
+                                        if (selectedOptions.length === 0) return null;
+                                        
+                                        return (
+                                          <div key={modifier.id} className="mb-3">
+                                            {/* Modifier name as heading */}
+                                            <div className="text-sm font-bold text-gray-900 mb-1" style={{ fontFamily: 'ProximaNova-Bold' }}>
+                                              {modifier.name || modifier.title}
                           </div>
-                        ))}
+                                            
+                                            {/* Show each selected option with details */}
+                                            {selectedOptions.map((option, idx) => {
+                                              console.log('📦 Displaying option:', option);
+                                              
+                                              // Get the price - check service's edited prices first
+                                              const priceKey = `${modifier.id}_option_${option.id}`;
+                                              let optionPrice = parseFloat(option.price || 0);
+                                              
+                                              // Check if service has edited prices for this option
+                                              if (service.editedModifierPrices && service.editedModifierPrices[priceKey] !== undefined) {
+                                                optionPrice = parseFloat(service.editedModifierPrices[priceKey]);
+                                                console.log('📦 Using edited price for', option.displayName, ':', optionPrice);
+                                              }
+                                              
+                                              return (
+                                                <div key={idx} className="text-sm text-gray-600 mb-1 flex items-center justify-between" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                                                  <span>
+                                                    {option.quantity && `${option.quantity}x `}
+                                                    {option.displayName}
+                                                  </span>
+                                                  {optionPrice > 0 && (
+                                                    <span className="text-gray-500 ml-2">
+                                                      ${optionPrice.toFixed(2)}
+                                                      {option.quantity && option.quantity > 1 && ` (${(optionPrice * option.quantity).toFixed(2)} total)`}
+                                                    </span>
+                                                  )}
+                                                </div>
+                                              );
+                                            })}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                )}
+                                
+                                {/* Intake Questions */}
+                                {hasIntakeQuestions && (
+                                  <div className="space-y-2">
+                                    {parsedIntakeQuestions.map((question, index) => {
+                                      const questionId = question.id || index;
+                                      
+                                      // The answer should be stored with the service's intakeQuestionAnswers
+                                      // Check if service has its own intakeQuestionAnswers object
+                                      let answer = null;
+                                      if (service.intakeQuestionAnswers && typeof service.intakeQuestionAnswers === 'object') {
+                                        answer = service.intakeQuestionAnswers[questionId];
+                                      } else {
+                                        // Fallback to global state
+                                        answer = intakeQuestionAnswers[questionId];
+                                      }
+                                      
+                                      // Debug logging for this question
+                                      if (isExpanded) {
+                                        console.log(`🔍 Question ${questionId} for service ${service.name}:`, {
+                                          question: question.question,
+                                          questionType: question.questionType,
+                                          serviceIntakeAnswers: service.intakeQuestionAnswers,
+                                          answer,
+                                          globalAnswers: intakeQuestionAnswers
+                                        });
+                                      }
+                                      
+                                      const isColorType = question.questionType === 'color_choice' || question.type?.toLowerCase() === 'color';
+                                      const isImageType = question.type?.toLowerCase() === 'image' || question.inputType?.toLowerCase() === 'image';
+                                      
+                                      // Only show questions that have answers
+                                      if (!answer) return null;
+                                      
+                                      return (
+                                        <div key={questionId}>
+                                          <div className="text-sm font-bold text-gray-900 mb-1" style={{ fontFamily: 'ProximaNova-Bold' }}>
+                                            {question.question || question.label || question.text}
+                                          </div>
+                                          
+                                          {answer && (
+                                            isColorType ? (
+                                              // Display color(s) as pill(s)
+                                              <div className="flex flex-wrap gap-2">
+                                                {(() => {
+                                                  // Handle array of colors
+                                                  if (Array.isArray(answer)) {
+                                                    return answer.map((color, idx) => (
+                                                      <div 
+                                                        key={idx}
+                                                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-gray-300"
+                                                      >
+                                                        <div 
+                                                          className="w-5 h-5 rounded-full border border-gray-300 shadow-sm"
+                                                          style={{ backgroundColor: color }}
+                                                        />
+                                                        <span className="text-sm text-gray-900" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                                                          {color}
+                                                        </span>
+                                                      </div>
+                                                    ));
+                                                  }
+                                                  // Handle concatenated hex codes like "#FFD700#87CEEB"
+                                                  else if (typeof answer === 'string' && answer.includes('#')) {
+                                                    const colors = answer.match(/#[0-9A-Fa-f]{6}/g) || [answer];
+                                                    return colors.map((color, idx) => (
+                                                      <div 
+                                                        key={idx}
+                                                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-gray-300"
+                                                      >
+                                                        <div 
+                                                          className="w-5 h-5 rounded-full border border-gray-300 shadow-sm"
+                                                          style={{ backgroundColor: color }}
+                                                        />
+                                                        <span className="text-sm text-gray-900" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                                                          {color}
+                                                        </span>
+                                                      </div>
+                                                    ));
+                                                  }
+                                                  // Handle single color
+                                                  else {
+                                                    return (
+                                                      <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-gray-300">
+                                                        <div 
+                                                          className="w-5 h-5 rounded-full border border-gray-300 shadow-sm"
+                                                          style={{ backgroundColor: answer }}
+                                                        />
+                                                        <span className="text-sm text-gray-900" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                                                          {answer}
+                                                        </span>
+                                                      </div>
+                                                    );
+                                                  }
+                                                })()}
+                                              </div>
+                                            ) : isImageType ? (
+                                              // Display image
+                                              <div className="inline-block">
+                                                <img 
+                                                  src={answer} 
+                                                  alt="Selected"
+                                                  className="w-20 h-20 object-cover rounded border border-gray-200"
+                                                  onError={(e) => {
+                                                    e.target.style.display = 'none';
+                                                    e.target.nextSibling.style.display = 'flex';
+                                                  }}
+                                                />
+                                                <div className="hidden w-20 h-20 bg-gray-100 rounded border border-gray-200 items-center justify-center text-xs text-gray-400">
+                                                  No image
+                                                </div>
+                                              </div>
+                                            ) : (
+                                              // Display text (can be array or string)
+                                              <div className="text-sm text-gray-600" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                                                {Array.isArray(answer) ? answer.join(', ') : answer}
+                                              </div>
+                                            )
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                                
+                                {/* Show message only if expanded but no customizations */}
+                                {!hasModifiers && !hasIntakeQuestions && (
+                                  <div className="text-sm text-gray-500 text-center py-4" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                                    No customizations for this service
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        )}
                         
                         {/* Pricing Summary */}
-                        <div className="bg-white border-t border-gray-200 px-3 py-3 space-y-2">
-                          <div className="flex justify-between text-sm">
-                            <span className="text-gray-600">Subtotal</span>
-                            <span className="font-medium text-gray-900">${(calculateTotalPrice() || 0).toFixed(2)}</span>
+                        <div className="pt-4 space-y-3">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-900" style={{ fontFamily: 'ProximaNova-Bold' }}>Subtotal</span>
+                            <span className="text-base text-gray-900" style={{ fontFamily: 'ProximaNova-Regular' }}>${(parseFloat(calculateTotalPrice()) || 0).toFixed(2)}</span>
                           </div>
-                          <div className="flex justify-start">
+                          
+                          {formData.discount > 0 ? (
+                            <div className="flex justify-between items-center">
                             <button
                               type="button"
-                              onClick={() => {/* Add discount modal */}}
-                              className="text-sm text-blue-600 hover:text-blue-700"
+                                onClick={() => setShowDiscountModal(true)}
+                                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                                style={{ fontFamily: 'ProximaNova-Medium' }}
+                            >
+                                Discount ({discountType === 'percentage' ? `${formData.discount}%` : `$${formData.discount}`})
+                            </button>
+                              <span className="text-base text-gray-900" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                                -${(() => {
+                                  const subtotal = parseFloat(calculateTotalPrice()) || 0;
+                                  if (discountType === 'percentage') {
+                                    return ((subtotal * formData.discount) / 100).toFixed(2);
+                                  }
+                                  return parseFloat(formData.discount).toFixed(2);
+                                })()}
+                              </span>
+                          </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setShowDiscountModal(true)}
+                              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                              style={{ fontFamily: 'ProximaNova-Medium' }}
                             >
                               Add Discount
                             </button>
-                          </div>
-                          <div className="flex justify-start">
+                          )}
+                          
                             <button
                               type="button"
                               onClick={() => {/* Add fee modal */}}
-                              className="text-sm text-blue-600 hover:text-blue-700"
+                            className="text-sm text-blue-600 hover:text-blue-700 font-medium block"
+                            style={{ fontFamily: 'ProximaNova-Medium' }}
                             >
                               Add Fee
                             </button>
+                          
+                          <div className="flex justify-between items-center">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-sm text-gray-900" style={{ fontFamily: 'ProximaNova-Bold' }}>Taxes</span>
+                              <Info className="w-4 h-4 text-gray-400" />
                           </div>
-                          <div className="flex justify-between items-center text-sm">
-                            <div className="flex items-center space-x-1">
-                              <span className="text-gray-600">Taxes</span>
-                              <Info className="w-3 h-3 text-gray-400" />
+                            <span className="text-base text-gray-900" style={{ fontFamily: 'ProximaNova-Regular' }}>${(formData.taxes || 0).toFixed(2)}</span>
                             </div>
-                            <span className="font-medium text-gray-900">${(formData.taxes || 0).toFixed(2)}</span>
-                          </div>
-                          <div className="border-t border-gray-200 pt-2 flex justify-between">
-                            <span className="font-semibold text-gray-900">Total</span>
-                            <span className="font-semibold text-gray-900">${(formData.total || 0).toFixed(2)}</span>
+                          
+                          <div className="pt-3 border-t border-gray-200 flex justify-between items-center">
+                            <span className="text-sm font-bold text-gray-900" style={{ fontFamily: 'ProximaNova-Bold' }}>Total</span>
+                            <span className="text-base font-bold text-gray-900" style={{ fontFamily: 'ProximaNova-Bold' }}>${(parseFloat(formData.total) || 0).toFixed(2)}</span>
                           </div>
                         </div>
                       </div>
@@ -1994,24 +2390,22 @@ setIntakeQuestionAnswers(answers);
                   </div>
             </div>
 
-                {/* Schedule Section */}
-                {serviceSelected && (
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-                  <div className="p-4 border-b border-gray-200">
-                    <h2 className="text-base font-semibold text-gray-900">Schedule</h2>
-                    </div>
-                  <div className="p-4 bg-gray-50 space-y-4">
-                    {/* Duration/Workers/Skills Dropdowns */}
-                    <div className="grid grid-cols-3 gap-2">
+                {/* Schedule Section - Only show if service is selected */}
+                {selectedServices.length > 0 && (
+              <div className="bg-white rounded-lg border border-gray-200">
+                  <div className="px-5 py-4 border-b border-gray-200">
+                    <div className="flex items-center justify-between flex-wrap gap-3">
+                      <h2 className="text-lg font-bold text-gray-900" style={{ fontFamily: 'ProximaNova-Bold' }}>Schedule</h2>
+                      <div className="flex items-center gap-2">
+                        <div className="relative">
                       <select
                         value={(() => {
-                            const totalMinutes = calculateTotalDuration() || 0;
+                                const totalMinutes = calculateTotalDuration() || 90;
                             const hours = Math.floor(totalMinutes / 60);
                             const mins = totalMinutes % 60;
                           return `${hours}h ${mins}m`;
                           })()}
                         onChange={(e) => {
-                          // Parse duration from dropdown
                           const match = e.target.value.match(/(\d+)h\s*(\d+)?m?/);
                           if (match) {
                             const hours = parseInt(match[1]) || 0;
@@ -2019,148 +2413,177 @@ setIntakeQuestionAnswers(answers);
                             setFormData(prev => ({ ...prev, duration: hours * 60 + mins }));
                           }
                         }}
-                        className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                            className="pl-8 pr-10 py-1.5 text-sm border border-gray-300 rounded-md bg-gray-50 appearance-none focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            style={{ fontFamily: 'ProximaNova-Regular' }}
                       >
-                        <option value="1h 0m">1 hr 10 min</option>
+                            <option value="0h 30m">30 min</option>
+                            <option value="1h 0m">1 hr</option>
+                            <option value="1h 30m">1 hr 30 min</option>
                         <option value="2h 0m">2 hrs</option>
                         <option value="3h 0m">3 hrs</option>
                         <option value="4h 0m">4 hrs</option>
                       </select>
+                          <Clock className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                          <ChevronDown className="absolute right-2.5 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                        </div>
+                        
+                        <div className="relative">
                       <select
                         value={formData.workers || 1}
                         onChange={(e) => setFormData(prev => ({ ...prev, workers: parseInt(e.target.value) }))}
-                        className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                            className="pl-8 pr-10 py-1.5 text-sm border border-gray-300 rounded-md bg-gray-50 appearance-none focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            style={{ fontFamily: 'ProximaNova-Regular' }}
                       >
                         <option value="1">1 worker</option>
                         <option value="2">2 workers</option>
                         <option value="3">3 workers</option>
                         <option value="4">4 workers</option>
                       </select>
+                          <Users className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                          <ChevronDown className="absolute right-2.5 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                        </div>
+                        
+                        <div className="relative">
                       <select
                         value={formData.skillsRequired || 0}
                         onChange={(e) => setFormData(prev => ({ ...prev, skillsRequired: parseInt(e.target.value) }))}
-                        className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                            className="pl-8 pr-10 py-1.5 text-sm border border-gray-300 rounded-md bg-gray-50 appearance-none focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            style={{ fontFamily: 'ProximaNova-Regular' }}
                       >
                         <option value="0">0 skills required</option>
                         <option value="1">1 skill required</option>
                         <option value="2">2 skills required</option>
                       </select>
+                          <Target className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                          <ChevronDown className="absolute right-2.5 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                        </div>
+                      </div>
+                    </div>
                       </div>
                       
+                  <div className="px-5 py-4 space-y-4">
                     {/* Job Type Tabs */}
-                    <div className="flex space-x-2">
+                    <div className="bg-gray-100 p-1 rounded-lg flex gap-1">
                         <button
                           type="button"
                         onClick={() => setFormData(prev => ({ ...prev, scheduleType: 'one-time' }))}
-                        className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium ${
+                        className={`flex-1 px-6 py-2.5 rounded-md text-sm font-medium transition-all ${
                           formData.scheduleType === 'one-time'
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-gray-100 text-gray-600'
+                            ? 'bg-white text-blue-600 shadow-sm'
+                            : 'text-gray-600 hover:text-gray-900'
                         }`}
+                        style={{ fontFamily: formData.scheduleType === 'one-time' ? 'ProximaNova-Semibold' : 'ProximaNova-Regular' }}
                       >
                         One Time
                         </button>
                           <button
                         type="button"
                         onClick={() => setFormData(prev => ({ ...prev, scheduleType: 'recurring' }))}
-                        className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium ${
+                        className={`flex-1 px-6 py-2.5 rounded-md text-sm font-medium transition-all ${
                           formData.scheduleType === 'recurring'
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-gray-100 text-gray-600'
+                            ? 'bg-white text-blue-600 shadow-sm'
+                            : 'text-gray-600 hover:text-gray-900'
                         }`}
+                        style={{ fontFamily: formData.scheduleType === 'recurring' ? 'ProximaNova-Semibold' : 'ProximaNova-Regular' }}
                       >
                         Recurring Job
                           </button>
                       </div>
                       
                     {/* Scheduling Options */}
-                    <div className="space-y-3">
-                      <div className="flex items-start space-x-3">
+                    <div className="space-y-5">
+                      <div className="flex items-start gap-3">
+                        <div className="flex items-center justify-center w-5 h-5 mt-0.5">
                         <input
                           type="radio"
-                          id="schedule-now"
                           name="scheduling-option"
                           checked={!formData.letCustomerSchedule}
                           onChange={() => setFormData(prev => ({ ...prev, letCustomerSchedule: false }))}
-                          className="mt-1"
+                            className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
                         />
+                        </div>
                         <div className="flex-1">
-                          <label htmlFor="schedule-now" className="block text-sm font-medium text-gray-900 mb-2">
-                            Schedule Now
-                          </label>
-                          <div className="grid grid-cols-2 gap-2 mb-2">
-                            <div className="relative">
+                          <div className="font-bold text-sm text-gray-900 mb-4" style={{ fontFamily: 'ProximaNova-Bold' }}>Schedule Now</div>
+                          <div className="flex gap-3 items-center mb-1">
+                            <div className="relative flex-1">
+                              <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                               <input
                                 type="text"
-                                placeholder="Select date"
-                                value={formData.scheduledDate ? formatDateDisplay(formData.scheduledDate) : ''}
+                                placeholder="Select a date & time"
+                                value={formData.scheduledDate && formData.scheduledTime ? 
+                                  `${formatDateDisplay(formData.scheduledDate)} at ${
+                                    new Date(`2000-01-01 ${formData.scheduledTime}`).toLocaleTimeString('en-US', {
+                                      hour: 'numeric',
+                                      minute: '2-digit',
+                                      hour12: true
+                                    })
+                                  }` : ''
+                                }
                                 onClick={() => setShowDatePicker(true)}
                                 readOnly
-                                className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer text-sm"
+                                className="w-full pl-10 pr-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white cursor-pointer"
+                                style={{ fontFamily: 'ProximaNova-Regular' }}
                               />
-                              <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                      </div>
-                            <div className="relative">
-                            <input
-                                type="time"
-                                value={formData.scheduledTime || '09:00'}
-                                onChange={(e) => setFormData(prev => ({ ...prev, scheduledTime: e.target.value }))}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                                step="1800"
-                              />
-                              <Clock className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                          </div>
                         </div>
                             <button
                               type="button"
                             onClick={() => setShowDatePicker(true)}
-                            className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium"
+                              className="px-4 py-2.5 text-sm text-white bg-blue-500 hover:bg-blue-600 rounded-lg font-medium whitespace-nowrap transition-colors"
+                              style={{ fontFamily: 'ProximaNova-Medium' }}
                             >
                             Find a Time
                             </button>
                           </div>
+                          </div>
                         </div>
                         
-                      <div className="flex items-start space-x-3">
+                      <div className="flex items-start gap-3">
+                        <div className="flex items-center justify-center w-5 h-5 mt-0.5">
                             <input
                           type="radio"
-                          id="let-customer-schedule"
                           name="scheduling-option"
                           checked={formData.letCustomerSchedule}
                           onChange={() => setFormData(prev => ({ ...prev, letCustomerSchedule: true }))}
-                          className="mt-1"
+                            className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
                         />
+                        </div>
                         <div className="flex-1">
-                          <label htmlFor="let-customer-schedule" className="block text-sm font-medium text-gray-900">
-                            Let Customer Schedule
-                            <span className="ml-2 px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded">Upgrade</span>
-                          </label>
-                          <p className="text-xs text-gray-600 mt-1">
-                            Send a bookable estimate to your customer, allowing them to choose a convenient time for the service.
-                          </p>
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="font-bold text-sm text-gray-900" style={{ fontFamily: 'ProximaNova-Bold' }}>Let Customer Schedule</span>
+                            <span className="inline-flex items-center gap-1 text-xs text-purple-700 font-medium" style={{ fontFamily: 'ProximaNova-Medium' }}>
+                              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M10 2a8 8 0 100 16 8 8 0 000-16zm1 11H9v-2h2v2zm0-4H9V5h2v4z"/>
+                              </svg>
+                              Upgrade
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-600" style={{ fontFamily: 'ProximaNova-Regular' }}>Send a bookable estimate to your customer, allowing them to choose a convenient time for the service.</p>
                           </div>
                         </div>
                         </div>
 
-                    {/* Assignment */}
-                    <div className="space-y-2">
+                    {/* Assigned Section */}
+                    <div className="pt-5 border-t border-gray-200">
+                      <div className="text-xs font-bold text-gray-900 uppercase tracking-wider mb-4" style={{ fontFamily: 'ProximaNova-Bold' }}>Assigned</div>
+                      
                         <button
                           type="button"
-                          onClick={() => setShowTeamDropdown(!showTeamDropdown)}
-                        className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium text-left"
+                        onClick={() => setShowTeamDropdown(true)}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 mb-4 text-sm text-blue-600 hover:text-blue-700 border border-blue-600 hover:border-blue-700 rounded-full font-medium transition-colors"
+                        style={{ fontFamily: 'ProximaNova-Medium' }}
                         >
-                          {selectedTeamMembers.length > 0 
-                          ? `${selectedTeamMembers.length} team member(s) assigned`
-                          : '+ Assign'}
+                        <Plus className="w-4 h-4" />
+                        Assign
                         </button>
-                      <label className="flex items-center space-x-2">
+                      
+                      <label className="flex items-start gap-3 cursor-pointer">
                         <input
                           type="checkbox"
                           checked={formData.offerToProviders}
                           onChange={(e) => setFormData(prev => ({ ...prev, offerToProviders: e.target.checked }))}
-                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          className="mt-0.5 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
                         />
-                        <span className="text-sm text-gray-700">Offer job to service providers</span>
+                        <span className="text-sm text-gray-900" style={{ fontFamily: 'ProximaNova-Regular' }}>Offer job to service providers</span>
                       </label>
                                       </div>
                                     </div>
@@ -2168,88 +2591,115 @@ setIntakeQuestionAnswers(answers);
                         )}
                       </div>
                       
-              {/* Right Column - Customer, Address, etc */}
-              <div className="lg:col-span-1 space-y-6">
-                {/* Customer Section */}
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-                  <div className="p-4 border-b border-gray-200">
+              {/* Right Column - Customer Details */}
+              <div className="lg:col-span-1 space-y-0">
+                <div className="bg-white rounded-lg border border-gray-200">
+                  {/* Customer Header */}
+                  <div className="p-5 border-b border-gray-200">
                           <div className="flex items-center justify-between">
-                      <h2 className="text-base font-semibold text-gray-900">Customer</h2>
-                      {selectedCustomer && (
+                      <h2 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'ProximaNova-Semibold' }}>Customer</h2>
                             <button
                               type="button"
                           onClick={() => setShowCustomerDropdown(true)}
-                          className="text-sm text-blue-600 hover:text-blue-700"
+                        className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                        style={{ fontFamily: 'ProximaNova-Medium' }}
                             >
                           Change
                             </button>
-                      )}
                           </div>
                   </div>
-                  {selectedCustomer ? (
-                    <div className="p-4 space-y-4">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold">
+                  {selectedCustomer && (
+                    <>
+                      {/* Customer Info */}
+                      <div className="p-5 border-b border-gray-200">
+                        <div className="flex items-start gap-3">
+                          <div className="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center text-white font-medium flex-shrink-0">
                           {selectedCustomer.first_name?.[0]}{selectedCustomer.last_name?.[0]}
                         </div>
                         <div className="flex-1">
-                          <div className="flex items-center space-x-2">
-                            <span className="font-medium text-gray-900">
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-medium text-gray-900" style={{ fontFamily: 'ProximaNova-Medium' }}>
                               {selectedCustomer.first_name} {selectedCustomer.last_name}
-                            </span>
+                              </h3>
                                 <button
                                   type="button"
-                              onClick={() => setIsCustomerModalOpen(true)}
+                                onClick={() => {
+                                  setEditingCustomer(selectedCustomer);
+                                  setIsCustomerModalOpen(true);
+                                }}
                               className="text-sm text-blue-600 hover:text-blue-700"
+                                style={{ fontFamily: 'ProximaNova-Regular' }}
                                 >
                               Edit
                                 </button>
+                            </div>
                               </div>
                           </div>
                     </div>
 
-                      {/* Contact Information Display */}
-                      <div className="space-y-3 pt-2 border-t border-gray-200">
+                      {/* Contact Info Section */}
+                      <div className="border-b border-gray-200">
+                        <button
+                          type="button"
+                          onClick={() => setExpandedCustomerSections(prev => ({ ...prev, contact: !prev.contact }))}
+                          className="w-full px-5 py-3 hover:bg-gray-50 transition-colors text-left"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'ProximaNova-Semibold' }}>Contact Info</span>
+                            <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform ${expandedCustomerSections.contact ? 'rotate-90' : ''}`} />
+                          </div>
+                        </button>
+                        {expandedCustomerSections.contact && (
+                          <div className="px-5 pb-3 space-y-2">
                         {selectedCustomer.email && (
-                          <div className="flex items-center space-x-2">
+                              <div className="flex items-center gap-2">
                             <Mail className="w-4 h-4 text-gray-400" />
-                            <span className="text-sm text-gray-900">{selectedCustomer.email}</span>
+                                <span className="text-sm text-gray-700" style={{ fontFamily: 'ProximaNova-Regular' }}>{selectedCustomer.email}</span>
                     </div>
                         )}
                         {selectedCustomer.phone && (
-                          <div className="flex items-center space-x-2">
+                              <div className="flex items-center gap-2">
                             <Phone className="w-4 h-4 text-gray-400" />
-                            <span className="text-sm text-gray-900">{formatPhoneNumber(selectedCustomer.phone)}</span>
+                                <span className="text-sm text-gray-700" style={{ fontFamily: 'ProximaNova-Regular' }}>{formatPhoneNumber(selectedCustomer.phone)}</span>
                 </div>
               )}
                         {!selectedCustomer.email && !selectedCustomer.phone && (
-                          <p className="text-xs text-gray-500">No contact information available</p>
+                              <p className="text-sm text-gray-500" style={{ fontFamily: 'ProximaNova-Regular' }}>No contact information available</p>
+                            )}
+                          </div>
               )}
             </div>
 
-                      <div className="space-y-2 pt-2 border-t border-gray-200">
+                      {/* Notes Section */}
                 <button
                   type="button"
-                          className="w-full flex items-center justify-between p-2 hover:bg-gray-50 rounded"
-                        >
-                          <span className="text-sm font-medium text-gray-700">CONTACT INFO</span>
+                        onClick={() => expandedSections.notes = !expandedSections.notes}
+                        className="w-full px-5 py-3 border-b border-gray-200 hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'ProximaNova-Semibold' }}>Notes</span>
+                            <span className="text-xs text-gray-400" style={{ fontFamily: 'ProximaNova-Regular' }}>{selectedCustomer.notes_count || 0}</span>
+                          </div>
                           <ChevronRight className="w-4 h-4 text-gray-400" />
+                        </div>
                 </button>
+                      
+                      {/* Notification Preferences */}
+                      <div className="px-5 py-3 border-b border-gray-200">
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'ProximaNova-Semibold' }}>Notification Preferences</span>
                 <button
                   type="button"
-                          className="w-full flex items-center justify-between p-2 hover:bg-gray-50 rounded"
+                            className="text-sm text-blue-600 hover:text-blue-700"
+                            style={{ fontFamily: 'ProximaNova-Regular' }}
                         >
-                          <span className="text-sm font-medium text-gray-700">NOTES {selectedCustomer.notes_count || 0}</span>
-                          <ChevronRight className="w-4 h-4 text-gray-400" />
+                            Email
                 </button>
-                        <div className="p-2">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-medium text-gray-700">NOTIFICATION PREFERENCES</span>
-                            <ChevronDown className="w-4 h-4 text-gray-400" />
               </div>
-                          <div className="space-y-2">
+                        <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                              <span className="text-sm text-gray-600">Emails</span>
+                            <span className="text-sm text-gray-700" style={{ fontFamily: 'ProximaNova-Regular' }}>Emails</span>
                               <label className="relative inline-flex items-center cursor-pointer">
                         <input
                           type="checkbox"
@@ -2260,11 +2710,11 @@ setIntakeQuestionAnswers(answers);
                           }))}
                                   className="sr-only peer"
                         />
-                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                              <div className="w-10 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
                         </label>
                 </div>
                             <div className="flex items-center justify-between">
-                              <span className="text-sm text-gray-600">Text messages</span>
+                            <span className="text-sm text-gray-700" style={{ fontFamily: 'ProximaNova-Regular' }}>Text messages</span>
                               <label className="relative inline-flex items-center cursor-pointer">
                         <input
                           type="checkbox"
@@ -2275,71 +2725,17 @@ setIntakeQuestionAnswers(answers);
                           }))}
                                   className="sr-only peer"
                         />
-                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                              <div className="w-10 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gray-200"></div>
                         </label>
               </div>
                     </div>
                   </div>
-                </div>
-            </div>
-                  ) : (
-                    <div className="p-4 bg-gray-50">
-                      <div className="relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                        <input
-                          type="text"
-                          placeholder="Search customers"
-                          value={customerSearch}
-                          onChange={(e) => setCustomerSearch(e.target.value)}
-                          onFocus={() => setShowCustomerDropdown(true)}
-                          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditingCustomer(null); // Clear editing state for new customer
-                          setIsCustomerModalOpen(true);
-                        }}
-                        className="mt-2 text-sm text-blue-600 hover:text-blue-700 font-medium"
-                      >
-                        New Customer
-                      </button>
-                      {showCustomerDropdown && (
-                        <>
-                          <div 
-                            className="fixed inset-0 z-40" 
-                            onClick={() => setShowCustomerDropdown(false)}
-                          />
-                          <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                            {filteredCustomers.map(customer => (
-                              <button
-                                key={customer.id}
-                                type="button"
-                                onClick={() => {
-                                  // Directly select the customer
-                                  handleCustomerSelect(customer);
-                                  setShowCustomerDropdown(false);
-                                }}
-                                className="w-full text-left px-4 py-2 hover:bg-gray-100 border-b border-gray-100 last:border-b-0"
-                              >
-                                <p className="font-medium">{customer.first_name} {customer.last_name}</p>
-                                <p className="text-sm text-gray-600">{customer.email || 'No email address'}</p>
-                              </button>
-                            ))}
-                  </div>
                         </>
                       )}
-                </div>
-                  )}
-              </div>
-              
-                {/* Service Address Section */}
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-                  {formData.serviceAddress.street ? (
-                    <div className="relative">
-                      {/* Google Maps Embed */}
-                      <div className="w-full h-48 bg-gray-100 rounded-t-lg overflow-hidden">
+                  {/* Service Address with Map */}
+                  {formData.serviceAddress.street && (
+                    <>
+                      <div className="h-40 bg-gray-100 relative">
                         <iframe
                           title="Service Address Map"
                           width="100%"
@@ -2353,126 +2749,105 @@ setIntakeQuestionAnswers(answers);
                           )}&zoom=16&maptype=roadmap`}
                         />
                       </div>
-                      <div className="p-4 border-t border-gray-200">
+                      <div className="px-5 py-3 border-b border-gray-200">
                         <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-medium text-gray-700">SERVICE ADDRESS</span>
+                          <span className="text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'ProximaNova-Semibold' }}>Service Address</span>
                           <button
                             type="button"
                             onClick={() => setShowAddressModal(true)}
-                            className="text-sm text-blue-600 hover:text-blue-700"
+                            className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                            style={{ fontFamily: 'ProximaNova-Medium' }}
                           >
                             Edit
                           </button>
                     </div>
-                        <div className="space-y-1">
-                          <div className="flex items-center space-x-2">
-                            <span className="text-sm text-gray-900">{formData.serviceAddress.street}</span>
-                            <span className="px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded">Default</span>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900" style={{ fontFamily: 'ProximaNova-Medium' }}>{formData.serviceAddress.street}</p>
+                          <p className="text-sm text-gray-600" style={{ fontFamily: 'ProximaNova-Regular' }}>{formData.serviceAddress.city}</p>
                           </div>
-                          <p className="text-sm text-gray-600">
-                            {formData.serviceAddress.city}
-                            {formData.serviceAddress.state && `, ${formData.serviceAddress.state}`}
-                            {formData.serviceAddress.zipCode && ` ${formData.serviceAddress.zipCode}`}
-                          </p>
                         </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium text-gray-700">SERVICE ADDRESS</span>
-                      <button
-                        type="button"
-                          onClick={() => setShowAddressModal(true)}
-                          className="text-sm text-blue-600 hover:text-blue-700"
-                      >
-                          Add Address
-                      </button>
-                    </div>
-                      <p className="text-sm text-gray-500 mt-2">No service address set</p>
-                    </div>
+                    </>
                   )}
-              </div>
-
-                {/* Territory Section */}
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-                  <div className="p-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-gray-700">TERRITORY</span>
+                  
+                  {/* Territory */}
+                  <div className="px-5 py-3 border-b border-gray-200">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'ProximaNova-Semibold' }}>Territory</span>
                       <button
                         type="button"
                         onClick={() => setShowTerritoryModal(true)}
-                        className="text-sm text-blue-600 hover:text-blue-700"
+                        className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                        style={{ fontFamily: 'ProximaNova-Medium' }}
                       >
                         Edit
                       </button>
                     </div>
-                    <p className="mt-2 text-sm text-gray-900">
-                      {detectedTerritory ? detectedTerritory.name : 'No territory selected'}
-                    </p>
-                    </div>
+                    <p className="text-sm text-gray-900" style={{ fontFamily: 'ProximaNova-Regular' }}>{detectedTerritory?.name || formData.territory || 'Chemnitz'}</p>
                   </div>
 
-                {/* Payment Method Section */}
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-                  <div className="p-4">
-                    <span className="text-sm font-medium text-gray-700">PAYMENT METHOD</span>
-                    <p className="mt-2 text-sm text-gray-600">
-                      Attach a credit or debit card to charge at a later time when the job is complete.
-                    </p>
+                  {/* Payment Method */}
+                  <div className="px-5 py-3 border-b border-gray-200">
+                    <div className="mb-2">
+                      <span className="text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'ProximaNova-Semibold' }}>Payment Method</span>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-3" style={{ fontFamily: 'ProximaNova-Regular' }}>Attach a credit or debit card to charge at a later time when the job is complete.</p>
                   <button
                     type="button"
                       onClick={() => setShowPaymentModal(true)}
-                      className="mt-3 text-sm text-blue-600 hover:text-blue-700 font-medium"
+                      className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 font-medium"
+                      style={{ fontFamily: 'ProximaNova-Medium' }}
                   >
-                      + Add payment method
+                      <Plus className="w-4 h-4" />
+                      Add payment method
                   </button>
-                  </div>
                 </div>
 
-                {/* Tags Section */}
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-                  <div className="p-4">
-                    <div className="flex items-center space-x-2 mb-3">
-                      <span className="text-sm font-medium text-gray-700">Tags</span>
+                  {/* Tags */}
+                  <div className="px-5 py-3 border-b border-gray-200">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'ProximaNova-Semibold' }}>Tags</span>
                       <Info className="w-4 h-4 text-gray-400" />
+                      </div>
                     </div>
                     <button
                       type="button"
-                      className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                      className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800"
+                      style={{ fontFamily: 'ProximaNova-Regular' }}
                     >
-                      + Add Tag
+                      <Plus className="w-4 h-4" />
+                      Add Tag
                   </button>
-                  </div>
             </div>
 
-                {/* Internal Notes Section */}
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-                  <div className="p-4">
-                    <div className="flex items-center space-x-2 mb-3">
-                      <span className="text-sm font-medium text-gray-700">Internal Notes</span>
+                  {/* Internal Notes */}
+                  <div className="px-5 py-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'ProximaNova-Semibold' }}>Internal Notes</span>
                       <Info className="w-4 h-4 text-gray-400" />
                     </div>
                     <textarea
-                      rows={4}
+                      placeholder="Add an internal note just for employees to see..."
                       value={formData.internalNotes}
                       onChange={(e) => setFormData(prev => ({ ...prev, internalNotes: e.target.value }))}
-                      placeholder="Add an internal note just for employees to see..."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                      style={{ fontFamily: 'ProximaNova-Regular' }}
+                      rows="3"
                     />
-                    <div className="flex items-center space-x-2 mt-2">
-                      <button type="button" className="text-gray-400 hover:text-gray-600">
-                        <MessageSquare className="w-5 h-5" />
-              </button>
+                    <div className="flex gap-3 mt-2">
                       <button type="button" className="text-gray-400 hover:text-gray-600">
                         <Paperclip className="w-5 h-5" />
+              </button>
+                      <button type="button" className="text-gray-400 hover:text-gray-600">
+                        <Edit3 className="w-5 h-5" />
               </button>
             </div>
         </div>
                 </div>
               </div>
             </div>
-          </form>}
+          </form>
+        )}
       </div>
 
       {/* Modals */}
@@ -2523,6 +2898,14 @@ setIntakeQuestionAnswers(answers);
         user={user}
       />
       
+      <DiscountModal
+        isOpen={showDiscountModal}
+        onClose={() => setShowDiscountModal(false)}
+        onSave={handleSaveDiscount}
+        currentDiscount={formData.discount}
+        currentDiscountType={discountType}
+      />
+      
       <ServiceSelectionModal
         isOpen={showServiceSelectionModal}
         onClose={() => setShowServiceSelectionModal(false)}
@@ -2545,6 +2928,8 @@ setIntakeQuestionAnswers(answers);
         onSave={handleSaveServiceCustomization}
         initialAnswers={intakeQuestionAnswers}
         selectedModifiers={selectedModifiers}
+        editedModifierPrices={editedModifierPrices}
+        onModifierPriceChange={handleModifierPriceChange}
       />
 
       <CreateServiceModal
@@ -2559,15 +2944,23 @@ setIntakeQuestionAnswers(answers);
       />
       
       <CalendarPicker
-        selectedDate={formData.scheduledDate ? parseLocalDate(formData.scheduledDate) : new Date()}
-        onDateSelect={(date) => {
-          const dateString = formatDateLocal(date);
-          setFormData(prev => ({ ...prev, scheduledDate: dateString }));
-          setShowDatePicker(false);
-        }}
         isOpen={showDatePicker}
         onClose={() => setShowDatePicker(false)}
-        position="bottom-left"
+        selectedDate={formData.scheduledDate ? parseLocalDate(formData.scheduledDate) : new Date()}
+        selectedTime={formData.scheduledTime}
+        duration={calculateTotalDuration()}
+        workerId={selectedTeamMembers.length > 0 ? selectedTeamMembers[0]?.id : null}
+        serviceId={selectedServices.length > 0 ? selectedServices[0]?.id : null}
+        onDateTimeSelect={(date, time, arrivalWindow = false) => {
+          const dateString = formatDateLocal(date);
+          setFormData(prev => ({ 
+            ...prev, 
+            scheduledDate: dateString,
+            scheduledTime: time,
+            arrivalWindow: arrivalWindow
+          }));
+          setShowDatePicker(false);
+        }}
       />
     </div>
   );
