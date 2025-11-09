@@ -140,18 +140,18 @@ const ServiceModifiersForm = ({ modifiers = [], selectedModifiers: parentSelecte
     }
     
     return (
-      <div key={modifier.id} className="mb-8">
+      <div key={modifier.id} className="mb-6">
         <div className="mb-4">
-          <h3 className="text-lg font-medium text-gray-900 mb-1">
-            {modifier.title}
+          <h3 className="text-base font-bold text-gray-900 mb-1" style={{ fontFamily: 'ProximaNova-Bold' }}>
+            {modifier.name || modifier.title}
             {modifier.required && <span className="text-red-500 ml-1">*</span>}
           </h3>
           {modifier.description && (
-            <p className="text-sm text-gray-600">{modifier.description}</p>
+            <p className="text-sm text-gray-600" style={{ fontFamily: 'ProximaNova-Regular' }}>{modifier.description}</p>
           )}
         </div>
 
-        <div className="space-y-3">
+        <div className={modifier.selectionType === 'quantity' ? 'grid grid-cols-2 gap-4' : 'space-y-2'}>
           {(modifier.options && Array.isArray(modifier.options) ? modifier.options : []).map((option) => {
             // Safety check for option
             if (!option || !option.id) {
@@ -164,147 +164,131 @@ const ServiceModifiersForm = ({ modifiers = [], selectedModifiers: parentSelecte
 
             if (modifier.selectionType === 'quantity') {
               return (
-                <div key={option.id} className="border border-gray-200 rounded-lg p-4">
-                  <div className="flex items-center space-x-4">
-                    {option.image ? (
-                      <img
-                        src={option.image}
-                        alt={option.label}
-                        className="w-16 h-16 object-cover rounded"
-                      />
-                    ) : (
-                      <div className="w-16 h-16 bg-gray-100 rounded flex items-center justify-center">
-                        <ImageIcon className="w-6 h-6 text-gray-400" />
-                      </div>
-                    )}
-                    <div className="flex-1">
-                      <div className="font-medium text-gray-900">{option.label}</div>
-                      {option.description && (
-                        <div className="text-sm text-gray-600">{option.description}</div>
-                      )}
-                      <div className="flex items-center space-x-2 mt-1">
-                        <div className="flex items-center space-x-1">
-                          <span className="text-xs text-gray-500">$</span>
-                          <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={(() => {
-                              const priceKey = `${modifier.id}_option_${option.id}`;
-                              const editedPrice = effectiveEditedPrices[priceKey];
-                              console.log('🔧 RENDER VALUE for', priceKey, ':', editedPrice, 'original:', option.price);
-                              return editedPrice !== undefined ? editedPrice : option.price;
-                            })()}
-                            onChange={(e) => {
-                              const priceKey = `${modifier.id}_option_${option.id}`;
-                              const value = e.target.value;
-                              console.log('🔧 MODIFIER INPUT CHANGE:', priceKey, value);
-                              
-                              // Update local state immediately for UI responsiveness
-                              setLocalEditedPrices(prev => ({
-                                ...prev,
-                                [priceKey]: value
-                              }));
-                              
-                              // Call parent callback to update parent state
-                              if (onModifierPriceChange) {
-                                onModifierPriceChange(modifier.id, option.id, value);
-                              }
-                            }}
-                            className="w-16 px-1 py-0.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
-                          />
-                        </div>
-                        {option.duration && (
-                          <span className="text-sm text-gray-500">
-                            {Math.floor(option.duration / 60)}h {option.duration % 60}m
-                          </span>
-                        )}
-                      </div>
+                <div key={option.id} className={`border-2 rounded-lg p-5 transition-all ${
+                  quantity > 0 ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400'
+                }`}>
+                  <div className="text-center">
+                    <h4 className="font-semibold text-gray-900 text-base mb-2" style={{ fontFamily: 'ProximaNova-Semibold' }}>
+                      {option.label || option.name}
+                    </h4>
+                    <div className="text-base text-gray-600 mb-3" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                      ${(() => {
+                        const priceKey = `${modifier.id}_option_${option.id}`;
+                        const editedPrice = effectiveEditedPrices[priceKey];
+                        return editedPrice !== undefined ? parseFloat(editedPrice).toFixed(2) : parseFloat(option.price || 0).toFixed(2);
+                      })()}
                     </div>
-                    <div className="flex items-center space-x-3">
-                      <span className="text-sm font-medium text-gray-700">
-                        {option.label} x {quantity}
+                    {option.description && (
+                      <p className="text-xs text-gray-500 mb-4 px-2" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                        {option.description}
+                      </p>
+                    )}
+                    <div className="flex items-center justify-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => handleModifierChange(modifier.id, option.id, -1)}
+                        className="w-9 h-9 flex items-center justify-center border border-gray-400 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                        disabled={quantity === 0}
+                      >
+                        <Minus className="w-4 h-4 text-gray-700" />
+                      </button>
+                      <span className="text-xl font-semibold text-gray-900 w-10 text-center" style={{ fontFamily: 'ProximaNova-Semibold' }}>
+                        {quantity}
                       </span>
+                      <button
+                        type="button"
+                        onClick={() => handleModifierChange(modifier.id, option.id, 1)}
+                        className="w-9 h-9 flex items-center justify-center border border-gray-400 rounded-lg hover:bg-gray-100 transition-colors"
+                      >
+                        <Plus className="w-4 h-4 text-gray-700" />
+                      </button>
                     </div>
                   </div>
                 </div>
               );
             } else {
               return (
-                <label key={option.id} className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
-                  <input
-                    type={modifier.selectionType === 'multi' ? 'checkbox' : 'radio'}
-                    name={modifier.id}
-                    checked={isSelected}
-                    onChange={(e) => {
-                      if (modifier.selectionType === 'multi') {
-                        handleModifierChange(modifier.id, option.id, e.target.checked ? 1 : -1);
-                      } else {
-                        // For single selection, always select the option
-                        handleModifierChange(modifier.id, option.id, 1);
-                      }
-                    }}
-                    required={modifier.required && modifier.selectionType === 'single'}
-                    className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                  />
-                  <div className="flex items-center space-x-4 ml-3 flex-1">
+                <div key={option.id} className={`flex items-center gap-4 p-4 border-2 rounded-lg transition-all ${
+                  isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+                }`}>
+                  <label className="flex items-center gap-4 flex-1 cursor-pointer">
+                    <input
+                      type={modifier.selectionType === 'multi' ? 'checkbox' : 'radio'}
+                      name={modifier.id}
+                      checked={isSelected}
+                      onChange={(e) => {
+                        if (modifier.selectionType === 'multi') {
+                          handleModifierChange(modifier.id, option.id, e.target.checked ? 1 : -1);
+                        } else {
+                          // For single selection, always select the option
+                          handleModifierChange(modifier.id, option.id, 1);
+                        }
+                      }}
+                      required={modifier.required && modifier.selectionType === 'single'}
+                      className="w-5 h-5 text-blue-600 border-gray-300 focus:ring-blue-500 flex-shrink-0"
+                    />
+                    
                     {option.image ? (
                       <img
                         src={option.image}
-                        alt={option.label}
-                        className="w-12 h-12 object-cover rounded"
+                        alt={option.label || option.name}
+                        className="w-12 h-12 object-cover rounded border border-gray-200 flex-shrink-0"
                       />
                     ) : (
-                      <div className="w-12 h-12 bg-gray-100 rounded flex items-center justify-center">
-                        <ImageIcon className="w-4 h-4 text-gray-400" />
+                      <div className="w-12 h-12 bg-gray-100 rounded flex items-center justify-center border border-gray-200 flex-shrink-0">
+                        <ImageIcon className="w-5 h-5 text-gray-400" />
                       </div>
                     )}
-                    <div className="flex-1">
-                      <div className="font-medium text-gray-900">{option.label}</div>
-                      {option.description && (
-                        <div className="text-sm text-gray-600">{option.description}</div>
-                      )}
-                    </div>
-                    <div className="text-right">
-                      <div className="flex items-center justify-end space-x-1">
-                        <span className="text-xs text-gray-500">$</span>
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={(() => {
-                            const priceKey = `${modifier.id}_option_${option.id}`;
-                            const editedPrice = effectiveEditedPrices[priceKey];
-                            console.log('🔧 RENDER VALUE (2) for', priceKey, ':', editedPrice, 'original:', option.price);
-                            return editedPrice !== undefined ? editedPrice : option.price;
-                          })()}
-                          onChange={(e) => {
-                            const priceKey = `${modifier.id}_option_${option.id}`;
-                            const value = e.target.value;
-                            console.log('🔧 MODIFIER INPUT CHANGE (2):', priceKey, value);
-                            
-                            // Update local state immediately for UI responsiveness
-                            setLocalEditedPrices(prev => ({
-                              ...prev,
-                              [priceKey]: value
-                            }));
-                            
-                            // Call parent callback to update parent state
-                            if (onModifierPriceChange) {
-                              onModifierPriceChange(modifier.id, option.id, value);
-                            }
-                          }}
-                          className="w-16 px-1 py-0.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent text-right"
-                        />
+                    
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-gray-900 truncate" style={{ fontFamily: 'ProximaNova-Medium' }}>
+                        {option.label || option.name || 'Unnamed option'}
                       </div>
-                      {option.duration && (
-                        <div className="text-sm text-gray-500">
-                          {Math.floor(option.duration / 60)}h {option.duration % 60}m
-                        </div>
+                      {option.description && (
+                        <div className="text-sm text-gray-600 mt-0.5 truncate" style={{ fontFamily: 'ProximaNova-Regular' }}>{option.description}</div>
                       )}
                     </div>
+                  </label>
+                  
+                  <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                    <div className="flex items-center gap-1">
+                      <span className="text-sm text-gray-600" style={{ fontFamily: 'ProximaNova-Regular' }}>$</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={(() => {
+                          const priceKey = `${modifier.id}_option_${option.id}`;
+                          const editedPrice = effectiveEditedPrices[priceKey];
+                          return editedPrice !== undefined ? editedPrice : (option.price || 0);
+                        })()}
+                        onChange={(e) => {
+                          const priceKey = `${modifier.id}_option_${option.id}`;
+                          const value = e.target.value;
+                          
+                          // Update local state immediately for UI responsiveness
+                          setLocalEditedPrices(prev => ({
+                            ...prev,
+                            [priceKey]: value
+                          }));
+                          
+                          // Call parent callback to update parent state
+                          if (onModifierPriceChange) {
+                            onModifierPriceChange(modifier.id, option.id, value);
+                          }
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="w-20 px-2 py-1.5 text-base text-right border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                        style={{ fontFamily: 'ProximaNova-Regular' }}
+                      />
+                    </div>
+                    {option.duration && (
+                      <div className="text-xs text-gray-500" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                        {Math.floor(option.duration / 60)}h {option.duration % 60}m
+                      </div>
+                    )}
                   </div>
-                </label>
+                </div>
               );
             }
           })}

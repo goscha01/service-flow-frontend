@@ -70,6 +70,7 @@ import MobileHeader from "../components/mobile-header"
 import AddressAutocomplete from "../components/address-autocomplete"
 import IntakeAnswersDisplay from "../components/intake-answers-display"
 import IntakeQuestionsForm from "../components/intake-questions-form"
+import StatusProgressBar from "../components/status-progress-bar"
 import { formatPhoneNumber } from "../utils/phoneFormatter"
 import { formatDateLocal } from "../utils/dateUtils"
 
@@ -1603,29 +1604,27 @@ const JobDetails = () => {
         <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
         
         {/* Header */}
-        <div className=" border-b border-gray-200 px-4 sm:px-6 py-4">
-        <button
-                className="flex items-center text-gray-600 hover:text-gray-700 flex-shrink-0"
-                onClick={() => navigate('/jobs')}
-              >
-                <ChevronLeft className="w-4 h-4 mr-1" />
-                <span className="text-sm hidden sm:inline">All Jobs</span>
-              </button>
-          <div className="flex items-center justify-between">
-         
-            <div className="flex items-center space-x-2 sm:space-x-4 min-w-0 flex-1">
-             
-              
-              <div className="min-w-0 flex-1">
-                <h1 style={{fontFamily: 'ProximaNova-bold'}} className="text-base capitalize sm:text-lg lg:text-xl font-bold text-capitalize text-gray-900 truncate">
-                  {job.service_names && job.service_names.length > 1 
-                    ? `${job.service_names.length} Services` 
-                    : (job.service_name || 'Service')
-                  } <span className="text-md lowercase sm:text-md font-medium text-gray-500">for</span> {job.customer_first_name} {job.customer_last_name}
-                  <span className="text-xs sm:text-sm font-medium text-gray-500"> Job #{job.id}</span>
-                </h1>
-                
-              </div>
+        <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4">
+          <div className="mb-4">
+            <button
+              className="flex items-center text-gray-600 hover:text-gray-700 flex-shrink-0"
+              onClick={() => navigate('/jobs')}
+              style={{ fontFamily: 'ProximaNova-Regular' }}
+            >
+              <ChevronLeft className="w-4 h-4 mr-1" />
+              <span className="text-sm">All Jobs</span>
+            </button>
+          </div>
+          
+          <div className="flex items-center justify-between mb-4">
+            <div className="min-w-0 flex-1">
+              <h1 style={{fontFamily: 'ProximaNova-Bold'}} className="text-xl font-bold text-gray-900 mb-1">
+                {job.service_names && job.service_names.length > 1 
+                  ? `${job.service_names.length} Services` 
+                  : (job.service_name || 'Service')
+                } <span style={{fontFamily: 'ProximaNova-Regular'}} className="font-normal text-gray-500">for</span> {job.customer_first_name} {job.customer_last_name}
+              </h1>
+              <p className="text-sm text-gray-500" style={{ fontFamily: 'ProximaNova-Regular' }}>Job #{job.id || job.job_id}</p>
             </div>
 
             <div className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
@@ -1773,78 +1772,13 @@ const JobDetails = () => {
             </div>
           </div>
 
-         
-              {/* Progress Tracker */}
-      <div className="relative mt-4">
-        {/* Progress Line */}
-        <div className="absolute top-5 left-0 right-0 h-1 bg-slate-200">
-          <div 
-            className="h-full bg-emerald-500 transition-all duration-500"
-            style={{ 
-              width: `${(() => {
-                const currentStatus = job?.status || 'scheduled'
-                const statusMap = {
-                  'scheduled': 25,    // Step 1 of 4
-                  'pending': 25,      // Step 1 of 4
-                  'confirmed': 50,    // Step 2 of 4
-                  'en_route': 75,     // Step 3 of 4 (same as in_progress)
-                  'enroute': 75,      // Step 3 of 4 (same as in_progress)
-                  'in_progress': 75,  // Step 3 of 4
-                  'in-progress': 75,  // Step 3 of 4 (hyphenated version)
-                  'in_prog': 75,      // Step 3 of 4
-                  'started': 75,      // Step 3 of 4
-                  'completed': 100,   // Step 4 of 4
-                  'complete': 100,    // Step 4 of 4
-                  'cancelled': 0,     // Cancelled
-                  'canceled': 0       // Cancelled
-                }
-                return statusMap[currentStatus] || 25
-              })()}%` 
-            }}
-          />
-        </div>
-
-        {/* Steps */}
-        <div className="relative flex justify-between">
-          {steps.map((step, index) => {
-            const isCompleted = step.status === 'completed';
-            const isActive = step.status === 'active';
-            
-            return (
-              <div key={index} className="flex flex-col items-center">
-                {/* Circle */}
-                <div 
-                  className={`
-                    w-10 h-10 rounded-full flex items-center justify-center
-                    transition-all duration-300 border-4 border-white
-                    ${isCompleted ? 'bg-emerald-500' : isActive ? 'bg-emerald-500 ring-4 ring-emerald-200' : 'bg-slate-200'}
-                  `}
-                >
-                  {isCompleted ? (
-                    <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                    </svg>
-                  ) : isActive ? (
-                    <div className="w-3 h-3 bg-white rounded-full" />
-                  ) : (
-                    <div className="w-3 h-3 bg-slate-400 rounded-full" />
-                  )}
-                </div>
-
-                {/* Label */}
-                <span 
-                  className={`
-                    mt-3 text-sm font-medium whitespace-nowrap
-                    ${isCompleted || isActive ? 'text-slate-800' : 'text-slate-400'}
-                  `}
-                >
-                  {step.label}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+          {/* Status Progress Bar */}
+          <div className="mt-4">
+            <StatusProgressBar 
+              currentStatus={job?.status || 'scheduled'} 
+              onStatusChange={handleStatusUpdate}
+            />
+          </div>
         </div>
 
         {/* Success/Error Messages */}
