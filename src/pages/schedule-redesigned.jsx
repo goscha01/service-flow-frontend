@@ -30,6 +30,7 @@ import {
 import { useAuth } from "../context/AuthContext"
 import { jobsAPI } from "../services/api"
 import { normalizeAPIResponse } from "../utils/dataHandler"
+import { getImageUrl } from "../utils/imageUtils"
 
 const ServiceFlowSchedule = () => {
   const { user } = useAuth()
@@ -1872,7 +1873,7 @@ const ServiceFlowSchedule = () => {
                                   >
                                     {assignedTeamMember.profile_picture ? (
                                       <img 
-                                        src={assignedTeamMember.profile_picture} 
+                                        src={getImageUrl(assignedTeamMember.profile_picture)} 
                                         alt={teamMemberName}
                                         className="w-full h-full rounded-full object-cover"
                                       />
@@ -1978,7 +1979,7 @@ const ServiceFlowSchedule = () => {
                                     >
                                       {assignedTeamMember.profile_picture ? (
                                         <img 
-                                          src={assignedTeamMember.profile_picture} 
+                                          src={getImageUrl(assignedTeamMember.profile_picture)} 
                                           alt={teamMemberName}
                                           className="w-full h-full rounded-full object-cover"
                                         />
@@ -2395,14 +2396,15 @@ const ServiceFlowSchedule = () => {
                     </div>
                   )}
                 </div>
-                
+                <div className="flex items-center gap-3">
                 <button
                     onClick={closeJobDetailsOverlay}
                     className="p-2 hover:bg-gray-100 rounded-full transition-colors"
                   >
                     <X className="w-5 h-5 text-gray-600" />
                   </button>
-              </div>
+                  </div>
+                    </div>
             </div>
 
             {/* Status Progress Bar */}
