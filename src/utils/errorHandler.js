@@ -80,6 +80,9 @@ export const extractErrorMessage = (error) => {
         errorType = ERROR_TYPES.SERVICE_UNAVAILABLE
         errorMessage = 'Service temporarily unavailable. Please try again in a few moments.'
         break
+      default:
+        // For other status codes, keep the default error type and message
+        break
     }
   }
 
@@ -152,6 +155,9 @@ export const getErrorHelpText = (errorType, details = null) => {
           'Contact support if the problem persists'
         ]
       }
+    default:
+      // No specific help text for other error types
+      break
   }
   return null
 }

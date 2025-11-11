@@ -29,5 +29,5 @@ export const formatPhoneNumber = (phone) => {
 export const unformatPhoneNumber = (phone) => {
   if (!phone) return phone
   // Remove all formatting characters, keep only digits and +
-  return phone.replace(/[\s\-\(\)]/g, '')
+  return phone.replace(/[\s\-()]/g, '')
 } 
