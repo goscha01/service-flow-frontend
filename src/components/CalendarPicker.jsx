@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import { ChevronLeft, ChevronRight, X, Clock } from "lucide-react"
 import { jobsAPI } from "../services/api"
 
@@ -40,21 +40,8 @@ const CalendarPicker = ({
     }
   }, [isOpen, onClose])
 
-  // Fetch available slots when date is selected in Available Times tab
-  useEffect(() => {
-    if (selectedDateForSlots && activeTab === 'available') {
-      fetchAvailableSlots(selectedDateForSlots)
-    }
-  }, [selectedDateForSlots, activeTab])
 
-  // Fetch business hours and holidays on mount
-  useEffect(() => {
-    if (isOpen) {
-      fetchBusinessSettings()
-    }
-  }, [isOpen])
-
-  const fetchBusinessSettings = async () => {
+  const fetchBusinessSettings = useCallback(async () => {
     try {
       // TODO: Implement actual API call to get business hours and holidays
       // const response = await businessAPI.getSettings()
@@ -67,9 +54,16 @@ const CalendarPicker = ({
     } catch (error) {
       console.error('Error fetching business settings:', error)
     }
-  }
+  }, [])
 
-  const fetchAvailableSlots = async (date) => {
+  // Fetch business hours and holidays on mount
+  useEffect(() => {
+    if (isOpen) {
+      fetchBusinessSettings()
+    }
+  }, [isOpen, fetchBusinessSettings])
+
+  const fetchAvailableSlots = useCallback(async (date) => {
     setLoadingSlots(true)
     try {
       // Format date for API
@@ -96,7 +90,14 @@ const CalendarPicker = ({
     } finally {
       setLoadingSlots(false)
     }
-  }
+  }, [duration, workerId, serviceId])
+
+  // Fetch available slots when date is selected in Available Times tab
+  useEffect(() => {
+    if (selectedDateForSlots && activeTab === 'available') {
+      fetchAvailableSlots(selectedDateForSlots)
+    }
+  }, [selectedDateForSlots, activeTab, fetchAvailableSlots])
 
   const navigateMonth = (direction) => {
     setCurrentDate(prev => {
@@ -111,7 +112,6 @@ const CalendarPicker = ({
     const month = currentDate.getMonth()
     
     const firstDay = new Date(year, month, 1)
-    const lastDay = new Date(year, month + 1, 0)
     const startDate = new Date(firstDay)
     startDate.setDate(startDate.getDate() - firstDay.getDay())
     

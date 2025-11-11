@@ -1,10 +1,46 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { authAPI } from '../services/api';
 
 const GoogleOAuth = ({ onSuccess, onError, buttonText = 'signin_with' }) => {
   const [isLoading, setIsLoading] = useState(false);
   const { loginWithGoogle } = useAuth();
+
+  const handleCredentialResponse = useCallback(async (response) => {
+    setIsLoading(true);
+    
+    try {
+      console.log('🔍 Google OAuth response received:', response);
+      console.log('🔍 Response type:', typeof response);
+      console.log('🔍 Response keys:', Object.keys(response || {}));
+      
+      // Handle both credential string and object formats
+      let credential = '';
+      if (typeof response === 'string') {
+        credential = response;
+      } else if (response && response.credential) {
+        credential = response.credential;
+      } else {
+        throw new Error('Invalid response format from Google');
+      }
+
+      console.log('🔍 Using credential:', credential.substring(0, 50) + '...');
+      
+      // Call the login function from AuthContext
+      await loginWithGoogle(credential);
+      
+      if (onSuccess) {
+        onSuccess();
+      }
+    } catch (error) {
+      console.error('❌ Google OAuth error:', error);
+      if (onError) {
+        onError(error);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }, [loginWithGoogle, onSuccess, onError]);
 
   useEffect(() => {
     // Load Google Identity Services script
@@ -47,72 +83,7 @@ const GoogleOAuth = ({ onSuccess, onError, buttonText = 'signin_with' }) => {
     };
 
     loadGoogleScript();
-  }, []);
-
-  const handleCredentialResponse = async (response) => {
-    setIsLoading(true);
-    
-    try {
-      console.log('🔍 Google OAuth response received:', response);
-      console.log('🔍 Response type:', typeof response);
-      console.log('🔍 Response keys:', Object.keys(response || {}));
-      
-      // For Google Identity Services (GSI), the response should be an object with a 'credential' property
-      // The credential is the JWT ID token
-      let idToken = null;
-      
-      if (response && typeof response === 'object' && response.credential) {
-        // This is the correct format for Google Identity Services
-        idToken = response.credential;
-        console.log('✅ Found credential in response');
-      } else if (typeof response === 'string') {
-        // Fallback if response is already a string
-        idToken = response;
-        console.log('✅ Using response as string');
-      } else {
-        console.error('❌ Unexpected response format:', response);
-        throw new Error('Invalid Google OAuth response format');
-      }
-      
-      console.log('🔍 Extracted ID token type:', typeof idToken);
-      console.log('🔍 ID token length:', idToken ? idToken.length : 'null');
-      
-      // Validate that we have a string ID token
-      if (!idToken || typeof idToken !== 'string') {
-        console.error('❌ Invalid ID token:', { idToken, type: typeof idToken });
-        throw new Error(`Invalid Google OAuth response: ID token is ${typeof idToken}, expected string`);
-      }
-      
-      // Extract access token from the response if available
-      const accessToken = response.access_token || null;
-      const refreshToken = response.refresh_token || null;
-      
-      // Send the ID token and access tokens to your backend
-      const result = await authAPI.googleAuth({
-        idToken: idToken,
-        accessToken: accessToken,
-        refreshToken: refreshToken
-      });
-      
-      console.log('✅ Google OAuth successful:', result);
-      
-      // Update auth context with Google OAuth response
-      loginWithGoogle(result);
-      
-      if (onSuccess) {
-        onSuccess(result);
-      }
-      
-    } catch (error) {
-      console.error('❌ Google OAuth error:', error);
-      
-      if (onError) {
-        onError(error);
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  }, [buttonText, handleCredentialResponse]);
 
   return (
     <div className="w-full">
