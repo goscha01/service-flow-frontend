@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Phone, CheckCircle, AlertCircle, Save } from 'lucide-react';
 import { twilioAPI } from '../services/api';
 import Modal from './Modal';
@@ -10,18 +10,7 @@ const DefaultPhoneSelector = () => {
   const [saving, setSaving] = useState(false);
   const [modal, setModal] = useState({ isOpen: false, title: '', message: '', type: 'info' });
 
-  useEffect(() => {
-    loadPhoneNumbers();
-  }, []);
-
-  // Load current default after phone numbers are loaded
-  useEffect(() => {
-    if (phoneNumbers.length > 0) {
-      loadCurrentDefault();
-    }
-  }, [phoneNumbers]);
-
-  const loadPhoneNumbers = async () => {
+  const loadPhoneNumbers = useCallback(async () => {
     setLoading(true);
     try {
       console.log('📞 Loading phone numbers...');
@@ -47,9 +36,9 @@ const DefaultPhoneSelector = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const loadCurrentDefault = async () => {
+  const loadCurrentDefault = useCallback(async () => {
     try {
       console.log('📞 Loading current default phone number...');
       const response = await twilioAPI.getDefaultPhoneNumber();
@@ -72,7 +61,18 @@ const DefaultPhoneSelector = () => {
         setSelectedPhone(phoneNumbers[0].phoneNumber);
       }
     }
-  };
+  }, [phoneNumbers]);
+
+  useEffect(() => {
+    loadPhoneNumbers();
+  }, [loadPhoneNumbers]);
+
+  // Load current default after phone numbers are loaded
+  useEffect(() => {
+    if (phoneNumbers.length > 0) {
+      loadCurrentDefault();
+    }
+  }, [phoneNumbers, loadCurrentDefault]);
 
   const handleSaveDefault = async () => {
     if (!selectedPhone) {
