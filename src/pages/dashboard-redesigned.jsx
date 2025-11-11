@@ -684,7 +684,7 @@ const DashboardRedesigned = () => {
 
   return (
     <>
-      <div className="flex h-screen overflow-hidden">
+      <div className="flex min-h-screen">
         {/* Sidebar */}
        
         {/* Customer Modal */}
@@ -785,7 +785,7 @@ const DashboardRedesigned = () => {
           </div>
 
           {/* Main Content Area */}
-          <div className="flex-1 overflow-auto bg-gray-50">
+          <div className="flex-1 bg-gray-50">
             <div className="p-6">
               <div className="max-w-5xl mx-auto space-y-4">
 
