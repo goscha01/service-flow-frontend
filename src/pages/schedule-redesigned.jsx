@@ -2619,7 +2619,7 @@ const ServiceFlowSchedule = () => {
                             // Get selected option
                             let selectedOption = null;
                             if (modifier.options && modifier.selected) {
-                              selectedOption = modifier.options.find(opt => opt.id == modifier.selected || opt.id === modifier.selected);
+                              selectedOption = modifier.options.find(opt => opt.id === modifier.selected || String(opt.id) === String(modifier.selected));
                             }
                             
                             return (

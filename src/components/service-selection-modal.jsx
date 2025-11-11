@@ -53,7 +53,7 @@ const ServiceSelectionModal = ({
         if (modifier.selectionType === 'quantity' && modifierSelection.quantities) {
           // Handle quantity-based modifiers
           Object.entries(modifierSelection.quantities).forEach(([optionId, quantity]) => {
-            const option = modifier.options?.find(opt => opt.id == optionId);
+            const option = modifier.options?.find(opt => opt.id === optionId || String(opt.id) === String(optionId));
             if (option && quantity > 0) {
               // Use edited option price if available
               const optionPriceKey = `${modifier.id}_option_${optionId}`;
@@ -66,7 +66,7 @@ const ServiceSelectionModal = ({
         } else if (modifier.selectionType === 'multi' && modifierSelection.selections) {
           // Handle multi-select modifiers
           modifierSelection.selections.forEach(optionId => {
-            const option = modifier.options?.find(opt => opt.id == optionId);
+            const option = modifier.options?.find(opt => opt.id === optionId || String(opt.id) === String(optionId));
             if (option) {
               // Use edited option price if available
               const optionPriceKey = `${modifier.id}_option_${optionId}`;
@@ -78,7 +78,7 @@ const ServiceSelectionModal = ({
           });
         } else if (modifier.selectionType === 'single' && modifierSelection.selection) {
           // Handle single-select modifiers
-          const option = modifier.options?.find(opt => opt.id == modifierSelection.selection);
+          const option = modifier.options?.find(opt => opt.id === modifierSelection.selection || String(opt.id) === String(modifierSelection.selection));
           if (option) {
             // Use edited option price if available
             const optionPriceKey = `${modifier.id}_option_${modifierSelection.selection}`;

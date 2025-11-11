@@ -153,7 +153,6 @@ export default function CreateJobPage() {
     skills: [],
     specialInstructions: "",
     customerNotes: "",
-    internalNotes: "",
     tags: [],
     attachments: [],
     recurringFrequency: "weekly",
@@ -2106,7 +2105,7 @@ setIntakeQuestionAnswers(answers);
                                         if (modifier.selectionType === 'quantity' && modifierData?.quantities) {
                                           Object.entries(modifierData.quantities).forEach(([optionId, quantity]) => {
                                             if (quantity > 0) {
-                                              const option = modifier.options?.find(o => o.id === optionId || o.id == optionId);
+                                              const option = modifier.options?.find(o => o.id === optionId || String(o.id) === String(optionId));
                                               if (option) {
                                                 const displayName = option.name || option.label || option.text || option.title || option.value || `Option ${optionId}`;
                                                 console.log(`  Found option ${optionId}:`, displayName, option);
@@ -2130,7 +2129,7 @@ setIntakeQuestionAnswers(answers);
                                             };
                                           });
                                         } else if (modifierData?.selection) {
-                                          const option = modifier.options?.find(o => o.id === modifierData.selection || o.id == modifierData.selection);
+                                          const option = modifier.options?.find(o => o.id === modifierData.selection || String(o.id) === String(modifierData.selection));
                                           if (option) {
                                             const displayName = option.name || option.label || option.text || option.title || option.value || `Option ${option.id}`;
                                             console.log(`  Found single-select option ${modifierData.selection}:`, displayName, option);

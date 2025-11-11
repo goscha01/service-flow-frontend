@@ -97,6 +97,9 @@ const ImportCustomersPage = () => {
                 customer.status = 'active'; // default
               }
               break;
+            default:
+              // Unknown header, skip
+              break;
           }
         });
         
