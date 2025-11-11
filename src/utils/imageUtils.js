@@ -1,6 +1,28 @@
 // Image utility functions for handling Supabase Storage URLs
 
 /**
+ * Check if an image URL is a Supabase Storage URL
+ * @param {string} imageUrl - The image URL to check
+ * @returns {boolean} True if it's a Supabase Storage URL
+ */
+export const isSupabaseStorageUrl = (imageUrl) => {
+  return imageUrl && imageUrl.includes('supabase.co/storage');
+};
+
+/**
+ * Check if an image URL is an S3 URL
+ * @param {string} imageUrl - The image URL to check
+ * @returns {boolean} True if it's an S3 URL
+ */
+export const isS3Url = (imageUrl) => {
+  return imageUrl && (
+    imageUrl.includes('s3.amazonaws.com') ||
+    imageUrl.includes('.s3.') ||
+    imageUrl.includes('amazonaws.com/s3')
+  );
+};
+
+/**
  * Get a properly formatted image URL
  * @param {string} imageUrl - The image URL from database
  * @param {string} fallbackUrl - Fallback image URL if main URL fails
@@ -11,8 +33,22 @@ export const getImageUrl = (imageUrl, fallbackUrl = null) => {
     return fallbackUrl || '/images/default-service.png';
   }
 
-  // If it's already a full URL (http/https), return as is
+  // If it's already a full URL (http/https), handle S3 URLs specially
   if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+    // Fix S3 URLs that force download by adding inline content-disposition
+    if (isS3Url(imageUrl)) {
+      try {
+        const url = new URL(imageUrl);
+        // Only add the parameter if it's not already present
+        if (!url.searchParams.has('response-content-disposition')) {
+          url.searchParams.set('response-content-disposition', 'inline');
+          return url.toString();
+        }
+      } catch (e) {
+        // If URL parsing fails, return as is
+        console.warn('Failed to parse S3 URL:', imageUrl);
+      }
+    }
     return imageUrl;
   }
 
@@ -28,15 +64,6 @@ export const getImageUrl = (imageUrl, fallbackUrl = null) => {
 
   // Default fallback
   return fallbackUrl || '/images/default-service.png';
-};
-
-/**
- * Check if an image URL is a Supabase Storage URL
- * @param {string} imageUrl - The image URL to check
- * @returns {boolean} True if it's a Supabase Storage URL
- */
-export const isSupabaseStorageUrl = (imageUrl) => {
-  return imageUrl && imageUrl.includes('supabase.co/storage');
 };
 
 /**
