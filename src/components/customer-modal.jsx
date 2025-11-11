@@ -270,7 +270,7 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
   const validatePhone = (phone) => {
     if (!phone) return true // Phone is optional
     // Remove all formatting characters (spaces, dashes, parentheses)
-    const cleaned = phone.replace(/[\s\-\(\)]/g, '')
+    const cleaned = phone.replace(/[\s\-()]/g, '')
     // More flexible validation: allow common phone number formats
     const phoneRegex = /^[\+]?[1-9][\d]{6,15}$/
     return phoneRegex.test(cleaned)
@@ -321,6 +321,9 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
         } else {
           delete errors.lastName
         }
+        break
+      default:
+        // No validation needed for other fields
         break
     }
     
@@ -440,7 +443,7 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
     
     try {
       // Format phone number for server (remove all formatting, keep only digits and +)
-      const formattedPhone = customerData.phone ? customerData.phone.replace(/[\s\-\(\)]/g, '') : ''
+      const formattedPhone = customerData.phone ? customerData.phone.replace(/[\s\-()]/g, '') : ''
       
       const customerToSave = {
         firstName: customerData.firstName.trim(),

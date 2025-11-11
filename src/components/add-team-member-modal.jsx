@@ -193,7 +193,7 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
   const validatePhone = (phone) => {
     if (!phone) return true // Phone is optional
     // Remove all formatting characters (spaces, dashes, parentheses)
-    const cleaned = phone.replace(/[\s\-\(\)]/g, '')
+    const cleaned = phone.replace(/[\s\-()]/g, '')
     // Server validation: must start with + or digit 1-9, then 0-15 more digits
     const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/
     return phoneRegex.test(cleaned)

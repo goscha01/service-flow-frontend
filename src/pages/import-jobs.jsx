@@ -210,6 +210,9 @@ const ImportJobsPage = () => {
             case 'recurringenddate':
               job.recurringEndDate = value;
               break;
+            default:
+              // Unknown header, skip
+              break;
           }
         });
         

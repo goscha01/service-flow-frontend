@@ -379,7 +379,7 @@ const AddTeamMember = () => {
     }
 
     // Basic phone validation - remove formatting
-    const cleanedPhone = phone.replace(/[\s\-\(\)]/g, '')
+    const cleanedPhone = phone.replace(/[\s\-()]/g, '')
     const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/
     if (!phoneRegex.test(cleanedPhone)) {
       setPhoneWarning('')
@@ -402,7 +402,7 @@ const AddTeamMember = () => {
       
       const existingMembers = response.teamMembers || []
       const phoneExists = existingMembers.some(member => 
-        member.phone && member.phone.replace(/[\s\-\(\)]/g, '') === cleanedPhone
+        member.phone && member.phone.replace(/[\s\-()]/g, '') === cleanedPhone
       )
       
       if (phoneExists) {
