@@ -1599,7 +1599,7 @@ const JobDetails = () => {
   return (
     <div className="min-h-screen bg-gray-50 flex">
       
-      <div className="flex-1 min-w-0 overflow-hidden px-40">
+      <div className="flex-1 min-w-0 px-40">
         {/* Mobile Header */}
         <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
         

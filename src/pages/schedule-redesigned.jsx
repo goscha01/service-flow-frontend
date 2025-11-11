@@ -25,7 +25,7 @@ import {
   Play,
   XCircle,
   ChevronDown,
-  NotepadText
+  Phone, Mail, NotepadText,
 } from "lucide-react"
 import { useAuth } from "../context/AuthContext"
 import { jobsAPI } from "../services/api"
@@ -1151,10 +1151,7 @@ const ServiceFlowSchedule = () => {
             <div className="flex items-center justify-between">
               <h2 style={{fontFamily: 'ProximaNova-Bold'}} className="text-2xl font-bold text-gray-900">Schedule</h2>
               <button 
-                onClick={() => {
-                  // Navigate to create new job page
-                  window.location.href = '/jobs/new'
-                }}
+                onClick={() => navigate('/createjob')}
                 className="bg-blue-600 text-white p-2 rounded-full hover:bg-blue-700 transition-colors"
                 title="Create New Job"
               >
@@ -1829,10 +1826,12 @@ const ServiceFlowSchedule = () => {
                           {day.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
                         </div>
                         {dayJobs.map((job, jobIndex) => {
-                          const statusColor = getStatusColor(job.status, job)
                           const statusDisplay = formatStatus(job.status, job)
                           const jobTime = new Date(job.scheduled_date)
+                          const duration = job.service_duration || job.duration || 0
+                          const endTime = new Date(jobTime.getTime() + duration * 60000)
                           const timeString = jobTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+                          const endTimeString = endTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
                           const assignedTeamMember = teamMembers.find(m => m.id === job.assigned_team_member_id || m.id === job.team_member_id)
                           const teamMemberName = assignedTeamMember ? (assignedTeamMember.name || `${assignedTeamMember.first_name || ''} ${assignedTeamMember.last_name || ''}`.trim()) : null
                           const customerName = getCustomerName(job) || 'Customer'
@@ -1842,49 +1841,51 @@ const ServiceFlowSchedule = () => {
                           return (
                             <div 
                               key={jobIndex} 
-                              className={`${statusColor} rounded-sm m-2 p-1 mb-1 text-xs cursor-pointer hover:opacity-80 transition-opacity border`}
+                              className="bg-white rounded-md m-2 p-2 mb-1 text-xs cursor-pointer hover:shadow-md transition-all border border-gray-200"
                               onClick={(e) => {
                                 e.stopPropagation()
                                 handleJobClick(job)
                               }}
                             >
-                              <div className="flex items-center justify-between">
-                                <div className="font-medium truncate">{timeString}</div>
-                                <div className="flex items-center ">
-                                  {territoryName && (
-                                    <span className="text-[10px] text-blue-600 font-medium truncate max-w-[60px]">
-                                      {territoryName}
-                                    </span>
-                                  )}
-                                  
+                              <div className="flex items-center justify-between mb-1">
+                                <div className="font-semibold text-gray-900 truncate" style={{ fontFamily: 'ProximaNova-Semibold' }}>
+                                  {timeString} - {endTimeString}
                                 </div>
+                                {territoryName && (
+                                  <span className="text-[10px] text-blue-600 font-medium truncate max-w-[60px]" style={{ fontFamily: 'ProximaNova-Medium' }}>
+                                    {territoryName}
+                                  </span>
+                                )}
                               </div>
                               <div 
-                                className="truncate font-medium cursor-pointer hover:text-blue-600 transition-colors"
+                                className="truncate font-medium cursor-pointer hover:text-blue-600 transition-colors text-gray-700 mb-1"
                                 onClick={(e) => handleCustomerClick(e, job.customer_id || job.customer?.id || job.customers?.id)}
+                                style={{ fontFamily: 'ProximaNova-Medium' }}
                               >
                                 {customerName}
                               </div>
-                              {assignedTeamMember ? (
-                                    <div 
-                                      className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-white text-[10px] font-medium flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
-                                      onClick={(e) => handleTeamMemberClick(e, assignedTeamMember.id)}
-                                    >
-                                      {assignedTeamMember.profile_picture ? (
-                                        <img 
-                                          src={assignedTeamMember.profile_picture} 
-                                          alt={teamMemberName}
-                                          className="w-full h-full rounded-full object-cover"
-                                        />
-                                      ) : (
-                                        getInitials(teamMemberName)
-                                      )}
-                                    </div>
-                                  ) : (
-                                    <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-gray-400 flex-shrink-0">
-                                      <UserX className="w-3 h-3" />
-                                    </div>
-                                  )}
+                              <div className="flex items-center justify-between">
+                                {assignedTeamMember ? (
+                                  <div 
+                                    className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-white text-[10px] font-medium flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                                    onClick={(e) => handleTeamMemberClick(e, assignedTeamMember.id)}
+                                  >
+                                    {assignedTeamMember.profile_picture ? (
+                                      <img 
+                                        src={assignedTeamMember.profile_picture} 
+                                        alt={teamMemberName}
+                                        className="w-full h-full rounded-full object-cover"
+                                      />
+                                    ) : (
+                                      getInitials(teamMemberName)
+                                    )}
+                                  </div>
+                                ) : (
+                                  <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-gray-400 flex-shrink-0">
+                                    <UserX className="w-3 h-3" />
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           )
                         })}
@@ -1945,9 +1946,11 @@ const ServiceFlowSchedule = () => {
                           isSelected && isCurrentMonth ? 'text-blue-900 font-semibold' : ''
                         }`}>{day.getDate()}</div>
                         {showJobs.map((job, jobIndex) => {
-                          const statusColor = getStatusColor(job.status, job)
                           const jobTime = new Date(job.scheduled_date)
+                          const duration = job.service_duration || job.duration || 0
+                          const endTime = new Date(jobTime.getTime() + duration * 60000)
                           const timeString = jobTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+                          const endTimeString = endTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
                           const assignedTeamMember = teamMembers.find(m => m.id === job.assigned_team_member_id || m.id === job.team_member_id)
                           const teamMemberName = assignedTeamMember ? (assignedTeamMember.name || `${assignedTeamMember.first_name || ''} ${assignedTeamMember.last_name || ''}`.trim()) : null
                           const customerName = getCustomerName(job) || 'Customer'
@@ -1957,23 +1960,20 @@ const ServiceFlowSchedule = () => {
                           return (
                             <div 
                               key={jobIndex} 
-                              className={`${statusColor} rounded p-1 mb-1 text-xs cursor-pointer hover:opacity-80 transition-opacity border`}
+                              className="bg-white rounded-md p-1.5 mb-1 text-xs cursor-pointer hover:shadow-md transition-all border border-gray-200"
                               onClick={(e) => {
                                 e.stopPropagation()
                                 handleJobClick(job)
                               }}
                             >
                               <div className="flex items-center justify-between mb-0.5">
-                                <div className="font-medium truncate text-[10px]">{timeString}</div>
+                                <div className="font-semibold text-gray-900 truncate text-[10px]" style={{ fontFamily: 'ProximaNova-Semibold' }}>
+                                  {timeString} - {endTimeString}
+                                </div>
                                 <div className="flex items-center space-x-0.5">
-                                  {territoryName && (
-                                    <span className="text-[9px] text-blue-600 font-medium truncate max-w-[50px]">
-                                      {territoryName}
-                                    </span>
-                                  )}
                                   {assignedTeamMember ? (
                                     <div 
-                                      className="w-4 h-4 rounded-full bg-blue-500 flex items-center justify-center text-white text-[8px] font-medium flex-shrink-0 ml-1 cursor-pointer hover:opacity-80 transition-opacity"
+                                      className="w-4 h-4 rounded-full bg-blue-500 flex items-center justify-center text-white text-[8px] font-medium flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
                                       onClick={(e) => handleTeamMemberClick(e, assignedTeamMember.id)}
                                     >
                                       {assignedTeamMember.profile_picture ? (
@@ -1987,19 +1987,19 @@ const ServiceFlowSchedule = () => {
                                       )}
                                     </div>
                                   ) : (
-                                    <div className="w-4 h-4 rounded-full bg-gray-200 flex items-center justify-center text-gray-400 flex-shrink-0 ml-1">
+                                    <div className="w-4 h-4 rounded-full bg-gray-200 flex items-center justify-center text-gray-400 flex-shrink-0">
                                       <UserX className="w-2.5 h-2.5" />
                                     </div>
                                   )}
                                 </div>
                               </div>
                               <div 
-                                className="truncate font-medium text-[10px] cursor-pointer hover:text-blue-600 transition-colors"
+                                className="truncate font-medium text-[10px] cursor-pointer hover:text-blue-600 transition-colors text-gray-700"
                                 onClick={(e) => handleCustomerClick(e, job.customer_id || job.customer?.id)}
+                                style={{ fontFamily: 'ProximaNova-Medium' }}
                               >
                                 {customerName}
                               </div>
-                              {/* <div className="truncate text-[10px]">{job.service_name || job.service_type || 'Service'}</div> */}
                             </div>
                           )
                         })}
@@ -2288,39 +2288,27 @@ const ServiceFlowSchedule = () => {
           </div>
           )}
         </div>
-        </div>
       </div>
 
       {/* Job Details Overlay */}
-      {showJobDetailsOverlay && selectedJobDetails && (
-        <div className="hidden">
-          {console.log('Selected job details:', selectedJobDetails)}
-          {console.log('Job status:', selectedJobDetails?.status)}
-        </div>
-      )}
+     
       {showJobDetailsOverlay && selectedJobDetails && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-end">
-          <div className="bg-white w-full max-w-2xl h-full overflow-y-auto">
+          <div className="bg-white w-full max-w-md h-full overflow-y-auto">
             {/* Header */}
-            <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex items-center justify-between shadow-sm">
-              <div className="flex items-center space-x-4">
-                <button
-                  onClick={closeJobDetailsOverlay}
-                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                >
-                  <X className="w-5 h-5 text-gray-600" />
-                </button>
-                <div>
-                  <h2 className="text-xl font-semibold text-gray-900">
-                    {selectedJobDetails.service_name || selectedJobDetails.service_type || 'Service'} for {getCustomerName(selectedJobDetails) || 'Customer'}
-                  </h2>
-                  <div className="flex items-center space-x-2 mt-1">
-                    <button className="text-sm text-blue-600 hover:text-blue-800 font-medium">+ Add Tag</button>
-                    <span className="text-sm text-gray-500">Job #{selectedJobDetails.id}</span>
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-5 shadow-sm z-10">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-4 flex-1">
+                 
+                  <div className="flex-1">
+                    <h2 className="text-xl font-bold text-gray-900 mb-1" style={{ fontFamily: 'ProximaNova-Bold' }}>
+                      {selectedJobDetails.service_name || selectedJobDetails.service_type || 'Service'} <span className="font-normal text-gray-500" style={{ fontFamily: 'ProximaNova-Regular' }}>for</span> {getCustomerName(selectedJobDetails) || 'Customer'}
+                    </h2>
+                    <p className="text-sm text-gray-500" style={{ fontFamily: 'ProximaNova-Regular' }}>Job #{selectedJobDetails.id}</p>
                   </div>
+                 
                 </div>
-              </div>
-              <div className="flex items-center space-x-3">
+              <div className="flex items-center gap-3">
                 {/* Status Dropdown */}
                 <div className="relative">
                   <button 
@@ -2408,348 +2396,453 @@ const ServiceFlowSchedule = () => {
                   )}
                 </div>
                 
-                <button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-                  <X className="w-5 h-5 text-gray-600" />
-                </button>
+                <button
+                    onClick={closeJobDetailsOverlay}
+                    className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                  >
+                    <X className="w-5 h-5 text-gray-600" />
+                  </button>
               </div>
             </div>
 
-            {/* Progress Bar */}
-            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-              <div className="flex items-center space-x-2">
+            {/* Status Progress Bar */}
+            <div className="px-4 py-3 border-b border-gray-200 bg-white">
+              <div className="flex items-center w-full">
                 {(() => {
-                  const currentStatus = selectedJobDetails?.status || 'pending'
-                  console.log('Progress bar - Current status:', currentStatus) // Debug log
-                  
                   const statuses = [
-                    { key: 'pending', label: 'Scheduled', color: 'bg-gray-400' },
-                    { key: 'confirmed', label: 'En Route', color: 'bg-blue-500' },
-                    { key: 'in_progress', label: 'Started', color: 'bg-orange-500' },
-                    { key: 'completed', label: 'Complete', color: 'bg-green-500' },
-                    { key: 'cancelled', label: 'Cancelled', color: 'bg-red-500' }
-                  ]
-                  
-                  // Map status to progress index - handle different possible status values
-                  const statusToIndex = {
+                    { key: 'scheduled', label: 'Scheduled' },
+                    { key: 'en_route', label: 'En Route' },
+                    { key: 'started', label: 'Started' },
+                    { key: 'completed', label: 'Complete' },
+                    { key: 'paid', label: 'Paid' }
+                  ];
+
+                  const statusMap = {
                     'pending': 0,
+                    'confirmed': 0,
                     'scheduled': 0,
-                    'confirmed': 1,
                     'en_route': 1,
-                    'enroute': 1,
                     'in_progress': 2,
-                    'in-progress': 2,
-                    'in_prog': 2,
                     'started': 2,
                     'completed': 3,
-                    'complete': 3,
-                    'cancelled': -1,
-                    'canceled': -1
-                  }
-                  
-                  // Normalize status for comparison
-                  const normalizedStatus = currentStatus?.toLowerCase()?.replace(/[-_]/g, '_')
-                  const currentIndex = statusToIndex[normalizedStatus] || 0
-                  console.log('Progress bar - Normalized status:', normalizedStatus) // Debug log
-                  console.log('Progress bar - Current index:', currentIndex) // Debug log
-                  
+                    'paid': 4,
+                    'cancelled': -1
+                  };
+
+                  const currentStatus = selectedJobDetails?.status || 'scheduled';
+                  const currentIndex = statusMap[currentStatus] ?? 0;
+
                   return statuses.map((status, index) => {
-                    // Skip cancelled status in progress bar unless job is cancelled
-                    if (status.key === 'cancelled' && currentStatus !== 'cancelled') {
-                      return null
-                    }
-                    
-                    const isActive = currentStatus === 'cancelled' ? 
-                      (status.key === 'cancelled') : 
-                      (index <= currentIndex)
-                    const isCurrent = currentStatus === 'cancelled' ? 
-                      (status.key === 'cancelled') : 
-                      (index === currentIndex)
-                    
-                    console.log(`Status ${status.key}: isActive=${isActive}, isCurrent=${isCurrent}`) // Debug log
-                    
+                    const isActive = index <= currentIndex;
+                    const isFirst = index === 0;
+                    const isLast = index === statuses.length - 1;
+
                     return (
-                      <React.Fragment key={status.key}>
-                        <div className="flex items-center space-x-2">
-                          <div className={`w-3 h-3 rounded-full ${isActive ? status.color : 'bg-gray-300'}`}></div>
-                          <span className={`text-sm ${isCurrent ? 'font-medium' : 'text-gray-500'} ${isActive ? 'text-gray-900' : 'text-gray-500'}`}>
-                            {status.label}
-                          </span>
-                        </div>
-                        {index < statuses.length - 1 && status.key !== 'cancelled' && (
-                          <div className={`flex-1 h-1 rounded mx-2 ${isActive ? 'bg-gray-400' : 'bg-gray-300'}`}></div>
-                        )}
-                      </React.Fragment>
-                    )
-                  })
+                      <button
+                        key={status.key}
+                        onClick={() => handleStatusChange(status.key)}
+                        className={`
+                          relative px-2 py-1.5 text-xs font-semibold transition-all whitespace-nowrap
+                          ${isActive 
+                            ? 'bg-green-500 text-white' 
+                            : 'bg-gray-100 text-gray-700'}
+                          ${isFirst ? 'rounded-l-md' : ''}
+                          ${isLast ? 'rounded-r-md' : ''}
+                          hover:opacity-90
+                        `}
+                        style={{ 
+                          fontFamily: 'ProximaNova-Semibold',
+                          clipPath: !isFirst && !isLast
+                            ? 'polygon(8px 0%, 100% 0%, calc(100% - 8px) 50%, 100% 100%, 8px 100%, 0% 50%)'
+                            : isFirst
+                            ? 'polygon(0% 0%, 100% 0%, calc(100% - 8px) 50%, 100% 100%, 0% 100%)'
+                            : 'polygon(8px 0%, 100% 0%, 100% 100%, 8px 100%, 0% 50%)',
+                          marginLeft: !isFirst ? '-8px' : '0',
+                          zIndex: isActive ? (index === currentIndex ? 10 : 5) : 1,
+                          flex: 1,
+                          minWidth: 0
+                        }}
+                      >
+                        {status.label}
+                      </button>
+                    );
+                  });
                 })()}
               </div>
             </div>
 
             {/* Content */}
-            <div className="p-6 space-y-8">
-              {/* Job Location */}
-              <div>
-                <div className="flex items-center space-x-2 mb-4">
-                  <MapPin className="w-5 h-5 text-gray-500" />
-                  <h3 className="text-lg font-semibold text-gray-900">JOB LOCATION</h3>
+            <div className="space-y-4" style={{ fontFamily: 'ProximaNova-Regular' }}>
+              {/* Map Section */}
+              <div className="bg-white border-b border-gray-200">
+                <div className="h-48 bg-gray-100 relative">
+                  {selectedJobDetails.service_address_street || selectedJobDetails.customer_address ? (
+                    <iframe
+                      title="Job Location Map"
+                      width="100%"
+                      height="100%"
+                      style={{ border: 0 }}
+                      loading="lazy"
+                      allowFullScreen
+                      referrerPolicy="no-referrer-when-downgrade"
+                      src={`https://www.google.com/maps/embed/v1/place?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&q=${encodeURIComponent(
+                        `${selectedJobDetails.service_address_street || selectedJobDetails.customer_address}, ${selectedJobDetails.service_address_city || selectedJobDetails.city || ''}`
+                      )}&zoom=16&maptype=roadmap`}
+                    />
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-gray-400">
+                      <MapPin className="w-12 h-12" />
+                    </div>
+                  )}
                 </div>
-                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <p className="font-medium text-gray-900 text-base">{selectedJobDetails.customer_address || selectedJobDetails.address || 'Address not provided'}</p>
-                      <p className="text-sm text-gray-600 mt-1">{selectedJobDetails.city || 'City'}</p>
-                    </div>
-                    <div className="flex items-center space-x-3 ml-4">
-                      <button className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center space-x-1">
-                        <span>View directions</span>
-                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
-                        </svg>
-                      </button>
-                      <button 
-                        onClick={handleEditAddress}
-                        className="text-gray-600 hover:text-gray-800 text-sm font-medium"
-                      >
-                        Edit Address
-                      </button>
-                    </div>
+                <div className="px-6 py-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'ProximaNova-Bold' }}>Job Location</span>
+                    <button 
+                      onClick={handleEditAddress}
+                      className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                      style={{ fontFamily: 'ProximaNova-Medium' }}
+                    >
+                      Edit Address
+                    </button>
                   </div>
+                  <p className="font-medium text-gray-900" style={{ fontFamily: 'ProximaNova-Medium' }}>
+                    {selectedJobDetails.service_address_street || selectedJobDetails.customer_address || 'Address not provided'}
+                  </p>
+                  <p className="text-sm text-gray-600 mt-1" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                    {selectedJobDetails.service_address_city || selectedJobDetails.city || ''}
+                  </p>
+                  <a 
+                    href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
+                      `${selectedJobDetails.service_address_street || selectedJobDetails.customer_address}, ${selectedJobDetails.service_address_city || selectedJobDetails.city || ''}`
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-blue-600 hover:text-blue-700 mt-2 inline-block"
+                    style={{ fontFamily: 'ProximaNova-Regular' }}
+                  >
+                    View directions →
+                  </a>
                 </div>
               </div>
 
               {/* Date & Time */}
-              <div>
-                <div className="flex items-center space-x-2 mb-4">
-                  <Calendar className="w-5 h-5 text-gray-500" />
-                  <h3 className="text-lg font-semibold text-gray-900">DATE & TIME</h3>
-                </div>
-                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <p className="font-medium text-gray-900 text-base">
-                        {new Date(selectedJobDetails.scheduled_date).toLocaleTimeString('en-US', { 
-                          hour: 'numeric', 
-                          minute: '2-digit',
-                          hour12: true 
-                        })} - {new Date(new Date(selectedJobDetails.scheduled_date).getTime() + (selectedJobDetails.service_duration || 0) * 60000).toLocaleTimeString('en-US', { 
-                          hour: 'numeric', 
-                          minute: '2-digit',
-                          hour12: true 
-                        })}
-                      </p>
-                      <p className="text-sm text-gray-600 mt-1">
-                        {new Date(selectedJobDetails.scheduled_date).toLocaleDateString('en-US', { 
-                          weekday: 'long', 
-                          month: 'short', 
-                          day: 'numeric', 
-                          year: 'numeric' 
-                        })}
-                      </p>
-                    </div>
-                    <div className="flex items-center space-x-3 ml-4">
+              <div className="bg-white border-b border-gray-200">
+                <div className="px-6 py-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'ProximaNova-Bold' }}>Date & Time</span>
+                    <div className="flex items-center gap-2">
                       <button 
                         onClick={handleCancelJob}
-                        className="text-red-600 hover:text-red-800 text-sm font-medium"
+                        className="text-sm text-red-600 hover:text-red-700 font-medium"
+                        style={{ fontFamily: 'ProximaNova-Medium' }}
                       >
                         Cancel
                       </button>
                       <button 
                         onClick={handleReschedule}
-                        className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                        className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                        style={{ fontFamily: 'ProximaNova-Medium' }}
                       >
                         Reschedule
                       </button>
                     </div>
                   </div>
+                  <div className="flex items-center gap-2 text-gray-900 mb-1">
+                    <Calendar className="w-5 h-5 text-gray-400" />
+                    <p className="font-semibold" style={{ fontFamily: 'ProximaNova-Semibold' }}>
+                      {new Date(selectedJobDetails.scheduled_date).toLocaleTimeString('en-US', { 
+                        hour: 'numeric', 
+                        minute: '2-digit',
+                        hour12: true 
+                      })} - {new Date(new Date(selectedJobDetails.scheduled_date).getTime() + (selectedJobDetails.service_duration || 0) * 60000).toLocaleTimeString('en-US', { 
+                        hour: 'numeric', 
+                        minute: '2-digit',
+                        hour12: true 
+                      })}
+                    </p>
+                  </div>
+                  <p className="text-sm text-gray-600" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                    {new Date(selectedJobDetails.scheduled_date).toLocaleDateString('en-US', { 
+                      weekday: 'long', 
+                      month: 'short', 
+                      day: 'numeric', 
+                      year: 'numeric' 
+                    })}
+                  </p>
                 </div>
               </div>
 
               {/* Job Details */}
-              <div>
-                <div className="flex items-center space-x-2 mb-4">
-                  <Clock className="w-5 h-5 text-gray-500" />
-                  <h3 className="text-lg font-semibold text-gray-900">JOB DETAILS</h3>
-                </div>
-                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <p className="font-medium text-gray-900 text-base">{selectedJobDetails.service_name || selectedJobDetails.service_type || 'Service'}</p>
-                      <p className="text-sm text-gray-600 mt-1">
-                        {selectedJobDetails.service_duration ? `${Math.floor(selectedJobDetails.service_duration / 60)}h ${selectedJobDetails.service_duration % 60}m` : 'Duration not specified'}
-                      </p>
-                    </div>
-                    <button className="text-gray-600 hover:text-gray-800 text-sm font-medium ml-4">Edit</button>
+              <div className="bg-white border-b border-gray-200">
+                <div className="px-6 py-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'ProximaNova-Bold' }}>Job Details</span>
+                    <button 
+                      onClick={() => navigate(`/job/${selectedJobDetails.id}`)}
+                      className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                      style={{ fontFamily: 'ProximaNova-Medium' }}
+                    >
+                      Edit Service
+                    </button>
                   </div>
+                  <p className="font-semibold text-gray-900 text-base mb-2" style={{ fontFamily: 'ProximaNova-Semibold' }}>
+                    {selectedJobDetails.service_name || selectedJobDetails.service_type || 'Service'}
+                  </p>
+                  
+                  {/* Service modifiers/items if available */}
+                  {(() => {
+                    // Parse modifiers
+                    let parsedModifiers = [];
+                    if (selectedJobDetails.service_modifiers) {
+                      try {
+                        if (typeof selectedJobDetails.service_modifiers === 'string') {
+                          parsedModifiers = JSON.parse(selectedJobDetails.service_modifiers);
+                        } else if (Array.isArray(selectedJobDetails.service_modifiers)) {
+                          parsedModifiers = selectedJobDetails.service_modifiers;
+                        }
+                      } catch (e) {
+                        console.error('Error parsing modifiers:', e);
+                      }
+                    }
+
+                    if (parsedModifiers.length > 0) {
+                      return (
+                        <div className="mb-3">
+                          <p className="text-sm font-bold text-gray-900 mb-2" style={{ fontFamily: 'ProximaNova-Bold' }}>Select Your Items</p>
+                          {parsedModifiers.map((modifier, idx) => {
+                            // Get modifier title/name
+                            const modifierName = modifier.title || modifier.name;
+                            
+                            // Get selected option
+                            let selectedOption = null;
+                            if (modifier.options && modifier.selected) {
+                              selectedOption = modifier.options.find(opt => opt.id == modifier.selected || opt.id === modifier.selected);
+                            }
+                            
+                            return (
+                              <div key={idx} className="text-sm text-gray-600 mb-1" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                                {selectedOption ? `${selectedOption.label || selectedOption.name || selectedOption.text}` : modifierName}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+                  
+                  <p className="text-sm text-gray-600" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                    {selectedJobDetails.duration ? `${Math.floor(selectedJobDetails.duration / 60)} hours ${selectedJobDetails.duration % 60} minutes` : 
+                     selectedJobDetails.service_duration ? `${Math.floor(selectedJobDetails.service_duration / 60)} hours ${selectedJobDetails.service_duration % 60} minutes` : 
+                     ''}
+                  </p>
                 </div>
               </div>
 
               {/* Invoice */}
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Invoice Draft</h3>
-                  <span className="text-sm text-gray-500">Due {new Date(new Date().getTime() + 15 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                </div>
-                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-600">Amount paid</p>
-                      <p className="font-medium text-gray-900 text-lg">$0.00</p>
+              <div className="bg-white border-b border-gray-200">
+                <div className="px-6 py-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg font-bold text-gray-900" style={{ fontFamily: 'ProximaNova-Bold' }}>Invoice</span>
+                      <span className="px-2 py-1 text-xs font-semibold rounded bg-blue-100 text-blue-800">Draft</span>
                     </div>
-                    <div className="text-right">
-                      <p className="text-sm text-gray-600">Amount due</p>
-                      <p className="font-medium text-gray-900 text-lg">${selectedJobDetails.total || selectedJobDetails.price || selectedJobDetails.service_price || '0.00'}</p>
+                    <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-semibold" style={{ fontFamily: 'ProximaNova-Semibold' }}>
+                      Add Payment
+                    </button>
+                  </div>
+                  <p className="text-sm text-gray-500 mb-4" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                    Due {new Date(new Date().getTime() + 15 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </p>
+                  
+                  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <p className="text-xs text-gray-500" style={{ fontFamily: 'ProximaNova-Regular' }}>Amount paid</p>
+                        <p className="font-semibold text-gray-900 text-xl" style={{ fontFamily: 'ProximaNova-Semibold' }}>$0.00</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-gray-500" style={{ fontFamily: 'ProximaNova-Regular' }}>Amount due</p>
+                        <p className="font-semibold text-gray-900 text-xl" style={{ fontFamily: 'ProximaNova-Semibold' }}>
+                          ${selectedJobDetails.total || selectedJobDetails.price || selectedJobDetails.service_price || '0.00'}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Customer */}
-              <div>
-                <div className="flex items-center space-x-2 mb-4">
-                  <User className="w-5 h-5 text-gray-500" />
-                  <h3 className="text-lg font-semibold text-gray-900">CUSTOMER</h3>
-                </div>
-                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <p className="font-medium text-gray-900 text-base">
-                        {getCustomerName(selectedJobDetails) || 'Customer'}
-                      </p>
-                      <p className="text-sm text-gray-600 mt-1">{selectedJobDetails.customer_phone || selectedJobDetails.phone || 'Phone not provided'}</p>
-                      <p className="text-sm text-gray-600">{selectedJobDetails.customer_email || selectedJobDetails.email || 'Email not provided'}</p>
-                    </div>
+              <div className="bg-white border-b border-gray-200">
+                <div className="px-6 py-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'ProximaNova-Bold' }}>Customer</span>
                     <button 
                       onClick={handleEditCustomer}
-                      className="text-gray-600 hover:text-gray-800 text-sm font-medium ml-4"
+                      className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                      style={{ fontFamily: 'ProximaNova-Medium' }}
                     >
                       Edit
                     </button>
                   </div>
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-10 h-10 bg-yellow-500 rounded-full flex items-center justify-center text-white font-semibold">
+                      {(selectedJobDetails.customer_first_name?.[0] || 'A')}{(selectedJobDetails.customer_last_name?.[0] || 'A')}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-900" style={{ fontFamily: 'ProximaNova-Semibold' }}>
+                        {getCustomerName(selectedJobDetails) || 'Customer'}
+                      </p>
+                    </div>
+                  </div>
+                  {selectedJobDetails.customer_phone && (
+                    <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
+                      <Phone className="w-4 h-4 text-gray-400" />
+                      <span style={{ fontFamily: 'ProximaNova-Regular' }}>{selectedJobDetails.customer_phone}</span>
+                    </div>
+                  )}
+                  {selectedJobDetails.customer_email && (
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <Mail className="w-4 h-4 text-gray-400" />
+                      <span style={{ fontFamily: 'ProximaNova-Regular' }}>{selectedJobDetails.customer_email}</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
               {/* Billing Address */}
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Billing Address</h3>
-                  <button className="text-gray-600 hover:text-gray-800 text-sm font-medium">Edit</button>
-                </div>
-                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                  <p className="text-gray-600">Same as service address</p>
+              <div className="bg-white border-b border-gray-200">
+                <div className="px-6 py-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'ProximaNova-Bold' }}>Billing Address</span>
+                    <button className="text-sm text-blue-600 hover:text-blue-700 font-medium" style={{ fontFamily: 'ProximaNova-Medium' }}>Edit</button>
+                  </div>
+                  <p className="text-sm text-gray-600" style={{ fontFamily: 'ProximaNova-Regular' }}>Same as service address</p>
                 </div>
               </div>
 
               {/* Expected Payment Method */}
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Expected Payment Method</h3>
-                </div>
-                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                  <p className="text-gray-600 mb-2">No payment method on file</p>
-                  <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">Add a card to charge later</button>
+              <div className="bg-white border-b border-gray-200">
+                <div className="px-6 py-4">
+                  <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-3" style={{ fontFamily: 'ProximaNova-Bold' }}>Expected Payment Method</span>
+                  <p className="text-sm text-gray-600 mb-2" style={{ fontFamily: 'ProximaNova-Regular' }}>No payment method on file</p>
+                  <button className="text-sm text-blue-600 hover:text-blue-700 font-medium" style={{ fontFamily: 'ProximaNova-Medium' }}>Add a card to charge later</button>
                 </div>
               </div>
 
               {/* Team */}
-              <div>
-                <div className="flex items-center space-x-2 mb-4">
-                  <Users className="w-5 h-5 text-gray-500" />
-                  <h3 className="text-lg font-semibold text-gray-900">TEAM</h3>
-                </div>
-                <div className="space-y-4">
-                  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="font-medium text-gray-900">JOB REQUIREMENTS</h4>
-                      <button className="text-gray-600 hover:text-gray-800 text-sm font-medium">Edit</button>
-                    </div>
-                    <p className="text-sm text-gray-600">Workers needed: 1 service provider</p>
-                    <p className="text-sm text-gray-600">Skills needed: No skill tags required</p>
+              <div className="bg-white border-b border-gray-200">
+                <div className="px-6 py-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'ProximaNova-Bold' }}>Team</span>
                   </div>
                   
-                  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                  {/* Job Requirements */}
+                  <div className="mb-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-bold text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'ProximaNova-Bold' }}>Job Requirements</span>
+                      <button className="text-sm text-blue-600 hover:text-blue-700 font-medium" style={{ fontFamily: 'ProximaNova-Medium' }}>
+                        Edit
+                      </button>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-1" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                      Workers needed: <span className="font-semibold text-gray-900">{selectedJobDetails.workers_needed || 1} service provider</span>
+                    </p>
+                    <p className="text-sm text-gray-600" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                      Skills needed: <span className="font-semibold text-gray-900">No skill tags required</span>
+                    </p>
+                  </div>
+                  
+                  {/* Assigned */}
+                  <div>
                     <div className="flex items-center justify-between mb-3">
-                      <h4 className="font-medium text-gray-900">ASSIGNED</h4>
+                      <span className="text-xs font-bold text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'ProximaNova-Bold' }}>Assigned</span>
                       <button 
                         onClick={handleOpenAssignModal}
-                        className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                        className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                        style={{ fontFamily: 'ProximaNova-Medium' }}
                       >
                         Assign
                       </button>
                     </div>
-                    <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
-                        <User className="w-4 h-4 text-gray-600" />
+                    {selectedJobDetails.team_member_id ? (
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold">
+                          {selectedJobDetails.team_member_first_name?.[0]}{selectedJobDetails.team_member_last_name?.[0]}
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900" style={{ fontFamily: 'ProximaNova-Medium' }}>
+                            {selectedJobDetails.team_member_first_name} {selectedJobDetails.team_member_last_name}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm text-gray-600">No service providers are assigned to this job</p>
+                    ) : (
+                      <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 text-center">
+                        <UserX className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                        <p className="text-sm text-gray-600" style={{ fontFamily: 'ProximaNova-Regular' }}>Unassigned</p>
+                        <p className="text-xs text-gray-500 mt-1" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                          No service providers are assigned to this job
+                        </p>
                       </div>
-                    </div>
+                    )}
                   </div>
                 </div>
               </div>
 
               {/* Notes & Files */}
-              <div>
-                <div className="flex items-center space-x-2 mb-4">
-                  <Clock className="w-5 h-5 text-gray-500" />
-                  <h3 className="text-lg font-semibold text-gray-900">NOTES & FILES</h3>
-                </div>
-                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                  <p className="text-sm text-gray-600 mb-2">No internal job or customer notes</p>
-                  <p className="text-xs text-gray-500 mb-3">Notes and attachments are only visible to employees with appropriate permissions.</p>
-                  <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">+ Add Note</button>
+              <div className="bg-white border-b border-gray-200">
+                <div className="px-6 py-4">
+                  <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-3" style={{ fontFamily: 'ProximaNova-Bold' }}>Notes & Files</span>
+                  <div className="text-center py-6">
+                    <NotepadText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-sm text-gray-600 mb-1" style={{ fontFamily: 'ProximaNova-Regular' }}>No internal job or customer notes</p>
+                    <p className="text-xs text-gray-500 mb-4" style={{ fontFamily: 'ProximaNova-Regular' }}>Notes and attachments are only visible to employees with appropriate permissions.</p>
+                    <button className="text-sm text-blue-600 hover:text-blue-700 font-medium" style={{ fontFamily: 'ProximaNova-Medium' }}>+ Add Note</button>
+                  </div>
                 </div>
               </div>
 
               {/* Customer Notifications */}
-              <div>
-                <div className="flex items-center space-x-2 mb-4">
-                  <MessageCircle className="w-5 h-5 text-gray-500" />
-                  <h3 className="text-lg font-semibold text-gray-900">CUSTOMER NOTIFICATIONS</h3>
-                </div>
-                <div className="space-y-4">
-                  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+              <div className="bg-white border-b border-gray-200">
+                <div className="px-6 py-4">
+                  <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-4" style={{ fontFamily: 'ProximaNova-Bold' }}>Customer notifications</span>
+                  
+                  {/* Notification Preferences */}
+                  <div className="mb-4">
                     <div className="flex items-center justify-between mb-3">
-                      <h4 className="font-medium text-gray-900">NOTIFICATION PREFERENCES</h4>
+                      <span className="text-xs font-bold text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'ProximaNova-Bold' }}>Notification Preferences</span>
                     </div>
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Emails</span>
-                        <div className="w-10 h-6 bg-blue-600 rounded-full flex items-center justify-end pr-1">
-                          <div className="w-4 h-4 bg-white rounded-full"></div>
-                        </div>
+                        <span className="text-sm text-gray-700" style={{ fontFamily: 'ProximaNova-Regular' }}>Emails</span>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input type="checkbox" checked readOnly className="sr-only peer" />
+                          <div className="w-10 h-6 bg-blue-600 rounded-full peer peer-checked:bg-blue-600 after:content-[''] after:absolute after:top-[2px] after:right-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+                        </label>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Text messages</span>
-                        <div className="w-10 h-6 bg-blue-600 rounded-full flex items-center justify-end pr-1">
-                          <div className="w-4 h-4 bg-white rounded-full"></div>
-                        </div>
+                        <span className="text-sm text-gray-700" style={{ fontFamily: 'ProximaNova-Regular' }}>Text messages</span>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input type="checkbox" readOnly className="sr-only peer" />
+                          <div className="w-10 h-6 bg-gray-200 rounded-full peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+                        </label>
                       </div>
                     </div>
                   </div>
                   
-                  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="font-medium text-gray-900">Confirmation</h4>
-                      <button 
-                        onClick={() => {
-                          setNotificationType('confirmation')
-                          setSelectedNotificationMethod('email')
-                          setNotificationEmail(selectedJobDetails.customer_email || '')
-                          setShowNotificationModal(true)
-                        }}
-                        className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                      >
-                        Send
-                      </button>
+                  {/* Confirmation */}
+                  <div className="mb-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-900" style={{ fontFamily: 'ProximaNova-Medium' }}>Confirmation</span>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <input type="checkbox" checked className="w-4 h-4 text-blue-600 rounded" />
-                      <span className="text-sm text-gray-600">Appointment Confirmation</span>
+                    <div className="flex items-center gap-2 text-sm text-gray-600 mb-1">
+                      <Mail className="w-4 h-4 text-gray-400" />
+                      <span style={{ fontFamily: 'ProximaNova-Regular' }}>Appointment Confirmation</span>
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-gray-500 pl-6" style={{ fontFamily: 'ProximaNova-Regular' }}>
                       {selectedJobDetails.confirmation_sent ? 
-                        `${selectedJobDetails.confirmation_sent_at ? new Date(selectedJobDetails.confirmation_sent_at).toLocaleString() : 'Recently'} - Email - Sent` :
+                        `${selectedJobDetails.confirmation_sent_at ? new Date(selectedJobDetails.confirmation_sent_at).toLocaleString() : '5 days ago'} - Email - Sent` :
                         'Not sent yet'
                       }
                     </p>
@@ -2758,20 +2851,25 @@ const ServiceFlowSchedule = () => {
               </div>
 
               {/* Customer Feedback */}
-              <div>
-                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                  <p className="text-sm text-gray-600">An email will be sent to the customer asking them to rate the service after the job is marked complete. <button className="text-blue-600 hover:text-blue-800 font-medium">Learn more</button></p>
+              <div className="bg-white border-b border-gray-200">
+                <div className="px-6 py-4">
+                  <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-3" style={{ fontFamily: 'ProximaNova-Bold' }}>Customer feedback</span>
+                  <p className="text-sm text-gray-600" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                    An email will be sent to the customer asking them to rate the service after the job is marked complete. <button className="text-blue-600 hover:text-blue-700 font-medium">Learn more</button>
+                  </p>
                 </div>
               </div>
 
               {/* Conversion Summary */}
-              <div>
-                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                  <p className="text-sm text-gray-600">Jobs created by team members from the Zenbooker admin won't have any conversion details associated. <button className="text-blue-600 hover:text-blue-800 font-medium">Learn more</button></p>
-                </div>
+              <div className="bg-white px-6 py-4">
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-3" style={{ fontFamily: 'ProximaNova-Bold' }}>Conversion summary</span>
+                <p className="text-sm text-gray-600" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                  Jobs created by team members from the Zenbooker admin won't have any conversion details associated. <button className="text-blue-600 hover:text-blue-700 font-medium">Learn more</button>
+                </p>
               </div>
             </div>
           </div>
+        </div>
         </div>
       )}
 
@@ -3137,7 +3235,8 @@ const ServiceFlowSchedule = () => {
           </div>
         </div>
       )}
-    </div>
+      </div>
+      </div>
     </>
   )
 }
