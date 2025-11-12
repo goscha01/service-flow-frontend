@@ -695,7 +695,7 @@ const DashboardRedesigned = () => {
         />
 
         {/* Main Content */}
-        <div className="flex-1 flex flex-col min-w-0 lg:mx-40 xl:mx-40">
+        <div className="flex-1 flex flex-col min-w-0 lg:mx-44 xl:mx-48">
           {/* Mobile Header */}
           <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
 

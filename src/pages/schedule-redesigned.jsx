@@ -15,7 +15,8 @@ import {
   Users,
   UserX,
   ChevronLeft, 
-  ChevronRight, 
+  ChevronRight,
+  ChevronDown, 
   Maximize2,
   MessageCircle,
   X,
@@ -24,7 +25,6 @@ import {
   CheckCircle,
   Play,
   XCircle,
-  ChevronDown,
   Phone, Mail, NotepadText,
 } from "lucide-react"
 import { useAuth } from "../context/AuthContext"
@@ -654,6 +654,23 @@ const ServiceFlowSchedule = () => {
     setErrorMessage('')
   }
 
+  // Close status menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showStatusMenu && !event.target.closest('.relative.flex')) {
+        setShowStatusMenu(false)
+      }
+    }
+
+    if (showStatusMenu) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showStatusMenu])
+
   const handleStatusChange = async (newStatus) => {
     if (!selectedJobDetails) return
     
@@ -661,22 +678,29 @@ const ServiceFlowSchedule = () => {
       setIsUpdatingStatus(true)
       setErrorMessage('')
       
+      console.log('Updating job status:', { jobId: selectedJobDetails.id, newStatus })
       await jobsAPI.updateStatus(selectedJobDetails.id, newStatus)
       
-      // Update the job in local state
-      setSelectedJobDetails(prev => ({ ...prev, status: newStatus }))
+      // Fetch updated job to get the actual status from backend
+      const updatedJob = await jobsAPI.getById(selectedJobDetails.id)
+      const actualStatus = updatedJob?.status || newStatus
+      
+      console.log('Status update response:', { newStatus, actualStatus, updatedJob })
+      
+      // Update the job in local state with actual status from backend
+      setSelectedJobDetails(prev => ({ ...prev, status: actualStatus, ...updatedJob }))
       
       // Update the job in the main jobs list
       setJobs(prevJobs => prevJobs.map(job => 
-        job.id === selectedJobDetails.id ? { ...job, status: newStatus } : job
+        job.id === selectedJobDetails.id ? { ...job, status: actualStatus, ...updatedJob } : job
       ))
       
       // Update filtered jobs as well
       setFilteredJobs(prevFilteredJobs => prevFilteredJobs.map(job => 
-        job.id === selectedJobDetails.id ? { ...job, status: newStatus } : job
+        job.id === selectedJobDetails.id ? { ...job, status: actualStatus, ...updatedJob } : job
       ))
       
-      setSuccessMessage(`Job marked as ${newStatus.replace('_', ' ')}`)
+      setSuccessMessage(`Job marked as ${actualStatus.replace('_', ' ').replace('-', ' ')}`)
       setTimeout(() => setSuccessMessage(''), 3000)
       setShowStatusMenu(false)
       
@@ -1859,9 +1883,9 @@ const ServiceFlowSchedule = () => {
                                 )}
                               </div>
                               <div 
-                                className="truncate font-medium cursor-pointer hover:text-blue-600 transition-colors text-gray-700 mb-1"
+                                className="truncate font-medium cursor-pointer hover:text-blue-600 transition-colors text-gray-700 mb-1 inline-block"
                                 onClick={(e) => handleCustomerClick(e, job.customer_id || job.customer?.id || job.customers?.id)}
-                                style={{ fontFamily: 'ProximaNova-Medium' }}
+                                style={{ fontFamily: 'ProximaNova-Medium', maxWidth: '100%' }}
                               >
                                 {customerName}
                               </div>
@@ -1995,9 +2019,9 @@ const ServiceFlowSchedule = () => {
                                 </div>
                               </div>
                               <div 
-                                className="truncate font-medium text-[10px] cursor-pointer hover:text-blue-600 transition-colors text-gray-700"
+                                className="truncate font-medium text-[10px] cursor-pointer hover:text-blue-600 transition-colors text-gray-700 inline-block"
                                 onClick={(e) => handleCustomerClick(e, job.customer_id || job.customer?.id)}
-                                style={{ fontFamily: 'ProximaNova-Medium' }}
+                                style={{ fontFamily: 'ProximaNova-Medium', maxWidth: '100%' }}
                               >
                                 {customerName}
                               </div>
@@ -2106,8 +2130,9 @@ const ServiceFlowSchedule = () => {
                       </div>
                     </div>
                     <div 
-                      className="text-xs sm:text-xs font-medium text-gray-700 cursor-pointer hover:text-blue-600 transition-colors"
+                      className="text-xs sm:text-xs font-medium text-gray-700 cursor-pointer hover:text-blue-600 transition-colors inline-block"
                       onClick={(e) => handleCustomerClick(e, job.customer_id || job.customer?.id || job.customers?.id)}
+                      style={{ maxWidth: '100%' }}
                     >
                       {customerName}
                     </div>
@@ -2294,8 +2319,14 @@ const ServiceFlowSchedule = () => {
       {/* Job Details Overlay */}
      
       {showJobDetailsOverlay && selectedJobDetails && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-end">
-          <div className="bg-white w-full max-w-md h-full overflow-y-auto">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-end"
+          onClick={closeJobDetailsOverlay}
+        >
+          <div 
+            className="bg-white w-full max-w-md h-full overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             {/* Header */}
             <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-5 shadow-sm z-10">
               <div className="flex items-center justify-between mb-4">
@@ -2310,100 +2341,111 @@ const ServiceFlowSchedule = () => {
                  
                 </div>
               <div className="flex items-center gap-3">
-                {/* Status Dropdown */}
-                <div className="relative">
-                  <button 
-                    onClick={() => setShowStatusMenu(!showStatusMenu)}
-                    disabled={isUpdatingStatus}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm flex items-center space-x-2 disabled:opacity-50"
-                  >
-                    <span>
-                      {isUpdatingStatus ? 'Updating...' : 
-                       (() => {
-                         const status = normalizeStatus(selectedJobDetails?.status)
-                         if (status === 'pending' || status === 'scheduled') return 'Mark as En Route'
-                         if (status === 'confirmed') return 'Mark as Started'
-                         if (status === 'in_progress') return 'Mark as Complete'
-                         if (status === 'completed') return 'Job Complete'
-                         if (status === 'cancelled') return 'Job Cancelled'
-                         return 'Update Status'
-                       })()
-                      }
-                    </span>
-                    <ChevronDown className="w-4 h-4" />
-                  </button>
+                {/* Status Action Button with Dropdown */}
+                <div className="relative flex">
+                  {(() => {
+                    const currentStatus = (selectedJobDetails?.status || 'pending').toLowerCase().trim()
+                    
+                    // Normalize status: pending=scheduled, en_route=confirmed, started=in-progress, complete=completed
+                    const normalizedStatus = 
+                      currentStatus === 'scheduled' ? 'pending' :
+                      currentStatus === 'en_route' || currentStatus === 'enroute' ? 'confirmed' :
+                      currentStatus === 'started' ? 'in-progress' :
+                      currentStatus === 'complete' ? 'completed' :
+                      currentStatus
+                    
+                    // Determine next status and button label based on normalized status
+                    let nextStatus = null
+                    let buttonLabel = 'Update Status'
+                    let buttonColor = 'bg-blue-600 hover:bg-blue-700'
+                    let isDisabled = false
+                    
+                    // Status progression: pending → confirmed → in-progress → completed
+                    if (normalizedStatus === 'pending' || normalizedStatus === 'scheduled') {
+                      nextStatus = 'confirmed' // This maps to en_route in backend
+                      buttonLabel = 'Mark as En Route'
+                      buttonColor = 'bg-blue-600 hover:bg-blue-700'
+                    } else if (normalizedStatus === 'confirmed' || normalizedStatus === 'en_route' || normalizedStatus === 'enroute') {
+                      nextStatus = 'in-progress' // This maps to started in backend
+                      buttonLabel = 'Mark as Started'
+                      buttonColor = 'bg-orange-600 hover:bg-orange-700'
+                    } else if (normalizedStatus === 'in-progress' || normalizedStatus === 'in_progress' || normalizedStatus === 'in_prog' || normalizedStatus === 'started') {
+                      nextStatus = 'completed' // This maps to complete in backend
+                      buttonLabel = 'Mark as Complete'
+                      buttonColor = 'bg-green-600 hover:bg-green-700'
+                    } else if (normalizedStatus === 'completed' || normalizedStatus === 'complete' || normalizedStatus === 'done' || normalizedStatus === 'finished') {
+                      isDisabled = true
+                      buttonLabel = 'Job Complete'
+                      buttonColor = 'bg-gray-400 cursor-not-allowed'
+                    } else if (normalizedStatus === 'cancelled' || normalizedStatus === 'canceled') {
+                      isDisabled = true
+                      buttonLabel = 'Job Cancelled'
+                      buttonColor = 'bg-gray-400 cursor-not-allowed'
+                    }
+                    
+                    return (
+                      <>
+                        <button 
+                          onClick={() => nextStatus && handleStatusChange(nextStatus)}
+                          disabled={isDisabled || isUpdatingStatus}
+                          className={`${buttonColor} text-white px-4 py-2 rounded-l-lg transition-colors font-medium text-sm flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed`}
+                        >
+                          <span>{isUpdatingStatus ? 'Updating...' : buttonLabel}</span>
+                        </button>
+                        <button 
+                          onClick={() => setShowStatusMenu(!showStatusMenu)}
+                          disabled={isUpdatingStatus}
+                          className={`${buttonColor} text-white px-3 py-2 rounded-r-lg border-l border-white/20 transition-colors disabled:opacity-50`}
+                        >
+                          <ChevronDown className="w-4 h-4" />
+                        </button>
+                      </>
+                    )
+                  })()}
                   
                   {showStatusMenu && (
                     <div className="absolute top-full right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
                       <div className="py-2">
-                        {(() => {
-                          const currentStatus = selectedJobDetails?.status || 'pending'
-                          console.log('Current status:', currentStatus) // Debug log
+                        {['pending', 'confirmed', 'in-progress', 'completed', 'cancelled'].map((status) => {
+                          const currentStatus = (selectedJobDetails?.status || 'pending').toLowerCase().trim()
+                          // Normalize for comparison: scheduled=pending, en_route=confirmed, started=in-progress, complete=completed
+                          const normalizedCurrent = 
+                            currentStatus === 'scheduled' ? 'pending' :
+                            currentStatus === 'en_route' || currentStatus === 'enroute' ? 'confirmed' :
+                            currentStatus === 'started' ? 'in-progress' :
+                            currentStatus === 'complete' ? 'completed' :
+                            currentStatus === 'in_progress' || currentStatus === 'in_prog' ? 'in-progress' :
+                            currentStatus === 'canceled' ? 'cancelled' :
+                            currentStatus
+                          const isCurrentStatus = normalizedCurrent === status
                           
-                          const nextActions = []
-                          
-                          // Normalize status for comparison
-                          const normalizedStatus = currentStatus?.toLowerCase()?.replace(/[-_]/g, '_')
-                          
-                          // Define next logical actions based on current status
-                          if (normalizedStatus === 'pending' || normalizedStatus === 'scheduled') {
-                            nextActions.push(
-                              { key: 'confirmed', label: 'Mark as En Route', color: 'bg-blue-500' },
-                              { key: 'cancelled', label: 'Cancel Job', color: 'bg-red-500' }
-                            )
-                          } else if (normalizedStatus === 'confirmed' || normalizedStatus === 'en_route' || normalizedStatus === 'enroute') {
-                            nextActions.push(
-                              { key: 'in_progress', label: 'Mark as Started', color: 'bg-orange-500' },
-                              { key: 'cancelled', label: 'Cancel Job', color: 'bg-red-500' }
-                            )
-                          } else if (normalizedStatus === 'in_progress' || normalizedStatus === 'in_prog' || normalizedStatus === 'started') {
-                            nextActions.push(
-                              { key: 'completed', label: 'Mark as Complete', color: 'bg-green-500' },
-                              { key: 'cancelled', label: 'Cancel Job', color: 'bg-red-500' }
-                            )
-                          } else if (normalizedStatus === 'completed' || normalizedStatus === 'complete') {
-                            nextActions.push(
-                              { key: 'cancelled', label: 'Cancel Job', color: 'bg-red-500' }
-                            )
-                          } else if (normalizedStatus === 'cancelled' || normalizedStatus === 'canceled') {
-                            nextActions.push(
-                              { key: 'pending', label: 'Reactivate Job', color: 'bg-gray-400' }
-                            )
-                          }
-                          
-                          console.log('Next actions:', nextActions) // Debug log
-                          
-                          if (nextActions.length === 0) {
-                            return (
-                              <div className="px-4 py-2 text-sm text-gray-500">
-                                No actions available
-                              </div>
-                            )
-                          }
-                          
-                          return nextActions.map((action) => (
+                          return (
                             <button
-                              key={action.key}
-                              onClick={() => handleStatusChange(action.key)}
-                              className="w-full flex items-center space-x-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                              key={status}
+                              onClick={() => {
+                                handleStatusChange(status)
+                                setShowStatusMenu(false)
+                              }}
+                              disabled={isUpdatingStatus}
+                              className={`w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm disabled:opacity-50 ${
+                                isCurrentStatus ? 'bg-blue-50 text-blue-700' : ''
+                              }`}
                             >
-                              <div className={`w-3 h-3 rounded-full ${action.color}`}></div>
-                              <span>{action.label}</span>
+                              <div className={`w-3 h-3 rounded-full ${
+                                status === 'pending' ? 'bg-yellow-500' :
+                                status === 'confirmed' ? 'bg-blue-500' :
+                                status === 'in-progress' ? 'bg-orange-500' :
+                                status === 'completed' ? 'bg-green-500' :
+                                'bg-red-500'
+                              }`}></div>
+                              <span className="capitalize">{status.replace('-', ' ')}</span>
                             </button>
-                          ))
-                        })()}
+                          )
+                        })}
                       </div>
                     </div>
                   )}
                 </div>
-                <div className="flex items-center gap-3">
-                <button
-                    onClick={closeJobDetailsOverlay}
-                    className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                  >
-                    <X className="w-5 h-5 text-gray-600" />
-                  </button>
-                  </div>
                     </div>
             </div>
 
@@ -2419,20 +2461,56 @@ const ServiceFlowSchedule = () => {
                     { key: 'paid', label: 'Paid' }
                   ];
 
+                  // Normalize status: pending=scheduled, en_route=confirmed, started=in-progress, complete=completed
+                  const normalizeStatus = (status) => {
+                    if (!status) return 'scheduled'
+                    const normalized = status.toLowerCase().trim()
+                    
+                    // Map to progress bar keys
+                    if (normalized === 'pending' || normalized === 'scheduled' || normalized === 'confirmed') {
+                      return 'scheduled'
+                    }
+                    if (normalized === 'en_route' || normalized === 'enroute') {
+                      return 'en_route'
+                    }
+                    if (normalized === 'in-progress' || normalized === 'in_progress' || normalized === 'in_prog' || normalized === 'started') {
+                      return 'started'
+                    }
+                    if (normalized === 'completed' || normalized === 'complete' || normalized === 'done' || normalized === 'finished') {
+                      return 'completed'
+                    }
+                    if (normalized === 'paid') {
+                      return 'paid'
+                    }
+                    if (normalized === 'cancelled' || normalized === 'canceled') {
+                      return 'cancelled'
+                    }
+                    return normalized
+                  }
+
                   const statusMap = {
-                    'pending': 0,
-                    'confirmed': 0,
                     'scheduled': 0,
                     'en_route': 1,
-                    'in_progress': 2,
                     'started': 2,
                     'completed': 3,
                     'paid': 4,
                     'cancelled': -1
                   };
 
-                  const currentStatus = selectedJobDetails?.status || 'scheduled';
-                  const currentIndex = statusMap[currentStatus] ?? 0;
+                  const currentStatusNormalized = normalizeStatus(selectedJobDetails?.status || 'pending')
+                  const currentIndex = statusMap[currentStatusNormalized] ?? 0;
+
+                  // Map progress bar keys to backend status values
+                  const mapProgressBarKeyToBackendStatus = (key) => {
+                    const mapping = {
+                      'scheduled': 'confirmed', // Maps to en_route in backend
+                      'en_route': 'in-progress', // Maps to started in backend
+                      'started': 'completed', // Maps to complete in backend
+                      'completed': 'completed',
+                      'paid': 'paid'
+                    }
+                    return mapping[key] || key
+                  }
 
                   return statuses.map((status, index) => {
                     const isActive = index <= currentIndex;
@@ -2442,7 +2520,7 @@ const ServiceFlowSchedule = () => {
                     return (
                       <button
                         key={status.key}
-                        onClick={() => handleStatusChange(status.key)}
+                        onClick={() => handleStatusChange(mapProgressBarKeyToBackendStatus(status.key))}
                         className={`
                           relative px-2 py-1.5 text-xs font-semibold transition-all whitespace-nowrap
                           ${isActive 
@@ -2455,10 +2533,10 @@ const ServiceFlowSchedule = () => {
                         style={{ 
                           fontFamily: 'ProximaNova-Semibold',
                           clipPath: !isFirst && !isLast
-                            ? 'polygon(8px 0%, 100% 0%, calc(100% - 8px) 50%, 100% 100%, 8px 100%, 0% 50%)'
+                            ? 'polygon(0% 0%, calc(100% - 8px) 0%, 100% 50%, calc(100% - 8px) 100%, 0% 100%, 8px 50%)'
                             : isFirst
-                            ? 'polygon(0% 0%, 100% 0%, calc(100% - 8px) 50%, 100% 100%, 0% 100%)'
-                            : 'polygon(8px 0%, 100% 0%, 100% 100%, 8px 100%, 0% 50%)',
+                            ? 'polygon(0% 0%, calc(100% - 8px) 0%, 100% 50%, calc(100% - 8px) 100%, 0% 100%)'
+                            : 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 8px 50%)',
                           marginLeft: !isFirst ? '-8px' : '0',
                           zIndex: isActive ? (index === currentIndex ? 10 : 5) : 1,
                           flex: 1,

@@ -146,9 +146,6 @@ const JobDetails = () => {
   })
   useEffect(() => {
     function handleClickOutside(event) {
-      if (mainRef.current && !mainRef.current.contains(event.target)) {
-        setMainDropdown(false);
-      }
       if (moreRef.current && !moreRef.current.contains(event.target)) {
         setMoreDropdown(false);
       }
@@ -259,10 +256,9 @@ const JobDetails = () => {
     return () => clearInterval(keepaliveInterval);
   }, []);
   const [isRetrying, setIsRetrying] = useState(false)
-  const [mainDropdown, setMainDropdown] = useState(false)
+  const [statusDropdown, setStatusDropdown] = useState(false)
   const [moreDropdown, setMoreDropdown] = useState(false)
   const [showAssignModal, setShowAssignModal] = useState(false)
-  const mainRef = useRef(null)
   const moreRef = useRef(null)
   const territoryRef = useRef(null)
 
@@ -347,14 +343,20 @@ const JobDetails = () => {
       // Use the same method as the existing status dropdown
       await jobsAPI.updateStatus(job.id, newStatus)
       
-      // Update local job state
-      setJob(prev => ({ ...prev, status: newStatus }))
+      // Fetch updated job to get the actual status from backend
+      const updatedJob = await jobsAPI.getById(job.id)
+      const actualStatus = updatedJob?.status || newStatus
       
-      setSuccessMessage(`Job marked as ${newStatus.replace('_', ' ')}`)
+      console.log('Status update response:', { newStatus, actualStatus, updatedJob })
+      
+      // Update local job state with actual status from backend
+      setJob(prev => ({ ...prev, status: actualStatus, ...updatedJob }))
+      
+      setSuccessMessage(`Job marked as ${actualStatus.replace('_', ' ').replace('-', ' ')}`)
       setTimeout(() => setSuccessMessage(''), 3000)
       
       // Close dropdowns
-      setMainDropdown(false)
+      setStatusDropdown(false)
       setMoreDropdown(false)
       
     } catch (error) {
@@ -454,8 +456,8 @@ const JobDetails = () => {
   // Click outside handler for dropdowns
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (mainRef.current && !mainRef.current.contains(event.target)) {
-        setMainDropdown(false)
+      if (statusDropdown && !event.target.closest('.relative.flex')) {
+        setStatusDropdown(false)
       }
       if (moreRef.current && !moreRef.current.contains(event.target)) {
         setMoreDropdown(false)
@@ -469,7 +471,7 @@ const JobDetails = () => {
 
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [editingField])
+  }, [editingField, statusDropdown])
 
   // Helper function to map job data from API response
   const mapJobData = (jobData) => {
@@ -1686,49 +1688,107 @@ const JobDetails = () => {
               </div>
 
               <div className="flex items-center gap-3 ">
-      {/* Main Button with Dropdown */}
-      <div className="relative flex" ref={mainRef}>
-        <button 
-          onClick={() => handleStatusUpdate('confirmed')}
-          disabled={loading}
-          style={{fontFamily: 'ProximaNova-bold'}}
-          className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-3 py-2 rounded-l-lg transition-colors text-xs disabled:opacity-50"
-        >
-          {loading ? 'Updating...' : 'Mark as Confirmed'}
-        </button>
-        <button 
-          onClick={() => setMainDropdown(!mainDropdown)}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-r-lg border-l border-blue-500 transition-colors"
-        >
-          <ChevronDown size={12} />
-        </button>
+      {/* Status Action Button with Dropdown */}
+      <div className="relative flex">
+        {(() => {
+          const currentStatus = (job?.status || 'pending').toLowerCase().trim()
+          
+          // Normalize status: pending=scheduled, en_route=confirmed, started=in-progress, complete=completed
+          const normalizedStatus = 
+            currentStatus === 'scheduled' ? 'pending' :
+            currentStatus === 'en_route' || currentStatus === 'enroute' ? 'confirmed' :
+            currentStatus === 'started' ? 'in-progress' :
+            currentStatus === 'complete' ? 'completed' :
+            currentStatus
+          
+          // Determine next status and button label based on normalized status
+          let nextStatus = null
+          let buttonLabel = 'Update Status'
+          let buttonColor = 'bg-blue-600 hover:bg-blue-700'
+          let isDisabled = false
+          
+          // Status progression: pending → confirmed → in-progress → completed
+          if (normalizedStatus === 'pending' || normalizedStatus === 'scheduled') {
+            nextStatus = 'confirmed' // This maps to en_route in backend
+            buttonLabel = 'Mark as En Route'
+            buttonColor = 'bg-blue-600 hover:bg-blue-700'
+          } else if (normalizedStatus === 'confirmed' || normalizedStatus === 'en_route' || normalizedStatus === 'enroute') {
+            nextStatus = 'in-progress' // This maps to started in backend
+            buttonLabel = 'Mark as Started'
+            buttonColor = 'bg-orange-600 hover:bg-orange-700'
+          } else if (normalizedStatus === 'in-progress' || normalizedStatus === 'in_progress' || normalizedStatus === 'in_prog' || normalizedStatus === 'started') {
+            nextStatus = 'completed' // This maps to complete in backend
+            buttonLabel = 'Mark as Complete'
+            buttonColor = 'bg-green-600 hover:bg-green-700'
+          } else if (normalizedStatus === 'completed' || normalizedStatus === 'complete' || normalizedStatus === 'done' || normalizedStatus === 'finished') {
+            isDisabled = true
+            buttonLabel = 'Job Complete'
+            buttonColor = 'bg-gray-400 cursor-not-allowed'
+          } else if (normalizedStatus === 'cancelled' || normalizedStatus === 'canceled') {
+            isDisabled = true
+            buttonLabel = 'Job Cancelled'
+            buttonColor = 'bg-gray-400 cursor-not-allowed'
+          }
+          
+          return (
+            <>
+              <button 
+                onClick={() => nextStatus && handleStatusUpdate(nextStatus)}
+                disabled={isDisabled || loading}
+                style={{fontFamily: 'ProximaNova-bold'}}
+                className={`${buttonColor} text-white font-medium px-3 py-2 rounded-l-lg transition-colors text-xs flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed`}
+              >
+                <span>{loading ? 'Updating...' : buttonLabel}</span>
+              </button>
+              <button 
+                onClick={() => setStatusDropdown(!statusDropdown)}
+                disabled={loading}
+                className={`${buttonColor} text-white px-3 py-2 rounded-r-lg border-l border-white/20 transition-colors disabled:opacity-50`}
+              >
+                <ChevronDown size={12} />
+              </button>
+            </>
+          )
+        })()}
         
-        {mainDropdown && (
-          <div style={{fontFamily: 'ProximaNova-Medium'}} className="absolute top-full mt-2 left-0 bg-white rounded-lg shadow-xl border border-gray-200 py-2 min-w-[220px] z-10">
-            <button 
-              onClick={() => handleStatusUpdate('confirmed')}
-              disabled={loading}
-              className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-xs disabled:opacity-50"
-            >
-              <CheckCircle size={12} className="text-gray-600" />
-              Mark as Confirmed
-            </button>
-            <button 
-              onClick={() => handleStatusUpdate('in_progress')}
-              disabled={loading}
-              className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-xs disabled:opacity-50"
-            >
-              <Navigation size={12} className="text-gray-600" />
-              Mark as In Progress
-            </button>
-            <button 
-              onClick={() => handleStatusUpdate('completed')}
-              disabled={loading}
-              className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-xs disabled:opacity-50"
-            >
-              <CheckCircle size={12} className="text-gray-600" />
-              Mark as Complete
-            </button>
+        {statusDropdown && (
+          <div className="absolute top-full mt-2 left-0 bg-white rounded-lg shadow-xl border border-gray-200 py-2 min-w-[200px] z-10">
+            {['pending', 'confirmed', 'in-progress', 'completed', 'cancelled'].map((status) => {
+              const currentStatus = (job?.status || 'pending').toLowerCase().trim()
+              // Normalize for comparison: scheduled=pending, en_route=confirmed, started=in-progress, complete=completed
+              const normalizedCurrent = 
+                currentStatus === 'scheduled' ? 'pending' :
+                currentStatus === 'en_route' || currentStatus === 'enroute' ? 'confirmed' :
+                currentStatus === 'started' ? 'in-progress' :
+                currentStatus === 'complete' ? 'completed' :
+                currentStatus === 'in_progress' || currentStatus === 'in_prog' ? 'in-progress' :
+                currentStatus === 'canceled' ? 'cancelled' :
+                currentStatus
+              const isCurrentStatus = normalizedCurrent === status
+              
+              return (
+                <button
+                  key={status}
+                  onClick={() => {
+                    handleStatusUpdate(status)
+                    setStatusDropdown(false)
+                  }}
+                  disabled={loading}
+                  className={`w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-xs disabled:opacity-50 ${
+                    isCurrentStatus ? 'bg-blue-50 text-blue-700' : ''
+                  }`}
+                >
+                  <div className={`w-3 h-3 rounded-full ${
+                    status === 'pending' ? 'bg-yellow-500' :
+                    status === 'confirmed' ? 'bg-blue-500' :
+                    status === 'in-progress' ? 'bg-orange-500' :
+                    status === 'completed' ? 'bg-green-500' :
+                    'bg-red-500'
+                  }`}></div>
+                  <span className="capitalize">{status.replace('-', ' ')}</span>
+                </button>
+              )
+            })}
           </div>
         )}
       </div>

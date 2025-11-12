@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { 
   ChevronLeft, 
@@ -17,7 +17,9 @@ import {
   Calendar,
   Clock,
   User,
-  Building
+  Building,
+  Edit,
+  Trash2
 } from "lucide-react"
 import { customersAPI, jobsAPI, estimatesAPI, invoicesAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
@@ -40,6 +42,9 @@ const CustomerDetailsRedesigned = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [successMessage, setSuccessMessage] = useState("")
+  const [showMenuDropdown, setShowMenuDropdown] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const menuRef = useRef(null)
 
   useEffect(() => {
     if (!authLoading && customerId && user?.id) {
@@ -77,7 +82,49 @@ const CustomerDetailsRedesigned = () => {
 
   const handleEditCustomer = () => {
     setShowEditModal(true)
+    setShowMenuDropdown(false)
   }
+
+  const handleNewJob = () => {
+    navigate(`/createjob?customerId=${customerId}`)
+    setShowMenuDropdown(false)
+  }
+
+  const handleDeleteCustomer = async () => {
+    if (!window.confirm(`Are you sure you want to delete "${customer.first_name} ${customer.last_name}"? This action cannot be undone.`)) {
+      setShowMenuDropdown(false)
+      return
+    }
+
+    try {
+      await customersAPI.delete(customerId, user.id)
+      setSuccessMessage('Customer deleted successfully!')
+      setTimeout(() => {
+        navigate('/customers')
+      }, 1000)
+    } catch (error) {
+      console.error('Error deleting customer:', error)
+      setError("Failed to delete customer. Please try again.")
+      setShowMenuDropdown(false)
+    }
+  }
+
+  // Click outside handler for dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setShowMenuDropdown(false)
+      }
+    }
+
+    if (showMenuDropdown) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showMenuDropdown])
 
   const handleCustomerSave = async (customerData) => {
     try {
@@ -166,9 +213,8 @@ const CustomerDetailsRedesigned = () => {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 lg:mx-44 xl:mx-48">
         <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
         
         <div className="flex-1 overflow-auto">
@@ -186,12 +232,9 @@ const CustomerDetailsRedesigned = () => {
               </div>
               
               <div className="flex items-center space-x-4">
-                <h1 className="text-2xl font-bold text-gray-900">
+                <h1 className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'ProximaNova-Bold' }}>
                   {customer.first_name} {customer.last_name}
                 </h1>
-                <button className="p-2 text-gray-400 hover:text-gray-600">
-                  <MoreVertical className="w-5 h-5" />
-                </button>
               </div>
             </div>
 
@@ -261,13 +304,59 @@ const CustomerDetailsRedesigned = () => {
                 </div>
 
                 {/* Jobs Card */}
-                <div className="bg-white rounded-lg border border-gray-200 p-6">
+                <div className="bg-white rounded-lg border border-gray-200 p-6" style={{ overflow: 'visible' }}>
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-semibold text-gray-700">Jobs</h3>
-                    <button className="flex items-center space-x-1 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700">
-                      <Plus className="w-3 h-3" />
-                      <span>New Job</span>
-                    </button>
+                    <h3 className="text-sm font-semibold text-gray-700" style={{ fontFamily: 'ProximaNova-Semibold' }}>Jobs</h3>
+                    <div className="relative" ref={menuRef}>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setShowMenuDropdown(!showMenuDropdown)
+                        }}
+                        className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                        type="button"
+                      >
+                        <MoreVertical className="w-5 h-5" />
+                      </button>
+                      
+                      {showMenuDropdown && (
+                        <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-[9999]">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleEditCustomer()
+                            }}
+                            className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm"
+                            style={{ fontFamily: 'ProximaNova-Medium' }}
+                          >
+                            <Edit className="w-4 h-4 text-gray-600" />
+                            <span>Edit Customer</span>
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleNewJob()
+                            }}
+                            className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm"
+                            style={{ fontFamily: 'ProximaNova-Medium' }}
+                          >
+                            <FileText className="w-4 h-4 text-gray-600" />
+                            <span>New Job</span>
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDeleteCustomer()
+                            }}
+                            className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-red-600 font-medium text-sm"
+                            style={{ fontFamily: 'ProximaNova-Medium' }}
+                          >
+                            <Trash2 className="w-4 h-4 text-red-600" />
+                            <span>Delete</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {/* Job Tabs */}

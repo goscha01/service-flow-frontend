@@ -98,7 +98,7 @@ const ServiceFlowTerritories = () => {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'active': return 'bg-green-100 text-green-700'
+      case 'active': return 'bg-green-500 text-white'
       case 'inactive': return 'bg-gray-100 text-gray-700'
       case 'archived': return 'bg-red-100 text-red-700'
       default: return 'bg-gray-100 text-gray-700'
@@ -177,26 +177,24 @@ const ServiceFlowTerritories = () => {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
-      <div className="flex-1 flex flex-col overflow-hidden lg:ml-64 xl:ml-72">
+      <div className="flex-1 flex flex-col overflow-hidden lg:mx-44 xl:mx-48">
         <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
 
         <main className="flex-1 overflow-y-auto">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="p-6">
             {/* Header */}
             <div className="mb-6">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Service Territories</h1>
-              <p className="text-gray-600 text-sm mb-1">
+              <h1 className="text-3xl font-bold text-gray-900 mb-2" style={{ fontFamily: 'ProximaNova-Bold' }}>Service Territories</h1>
+              <p className="text-gray-600 text-sm mb-1" style={{ fontFamily: 'ProximaNova-Regular' }}>
                 Manage the geographic areas where you provide services and do work. You can create multiple service territories with unique hours, services, and service providers.{' '}
-                <a href="#" className="text-blue-600 hover:text-blue-700">Learn more</a>
+                <a href="#" className="text-blue-600 hover:text-blue-700 underline">Learn more</a>
               </p>
-              <p className="text-gray-600 text-sm">
-                You are currently using <span className="font-medium text-gray-900">{activeCount} of 2</span> service territories available on your plan.
+              <p className="text-gray-600 text-sm" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                You are currently using <span className="font-medium text-gray-900" style={{ fontFamily: 'ProximaNova-Medium' }}>{activeCount} of 2</span> service territories available on your plan.
               </p>
             </div>
 
-            {/* Filters Bar */}
+            {/* Controls Bar */}
             <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 {/* Active/Disabled Tabs */}
@@ -204,9 +202,10 @@ const ServiceFlowTerritories = () => {
                   onClick={() => handleFilterChange({ status: 'active' })}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                     filters.status === 'active'
-                      ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                      ? 'bg-blue-600 text-white'
                       : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
                   }`}
+                  style={{ fontFamily: 'ProximaNova-Medium' }}
                 >
                   Active <span className="ml-1">{activeCount}</span>
                 </button>
@@ -214,28 +213,30 @@ const ServiceFlowTerritories = () => {
                   onClick={() => handleFilterChange({ status: 'inactive' })}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                     filters.status === 'inactive'
-                      ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                      ? 'bg-blue-600 text-white'
                       : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
                   }`}
+                  style={{ fontFamily: 'ProximaNova-Medium' }}
                 >
                   Disabled
                 </button>
 
                 {/* Sort Dropdown */}
                 <div className="relative">
-                  <button className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                  <button className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2" style={{ fontFamily: 'ProximaNova-Medium' }}>
                     Sort <ArrowUpDown className="w-4 h-4" />
                   </button>
                 </div>
               </div>
 
               <div className="flex items-center gap-3">
-                <button className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
+                <button className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50" style={{ fontFamily: 'ProximaNova-Medium' }}>
                   Geofence Editor
                 </button>
                 <button
                   onClick={handleCreateTerritory}
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 flex items-center gap-2"
+                  style={{ fontFamily: 'ProximaNova-Medium' }}
                 >
                   <Plus className="w-4 h-4" />
                   New Territory
@@ -243,31 +244,38 @@ const ServiceFlowTerritories = () => {
               </div>
             </div>
 
-            {/* Enforce Service Area Section */}
-            <div className="mb-6 bg-gray-50 border border-gray-200 rounded-lg p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-base font-semibold text-gray-900 mb-1">Enforce Service Area</h3>
-                  <p className="text-sm text-gray-600">
-                    Prevent customers from booking jobs online at locations that are outside of your territories' service areas.
-                  </p>
-                </div>
-                <div className="ml-6">
-                  <button
-                    onClick={() => setEnforceServiceArea(!enforceServiceArea)}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      enforceServiceArea ? 'bg-blue-600' : 'bg-gray-300'
-                    }`}
-                  >
-                    <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                        enforceServiceArea ? 'translate-x-6' : 'translate-x-1'
-                      }`}
-                    />
-                  </button>
+            {/* Main Content Layout */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Left Column - Enforce Service Area */}
+              <div className="lg:col-span-1">
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h3 className="text-base font-semibold text-gray-900 mb-2" style={{ fontFamily: 'ProximaNova-Semibold' }}>Enforce Service Area</h3>
+                      <p className="text-sm text-gray-600 leading-relaxed" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                        Prevent customers from booking jobs online at locations that are outside of your territories' service areas.
+                      </p>
+                    </div>
+                    <div className="ml-4 flex-shrink-0">
+                      <button
+                        onClick={() => setEnforceServiceArea(!enforceServiceArea)}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+                          enforceServiceArea ? 'bg-green-500' : 'bg-gray-300'
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            enforceServiceArea ? 'translate-x-6' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
+
+              {/* Right Column - Map and Territory Details */}
+              <div className="lg:col-span-2">
 
             {/* Success Message */}
             {successMessage && (
@@ -283,148 +291,126 @@ const ServiceFlowTerritories = () => {
               </div>
             )}
 
-            {/* Territories Grid */}
-            {loading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-              </div>
-            ) : territories.length === 0 ? (
-              <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
-                <MapPin className="mx-auto h-12 w-12 text-gray-400" />
-                <h3 className="mt-2 text-sm font-medium text-gray-900">No territories found</h3>
-                <p className="mt-1 text-sm text-gray-500">
-                  Get started by creating your first service territory.
-                </p>
-                <div className="mt-6">
-                  <button
-                    onClick={handleCreateTerritory}
-                    className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    New Territory
-                  </button>
-                </div>
-              </div>
-            ) : (
-              /* Grid View */
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {territories.map((territory) => (
-                  <div
-                    key={territory.id}
-                    onClick={() => handleTerritoryClick(territory)}
-                    className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
-                  >
-                    <div className="flex flex-col sm:flex-row h-full">
-                      {/* Map Section - Left Side */}
-                      <div className="sm:w-1/2 h-64 sm:h-auto relative bg-gray-100">
-                        <TerritoryMap
-                          territory={territory}
-                          height="100%"
-                          showDetails={false}
-                        />
-                      </div>
-
-                      {/* Details Section - Right Side */}
-                      <div className="sm:w-1/2 p-6 flex flex-col">
-                        <div className="flex items-start justify-between mb-4">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1 flex-wrap">
-                              <h3 className="text-xl font-bold text-gray-900 truncate">{territory.name}</h3>
-                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium whitespace-nowrap ${getStatusColor(territory.status)}`}>
-                                {getStatusLabel(territory.status)}
-                              </span>
-                            </div>
-                            <p className="text-sm text-gray-600 truncate">{territory.location}</p>
-                          </div>
-                        </div>
-
-                        {/* Territory Details Grid */}
-                        <div className="space-y-3 flex-1">
-                          <div className="flex items-center text-sm">
-                            <div className="flex items-center text-gray-500 w-36 flex-shrink-0">
-                              <Target className="w-4 h-4 mr-2" />
-                              <span className="font-medium text-xs">SERVICE AREA</span>
-                            </div>
-                            <span className="text-gray-900 text-sm">{territory.radius_miles} mile radius</span>
-                          </div>
-
-                          <div className="flex items-center text-sm">
-                            <div className="flex items-center text-gray-500 w-36 flex-shrink-0">
-                              <Globe className="w-4 h-4 mr-2" />
-                              <span className="font-medium text-xs">TIMEZONE</span>
-                            </div>
-                            <span className="text-gray-900 text-sm truncate">{territory.timezone || 'America/New_York'}</span>
-                          </div>
-
-                          <div className="flex items-center text-sm">
-                            <div className="flex items-center text-gray-500 w-36 flex-shrink-0">
-                              <Calendar className="w-4 h-4 mr-2" />
-                              <span className="font-medium text-xs">ONLINE BOOKING</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="inline-block w-2 h-2 bg-green-500 rounded-full"></span>
-                              <span className="text-gray-900 text-sm">On</span>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center text-sm">
-                            <div className="flex items-center text-gray-500 w-36 flex-shrink-0">
-                              <Users className="w-4 h-4 mr-2" />
-                              <span className="font-medium text-xs">PROVIDERS</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {territory.team_members && territory.team_members.length > 0 ? (
-                                <>
-                                  <div className="flex -space-x-2">
-                                    {territory.team_members.slice(0, 3).map((member, idx) => (
-                                      <div key={idx} className="w-6 h-6 rounded-full bg-orange-300 border-2 border-white flex items-center justify-center text-xs font-medium text-white">
-                                        {member.initials || 'JW'}
-                                      </div>
-                                    ))}
-                                  </div>
-                                  {territory.team_members.length > 3 && (
-                                    <span className="text-gray-600 text-sm">+{territory.team_members.length - 3}</span>
-                                  )}
-                                </>
-                              ) : (
-                                <div className="w-6 h-6 rounded-full bg-orange-300 border-2 border-white flex items-center justify-center text-xs font-medium text-white">
-                                  JW
-                                </div>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="flex items-center text-sm">
-                            <div className="flex items-center text-gray-500 w-36 flex-shrink-0">
-                              <Settings className="w-4 h-4 mr-2" />
-                              <span className="font-medium text-xs">SERVICES</span>
-                            </div>
-                            <span className="text-gray-900 text-sm">All services</span>
-                          </div>
-                        </div>
-
-                        {/* Action Buttons */}
-                        <div className="mt-4 pt-4 border-t border-gray-100 flex items-center gap-2">
-                          <button
-                            onClick={(e) => handleEditTerritory(e, territory)}
-                            className="flex-1 px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center justify-center gap-2"
-                          >
-                            <Edit className="w-4 h-4" />
-                            Edit
-                          </button>
-                          <button
-                            onClick={(e) => handleDeleteTerritory(e, territory)}
-                            className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 flex items-center justify-center gap-2"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
+                {/* Territories List */}
+                {loading ? (
+                  <div className="flex items-center justify-center py-12 bg-white border border-gray-200 rounded-lg">
+                    <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+                  </div>
+                ) : territories.length === 0 ? (
+                  <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
+                    <MapPin className="mx-auto h-12 w-12 text-gray-400" />
+                    <h3 className="mt-2 text-sm font-medium text-gray-900">No territories found</h3>
+                    <p className="mt-1 text-sm text-gray-500">
+                      Get started by creating your first service territory.
+                    </p>
+                    <div className="mt-6">
+                      <button
+                        onClick={handleCreateTerritory}
+                        className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        New Territory
+                      </button>
                     </div>
                   </div>
-                ))}
+                ) : (
+                  <div className="space-y-4">
+                    {territories.map((territory) => (
+                      <div
+                        key={territory.id}
+                        onClick={() => handleTerritoryClick(territory)}
+                        className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
+                      >
+                        {/* Map Section - Full Width on Top */}
+                        <div className="w-full" style={{ height: '400px' }}>
+                          <TerritoryMap
+                            territory={territory}
+                            height="100%"
+                            showDetails={false}
+                          />
+                        </div>
+
+                        {/* Territory Details - Full Width Below Map */}
+                        <div className="p-6">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'ProximaNova-Bold' }}>{territory.name}</h3>
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(territory.status)}`} style={{ fontFamily: 'ProximaNova-Medium' }}>
+                              {getStatusLabel(territory.status)}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-600 mb-6" style={{ fontFamily: 'ProximaNova-Regular' }}>{territory.location || `${territory.name}, UK`}</p>
+
+                          {/* Territory Attributes */}
+                          <div className="space-y-4">
+                            <div className="flex items-center">
+                              <div className="flex items-center text-gray-500 w-40 flex-shrink-0">
+                                <MapPin className="w-4 h-4 mr-2" />
+                                <span className="font-medium text-xs uppercase" style={{ fontFamily: 'ProximaNova-Semibold' }}>SERVICE AREA</span>
+                              </div>
+                              <span className="text-gray-900 text-sm" style={{ fontFamily: 'ProximaNova-Regular' }}>{territory.radius_miles || 30} mile radius</span>
+                            </div>
+
+                            <div className="flex items-center">
+                              <div className="flex items-center text-gray-500 w-40 flex-shrink-0">
+                                <Globe className="w-4 h-4 mr-2" />
+                                <span className="font-medium text-xs uppercase" style={{ fontFamily: 'ProximaNova-Semibold' }}>TIMEZONE</span>
+                              </div>
+                              <span className="text-gray-900 text-sm" style={{ fontFamily: 'ProximaNova-Regular' }}>{territory.timezone || 'Europe/London'}</span>
+                            </div>
+
+                            <div className="flex items-center">
+                              <div className="flex items-center text-gray-500 w-40 flex-shrink-0">
+                                <Calendar className="w-4 h-4 mr-2" />
+                                <span className="font-medium text-xs uppercase" style={{ fontFamily: 'ProximaNova-Semibold' }}>ONLINE BOOKING</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="inline-block w-2 h-2 bg-green-500 rounded-full"></span>
+                                <span className="text-gray-900 text-sm" style={{ fontFamily: 'ProximaNova-Regular' }}>On</span>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center">
+                              <div className="flex items-center text-gray-500 w-40 flex-shrink-0">
+                                <Users className="w-4 h-4 mr-2" />
+                                <span className="font-medium text-xs uppercase" style={{ fontFamily: 'ProximaNova-Semibold' }}>PROVIDERS</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {territory.team_members && territory.team_members.length > 0 ? (
+                                  <>
+                                    <div className="flex -space-x-2">
+                                      {territory.team_members.slice(0, 3).map((member, idx) => (
+                                        <div key={idx} className="w-6 h-6 rounded-full bg-green-300 border-2 border-white flex items-center justify-center text-xs font-medium text-gray-700" style={{ fontFamily: 'ProximaNova-Medium' }}>
+                                          {member.initials || member.first_name?.[0] || 'A'}
+                                        </div>
+                                      ))}
+                                    </div>
+                                    {territory.team_members.length > 3 && (
+                                      <span className="text-gray-600 text-sm" style={{ fontFamily: 'ProximaNova-Regular' }}>+{territory.team_members.length - 3}</span>
+                                    )}
+                                  </>
+                                ) : (
+                                  <div className="w-6 h-6 rounded-full bg-green-300 border-2 border-white flex items-center justify-center text-xs font-medium text-gray-700" style={{ fontFamily: 'ProximaNova-Medium' }}>
+                                    A
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center">
+                              <div className="flex items-center text-gray-500 w-40 flex-shrink-0">
+                                <Settings className="w-4 h-4 mr-2" />
+                                <span className="font-medium text-xs uppercase" style={{ fontFamily: 'ProximaNova-Semibold' }}>SERVICES</span>
+                              </div>
+                              <span className="text-gray-900 text-sm" style={{ fontFamily: 'ProximaNova-Regular' }}>All services</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
         </main>
       </div>

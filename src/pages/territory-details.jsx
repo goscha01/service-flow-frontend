@@ -192,8 +192,7 @@ const TerritoryDetails = () => {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <div className="flex-1 flex flex-col overflow-hidden ml-16 lg:ml-64 xl:ml-72">
+      <div className="flex-1 flex flex-col overflow-hidden ">
         <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
 
         <main className="flex-1 overflow-y-auto">

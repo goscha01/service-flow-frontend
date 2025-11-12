@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { ChevronLeft, Edit, Trash2, Phone, Mail, MapPin, Calendar, DollarSign, FileText, AlertCircle, Loader2, CheckCircle, MoreVertical, Plus, Info } from "lucide-react"
 import { customersAPI, jobsAPI, estimatesAPI, invoicesAPI } from "../services/api"
@@ -27,6 +27,8 @@ const CustomerDetails = () => {
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [successMessage, setSuccessMessage] = useState("")
+  const [showMenuDropdown, setShowMenuDropdown] = useState(false)
+  const menuRef = useRef(null)
 
   // New state for job filters
   const [jobFilter, setJobFilter] = useState("upcoming") // upcoming, past, canceled
@@ -68,6 +70,12 @@ const CustomerDetails = () => {
   const handleEditCustomer = () => {
     console.log('Opening edit modal for customer:', customer)
     setShowEditModal(true)
+    setShowMenuDropdown(false)
+  }
+
+  const handleNewJob = () => {
+    navigate(`/createjob?customerId=${customerId}`)
+    setShowMenuDropdown(false)
   }
 
   const handleCustomerSave = async (customerData) => {
@@ -92,7 +100,25 @@ const CustomerDetails = () => {
 
   const handleDeleteCustomer = () => {
     setShowDeleteConfirm(true)
+    setShowMenuDropdown(false)
   }
+
+  // Click outside handler for dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setShowMenuDropdown(false)
+      }
+    }
+
+    if (showMenuDropdown) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showMenuDropdown])
 
   const confirmDeleteCustomer = async () => {
     try {
@@ -239,9 +265,9 @@ const CustomerDetails = () => {
 
   return (
     <div style={{fontFamily: 'ProximaNova-bold'}} className="flex h-screen bg-gray-50 overflow-hidden">
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+     
 
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 lg:mx-44 xl:mx-48">
         <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
 
         <div className="flex-1 overflow-auto">
@@ -256,9 +282,56 @@ const CustomerDetails = () => {
                   <ChevronLeft className="w-4 h-4" />
                   <span className="ml-1">All Customers</span>
                 </button>
-                <button className="p-2 hover:bg-gray-100 rounded-lg">
-                  <MoreVertical className="w-5 h-5 text-gray-600" />
-                </button>
+                <div className="relative" ref={menuRef}>
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setShowMenuDropdown(!showMenuDropdown)
+                    }}
+                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                    type="button"
+                  >
+                    <MoreVertical className="w-5 h-5 text-gray-600" />
+                  </button>
+                  
+                  {showMenuDropdown && (
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-[9999]">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleEditCustomer()
+                        }}
+                        className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm"
+                        style={{ fontFamily: 'ProximaNova-Medium' }}
+                      >
+                        <Edit className="w-4 h-4 text-gray-600" />
+                        <span>Edit Customer</span>
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleNewJob()
+                        }}
+                        className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm"
+                        style={{ fontFamily: 'ProximaNova-Medium' }}
+                      >
+                        <FileText className="w-4 h-4 text-gray-600" />
+                        <span>New Job</span>
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleDeleteCustomer()
+                        }}
+                        className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-red-600 font-medium text-sm"
+                        style={{ fontFamily: 'ProximaNova-Medium' }}
+                      >
+                        <Trash2 className="w-4 h-4 text-red-600" />
+                        <span>Delete</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
               <h1 className="text-2xl font-semibold text-gray-900 mt-3">
                 {customer.first_name} {customer.last_name}
