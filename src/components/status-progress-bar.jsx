@@ -9,20 +9,57 @@ const StatusProgressBar = ({ currentStatus, onStatusChange }) => {
     { key: 'paid', label: 'Paid', color: 'bg-gray-500' }
   ];
 
+  // Normalize status: pending=scheduled, en_route=confirmed, started=in-progress, complete=completed
+  const normalizeStatus = (status) => {
+    if (!status) return 'scheduled'
+    const normalized = status.toLowerCase().trim()
+    
+    // Map to progress bar keys
+    if (normalized === 'pending' || normalized === 'scheduled' || normalized === 'confirmed') {
+      return 'scheduled'
+    }
+    if (normalized === 'en_route' || normalized === 'enroute') {
+      return 'en_route'
+    }
+    if (normalized === 'in-progress' || normalized === 'in_progress' || normalized === 'in_prog' || normalized === 'started') {
+      return 'started'
+    }
+    if (normalized === 'completed' || normalized === 'complete' || normalized === 'done' || normalized === 'finished') {
+      return 'completed'
+    }
+    if (normalized === 'paid') {
+      return 'paid'
+    }
+    if (normalized === 'cancelled' || normalized === 'canceled') {
+      return 'cancelled'
+    }
+    return normalized
+  }
+
   // Map status to index
   const statusMap = {
-    'pending': 0,
-    'confirmed': 0,
     'scheduled': 0,
     'en_route': 1,
-    'in_progress': 2,
     'started': 2,
     'completed': 3,
     'paid': 4,
     'cancelled': -1
   };
 
-  const currentIndex = statusMap[currentStatus] ?? 0;
+  const normalizedStatus = normalizeStatus(currentStatus)
+  const currentIndex = statusMap[normalizedStatus] ?? 0;
+
+  // Map progress bar keys to backend status values
+  const mapProgressBarKeyToBackendStatus = (key) => {
+    const mapping = {
+      'scheduled': 'confirmed', // Maps to en_route in backend
+      'en_route': 'in-progress', // Maps to started in backend
+      'started': 'completed', // Maps to complete in backend
+      'completed': 'completed',
+      'paid': 'paid'
+    }
+    return mapping[key] || key
+  }
 
   return (
     <div className="flex items-center w-full">
@@ -33,7 +70,7 @@ const StatusProgressBar = ({ currentStatus, onStatusChange }) => {
         return (
           <button
             key={status.key}
-            onClick={() => onStatusChange && onStatusChange(status.key)}
+            onClick={() => onStatusChange && onStatusChange(mapProgressBarKeyToBackendStatus(status.key))}
             className={`
               flex-1 relative px-6 py-2.5 text-sm font-semibold transition-all
               ${isActive 
@@ -47,10 +84,10 @@ const StatusProgressBar = ({ currentStatus, onStatusChange }) => {
             style={{ 
               fontFamily: 'ProximaNova-Semibold',
               clipPath: index > 0 && index < statuses.length - 1
-                ? 'polygon(12px 0%, 100% 0%, calc(100% - 12px) 50%, 100% 100%, 12px 100%, 0% 50%)'
+                ? 'polygon(0% 0%, calc(100% - 12px) 0%, 100% 50%, calc(100% - 12px) 100%, 0% 100%, 12px 50%)'
                 : index === 0
-                ? 'polygon(0% 0%, 100% 0%, calc(100% - 12px) 50%, 100% 100%, 0% 100%)'
-                : 'polygon(12px 0%, 100% 0%, 100% 100%, 12px 100%, 0% 50%)',
+                ? 'polygon(0% 0%, calc(100% - 12px) 0%, 100% 50%, calc(100% - 12px) 100%, 0% 100%)'
+                : 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 12px 50%)',
               marginLeft: index > 0 ? '-12px' : '0',
               zIndex: isCurrent ? 10 : isActive ? 5 : 1
             }}

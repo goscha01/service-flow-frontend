@@ -2744,7 +2744,7 @@ const ServiceDetails = () => {
 
      
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0  bg-gray-50/50">
+      <div className="flex-1 flex flex-col min-w-0 lg:mx-44 xl:mx-48 bg-gray-50/50">
         {/* Mobile Header */}
         <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
 

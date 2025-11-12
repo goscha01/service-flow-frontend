@@ -313,7 +313,7 @@ const ServiceFlowTeam = () => {
     <>
       <div className="flex h-screen bg-gray-50 overflow-hidden">
 
-        <div className="flex-1 flex flex-col min-w-0">
+        <div className="flex-1 flex flex-col min-w-0 lg:mx-44 xl:mx-48">
           <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
 
           <div className="flex-1 overflow-auto">

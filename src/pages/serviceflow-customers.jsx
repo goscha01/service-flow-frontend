@@ -5,7 +5,7 @@ import Sidebar from "../components/sidebar"
 import MobileHeader from "../components/mobile-header"
 import CustomerModal from "../components/customer-modal"
 import ExportCustomersModal from "../components/export-customers-modal"
-import { Search, User, Plus, AlertCircle, Loader2, Trash2, Eye, X } from "lucide-react"
+import { Search, User, Plus, AlertCircle, Loader2, X } from "lucide-react"
 import { customersAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
 import { useNavigate, Link } from "react-router-dom"
@@ -227,11 +227,11 @@ const ServiceFlowCustomers = () => {
   return (
     <div style={{fontFamily: 'ProximaNova-medium'}} className="flex h-screen bg-gray-50 overflow-hidden">
 
-      <div className="flex-1 flex flex-col min-w-0  lg:mx-44 xl:mx-48">
+      <div className="flex-1 flex flex-col min-w-0 lg:mx-44 xl:mx-48">
         <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
 
         <div className="flex-1 overflow-auto">
-          <div className="px-4 sm:px-6 lg:px-8 py-6">
+          <div className="p-6">
             {/* Header with Title, Search, and Actions */}
             <div className="mb-6">
               <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
@@ -373,69 +373,44 @@ const ServiceFlowCustomers = () => {
                 <ul className="divide-y divide-gray-200">
                   {filteredCustomers.map((customer) => (
                     <li key={customer.id}>
-                      <div className="px-6 py-4 hover:bg-gray-50 transition-colors">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4 flex-1 min-w-0">
-                            {/* Avatar */}
-                            <div className="w-12 h-12 bg-pink-500 rounded-full flex items-center justify-center flex-shrink-0">
-                              <span className="text-white font-medium text-sm">
-                                {customer.first_name?.[0]?.toUpperCase()}{customer.last_name?.[0]?.toUpperCase()}
-                              </span>
-                            </div>
-
-                            {/* Customer Info */}
-                            <div className="flex-1 min-w-0">
-                              {/* Name and Location */}
-                              <div className="flex items-center gap-2 mb-1">
-                                <button
-                                  onClick={() => handleViewCustomer(customer)}
-                                  className="font-semibold text-gray-900 hover:text-primary-600 transition-colors text-left"
-                                >
-                                  {customer.first_name} {customer.last_name}
-                                </button>
-                                {customer.city && (
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">
-                                    {he.decode(customer.city)}
-                                  </span>
-                                )}
-                              </div>
-
-                              {/* Contact Info */}
-                              <div className="flex items-center gap-4 text-sm text-gray-600">
-                                {customer.email && (
-                                  <span>{customer.email}</span>
-                                )}
-                                {customer.email && customer.phone && (
-                                  <span className="text-gray-400">•</span>
-                                )}
-                                {customer.phone && (
-                                  <span>{formatPhoneNumber(customer.phone)}</span>
-                                )}
-                              </div>
-                            </div>
+                      <div 
+                        onClick={() => handleViewCustomer(customer)}
+                        className="px-6 py-4 hover:bg-gray-50 transition-colors cursor-pointer"
+                      >
+                        <div className="flex items-center gap-4">
+                          {/* Avatar */}
+                          <div className="w-12 h-12 bg-pink-500 rounded-full flex items-center justify-center flex-shrink-0">
+                            <span className="text-white font-medium text-sm">
+                              {customer.first_name?.[0]?.toUpperCase()}{customer.last_name?.[0]?.toUpperCase()}
+                            </span>
                           </div>
 
-                          {/* Action Buttons */}
-                          <div className="flex items-center gap-2 ml-4">
-                            <button
-                              onClick={() => handleViewCustomer(customer)}
-                              className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
-                              title="View customer details"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteCustomer(customer)}
-                              disabled={deleteLoading === customer.id}
-                              className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
-                              title="Delete customer"
-                            >
-                              {deleteLoading === customer.id ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                              ) : (
-                                <Trash2 className="w-4 h-4" />
+                          {/* Customer Info */}
+                          <div className="flex-1 min-w-0">
+                            {/* Name and Location */}
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-semibold text-gray-900">
+                                {customer.first_name} {customer.last_name}
+                              </span>
+                              {customer.city && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">
+                                  {he.decode(customer.city)}
+                                </span>
                               )}
-                            </button>
+                            </div>
+
+                            {/* Contact Info */}
+                            <div className="flex items-center gap-4 text-sm text-gray-600">
+                              {customer.email && (
+                                <span>{customer.email}</span>
+                              )}
+                              {customer.email && customer.phone && (
+                                <span className="text-gray-400">•</span>
+                              )}
+                              {customer.phone && (
+                                <span>{formatPhoneNumber(customer.phone)}</span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>

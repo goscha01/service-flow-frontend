@@ -69,7 +69,7 @@ import ServiceSelectionModal from "../components/service-selection-modal";
 import CreateServiceModal from "../components/create-service-modal";
 import CalendarPicker from "../components/CalendarPicker";
 import DiscountModal from "../components/discount-modal";
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { jobsAPI, customersAPI, servicesAPI, teamAPI, territoriesAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useCategory } from '../context/CategoryContext';
@@ -80,6 +80,7 @@ import { formatPhoneNumber } from '../utils/phoneFormatter';
 
 export default function CreateJobPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user, loading: authLoading } = useAuth();
   const { selectedCategoryId, selectedCategoryName } = useCategory();
   const [jobselected, setJobselected] = useState(false);
@@ -249,6 +250,19 @@ export default function CreateJobPage() {
       loadData();
     }
   }, [user?.id]);
+
+  // Handle customerId from URL params
+  useEffect(() => {
+    const customerIdFromUrl = searchParams.get('customerId');
+    if (customerIdFromUrl && customers.length > 0) {
+      const customer = customers.find(c => c.id === parseInt(customerIdFromUrl) || c.id === customerIdFromUrl);
+      if (customer) {
+        setSelectedCustomer(customer);
+        setCustomerSelected(true);
+        setFormData(prev => ({ ...prev, customerId: customer.id }));
+      }
+    }
+  }, [searchParams, customers]);
 
   useEffect(() => {
     // Filter customers based on search
@@ -2575,6 +2589,31 @@ setIntakeQuestionAnswers(answers);
                         Assign
                         </button>
                       
+                      {/* Display selected team members */}
+                      {selectedTeamMembers.length > 0 && (
+                        <div className="mb-4 space-y-2">
+                          {selectedTeamMembers.map((member) => (
+                            <div key={member.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                              <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-xs font-medium">
+                                  {member.first_name?.[0]}{member.last_name?.[0]}
+                                </div>
+                                <span className="text-sm text-gray-900" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                                  {member.first_name} {member.last_name}
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => removeTeamMember(member.id)}
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      
                       <label className="flex items-start gap-3 cursor-pointer">
                         <input
                           type="checkbox"
@@ -2961,6 +3000,103 @@ setIntakeQuestionAnswers(answers);
           setShowDatePicker(false);
         }}
       />
+
+      {/* Team Member Assignment Modal */}
+      {showTeamDropdown && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+          onClick={() => setShowTeamDropdown(false)}
+        >
+          <div 
+            className="bg-white rounded-lg shadow-xl max-w-md w-full p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'ProximaNova-Bold' }}>Assign Team Member</h3>
+              <button
+                onClick={() => setShowTeamDropdown(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              {teamMembers.length === 0 ? (
+                <div className="text-center py-8">
+                  <Users className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+                  <p className="text-gray-500 text-sm mb-1">No team members available</p>
+                  <p className="text-gray-400 text-xs">Add team members in the Team section first</p>
+                </div>
+              ) : (
+                <>
+                  <div className="max-h-60 overflow-y-auto space-y-2">
+                    {teamMembers.map((member) => {
+                      const isSelected = selectedTeamMembers.find(m => m.id === member.id);
+                      return (
+                        <button
+                          key={member.id}
+                          type="button"
+                          onClick={() => handleMultipleTeamMemberSelect(member)}
+                          className={`w-full flex items-center space-x-3 p-3 rounded-lg transition-colors ${
+                            isSelected 
+                              ? 'bg-blue-50 border-2 border-blue-600' 
+                              : 'bg-gray-50 hover:bg-gray-100 border-2 border-transparent'
+                          }`}
+                        >
+                          <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-medium flex-shrink-0">
+                            {member.first_name?.[0]}{member.last_name?.[0]}
+                          </div>
+                          <div className="flex-1 text-left">
+                            <p className="text-sm font-medium text-gray-900" style={{ fontFamily: 'ProximaNova-Medium' }}>
+                              {member.first_name} {member.last_name}
+                            </p>
+                            <p className="text-xs text-gray-500" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                              {member.email}
+                            </p>
+                          </div>
+                          {isSelected && (
+                            <CheckCircle className="w-5 h-5 text-blue-600" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  
+                  {selectedTeamMembers.length > 0 && (
+                    <div className="pt-4 border-t border-gray-200">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-700" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                          {selectedTeamMembers.length} member{selectedTeamMembers.length !== 1 ? 's' : ''} selected
+                        </span>
+                        <button
+                          type="button"
+                          onClick={clearAllTeamMembers}
+                          className="text-sm text-red-600 hover:text-red-700 font-medium"
+                          style={{ fontFamily: 'ProximaNova-Medium' }}
+                        >
+                          Clear All
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+              
+              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => setShowTeamDropdown(false)}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
+                  style={{ fontFamily: 'ProximaNova-Medium' }}
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
