@@ -82,7 +82,7 @@ const StatusProgressBar = ({ currentStatus, onStatusChange }) => {
               hover:opacity-90
             `}
             style={{ 
-              fontFamily: 'ProximaNova-Semibold',
+              fontFamily: 'Montserrat', fontWeight: 600,
               clipPath: index > 0 && index < statuses.length - 1
                 ? 'polygon(0% 0%, calc(100% - 12px) 0%, 100% 50%, calc(100% - 12px) 100%, 0% 100%, 12px 50%)'
                 : index === 0

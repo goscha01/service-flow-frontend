@@ -1148,10 +1148,15 @@ export default function CreateJobPage() {
         savedCustomer = response.customer || response
         // Add new customer to the list
         setCustomers(prev => [...prev, savedCustomer]);
+        // Update filtered customers to include the new customer
+        setFilteredCustomers(prev => [...prev, savedCustomer]);
       }
       
       console.log('Customer saved successfully:', savedCustomer)
+      // Select the customer and move to next step
       handleCustomerSelect(savedCustomer);
+      setCustomerSelected(true); // Mark customer as selected to show next step
+      setJobselected(true); // Show the form
       setEditingCustomer(null); // Clear editing state
       
       return savedCustomer
@@ -1773,14 +1778,14 @@ setIntakeQuestionAnswers(answers);
   return (
     <div className="min-h-screen bg-gray-50">
         {/* Header */}
-        <div className="bg-white border-b border-gray-200  sm:px-32 py-4 px-40">
-          <div className="flex items-center justify-between">
-            <h1 style={{fontFamily: 'ProximaNova-Bold'}} className="text-lg sm:text-xl font-semibold text-gray-900">Create Job</h1>
+        <div className="bg-white border-b border-gray-200 py-4 px-5 lg:px-40 xl:px-44 2xl:px-48">
+          <div className="flex items-center justify-between max-w-7xl mx-auto">
+            <h1 style={{fontFamily: 'Montserrat', fontWeight: 700}} className="text-lg sm:text-xl font-semibold text-gray-900">Create Job</h1>
             <div className="flex items-center space-x-3">
               <button
                 type="button"
                 onClick={() => navigate('/jobs')}
-                style={{fontFamily: 'ProximaNova-Medium'}}
+                style={{fontFamily: 'Montserrat', fontWeight: 500}}
                 className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium"
               >
                 Cancel
@@ -1788,7 +1793,7 @@ setIntakeQuestionAnswers(answers);
               <button
                 type="submit"
                 form="create-job-form"
-                style={{fontFamily: 'ProximaNova-Medium'}}
+                style={{fontFamily: 'Montserrat', fontWeight: 500}}
                 disabled={loading || !selectedCustomer || selectedServices.length === 0}
                 className={`px-4 py-2 rounded-lg font-medium ${
                   loading || !selectedCustomer || selectedServices.length === 0
@@ -1818,13 +1823,14 @@ setIntakeQuestionAnswers(answers);
         )}
 
         {/* Main Content */}
-        <div className="p-4 sm:p-6 max-w-5xl mx-auto">
+        <div className="px-5 lg:px-40 xl:px-44 2xl:px-48 py-4 sm:py-6 lg:py-8">
+          <div className="max-w-7xl mx-auto">
           {!customerSelected && (
             <div className="space-y-4">
               {/* Customer Section */}
               <div className="bg-white rounded-lg border border-gray-200 p-5">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'ProximaNova-Semibold' }}>Customer</h2>
+                  <h2 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Customer</h2>
                   <button
                     type="button"
                     onClick={() => {
@@ -1832,7 +1838,7 @@ setIntakeQuestionAnswers(answers);
                       setIsCustomerModalOpen(true);
                     }}
                     className="text-blue-600 hover:text-blue-700 text-sm font-medium"
-                    style={{ fontFamily: 'ProximaNova-Medium' }}
+                    style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                   >
                     New Customer
                   </button>
@@ -1855,7 +1861,7 @@ setIntakeQuestionAnswers(answers);
                     }}
                     placeholder="Search customers"
                     className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                    style={{ fontFamily: 'ProximaNova-Regular' }}
+                    style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                   />
                   {showCustomerDropdown && filteredCustomers.length > 0 && (
                       <>
@@ -1889,30 +1895,30 @@ setIntakeQuestionAnswers(answers);
 
               {/* Services Section - Disabled */}
               <div className="bg-gray-100 rounded-lg p-5">
-                <h2 className="text-lg font-semibold text-gray-500" style={{ fontFamily: 'ProximaNova-Semibold' }}>Services</h2>
+                <h2 className="text-lg font-semibold text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Services</h2>
               </div>
 
               {/* Schedule Section - Disabled */}
               <div className="bg-gray-100 rounded-lg p-5">
-                <h2 className="text-lg font-semibold text-gray-500" style={{ fontFamily: 'ProximaNova-Semibold' }}>Schedule</h2>
+                <h2 className="text-lg font-semibold text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Schedule</h2>
               </div>
             </div>
           )}
          {customerSelected && (
-          <form id="create-job-form" onSubmit={handleSubmit} className="max-w-7xl mx-auto" noValidate>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <form id="create-job-form" onSubmit={handleSubmit} className="w-full" noValidate>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
               {/* Left Column - Services and Schedule */}
-              <div className="lg:col-span-2 space-y-6">
+              <div className="lg:col-span-2 space-y-6 min-w-0">
                 {/* Services Section */}
             <div className="bg-white rounded-lg border border-gray-200">
                   <div className="px-6 py-4 border-b border-gray-200">
                 <div className="flex items-center justify-between">
-                      <h2 className="text-lg font-bold text-gray-900" style={{ fontFamily: 'ProximaNova-Bold' }}>Services</h2>
+                      <h2 className="text-lg font-bold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Services</h2>
                   <button
                     type="button"
                         onClick={() => setShowCreateServiceModal(true)}
                         className="text-blue-600 hover:text-blue-700 text-sm font-medium"
-                        style={{ fontFamily: 'ProximaNova-Medium' }}
+                        style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                   >
                         Add Custom Service or Item
                   </button>
@@ -1929,14 +1935,14 @@ setIntakeQuestionAnswers(answers);
                         value={serviceSearch}
                         onChange={(e) => setServiceSearch(e.target.value)}
                         className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                        style={{ fontFamily: 'ProximaNova-Regular' }}
+                        style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                       />
                     </div>
                       <button
                         type="button"
                       onClick={() => setShowServiceSelectionModal(true)}
                       className="px-5 py-2.5 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium text-sm"
-                      style={{ fontFamily: 'ProximaNova-Medium' }}
+                      style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                       >
                       Browse Services
                       </button>
@@ -1947,8 +1953,8 @@ setIntakeQuestionAnswers(answers);
                       <div className="space-y-0">
                         {/* Service List Header */}
                         <div className="flex items-center justify-between py-3 border-b border-gray-200">
-                          <span className="text-xs font-bold text-gray-900 uppercase tracking-wide" style={{ fontFamily: 'ProximaNova-Bold' }}>Service</span>
-                          <span className="text-xs font-bold text-gray-900 uppercase tracking-wide" style={{ fontFamily: 'ProximaNova-Bold' }}>Price</span>
+                          <span className="text-xs font-bold text-gray-900 uppercase tracking-wide" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Service</span>
+                          <span className="text-xs font-bold text-gray-900 uppercase tracking-wide" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Price</span>
                         </div>
                         
                         {/* Service Items */}
@@ -2015,16 +2021,16 @@ setIntakeQuestionAnswers(answers);
                                   }}
                                   className="text-left"
                                 >
-                                  <div className="text-sm font-semibold text-blue-600 hover:text-blue-700 mb-1" style={{ fontFamily: 'ProximaNova-Semibold' }}>
+                                  <div className="text-sm font-semibold text-blue-600 hover:text-blue-700 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                                     {service.name}
                                   </div>
-                                  <div className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                                  <div className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                                     Show details {isExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
                                   </div>
                                 </button>
                               </div>
                               <div className="flex items-center gap-3">
-                                <span className="text-base font-medium text-gray-900" style={{ fontFamily: 'ProximaNova-Medium' }}>
+                                <span className="text-base font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                                   ${parseFloat(service.price || 0).toFixed(2)}
                                 </span>
                                 <button
@@ -2077,7 +2083,7 @@ setIntakeQuestionAnswers(answers);
                                 {/* Service Modifiers */}
                                 {hasModifiers && (
                                   <div>
-                                    <h4 className="text-sm font-bold text-gray-900 mb-2" style={{ fontFamily: 'ProximaNova-Bold' }}>
+                                    <h4 className="text-sm font-bold text-gray-900 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
                                       Select Your Items
                                     </h4>
                                     <div className="space-y-1">
@@ -2162,7 +2168,7 @@ setIntakeQuestionAnswers(answers);
                                         return (
                                           <div key={modifier.id} className="mb-3">
                                             {/* Modifier name as heading */}
-                                            <div className="text-sm font-bold text-gray-900 mb-1" style={{ fontFamily: 'ProximaNova-Bold' }}>
+                                            <div className="text-sm font-bold text-gray-900 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
                                               {modifier.name || modifier.title}
                           </div>
                                             
@@ -2181,7 +2187,7 @@ setIntakeQuestionAnswers(answers);
                                               }
                                               
                                               return (
-                                                <div key={idx} className="text-sm text-gray-600 mb-1 flex items-center justify-between" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                                                <div key={idx} className="text-sm text-gray-600 mb-1 flex items-center justify-between" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                                                   <span>
                                                     {option.quantity && `${option.quantity}x `}
                                                     {option.displayName}
@@ -2237,7 +2243,7 @@ setIntakeQuestionAnswers(answers);
                                       
                                       return (
                                         <div key={questionId}>
-                                          <div className="text-sm font-bold text-gray-900 mb-1" style={{ fontFamily: 'ProximaNova-Bold' }}>
+                                          <div className="text-sm font-bold text-gray-900 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
                                             {question.question || question.label || question.text}
                                           </div>
                                           
@@ -2257,7 +2263,7 @@ setIntakeQuestionAnswers(answers);
                                                           className="w-5 h-5 rounded-full border border-gray-300 shadow-sm"
                                                           style={{ backgroundColor: color }}
                                                         />
-                                                        <span className="text-sm text-gray-900" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                                                        <span className="text-sm text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                                                           {color}
                                                         </span>
                                                       </div>
@@ -2275,7 +2281,7 @@ setIntakeQuestionAnswers(answers);
                                                           className="w-5 h-5 rounded-full border border-gray-300 shadow-sm"
                                                           style={{ backgroundColor: color }}
                                                         />
-                                                        <span className="text-sm text-gray-900" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                                                        <span className="text-sm text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                                                           {color}
                                                         </span>
                                                       </div>
@@ -2289,7 +2295,7 @@ setIntakeQuestionAnswers(answers);
                                                           className="w-5 h-5 rounded-full border border-gray-300 shadow-sm"
                                                           style={{ backgroundColor: answer }}
                                                         />
-                                                        <span className="text-sm text-gray-900" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                                                        <span className="text-sm text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                                                           {answer}
                                                         </span>
                                                       </div>
@@ -2315,7 +2321,7 @@ setIntakeQuestionAnswers(answers);
                                               </div>
                                             ) : (
                                               // Display text (can be array or string)
-                                              <div className="text-sm text-gray-600" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                                              <div className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                                                 {Array.isArray(answer) ? answer.join(', ') : answer}
                                               </div>
                                             )
@@ -2328,7 +2334,7 @@ setIntakeQuestionAnswers(answers);
                                 
                                 {/* Show message only if expanded but no customizations */}
                                 {!hasModifiers && !hasIntakeQuestions && (
-                                  <div className="text-sm text-gray-500 text-center py-4" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                                  <div className="text-sm text-gray-500 text-center py-4" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                                     No customizations for this service
                                   </div>
                                 )}
@@ -2341,8 +2347,8 @@ setIntakeQuestionAnswers(answers);
                         {/* Pricing Summary */}
                         <div className="pt-4 space-y-3">
                           <div className="flex justify-between items-center">
-                            <span className="text-sm text-gray-900" style={{ fontFamily: 'ProximaNova-Bold' }}>Subtotal</span>
-                            <span className="text-base text-gray-900" style={{ fontFamily: 'ProximaNova-Regular' }}>${(parseFloat(calculateTotalPrice()) || 0).toFixed(2)}</span>
+                            <span className="text-sm text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Subtotal</span>
+                            <span className="text-base text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>${(parseFloat(calculateTotalPrice()) || 0).toFixed(2)}</span>
                           </div>
                           
                           {formData.discount > 0 ? (
@@ -2351,11 +2357,11 @@ setIntakeQuestionAnswers(answers);
                               type="button"
                                 onClick={() => setShowDiscountModal(true)}
                                 className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-                                style={{ fontFamily: 'ProximaNova-Medium' }}
+                                style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                             >
                                 Discount ({discountType === 'percentage' ? `${formData.discount}%` : `$${formData.discount}`})
                             </button>
-                              <span className="text-base text-gray-900" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                              <span className="text-base text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                                 -${(() => {
                                   const subtotal = parseFloat(calculateTotalPrice()) || 0;
                                   if (discountType === 'percentage') {
@@ -2370,7 +2376,7 @@ setIntakeQuestionAnswers(answers);
                               type="button"
                               onClick={() => setShowDiscountModal(true)}
                               className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-                              style={{ fontFamily: 'ProximaNova-Medium' }}
+                              style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                             >
                               Add Discount
                             </button>
@@ -2380,22 +2386,22 @@ setIntakeQuestionAnswers(answers);
                               type="button"
                               onClick={() => {/* Add fee modal */}}
                             className="text-sm text-blue-600 hover:text-blue-700 font-medium block"
-                            style={{ fontFamily: 'ProximaNova-Medium' }}
+                            style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                             >
                               Add Fee
                             </button>
                           
                           <div className="flex justify-between items-center">
                             <div className="flex items-center gap-1.5">
-                              <span className="text-sm text-gray-900" style={{ fontFamily: 'ProximaNova-Bold' }}>Taxes</span>
+                              <span className="text-sm text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Taxes</span>
                               <Info className="w-4 h-4 text-gray-400" />
                           </div>
-                            <span className="text-base text-gray-900" style={{ fontFamily: 'ProximaNova-Regular' }}>${(formData.taxes || 0).toFixed(2)}</span>
+                            <span className="text-base text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>${(formData.taxes || 0).toFixed(2)}</span>
                             </div>
                           
                           <div className="pt-3 border-t border-gray-200 flex justify-between items-center">
-                            <span className="text-sm font-bold text-gray-900" style={{ fontFamily: 'ProximaNova-Bold' }}>Total</span>
-                            <span className="text-base font-bold text-gray-900" style={{ fontFamily: 'ProximaNova-Bold' }}>${(parseFloat(formData.total) || 0).toFixed(2)}</span>
+                            <span className="text-sm font-bold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Total</span>
+                            <span className="text-base font-bold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>${(parseFloat(formData.total) || 0).toFixed(2)}</span>
                           </div>
                         </div>
                       </div>
@@ -2408,7 +2414,7 @@ setIntakeQuestionAnswers(answers);
               <div className="bg-white rounded-lg border border-gray-200">
                   <div className="px-5 py-4 border-b border-gray-200">
                     <div className="flex items-center justify-between flex-wrap gap-3">
-                      <h2 className="text-lg font-bold text-gray-900" style={{ fontFamily: 'ProximaNova-Bold' }}>Schedule</h2>
+                      <h2 className="text-lg font-bold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Schedule</h2>
                       <div className="flex items-center gap-2">
                         <div className="relative">
                       <select
@@ -2427,7 +2433,7 @@ setIntakeQuestionAnswers(answers);
                           }
                         }}
                             className="pl-8 pr-10 py-1.5 text-sm border border-gray-300 rounded-md bg-gray-50 appearance-none focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            style={{ fontFamily: 'ProximaNova-Regular' }}
+                            style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                       >
                             <option value="0h 30m">30 min</option>
                             <option value="1h 0m">1 hr</option>
@@ -2445,7 +2451,7 @@ setIntakeQuestionAnswers(answers);
                         value={formData.workers || 1}
                         onChange={(e) => setFormData(prev => ({ ...prev, workers: parseInt(e.target.value) }))}
                             className="pl-8 pr-10 py-1.5 text-sm border border-gray-300 rounded-md bg-gray-50 appearance-none focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            style={{ fontFamily: 'ProximaNova-Regular' }}
+                            style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                       >
                         <option value="1">1 worker</option>
                         <option value="2">2 workers</option>
@@ -2461,7 +2467,7 @@ setIntakeQuestionAnswers(answers);
                         value={formData.skillsRequired || 0}
                         onChange={(e) => setFormData(prev => ({ ...prev, skillsRequired: parseInt(e.target.value) }))}
                             className="pl-8 pr-10 py-1.5 text-sm border border-gray-300 rounded-md bg-gray-50 appearance-none focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            style={{ fontFamily: 'ProximaNova-Regular' }}
+                            style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                       >
                         <option value="0">0 skills required</option>
                         <option value="1">1 skill required</option>
@@ -2485,7 +2491,7 @@ setIntakeQuestionAnswers(answers);
                             ? 'bg-white text-blue-600 shadow-sm'
                             : 'text-gray-600 hover:text-gray-900'
                         }`}
-                        style={{ fontFamily: formData.scheduleType === 'one-time' ? 'ProximaNova-Semibold' : 'ProximaNova-Regular' }}
+                        style={{ fontFamily: 'Montserrat', fontWeight: formData.scheduleType === 'one-time' ? 600 : 400 }}
                       >
                         One Time
                         </button>
@@ -2497,7 +2503,7 @@ setIntakeQuestionAnswers(answers);
                             ? 'bg-white text-blue-600 shadow-sm'
                             : 'text-gray-600 hover:text-gray-900'
                         }`}
-                        style={{ fontFamily: formData.scheduleType === 'recurring' ? 'ProximaNova-Semibold' : 'ProximaNova-Regular' }}
+                        style={{ fontFamily: 'Montserrat', fontWeight: formData.scheduleType === 'recurring' ? 600 : 400 }}
                       >
                         Recurring Job
                           </button>
@@ -2516,7 +2522,7 @@ setIntakeQuestionAnswers(answers);
                         />
                         </div>
                         <div className="flex-1">
-                          <div className="font-bold text-sm text-gray-900 mb-4" style={{ fontFamily: 'ProximaNova-Bold' }}>Schedule Now</div>
+                          <div className="font-bold text-sm text-gray-900 mb-4" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Schedule Now</div>
                           <div className="flex gap-3 items-center mb-1">
                             <div className="relative flex-1">
                               <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -2535,14 +2541,14 @@ setIntakeQuestionAnswers(answers);
                                 onClick={() => setShowDatePicker(true)}
                                 readOnly
                                 className="w-full pl-10 pr-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white cursor-pointer"
-                                style={{ fontFamily: 'ProximaNova-Regular' }}
+                                style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                               />
                         </div>
                             <button
                               type="button"
                             onClick={() => setShowDatePicker(true)}
                               className="px-4 py-2.5 text-sm text-white bg-blue-500 hover:bg-blue-600 rounded-lg font-medium whitespace-nowrap transition-colors"
-                              style={{ fontFamily: 'ProximaNova-Medium' }}
+                              style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                             >
                             Find a Time
                             </button>
@@ -2562,28 +2568,28 @@ setIntakeQuestionAnswers(answers);
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2">
-                            <span className="font-bold text-sm text-gray-900" style={{ fontFamily: 'ProximaNova-Bold' }}>Let Customer Schedule</span>
-                            <span className="inline-flex items-center gap-1 text-xs text-purple-700 font-medium" style={{ fontFamily: 'ProximaNova-Medium' }}>
+                            <span className="font-bold text-sm text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Let Customer Schedule</span>
+                            <span className="inline-flex items-center gap-1 text-xs text-purple-700 font-medium" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                               <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                                 <path d="M10 2a8 8 0 100 16 8 8 0 000-16zm1 11H9v-2h2v2zm0-4H9V5h2v4z"/>
                               </svg>
                               Upgrade
                             </span>
                           </div>
-                          <p className="text-sm text-gray-600" style={{ fontFamily: 'ProximaNova-Regular' }}>Send a bookable estimate to your customer, allowing them to choose a convenient time for the service.</p>
+                          <p className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Send a bookable estimate to your customer, allowing them to choose a convenient time for the service.</p>
                           </div>
                         </div>
                         </div>
 
                     {/* Assigned Section */}
                     <div className="pt-5 border-t border-gray-200">
-                      <div className="text-xs font-bold text-gray-900 uppercase tracking-wider mb-4" style={{ fontFamily: 'ProximaNova-Bold' }}>Assigned</div>
+                      <div className="text-xs font-bold text-gray-900 uppercase tracking-wider mb-4" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Assigned</div>
                       
                         <button
                           type="button"
                         onClick={() => setShowTeamDropdown(true)}
                         className="inline-flex items-center gap-2 px-3 py-1.5 mb-4 text-sm text-blue-600 hover:text-blue-700 border border-blue-600 hover:border-blue-700 rounded-full font-medium transition-colors"
-                        style={{ fontFamily: 'ProximaNova-Medium' }}
+                        style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                         >
                         <Plus className="w-4 h-4" />
                         Assign
@@ -2598,7 +2604,7 @@ setIntakeQuestionAnswers(answers);
                                 <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-xs font-medium">
                                   {member.first_name?.[0]}{member.last_name?.[0]}
                                 </div>
-                                <span className="text-sm text-gray-900" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                                <span className="text-sm text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                                   {member.first_name} {member.last_name}
                                 </span>
                               </div>
@@ -2621,7 +2627,7 @@ setIntakeQuestionAnswers(answers);
                           onChange={(e) => setFormData(prev => ({ ...prev, offerToProviders: e.target.checked }))}
                           className="mt-0.5 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
                         />
-                        <span className="text-sm text-gray-900" style={{ fontFamily: 'ProximaNova-Regular' }}>Offer job to service providers</span>
+                        <span className="text-sm text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Offer job to service providers</span>
                       </label>
                                       </div>
                                     </div>
@@ -2630,17 +2636,17 @@ setIntakeQuestionAnswers(answers);
                       </div>
                       
               {/* Right Column - Customer Details */}
-              <div className="lg:col-span-1 space-y-0">
+              <div className="lg:col-span-1 space-y-0 min-w-0">
                 <div className="bg-white rounded-lg border border-gray-200">
                   {/* Customer Header */}
                   <div className="p-5 border-b border-gray-200">
                           <div className="flex items-center justify-between">
-                      <h2 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'ProximaNova-Semibold' }}>Customer</h2>
+                      <h2 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Customer</h2>
                             <button
                               type="button"
                           onClick={() => setShowCustomerDropdown(true)}
                         className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-                        style={{ fontFamily: 'ProximaNova-Medium' }}
+                        style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                             >
                           Change
                             </button>
@@ -2656,7 +2662,7 @@ setIntakeQuestionAnswers(answers);
                         </div>
                         <div className="flex-1">
                             <div className="flex items-center gap-2">
-                              <h3 className="font-medium text-gray-900" style={{ fontFamily: 'ProximaNova-Medium' }}>
+                              <h3 className="font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                               {selectedCustomer.first_name} {selectedCustomer.last_name}
                               </h3>
                                 <button
@@ -2666,7 +2672,7 @@ setIntakeQuestionAnswers(answers);
                                   setIsCustomerModalOpen(true);
                                 }}
                               className="text-sm text-blue-600 hover:text-blue-700"
-                                style={{ fontFamily: 'ProximaNova-Regular' }}
+                                style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                                 >
                               Edit
                                 </button>
@@ -2683,7 +2689,7 @@ setIntakeQuestionAnswers(answers);
                           className="w-full px-5 py-3 hover:bg-gray-50 transition-colors text-left"
                         >
                           <div className="flex items-center justify-between">
-                            <span className="text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'ProximaNova-Semibold' }}>Contact Info</span>
+                            <span className="text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Contact Info</span>
                             <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform ${expandedCustomerSections.contact ? 'rotate-90' : ''}`} />
                           </div>
                         </button>
@@ -2692,17 +2698,17 @@ setIntakeQuestionAnswers(answers);
                         {selectedCustomer.email && (
                               <div className="flex items-center gap-2">
                             <Mail className="w-4 h-4 text-gray-400" />
-                                <span className="text-sm text-gray-700" style={{ fontFamily: 'ProximaNova-Regular' }}>{selectedCustomer.email}</span>
+                                <span className="text-sm text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{selectedCustomer.email}</span>
                     </div>
                         )}
                         {selectedCustomer.phone && (
                               <div className="flex items-center gap-2">
                             <Phone className="w-4 h-4 text-gray-400" />
-                                <span className="text-sm text-gray-700" style={{ fontFamily: 'ProximaNova-Regular' }}>{formatPhoneNumber(selectedCustomer.phone)}</span>
+                                <span className="text-sm text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{formatPhoneNumber(selectedCustomer.phone)}</span>
                 </div>
               )}
                         {!selectedCustomer.email && !selectedCustomer.phone && (
-                              <p className="text-sm text-gray-500" style={{ fontFamily: 'ProximaNova-Regular' }}>No contact information available</p>
+                              <p className="text-sm text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>No contact information available</p>
                             )}
                           </div>
               )}
@@ -2716,8 +2722,8 @@ setIntakeQuestionAnswers(answers);
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <span className="text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'ProximaNova-Semibold' }}>Notes</span>
-                            <span className="text-xs text-gray-400" style={{ fontFamily: 'ProximaNova-Regular' }}>{selectedCustomer.notes_count || 0}</span>
+                            <span className="text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Notes</span>
+                            <span className="text-xs text-gray-400" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{selectedCustomer.notes_count || 0}</span>
                           </div>
                           <ChevronRight className="w-4 h-4 text-gray-400" />
                         </div>
@@ -2726,18 +2732,18 @@ setIntakeQuestionAnswers(answers);
                       {/* Notification Preferences */}
                       <div className="px-5 py-3 border-b border-gray-200">
                         <div className="flex items-center justify-between mb-3">
-                          <span className="text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'ProximaNova-Semibold' }}>Notification Preferences</span>
+                          <span className="text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Notification Preferences</span>
                 <button
                   type="button"
                             className="text-sm text-blue-600 hover:text-blue-700"
-                            style={{ fontFamily: 'ProximaNova-Regular' }}
+                            style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                         >
                             Email
                 </button>
               </div>
                         <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                            <span className="text-sm text-gray-700" style={{ fontFamily: 'ProximaNova-Regular' }}>Emails</span>
+                            <span className="text-sm text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Emails</span>
                               <label className="relative inline-flex items-center cursor-pointer">
                         <input
                           type="checkbox"
@@ -2752,7 +2758,7 @@ setIntakeQuestionAnswers(answers);
                         </label>
                 </div>
                             <div className="flex items-center justify-between">
-                            <span className="text-sm text-gray-700" style={{ fontFamily: 'ProximaNova-Regular' }}>Text messages</span>
+                            <span className="text-sm text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Text messages</span>
                               <label className="relative inline-flex items-center cursor-pointer">
                         <input
                           type="checkbox"
@@ -2789,19 +2795,19 @@ setIntakeQuestionAnswers(answers);
                       </div>
                       <div className="px-5 py-3 border-b border-gray-200">
                         <div className="flex items-center justify-between mb-2">
-                          <span className="text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'ProximaNova-Semibold' }}>Service Address</span>
+                          <span className="text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Service Address</span>
                           <button
                             type="button"
                             onClick={() => setShowAddressModal(true)}
                             className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-                            style={{ fontFamily: 'ProximaNova-Medium' }}
+                            style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                           >
                             Edit
                           </button>
                     </div>
                         <div>
-                          <p className="text-sm font-medium text-gray-900" style={{ fontFamily: 'ProximaNova-Medium' }}>{formData.serviceAddress.street}</p>
-                          <p className="text-sm text-gray-600" style={{ fontFamily: 'ProximaNova-Regular' }}>{formData.serviceAddress.city}</p>
+                          <p className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>{formData.serviceAddress.street}</p>
+                          <p className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{formData.serviceAddress.city}</p>
                           </div>
                         </div>
                     </>
@@ -2810,30 +2816,30 @@ setIntakeQuestionAnswers(answers);
                   {/* Territory */}
                   <div className="px-5 py-3 border-b border-gray-200">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'ProximaNova-Semibold' }}>Territory</span>
+                      <span className="text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Territory</span>
                       <button
                         type="button"
                         onClick={() => setShowTerritoryModal(true)}
                         className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-                        style={{ fontFamily: 'ProximaNova-Medium' }}
+                        style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                       >
                         Edit
                       </button>
                     </div>
-                    <p className="text-sm text-gray-900" style={{ fontFamily: 'ProximaNova-Regular' }}>{detectedTerritory?.name || formData.territory || 'Chemnitz'}</p>
+                    <p className="text-sm text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{detectedTerritory?.name || formData.territory || 'Chemnitz'}</p>
                   </div>
 
                   {/* Payment Method */}
                   <div className="px-5 py-3 border-b border-gray-200">
                     <div className="mb-2">
-                      <span className="text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'ProximaNova-Semibold' }}>Payment Method</span>
+                      <span className="text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Payment Method</span>
                     </div>
-                    <p className="text-sm text-gray-600 mb-3" style={{ fontFamily: 'ProximaNova-Regular' }}>Attach a credit or debit card to charge at a later time when the job is complete.</p>
+                    <p className="text-sm text-gray-600 mb-3" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Attach a credit or debit card to charge at a later time when the job is complete.</p>
                   <button
                     type="button"
                       onClick={() => setShowPaymentModal(true)}
                       className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 font-medium"
-                      style={{ fontFamily: 'ProximaNova-Medium' }}
+                      style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                   >
                       <Plus className="w-4 h-4" />
                       Add payment method
@@ -2844,14 +2850,14 @@ setIntakeQuestionAnswers(answers);
                   <div className="px-5 py-3 border-b border-gray-200">
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'ProximaNova-Semibold' }}>Tags</span>
+                        <span className="text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Tags</span>
                       <Info className="w-4 h-4 text-gray-400" />
                       </div>
                     </div>
                     <button
                       type="button"
                       className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800"
-                      style={{ fontFamily: 'ProximaNova-Regular' }}
+                      style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                     >
                       <Plus className="w-4 h-4" />
                       Add Tag
@@ -2861,7 +2867,7 @@ setIntakeQuestionAnswers(answers);
                   {/* Internal Notes */}
                   <div className="px-5 py-4">
                     <div className="flex items-center gap-2 mb-3">
-                      <span className="text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'ProximaNova-Semibold' }}>Internal Notes</span>
+                      <span className="text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Internal Notes</span>
                       <Info className="w-4 h-4 text-gray-400" />
                     </div>
                     <textarea
@@ -2869,7 +2875,7 @@ setIntakeQuestionAnswers(answers);
                       value={formData.internalNotes}
                       onChange={(e) => setFormData(prev => ({ ...prev, internalNotes: e.target.value }))}
                       className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-                      style={{ fontFamily: 'ProximaNova-Regular' }}
+                      style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                       rows="3"
                     />
                     <div className="flex gap-3 mt-2">
@@ -2886,7 +2892,8 @@ setIntakeQuestionAnswers(answers);
             </div>
           </form>
         )}
-      </div>
+          </div>
+        </div>
 
       {/* Modals */}
       <CustomerModal
@@ -3012,7 +3019,7 @@ setIntakeQuestionAnswers(answers);
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'ProximaNova-Bold' }}>Assign Team Member</h3>
+              <h3 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Assign Team Member</h3>
               <button
                 onClick={() => setShowTeamDropdown(false)}
                 className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -3048,10 +3055,10 @@ setIntakeQuestionAnswers(answers);
                             {member.first_name?.[0]}{member.last_name?.[0]}
                           </div>
                           <div className="flex-1 text-left">
-                            <p className="text-sm font-medium text-gray-900" style={{ fontFamily: 'ProximaNova-Medium' }}>
+                            <p className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                               {member.first_name} {member.last_name}
                             </p>
-                            <p className="text-xs text-gray-500" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                            <p className="text-xs text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                               {member.email}
                             </p>
                           </div>
@@ -3066,14 +3073,14 @@ setIntakeQuestionAnswers(answers);
                   {selectedTeamMembers.length > 0 && (
                     <div className="pt-4 border-t border-gray-200">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-700" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                        <span className="text-sm text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                           {selectedTeamMembers.length} member{selectedTeamMembers.length !== 1 ? 's' : ''} selected
                         </span>
                         <button
                           type="button"
                           onClick={clearAllTeamMembers}
                           className="text-sm text-red-600 hover:text-red-700 font-medium"
-                          style={{ fontFamily: 'ProximaNova-Medium' }}
+                          style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                         >
                           Clear All
                         </button>
@@ -3088,7 +3095,7 @@ setIntakeQuestionAnswers(answers);
                   type="button"
                   onClick={() => setShowTeamDropdown(false)}
                   className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
-                  style={{ fontFamily: 'ProximaNova-Medium' }}
+                  style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                 >
                   Done
                 </button>

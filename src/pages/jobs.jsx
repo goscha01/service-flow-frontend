@@ -417,7 +417,7 @@ const ServiceFlowJobs = () => {
 
         {/* Desktop Header */}
         <div className="hidden lg:flex bg-white border-b border-gray-200 px-4 pt-4 pb-2 items-center justify-between">
-          <h1 className="text-3xl font-semibold text-gray-900 " style={{fontFamily: 'ProximaNova-Bold'}}>Jobs</h1>
+          <h1 className="text-3xl font-semibold text-gray-900 " style={{fontFamily: 'Montserrat', fontWeight: 700}}>Jobs</h1>
           <button
             onClick={handleCreateJob}
             className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
@@ -429,11 +429,11 @@ const ServiceFlowJobs = () => {
         {/* Mobile Header Content */}
         <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-4">
           <div className="flex items-center justify-between">
-            <h1 className="text-xl font-semibold text-gray-900 " style={{fontFamily: 'ProximaNova-Bold'}}>Jobs</h1>
+            <h1 className="text-xl font-semibold text-gray-900 " style={{fontFamily: 'Montserrat', fontWeight: 700}}>Jobs</h1>
             <button
               onClick={handleCreateJob}
               className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-              style={{fontFamily: 'ProximaNova-Bold'}}
+              style={{fontFamily: 'Montserrat', fontWeight: 700}}
             >
               <Plus className="w-4 h-4 mr-2 text-white" />
               Create Job
@@ -471,7 +471,7 @@ const ServiceFlowJobs = () => {
                     ? "border-blue-600 text-blue-600"
                     : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
                 }`}
-                style={{fontFamily: 'ProximaNova-Bold'}}
+                style={{fontFamily: 'Montserrat', fontWeight: 700}}
               >
                 {tab.label}
               </button>
@@ -765,7 +765,7 @@ const ServiceFlowJobs = () => {
               <div className="bg-white border border-gray-200 overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
-                    <thead style={{fontFamily: 'ProximaNova-Bold'}} className="bg-white">
+                    <thead style={{fontFamily: 'Montserrat', fontWeight: 700}} className="bg-white">
                       <tr>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Date
@@ -798,27 +798,27 @@ const ServiceFlowJobs = () => {
                           >
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex flex-col">
-                                <span style={{fontFamily: 'ProximaNova-Medium'}} className="text-sm  font-medium text-blue-500">
+                                <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-sm  font-medium text-blue-500">
                                   {job.scheduled_date ? `${dateInfo.weekday} - ${dateInfo.monthName} ${dateInfo.day}, ${dateInfo.year}` : 'Date not set'}
                                 </span>
-                                <span style={{fontFamily: 'ProximaNova-Medium'}} className="text-xs text-gray-600">
+                                <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-xs text-gray-600">
                                   {job.scheduled_date ? formatTime(job.scheduled_date) : 'Time not set'}
                                 </span>
                               </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex flex-col">
-                                <span style={{fontFamily: 'ProximaNova-Medium'}} className="text-sm capitalize font-medium text-gray-900">
+                                <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-sm capitalize font-medium text-gray-900">
                                   {job.service_name || 'Service'}
                                 </span>
-                                <span style={{fontFamily: 'ProximaNova-Medium'}} className="text-xs text-gray-500">
+                                <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-xs text-gray-500">
                                   Job #{job.id}
                                 </span>
                               </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex flex-col">
-                                <span style={{fontFamily: 'ProximaNova-Medium'}} className="text-sm font-medium text-gray-900">
+                                <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-sm font-medium text-gray-900">
                                   {job.customer_first_name && job.customer_last_name
                                     ? `${job.customer_first_name} ${job.customer_last_name}`
                                     : job.customer_email
@@ -826,7 +826,7 @@ const ServiceFlowJobs = () => {
                                     : 'Customer Name'
                                   }
                                 </span>
-                                <span style={{fontFamily: 'ProximaNova-Medium'}} className="text-xs text-gray-500">
+                                <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-xs text-gray-500">
                                   {job.customer_city && job.customer_state
                                     ? `${job.customer_city}, ${job.customer_state}`
                                     : 'Location not specified'
@@ -837,7 +837,7 @@ const ServiceFlowJobs = () => {
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex items-center gap-2">
                                 <Users className="w-4 h-4 text-gray-400" />
-                                <span style={{fontFamily: 'ProximaNova-Medium'}} className="text-xs text-gray-600">
+                                <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-xs text-gray-600">
                                   {job.team_assignments && job.team_assignments.length > 0
                                     ? `${job.team_assignments.length} / ${job.team_assignments.length} assigned`
                                     : '0 / 1 assigned'
@@ -846,16 +846,16 @@ const ServiceFlowJobs = () => {
                               </div>
                             </td>
                             <td className="px-4 py-4 whitespace-nowrap">
-                              <span style={{fontFamily: 'ProximaNova-Medium'}} className={`inline-flex items-center px-3 py-1 rounded-l-sm rounded-r-xl text-xs font-medium border ${getStatusLabel(job.status || 'pending', job) === 'Late' ? 'bg-orange-50 text-orange-700 border-orange-200' : getStatusColor(job.status)}`}>
+                              <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className={`inline-flex items-center px-3 py-1 rounded-l-sm rounded-r-xl text-xs font-medium border ${getStatusLabel(job.status || 'pending', job) === 'Late' ? 'bg-orange-50 text-orange-700 border-orange-200' : getStatusColor(job.status)}`}>
                                 {getStatusLabel(job.status || 'pending', job)}
                               </span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex flex-row space-x-1 items-center">
-                                <span style={{fontFamily: 'ProximaNova-Medium'}} className="text-sm font-semibold text-gray-900">
+                                <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-sm font-semibold text-gray-900">
                                   {formatCurrency(job.total_amount || job.service_price || 0)}
                                 </span>
-                                <span style={{fontFamily: 'ProximaNova-Medium'}} className="flex px-2 text-xs text-gray-700 bg-gray-100 px-2 py-1 rounded-sm">
+                                <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="flex px-2 text-xs text-gray-700 bg-gray-100 px-2 py-1 rounded-sm">
                                   {job.invoice_status === 'paid' ? 'Paid' :
                                    job.invoice_status === 'unpaid' ? 'Unpaid' :
                                    job.invoice_status === 'invoiced' ? 'Invoiced' :

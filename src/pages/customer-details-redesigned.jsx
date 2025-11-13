@@ -232,7 +232,7 @@ const CustomerDetailsRedesigned = () => {
               </div>
               
               <div className="flex items-center space-x-4">
-                <h1 className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'ProximaNova-Bold' }}>
+                <h1 className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
                   {customer.first_name} {customer.last_name}
                 </h1>
               </div>
@@ -306,7 +306,7 @@ const CustomerDetailsRedesigned = () => {
                 {/* Jobs Card */}
                 <div className="bg-white rounded-lg border border-gray-200 p-6" style={{ overflow: 'visible' }}>
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-semibold text-gray-700" style={{ fontFamily: 'ProximaNova-Semibold' }}>Jobs</h3>
+                    <h3 className="text-sm font-semibold text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Jobs</h3>
                     <div className="relative" ref={menuRef}>
                       <button 
                         onClick={(e) => {
@@ -327,7 +327,7 @@ const CustomerDetailsRedesigned = () => {
                               handleEditCustomer()
                             }}
                             className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm"
-                            style={{ fontFamily: 'ProximaNova-Medium' }}
+                            style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                           >
                             <Edit className="w-4 h-4 text-gray-600" />
                             <span>Edit Customer</span>
@@ -338,7 +338,7 @@ const CustomerDetailsRedesigned = () => {
                               handleNewJob()
                             }}
                             className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm"
-                            style={{ fontFamily: 'ProximaNova-Medium' }}
+                            style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                           >
                             <FileText className="w-4 h-4 text-gray-600" />
                             <span>New Job</span>
@@ -349,7 +349,7 @@ const CustomerDetailsRedesigned = () => {
                               handleDeleteCustomer()
                             }}
                             className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-red-600 font-medium text-sm"
-                            style={{ fontFamily: 'ProximaNova-Medium' }}
+                            style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                           >
                             <Trash2 className="w-4 h-4 text-red-600" />
                             <span>Delete</span>

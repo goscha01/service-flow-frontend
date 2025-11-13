@@ -225,12 +225,13 @@ const ServiceFlowCustomers = () => {
   }
 
   return (
-    <div style={{fontFamily: 'ProximaNova-medium'}} className="flex h-screen bg-gray-50 overflow-hidden">
+    <div style={{fontFamily: 'Montserrat', fontWeight: 500}} className="flex h-screen bg-gray-50 overflow-hidden">
 
-      <div className="flex-1 flex flex-col min-w-0 lg:mx-44 xl:mx-48">
+      
+      <div className="flex-1 flex flex-col overflow-y-auto min-w-0">
         <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
 
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 lg:mx-44 xl:mx-48">
           <div className="p-6">
             {/* Header with Title, Search, and Actions */}
             <div className="mb-6">

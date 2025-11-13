@@ -173,12 +173,12 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
           return (
             <div key={questionId} className="mb-6">
               <div className="mb-3">
-                <label className="block text-base font-bold text-gray-900 mb-1" style={{ fontFamily: 'ProximaNova-Bold' }}>
+                <label className="block text-base font-bold text-gray-900 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
                   {question.question}
                   {question.required && <span className="text-red-500 ml-1">*</span>}
                 </label>
                 {question.description && (
-                  <p className="text-sm text-gray-600" style={{ fontFamily: 'ProximaNova-Regular' }}>{question.description}</p>
+                  <p className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{question.description}</p>
                 )}
               </div>
               
@@ -200,12 +200,12 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
           return (
             <div key={questionId} className="mb-6">
               <div className="mb-3">
-                <label className="block text-base font-bold text-gray-900 mb-1" style={{ fontFamily: 'ProximaNova-Bold' }}>
+                <label className="block text-base font-bold text-gray-900 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
                   {question.question}
                   {question.required && <span className="text-red-500 ml-1">*</span>}
                 </label>
                 {question.description && (
-                  <p className="text-sm text-gray-600" style={{ fontFamily: 'ProximaNova-Regular' }}>{question.description}</p>
+                  <p className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{question.description}</p>
                 )}
               </div>
               
@@ -221,7 +221,7 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
                       required={question.required}
                       className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
                     />
-                    <span className="ml-3 text-sm font-medium text-gray-900" style={{ fontFamily: 'ProximaNova-Medium' }}>{option.text}</span>
+                    <span className="ml-3 text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>{option.text}</span>
                   </label>
                 ))}
               </div>
@@ -282,7 +282,7 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
                 onChange={(e) => handleAnswerChange(questionId, e.target.value)}
                 required={question.required}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              style={{ fontFamily: 'ProximaNova-Regular' }}
+              style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
               >
                 <option value="">Select an option...</option>
                 {question.options?.map((option, index) => (
@@ -353,7 +353,7 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
                       </div>
                     )}
                     <div className="p-3 text-center">
-                      <span className="text-sm font-medium text-gray-900" style={{ fontFamily: 'ProximaNova-Medium' }}>{option.text}</span>
+                      <span className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>{option.text}</span>
                     </div>
                   </div>
                 </label>
@@ -389,9 +389,9 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
                       />
                     )}
                     <div className="text-center mb-3">
-                      <div className="text-sm font-medium text-gray-900" style={{ fontFamily: 'ProximaNova-Medium' }}>{option.text}</div>
+                      <div className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>{option.text}</div>
                       {option.price && (
-                        <div className="text-sm text-gray-600" style={{ fontFamily: 'ProximaNova-Regular' }}>${option.price}</div>
+                        <div className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>${option.price}</div>
                       )}
                     </div>
                     <div className="flex items-center justify-center space-x-3">
@@ -402,7 +402,7 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
                       >
                         <Minus className="w-3 h-3" />
                       </button>
-                      <span className="w-8 text-center text-sm font-medium" style={{ fontFamily: 'ProximaNova-Medium' }}>{quantity}</span>
+                      <span className="w-8 text-center text-sm font-medium" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>{quantity}</span>
                       <button
                         type="button"
                         onClick={() => handleQuantityChange(questionId, option.id, 1)}
@@ -468,7 +468,7 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
                     />
                     {/* Color Label */}
                     <div className="text-center">
-                      <span className="text-sm font-medium text-gray-900" style={{ fontFamily: 'ProximaNova-Medium' }}>{option.text}</span>
+                      <span className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>{option.text}</span>
                     </div>
                     {/* Selection Indicator */}
                     {(question.selectionType === 'multi'
@@ -505,7 +505,7 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
               onChange={(e) => handleAnswerChange(questionId, e.target.value)}
               required={question.required}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              style={{ fontFamily: 'ProximaNova-Regular' }}
+              style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
               placeholder="Enter your answer"
             />
           </div>
@@ -529,7 +529,7 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
               required={question.required}
               rows={4}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              style={{ fontFamily: 'ProximaNova-Regular' }}
+              style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
               placeholder="Enter your answer"
             />
           </div>
@@ -623,7 +623,7 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
               onChange={(e) => handleAnswerChange(questionId, e.target.value)}
               required={question.required}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              style={{ fontFamily: 'ProximaNova-Regular' }}
+              style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
               placeholder="Enter your answer"
             />
           </div>

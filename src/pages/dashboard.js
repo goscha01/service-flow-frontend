@@ -965,8 +965,6 @@ const ServiceFlowDashboard = () => {
   return (
     <>
       <div className="flex h-screen bg-gray-50 overflow-hidden">
-        {/* Sidebar */}
-        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
         {/* Customer Modal */}
         <CustomerModal
@@ -981,7 +979,7 @@ const ServiceFlowDashboard = () => {
         <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
 
         {/* Trial Banner */}
-        <div className="bg-orange-50 border-b border-orange-100 px-4 lg:px-6 py-3">
+        <div className="bg-orange-50 border-b border-orange-100 px-2 sm:px-4 md:px-6 lg:px-8 py-3">
           <div className="max-w-7xl mx-auto flex items-center justify-center space-x-2">
             <AlertTriangle className="w-4 h-4 text-orange-600" />
             <p className="text-sm text-orange-800 font-medium">
@@ -994,7 +992,7 @@ const ServiceFlowDashboard = () => {
         </div>
 
         {/* Desktop Header */}
-        <div className="hidden lg:block bg-white border-b border-gray-200 px-6 py-5">
+        <div className="hidden lg:block bg-white border-b border-gray-200 px-2 sm:px-4 md:px-6 lg:px-8 py-5">
           <div className="max-w-7xl mx-auto flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-display font-semibold text-gray-900">{getGreeting()}, {getUserDisplayName()}.</h1>
@@ -1093,8 +1091,8 @@ const ServiceFlowDashboard = () => {
 
         {/* Main Content Area */}
         <div className="flex-1 overflow-auto">
-          <div className="p-4 lg:p-6">
-            <div className="max-w-7xl mx-auto space-y-6 lg:space-y-8">
+          <div className="px-1 sm:px-3 md:px-4 lg:px-6 xl:px-8 py-4 sm:py-6 lg:py-8">
+            <div className="max-w-7xl mx-auto space-y-6 lg:space-y-8 min-w-0">
               {/* Error Display */}
               {error && (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4">

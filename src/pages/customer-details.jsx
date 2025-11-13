@@ -123,11 +123,12 @@ const CustomerDetails = () => {
   const confirmDeleteCustomer = async () => {
     try {
       setDeleteLoading(true)
-      await customersAPI.delete(customerId)
+      await customersAPI.delete(customerId, user.id)
       navigate('/customers')
     } catch (error) {
       console.error('Error deleting customer:', error)
-      setError("Failed to delete customer.")
+      const errorMessage = error.response?.data?.error || error.message || "Failed to delete customer."
+      setError(errorMessage)
       setShowDeleteConfirm(false)
     } finally {
       setDeleteLoading(false)
@@ -284,10 +285,10 @@ const CustomerDetails = () => {
     <div className="flex h-screen bg-gray-50 overflow-hidden">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
-      <div className="flex-1 flex flex-col min-w-0 lg:mx-44 xl:mx-48">
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0 lg:mx-44 xl:mx-48">
         <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
 
-        <div className="flex-1 overflow-auto">
+        <main className="flex-1 overflow-y-auto">
           {/* Header */}
           <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
             <div className="px-6 py-6">
@@ -295,7 +296,7 @@ const CustomerDetails = () => {
                 <button
                   onClick={() => navigate('/customers')}
                   className="flex items-center text-sm text-gray-600 hover:text-gray-900"
-                  style={{ fontFamily: 'ProximaNova-Regular' }}
+                  style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                 >
                   <ChevronLeft className="w-4 h-4 mr-1" />
                   <span>All Customers</span>
@@ -320,7 +321,7 @@ const CustomerDetails = () => {
                           handleEditCustomer()
                         }}
                         className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm"
-                        style={{ fontFamily: 'ProximaNova-Medium' }}
+                        style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                       >
                         <Edit className="w-4 h-4 text-gray-600" />
                         <span>Edit Customer</span>
@@ -331,7 +332,7 @@ const CustomerDetails = () => {
                           handleNewJob()
                         }}
                         className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm"
-                        style={{ fontFamily: 'ProximaNova-Medium' }}
+                        style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                       >
                         <FileText className="w-4 h-4 text-gray-600" />
                         <span>New Job</span>
@@ -342,7 +343,7 @@ const CustomerDetails = () => {
                           handleDeleteCustomer()
                         }}
                         className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-red-600 font-medium text-sm"
-                        style={{ fontFamily: 'ProximaNova-Medium' }}
+                        style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                       >
                         <Trash2 className="w-4 h-4 text-red-600" />
                         <span>Delete</span>
@@ -351,7 +352,7 @@ const CustomerDetails = () => {
                   )}
                 </div>
               </div>
-              <h1 className="text-3xl font-bold text-gray-900" style={{ fontFamily: 'ProximaNova-Bold' }}>
+              <h1 className="text-3xl font-bold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
                 {customer.first_name} {customer.last_name}
               </h1>
             </div>
@@ -363,7 +364,7 @@ const CustomerDetails = () => {
               <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                 <div className="flex">
                   <CheckCircle className="h-5 w-5 text-green-400" />
-                  <p className="ml-3 text-sm font-medium text-green-800" style={{ fontFamily: 'ProximaNova-Medium' }}>{successMessage}</p>
+                  <p className="ml-3 text-sm font-medium text-green-800" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>{successMessage}</p>
                 </div>
               </div>
             </div>
@@ -374,7 +375,7 @@ const CustomerDetails = () => {
               {/* Left Sidebar - Customer Details */}
               <div className="lg:col-span-1">
                 <div className="bg-white rounded-lg border border-gray-200 p-6">
-                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4" style={{ fontFamily: 'ProximaNova-Semibold' }}>
+                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                     DETAILS
                   </h3>
 
@@ -382,26 +383,26 @@ const CustomerDetails = () => {
                     {customer.phone && (
                       <div className="flex items-center">
                         <Phone className="w-4 h-4 text-gray-400 mr-3 flex-shrink-0" />
-                        <span className="text-sm text-gray-900" style={{ fontFamily: 'ProximaNova-Regular' }}>{formatPhoneNumber(customer.phone)}</span>
+                        <span className="text-sm text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{formatPhoneNumber(customer.phone)}</span>
                       </div>
                     )}
 
                     {customer.email ? (
                       <div className="flex items-center">
                         <Mail className="w-4 h-4 text-gray-400 mr-3 flex-shrink-0" />
-                        <span className="text-sm text-gray-900 break-all" style={{ fontFamily: 'ProximaNova-Regular' }}>{customer.email}</span>
+                        <span className="text-sm text-gray-900 break-all" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{customer.email}</span>
                       </div>
                     ) : (
                       <div className="flex items-center">
                         <Mail className="w-4 h-4 text-gray-400 mr-3 flex-shrink-0" />
-                        <span className="text-sm text-gray-500" style={{ fontFamily: 'ProximaNova-Regular' }}>No email address</span>
+                        <span className="text-sm text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>No email address</span>
                       </div>
                     )}
 
                     {customer.address ? (
                       <div className="flex items-center">
                         <MapPin className="w-4 h-4 text-gray-400 mr-3 flex-shrink-0" />
-                        <span className="text-sm text-gray-900" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                        <span className="text-sm text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                           {customer.address}
                           {customer.suite && `, ${customer.suite}`}
                         </span>
@@ -409,30 +410,30 @@ const CustomerDetails = () => {
                     ) : (
                       <div className="flex items-center">
                         <MapPin className="w-4 h-4 text-gray-400 mr-3 flex-shrink-0" />
-                        <span className="text-sm text-gray-500" style={{ fontFamily: 'ProximaNova-Regular' }}>No location</span>
+                        <span className="text-sm text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>No location</span>
                       </div>
                     )}
                   </div>
 
                   <div className="mt-6 pt-4 border-t border-gray-200">
                     <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'ProximaNova-Semibold' }}>
+                      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                         CUSTOMER SINCE
                       </h3>
                     </div>
-                    <p className="text-sm text-gray-900" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                    <p className="text-sm text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                       {customer.created_at ? new Date(customer.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'November, 2025'}
                     </p>
                   </div>
 
                   <div className="mt-4 pt-4 border-t border-gray-200">
                     <div className="flex items-center justify-between">
-                      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'ProximaNova-Semibold' }}>
+                      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                         TOTAL REVENUE
                       </h3>
                       <Info className="w-3 h-3 text-gray-400" />
                     </div>
-                    <p className="text-sm text-gray-900 mt-1" style={{ fontFamily: 'ProximaNova-Regular' }}>-</p>
+                    <p className="text-sm text-gray-900 mt-1" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>-</p>
                   </div>
                 </div>
               </div>
@@ -443,7 +444,7 @@ const CustomerDetails = () => {
                 <div className="bg-white rounded-lg border border-gray-200">
                   <div className="px-6 py-4 border-b border-gray-200">
                     <div className="flex items-center justify-between">
-                      <h2 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'ProximaNova-Semibold' }}>Jobs</h2>
+                      <h2 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Jobs</h2>
                     </div>
 
                     {/* Job Filter Tabs */}
@@ -455,7 +456,7 @@ const CustomerDetails = () => {
                             ? "border-blue-600 text-blue-600"
                             : "border-transparent text-gray-500 hover:text-gray-700"
                         }`}
-                        style={{ fontFamily: 'ProximaNova-Medium' }}
+                        style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                       >
                         Upcoming <span className="ml-1">{upcomingCount}</span>
                       </button>
@@ -466,7 +467,7 @@ const CustomerDetails = () => {
                             ? "border-blue-600 text-blue-600"
                             : "border-transparent text-gray-500 hover:text-gray-700"
                         }`}
-                        style={{ fontFamily: 'ProximaNova-Medium' }}
+                        style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                       >
                         Past <span className="ml-1">{pastCount}</span>
                       </button>
@@ -477,7 +478,7 @@ const CustomerDetails = () => {
                             ? "border-blue-600 text-blue-600"
                             : "border-transparent text-gray-500 hover:text-gray-700"
                         }`}
-                        style={{ fontFamily: 'ProximaNova-Medium' }}
+                        style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                       >
                         Canceled <span className="ml-1">{canceledCount}</span>
                       </button>
@@ -488,7 +489,7 @@ const CustomerDetails = () => {
                     {filteredJobs.length === 0 ? (
                       <div className="text-center py-12">
                         <Calendar className="mx-auto h-12 w-12 text-gray-300" />
-                        <p className="mt-2 text-sm text-gray-500" style={{ fontFamily: 'ProximaNova-Regular' }}>No {jobFilter} jobs</p>
+                        <p className="mt-2 text-sm text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>No {jobFilter} jobs</p>
                       </div>
                     ) : (
                       <div className="space-y-3">
@@ -506,22 +507,22 @@ const CustomerDetails = () => {
                             >
                               {/* Calendar Date */}
                               <div className="flex-shrink-0 w-16 h-16 bg-blue-600 rounded-lg flex flex-col items-center justify-center text-white mr-4">
-                                <span className="text-xs font-semibold leading-tight" style={{ fontFamily: 'ProximaNova-Semibold' }}>{dateDisplay.month}</span>
-                                <span className="text-2xl font-bold leading-none" style={{ fontFamily: 'ProximaNova-Bold' }}>{dateDisplay.day}</span>
+                                <span className="text-xs font-semibold leading-tight" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>{dateDisplay.month}</span>
+                                <span className="text-2xl font-bold leading-none" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>{dateDisplay.day}</span>
                               </div>
 
                               {/* Job Details */}
                               <div className="flex-1 min-w-0">
-                                <p className="text-xs font-medium text-blue-600 mb-1 uppercase" style={{ fontFamily: 'ProximaNova-Medium' }}>
+                                <p className="text-xs font-medium text-blue-600 mb-1 uppercase" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                                   {dateFormatted}
                                 </p>
-                                <p className="text-sm font-semibold text-gray-900 mb-1" style={{ fontFamily: 'ProximaNova-Semibold' }}>
+                                <p className="text-sm font-semibold text-gray-900 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                                   JOB-#{job.id}
                                 </p>
-                                <p className="text-sm text-gray-700 mb-1" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                                <p className="text-sm text-gray-700 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                                   {job.service_name}
                                 </p>
-                                <p className="text-xs text-gray-600" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                                <p className="text-xs text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                                   {startTime} - {endTime}
                                 </p>
                               </div>
@@ -536,14 +537,14 @@ const CustomerDetails = () => {
                 {/* Requests Section */}
                 <div className="bg-white rounded-lg border border-gray-200">
                   <div className="px-6 py-4 border-b border-gray-200">
-                    <h2 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'ProximaNova-Semibold' }}>Requests</h2>
+                    <h2 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Requests</h2>
                   </div>
                   <div className="p-12">
                     <div className="text-center">
                       <div className="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-lg mb-3">
                         <MessageCircle className="w-6 h-6 text-gray-400" />
                       </div>
-                      <p className="text-sm text-gray-500" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                      <p className="text-sm text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                         This customer hasn't submitted any booking or quote requests
                       </p>
                     </div>
@@ -554,8 +555,8 @@ const CustomerDetails = () => {
                 <div className="bg-white rounded-lg border border-gray-200">
                   <div className="px-6 py-4 border-b border-gray-200">
                     <div className="flex items-center justify-between">
-                      <h2 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'ProximaNova-Semibold' }}>Estimates</h2>
-                      <button className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50" style={{ fontFamily: 'ProximaNova-Medium' }}>
+                      <h2 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Estimates</h2>
+                      <button className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                         <Plus className="w-4 h-4 mr-1" />
                         New Estimate
                       </button>
@@ -566,7 +567,7 @@ const CustomerDetails = () => {
                       <div className="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-lg mb-3">
                         <LinkIcon className="w-6 h-6 text-gray-400" />
                       </div>
-                      <p className="text-sm text-gray-500" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                      <p className="text-sm text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                         No bookable estimates have been sent to this customer
                       </p>
                     </div>
@@ -577,8 +578,8 @@ const CustomerDetails = () => {
                 <div className="bg-white rounded-lg border border-gray-200">
                   <div className="px-6 py-4 border-b border-gray-200">
                     <div className="flex items-center justify-between">
-                      <h2 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'ProximaNova-Semibold' }}>Notes and Files</h2>
-                      <button className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50" style={{ fontFamily: 'ProximaNova-Medium' }}>
+                      <h2 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Notes and Files</h2>
+                      <button className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                         <Plus className="w-4 h-4 mr-1" />
                         New Note
                       </button>
@@ -589,7 +590,7 @@ const CustomerDetails = () => {
                       <div className="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-lg mb-3">
                         <FileText className="w-6 h-6 text-gray-400" />
                       </div>
-                      <p className="text-sm text-gray-500" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                      <p className="text-sm text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                         This customer doesn't have any notes attached to them
                       </p>
                     </div>
@@ -600,8 +601,8 @@ const CustomerDetails = () => {
                 <div className="bg-white rounded-lg border border-gray-200">
                   <div className="px-6 py-4 border-b border-gray-200">
                     <div className="flex items-center justify-between">
-                      <h2 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'ProximaNova-Semibold' }}>Properties</h2>
-                      <button className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50" style={{ fontFamily: 'ProximaNova-Medium' }}>
+                      <h2 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Properties</h2>
+                      <button className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                         <Plus className="w-4 h-4 mr-1" />
                         Add Property
                       </button>
@@ -616,14 +617,14 @@ const CustomerDetails = () => {
                           </div>
                           <div>
                             <div className="flex items-center">
-                              <p className="text-sm font-medium text-gray-900" style={{ fontFamily: 'ProximaNova-Medium' }}>
+                              <p className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                                 {customer.address.split(',')[0]}
                               </p>
-                              <span className="ml-2 px-2 py-0.5 text-xs font-medium text-blue-700 bg-blue-50 rounded" style={{ fontFamily: 'ProximaNova-Medium' }}>
+                              <span className="ml-2 px-2 py-0.5 text-xs font-medium text-blue-700 bg-blue-50 rounded" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                                 Default
                               </span>
                             </div>
-                            <p className="text-sm text-gray-500" style={{ fontFamily: 'ProximaNova-Regular' }}>{customer.address}</p>
+                            <p className="text-sm text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{customer.address}</p>
                           </div>
                         </div>
                         <button className="p-2 hover:bg-gray-100 rounded-lg">
@@ -633,7 +634,7 @@ const CustomerDetails = () => {
                     ) : (
                       <div className="text-center py-12">
                         <MapPin className="mx-auto h-12 w-12 text-gray-300" />
-                        <p className="mt-2 text-sm text-gray-500" style={{ fontFamily: 'ProximaNova-Regular' }}>No properties added</p>
+                        <p className="mt-2 text-sm text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>No properties added</p>
                       </div>
                     )}
                   </div>
@@ -642,14 +643,14 @@ const CustomerDetails = () => {
                 {/* Recurring Bookings Section */}
                 <div className="bg-white rounded-lg border border-gray-200">
                   <div className="px-6 py-4 border-b border-gray-200">
-                    <h2 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'ProximaNova-Semibold' }}>Recurring Bookings</h2>
+                    <h2 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Recurring Bookings</h2>
                   </div>
                   <div className="p-12">
                     <div className="text-center">
                       <div className="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-lg mb-3">
                         <RefreshCw className="w-6 h-6 text-gray-400" />
                       </div>
-                      <p className="text-sm text-gray-500" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                      <p className="text-sm text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                         This customer doesn't have any recurring bookings
                       </p>
                     </div>
@@ -660,9 +661,9 @@ const CustomerDetails = () => {
                 <div className="bg-white rounded-lg border border-gray-200">
                   <div className="px-6 py-4 border-b border-gray-200">
                     <div className="flex items-center justify-between">
-                      <h2 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'ProximaNova-Semibold' }}>Payment Methods</h2>
+                      <h2 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Payment Methods</h2>
                       <div className="flex items-center space-x-2">
-                        <button className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50" style={{ fontFamily: 'ProximaNova-Medium' }}>
+                        <button className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                           <Plus className="w-4 h-4 mr-1" />
                           Add Card
                         </button>
@@ -677,7 +678,7 @@ const CustomerDetails = () => {
                       <div className="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-lg mb-3">
                         <CreditCard className="w-6 h-6 text-gray-400" />
                       </div>
-                      <p className="text-sm text-gray-500" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                      <p className="text-sm text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                         This customer doesn't have any payment cards on file
                       </p>
                     </div>
@@ -686,7 +687,7 @@ const CustomerDetails = () => {
               </div>
             </div>
           </div>
-        </div>
+        </main>
       </div>
 
       {/* Delete Confirmation Modal */}

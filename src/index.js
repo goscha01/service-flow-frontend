@@ -97,7 +97,7 @@ import AppLayout from "./components/app-layout"
 
 const root = ReactDOM.createRoot(document.getElementById("root"))
 root.render(
-  <BrowserRouter style={{fontFamily: 'ProximaNova-medium'}}>
+  <BrowserRouter style={{fontFamily: 'Montserrat', fontWeight: 500}}>
     <AuthProvider>
       <CategoryProvider>
         <TeamMemberAuthProvider>

@@ -115,7 +115,7 @@ const Sidebar = ({ isOpen, onClose }) => {
                     }`}
                   >
                     <Icon className="w-5 h-5 flex-shrink-0" />
-                    <span style={{fontFamily: 'ProximaNova-Medium'}} className="md:hidden lg:inline">{item.label}</span>
+                    <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="md:hidden lg:inline">{item.label}</span>
                     
                     {/* Tooltip for collapsed state on tablets */}
                     <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded-md opacity-0 invisible md:group-hover:opacity-100 md:group-hover:visible lg:opacity-0 lg:invisible transition-all duration-200 whitespace-nowrap z-50">

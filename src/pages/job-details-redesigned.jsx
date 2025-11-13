@@ -1611,7 +1611,7 @@ const JobDetails = () => {
             <button
               className="flex items-center text-gray-600 hover:text-gray-700 flex-shrink-0"
               onClick={() => navigate('/jobs')}
-              style={{ fontFamily: 'ProximaNova-Regular' }}
+              style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
             >
               <ChevronLeft className="w-4 h-4 mr-1" />
               <span className="text-sm">All Jobs</span>
@@ -1620,13 +1620,13 @@ const JobDetails = () => {
           
           <div className="flex items-center justify-between mb-4">
             <div className="min-w-0 flex-1">
-              <h1 style={{fontFamily: 'ProximaNova-Bold'}} className="text-xl font-bold text-gray-900 mb-1">
+              <h1 style={{fontFamily: 'Montserrat', fontWeight: 700}} className="text-xl font-bold text-gray-900 mb-1">
                 {job.service_names && job.service_names.length > 1 
                   ? `${job.service_names.length} Services` 
                   : (job.service_name || 'Service')
-                } <span style={{fontFamily: 'ProximaNova-Regular'}} className="font-normal text-gray-500">for</span> {job.customer_first_name} {job.customer_last_name}
+                } <span style={{fontFamily: 'Montserrat', fontWeight: 400}} className="font-normal text-gray-500">for</span> {job.customer_first_name} {job.customer_last_name}
               </h1>
-              <p className="text-sm text-gray-500" style={{ fontFamily: 'ProximaNova-Regular' }}>Job #{job.id || job.job_id}</p>
+              <p className="text-sm text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Job #{job.id || job.job_id}</p>
             </div>
 
             <div className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
@@ -1735,7 +1735,7 @@ const JobDetails = () => {
               <button 
                 onClick={() => nextStatus && handleStatusUpdate(nextStatus)}
                 disabled={isDisabled || loading}
-                style={{fontFamily: 'ProximaNova-bold'}}
+                style={{fontFamily: 'Montserrat', fontWeight: 700}}
                 className={`${buttonColor} text-white font-medium px-3 py-2 rounded-l-lg transition-colors text-xs flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed`}
               >
                 <span>{loading ? 'Updating...' : buttonLabel}</span>
@@ -1904,8 +1904,8 @@ const JobDetails = () => {
               <div className="flex items-start justify-between">
                 <MapPin className="w-5 h-5 text-gray-700 flex-shrink-0 mt-5 mr-2" />
                 <div className="min-w-0 flex-1">
-                  <h3 style={{fontFamily: 'ProximaNova-medium'}} className="font-medium text-gray-500 mb-1 text-xs sm:text-xs">JOB LOCATION</h3>
-                  <p style={{fontFamily: 'ProximaNova-bold'}} className="text-gray-700 capitalize font-medium text-lg sm:text-md truncate">
+                  <h3 style={{fontFamily: 'Montserrat', fontWeight: 500}} className="font-medium text-gray-500 mb-1 text-xs sm:text-xs">JOB LOCATION</h3>
+                  <p style={{fontFamily: 'Montserrat', fontWeight: 700}} className="text-gray-700 capitalize font-medium text-lg sm:text-md truncate">
                     {job.service_address_street || 'Address not set'}
                   </p>
                   <p className="text-gray-700 text-sm sm:text-base">
@@ -1937,27 +1937,27 @@ const JobDetails = () => {
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-1 sm:space-y-0">
              
                 <div>
-                  <h3 style={{fontFamily: 'ProximaNova-medium'}} className="text-xs font-medium text-gray-600 mb-2 ml-5">DATE & TIME</h3>
+                  <h3 style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-xs font-medium text-gray-600 mb-2 ml-5">DATE & TIME</h3>
                   <div className="flex items-center space-x-3">
                   <Calendar className="w-5 h-5 text-gray-400 flex-shrink-0 mr-2" />
                     <div>
-                      <p style={{fontFamily: 'ProximaNova-bold'}} className="text-lg sm:text-xl font-semibold text-gray-900">
+                      <p style={{fontFamily: 'Montserrat', fontWeight: 700}} className="text-lg sm:text-xl font-semibold text-gray-900">
                         {formatTime(job.scheduled_date) || 'Time placeholder'}
                       </p>
-                      <p style={{fontFamily: 'ProximaNova-medium'}} className="text-gray-600 text-sm sm:text-base">{formatDate(job.scheduled_date) || 'Date placeholder'}</p>
+                      <p style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-gray-600 text-sm sm:text-base">{formatDate(job.scheduled_date) || 'Date placeholder'}</p>
                     </div>
                   </div>
                 </div>
                 <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
                   <button 
-                  style={{fontFamily: 'ProximaNova-medium'}}
+                  style={{fontFamily: 'Montserrat', fontWeight: 500}}
                     onClick={() => setShowCancelModal(true)}
                     className="px-3 py-2 text-red-600 hover:bg-red-50 rounded hover:border hover:border-red-200 text-sm"
                   >
                     Cancel
                   </button>
                   <button 
-                  style={{fontFamily: 'ProximaNova-medium'}}
+                  style={{fontFamily: 'Montserrat', fontWeight: 500}}
                     onClick={() => setShowRescheduleModal(true)}
                     className="text-gray-600 hover:text-blue-700 bg-gray-300/50 hover:bg-blue-300/30 rounded-sm px-3 py-2 text-xs font-medium"
                     >
@@ -1972,7 +1972,7 @@ const JobDetails = () => {
               <Clipboard className="w-5 h-5 text-gray-400 mt-1 flex-shrink-0" />
             
                <div className="flex-1 min-w-0">
-               <h3 style={{fontFamily: 'ProximaNova-medium'}} className="text-xs font-medium text-gray-600">JOB DETAILS</h3>
+               <h3 style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-xs font-medium text-gray-600">JOB DETAILS</h3>
               
                   {/* Display multiple services if available */}
                   {job.service_names && Array.isArray(job.service_names) && job.service_names.length > 1 ? (
@@ -2089,7 +2089,7 @@ const JobDetails = () => {
 
                       return (
                         <div key={question.id || index} className="space-y-2">
-                          <p style={{fontFamily: 'ProximaNova-medium'}} className="font-semibold text-sm text-gray-700">{questionText}</p>
+                          <p style={{fontFamily: 'Montserrat', fontWeight: 500}} className="font-semibold text-sm text-gray-700">{questionText}</p>
                           {displayAnswer ? (
                             <div className="space-y-1">
                               {isObjectArrayAnswer ? (
@@ -2097,7 +2097,7 @@ const JobDetails = () => {
                                 displayAnswer.map((item, itemIndex) => (
                                   <div key={itemIndex} className="space-y-2">
                                     {item.text && (
-                                      <p style={{fontFamily: 'ProximaNova-medium'}} className="text-gray-700 text-xs">{item.text}</p>
+                                      <p style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-gray-700 text-xs">{item.text}</p>
                                     )}
                                     {item.color && (
                                       <>
@@ -2579,7 +2579,7 @@ const JobDetails = () => {
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 py-2">
               {/* Customer Section */}
               <div className="flex items-center justify-between mb-1 px-4">
-                <h3 style={{fontFamily: 'ProximaNova-medium'}} className="font-medium text-gray-700 text-md">Customer</h3>
+                <h3 style={{fontFamily: 'Montserrat', fontWeight: 500}} className="font-medium text-gray-700 text-md">Customer</h3>
                 <button
                   onClick={() => {
                     setEditCustomerData({
@@ -2590,7 +2590,7 @@ const JobDetails = () => {
                     })
                     setShowEditCustomerModal(true)
                   }}
-                  style={{fontFamily: 'ProximaNova-medium'}}
+                  style={{fontFamily: 'Montserrat', fontWeight: 500}}
                   className=" text-blue-700 rounded hover:bg-blue-800 flex items-center space-x-2 text-sm font-medium"
                 >
                   <span>Edit</span>
@@ -2599,10 +2599,10 @@ const JobDetails = () => {
               
               <div className="flex items-center space-x-2 mb-2 px-4">
                 <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center">
-                  <span style={{fontFamily: 'ProximaNova-medium'}} className="text-white font-semibold text-sm">{getCustomerInitials()}</span>
+                  <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-white font-semibold text-sm">{getCustomerInitials()}</span>
                 </div>
                 <div>
-                  <p style={{fontFamily: 'ProximaNova-bold'}} className="font-bold text-gray-900 text-lg">
+                  <p style={{fontFamily: 'Montserrat', fontWeight: 700}} className="font-bold text-gray-900 text-lg">
                     {job.customer_first_name && job.customer_last_name 
                       ? `${job.customer_first_name} ${job.customer_last_name}`
                       : job.customer_first_name || job.customer_last_name || 'Client name placeholder'
@@ -2629,19 +2629,19 @@ const JobDetails = () => {
               {/* Billing Address Section */}
               <div className="mb-6 border-t border-gray-200 px-6 pt-3">
                 <div className="flex justify-between items-center mb-1">
-                  <span style={{fontFamily: 'ProximaNova-medium'}} className="font-bold text-gray-700 text-xs">BILLING ADDRESS</span>
-                  <button style={{fontFamily: 'ProximaNova-medium'}} className=" text-blue-700 rounded hover:bg-blue-50 flex items-center space-x-2 text-sm font-medium">
+                  <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="font-bold text-gray-700 text-xs">BILLING ADDRESS</span>
+                  <button style={{fontFamily: 'Montserrat', fontWeight: 500}} className=" text-blue-700 rounded hover:bg-blue-50 flex items-center space-x-2 text-sm font-medium">
                    
                     <span>Edit</span>
                   </button>
                 </div>
-                <p style={{fontFamily: 'ProximaNova-medium'}} className="text-xs text-gray-600">Same as service address</p>
+                <p style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-xs text-gray-600">Same as service address</p>
               </div>
 
               {/* Expected Payment Method Section */}
               <div className="border-t border-gray-200 px-6 py-3">
                 <div className="mb-1">
-                  <span style={{fontFamily: 'ProximaNova-medium'}} className="font-bold text-gray-600 text-xs">EXPECTED PAYMENT METHOD</span>
+                  <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="font-bold text-gray-600 text-xs">EXPECTED PAYMENT METHOD</span>
                 </div>
                 <div className="flex items-center space-x-3 text-gray-600 mb-1">
                   <CreditCard className="w-4 h-4 text-gray-400" />
@@ -2655,31 +2655,31 @@ const JobDetails = () => {
 
             {/* Team Section */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 py-3">
-              <h3 style={{fontFamily: 'ProximaNova-bold'}} className="font-semibold text-gray-700 text-lg mb-2 px-6">Team</h3>
+              <h3 style={{fontFamily: 'Montserrat', fontWeight: 700}} className="font-semibold text-gray-700 text-lg mb-2 px-6">Team</h3>
               
               <div className="space-y-4">
                 {/* Job Requirements Section */}
                 <div className="px-6">
                   <div className="flex justify-between items-center mb-1">
-                    <span style={{fontFamily: 'ProximaNova-medium'}} className="font-bold text-gray-700 text-xs">JOB REQUIREMENTS</span>
-                    <button style={{fontFamily: 'ProximaNova-medium'}} className=" text-blue-700 rounded hover:bg-blue-50 flex items-center space-x-2 text-sm font-medium">
+                    <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="font-bold text-gray-700 text-xs">JOB REQUIREMENTS</span>
+                    <button style={{fontFamily: 'Montserrat', fontWeight: 500}} className=" text-blue-700 rounded hover:bg-blue-50 flex items-center space-x-2 text-sm font-medium">
                    
                    <span>Edit</span>
                  </button>
                   </div>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
-                      <span style={{fontFamily: 'ProximaNova-medium'}} className="text-gray-600">Workers needed</span>
+                      <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-gray-600">Workers needed</span>
                       <span className="font-medium">{job.workers_needed || 1} service provider</span>
                     </div>
                     <div className="flex justify-between">
-                      <span style={{fontFamily: 'ProximaNova-medium'}} className="text-gray-600">Skills needed</span>
+                      <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-gray-600">Skills needed</span>
                       <span className="font-medium">
                         {job.skills && job.skills.length ? job.skills.join(', ') : 'No skill tags required'}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span style={{fontFamily: 'ProximaNova-medium'}} className="text-gray-600">Intake questions</span>
+                      <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-gray-600">Intake questions</span>
                       <span className="font-medium">
                         {(() => {
                           const intakeQuestions = getServiceIntakeQuestions();
@@ -2694,10 +2694,10 @@ const JobDetails = () => {
                 {/* Assigned Section */}
                 <div className="px-6 border-y border-gray-200 py-3">
                   <div className="flex justify-between items-center mb-2">
-                    <span style={{fontFamily: 'ProximaNova-medium'}} className="font-bold text-gray-700 text-xs">ASSIGNED</span>
+                    <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="font-bold text-gray-700 text-xs">ASSIGNED</span>
                     <button 
                       onClick={() => setShowAssignModal(true)}
-                      style={{fontFamily: 'ProximaNova-medium'}}
+                      style={{fontFamily: 'Montserrat', fontWeight: 500}}
                       className="text-blue-700 rounded hover:bg-blue-50 flex items-center space-x-2 text-sm font-medium"
                     >
                       Assign
@@ -2723,8 +2723,8 @@ const JobDetails = () => {
                       <div className="w-16 h-16 mx-auto mb-3 flex items-center justify-center">
                         <UserX className="w-8 h-8 text-gray-400" />
                       </div>
-                      <p style={{fontFamily: 'ProximaNova-medium'}} className="font-semibold text-sm text-gray-700 mb-1">Unassigned</p>
-                      <p style={{fontFamily: 'ProximaNova-medium'}} className="text-xs text-gray-400">No service providers are assigned to this job</p>
+                      <p style={{fontFamily: 'Montserrat', fontWeight: 500}} className="font-semibold text-sm text-gray-700 mb-1">Unassigned</p>
+                      <p style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-xs text-gray-400">No service providers are assigned to this job</p>
                     </div>
                   )}
                 </div>
@@ -2732,7 +2732,7 @@ const JobDetails = () => {
                 {/* Offer job to service providers Section */}
                 <div className="px-6 pt-1 pb-3">
                   <div className="flex items-center justify-between mb-1">
-                    <span style={{fontFamily: 'ProximaNova-medium'}} className="font-medium text-gray-700 text-sm">Offer job to service providers</span>
+                    <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="font-medium text-gray-700 text-sm">Offer job to service providers</span>
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input 
                         type="checkbox" 
@@ -2783,7 +2783,7 @@ const JobDetails = () => {
                 ) : (
                   <>
                     <p className="text-gray-700 mb-2 whitespace-pre-line min-h-[48px] text-center">
-                      {job.notes || <span style={{fontFamily: 'ProximaNova-medium'}} className="text-gray-600">No internal job or customer notes </span>}<br/>
+                      {job.notes || <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-gray-600">No internal job or customer notes </span>}<br/>
                       {job.notes || <span className="text-gray-400 text-xs">Notes and attachments are only visible to employees with appropriate permissions. </span>}
                       </p>
                     <button
@@ -3087,7 +3087,7 @@ const JobDetails = () => {
                 <div className="p-2 space-y-2">
                   {/* Customer Card */}
                   <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-1">
-                    <h3 style={{fontFamily: 'ProximaNova-medium'}} className="font-semibold text-gray-900 mb-4 text-xs">Customer</h3>
+                    <h3 style={{fontFamily: 'Montserrat', fontWeight: 500}} className="font-semibold text-gray-900 mb-4 text-xs">Customer</h3>
                     
                     <div className="flex items-center space-x-3 mb-4">
                       <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center">
