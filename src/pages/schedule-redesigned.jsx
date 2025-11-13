@@ -1174,7 +1174,7 @@ const ServiceFlowSchedule = () => {
           {/* Fixed Header */}
           <div className="p-4 border-b border-gray-200 flex-shrink-0">
             <div className="flex items-center justify-between">
-              <h2 style={{fontFamily: 'ProximaNova-Bold'}} className="text-2xl font-bold text-gray-900">Schedule</h2>
+              <h2 style={{fontFamily: 'Montserrat', fontWeight: 700}} className="text-2xl font-bold text-gray-900">Schedule</h2>
               <button 
                 onClick={() => navigate('/createjob')}
                 className="bg-blue-600 text-white p-2 rounded-full hover:bg-blue-700 transition-colors"
@@ -1847,7 +1847,7 @@ const ServiceFlowSchedule = () => {
                       >
                         <div className={`text-xs p-3 border-b border-gray-200 font-medium mb-2 uppercase text-center ${
                           isSelected ? 'text-blue-900 font-semibold' : 'text-gray-600'
-                        }`}  style={{fontFamily: 'ProximaNova-Bold'}}>
+                        }`}  style={{fontFamily: 'Montserrat', fontWeight: 700}}>
                           {day.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
                         </div>
                         {dayJobs.map((job, jobIndex) => {
@@ -1873,11 +1873,11 @@ const ServiceFlowSchedule = () => {
                               }}
                             >
                               <div className="flex items-center justify-between mb-1">
-                                <div className="font-semibold text-gray-900 truncate" style={{ fontFamily: 'ProximaNova-Semibold' }}>
+                                <div className="font-semibold text-gray-900 truncate" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                                   {timeString} - {endTimeString}
                                 </div>
                                 {territoryName && (
-                                  <span className="text-[10px] text-blue-600 font-medium truncate max-w-[60px]" style={{ fontFamily: 'ProximaNova-Medium' }}>
+                                  <span className="text-[10px] text-blue-600 font-medium truncate max-w-[60px]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                                     {territoryName}
                                   </span>
                                 )}
@@ -1885,7 +1885,7 @@ const ServiceFlowSchedule = () => {
                               <div 
                                 className="truncate font-medium cursor-pointer hover:text-blue-600 transition-colors text-gray-700 mb-1 inline-block"
                                 onClick={(e) => handleCustomerClick(e, job.customer_id || job.customer?.id || job.customers?.id)}
-                                style={{ fontFamily: 'ProximaNova-Medium', maxWidth: '100%' }}
+                                style={{ fontFamily: 'Montserrat', fontWeight: 500, maxWidth: '100%' }}
                               >
                                 {customerName}
                               </div>
@@ -1992,7 +1992,7 @@ const ServiceFlowSchedule = () => {
                               }}
                             >
                               <div className="flex items-center justify-between mb-0.5">
-                                <div className="font-semibold text-gray-900 truncate text-[10px]" style={{ fontFamily: 'ProximaNova-Semibold' }}>
+                                <div className="font-semibold text-gray-900 truncate text-[10px]" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                                   {timeString} - {endTimeString}
                                 </div>
                                 <div className="flex items-center space-x-0.5">
@@ -2021,7 +2021,7 @@ const ServiceFlowSchedule = () => {
                               <div 
                                 className="truncate font-medium text-[10px] cursor-pointer hover:text-blue-600 transition-colors text-gray-700 inline-block"
                                 onClick={(e) => handleCustomerClick(e, job.customer_id || job.customer?.id)}
-                                style={{ fontFamily: 'ProximaNova-Medium', maxWidth: '100%' }}
+                                style={{ fontFamily: 'Montserrat', fontWeight: 500, maxWidth: '100%' }}
                               >
                                 {customerName}
                               </div>
@@ -2333,10 +2333,10 @@ const ServiceFlowSchedule = () => {
                 <div className="flex items-center gap-4 flex-1">
                  
                   <div className="flex-1">
-                    <h2 className="text-xl font-bold text-gray-900 mb-1" style={{ fontFamily: 'ProximaNova-Bold' }}>
-                      {selectedJobDetails.service_name || selectedJobDetails.service_type || 'Service'} <span className="font-normal text-gray-500" style={{ fontFamily: 'ProximaNova-Regular' }}>for</span> {getCustomerName(selectedJobDetails) || 'Customer'}
+                    <h2 className="text-xl font-bold text-gray-900 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
+                      {selectedJobDetails.service_name || selectedJobDetails.service_type || 'Service'} <span className="font-normal text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>for</span> {getCustomerName(selectedJobDetails) || 'Customer'}
                     </h2>
-                    <p className="text-sm text-gray-500" style={{ fontFamily: 'ProximaNova-Regular' }}>Job #{selectedJobDetails.id}</p>
+                    <p className="text-sm text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Job #{selectedJobDetails.id}</p>
                   </div>
                  
                 </div>
@@ -2531,7 +2531,7 @@ const ServiceFlowSchedule = () => {
                           hover:opacity-90
                         `}
                         style={{ 
-                          fontFamily: 'ProximaNova-Semibold',
+                          fontFamily: 'Montserrat', fontWeight: 600,
                           clipPath: !isFirst && !isLast
                             ? 'polygon(0% 0%, calc(100% - 8px) 0%, 100% 50%, calc(100% - 8px) 100%, 0% 100%, 8px 50%)'
                             : isFirst
@@ -2552,7 +2552,7 @@ const ServiceFlowSchedule = () => {
             </div>
 
             {/* Content */}
-            <div className="space-y-4" style={{ fontFamily: 'ProximaNova-Regular' }}>
+            <div className="space-y-4" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
               {/* Map Section */}
               <div className="bg-white border-b border-gray-200">
                 <div className="h-48 bg-gray-100 relative">
@@ -2577,19 +2577,19 @@ const ServiceFlowSchedule = () => {
                 </div>
                 <div className="px-6 py-4">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'ProximaNova-Bold' }}>Job Location</span>
+                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Job Location</span>
                     <button 
                       onClick={handleEditAddress}
                       className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-                      style={{ fontFamily: 'ProximaNova-Medium' }}
+                      style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                     >
                       Edit Address
                     </button>
                   </div>
-                  <p className="font-medium text-gray-900" style={{ fontFamily: 'ProximaNova-Medium' }}>
+                  <p className="font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                     {selectedJobDetails.service_address_street || selectedJobDetails.customer_address || 'Address not provided'}
                   </p>
-                  <p className="text-sm text-gray-600 mt-1" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                  <p className="text-sm text-gray-600 mt-1" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                     {selectedJobDetails.service_address_city || selectedJobDetails.city || ''}
                   </p>
                   <a 
@@ -2599,7 +2599,7 @@ const ServiceFlowSchedule = () => {
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-sm text-blue-600 hover:text-blue-700 mt-2 inline-block"
-                    style={{ fontFamily: 'ProximaNova-Regular' }}
+                    style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                   >
                     View directions →
                   </a>
@@ -2610,19 +2610,19 @@ const ServiceFlowSchedule = () => {
               <div className="bg-white border-b border-gray-200">
                 <div className="px-6 py-4">
                   <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'ProximaNova-Bold' }}>Date & Time</span>
+                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Date & Time</span>
                     <div className="flex items-center gap-2">
                       <button 
                         onClick={handleCancelJob}
                         className="text-sm text-red-600 hover:text-red-700 font-medium"
-                        style={{ fontFamily: 'ProximaNova-Medium' }}
+                        style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                       >
                         Cancel
                       </button>
                       <button 
                         onClick={handleReschedule}
                         className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-                        style={{ fontFamily: 'ProximaNova-Medium' }}
+                        style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                       >
                         Reschedule
                       </button>
@@ -2630,7 +2630,7 @@ const ServiceFlowSchedule = () => {
                   </div>
                   <div className="flex items-center gap-2 text-gray-900 mb-1">
                     <Calendar className="w-5 h-5 text-gray-400" />
-                    <p className="font-semibold" style={{ fontFamily: 'ProximaNova-Semibold' }}>
+                    <p className="font-semibold" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                       {new Date(selectedJobDetails.scheduled_date).toLocaleTimeString('en-US', { 
                         hour: 'numeric', 
                         minute: '2-digit',
@@ -2642,7 +2642,7 @@ const ServiceFlowSchedule = () => {
                       })}
                     </p>
                   </div>
-                  <p className="text-sm text-gray-600" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                  <p className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                     {new Date(selectedJobDetails.scheduled_date).toLocaleDateString('en-US', { 
                       weekday: 'long', 
                       month: 'short', 
@@ -2657,16 +2657,16 @@ const ServiceFlowSchedule = () => {
               <div className="bg-white border-b border-gray-200">
                 <div className="px-6 py-4">
                   <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'ProximaNova-Bold' }}>Job Details</span>
+                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Job Details</span>
                     <button 
                       onClick={() => navigate(`/job/${selectedJobDetails.id}`)}
                       className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-                      style={{ fontFamily: 'ProximaNova-Medium' }}
+                      style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                     >
                       Edit Service
                     </button>
                   </div>
-                  <p className="font-semibold text-gray-900 text-base mb-2" style={{ fontFamily: 'ProximaNova-Semibold' }}>
+                  <p className="font-semibold text-gray-900 text-base mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                     {selectedJobDetails.service_name || selectedJobDetails.service_type || 'Service'}
                   </p>
                   
@@ -2689,7 +2689,7 @@ const ServiceFlowSchedule = () => {
                     if (parsedModifiers.length > 0) {
                       return (
                         <div className="mb-3">
-                          <p className="text-sm font-bold text-gray-900 mb-2" style={{ fontFamily: 'ProximaNova-Bold' }}>Select Your Items</p>
+                          <p className="text-sm font-bold text-gray-900 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Select Your Items</p>
                           {parsedModifiers.map((modifier, idx) => {
                             // Get modifier title/name
                             const modifierName = modifier.title || modifier.name;
@@ -2701,7 +2701,7 @@ const ServiceFlowSchedule = () => {
                             }
                             
                             return (
-                              <div key={idx} className="text-sm text-gray-600 mb-1" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                              <div key={idx} className="text-sm text-gray-600 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                                 {selectedOption ? `${selectedOption.label || selectedOption.name || selectedOption.text}` : modifierName}
                               </div>
                             );
@@ -2712,7 +2712,7 @@ const ServiceFlowSchedule = () => {
                     return null;
                   })()}
                   
-                  <p className="text-sm text-gray-600" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                  <p className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                     {selectedJobDetails.duration ? `${Math.floor(selectedJobDetails.duration / 60)} hours ${selectedJobDetails.duration % 60} minutes` : 
                      selectedJobDetails.service_duration ? `${Math.floor(selectedJobDetails.service_duration / 60)} hours ${selectedJobDetails.service_duration % 60} minutes` : 
                      ''}
@@ -2725,26 +2725,26 @@ const ServiceFlowSchedule = () => {
                 <div className="px-6 py-4">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
-                      <span className="text-lg font-bold text-gray-900" style={{ fontFamily: 'ProximaNova-Bold' }}>Invoice</span>
+                      <span className="text-lg font-bold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Invoice</span>
                       <span className="px-2 py-1 text-xs font-semibold rounded bg-blue-100 text-blue-800">Draft</span>
                     </div>
-                    <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-semibold" style={{ fontFamily: 'ProximaNova-Semibold' }}>
+                    <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-semibold" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                       Add Payment
                     </button>
                   </div>
-                  <p className="text-sm text-gray-500 mb-4" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                  <p className="text-sm text-gray-500 mb-4" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                     Due {new Date(new Date().getTime() + 15 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                   </p>
                   
                   <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
                     <div className="flex items-center justify-between mb-2">
                       <div>
-                        <p className="text-xs text-gray-500" style={{ fontFamily: 'ProximaNova-Regular' }}>Amount paid</p>
-                        <p className="font-semibold text-gray-900 text-xl" style={{ fontFamily: 'ProximaNova-Semibold' }}>$0.00</p>
+                        <p className="text-xs text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Amount paid</p>
+                        <p className="font-semibold text-gray-900 text-xl" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>$0.00</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-xs text-gray-500" style={{ fontFamily: 'ProximaNova-Regular' }}>Amount due</p>
-                        <p className="font-semibold text-gray-900 text-xl" style={{ fontFamily: 'ProximaNova-Semibold' }}>
+                        <p className="text-xs text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Amount due</p>
+                        <p className="font-semibold text-gray-900 text-xl" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                           ${selectedJobDetails.total || selectedJobDetails.price || selectedJobDetails.service_price || '0.00'}
                         </p>
                       </div>
@@ -2757,11 +2757,11 @@ const ServiceFlowSchedule = () => {
               <div className="bg-white border-b border-gray-200">
                 <div className="px-6 py-4">
                   <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'ProximaNova-Bold' }}>Customer</span>
+                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Customer</span>
                     <button 
                       onClick={handleEditCustomer}
                       className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-                      style={{ fontFamily: 'ProximaNova-Medium' }}
+                      style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                     >
                       Edit
                     </button>
@@ -2771,7 +2771,7 @@ const ServiceFlowSchedule = () => {
                       {(selectedJobDetails.customer_first_name?.[0] || 'A')}{(selectedJobDetails.customer_last_name?.[0] || 'A')}
                     </div>
                     <div>
-                      <p className="font-semibold text-gray-900" style={{ fontFamily: 'ProximaNova-Semibold' }}>
+                      <p className="font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                         {getCustomerName(selectedJobDetails) || 'Customer'}
                       </p>
                     </div>
@@ -2779,13 +2779,13 @@ const ServiceFlowSchedule = () => {
                   {selectedJobDetails.customer_phone && (
                     <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
                       <Phone className="w-4 h-4 text-gray-400" />
-                      <span style={{ fontFamily: 'ProximaNova-Regular' }}>{selectedJobDetails.customer_phone}</span>
+                      <span style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{selectedJobDetails.customer_phone}</span>
                     </div>
                   )}
                   {selectedJobDetails.customer_email && (
                     <div className="flex items-center gap-2 text-sm text-gray-600">
                       <Mail className="w-4 h-4 text-gray-400" />
-                      <span style={{ fontFamily: 'ProximaNova-Regular' }}>{selectedJobDetails.customer_email}</span>
+                      <span style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{selectedJobDetails.customer_email}</span>
                     </div>
                   )}
                 </div>
@@ -2795,19 +2795,19 @@ const ServiceFlowSchedule = () => {
               <div className="bg-white border-b border-gray-200">
                 <div className="px-6 py-4">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'ProximaNova-Bold' }}>Billing Address</span>
-                    <button className="text-sm text-blue-600 hover:text-blue-700 font-medium" style={{ fontFamily: 'ProximaNova-Medium' }}>Edit</button>
+                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Billing Address</span>
+                    <button className="text-sm text-blue-600 hover:text-blue-700 font-medium" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>Edit</button>
                   </div>
-                  <p className="text-sm text-gray-600" style={{ fontFamily: 'ProximaNova-Regular' }}>Same as service address</p>
+                  <p className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Same as service address</p>
                 </div>
               </div>
 
               {/* Expected Payment Method */}
               <div className="bg-white border-b border-gray-200">
                 <div className="px-6 py-4">
-                  <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-3" style={{ fontFamily: 'ProximaNova-Bold' }}>Expected Payment Method</span>
-                  <p className="text-sm text-gray-600 mb-2" style={{ fontFamily: 'ProximaNova-Regular' }}>No payment method on file</p>
-                  <button className="text-sm text-blue-600 hover:text-blue-700 font-medium" style={{ fontFamily: 'ProximaNova-Medium' }}>Add a card to charge later</button>
+                  <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-3" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Expected Payment Method</span>
+                  <p className="text-sm text-gray-600 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>No payment method on file</p>
+                  <button className="text-sm text-blue-600 hover:text-blue-700 font-medium" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>Add a card to charge later</button>
                 </div>
               </div>
 
@@ -2815,21 +2815,21 @@ const ServiceFlowSchedule = () => {
               <div className="bg-white border-b border-gray-200">
                 <div className="px-6 py-4">
                   <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'ProximaNova-Bold' }}>Team</span>
+                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Team</span>
                   </div>
                   
                   {/* Job Requirements */}
                   <div className="mb-4">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-bold text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'ProximaNova-Bold' }}>Job Requirements</span>
-                      <button className="text-sm text-blue-600 hover:text-blue-700 font-medium" style={{ fontFamily: 'ProximaNova-Medium' }}>
+                      <span className="text-xs font-bold text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Job Requirements</span>
+                      <button className="text-sm text-blue-600 hover:text-blue-700 font-medium" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                         Edit
                       </button>
                     </div>
-                    <p className="text-sm text-gray-600 mb-1" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                    <p className="text-sm text-gray-600 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                       Workers needed: <span className="font-semibold text-gray-900">{selectedJobDetails.workers_needed || 1} service provider</span>
                     </p>
-                    <p className="text-sm text-gray-600" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                    <p className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                       Skills needed: <span className="font-semibold text-gray-900">No skill tags required</span>
                     </p>
                   </div>
@@ -2837,11 +2837,11 @@ const ServiceFlowSchedule = () => {
                   {/* Assigned */}
                   <div>
                     <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs font-bold text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'ProximaNova-Bold' }}>Assigned</span>
+                      <span className="text-xs font-bold text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Assigned</span>
                       <button 
                         onClick={handleOpenAssignModal}
                         className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-                        style={{ fontFamily: 'ProximaNova-Medium' }}
+                        style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                       >
                         Assign
                       </button>
@@ -2852,7 +2852,7 @@ const ServiceFlowSchedule = () => {
                           {selectedJobDetails.team_member_first_name?.[0]}{selectedJobDetails.team_member_last_name?.[0]}
                         </div>
                         <div>
-                          <p className="font-medium text-gray-900" style={{ fontFamily: 'ProximaNova-Medium' }}>
+                          <p className="font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                             {selectedJobDetails.team_member_first_name} {selectedJobDetails.team_member_last_name}
                           </p>
                         </div>
@@ -2860,8 +2860,8 @@ const ServiceFlowSchedule = () => {
                     ) : (
                       <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 text-center">
                         <UserX className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                        <p className="text-sm text-gray-600" style={{ fontFamily: 'ProximaNova-Regular' }}>Unassigned</p>
-                        <p className="text-xs text-gray-500 mt-1" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                        <p className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Unassigned</p>
+                        <p className="text-xs text-gray-500 mt-1" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                           No service providers are assigned to this job
                         </p>
                       </div>
@@ -2873,12 +2873,12 @@ const ServiceFlowSchedule = () => {
               {/* Notes & Files */}
               <div className="bg-white border-b border-gray-200">
                 <div className="px-6 py-4">
-                  <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-3" style={{ fontFamily: 'ProximaNova-Bold' }}>Notes & Files</span>
+                  <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-3" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Notes & Files</span>
                   <div className="text-center py-6">
                     <NotepadText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                    <p className="text-sm text-gray-600 mb-1" style={{ fontFamily: 'ProximaNova-Regular' }}>No internal job or customer notes</p>
-                    <p className="text-xs text-gray-500 mb-4" style={{ fontFamily: 'ProximaNova-Regular' }}>Notes and attachments are only visible to employees with appropriate permissions.</p>
-                    <button className="text-sm text-blue-600 hover:text-blue-700 font-medium" style={{ fontFamily: 'ProximaNova-Medium' }}>+ Add Note</button>
+                    <p className="text-sm text-gray-600 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>No internal job or customer notes</p>
+                    <p className="text-xs text-gray-500 mb-4" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Notes and attachments are only visible to employees with appropriate permissions.</p>
+                    <button className="text-sm text-blue-600 hover:text-blue-700 font-medium" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>+ Add Note</button>
                   </div>
                 </div>
               </div>
@@ -2886,23 +2886,23 @@ const ServiceFlowSchedule = () => {
               {/* Customer Notifications */}
               <div className="bg-white border-b border-gray-200">
                 <div className="px-6 py-4">
-                  <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-4" style={{ fontFamily: 'ProximaNova-Bold' }}>Customer notifications</span>
+                  <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-4" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Customer notifications</span>
                   
                   {/* Notification Preferences */}
                   <div className="mb-4">
                     <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs font-bold text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'ProximaNova-Bold' }}>Notification Preferences</span>
+                      <span className="text-xs font-bold text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Notification Preferences</span>
                     </div>
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-700" style={{ fontFamily: 'ProximaNova-Regular' }}>Emails</span>
+                        <span className="text-sm text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Emails</span>
                         <label className="relative inline-flex items-center cursor-pointer">
                           <input type="checkbox" checked readOnly className="sr-only peer" />
                           <div className="w-10 h-6 bg-blue-600 rounded-full peer peer-checked:bg-blue-600 after:content-[''] after:absolute after:top-[2px] after:right-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
                         </label>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-700" style={{ fontFamily: 'ProximaNova-Regular' }}>Text messages</span>
+                        <span className="text-sm text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Text messages</span>
                         <label className="relative inline-flex items-center cursor-pointer">
                           <input type="checkbox" readOnly className="sr-only peer" />
                           <div className="w-10 h-6 bg-gray-200 rounded-full peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
@@ -2914,13 +2914,13 @@ const ServiceFlowSchedule = () => {
                   {/* Confirmation */}
                   <div className="mb-4">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-gray-900" style={{ fontFamily: 'ProximaNova-Medium' }}>Confirmation</span>
+                      <span className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>Confirmation</span>
                     </div>
                     <div className="flex items-center gap-2 text-sm text-gray-600 mb-1">
                       <Mail className="w-4 h-4 text-gray-400" />
-                      <span style={{ fontFamily: 'ProximaNova-Regular' }}>Appointment Confirmation</span>
+                      <span style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Appointment Confirmation</span>
                     </div>
-                    <p className="text-xs text-gray-500 pl-6" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                    <p className="text-xs text-gray-500 pl-6" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                       {selectedJobDetails.confirmation_sent ? 
                         `${selectedJobDetails.confirmation_sent_at ? new Date(selectedJobDetails.confirmation_sent_at).toLocaleString() : '5 days ago'} - Email - Sent` :
                         'Not sent yet'
@@ -2933,8 +2933,8 @@ const ServiceFlowSchedule = () => {
               {/* Customer Feedback */}
               <div className="bg-white border-b border-gray-200">
                 <div className="px-6 py-4">
-                  <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-3" style={{ fontFamily: 'ProximaNova-Bold' }}>Customer feedback</span>
-                  <p className="text-sm text-gray-600" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                  <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-3" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Customer feedback</span>
+                  <p className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                     An email will be sent to the customer asking them to rate the service after the job is marked complete. <button className="text-blue-600 hover:text-blue-700 font-medium">Learn more</button>
                   </p>
                 </div>
@@ -2942,8 +2942,8 @@ const ServiceFlowSchedule = () => {
 
               {/* Conversion Summary */}
               <div className="bg-white px-6 py-4">
-                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-3" style={{ fontFamily: 'ProximaNova-Bold' }}>Conversion summary</span>
-                <p className="text-sm text-gray-600" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-3" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Conversion summary</span>
+                <p className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                   Jobs created by team members from the Zenbooker admin won't have any conversion details associated. <button className="text-blue-600 hover:text-blue-700 font-medium">Learn more</button>
                 </p>
               </div>

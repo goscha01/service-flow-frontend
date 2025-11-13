@@ -310,13 +310,11 @@ const ServiceFlowTeam = () => {
   const filteredMembers = getFilteredMembers();
 
   return (
-    <>
-      <div className="flex h-screen bg-gray-50 overflow-hidden">
-
-        <div className="flex-1 flex flex-col min-w-0 lg:mx-44 xl:mx-48">
+    <div className="flex h-screen bg-gray-50 overflow-hidden">
+        <div className="flex-1 flex flex-col overflow-hidden min-w-0 lg:mx-44 xl:mx-48">
           <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
 
-          <div className="flex-1 overflow-auto">
+          <main className="flex-1 overflow-y-auto">
             <div className="px-4 sm:px-6 lg:px-8 py-8">
               {authLoading ? (
                 <div className="flex items-center justify-center h-64">
@@ -569,176 +567,174 @@ const ServiceFlowTeam = () => {
                 </>
               )}
             </div>
-          </div>
+          </main>
         </div>
 
-        {/* Edit Team Member Modal */}
-        {isEditModalOpen && selectedMember && (
-          <AddTeamMemberModal
-            isOpen={isEditModalOpen}
-            onClose={() => {
-              setIsEditModalOpen(false)
-              setSelectedMember(null)
-            }}
-            onSuccess={handleMemberUpdate}
-            userId={user?.id}
-            member={selectedMember}
-            isEditing={true}
-          />
-        )}
+      {/* Modals */}
+      {isEditModalOpen && selectedMember && (
+        <AddTeamMemberModal
+          isOpen={isEditModalOpen}
+          onClose={() => {
+            setIsEditModalOpen(false)
+            setSelectedMember(null)
+          }}
+          onSuccess={handleMemberUpdate}
+          userId={user?.id}
+          member={selectedMember}
+          isEditing={true}
+        />
+      )}
 
-        {/* Delete Confirmation Modal */}
-        {showDeleteModal && memberToDelete && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg p-6 max-w-lg w-full">
-              <div className="flex items-center mb-4">
-                <AlertCircle className="h-6 w-6 text-red-600 mr-3" />
-                <h3 className="text-lg font-medium text-gray-900">Delete Team Member</h3>
-              </div>
+      {showDeleteModal && memberToDelete && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 max-w-lg w-full">
+            <div className="flex items-center mb-4">
+              <AlertCircle className="h-6 w-6 text-red-600 mr-3" />
+              <h3 className="text-lg font-medium text-gray-900">Delete Team Member</h3>
+            </div>
 
-              {deleteError && (
-                <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
-                  <div className="flex items-start">
-                    <AlertCircle className="h-5 w-5 text-red-600 mr-3 mt-0.5 flex-shrink-0" />
-                    <div className="flex-1">
-                      <h4 className="text-sm font-medium text-red-800 mb-1">Unable to Delete Team Member</h4>
-                      <p className="text-sm text-red-700 leading-relaxed">{deleteError}</p>
-                    </div>
+            {deleteError && (
+              <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
+                <div className="flex items-start">
+                  <AlertCircle className="h-5 w-5 text-red-600 mr-3 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <h4 className="text-sm font-medium text-red-800 mb-1">Unable to Delete Team Member</h4>
+                    <p className="text-sm text-red-700 leading-relaxed">{deleteError}</p>
                   </div>
                 </div>
-              )}
-
-              <p className="text-sm text-gray-500 mb-6">
-                Are you sure you want to delete <strong>{memberToDelete.first_name} {memberToDelete.last_name}</strong>?
-                This action cannot be undone.
-              </p>
-
-              <div className="flex justify-end space-x-3">
-                <button
-                  onClick={() => {
-                    setShowDeleteModal(false)
-                    setMemberToDelete(null)
-                    setDeleteError("")
-                  }}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={confirmDeleteMember}
-                  disabled={deleteLoading}
-                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-50"
-                >
-                  {deleteLoading ? "Deleting..." : "Delete"}
-                </button>
               </div>
+            )}
+
+            <p className="text-sm text-gray-500 mb-6">
+              Are you sure you want to delete <strong>{memberToDelete.first_name} {memberToDelete.last_name}</strong>?
+              This action cannot be undone.
+            </p>
+
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowDeleteModal(false)
+                  setMemberToDelete(null)
+                  setDeleteError("")
+                }}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeleteMember}
+                disabled={deleteLoading}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-50"
+              >
+                {deleteLoading ? "Deleting..." : "Delete"}
+              </button>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Activation Confirmation Modal */}
-        {showActivationModal && memberToToggle && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg p-6 max-w-md w-full">
-              <div className="flex items-center mb-4">
-                {memberToToggle.status === 'active' ? (
-                  <PowerOff className="h-6 w-6 text-red-600 mr-3" />
-                ) : (
-                  <Power className="h-6 w-6 text-green-600 mr-3" />
-                )}
-                <h3 className="text-lg font-medium text-gray-900">
-                  {memberToToggle.status === 'active' ? 'Deactivate' : 'Activate'} Team Member
-                </h3>
-              </div>
-              <p className="text-sm text-gray-500 mb-6">
-                {memberToToggle.status === 'active' ? (
-                  <>Are you sure you want to deactivate <strong>{memberToToggle.first_name} {memberToToggle.last_name}</strong>?</>
-                ) : (
-                  <>Are you sure you want to activate <strong>{memberToToggle.first_name} {memberToToggle.last_name}</strong>?</>
-                )}
-              </p>
-              <div className="flex justify-end space-x-3">
-                <button
-                  onClick={() => {
-                    setShowActivationModal(false)
-                    setMemberToToggle(null)
-                  }}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={confirmToggleActivation}
-                  disabled={activationLoading}
-                  className={`px-4 py-2 text-sm font-medium text-white rounded-md ${
-                    memberToToggle.status === 'active'
-                      ? 'bg-red-600 hover:bg-red-700'
-                      : 'bg-green-600 hover:bg-green-700'
-                  } disabled:opacity-50`}
-                >
-                  {activationLoading ? "Updating..." : (memberToToggle.status === 'active' ? "Deactivate" : "Activate")}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Resend Invite Confirmation Modal */}
-        {showResendModal && memberToResend && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg p-6 max-w-md w-full">
-              <div className="flex items-center mb-4">
-                <UserPlus className="h-6 w-6 text-blue-600 mr-3" />
-                <h3 className="text-lg font-medium text-gray-900">Resend Invitation</h3>
-              </div>
-              <p className="text-sm text-gray-500 mb-6">
-                Are you sure you want to resend the invitation to <strong>{memberToResend.first_name} {memberToResend.last_name}</strong>?
-              </p>
-              <div className="flex justify-end space-x-3">
-                <button
-                  onClick={() => {
-                    setShowResendModal(false)
-                    setMemberToResend(null)
-                  }}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={confirmResendInvite}
-                  disabled={resendLoading}
-                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
-                >
-                  {resendLoading ? "Sending..." : "Resend Invitation"}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Notification */}
-        {notification && (
-          <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg ${
-            notification.type === 'success'
-              ? 'bg-green-50 text-green-800 border border-green-200'
-              : 'bg-red-50 text-red-800 border border-red-200'
-          }`}>
-            <div className="flex items-center">
-              {notification.type === 'success' ? (
-                <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
+      {/* Activation Confirmation Modal */}
+      {showActivationModal && memberToToggle && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <div className="flex items-center mb-4">
+              {memberToToggle.status === 'active' ? (
+                <PowerOff className="h-6 w-6 text-red-600 mr-3" />
               ) : (
-                <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                </svg>
+                <Power className="h-6 w-6 text-green-600 mr-3" />
               )}
-              <span className="font-medium">{notification.message}</span>
+              <h3 className="text-lg font-medium text-gray-900">
+                {memberToToggle.status === 'active' ? 'Deactivate' : 'Activate'} Team Member
+              </h3>
+            </div>
+            <p className="text-sm text-gray-500 mb-6">
+              {memberToToggle.status === 'active' ? (
+                <>Are you sure you want to deactivate <strong>{memberToToggle.first_name} {memberToToggle.last_name}</strong>?</>
+              ) : (
+                <>Are you sure you want to activate <strong>{memberToToggle.first_name} {memberToToggle.last_name}</strong>?</>
+              )}
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowActivationModal(false)
+                  setMemberToToggle(null)
+                }}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmToggleActivation}
+                disabled={activationLoading}
+                className={`px-4 py-2 text-sm font-medium text-white rounded-md ${
+                  memberToToggle.status === 'active'
+                    ? 'bg-red-600 hover:bg-red-700'
+                    : 'bg-green-600 hover:bg-green-700'
+                } disabled:opacity-50`}
+              >
+                {activationLoading ? "Updating..." : (memberToToggle.status === 'active' ? "Deactivate" : "Activate")}
+              </button>
             </div>
           </div>
-        )}
-      </div>
-    </>
+        </div>
+      )}
+
+      {/* Resend Invite Confirmation Modal */}
+      {showResendModal && memberToResend && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <div className="flex items-center mb-4">
+              <UserPlus className="h-6 w-6 text-blue-600 mr-3" />
+              <h3 className="text-lg font-medium text-gray-900">Resend Invitation</h3>
+            </div>
+            <p className="text-sm text-gray-500 mb-6">
+              Are you sure you want to resend the invitation to <strong>{memberToResend.first_name} {memberToResend.last_name}</strong>?
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowResendModal(false)
+                  setMemberToResend(null)
+                }}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmResendInvite}
+                disabled={resendLoading}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
+              >
+                {resendLoading ? "Sending..." : "Resend Invitation"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Notification */}
+      {notification && (
+        <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg ${
+          notification.type === 'success'
+            ? 'bg-green-50 text-green-800 border border-green-200'
+            : 'bg-red-50 text-red-800 border border-red-200'
+        }`}>
+          <div className="flex items-center">
+            {notification.type === 'success' ? (
+              <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+            ) : (
+              <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+            )}
+            <span className="font-medium">{notification.message}</span>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
 

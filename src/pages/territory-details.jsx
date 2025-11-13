@@ -196,7 +196,7 @@ const TerritoryDetails = () => {
         <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
 
         <main className="flex-1 overflow-y-auto">
-          <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="max-w-[1600px] mx-auto px-5 lg:px-40 xl:px-44 2xl:px-48 py-8">
             {/* Back button and title */}
             <button
               onClick={() => navigate('/territories')}

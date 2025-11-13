@@ -142,12 +142,12 @@ const ServiceModifiersForm = ({ modifiers = [], selectedModifiers: parentSelecte
     return (
       <div key={modifier.id} className="mb-6">
         <div className="mb-4">
-          <h3 className="text-base font-bold text-gray-900 mb-1" style={{ fontFamily: 'ProximaNova-Bold' }}>
+          <h3 className="text-base font-bold text-gray-900 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
             {modifier.name || modifier.title}
             {modifier.required && <span className="text-red-500 ml-1">*</span>}
           </h3>
           {modifier.description && (
-            <p className="text-sm text-gray-600" style={{ fontFamily: 'ProximaNova-Regular' }}>{modifier.description}</p>
+            <p className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{modifier.description}</p>
           )}
         </div>
 
@@ -168,10 +168,10 @@ const ServiceModifiersForm = ({ modifiers = [], selectedModifiers: parentSelecte
                   quantity > 0 ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400'
                 }`}>
                   <div className="text-center">
-                    <h4 className="font-semibold text-gray-900 text-base mb-2" style={{ fontFamily: 'ProximaNova-Semibold' }}>
+                    <h4 className="font-semibold text-gray-900 text-base mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                       {option.label || option.name}
                     </h4>
-                    <div className="text-base text-gray-600 mb-3" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                    <div className="text-base text-gray-600 mb-3" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                       ${(() => {
                         const priceKey = `${modifier.id}_option_${option.id}`;
                         const editedPrice = effectiveEditedPrices[priceKey];
@@ -179,7 +179,7 @@ const ServiceModifiersForm = ({ modifiers = [], selectedModifiers: parentSelecte
                       })()}
                     </div>
                     {option.description && (
-                      <p className="text-xs text-gray-500 mb-4 px-2" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                      <p className="text-xs text-gray-500 mb-4 px-2" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                         {option.description}
                       </p>
                     )}
@@ -192,7 +192,7 @@ const ServiceModifiersForm = ({ modifiers = [], selectedModifiers: parentSelecte
                       >
                         <Minus className="w-4 h-4 text-gray-700" />
                       </button>
-                      <span className="text-xl font-semibold text-gray-900 w-10 text-center" style={{ fontFamily: 'ProximaNova-Semibold' }}>
+                      <span className="text-xl font-semibold text-gray-900 w-10 text-center" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                         {quantity}
                       </span>
                       <button
@@ -241,18 +241,18 @@ const ServiceModifiersForm = ({ modifiers = [], selectedModifiers: parentSelecte
                     )}
                     
                     <div className="flex-1 min-w-0">
-                      <div className="font-medium text-gray-900 truncate" style={{ fontFamily: 'ProximaNova-Medium' }}>
+                      <div className="font-medium text-gray-900 truncate" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                         {option.label || option.name || 'Unnamed option'}
                       </div>
                       {option.description && (
-                        <div className="text-sm text-gray-600 mt-0.5 truncate" style={{ fontFamily: 'ProximaNova-Regular' }}>{option.description}</div>
+                        <div className="text-sm text-gray-600 mt-0.5 truncate" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{option.description}</div>
                       )}
                     </div>
                   </label>
                   
                   <div className="flex flex-col items-end gap-1 flex-shrink-0">
                     <div className="flex items-center gap-1">
-                      <span className="text-sm text-gray-600" style={{ fontFamily: 'ProximaNova-Regular' }}>$</span>
+                      <span className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>$</span>
                       <input
                         type="number"
                         step="0.01"
@@ -279,11 +279,11 @@ const ServiceModifiersForm = ({ modifiers = [], selectedModifiers: parentSelecte
                         }}
                         onClick={(e) => e.stopPropagation()}
                         className="w-20 px-2 py-1.5 text-base text-right border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                        style={{ fontFamily: 'ProximaNova-Regular' }}
+                        style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                       />
                     </div>
                     {option.duration && (
-                      <div className="text-xs text-gray-500" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                      <div className="text-xs text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                         {Math.floor(option.duration / 60)}h {option.duration % 60}m
                       </div>
                     )}

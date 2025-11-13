@@ -177,20 +177,20 @@ const ServiceFlowTerritories = () => {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      <div className="flex-1 flex flex-col overflow-hidden lg:mx-44 xl:mx-48">
+      <div className="flex-1 flex flex-col overflow-hidden">
         <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
 
         <main className="flex-1 overflow-y-auto">
-          <div className="p-6">
+          <div className="px-5 lg:px-40 xl:px-44 2xl:px-48 py-4 sm:py-6 lg:py-8">
             {/* Header */}
             <div className="mb-6">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2" style={{ fontFamily: 'ProximaNova-Bold' }}>Service Territories</h1>
-              <p className="text-gray-600 text-sm mb-1" style={{ fontFamily: 'ProximaNova-Regular' }}>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Service Territories</h1>
+              <p className="text-gray-600 text-sm mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                 Manage the geographic areas where you provide services and do work. You can create multiple service territories with unique hours, services, and service providers.{' '}
                 <a href="#" className="text-blue-600 hover:text-blue-700 underline">Learn more</a>
               </p>
-              <p className="text-gray-600 text-sm" style={{ fontFamily: 'ProximaNova-Regular' }}>
-                You are currently using <span className="font-medium text-gray-900" style={{ fontFamily: 'ProximaNova-Medium' }}>{activeCount} of 2</span> service territories available on your plan.
+              <p className="text-gray-600 text-sm" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                You are currently using <span className="font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>{activeCount} of 2</span> service territories available on your plan.
               </p>
             </div>
 
@@ -205,7 +205,7 @@ const ServiceFlowTerritories = () => {
                       ? 'bg-blue-600 text-white'
                       : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
                   }`}
-                  style={{ fontFamily: 'ProximaNova-Medium' }}
+                  style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                 >
                   Active <span className="ml-1">{activeCount}</span>
                 </button>
@@ -216,27 +216,27 @@ const ServiceFlowTerritories = () => {
                       ? 'bg-blue-600 text-white'
                       : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
                   }`}
-                  style={{ fontFamily: 'ProximaNova-Medium' }}
+                  style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                 >
                   Disabled
                 </button>
 
                 {/* Sort Dropdown */}
                 <div className="relative">
-                  <button className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2" style={{ fontFamily: 'ProximaNova-Medium' }}>
+                  <button className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                     Sort <ArrowUpDown className="w-4 h-4" />
                   </button>
                 </div>
               </div>
 
               <div className="flex items-center gap-3">
-                <button className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50" style={{ fontFamily: 'ProximaNova-Medium' }}>
+                <button className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                   Geofence Editor
                 </button>
                 <button
                   onClick={handleCreateTerritory}
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 flex items-center gap-2"
-                  style={{ fontFamily: 'ProximaNova-Medium' }}
+                  style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                 >
                   <Plus className="w-4 h-4" />
                   New Territory
@@ -251,8 +251,8 @@ const ServiceFlowTerritories = () => {
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <h3 className="text-base font-semibold text-gray-900 mb-2" style={{ fontFamily: 'ProximaNova-Semibold' }}>Enforce Service Area</h3>
-                      <p className="text-sm text-gray-600 leading-relaxed" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                      <h3 className="text-base font-semibold text-gray-900 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Enforce Service Area</h3>
+                      <p className="text-sm text-gray-600 leading-relaxed" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                         Prevent customers from booking jobs online at locations that are outside of your territories' service areas.
                       </p>
                     </div>
@@ -333,63 +333,63 @@ const ServiceFlowTerritories = () => {
                         {/* Territory Details - Full Width Below Map */}
                         <div className="p-6">
                           <div className="flex items-center gap-2 mb-1">
-                            <h3 className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'ProximaNova-Bold' }}>{territory.name}</h3>
-                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(territory.status)}`} style={{ fontFamily: 'ProximaNova-Medium' }}>
+                            <h3 className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>{territory.name}</h3>
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(territory.status)}`} style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                               {getStatusLabel(territory.status)}
                             </span>
                           </div>
-                          <p className="text-sm text-gray-600 mb-6" style={{ fontFamily: 'ProximaNova-Regular' }}>{territory.location || `${territory.name}, UK`}</p>
+                          <p className="text-sm text-gray-600 mb-6" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{territory.location || `${territory.name}, UK`}</p>
 
                           {/* Territory Attributes */}
                           <div className="space-y-4">
                             <div className="flex items-center">
                               <div className="flex items-center text-gray-500 w-40 flex-shrink-0">
                                 <MapPin className="w-4 h-4 mr-2" />
-                                <span className="font-medium text-xs uppercase" style={{ fontFamily: 'ProximaNova-Semibold' }}>SERVICE AREA</span>
+                                <span className="font-medium text-xs uppercase" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>SERVICE AREA</span>
                               </div>
-                              <span className="text-gray-900 text-sm" style={{ fontFamily: 'ProximaNova-Regular' }}>{territory.radius_miles || 30} mile radius</span>
+                              <span className="text-gray-900 text-sm" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{territory.radius_miles || 30} mile radius</span>
                             </div>
 
                             <div className="flex items-center">
                               <div className="flex items-center text-gray-500 w-40 flex-shrink-0">
                                 <Globe className="w-4 h-4 mr-2" />
-                                <span className="font-medium text-xs uppercase" style={{ fontFamily: 'ProximaNova-Semibold' }}>TIMEZONE</span>
+                                <span className="font-medium text-xs uppercase" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>TIMEZONE</span>
                               </div>
-                              <span className="text-gray-900 text-sm" style={{ fontFamily: 'ProximaNova-Regular' }}>{territory.timezone || 'Europe/London'}</span>
+                              <span className="text-gray-900 text-sm" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{territory.timezone || 'Europe/London'}</span>
                             </div>
 
                             <div className="flex items-center">
                               <div className="flex items-center text-gray-500 w-40 flex-shrink-0">
                                 <Calendar className="w-4 h-4 mr-2" />
-                                <span className="font-medium text-xs uppercase" style={{ fontFamily: 'ProximaNova-Semibold' }}>ONLINE BOOKING</span>
+                                <span className="font-medium text-xs uppercase" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>ONLINE BOOKING</span>
                               </div>
                               <div className="flex items-center gap-2">
                                 <span className="inline-block w-2 h-2 bg-green-500 rounded-full"></span>
-                                <span className="text-gray-900 text-sm" style={{ fontFamily: 'ProximaNova-Regular' }}>On</span>
+                                <span className="text-gray-900 text-sm" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>On</span>
                               </div>
                             </div>
 
                             <div className="flex items-center">
                               <div className="flex items-center text-gray-500 w-40 flex-shrink-0">
                                 <Users className="w-4 h-4 mr-2" />
-                                <span className="font-medium text-xs uppercase" style={{ fontFamily: 'ProximaNova-Semibold' }}>PROVIDERS</span>
+                                <span className="font-medium text-xs uppercase" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>PROVIDERS</span>
                               </div>
                               <div className="flex items-center gap-2">
                                 {territory.team_members && territory.team_members.length > 0 ? (
                                   <>
                                     <div className="flex -space-x-2">
                                       {territory.team_members.slice(0, 3).map((member, idx) => (
-                                        <div key={idx} className="w-6 h-6 rounded-full bg-green-300 border-2 border-white flex items-center justify-center text-xs font-medium text-gray-700" style={{ fontFamily: 'ProximaNova-Medium' }}>
+                                        <div key={idx} className="w-6 h-6 rounded-full bg-green-300 border-2 border-white flex items-center justify-center text-xs font-medium text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                                           {member.initials || member.first_name?.[0] || 'A'}
                                         </div>
                                       ))}
                                     </div>
                                     {territory.team_members.length > 3 && (
-                                      <span className="text-gray-600 text-sm" style={{ fontFamily: 'ProximaNova-Regular' }}>+{territory.team_members.length - 3}</span>
+                                      <span className="text-gray-600 text-sm" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>+{territory.team_members.length - 3}</span>
                                     )}
                                   </>
                                 ) : (
-                                  <div className="w-6 h-6 rounded-full bg-green-300 border-2 border-white flex items-center justify-center text-xs font-medium text-gray-700" style={{ fontFamily: 'ProximaNova-Medium' }}>
+                                  <div className="w-6 h-6 rounded-full bg-green-300 border-2 border-white flex items-center justify-center text-xs font-medium text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                                     A
                                   </div>
                                 )}
@@ -399,9 +399,9 @@ const ServiceFlowTerritories = () => {
                             <div className="flex items-center">
                               <div className="flex items-center text-gray-500 w-40 flex-shrink-0">
                                 <Settings className="w-4 h-4 mr-2" />
-                                <span className="font-medium text-xs uppercase" style={{ fontFamily: 'ProximaNova-Semibold' }}>SERVICES</span>
+                                <span className="font-medium text-xs uppercase" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>SERVICES</span>
                               </div>
-                              <span className="text-gray-900 text-sm" style={{ fontFamily: 'ProximaNova-Regular' }}>All services</span>
+                              <span className="text-gray-900 text-sm" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>All services</span>
                             </div>
                           </div>
                         </div>

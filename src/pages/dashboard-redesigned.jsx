@@ -695,12 +695,12 @@ const DashboardRedesigned = () => {
         />
 
         {/* Main Content */}
-        <div className="flex-1 flex flex-col min-w-0 lg:mx-44 xl:mx-48">
+        <div className="flex-1 flex flex-col min-w-0">
           {/* Mobile Header */}
           <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
 
         {/* Trial Banner */}
-        <div className="bg-amber-50 border  m-4 rounded-lg border-amber-500 px-4 lg:px-6 py-3">
+        <div className="bg-amber-50 border m-2 sm:m-4 rounded-lg border-amber-500 px-5 lg:px-40 xl:px-44 2xl:px-48 py-3">
           <div className="max-w-7xl mx-auto flex items-center justify-center">
             <p className="text-sm text-gray-700">
               12 days left in free trial
@@ -709,10 +709,10 @@ const DashboardRedesigned = () => {
         </div>
 
           {/* Desktop Header */}
-          <div className="hidden lg:block px-6 py-5">
+          <div className="hidden lg:block px-5 lg:px-40 xl:px-44 2xl:px-48 py-5">
             <div className="max-w-7xl mx-auto flex items-center justify-between">
               <div>
-                <h1 className="text-xl sm:text-xl font-display font-bold text-gray-900" style={{fontFamily: 'ProximaNova-Bold'}}>{getGreeting()}, {getUserDisplayName()}.</h1>
+                <h1 className="text-xl sm:text-xl font-display font-bold text-gray-900" style={{fontFamily: 'Montserrat', fontWeight: 700}}>{getGreeting()}, {getUserDisplayName()}.</h1>
                 <p className="text-sm text-gray-600 mt-1 ">Here's how {getUserDisplayName()} is doing today.</p>
               </div>
               <div className="relative" ref={newMenuRef}>
@@ -786,8 +786,8 @@ const DashboardRedesigned = () => {
 
           {/* Main Content Area */}
           <div className="flex-1 bg-gray-50">
-            <div className="p-6">
-              <div className="max-w-5xl mx-auto space-y-4">
+            <div className="px-5 lg:px-40 xl:px-44 2xl:px-48 py-4 sm:py-6 lg:py-8">
+              <div className="max-w-7xl mx-auto space-y-4 min-w-0">
 
                 {/* Error Display */}
                 {error && (

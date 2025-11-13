@@ -208,7 +208,7 @@ const CalendarPicker = ({
       <div 
         ref={calendarRef}
         className="bg-white rounded-lg shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden"
-        style={{ fontFamily: 'ProximaNova-Regular' }}
+        style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
       >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
@@ -220,7 +220,7 @@ const CalendarPicker = ({
                   ? 'text-blue-600 border-blue-600' 
                   : 'text-gray-500 border-transparent hover:text-gray-700'
               }`}
-              style={{ fontFamily: activeTab === 'available' ? 'ProximaNova-Semibold' : 'ProximaNova-Regular' }}
+              style={{ fontFamily: 'Montserrat', fontWeight: activeTab === 'available' ? 600 : 400 }}
             >
               Available Times
             </button>
@@ -231,7 +231,7 @@ const CalendarPicker = ({
                   ? 'text-blue-600 border-blue-600' 
                   : 'text-gray-500 border-transparent hover:text-gray-700'
               }`}
-              style={{ fontFamily: activeTab === 'custom' ? 'ProximaNova-Semibold' : 'ProximaNova-Regular' }}
+              style={{ fontFamily: 'Montserrat', fontWeight: activeTab === 'custom' ? 600 : 400 }}
             >
               Custom Time
             </button>
@@ -252,7 +252,7 @@ const CalendarPicker = ({
               >
                 <ChevronLeft className="w-5 h-5 text-gray-600" />
               </button>
-              <h2 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'ProximaNova-Semibold' }}>
+              <h2 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                 {currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
               </h2>
               <button
@@ -313,7 +313,7 @@ const CalendarPicker = ({
               <div className="h-full">
                 {selectedDateForSlots ? (
                   <div className="h-full flex flex-col">
-                    <h3 className="text-sm font-medium text-gray-700 mb-4" style={{ fontFamily: 'ProximaNova-Medium' }}>
+                    <h3 className="text-sm font-medium text-gray-700 mb-4" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                       Available times for {selectedDateForSlots.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                     </h3>
                     
@@ -330,7 +330,7 @@ const CalendarPicker = ({
                             className="w-full p-3 text-left bg-white hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors"
                           >
                             <div className="flex items-center justify-between">
-                              <span className="text-sm font-medium" style={{ fontFamily: 'ProximaNova-Medium' }}>
+                              <span className="text-sm font-medium" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                                 {formatTimeRange(slot.time, slot.endTime)}
                               </span>
                               <span className="text-xs text-gray-500 flex items-center gap-1">
@@ -362,20 +362,20 @@ const CalendarPicker = ({
               <div className="space-y-6">
                 {selectedDateForSlots && (
                   <>
-                    <h3 className="text-sm font-medium text-gray-700" style={{ fontFamily: 'ProximaNova-Medium' }}>
+                    <h3 className="text-sm font-medium text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                       Enter a custom time for {selectedDateForSlots.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
                     </h3>
 
                     <div className="space-y-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: 'ProximaNova-Medium' }}>
+                        <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                           Time
                         </label>
                         <select
                           value={customTime}
                           onChange={(e) => setCustomTime(e.target.value)}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          style={{ fontFamily: 'ProximaNova-Regular' }}
+                          style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                         >
                           {generateTimeOptions().map(option => (
                             <option key={option.value} value={option.value}>
@@ -392,7 +392,7 @@ const CalendarPicker = ({
                           onChange={(e) => setArrivalWindow(e.target.checked)}
                           className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                         />
-                        <span className="text-sm text-gray-700" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                        <span className="text-sm text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                           Arrival window
                         </span>
                       </label>
@@ -401,7 +401,7 @@ const CalendarPicker = ({
                     <button
                       onClick={handleCustomTimeConfirm}
                       className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-                      style={{ fontFamily: 'ProximaNova-Medium' }}
+                      style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                     >
                       Confirm
                     </button>

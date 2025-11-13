@@ -568,23 +568,25 @@ const ServiceFlowServices = () => {
   );
 
   return (
-    <div style={{fontFamily: 'ProximaNova-medium'}} className="flex h-screen bg-gray-50 overflow-hidden">
+    <div style={{fontFamily: 'Montserrat', fontWeight: 500}} className="flex h-screen bg-gray-50 overflow-hidden">
    
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0 lg:mx-44 xl:mx-48">
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         {/* Mobile Header */}
         <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
 
         {/* Desktop Header */}
-        <div className="hidden lg:flex bg-white border-b border-gray-200 px-6 py-4 items-center justify-between">
-          <h1 className="text-2xl font-semibold text-gray-900">Services</h1>
-          <button
-            onClick={() => setCreateModalOpen(true)}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center space-x-2"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Add Service</span>
-          </button>
+        <div className="hidden lg:flex bg-white border-b border-gray-200 px-5 lg:px-40 xl:px-44 2xl:px-48 py-4 items-center justify-between">
+          <div className="max-w-7xl mx-auto w-full flex items-center justify-between">
+            <h1 className="text-2xl font-semibold text-gray-900">Services</h1>
+            <button
+              onClick={() => setCreateModalOpen(true)}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center space-x-2"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add Service</span>
+            </button>
+          </div>
         </div>
 
         {/* Mobile Header Content */}
@@ -602,8 +604,9 @@ const ServiceFlowServices = () => {
         </div>
 
         {/* Content Area */}
-        <div className="flex-1 overflow-auto">
-          <div className="max-w-5xl mx-auto p-6">
+        <main className="flex-1 overflow-y-auto">
+          <div className="px-5 lg:px-40 xl:px-44 2xl:px-48 py-4 sm:py-6 lg:py-8">
+            <div className="max-w-7xl mx-auto">
             {/* Auth Loading */}
             {authLoading ? (
               <div className="p-8 text-center">
@@ -809,9 +812,9 @@ const ServiceFlowServices = () => {
             </div>
               </>
             )}
+            </div>
           </div>
-        </div>
-      </div>
+        </main>
 
       {/* Modals */}
       <CreateServiceModal
@@ -1163,6 +1166,7 @@ const ServiceFlowServices = () => {
           </div>
         </div>
       )}
+      </div>
     </div>
   )
 }

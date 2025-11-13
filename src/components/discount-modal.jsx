@@ -31,10 +31,10 @@ const DiscountModal = ({ isOpen, onClose, onSave, currentDiscount = 0, currentDi
       className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
       onClick={handleBackdropClick}
     >
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6" style={{ fontFamily: 'ProximaNova-Regular' }}>
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-gray-900" style={{ fontFamily: 'ProximaNova-Bold' }}>
+          <h2 className="text-xl font-bold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
             Add Discount
           </h2>
           <button
@@ -56,7 +56,7 @@ const DiscountModal = ({ isOpen, onClose, onSave, currentDiscount = 0, currentDi
                   ? 'bg-blue-500 text-white'
                   : 'bg-white text-blue-500 hover:bg-blue-50'
               }`}
-              style={{ fontFamily: 'ProximaNova-Semibold' }}
+              style={{ fontFamily: 'Montserrat', fontWeight: 600 }}
             >
               $
             </button>
@@ -68,7 +68,7 @@ const DiscountModal = ({ isOpen, onClose, onSave, currentDiscount = 0, currentDi
                   ? 'bg-blue-500 text-white'
                   : 'bg-white text-blue-500 hover:bg-blue-50'
               }`}
-              style={{ fontFamily: 'ProximaNova-Semibold' }}
+              style={{ fontFamily: 'Montserrat', fontWeight: 600 }}
             >
               %
             </button>
@@ -86,7 +86,7 @@ const DiscountModal = ({ isOpen, onClose, onSave, currentDiscount = 0, currentDi
             onChange={(e) => setDiscountValue(e.target.value)}
             placeholder="Enter discount"
             className="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            style={{ fontFamily: 'ProximaNova-Regular' }}
+            style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
             autoFocus
           />
           {discountType === 'percentage' && discountValue > 100 && (
@@ -100,7 +100,7 @@ const DiscountModal = ({ isOpen, onClose, onSave, currentDiscount = 0, currentDi
             type="button"
             onClick={handleSave}
             className="flex-1 px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-semibold transition-colors"
-            style={{ fontFamily: 'ProximaNova-Semibold' }}
+            style={{ fontFamily: 'Montserrat', fontWeight: 600 }}
           >
             Save
           </button>
@@ -108,7 +108,7 @@ const DiscountModal = ({ isOpen, onClose, onSave, currentDiscount = 0, currentDi
             type="button"
             onClick={onClose}
             className="flex-1 px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-semibold transition-colors"
-            style={{ fontFamily: 'ProximaNova-Semibold' }}
+            style={{ fontFamily: 'Montserrat', fontWeight: 600 }}
           >
             Cancel
           </button>

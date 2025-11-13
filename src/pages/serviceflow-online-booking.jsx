@@ -898,7 +898,7 @@ const ServiceFlowOnlineBooking = () => {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} activePage="online-booking" />
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0 lg:mx-44 xl:mx-48">
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0 lg:mx-44 xl:mx-48">
         {/* Mobile Header */}
         <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
 
@@ -940,7 +940,7 @@ const ServiceFlowOnlineBooking = () => {
         </div>
 
         {/* Content Area */}
-        <div className="flex-1 overflow-auto">
+        <main className="flex-1 overflow-y-auto">
           {isLoading ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-center">
@@ -1132,7 +1132,7 @@ const ServiceFlowOnlineBooking = () => {
               </div>
             </div>
           )}
-        </div>
+        </main>
       </div>
     </div>
   )

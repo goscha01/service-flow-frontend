@@ -543,7 +543,7 @@ const ServiceSelectionModal = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col" style={{ fontFamily: 'ProximaNova-Regular' }}>
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
         {/* Header */}
         <div className="flex items-center justify-between px-8 py-5 border-b border-gray-200">
           <div className="flex items-center space-x-4">
@@ -556,13 +556,13 @@ const ServiceSelectionModal = ({
               </button>
             )}
             <div className="flex-1">
-              <h2 className="text-xl font-semibold text-gray-900" style={{ fontFamily: currentView === 'customize' ? 'ProximaNova-Bold' : 'ProximaNova-Semibold' }}>
+              <h2 className="text-xl font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: currentView === 'customize' ? 700 : 600 }}>
                 {currentView === 'categories' && 'Select Service Category'}
                 {currentView === 'services' && (categoriesEnabled ? `Services in ${selectedCategory?.name}` : 'Select Service')}
                 {currentView === 'customize' && selectedService?.name}
               </h2>
               {currentView !== 'customize' && (
-                <p className="text-sm text-gray-600 mt-1" style={{ fontFamily: 'ProximaNova-Regular' }}>
+                <p className="text-sm text-gray-600 mt-1" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                   {currentView === 'categories' && 'Choose a category to see available services'}
                   {currentView === 'services' && (categoriesEnabled ? 'Select a service to add to your job' : 'Select a service to add to your job')}
                 </p>
@@ -591,7 +591,7 @@ const ServiceSelectionModal = ({
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                style={{ fontFamily: 'ProximaNova-Regular' }}
+                style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
               />
             </div>
           </div>
@@ -732,7 +732,7 @@ const ServiceSelectionModal = ({
                   {/* Modifiers */}
                   {selectedService.parsedModifiers && selectedService.parsedModifiers.length > 0 && (
                     <div>
-                      <h4 className="text-base font-bold text-gray-900 mb-4" style={{ fontFamily: 'ProximaNova-Bold' }}>Select Your Items</h4>
+                      <h4 className="text-base font-bold text-gray-900 mb-4" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Select Your Items</h4>
                       <ServiceModifiersForm
                         modifiers={selectedService.parsedModifiers}
                         selectedModifiers={selectedModifiers}
@@ -782,7 +782,7 @@ const ServiceSelectionModal = ({
                   ? 'text-white bg-blue-600 hover:bg-blue-700'
                   : 'text-gray-400 bg-gray-300 cursor-not-allowed'
               }`}
-              style={{ fontFamily: 'ProximaNova-Semibold' }}
+              style={{ fontFamily: 'Montserrat', fontWeight: 600 }}
             >
               Save
             </button>
