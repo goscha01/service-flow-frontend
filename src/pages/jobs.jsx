@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react"
 import Sidebar from "../components/sidebar"
 import MobileHeader from "../components/mobile-header"
 import JobsEmptyState from "../components/jobs-empty-state"
+import ExportJobsModal from "../components/export-jobs-modal"
 
 import { Plus, AlertCircle, Loader2, Eye, Calendar, Clock, MapPin, Users, DollarSign, Phone, Mail, FileText, CheckCircle, XCircle, PlayCircle, PauseCircle, MoreVertical, Download, Upload, ChevronDown, Search, ChevronUp } from "lucide-react"
 import { Link, useNavigate } from "react-router-dom"
@@ -24,11 +25,14 @@ const ServiceFlowJobs = () => {
   const [totalJobs, setTotalJobs] = useState(0)
   const [hasMore, setHasMore] = useState(true)
   const [limit] = useState(50)
+  const [showLoadMore, setShowLoadMore] = useState(true)
   const [territories, setTerritories] = useState([])
   const [teamMembers, setTeamMembers] = useState([])
   const [filters, setFilters] = useState({
     status: "",
     dateRange: "",
+    dateFrom: "",
+    dateTo: "",
     teamMember: "",
     customer: "",
     search: "",
@@ -39,6 +43,7 @@ const ServiceFlowJobs = () => {
     paymentMethod: "",
     tag: ""
   })
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false)
   
   // Dropdown state
   const [openDropdown, setOpenDropdown] = useState(null)
@@ -111,28 +116,36 @@ const ServiceFlowJobs = () => {
     setPage(1)
     setJobs([])
     setHasMore(true)
-  }, [activeTab, filters.search, filters.status, filters.teamMember, filters.invoiceStatus, filters.sortBy, filters.sortOrder, filters.territoryId, filters.paymentMethod, filters.tag])
+    setShowLoadMore(true)
+  }, [activeTab, filters.search, filters.status, filters.teamMember, filters.invoiceStatus, filters.sortBy, filters.sortOrder, filters.territoryId, filters.paymentMethod, filters.tag, filters.dateFrom, filters.dateTo])
 
-  // Infinite scroll handler
-  useEffect(() => {
-    const handleScroll = (e) => {
-      const target = e.target
-      if (!target) return
-
-      const { scrollTop, scrollHeight, clientHeight } = target
-
-      // Load more when scrolled to bottom (with 100px threshold)
-      if (scrollHeight - scrollTop - clientHeight < 100 && !loadingMore && hasMore) {
-        setPage(prev => prev + 1)
-      }
+  // Load more button handler
+  const handleLoadMore = () => {
+    if (!loadingMore && hasMore) {
+      setPage(prev => prev + 1)
     }
+  }
 
-    const scrollContainer = document.querySelector('.jobs-scroll-container')
-    if (scrollContainer) {
-      scrollContainer.addEventListener('scroll', handleScroll)
-      return () => scrollContainer.removeEventListener('scroll', handleScroll)
-    }
-  }, [loadingMore, hasMore])
+  // Infinite scroll handler (optional - disabled for now, using button instead)
+  // useEffect(() => {
+  //   const handleScroll = (e) => {
+  //     const target = e.target
+  //     if (!target) return
+
+  //     const { scrollTop, scrollHeight, clientHeight } = target
+
+  //     // Load more when scrolled to bottom (with 100px threshold)
+  //     if (scrollHeight - scrollTop - clientHeight < 100 && !loadingMore && hasMore) {
+  //       setPage(prev => prev + 1)
+  //     }
+  //   }
+
+  //   const scrollContainer = document.querySelector('.jobs-scroll-container')
+  //   if (scrollContainer) {
+  //     scrollContainer.addEventListener('scroll', handleScroll)
+  //     return () => scrollContainer.removeEventListener('scroll', handleScroll)
+  //   }
+  // }, [loadingMore, hasMore])
 
   // Fetch territories and team members
   useEffect(() => {
@@ -203,8 +216,9 @@ const ServiceFlowJobs = () => {
           dateFilter = "future" // Jobs scheduled for today and future
           break
         case "past":
-          statusFilter = "completed,cancelled,pending,confirmed,in_progress"
-          dateFilter = "past" // Jobs from yesterday and earlier
+          // For past tab, don't filter by status - show all past jobs regardless of status
+          statusFilter = ""
+          dateFilter = "past" // Jobs before today (yesterday and earlier)
           break
         case "complete":
           statusFilter = "completed"
@@ -225,6 +239,15 @@ const ServiceFlowJobs = () => {
           break
       }
 
+      // Build date range from filters
+      let dateRangeForAPI = filters.dateRange
+      if (filters.dateFrom || filters.dateTo) {
+        // Use the date range picker values
+        dateRangeForAPI = filters.dateFrom && filters.dateTo 
+          ? `${filters.dateFrom} to ${filters.dateTo}`
+          : filters.dateFrom || filters.dateTo
+      }
+      
       // Call jobsAPI with individual parameters
       const response = await jobsAPI.getAll(
         user.id,
@@ -233,7 +256,7 @@ const ServiceFlowJobs = () => {
         page,
         limit,
         dateFilter,
-        filters.dateRange,
+        dateRangeForAPI,
         filters.sortBy,
         filters.sortOrder,
         filters.teamMember,
@@ -243,7 +266,8 @@ const ServiceFlowJobs = () => {
       )
 
       const newJobs = response.jobs || []
-      const total = response.total || response.jobs?.length || 0
+      // Backend returns total in pagination object
+      const total = response.pagination?.total || response.total || response.jobs?.length || 0
 
       // Append new jobs to existing ones
       if (page === 1) {
@@ -253,7 +277,11 @@ const ServiceFlowJobs = () => {
       }
 
       setTotalJobs(total)
-      setHasMore(newJobs.length === limit && jobs.length + newJobs.length < total)
+      // Fix pagination: check if we have more jobs to load
+      const currentTotal = page === 1 ? newJobs.length : jobs.length + newJobs.length
+      const hasMoreJobs = currentTotal < total && newJobs.length === limit
+      setHasMore(hasMoreJobs)
+      setShowLoadMore(hasMoreJobs)
     } catch (error) {
       console.error('Error fetching jobs:', error)
       setError("Failed to load jobs. Please try again.")
@@ -266,6 +294,14 @@ const ServiceFlowJobs = () => {
   const handleCreateJob = () => {
     console.log('🔄 Jobs: Create job button clicked');
     navigate('/createjob')
+  }
+
+  const handleImportJobs = () => {
+    navigate('/import-jobs')
+  }
+
+  const handleExportJobs = () => {
+    setIsExportModalOpen(true)
   }
 
   const handleViewJob = (job) => {
@@ -418,25 +454,62 @@ const ServiceFlowJobs = () => {
         {/* Desktop Header */}
         <div className="hidden lg:flex bg-white border-b border-gray-200 px-4 pt-4 pb-2 items-center justify-between">
           <h1 className="text-3xl font-semibold text-gray-900 " style={{fontFamily: 'Montserrat', fontWeight: 700}}>Jobs</h1>
-          <button
-            onClick={handleCreateJob}
-            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Create Job
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleImportJobs}
+              className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2"
+              style={{fontFamily: 'Montserrat', fontWeight: 500}}
+            >
+              <Upload className="w-4 h-4" />
+              Import
+            </button>
+            <button
+              onClick={handleExportJobs}
+              className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2"
+              style={{fontFamily: 'Montserrat', fontWeight: 500}}
+            >
+              <Download className="w-4 h-4" />
+              Export
+            </button>
+            <button
+              onClick={handleCreateJob}
+              className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+              style={{fontFamily: 'Montserrat', fontWeight: 500}}
+            >
+              Create Job
+            </button>
+          </div>
         </div>
 
         {/* Mobile Header Content */}
         <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-3">
             <h1 className="text-xl font-semibold text-gray-900 " style={{fontFamily: 'Montserrat', fontWeight: 700}}>Jobs</h1>
             <button
               onClick={handleCreateJob}
-              className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-              style={{fontFamily: 'Montserrat', fontWeight: 700}}
+              className="px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-1"
+              style={{fontFamily: 'Montserrat', fontWeight: 500}}
             >
-              <Plus className="w-4 h-4 mr-2 text-white" />
-              Create Job
+              <Plus className="w-4 h-4" />
+              Create
+            </button>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleImportJobs}
+              className="flex-1 px-3 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+              style={{fontFamily: 'Montserrat', fontWeight: 500}}
+            >
+              <Upload className="w-4 h-4" />
+              Import
+            </button>
+            <button
+              onClick={handleExportJobs}
+              className="flex-1 px-3 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+              style={{fontFamily: 'Montserrat', fontWeight: 500}}
+            >
+              <Download className="w-4 h-4" />
+              Export
             </button>
           </div>
         </div>
@@ -493,6 +566,40 @@ const ServiceFlowJobs = () => {
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
+
+            {/* Date Range Picker - Show when Date Range tab is active */}
+            {activeTab === 'daterange' && (
+              <div className="mb-4 flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-gray-500" />
+                  <label className="text-sm font-medium text-gray-700">From:</label>
+                  <input
+                    type="date"
+                    value={filters.dateFrom}
+                    onChange={(e) => setFilters(prev => ({ ...prev, dateFrom: e.target.value }))}
+                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-medium text-gray-700">To:</label>
+                  <input
+                    type="date"
+                    value={filters.dateTo}
+                    min={filters.dateFrom}
+                    onChange={(e) => setFilters(prev => ({ ...prev, dateTo: e.target.value }))}
+                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                {(filters.dateFrom || filters.dateTo) && (
+                  <button
+                    onClick={() => setFilters(prev => ({ ...prev, dateFrom: '', dateTo: '' }))}
+                    className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* Filter Buttons */}
             <div className="flex items-center gap-2">
@@ -870,6 +977,26 @@ const ServiceFlowJobs = () => {
                   </table>
                 </div>
 
+                {/* Load More Button */}
+                {!loadingMore && showLoadMore && hasMore && jobs.length > 0 && (
+                  <div className="bg-white px-6 py-4 border-t border-gray-200">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="text-center text-sm text-gray-600">
+                        Showing {jobs.length} of {totalJobs} jobs
+                      </div>
+                      <button
+                        onClick={handleLoadMore}
+                        disabled={loadingMore || !hasMore}
+                        className="px-6 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        style={{fontFamily: 'Montserrat', fontWeight: 500}}
+                      >
+                        Load More Jobs
+                        <ChevronDown className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 {/* Loading More Indicator */}
                 {loadingMore && (
                   <div className="bg-white px-6 py-4 border-t border-gray-200">
@@ -880,14 +1007,12 @@ const ServiceFlowJobs = () => {
                   </div>
                 )}
 
-                {/* Show total count */}
-                {!loadingMore && jobs.length > 0 && (
+                {/* Show total count when all loaded */}
+                {!loadingMore && !hasMore && jobs.length > 0 && (
                   <div className="bg-white px-6 py-3 border-t border-gray-200">
                     <div className="text-center text-sm text-gray-600">
-                      Showing {jobs.length} of {totalJobs} jobs
-                      {!hasMore && jobs.length >= totalJobs && (
-                        <span className="ml-2 text-gray-500">• All jobs loaded</span>
-                      )}
+                      Showing all {jobs.length} of {totalJobs} jobs
+                      <span className="ml-2 text-gray-500">• All jobs loaded</span>
                     </div>
                   </div>
                 )}
@@ -896,6 +1021,21 @@ const ServiceFlowJobs = () => {
           </div>
         </div>
       </div>
+
+      {/* Export Jobs Modal */}
+      <ExportJobsModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        initialFilters={{
+          status: activeTab !== 'all' ? activeTab : filters.status,
+          dateFrom: filters.dateFrom,
+          dateTo: filters.dateTo,
+          teamMemberId: filters.teamMember,
+          territoryId: filters.territoryId,
+          invoiceStatus: filters.invoiceStatus,
+          paymentMethod: filters.paymentMethod
+        }}
+      />
     </div>
   )
 }

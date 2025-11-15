@@ -83,7 +83,7 @@ const ServiceFlowSettings = () => {
         navigate("/settings/field-app")
         break
       case "services":
-        navigate("/settings/services")
+        navigate("/services")
         break
       default:
         console.log(`Navigate to ${settingId}`)

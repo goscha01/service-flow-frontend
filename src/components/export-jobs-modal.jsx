@@ -2,20 +2,37 @@ import React, { useState, useEffect } from 'react';
 import { X, Download, Filter, Calendar, User, Building, FileText, AlertCircle } from 'lucide-react';
 import { jobsAPI } from '../services/api';
 
-const ExportJobsModal = ({ isOpen, onClose }) => {
+const ExportJobsModal = ({ isOpen, onClose, initialFilters = {} }) => {
   const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState('');
   const [filters, setFilters] = useState({
-    status: '',
-    dateFrom: '',
-    dateTo: '',
-    customerId: '',
-    teamMemberId: '',
-    territoryId: '',
-    invoiceStatus: '',
-    paymentStatus: '',
-    priority: ''
+    status: initialFilters.status || '',
+    dateFrom: initialFilters.dateFrom || '',
+    dateTo: initialFilters.dateTo || '',
+    customerId: initialFilters.customerId || '',
+    teamMemberId: initialFilters.teamMemberId || initialFilters.teamMember || '',
+    territoryId: initialFilters.territoryId || '',
+    invoiceStatus: initialFilters.invoiceStatus || '',
+    paymentStatus: initialFilters.paymentStatus || initialFilters.paymentMethod || '',
+    priority: initialFilters.priority || ''
   });
+
+  // Update filters when initialFilters change
+  useEffect(() => {
+    if (isOpen && initialFilters) {
+      setFilters({
+        status: initialFilters.status || '',
+        dateFrom: initialFilters.dateFrom || '',
+        dateTo: initialFilters.dateTo || '',
+        customerId: initialFilters.customerId || '',
+        teamMemberId: initialFilters.teamMemberId || initialFilters.teamMember || '',
+        territoryId: initialFilters.territoryId || '',
+        invoiceStatus: initialFilters.invoiceStatus || '',
+        paymentStatus: initialFilters.paymentStatus || initialFilters.paymentMethod || '',
+        priority: initialFilters.priority || ''
+      });
+    }
+  }, [isOpen, initialFilters]);
 
   // Options for filters
   const statusOptions = [
