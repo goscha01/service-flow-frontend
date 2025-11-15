@@ -138,21 +138,21 @@ export default function SignInForm() {
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Logo Section */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-8 mb-6">
-          <div className="flex justify-center mb-8">
-             <Link to="/" className="flex items-center">
-            <img src="/logo.svg" alt="ServiceFlow" className="h-10 w-auto" />
-          </Link>
+        {/* Main Card */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+          {/* Logo */}
+          <div className="flex justify-center mb-6">
+            <Link to="/" className="flex items-center">
+              <img src="/logo.svg" alt="zenbooker" className="h-10 w-auto" />
+            </Link>
           </div>
 
           {/* API Error Display */}
           {apiError && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
               <p className="text-red-600 text-sm">{apiError}</p>
             </div>
           )}
-
 
           {/* Sign In Form */}
           <form
@@ -160,12 +160,11 @@ export default function SignInForm() {
             method="post"
             autoComplete="on"
             onSubmit={handleSubmit}
-            className="space-y-6"
+            className="space-y-4"
           >
             {/* Email Input */}
             <div>
               <label htmlFor="email" className="sr-only">Email Address</label>
-              <div className="relative">
               <input
                 id="email"
                 type="email"
@@ -174,35 +173,22 @@ export default function SignInForm() {
                 placeholder="Email"
                 value={formData.email}
                 onChange={handleInputChange}
-                  onFocus={() => console.log('📧 Email field focused')}
-                  onBlur={() => console.log('📧 Email field blurred')}
-                  className={`w-full px-4 py-3 pr-10 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-150 ${
-                    errors.email 
-                      ? "border-red-500 bg-red-50" 
-                      : formData.email
-                        ? "border-blue-500 bg-blue-50" 
-                        : "border-gray-300 bg-white hover:border-gray-400"
-                  }`}
+                className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 transition-colors ${
+                  errors.email 
+                    ? "border-red-500 bg-red-50" 
+                    : "border-gray-300 bg-white"
+                }`}
                 required
                 disabled={isLoading}
               />
-                <div className={`absolute inset-y-0 right-0 flex items-center pr-3 transition-opacity duration-150 ${
-                  formData.email ? 'opacity-100' : 'opacity-0'
-                }`}>
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                </div>
-              </div>
-              <div className="h-5 mt-1">
-                {errors.email && (
-                  <p className="text-red-500 text-sm">{errors.email}</p>
-                )}
-              </div>
+              {errors.email && (
+                <p className="mt-1 text-red-500 text-sm">{errors.email}</p>
+              )}
             </div>
 
             {/* Password Input */}
             <div>
               <label htmlFor="password" className="sr-only">Password</label>
-              <div className="relative">
               <input
                 id="password"
                 type="password"
@@ -210,33 +196,21 @@ export default function SignInForm() {
                 placeholder="Password"
                 value={formData.password}
                 onChange={handleInputChange}
-                  onFocus={() => console.log('🔒 Password field focused')}
-                  onBlur={() => console.log('🔒 Password field blurred')}
                 autoComplete="current-password"
-                  className={`w-full px-4 py-3 pr-10 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-150 ${
-                    errors.password 
-                      ? "border-red-500 bg-red-50" 
-                      : formData.password
-                        ? "border-blue-500 bg-blue-50" 
-                        : "border-gray-300 bg-white hover:border-gray-400"
+                className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 transition-colors ${
+                  errors.password 
+                    ? "border-red-500 bg-red-50" 
+                    : "border-gray-300 bg-white"
                 }`}
                 required
                 disabled={isLoading}
-                />
-                <div className={`absolute inset-y-0 right-0 flex items-center pr-3 transition-opacity duration-150 ${
-                  formData.password ? 'opacity-100' : 'opacity-0'
-                }`}>
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                </div>
-              </div>
-              <div className="h-5 mt-1">
-                {errors.password && (
-                  <p className="text-red-500 text-sm">{errors.password}</p>
-                )}
-              </div>
+              />
+              {errors.password && (
+                <p className="mt-1 text-red-500 text-sm">{errors.password}</p>
+              )}
             </div>
 
-            {/* Sign In Button */}
+            {/* Sign In Button - Blue when form is valid */}
             <div>
               <button
                 type="submit"
@@ -264,15 +238,15 @@ export default function SignInForm() {
                 type="button"
                 onClick={handleForgotPassword}
                 disabled={isLoading}
-                className="text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors disabled:opacity-50"
+                className="text-gray-600 hover:text-gray-800 text-sm transition-colors disabled:opacity-50"
               >
                 Forgot Password?
               </button>
             </div>
           </form>
 
-          {/* Divider */}
-          <div className="relative my-6">
+          {/* Divider with "Or continue with" */}
+          <div className="relative my-4">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-gray-300" />
             </div>
@@ -282,19 +256,17 @@ export default function SignInForm() {
           </div>
 
           {/* Google OAuth */}
-          <div className="mt-4 flex justify-center">
-            <div className="w-full max-w-sm">
-              <GoogleOAuth 
-                onSuccess={(result) => {
-                  console.log('✅ Google OAuth success:', result);
-                  navigate('/dashboard');
-                }}
-                onError={(error) => {
-                  console.error('❌ Google OAuth error:', error);
-                  setError(error.response?.data?.error || 'Google sign-in failed');
-                }}
-              />
-            </div>
+          <div>
+            <GoogleOAuth 
+              onSuccess={(result) => {
+                console.log('✅ Google OAuth success:', result);
+                navigate('/dashboard');
+              }}
+              onError={(error) => {
+                console.error('❌ Google OAuth error:', error);
+                setError(error.response?.data?.error || 'Google sign-in failed');
+              }}
+            />
           </div>
 
           {/* Error Display */}
@@ -306,7 +278,7 @@ export default function SignInForm() {
         </div>
 
         {/* Sign Up Section */}
-        <div className="text-center">
+        <div className="text-center mt-6">
           <span className="text-gray-600 text-sm">
             {"Don't have an account? "}
             <button 
