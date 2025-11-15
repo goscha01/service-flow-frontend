@@ -1360,19 +1360,37 @@ export default function CreateJobPage() {
     
     // Update the service in selectedServices array with the new customization
     if (selectedService) {
-      setSelectedServices(prev => prev.map(service => {
-        if (service.id === selectedService.id) {
+      setSelectedServices(prev => {
+        // Check if service already exists in selectedServices
+        const serviceExists = prev.some(s => s.id === selectedService.id);
+        
+        if (serviceExists) {
+          // Update existing service
+          return prev.map(service => {
+            if (service.id === selectedService.id) {
+              const updatedService = {
+                ...service,
+                selectedModifiers: { ...selectedModifiers },
+                intakeQuestionAnswers: { ...intakeQuestionAnswers },
+                editedModifierPrices: { ...editedModifierPrices }
+              };
+              console.log('💾 Updated existing service with all customizations:', updatedService);
+              return updatedService;
+            }
+            return service;
+          });
+        } else {
+          // Add new service with customizations (e.g., newly created service)
           const updatedService = {
-            ...service,
+            ...selectedService,
             selectedModifiers: { ...selectedModifiers },
             intakeQuestionAnswers: { ...intakeQuestionAnswers },
             editedModifierPrices: { ...editedModifierPrices }
           };
-          console.log('💾 Updated service with all customizations:', updatedService);
-          return updatedService;
+          console.log('💾 Adding new service with all customizations:', updatedService);
+          return [...prev, updatedService];
         }
-        return service;
-      }));
+      });
       
       // Trigger price recalculation
       setCalculationTrigger(prev => prev + 1);
@@ -1419,24 +1437,144 @@ export default function CreateJobPage() {
     const serviceData = service.service || service;
     console.log('🔧 Extracted service data:', serviceData);
     
-    // Add the created service to selected services
-    setSelectedServices(prev => [...prev, serviceData]);
-    setSelectedService(serviceData);
-    setServiceSelected(true); // Show the schedule section when service is created
-    
-    // Update form data with proper service information
-    setFormData(prev => ({
-      ...prev,
-      serviceId: serviceData.id,
-      serviceName: serviceData.name,
-      price: parseFloat(serviceData.price) || 0,
-      total: parseFloat(serviceData.price) || 0
-    }));
-    
     // Close the create service modal
     setShowCreateServiceModal(false);
     
-    console.log('🔧 Service added to job successfully');
+    // Parse modifiers and intake questions from the newly created service
+    let serviceModifiers = [];
+    let serviceIntakeQuestions = [];
+    
+    // Parse modifiers
+    if (serviceData.modifiers) {
+      try {
+        let parsedModifiers;
+        if (typeof serviceData.modifiers === 'string') {
+          try {
+            const firstParse = JSON.parse(serviceData.modifiers);
+            if (typeof firstParse === 'string') {
+              parsedModifiers = JSON.parse(firstParse);
+            } else {
+              parsedModifiers = firstParse;
+            }
+          } catch (firstError) {
+            parsedModifiers = [];
+          }
+        } else {
+          parsedModifiers = serviceData.modifiers;
+        }
+        serviceModifiers = Array.isArray(parsedModifiers) ? parsedModifiers : [];
+      } catch (error) {
+        console.error('Error parsing service modifiers:', error);
+        serviceModifiers = [];
+      }
+    }
+    
+    // Parse intake questions
+    const intakeQuestionsData = serviceData.intake_questions || serviceData.intakeQuestions;
+    if (intakeQuestionsData) {
+      try {
+        let parsedQuestions;
+        if (typeof intakeQuestionsData === 'string') {
+          try {
+            parsedQuestions = JSON.parse(intakeQuestionsData);
+          } catch (firstError) {
+            try {
+              parsedQuestions = JSON.parse(JSON.parse(intakeQuestionsData));
+            } catch (secondError) {
+              parsedQuestions = [];
+            }
+          }
+        } else {
+          parsedQuestions = intakeQuestionsData;
+        }
+        
+        if (Array.isArray(parsedQuestions)) {
+          // Create ID mapping and normalize IDs
+          const idMapping = {};
+          serviceIntakeQuestions = parsedQuestions.map((question, index) => {
+            const normalizedId = index + 1;
+            idMapping[normalizedId] = question.id;
+            return {
+              ...question,
+              id: normalizedId
+            };
+          });
+          // Store ID mapping for backend
+          setFormData(prev => ({ ...prev, intakeQuestionIdMapping: idMapping }));
+        }
+      } catch (error) {
+        console.error('Error parsing service intake questions:', error);
+        serviceIntakeQuestions = [];
+      }
+    }
+    
+    // Check if service has modifiers or intake questions that need customization
+    const hasModifiers = serviceModifiers && serviceModifiers.length > 0;
+    const hasIntakeQuestions = serviceIntakeQuestions && serviceIntakeQuestions.length > 0;
+    
+    console.log('🔧 Service has modifiers:', hasModifiers, serviceModifiers);
+    console.log('🔧 Service has intake questions:', hasIntakeQuestions, serviceIntakeQuestions);
+    
+    if (hasModifiers || hasIntakeQuestions) {
+      // Service has customization options - open customization popup
+      console.log('🔧 Service has customization options, opening customization popup');
+      
+      // Set the service as selected for customization
+      setSelectedService(serviceData);
+      setServiceSelected(true);
+      
+      // Add service modifiers and questions with service ID
+      const modifiersWithServiceId = serviceModifiers.map(modifier => ({
+        ...modifier,
+        serviceId: serviceData.id
+      }));
+      
+      const questionsWithServiceId = serviceIntakeQuestions.map(question => ({
+        ...question,
+        serviceId: serviceData.id
+      }));
+      
+      // Update form data with service info, modifiers, and questions
+      setFormData(prev => ({
+        ...prev,
+        serviceId: serviceData.id,
+        serviceName: serviceData.name,
+        price: parseFloat(serviceData.price) || 0,
+        total: parseFloat(serviceData.price) || 0,
+        duration: parseInt(serviceData.duration) || 60,
+        serviceModifiers: modifiersWithServiceId,
+        serviceIntakeQuestions: questionsWithServiceId
+      }));
+      
+      // Reset modifiers and answers for fresh customization
+      setSelectedModifiers({});
+      setIntakeQuestionAnswers({});
+      setEditedModifierPrices({});
+      
+      // Open the customization popup
+      setShowServiceCustomizationPopup(true);
+      
+      console.log('🔧 Customization popup opened for newly created service');
+    } else {
+      // No customization needed - add service directly
+      console.log('🔧 No customization needed, adding service directly');
+      
+      setSelectedServices(prev => [...prev, serviceData]);
+      setSelectedService(serviceData);
+      setServiceSelected(true);
+      
+      // Update form data with proper service information
+      setFormData(prev => ({
+        ...prev,
+        serviceId: serviceData.id,
+        serviceName: serviceData.name,
+        price: parseFloat(serviceData.price) || 0,
+        total: parseFloat(serviceData.price) || 0,
+        duration: parseInt(serviceData.duration) || 60
+      }));
+      
+      console.log('🔧 Service added to job successfully');
+    }
   };
 
   const handleServiceSelectFromModal = (service) => {

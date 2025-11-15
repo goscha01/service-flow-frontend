@@ -37,6 +37,124 @@ const ImportJobsPage = () => {
     }
   };
 
+  // Helper function to parse date/time from ZenBooker format and split into date and time
+  const parseZenBookerDateTime = (dateTimeStr, timeStr, timezoneStr) => {
+    if (!dateTimeStr || !dateTimeStr.trim()) {
+      console.warn('No date/time string provided');
+      return { date: '', time: '09:00:00' };
+    }
+    
+    try {
+      // Clean the string - remove quotes and trim
+      const cleanDateTime = dateTimeStr.trim().replace(/^"|"$/g, '');
+      
+      // Format: "2025-11-06 10:00 am" or "2025-11-06 10:00 AM"
+      let datePart = '';
+      let timePart = '09:00:00';
+      
+      // Extract date part (YYYY-MM-DD format)
+      const dateMatch = cleanDateTime.match(/^(\d{4}-\d{2}-\d{2})/);
+      if (dateMatch) {
+        datePart = dateMatch[1];
+        
+        // Try to extract time from dateTimeStr first
+        const timeMatch = cleanDateTime.match(/(\d{1,2}):(\d{2})\s*(am|pm|AM|PM)/i);
+        if (timeMatch) {
+          let hours = parseInt(timeMatch[1]);
+          const minutes = timeMatch[2];
+          const ampm = timeMatch[3].toUpperCase();
+          
+          if (ampm === 'PM' && hours !== 12) {
+            hours += 12;
+          } else if (ampm === 'AM' && hours === 12) {
+            hours = 0;
+          }
+          
+          timePart = `${String(hours).padStart(2, '0')}:${minutes}:00`;
+        } else if (timeStr) {
+          // Use the separate time string
+          const cleanTimeStr = timeStr.trim().replace(/^"|"$/g, '');
+          const timeMatch = cleanTimeStr.match(/(\d{1,2}):(\d{2})\s*(am|pm|AM|PM)/i);
+          if (timeMatch) {
+            let hours = parseInt(timeMatch[1]);
+            const minutes = timeMatch[2];
+            const ampm = timeMatch[3].toUpperCase();
+            
+            if (ampm === 'PM' && hours !== 12) {
+              hours += 12;
+            } else if (ampm === 'AM' && hours === 12) {
+              hours = 0;
+            }
+            
+            timePart = `${String(hours).padStart(2, '0')}:${minutes}:00`;
+          }
+        }
+      } else {
+        console.warn('Could not parse date from:', cleanDateTime);
+      }
+      
+      return { date: datePart, time: timePart };
+    } catch (error) {
+      console.warn('Error parsing date/time:', dateTimeStr, error);
+      return { date: '', time: '09:00:00' };
+    }
+  };
+
+  // Helper function to parse address from geographic address format
+  const parseAddress = (addressStr) => {
+    if (!addressStr) return { street: '', city: '', state: '', zipCode: '', country: 'USA' };
+    
+    // Format: "4710 Parkdale Ln, New Port Richey, FL 34655, USA"
+    const parts = addressStr.split(',').map(p => p.trim());
+    
+    if (parts.length >= 4) {
+      return {
+        street: parts[0],
+        city: parts[1],
+        state: parts[2].split(' ')[0], // State abbreviation (first part)
+        zipCode: parts[2].split(' ').slice(1).join(' ') || parts[3].split(' ')[0] || '',
+        country: parts[parts.length - 1] || 'USA'
+      };
+    } else if (parts.length >= 3) {
+      return {
+        street: parts[0],
+        city: parts[1],
+        state: parts[2].split(' ')[0] || '',
+        zipCode: parts[2].split(' ').slice(1).join(' ') || '',
+        country: 'USA'
+      };
+    }
+    
+    return {
+      street: addressStr,
+      city: '',
+      state: '',
+      zipCode: '',
+      country: 'USA'
+    };
+  };
+
+  // Helper function to convert seconds to minutes
+  const secondsToMinutes = (secondsStr) => {
+    if (!secondsStr) return '';
+    const seconds = parseInt(secondsStr);
+    if (isNaN(seconds)) return '';
+    return Math.round(seconds / 60).toString();
+  };
+
+  // Helper function to map ZenBooker status to standard status
+  const mapStatus = (statusStr) => {
+    if (!statusStr) return 'pending';
+    const status = statusStr.toLowerCase().trim();
+    
+    if (status === 'complete' || status === 'completed') return 'completed';
+    if (status === 'in-progress' || status === 'in progress') return 'in-progress';
+    if (status === 'cancelled' || status === 'canceled') return 'cancelled';
+    if (status === 'pending' || status === 'scheduled') return 'pending';
+    
+    return 'pending';
+  };
+
   const parseCSV = (csvText) => {
     const lines = csvText.split('\n').filter(line => line.trim());
     if (lines.length < 2) return [];
@@ -49,49 +167,128 @@ const ImportJobsPage = () => {
       if (lines[i].trim()) {
         const values = parseCSVLine(lines[i]);
         const job = {};
+        const rawData = {}; // Store raw values for processing
+        
+        // First pass: collect all values (strip quotes)
+        headers.forEach((header, index) => {
+          let value = values[index] || '';
+          // Remove surrounding quotes if present
+          if (value.startsWith('"') && value.endsWith('"')) {
+            value = value.slice(1, -1);
+          }
+          rawData[header.trim()] = value.trim();
+        });
+        
+        // Map ZenBooker-specific fields
+        job.jobId = rawData['job_random_id_text'] || rawData['_id'] || '';
+        job.customerName = rawData['customer_name_text'] || '';
+        job.customerEmail = rawData['customer_email_text'] || '';
+        job.customerPhone = rawData['customer_phone_text'] || '';
+        job.serviceName = rawData['service_selected_text'] || '';
+        job.price = rawData['price_number'] || rawData['pretax_total_number'] || '';
+        job.total = rawData['pretax_total_number'] || rawData['price_number'] || '';
+        job.subTotal = rawData['sub_total_number'] || '';
+        job.taxTotal = rawData['tax_total_number'] || '';
+        job.tip = rawData['tip_number'] || '';
+        
+        // Parse duration from seconds to minutes
+        const durationSeconds = rawData['service_duration_inseconds_number'];
+        job.duration = durationSeconds ? secondsToMinutes(durationSeconds) : '';
+        
+        // Parse scheduled date/time
+        const startDateTime = rawData['start_time_for_full_cal_date'];
+        const timeHumanReadable = rawData['time_human_readable_text'];
+        const timezone = rawData['timezone_text'];
+        const dateTimeParts = parseZenBookerDateTime(startDateTime, timeHumanReadable, timezone);
+        job.scheduledDate = dateTimeParts.date || null;
+        job.scheduledTime = dateTimeParts.time || '09:00:00';
+        
+        // If no date, skip this job (can't create job without date)
+        if (!job.scheduledDate) {
+          console.warn(`Row ${i + 1}: Skipping job - no scheduled date provided`);
+          continue;
+        }
+        
+        // Parse status
+        job.status = mapStatus(rawData['live_status_text']);
+        
+        // Parse address
+        const addressStr = rawData['job_address_geographic_address'];
+        const apartmentUnit = rawData['appartment_unit_floor_number_text'];
+        const addressParts = parseAddress(addressStr);
+        job.serviceAddress = apartmentUnit ? `${addressParts.street}, ${apartmentUnit}` : addressParts.street;
+        job.serviceAddressCity = addressParts.city;
+        job.serviceAddressState = addressParts.state;
+        job.serviceAddressZip = addressParts.zipCode;
+        job.serviceAddressCountry = addressParts.country;
+        
+        // Team member/crew - store IDs (will need to be matched on backend)
+        const assignedCrew = rawData['assigned_crew_list_list_custom_crew'];
+        if (assignedCrew) {
+          // Crew IDs are comma-separated, take first one for teamMemberName
+          const crewIds = assignedCrew.split(',').map(id => id.trim()).filter(id => id);
+          job.teamMemberId = crewIds[0] || '';
+          job.assignedCrewIds = crewIds;
+        }
+        
+        // Additional fields
+        job.paymentMethod = rawData['selected_payment_method_text'] || rawData['manual_payment_method_custom_manual_payment_method'] || '';
+        job.notes = rawData['cancel_reason_custom_cancellation_reasons'] || '';
+        job.workersNeeded = rawData['min_providers_needed_number'] || '1';
+        job.offerToProviders = rawData['offer_job_to_providers_boolean'] === 'true';
+        job.inStoreJob = rawData['in_store_job_boolean'] === 'true';
+        job.smsMessages = rawData['sms_messages_boolean'] === 'true';
+        
+        // Timestamps
+        job.dateTimeArrived = rawData['date_time_arrived_date'] || '';
+        job.dateTimeCompleted = rawData['date_time_completed_date'] || '';
+        job.dateTimeEnroute = rawData['date_time_enroute_date'] || '';
+        
+        // Also support standard field names for backward compatibility
+        const headerLower = (header) => header.toLowerCase().trim();
         
         headers.forEach((header, index) => {
           const value = values[index] || '';
-          const headerLower = header.toLowerCase().trim();
+          const h = headerLower(header);
           
-          switch (headerLower) {
+          switch (h) {
             case 'job id':
             case 'jobid':
-              job.jobId = value;
+              if (!job.jobId) job.jobId = value;
               break;
             case 'customer name':
             case 'customername':
-              job.customerName = value;
+              if (!job.customerName) job.customerName = value;
               break;
             case 'customer email':
             case 'customeremail':
-              job.customerEmail = value;
+              if (!job.customerEmail) job.customerEmail = value;
               break;
             case 'customer phone':
             case 'customerphone':
-              job.customerPhone = value;
+              if (!job.customerPhone) job.customerPhone = value;
               break;
             case 'service name':
             case 'servicename':
-              job.serviceName = value;
+              if (!job.serviceName) job.serviceName = value;
               break;
             case 'service price':
             case 'serviceprice':
-              job.servicePrice = value;
+              if (!job.servicePrice) job.servicePrice = value;
               break;
             case 'duration':
-              job.duration = value;
+              if (!job.duration) job.duration = value;
               break;
             case 'status':
-              job.status = value;
+              if (!job.status || job.status === 'pending') job.status = mapStatus(value);
               break;
             case 'scheduled date':
             case 'scheduleddate':
-              job.scheduledDate = value;
+              if (!job.scheduledDate) job.scheduledDate = value;
               break;
             case 'team member':
             case 'teammember':
-              job.teamMemberName = value;
+              if (!job.teamMemberName) job.teamMemberName = value;
               break;
             case 'priority':
               job.priority = value;
@@ -106,33 +303,33 @@ const ImportJobsPage = () => {
               break;
             case 'total amount':
             case 'totalamount':
-              job.total = value;
+              if (!job.total) job.total = value;
               break;
             case 'notes':
-              job.notes = value;
+              if (!job.notes) job.notes = value;
               break;
             case 'service address':
             case 'serviceaddress':
-              job.serviceAddress = value;
+              if (!job.serviceAddress) job.serviceAddress = value;
               break;
             case 'city':
-              job.serviceAddressCity = value;
+              if (!job.serviceAddressCity) job.serviceAddressCity = value;
               break;
             case 'state':
-              job.serviceAddressState = value;
+              if (!job.serviceAddressState) job.serviceAddressState = value;
               break;
             case 'service address zip':
             case 'serviceaddresszip':
             case 'zip code':
             case 'zipcode':
-              job.serviceAddressZip = value;
+              if (!job.serviceAddressZip) job.serviceAddressZip = value;
               break;
             case 'service address country':
             case 'serviceaddresscountry':
-              job.serviceAddressCountry = value;
+              if (!job.serviceAddressCountry) job.serviceAddressCountry = value;
               break;
             case 'price':
-              job.price = value;
+              if (!job.price) job.price = value;
               break;
             case 'discount':
               job.discount = value;
@@ -142,11 +339,11 @@ const ImportJobsPage = () => {
               job.additionalFees = value;
               break;
             case 'taxes':
-              job.taxes = value;
+              if (!job.taxTotal) job.taxTotal = value;
               break;
             case 'payment method':
             case 'paymentmethod':
-              job.paymentMethod = value;
+              if (!job.paymentMethod) job.paymentMethod = value;
               break;
             case 'territory':
               job.territory = value;
@@ -173,7 +370,7 @@ const ImportJobsPage = () => {
               break;
             case 'workers needed':
             case 'workersneeded':
-              job.workersNeeded = value;
+              if (!job.workersNeeded) job.workersNeeded = value;
               break;
             case 'estimated duration':
             case 'estimatedduration':
@@ -222,9 +419,14 @@ const ImportJobsPage = () => {
           continue;
         }
         
-        // Validate status
+        // Set defaults
+        if (!job.status) job.status = 'pending';
+        if (!job.priority) job.priority = 'normal';
+        if (!job.workersNeeded) job.workersNeeded = '1';
+        
+        // Validate status (already mapped, but double-check)
         const validStatuses = ['pending', 'in-progress', 'completed', 'cancelled'];
-        if (job.status && !validStatuses.includes(job.status.toLowerCase())) {
+        if (!validStatuses.includes(job.status)) {
           console.warn(`Row ${i + 1}: Invalid status "${job.status}", defaulting to "pending"`);
           job.status = 'pending';
         }
@@ -236,15 +438,52 @@ const ImportJobsPage = () => {
           job.priority = 'normal';
         }
         
-        // Validate numeric fields
-        if (job.price && isNaN(parseFloat(job.price))) {
-          console.warn(`Row ${i + 1}: Invalid price "${job.price}", defaulting to 0`);
+        // Validate and parse numeric fields
+        if (job.price) {
+          const priceNum = parseFloat(job.price);
+          if (isNaN(priceNum)) {
+            console.warn(`Row ${i + 1}: Invalid price "${job.price}", defaulting to 0`);
+            job.price = '0';
+          } else {
+            job.price = priceNum.toString();
+          }
+        } else {
           job.price = '0';
         }
         
-        if (job.total && isNaN(parseFloat(job.total))) {
-          console.warn(`Row ${i + 1}: Invalid total "${job.total}", defaulting to price`);
+        if (job.total) {
+          const totalNum = parseFloat(job.total);
+          if (isNaN(totalNum)) {
+            console.warn(`Row ${i + 1}: Invalid total "${job.total}", defaulting to price`);
+            job.total = job.price || '0';
+          } else {
+            job.total = totalNum.toString();
+          }
+        } else {
           job.total = job.price || '0';
+        }
+        
+        if (job.duration && !isNaN(parseInt(job.duration))) {
+          job.duration = parseInt(job.duration).toString();
+        }
+        
+        // Clean up empty strings, but preserve required fields
+        const requiredFields = ['customerName', 'customerEmail', 'customerPhone', 'serviceName', 'scheduledDate', 'scheduledTime'];
+        Object.keys(job).forEach(key => {
+          if (job[key] === '' && !requiredFields.includes(key)) {
+            delete job[key];
+          }
+        });
+        
+        // Ensure customerName is always present (even if empty string)
+        if (!job.customerName && !job.customerEmail && !job.customerPhone) {
+          console.warn(`Row ${i + 1}: Skipping job - no customer information provided`);
+          continue;
+        }
+        
+        // Log first job for debugging
+        if (i === 1) {
+          console.log('📋 Sample parsed job:', JSON.stringify(job, null, 2));
         }
         
         jobs.push(job);
@@ -285,14 +524,55 @@ const ImportJobsPage = () => {
     setImportResult(null);
     
     try {
+      // Log what we're sending
+      console.log('📤 Sending jobs to import:', previewData.length, 'jobs');
+      console.log('📤 First job sample:', JSON.stringify(previewData[0], null, 2));
+      
       const result = await jobsAPI.importJobs(previewData);
-      setImportResult(result);
-    } catch (error) {
-      console.error('Import error:', error);
-      if (error.response?.data?.error) {
-        setError(error.response.data.error);
+      console.log('📥 Import result:', result);
+      
+      // Handle different response formats
+      if (result && (result.imported !== undefined || result.errors)) {
+        setImportResult(result);
       } else {
-        setError("Failed to import jobs. Please check your file format.");
+        // Unexpected response format
+        console.error('Unexpected response format:', result);
+        setImportResult({
+          imported: 0,
+          skipped: previewData.length,
+          errors: ['Unexpected response format from server. Please check server logs.']
+        });
+      }
+    } catch (error) {
+      console.error('❌ Import error:', error);
+      console.error('❌ Error response:', error.response?.data);
+      console.error('❌ Error status:', error.response?.status);
+      console.error('❌ Full error:', error);
+      
+      // Check if we got a response with errors
+      if (error.response?.data) {
+        const responseData = error.response.data;
+        
+        // If response has import result structure (even if error status)
+        if (responseData.imported !== undefined || responseData.errors) {
+          setImportResult(responseData);
+        } else if (responseData.error) {
+          setImportResult({
+            imported: 0,
+            skipped: previewData.length,
+            errors: [responseData.error]
+          });
+        } else if (responseData.errors && Array.isArray(responseData.errors)) {
+          setImportResult({
+            imported: 0,
+            skipped: previewData.length,
+            errors: responseData.errors
+          });
+        } else {
+          setError(`Import failed: ${responseData.error || error.message || 'Unknown error'}`);
+        }
+      } else {
+        setError(`Network error: ${error.message || 'Failed to connect to server'}`);
       }
     } finally {
       setIsImporting(false);
@@ -318,19 +598,31 @@ const ImportJobsPage = () => {
   };
 
   if (importResult) {
+    const hasImports = importResult.imported > 0;
+    const hasErrors = importResult.errors && importResult.errors.length > 0;
+    
     return (
       <div className="min-h-screen bg-gray-50 py-8">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center py-12">
-            <CheckCircle className="w-16 h-16 text-green-600 mx-auto mb-6" />
-            <h1 className="text-3xl font-bold text-gray-900 mb-4">Import Complete!</h1>
+            {hasImports ? (
+              <CheckCircle className="w-16 h-16 text-green-600 mx-auto mb-6" />
+            ) : (
+              <AlertCircle className="w-16 h-16 text-red-600 mx-auto mb-6" />
+            )}
+            <h1 className="text-3xl font-bold text-gray-900 mb-4">
+              {hasImports ? 'Import Complete!' : 'Import Failed'}
+            </h1>
             <p className="text-lg text-gray-600 mb-8">
-              Your job data has been successfully imported.
+              {hasImports 
+                ? `Successfully imported ${importResult.imported} job${importResult.imported !== 1 ? 's' : ''}.`
+                : 'No jobs were imported. Please check the errors below and try again.'
+              }
             </p>
             
-            <div className="bg-green-50 border border-green-200 rounded-xl p-6 mb-8 max-w-2xl mx-auto">
+            <div className="bg-green-50 border border-green-200 rounded-xl p-6 mb-8 max-w-4xl mx-auto">
               <h3 className="text-lg font-semibold text-green-800 mb-4">Import Summary</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm mb-6">
                 <div className="bg-white rounded-lg p-4">
                   <div className="text-2xl font-bold text-green-600">{importResult.imported}</div>
                   <div className="text-green-700">Imported</div>
@@ -348,6 +640,36 @@ const ImportJobsPage = () => {
                   </div>
                 )}
               </div>
+              
+              {/* Detailed Error Display */}
+              {importResult.errors && importResult.errors.length > 0 && (
+                <div className="mt-6 bg-red-50 border border-red-200 rounded-xl p-6">
+                  <h4 className="text-lg font-semibold text-red-800 mb-4 flex items-center">
+                    <AlertCircle className="w-5 h-5 mr-2" />
+                    Import Errors ({importResult.errors.length})
+                  </h4>
+                  <div className="max-h-96 overflow-y-auto space-y-2">
+                    {importResult.errors.map((error, index) => (
+                      <div key={index} className="bg-white rounded-lg p-3 border border-red-100">
+                        <p className="text-sm text-red-700 font-mono">{error}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {/* Warning if nothing imported */}
+              {importResult.imported === 0 && importResult.skipped > 0 && (
+                <div className="mt-6 bg-yellow-50 border border-yellow-200 rounded-xl p-6">
+                  <h4 className="text-lg font-semibold text-yellow-800 mb-2 flex items-center">
+                    <AlertCircle className="w-5 h-5 mr-2" />
+                    No Jobs Imported
+                  </h4>
+                  <p className="text-yellow-700 text-sm">
+                    All {importResult.skipped} jobs were skipped. Check the errors above for details.
+                  </p>
+                </div>
+              )}
             </div>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -391,7 +713,7 @@ const ImportJobsPage = () => {
           </div>
           <h1 className="text-3xl font-bold text-gray-900">Import Jobs</h1>
           <p className="text-gray-600 mt-2">
-            Import your job data from a CSV file into Serviceflow.
+            Import your job data from a CSV file into ZenBooker. Supports ZenBooker export format and standard CSV templates.
           </p>
         </div>
 

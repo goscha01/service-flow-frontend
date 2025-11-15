@@ -64,10 +64,28 @@ const ServiceFlowCustomers = () => {
     try {
       setLoading(true)
       setError("")
-      console.log('Fetching customers for user:', user.id)
-      const response = await customersAPI.getAll(user.id)
+      console.log('Fetching all customers for user:', user.id)
+      
+      // Fetch all customers by setting a very high limit
+      const response = await customersAPI.getAll(user.id, {
+        limit: 10000, // Fetch up to 10,000 customers
+        page: 1,
+        sortBy: 'created_at',
+        sortOrder: 'DESC'
+      })
+      
       console.log('Customers response:', response)
-      setCustomers(response.customers || response)
+      
+      // Handle different response formats
+      if (response && response.customers) {
+        setCustomers(response.customers)
+      } else if (Array.isArray(response)) {
+        setCustomers(response)
+      } else if (response && Array.isArray(response.data)) {
+        setCustomers(response.data)
+      } else {
+        setCustomers([])
+      }
     } catch (error) {
       console.error('Error fetching customers:', error)
       setError("Failed to load customers. Please try again.")

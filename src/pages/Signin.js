@@ -1,11 +1,11 @@
-import { useState } from "react"
-import { Link, useNavigate } from "react-router-dom"
+import { useState, useEffect } from "react"
+import { Link, useNavigate, Navigate } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
 import GoogleOAuth from "../components/GoogleOAuth"
 
 export default function SignInForm() {
   const navigate = useNavigate()
-  const { login } = useAuth()
+  const { login, user, loading } = useAuth()
   const [formData, setFormData] = useState({
     email: "",
     password: ""
@@ -15,6 +15,13 @@ export default function SignInForm() {
   const [errors, setErrors] = useState({})
   const [isLoading, setIsLoading] = useState(false)
   const [apiError, setApiError] = useState("")
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (!loading && user) {
+      navigate('/dashboard', { replace: true })
+    }
+  }, [user, loading, navigate])
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -114,6 +121,20 @@ export default function SignInForm() {
 
   const isFormValid = formData.email.trim() !== "" && formData.password.trim() !== ""
 
+  // Show loading spinner while checking authentication
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    )
+  }
+
+  // Redirect if already authenticated (fallback)
+  if (user) {
+    return <Navigate to="/dashboard" replace />
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -150,12 +171,12 @@ export default function SignInForm() {
                 type="email"
                 name="email"
                 autoComplete="email"
-                  placeholder={formData.email ? "" : "Email"}
+                placeholder="Email"
                 value={formData.email}
                 onChange={handleInputChange}
                   onFocus={() => console.log('📧 Email field focused')}
                   onBlur={() => console.log('📧 Email field blurred')}
-                  className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
+                  className={`w-full px-4 py-3 pr-10 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-150 ${
                     errors.email 
                       ? "border-red-500 bg-red-50" 
                       : formData.email
@@ -165,15 +186,17 @@ export default function SignInForm() {
                 required
                 disabled={isLoading}
               />
-                {formData.email && (
-                  <div className="absolute inset-y-0 right-0 flex items-center pr-3">
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  </div>
+                <div className={`absolute inset-y-0 right-0 flex items-center pr-3 transition-opacity duration-150 ${
+                  formData.email ? 'opacity-100' : 'opacity-0'
+                }`}>
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                </div>
+              </div>
+              <div className="h-5 mt-1">
+                {errors.email && (
+                  <p className="text-red-500 text-sm">{errors.email}</p>
                 )}
               </div>
-              {errors.email && (
-                <p className="text-red-500 text-sm mt-1">{errors.email}</p>
-              )}
             </div>
 
             {/* Password Input */}
@@ -184,13 +207,13 @@ export default function SignInForm() {
                 id="password"
                 type="password"
                 name="password"
-                  placeholder={formData.password ? "" : "Password"}
+                placeholder="Password"
                 value={formData.password}
                 onChange={handleInputChange}
                   onFocus={() => console.log('🔒 Password field focused')}
                   onBlur={() => console.log('🔒 Password field blurred')}
                 autoComplete="current-password"
-                  className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
+                  className={`w-full px-4 py-3 pr-10 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-150 ${
                     errors.password 
                       ? "border-red-500 bg-red-50" 
                       : formData.password
@@ -200,15 +223,17 @@ export default function SignInForm() {
                 required
                 disabled={isLoading}
                 />
-                {formData.password && (
-                  <div className="absolute inset-y-0 right-0 flex items-center pr-3">
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  </div>
+                <div className={`absolute inset-y-0 right-0 flex items-center pr-3 transition-opacity duration-150 ${
+                  formData.password ? 'opacity-100' : 'opacity-0'
+                }`}>
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                </div>
+              </div>
+              <div className="h-5 mt-1">
+                {errors.password && (
+                  <p className="text-red-500 text-sm">{errors.password}</p>
                 )}
               </div>
-              {errors.password && (
-                <p className="text-red-500 text-sm mt-1">{errors.password}</p>
-              )}
             </div>
 
             {/* Sign In Button */}

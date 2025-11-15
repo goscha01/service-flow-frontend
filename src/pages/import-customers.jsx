@@ -37,6 +37,78 @@ const ImportCustomersPage = () => {
     }
   };
 
+  // Helper function to parse address from geographic address format
+  const parseAddress = (addressStr) => {
+    if (!addressStr) return { street: '', city: '', state: '', zipCode: '', country: 'USA' };
+    
+    try {
+      // Format: "932 Superior St, Jacksonville, FL 32254, USA"
+      const parts = addressStr.split(',').map(p => p.trim());
+      
+      if (parts.length >= 3) {
+        const street = parts[0] || '';
+        const city = parts[1] || '';
+        // Last part might be "State ZIP Country" or just "State ZIP"
+        const lastPart = parts[parts.length - 1] || '';
+        const secondLastPart = parts.length >= 4 ? parts[parts.length - 2] : '';
+        
+        // Try to extract state and zip from last parts
+        let state = '';
+        let zipCode = '';
+        let country = 'USA';
+        
+        // Check if last part is country
+        if (lastPart === 'USA' || lastPart === 'United States') {
+          country = lastPart;
+          // State and zip should be in second last part
+          if (secondLastPart) {
+            const stateZipMatch = secondLastPart.match(/([A-Z]{2})\s+(\d{5}(?:-\d{4})?)/);
+            if (stateZipMatch) {
+              state = stateZipMatch[1];
+              zipCode = stateZipMatch[2];
+            } else {
+              // Just state
+              state = secondLastPart;
+            }
+          }
+        } else {
+          // Last part might be "State ZIP"
+          const stateZipMatch = lastPart.match(/([A-Z]{2})\s+(\d{5}(?:-\d{4})?)/);
+          if (stateZipMatch) {
+            state = stateZipMatch[1];
+            zipCode = stateZipMatch[2];
+          } else {
+            // Just state
+            state = lastPart;
+          }
+        }
+        
+        return { street, city, state, zipCode, country };
+      } else if (parts.length === 2) {
+        // Format: "Street, City State ZIP"
+        const street = parts[0] || '';
+        const cityStateZip = parts[1] || '';
+        const stateZipMatch = cityStateZip.match(/(.+?)\s+([A-Z]{2})\s+(\d{5}(?:-\d{4})?)/);
+        if (stateZipMatch) {
+          return {
+            street,
+            city: stateZipMatch[1].trim(),
+            state: stateZipMatch[2],
+            zipCode: stateZipMatch[3],
+            country: 'USA'
+          };
+        }
+        return { street, city: cityStateZip, state: '', zipCode: '', country: 'USA' };
+      }
+      
+      // Fallback: return as street
+      return { street: addressStr, city: '', state: '', zipCode: '', country: 'USA' };
+    } catch (error) {
+      console.warn('Error parsing address:', addressStr, error);
+      return { street: addressStr, city: '', state: '', zipCode: '', country: 'USA' };
+    }
+  };
+
   const parseCSV = (csvText) => {
     const lines = csvText.split('\n').filter(line => line.trim());
     if (lines.length < 2) return [];
@@ -49,51 +121,98 @@ const ImportCustomersPage = () => {
       if (lines[i].trim()) {
         const values = parseCSVLine(lines[i]);
         const customer = {};
+        const rawData = {}; // Store raw values for processing
         
+        // First pass: collect all values (strip quotes)
         headers.forEach((header, index) => {
-          const value = values[index] || '';
+          let value = values[index] || '';
+          // Remove surrounding quotes if present
+          if (value.startsWith('"') && value.endsWith('"')) {
+            value = value.slice(1, -1);
+          }
+          rawData[header.trim()] = value.trim();
+        });
+        
+        // Map ZenBooker/Hostinger-specific fields
+        // Parse customer name (full name needs to be split)
+        const customerName = rawData['customer_name_text'] || '';
+        if (customerName) {
+          const nameParts = customerName.trim().split(/\s+/);
+          customer.firstName = nameParts[0] || '';
+          customer.lastName = nameParts.slice(1).join(' ') || '';
+        }
+        
+        // Email
+        customer.email = rawData['customer_email_text'] || '';
+        
+        // Phone
+        customer.phone = rawData['customer_phone_text'] || '';
+        
+        // Address parsing
+        const addressStr = rawData['customer_address_geographic_address'] || '';
+        const apartmentUnit = rawData['customer_apt_floor_text'] || '';
+        if (addressStr) {
+          const addressParts = parseAddress(addressStr);
+          customer.address = apartmentUnit 
+            ? `${addressParts.street}, ${apartmentUnit}`.trim()
+            : addressParts.street;
+          customer.city = addressParts.city;
+          customer.state = addressParts.state;
+          customer.zipCode = addressParts.zipCode;
+          customer.suite = apartmentUnit || '';
+        }
+        
+        // Notes
+        customer.notes = rawData['internal_notes_text'] || rawData['notes_list_custom_note'] || '';
+        
+        // Also support standard field names for backward compatibility
+        headers.forEach((header, index) => {
+          const value = rawData[header] || '';
           const headerLower = header.toLowerCase().trim();
           
+          // Only set if not already set from ZenBooker fields
           switch (headerLower) {
             case 'first name':
             case 'firstname':
-              customer.firstName = value;
+              if (!customer.firstName) customer.firstName = value;
               break;
             case 'last name':
             case 'lastname':
-              customer.lastName = value;
+              if (!customer.lastName) customer.lastName = value;
               break;
             case 'email':
-              customer.email = value;
+              if (!customer.email) customer.email = value;
               break;
             case 'phone':
-              customer.phone = value;
+              if (!customer.phone) customer.phone = value;
               break;
             case 'address':
-              customer.address = value;
+              if (!customer.address) customer.address = value;
               break;
             case 'suite':
-              customer.suite = value;
+            case 'apartment':
+            case 'apt':
+              if (!customer.suite) customer.suite = value;
               break;
             case 'city':
-              customer.city = value;
+              if (!customer.city) customer.city = value;
               break;
             case 'state':
-              customer.state = value;
+              if (!customer.state) customer.state = value;
               break;
             case 'zip code':
             case 'zipcode':
             case 'zip':
-              customer.zipCode = value;
+              if (!customer.zipCode) customer.zipCode = value;
               break;
             case 'notes':
-              customer.notes = value;
+              if (!customer.notes) customer.notes = value;
               break;
             case 'status':
               // Only set status if it's a valid value
               if (value && ['active', 'inactive', 'pending'].includes(value.toLowerCase())) {
                 customer.status = value.toLowerCase();
-              } else {
+              } else if (!customer.status) {
                 customer.status = 'active'; // default
               }
               break;
@@ -103,7 +222,20 @@ const ImportCustomersPage = () => {
           }
         });
         
-        if (customer.firstName && customer.lastName) {
+        // Validate: need at least first name OR full name
+        if (customer.firstName || customerName) {
+          // If we have full name but no firstName, split it
+          if (!customer.firstName && customerName) {
+            const nameParts = customerName.trim().split(/\s+/);
+            customer.firstName = nameParts[0] || 'Unknown';
+            customer.lastName = nameParts.slice(1).join(' ') || '';
+          }
+          
+          // Ensure we have at least a firstName
+          if (!customer.firstName) {
+            customer.firstName = customerName || 'Unknown';
+          }
+          
           customers.push(customer);
         }
       }
