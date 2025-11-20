@@ -52,18 +52,41 @@ const ImportJobsPage = () => {
     
     try {
       // Clean the string - remove quotes and trim
-      const cleanDateTime = dateTimeStr.trim().replace(/^"|"$/g, '');
+      let cleanDateTime = dateTimeStr.trim().replace(/^"|"$/g, '');
       
-      // Format: "2025-11-06 10:00 am" or "2025-11-06 10:00 AM"
+      // Format can be: "2024-11-23, 9:00 AM" or "2024-11-23 9:00 AM" or "2025-11-06 10:00 am"
       let datePart = '';
       let timePart = '09:00:00';
       
-      // Extract date part (YYYY-MM-DD format)
+      // Extract date part (YYYY-MM-DD format) - handle comma after date
+      // Match: YYYY-MM-DD (with optional comma and space after)
       const dateMatch = cleanDateTime.match(/^(\d{4}-\d{2}-\d{2})/);
       if (dateMatch) {
         datePart = dateMatch[1];
         
+        // Validate the date is reasonable (not in the far future like 2026+ unless it's actually 2026+)
+        const dateObj = new Date(datePart);
+        const currentYear = new Date().getFullYear();
+        const dateYear = dateObj.getFullYear();
+        
+        // Check if date seems corrupted (year is way in the future, like 2026+ when it should be 2024)
+        // But allow dates up to 2 years in the future (for scheduling)
+        if (dateYear > currentYear + 2) {
+          console.warn(`Suspicious future date detected: ${datePart}, checking for date corruption`);
+          // If the year seems wrong, try to extract just the month and day and use current year
+          const monthDay = datePart.substring(5);
+          if (monthDay) {
+            const correctedDate = `${currentYear}-${monthDay}`;
+            const correctedDateObj = new Date(correctedDate);
+            if (!isNaN(correctedDateObj.getTime())) {
+              console.warn(`Correcting date from ${datePart} to ${correctedDate}`);
+              datePart = correctedDate;
+            }
+          }
+        }
+        
         // Try to extract time from dateTimeStr first
+        // Handle formats like: "2024-11-23, 9:00 AM" or "2024-11-23 9:00 AM"
         const timeMatch = cleanDateTime.match(/(\d{1,2}):(\d{2})\s*(am|pm|AM|PM)/i);
         if (timeMatch) {
           let hours = parseInt(timeMatch[1]);
@@ -149,15 +172,55 @@ const ImportJobsPage = () => {
   };
 
   // Helper function to map ZenBooker status to standard status
+  // Handles various status formats like "complete", "completed", "in-progress", etc.
   const mapStatus = (statusStr) => {
     if (!statusStr) return 'pending';
     const status = statusStr.toLowerCase().trim();
     
-    if (status === 'complete' || status === 'completed') return 'completed';
-    if (status === 'in-progress' || status === 'in progress') return 'in-progress';
-    if (status === 'cancelled' || status === 'canceled') return 'cancelled';
-    if (status === 'pending' || status === 'scheduled') return 'pending';
+    // Handle completed/complete variations
+    if (status === 'complete' || 
+        status === 'completed' || 
+        status === 'done' || 
+        status === 'finished' ||
+        status === 'closed' ||
+        status.startsWith('complet')) {
+      return 'completed';
+    }
     
+    // Handle in-progress variations
+    if (status === 'in-progress' || 
+        status === 'in progress' || 
+        status === 'inprogress' ||
+        status === 'active' ||
+        status === 'working' ||
+        status === 'started' ||
+        status.startsWith('in-progress') ||
+        status.startsWith('in progress')) {
+      return 'in-progress';
+    }
+    
+    // Handle cancelled/canceled variations
+    if (status === 'cancelled' || 
+        status === 'canceled' || 
+        status === 'cancel' ||
+        status === 'cancelled' ||
+        status.startsWith('cancel')) {
+      return 'cancelled';
+    }
+    
+    // Handle pending/scheduled variations
+    if (status === 'pending' || 
+        status === 'scheduled' || 
+        status === 'upcoming' ||
+        status === 'not started' ||
+        status === 'not-started' ||
+        status.startsWith('pending') ||
+        status.startsWith('scheduled')) {
+      return 'pending';
+    }
+    
+    // Default to pending for unknown statuses
+    console.warn(`Unknown status format: "${statusStr}", defaulting to "pending"`);
     return 'pending';
   };
 
@@ -209,14 +272,27 @@ const ImportJobsPage = () => {
         job.scheduledDate = dateTimeParts.date || null;
         job.scheduledTime = dateTimeParts.time || '09:00:00';
         
+        // Log the parsed date for debugging
+        if (job.scheduledDate) {
+          console.log(`Row ${i + 1}: Parsed date from "${startDateTime}" -> "${job.scheduledDate}"`);
+        }
+        
         // If no date, skip this job (can't create job without date)
         if (!job.scheduledDate) {
-          console.warn(`Row ${i + 1}: Skipping job - no scheduled date provided`);
+          console.warn(`Row ${i + 1}: Skipping job - no scheduled date provided. Original value: "${startDateTime}"`);
           continue;
         }
         
-        // Parse status
-        job.status = mapStatus(rawData['live_status_text']);
+        // Parse status - prioritize live_status_text, but also check standard status field
+        const statusFromLiveStatus = rawData['live_status_text'];
+        const statusFromStandard = rawData['status'] || rawData['Status'];
+        
+        // Use live_status_text first, then fall back to standard status field
+        if (statusFromLiveStatus) {
+          job.status = mapStatus(statusFromLiveStatus);
+        } else if (statusFromStandard) {
+          job.status = mapStatus(statusFromStandard);
+        }
         
         // Parse address
         const addressStr = rawData['job_address_geographic_address'];
@@ -286,7 +362,14 @@ const ImportJobsPage = () => {
               if (!job.duration) job.duration = value;
               break;
             case 'status':
-              if (!job.status || job.status === 'pending') job.status = mapStatus(value);
+              // Always use the status from CSV if provided, don't override if already set
+              if (value && value.trim()) {
+                const mappedStatus = mapStatus(value);
+                // Only set if we don't have a status yet, or if current status is just the default 'pending'
+                if (!job.status || (job.status === 'pending' && mappedStatus !== 'pending')) {
+                  job.status = mappedStatus;
+                }
+              }
               break;
             case 'scheduled date':
             case 'scheduleddate':
@@ -425,8 +508,12 @@ const ImportJobsPage = () => {
           continue;
         }
         
-        // Set defaults
-        if (!job.status) job.status = 'pending';
+        // Set defaults - but preserve status if it was already set from CSV
+        // Only set to 'pending' if status was never set at all
+        if (!job.status) {
+          job.status = 'pending';
+        }
+        
         if (!job.priority) job.priority = 'normal';
         if (!job.workersNeeded) job.workersNeeded = '1';
         
@@ -435,6 +522,9 @@ const ImportJobsPage = () => {
         if (!validStatuses.includes(job.status)) {
           console.warn(`Row ${i + 1}: Invalid status "${job.status}", defaulting to "pending"`);
           job.status = 'pending';
+        } else {
+          // Log the status being used for debugging
+          console.log(`Row ${i + 1}: Using status "${job.status}"`);
         }
         
         // Validate priority
