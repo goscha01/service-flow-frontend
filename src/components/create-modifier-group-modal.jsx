@@ -15,9 +15,9 @@ const CreateModifierGroupModal = ({ isOpen, onClose, onSave, editingModifier = n
         name: '',
         image: null,
         description: '',
-        price: 0,
-        durationHours: 0,
-        durationMinutes: 0,
+        price: '',
+        durationHours: '',
+        durationMinutes: '',
         allowCustomerNotes: false,
         convertToServiceRequest: false
       }
@@ -25,15 +25,24 @@ const CreateModifierGroupModal = ({ isOpen, onClose, onSave, editingModifier = n
   });
 
   const [expandedOption, setExpandedOption] = useState(1);
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  // Animation effect with delay
+  useEffect(() => {
+    if (isOpen) {
+      // Small delay before animation starts
+      const timer = setTimeout(() => {
+        setIsAnimating(true);
+      }, 50);
+      return () => clearTimeout(timer);
+    } else {
+      setIsAnimating(false);
+    }
+  }, [isOpen]);
 
   // Handle editing - populate form data when editingModifier is provided
   useEffect(() => {
-    console.log('🔄 Modal useEffect triggered with editingModifier:', editingModifier);
-    console.log('🔄 Modal isOpen:', isOpen);
-    
     if (editingModifier) {
-      console.log('🔄 Populating form with editing modifier data');
-      // Convert the existing modifier format to the form format
       setFormData({
         groupName: editingModifier.title || '',
         groupDescription: editingModifier.description || '',
@@ -44,9 +53,9 @@ const CreateModifierGroupModal = ({ isOpen, onClose, onSave, editingModifier = n
           name: option.label || option.name || '',
           image: option.image || null,
           description: option.description || '',
-          price: option.price || 0,
-          durationHours: option.duration ? Math.floor(option.duration / 60) : 0,
-          durationMinutes: option.duration ? option.duration % 60 : 0,
+          price: option.price || '',
+          durationHours: option.duration ? Math.floor(option.duration / 60) : '',
+          durationMinutes: option.duration ? option.duration % 60 : '',
           allowCustomerNotes: option.allowCustomerNotes || false,
           convertToServiceRequest: option.convertToServiceRequest || false
         })) : [
@@ -55,9 +64,9 @@ const CreateModifierGroupModal = ({ isOpen, onClose, onSave, editingModifier = n
             name: '',
             image: null,
             description: '',
-            price: 0,
-            durationHours: 0,
-            durationMinutes: 0,
+            price: '',
+            durationHours: '',
+            durationMinutes: '',
             allowCustomerNotes: false,
             convertToServiceRequest: false
           }
@@ -65,7 +74,6 @@ const CreateModifierGroupModal = ({ isOpen, onClose, onSave, editingModifier = n
       });
       setExpandedOption(1);
     } else {
-      // Reset form for new modifier
       setFormData({
         groupName: '',
         groupDescription: '',
@@ -77,9 +85,9 @@ const CreateModifierGroupModal = ({ isOpen, onClose, onSave, editingModifier = n
             name: '',
             image: null,
             description: '',
-            price: 0,
-            durationHours: 0,
-            durationMinutes: 0,
+            price: '',
+            durationHours: '',
+            durationMinutes: '',
             allowCustomerNotes: false,
             convertToServiceRequest: false
           }
@@ -116,9 +124,9 @@ const CreateModifierGroupModal = ({ isOpen, onClose, onSave, editingModifier = n
           name: '',
           image: null,
           description: '',
-          price: 0,
-          durationHours: 0,
-          durationMinutes: 0,
+          price: '',
+          durationHours: '',
+          durationMinutes: '',
           allowCustomerNotes: false,
           convertToServiceRequest: false
         }
@@ -137,13 +145,8 @@ const CreateModifierGroupModal = ({ isOpen, onClose, onSave, editingModifier = n
   };
 
   const handleOptionImageUpload = async (optionId, file) => {
-    console.log('🖼️ handleOptionImageUpload called with:', { optionId, file });
-    if (!file) {
-      console.log('❌ No file provided');
-      return;
-    }
+    if (!file) return;
 
-    // Helper to check if token is expired
     const isTokenExpired = (token) => {
       if (!token) return true;
       try {
@@ -155,7 +158,6 @@ const CreateModifierGroupModal = ({ isOpen, onClose, onSave, editingModifier = n
       }
     };
 
-    // Helper to check if token is about to expire (within 5 minutes)
     const isTokenAboutToExpire = (token) => {
       if (!token) return true;
       try {
@@ -176,9 +178,7 @@ const CreateModifierGroupModal = ({ isOpen, onClose, onSave, editingModifier = n
       }
       
       if (isTokenExpired(token) || isTokenAboutToExpire(token)) {
-        // Try to refresh the token first
         try {
-          console.log('🔄 Token expired or about to expire, attempting to refresh...');
           const refreshResponse = await fetch('https://service-flow-backend-production-4568.up.railway.app/api/auth/refresh', {
             method: 'POST',
             headers: {
@@ -191,22 +191,17 @@ const CreateModifierGroupModal = ({ isOpen, onClose, onSave, editingModifier = n
             const refreshData = await refreshResponse.json();
             const newToken = refreshData.token;
             localStorage.setItem('authToken', newToken);
-            console.log('✅ Token refreshed successfully');
-            // Use the new token for the upload
             token = newToken;
           } else {
             throw new Error('Token has expired. Please log in again.');
           }
         } catch (refreshError) {
-          console.error('❌ Token refresh failed:', refreshError);
           throw new Error('Token has expired. Please log in again.');
         }
       }
 
       const formData = new FormData();
       formData.append('image', file);
-
-      console.log('Uploading modifier image for option:', optionId);
 
       const response = await fetch('https://service-flow-backend-production-4568.up.railway.app/api/upload-modifier-image', {
         method: 'POST',
@@ -216,21 +211,17 @@ const CreateModifierGroupModal = ({ isOpen, onClose, onSave, editingModifier = n
         body: formData
       });
 
-      console.log('Upload response status:', response.status);
-
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || `Upload failed with status: ${response.status}`);
       }
 
       const result = await response.json();
-      console.log('Upload result:', result);
       
       if (!result.imageUrl) {
         throw new Error('No image URL received from server');
       }
       
-      // Update the option with the new image URL
       setFormData(prev => ({
         ...prev,
         options: prev.options.map(option => 
@@ -238,19 +229,13 @@ const CreateModifierGroupModal = ({ isOpen, onClose, onSave, editingModifier = n
         )
       }));
     } catch (error) {
-      console.error('Error uploading image:', error);
-      
-      // If token is expired or invalid, redirect to login
       if (error.message.includes('Token has expired') || error.message.includes('Invalid or expired token')) {
         alert('Your session has expired. Please log in again.');
-        // Clear invalid token
         localStorage.removeItem('authToken');
         localStorage.removeItem('user');
-        // Redirect to login page
         window.location.href = '/signin';
         return;
       }
-      
       alert(`Failed to upload image: ${error.message}`);
     } finally {
       setUploadingImages(prev => ({ ...prev, [optionId]: false }));
@@ -267,7 +252,6 @@ const CreateModifierGroupModal = ({ isOpen, onClose, onSave, editingModifier = n
   };
 
   const handleSave = () => {
-    console.log('🔄 Modal handleSave called with formData:', formData);
     onSave(formData);
     onClose();
   };
@@ -275,29 +259,43 @@ const CreateModifierGroupModal = ({ isOpen, onClose, onSave, editingModifier = n
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+    <div className={`fixed inset-0 bg-black/50 z-50 flex justify-end transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0'}`}>
+      <div 
+        className={`flex w-full max-w-6xl h-full relative bg-white overflow-hidden transform transition-transform duration-500 ease-out ${
+          isAnimating ? 'translate-x-0' : 'translate-x-full'
+        }`}
+      >
+        {/* Header - Full Width */}
+        <div className="absolute top-0 left-0 right-0 bg-white border-b border-gray-200 z-10">
+          <div className="flex items-center justify-between p-6">
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600"
           >
             <X className="w-6 h-6" />
           </button>
-          <h2 className="text-xl font-semibold text-gray-900">
+            <h2 className="text-xl font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
             {editingModifier ? 'Edit Modifier Group' : 'Create Modifier Group'}
           </h2>
-          <div className="w-6"></div> {/* Spacer for centering */}
+            <button
+              onClick={handleSave}
+              className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium text-sm transition-colors"
+              style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
+            >
+              Done
+            </button>
+          </div>
         </div>
 
+        {/* Main Modal - Right Side */}
+        <div className="bg-white w-full max-w-2xl flex flex-col h-full overflow-hidden pt-20">
+
         {/* Content */}
-        <div className="p-6 space-y-6">
-          {/* Group Information */}
-          <div className="space-y-4">
+        <div className="flex-1 p-6 space-y-6 overflow-y-auto">
+          {/* Group name */}
             <div>
-              <div className="flex items-center space-x-2 mb-2">
-                <label className="block text-sm font-medium text-gray-700">
+            <div className="flex items-center space-x-1 mb-2">
+              <label className="text-sm font-medium text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                   Group name
                 </label>
                 <HelpCircle className="w-4 h-4 text-gray-400" />
@@ -306,14 +304,16 @@ const CreateModifierGroupModal = ({ isOpen, onClose, onSave, editingModifier = n
                 type="text"
                 value={formData.groupName}
                 onChange={(e) => handleInputChange('groupName', e.target.value)}
-                placeholder="Group name (ex. Number of bedrooms to clean)"
+              placeholder="Group name (ex. Lawn size)"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
               />
             </div>
 
+          {/* Group description */}
             <div>
-              <div className="flex items-center space-x-2 mb-2">
-                <label className="block text-sm font-medium text-gray-700">
+            <div className="flex items-center space-x-1 mb-2">
+              <label className="text-sm font-medium text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                   Group description
                 </label>
                 <HelpCircle className="w-4 h-4 text-gray-400" />
@@ -323,18 +323,17 @@ const CreateModifierGroupModal = ({ isOpen, onClose, onSave, editingModifier = n
                 value={formData.groupDescription}
                 onChange={(e) => handleInputChange('groupDescription', e.target.value)}
                 placeholder="Add an optional description"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+              style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
               />
-            </div>
           </div>
 
-          {/* Selection Type */}
+          {/* Selection type */}
           <div>
-            <div className="flex items-center space-x-2 mb-3">
-              <label className="block text-sm font-medium text-gray-700">
+            <div className="flex items-center space-x-1 mb-3">
+              <label className="text-sm font-medium text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                 Selection type
               </label>
-              <HelpCircle className="w-4 h-4 text-gray-400" />
             </div>
             <div className="flex space-x-2">
               {[
@@ -346,13 +345,15 @@ const CreateModifierGroupModal = ({ isOpen, onClose, onSave, editingModifier = n
                   key={type.value}
                   type="button"
                   onClick={() => handleInputChange('selectionType', type.value)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-1 ${
                     formData.selectionType === type.value
-                      ? 'bg-blue-50 text-blue-700 border-2 border-blue-500'
-                      : 'bg-gray-50 text-gray-600 border-2 border-gray-200 hover:bg-gray-100'
+                      ? 'bg-white text-gray-900 border-2 border-blue-500'
+                      : 'bg-white text-gray-600 border-2 border-gray-300 hover:border-gray-400'
                   }`}
+                  style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                 >
-                  {type.label}
+                  <span>{type.label}</span>
+                  <HelpCircle className="w-4 h-4 text-gray-400" />
                 </button>
               ))}
             </div>
@@ -360,8 +361,8 @@ const CreateModifierGroupModal = ({ isOpen, onClose, onSave, editingModifier = n
 
           {/* Required Toggle */}
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <label className="text-sm font-medium text-gray-700">
+            <div className="flex items-center space-x-1">
+              <label className="text-sm font-medium text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                 Required
               </label>
               <HelpCircle className="w-4 h-4 text-gray-400" />
@@ -383,55 +384,57 @@ const CreateModifierGroupModal = ({ isOpen, onClose, onSave, editingModifier = n
 
           {/* Options Section */}
           <div>
-            <div className="flex items-center space-x-2 mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">OPTIONS</h3>
+            <div className="flex items-center space-x-1 mb-4">
+              <h3 className="text-base font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                OPTIONS
+              </h3>
               <HelpCircle className="w-4 h-4 text-gray-400" />
             </div>
 
             <div className="space-y-4">
               {formData.options.map((option, index) => (
-                <div key={option.id} className="border border-gray-200 rounded-lg">
-                  <div
-                    className="p-4 cursor-pointer"
-                    onClick={() => setExpandedOption(expandedOption === option.id ? null : option.id)}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        {expandedOption === option.id ? (
-                          <ChevronUp className="w-4 h-4 text-gray-400" />
-                        ) : (
-                          <ChevronDown className="w-4 h-4 text-gray-400" />
-                        )}
-                        <input
-                          type="text"
-                          value={option.name}
-                          onChange={(e) => handleOptionChange(option.id, 'name', e.target.value)}
-                          placeholder={`Option ${index + 1} name`}
-                          className="text-sm font-medium text-gray-900 bg-transparent border-none focus:ring-0 focus:outline-none"
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      </div>
-                      {formData.options.length > 1 && (
+                <div key={option.id} className={`border rounded-lg ${expandedOption === option.id ? 'border-blue-200' : 'border-gray-200'}`}>
+                  <div className="p-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center space-x-2 flex-1">
                         <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            removeOption(option.id);
-                          }}
-                          className="text-red-500 hover:text-red-700"
+                          onClick={() => setExpandedOption(expandedOption === option.id ? null : option.id)}
+                          className="text-gray-400 hover:text-gray-600"
                         >
-                          <X className="w-4 h-4" />
+                          {expandedOption === option.id ? (
+                            <ChevronDown className="w-4 h-4" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4" />
+                          )}
                         </button>
-                      )}
+                        <span className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                          New option
+                        </span>
                     </div>
                   </div>
 
                   {expandedOption === option.id && (
-                    <div className="px-4 pb-4 space-y-4">
-                      {/* Image Upload */}
+                      <div className="space-y-4">
+                        {/* Name and Image */}
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                              Name
+                            </label>
+                            <input
+                              type="text"
+                              value={option.name}
+                              onChange={(e) => handleOptionChange(option.id, 'name', e.target.value)}
+                              placeholder="Option 1 name"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
+                            />
+                          </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                           Image
                         </label>
+                            <div className="relative">
                         <input
                           type="file"
                           accept="image/*"
@@ -440,23 +443,21 @@ const CreateModifierGroupModal = ({ isOpen, onClose, onSave, editingModifier = n
                           id={`image-upload-${option.id}`}
                           disabled={uploadingImages[option.id]}
                         />
-                        <div className="flex items-center space-x-3">
                           {uploadingImages[option.id] ? (
-                            <div className="flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50">
+                                <div className="w-full h-10 border border-gray-300 rounded-lg bg-gray-50 flex items-center justify-center">
                               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                              <span className="text-sm text-gray-600">Uploading...</span>
                             </div>
                           ) : option.image ? (
                             <div className="relative">
                               <img
                                 src={option.image}
                                 alt="Option image"
-                                className="w-16 h-16 object-cover rounded-lg border border-gray-200"
+                                    className="w-full h-10 object-cover rounded-lg border border-gray-200"
                               />
                               <button
                                 type="button"
                                 onClick={() => handleOptionImageRemove(option.id)}
-                                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600"
+                                    className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600"
                               >
                                 ×
                               </button>
@@ -464,23 +465,18 @@ const CreateModifierGroupModal = ({ isOpen, onClose, onSave, editingModifier = n
                           ) : (
                             <label
                               htmlFor={`image-upload-${option.id}`}
-                              className="flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer"
+                                  className="flex items-center justify-center w-full h-10 border border-gray-300 rounded-lg bg-gray-50 hover:bg-gray-100 cursor-pointer"
                             >
-                              <ImageIcon className="w-4 h-4 text-gray-400" />
-                              <span className="text-sm text-gray-600">Upload image</span>
+                                  <ImageIcon className="w-5 h-5 text-gray-400" />
                             </label>
                           )}
-                          {option.image && !uploadingImages[option.id] && (
-                            <span className="text-xs text-gray-500">
-                              Click the × to remove
-                            </span>
-                          )}
+                            </div>
                         </div>
                       </div>
 
                       {/* Description */}
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                           Description
                         </label>
                         <textarea
@@ -488,85 +484,68 @@ const CreateModifierGroupModal = ({ isOpen, onClose, onSave, editingModifier = n
                           value={option.description}
                           onChange={(e) => handleOptionChange(option.id, 'description', e.target.value)}
                           placeholder="Add an optional description for this option..."
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                            style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                         />
                       </div>
 
                       {/* Price and Duration */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-3 gap-4">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                             Price
                           </label>
                           <div className="relative">
                             <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">$</span>
                             <input
                               type="number"
-                              value={option.price}
-                              onChange={(e) => handleOptionChange(option.id, 'price', parseFloat(e.target.value) || 0)}
-                              onFocus={(e) => {
-                                e.target.select()
-                                // Clear default values when focusing
-                                if (e.target.value === '0' || e.target.value === '0.00') {
-                                  e.target.value = ''
-                                }
-                              }}
+                              value={option.price === '' ? '' : option.price}
+                              onChange={(e) => handleOptionChange(option.id, 'price', e.target.value === '' ? '' : parseFloat(e.target.value) || '')}
+                              placeholder=""
                               className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                             />
                           </div>
                         </div>
-
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                             Duration
                           </label>
-                          <div className="flex space-x-2">
                             <input
                               type="number"
-                              value={option.durationHours}
-                              onChange={(e) => handleOptionChange(option.id, 'durationHours', parseInt(e.target.value) || 0)}
-                              onFocus={(e) => {
-                                e.target.select()
-                                // Clear default values when focusing
-                                if (e.target.value === '0') {
-                                  e.target.value = ''
-                                }
-                              }}
+                              value={option.durationHours === '' ? '' : option.durationHours}
+                              onChange={(e) => handleOptionChange(option.id, 'durationHours', e.target.value === '' ? '' : parseInt(e.target.value) || '')}
+                              placeholder=""
                               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                             />
-                            <span className="flex items-center text-sm text-gray-500">hr</span>
+                            <span className="text-xs text-gray-500 mt-1 block">hr</span>
                           </div>
-                        </div>
-
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                             &nbsp;
                           </label>
-                          <div className="flex space-x-2">
                             <input
                               type="number"
-                              value={option.durationMinutes}
-                              onChange={(e) => handleOptionChange(option.id, 'durationMinutes', parseInt(e.target.value) || 0)}
-                              onFocus={(e) => {
-                                e.target.select()
-                                // Clear default values when focusing
-                                if (e.target.value === '0') {
-                                  e.target.value = ''
-                                }
-                              }}
+                              value={option.durationMinutes === '' ? '' : option.durationMinutes}
+                              onChange={(e) => handleOptionChange(option.id, 'durationMinutes', e.target.value === '' ? '' : parseInt(e.target.value) || '')}
+                              placeholder=""
                               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                             />
-                            <span className="flex items-center text-sm text-gray-500">min</span>
-                          </div>
+                            <span className="text-xs text-gray-500 mt-1 block">min</span>
                         </div>
                       </div>
 
                       {/* Toggles */}
-                      <div className="space-y-3">
+                        <div className="space-y-4">
                         <div className="flex items-center justify-between">
-                          <label className="text-sm font-medium text-gray-700">
+                            <div className="flex items-center space-x-1">
+                              <label className="text-sm font-medium text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                             Allow customers to add a note
                           </label>
+                              <HelpCircle className="w-4 h-4 text-gray-400" />
+                            </div>
                           <button
                             type="button"
                             onClick={() => handleOptionChange(option.id, 'allowCustomerNotes', !option.allowCustomerNotes)}
@@ -583,18 +562,20 @@ const CreateModifierGroupModal = ({ isOpen, onClose, onSave, editingModifier = n
                         </div>
 
                         <div className="flex items-center justify-between">
-                          <div>
-                            <label className="text-sm font-medium text-gray-700">
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-1 mb-1">
+                                <label className="text-sm font-medium text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                               Convert to service request
                             </label>
-                            <p className="text-xs text-gray-500 mt-1">
+                              </div>
+                              <p className="text-xs text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                               When selected, booking will require review before confirmation
                             </p>
                           </div>
                           <button
                             type="button"
                             onClick={() => handleOptionChange(option.id, 'convertToServiceRequest', !option.convertToServiceRequest)}
-                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ml-4 ${
                               option.convertToServiceRequest ? 'bg-blue-600' : 'bg-gray-200'
                             }`}
                           >
@@ -608,6 +589,7 @@ const CreateModifierGroupModal = ({ isOpen, onClose, onSave, editingModifier = n
                       </div>
                     </div>
                   )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -616,30 +598,151 @@ const CreateModifierGroupModal = ({ isOpen, onClose, onSave, editingModifier = n
             <button
               type="button"
               onClick={addNewOption}
-              className="mt-4 flex items-center space-x-2 px-4 py-2 text-blue-600 hover:text-blue-700 font-medium"
+              className="mt-4 flex items-center space-x-2 px-4 py-2 text-gray-900 hover:text-gray-700 font-medium"
+              style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
             >
               <Plus className="w-4 h-4" />
               <span>New Option</span>
             </button>
           </div>
+          </div>
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium"
-          >
-            Cancel
+      {/* Preview Sidebar - Right Side */}
+      <div className="bg-gray-50 w-80 border-l border-gray-200 flex flex-col pt-20 h-full">
+        <div className="flex flex-col flex-1 overflow-hidden">
+          <div className="px-6 pt-6 pb-4">
+            <span className="text-base font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+              PREVIEW
+            </span>
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            <div className="px-6 pb-6">
+              {formData.groupName || formData.options.some(opt => opt.name) ? (
+                <div className="bg-white rounded-lg border border-gray-200 p-4 space-y-4 w-full">
+              {/* Preview of modifier group */}
+              {formData.groupName && (
+                <div className="space-y-3">
+                  <div className="text-center">
+                    <h4 className="text-base font-semibold text-gray-900 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                      {formData.groupName}
+                    </h4>
+                    {formData.groupDescription && (
+                      <p className="text-xs text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                        {formData.groupDescription}
+                      </p>
+                    )}
+        </div>
+
+                  {formData.selectionType === 'single' && (
+                    <div className="space-y-2">
+                      {formData.options.filter(opt => opt.name).map((option) => (
+                        <label key={option.id} className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+                          <input type="radio" name="preview-option" className="w-4 h-4 text-blue-600" />
+                          <div className="flex-1 flex items-center justify-between">
+                            <span className="text-sm text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                              {option.name}
+                            </span>
+                            <div className="flex items-center space-x-2">
+                              {option.price && option.price !== '' && parseFloat(option.price) > 0 && (
+                                <span className="text-sm text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                                  +${parseFloat(option.price).toFixed(2)}
+                                </span>
+                              )}
+                              {option.image ? (
+                                <img src={option.image} alt={option.name} className="w-8 h-8 object-cover rounded border border-gray-200" />
+                              ) : (
+                                <div className="w-8 h-8 bg-gray-100 rounded border border-gray-200 flex items-center justify-center">
+                                  <ImageIcon className="w-4 h-4 text-gray-400" />
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                  {formData.selectionType === 'multi' && (
+                    <div className="space-y-2">
+                      {formData.options.filter(opt => opt.name).map((option) => (
+                        <label key={option.id} className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+                          <input type="checkbox" className="w-4 h-4 text-blue-600" />
+                          <div className="flex-1 flex items-center justify-between">
+                            <span className="text-sm text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                              {option.name}
+                            </span>
+                            <div className="flex items-center space-x-2">
+                              {option.price && option.price !== '' && parseFloat(option.price) > 0 && (
+                                <span className="text-sm text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                                  +${parseFloat(option.price).toFixed(2)}
+                                </span>
+                              )}
+                              {option.image ? (
+                                <img src={option.image} alt={option.name} className="w-8 h-8 object-cover rounded border border-gray-200" />
+                              ) : (
+                                <div className="w-8 h-8 bg-gray-100 rounded border border-gray-200 flex items-center justify-center">
+                                  <ImageIcon className="w-4 h-4 text-gray-400" />
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                  {formData.selectionType === 'quantity' && (
+                    <div className="space-y-3">
+                      {formData.options.filter(opt => opt.name).map((option) => (
+                        <div key={option.id} className="border border-gray-200 rounded-lg p-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3 flex-1">
+                              {option.image ? (
+                                <img src={option.image} alt={option.name} className="w-10 h-10 object-cover rounded border border-gray-200" />
+                              ) : (
+                                <div className="w-10 h-10 bg-gray-100 rounded border border-gray-200 flex items-center justify-center">
+                                  <ImageIcon className="w-5 h-5 text-gray-400" />
+                                </div>
+                              )}
+                              <div className="flex-1">
+                                <div className="flex items-center space-x-2">
+                                  <span className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                                    {option.name}
+                                  </span>
+                                  {option.price > 0 && (
+                                    <span className="text-sm text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                                      +${option.price.toFixed(2)}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <button className="w-8 h-8 border border-gray-300 rounded-lg flex items-center justify-center hover:bg-gray-50">-</button>
+                              <span className="w-8 text-center text-sm text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>0</span>
+                              <button className="w-8 h-8 border border-gray-300 rounded-lg flex items-center justify-center hover:bg-gray-50">+</button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+              {/* Continue button */}
+              {formData.groupName && formData.options.some(opt => opt.name) && (
+                <button className="w-full bg-green-600 text-white py-2.5 px-4 rounded-lg font-medium text-sm hover:bg-green-700 transition-colors" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                  Continue
           </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
-          >
-            Create Modifier Group
-          </button>
+              )}
+                </div>
+              ) : (
+                <div className="flex items-center justify-center h-full text-gray-400 text-sm" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                  Preview will appear here
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
         </div>
       </div>
     </div>

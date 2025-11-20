@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom"
 import Sidebar from "../components/sidebar"
 import MobileHeader from "../components/mobile-header"
 import { GripVertical, Wrench, Plus, AlertCircle, AlertTriangle, Loader2, Trash2, X, Copy, Edit, Eye, EyeOff } from "lucide-react"
-import CreateServiceModal from "../components/create-service-modal"
+import SimpleCreateServiceModal from "../components/simple-create-service-modal"
 import ServiceTemplatesModal from "../components/service-templates-modal"
 import { servicesAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
@@ -25,6 +25,7 @@ const ServiceFlowServices = () => {
     saveSettings: saveServiceSettings
   } = useServiceSettings({ categoriesEnabled: false })
   const [createModalOpen, setCreateModalOpen] = useState(false)
+  const [creatingService, setCreatingService] = useState(false)
   const [templatesModalOpen, setTemplatesModalOpen] = useState(false)
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [serviceToDelete, setServiceToDelete] = useState(null)
@@ -102,7 +103,7 @@ const ServiceFlowServices = () => {
     }
   }
 
-  const handleCreateService = async (serviceData) => {
+  const handleCreateService = async (serviceName) => {
     if (!user?.id) {
       setError("Please log in again to create services.");
       return;
@@ -110,39 +111,18 @@ const ServiceFlowServices = () => {
 
     try {
       setError("")
-      let imageUrl = null;
-      if (serviceData.image) {
-        try {
-          const formData = new FormData();
-          formData.append('image', serviceData.image);
-
-          const uploadResponse = await fetch('https://service-flow-backend-production-4568.up.railway.app/api/upload-service-image', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-            },
-            body: formData
-          });
-
-          if (uploadResponse.ok) {
-            const uploadResult = await uploadResponse.json();
-            imageUrl = uploadResult.imageUrl;
-          }
-        } catch (uploadError) {}
-      }
-
-      const durationInMinutes = (serviceData.duration.hours * 60) + serviceData.duration.minutes
-
+      setCreatingService(true)
+      
+      // Create a minimal service with just the name
       const newService = {
         userId: user.id,
-        name: serviceData.name,
-        description: serviceData.description || "",
-        price: serviceData.isFree ? 0 : parseFloat(serviceData.price) || 0,
-        duration: durationInMinutes,
-        category: serviceData.category || "",
+        name: serviceName,
+        description: "",
+        price: 0,
+        duration: 60, // Default to 60 minutes
+        category: "",
         modifiers: JSON.stringify([]),
-        isFree: serviceData.isFree,
-        image: imageUrl
+        isFree: false
       }
 
       const response = await servicesAPI.create(newService)
@@ -160,8 +140,10 @@ const ServiceFlowServices = () => {
       }
 
       setCreateModalOpen(false)
+      setCreatingService(false)
       navigate(`/services/${newServiceData.id}`)
     } catch (error) {
+      setCreatingService(false)
       if (error.response) {
         const { status, data } = error.response
         switch (status) {
@@ -817,15 +799,19 @@ const ServiceFlowServices = () => {
         </main>
 
       {/* Modals */}
-      <CreateServiceModal
+      <SimpleCreateServiceModal
         isOpen={createModalOpen}
-        onClose={() => setCreateModalOpen(false)}
+        onClose={() => {
+          if (!creatingService) {
+            setCreateModalOpen(false)
+          }
+        }}
         onCreateService={handleCreateService}
         onStartWithTemplate={() => {
           setCreateModalOpen(false)
           setTemplatesModalOpen(true)
         }}
-        existingCategories={categoryObjects}
+        loading={creatingService}
       />
 
       <ServiceTemplatesModal
