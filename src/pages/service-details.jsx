@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
+import { createPortal } from "react-dom"
 import { useNavigate, useParams } from "react-router-dom"
 import Sidebar from "../components/sidebar"
 import MobileHeader from "../components/mobile-header"
@@ -36,7 +37,17 @@ import {
   Loader2,
   AlertCircle,
   Copy,
-  CheckCircle
+  CheckCircle,
+  Calendar,
+  Wrench,
+  DollarSign,
+  CheckCircle2,
+  Tag,
+  GripVertical,
+  BookOpen,
+  Plus,
+  Trash2,
+  Edit
 } from "lucide-react"
 
 const ServiceDetails = () => {
@@ -97,6 +108,11 @@ const ServiceDetails = () => {
   const [isIntakeModalOpen, setIsIntakeModalOpen] = useState(false)
   const [selectedQuestionType, setSelectedQuestionType] = useState(null)
   const [editingIntakeQuestion, setEditingIntakeQuestion] = useState(null)
+  const intakeButtonRef = useRef(null)
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 })
+  const [isBookingLinkDropdownOpen, setIsBookingLinkDropdownOpen] = useState(false)
+  const bookingLinkButtonRef = useRef(null)
+  const [bookingLinkDropdownPosition, setBookingLinkDropdownPosition] = useState({ top: 0, left: 0 })
   const [isSkillTagModalOpen, setIsSkillTagModalOpen] = useState(false)
   const [isRecurringModalOpen, setIsRecurringModalOpen] = useState(false)
   const [isTerritoryModalOpen, setIsTerritoryModalOpen] = useState(false)
@@ -149,6 +165,7 @@ const ServiceDetails = () => {
     name: "",
     description: "",
     price: 0,
+    minimumPrice: 0,
     duration: 0,
     category: "",
     category_id: null,
@@ -201,6 +218,47 @@ const ServiceDetails = () => {
     window.addEventListener('beforeunload', handleBeforeUnload)
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
   }, [modifiersChanged, intakeQuestionsChanged])
+
+  // Handle clicks outside the intake dropdown and calculate position
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      const dropdownContainer = document.getElementById('intake-dropdown-container');
+      const dropdownButton = document.getElementById('intake-dropdown-button');
+
+      if (isIntakeDropdownOpen &&
+          dropdownContainer &&
+          !dropdownContainer.contains(event.target) &&
+          dropdownButton &&
+          !dropdownButton.contains(event.target)) {
+        setIsIntakeDropdownOpen(false);
+      }
+    };
+
+    if (isIntakeDropdownOpen && intakeButtonRef.current) {
+      const updatePosition = () => {
+        if (intakeButtonRef.current) {
+          const buttonRect = intakeButtonRef.current.getBoundingClientRect();
+          // Fixed positioning uses viewport coordinates (getBoundingClientRect already gives this)
+          // transform: translateY(-100%) will move it up by its own height
+          setDropdownPosition({
+            top: buttonRect.top, // Position directly at button top
+            left: buttonRect.left
+          });
+        }
+      };
+      
+      updatePosition();
+      document.addEventListener('mousedown', handleClickOutside);
+      window.addEventListener('scroll', updatePosition, true);
+      window.addEventListener('resize', updatePosition);
+      
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+        window.removeEventListener('scroll', updatePosition, true);
+        window.removeEventListener('resize', updatePosition);
+      };
+    }
+  }, [isIntakeDropdownOpen])
 
   // Debug serviceData changes
   useEffect(() => {
@@ -317,6 +375,7 @@ const ServiceDetails = () => {
         name: service.name,
         description: service.description || "",
         price: service.price || 0,
+        minimumPrice: service.minimum_price || service.minimumPrice || 0,
         duration: service.duration || 0,
         category: service.category || "",
         category_id: service.category_id || null,
@@ -571,6 +630,7 @@ const ServiceDetails = () => {
         name: data.name,
         description: data.description,
         price: data.isFree ? 0 : data.price,
+        minimum_price: data.minimumPrice || 0,
         duration: data.duration,
         category: data.category,
         image: data.image,
@@ -1250,18 +1310,110 @@ const ServiceDetails = () => {
     switch (section.id) {
       case "intake":
         return (
-          <div className="p-6 space-y-6">
-            <div className="flex items-start space-x-2">
-              <p className="text-sm text-gray-600 flex-1">
-                Intake questions allow you to collect extra information from your customers during the booking process using custom fields.
-              </p>
-              <a href="#" className="text-sm text-blue-600 hover:text-blue-700 flex items-center whitespace-nowrap">
-                <Info className="w-4 h-4 mr-1" />
-                Learn more about intake questions
-              </a>
+          <div className="p-6 border-t border-gray-200">
+            {/* Two-column layout: Content on left, Image on right */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+              {/* Left Column - Content */}
+              <div className="space-y-6">
+                {/* Description */}
+                <p className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                  Intake questions allow you to collect extra information from your customers during the booking process using custom fields.
+                </p>
+
+                {/* New Intake Question Button and Learn More Link - Only show when no questions exist */}
+                {(!serviceData.intakeQuestions || serviceData.intakeQuestions.length === 0) && (
+                  <div className="space-y-3">
+                    <div className="relative" style={{ zIndex: 1 }}>
+                      <button
+                        ref={intakeButtonRef}
+                        id="intake-dropdown-button"
+                        onClick={() => {
+                          setIsIntakeDropdownOpen(!isIntakeDropdownOpen);
+                        }}
+                        className="bg-gray-100 hover:bg-gray-200 text-gray-900 font-bold py-2 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2"
+                        style={{ fontFamily: 'Montserrat', fontWeight: 700 }}
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span className="text-sm">New Intake Question</span>
+                      </button>
+                    </div>
+                    
+                    <div>
+                      <button 
+                        onClick={() => {}}
+                        className="text-sm text-blue-600 hover:text-blue-700 flex items-center space-x-1"
+                      >
+                        <BookOpen className="w-4 h-4" />
+                        <span>Learn more about intake questions</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Learn More Link - Show when questions exist */}
+                {serviceData.intakeQuestions && serviceData.intakeQuestions.length > 0 && (
+                  <div>
+                    <button 
+                      onClick={() => {}}
+                      className="text-sm text-blue-600 hover:text-blue-700 flex items-center space-x-1"
+                    >
+                      <BookOpen className="w-4 h-4" />
+                      <span>Learn more about intake questions</span>
+                    </button>
+                  </div>
+                )}
+                
+                {isIntakeDropdownOpen && createPortal(
+                  <div
+                    id="intake-dropdown-container"
+                    className="fixed w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-[9999]"
+                    style={{
+                      top: `${dropdownPosition.top}px`,
+                      left: `${dropdownPosition.left}px`,
+                      transform: 'translateY(-100%)',
+                      marginTop: '-8px' // Small gap above button
+                    }}
+                  >
+                    {[
+                      { icon: "⬇️", label: "Dropdown", value: "dropdown" },
+                      { icon: "☑️", label: "Multiple Choice", value: "multiple_choice" },
+                      { icon: "🖼️", label: "Picture Choice", value: "picture_choice" },
+                      { icon: "📝", label: "Short Text Answer", value: "short_text" },
+                      { icon: "📄", label: "Long Text Answer", value: "long_text" },
+                      { icon: "🎨", label: "Color Choice", value: "color_choice" },
+                      { icon: "📸", label: "Image Upload", value: "image_upload" }
+                    ].map((type) => (
+                      <button
+                        key={type.value}
+                        onClick={() => {
+                          setSelectedQuestionType(type.value);
+                          setEditingIntakeQuestion(null);
+                          setIsIntakeModalOpen(true);
+                          setIsIntakeDropdownOpen(false);
+                        }}
+                        className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center space-x-3 transition-colors"
+                      >
+                        <span className="text-xl">{type.icon}</span>
+                        <span className="text-sm text-gray-900">{type.label}</span>
+                      </button>
+                    ))}
+                  </div>,
+                  document.body
+                )}
+              </div>
+
+              {/* Right Column - Image */}
+              <div className="flex items-center justify-center lg:justify-end">
+                <img 
+                  src="/images/intake-questions.svg" 
+                  alt="Intake Questions Examples" 
+                  className="w-full max-w-md h-auto"
+                />
+              </div>
             </div>
 
-            <div className="space-y-4">
+            {/* Questions List */}
+            <div className="mt-8 space-y-4">
               {serviceData.intakeQuestions && serviceData.intakeQuestions.length > 0 ? (
                 serviceData.intakeQuestions.map((question, index) => (
                   <div key={question.id} className="border border-gray-200 rounded-lg">
@@ -1336,280 +1488,48 @@ const ServiceDetails = () => {
                     )}
                   </div>
                 ))
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <p>No intake questions added yet.</p>
-                  <p className="text-sm mt-1">Click "New Intake Question" to add your first question.</p>
-                </div>
-              )}
+              ) : null}
             </div>
 
-            {/* Customer Preview Section */}
+            {/* New Intake Question Button - Centered when questions exist */}
             {serviceData.intakeQuestions && serviceData.intakeQuestions.length > 0 && (
-              <div className="border-t border-gray-200 pt-6">
-                <div className="mb-4">
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">Customer Preview</h3>
-                  <p className="text-sm text-gray-600">This is how your intake questions will appear to customers during booking.</p>
-                  <div className="mt-2 flex items-center space-x-2">
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                    <span className="text-xs text-green-600 font-medium">INTERACTIVE PREVIEW - Test your questions</span>
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm relative">
-                  <div className="space-y-6">
-                    {serviceData.intakeQuestions.map((question, index) => (
-                      <div key={index} className="space-y-3">
-                        <div>
-                          <label className="block text-lg font-medium text-gray-900 mb-1">
-                            {question.question}
-                            {question.required && <span className="text-red-500 ml-1">*</span>}
-                          </label>
-                          {question.description && (
-                            <p className="text-sm text-gray-600 mb-3">{question.description}</p>
-                          )}
-                        </div>
-
-                        {/* Preview based on question type */}
-                        {question.questionType === 'multiple_choice' && (
-                          <div className="space-y-2">
-                            {question.options?.map((option, optionIndex) => (
-                              <label key={optionIndex} className="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
-                                <input
-                                  type={question.selectionType === 'multi' ? 'checkbox' : 'radio'}
-                                  name={`question-${question.id}`}
-                                  value={option.id}
-                                  checked={question.selectionType === 'multi'
-                                    ? (previewAnswers[question.id] || []).includes(option.id)
-                                    : previewAnswers[question.id] === option.id
-                                  }
-                                  onChange={(e) => {
-                                    if (question.selectionType === 'multi') {
-                                      const currentValues = previewAnswers[question.id] || [];
-                                      const newValues = e.target.checked
-                                        ? [...currentValues, option.id]
-                                        : currentValues.filter(id => id !== option.id);
-                                      handlePreviewAnswerChange(question.id, newValues);
-                                    } else {
-                                      handlePreviewAnswerChange(question.id, e.target.checked ? option.id : null);
-                                    }
-                                  }}
-                                  className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                                />
-                                <span className="ml-3 text-sm text-gray-700">{option.text}</span>
-                              </label>
-                            ))}
-                          </div>
-                        )}
-
-                        {question.questionType === 'dropdown' && (
-                          question.selectionType === 'multi' ? (
-                            // Multi-select using Excel-style listbox
-                            <ExcelListboxMultiselect
-                              options={question.options?.map(option => ({
-                                value: option.id,
-                                label: option.text
-                              })) || []}
-                              selectedValues={previewAnswers[question.id] || []}
-                              onSelectionChange={(selectedValues) => {
-                                handlePreviewAnswerChange(question.id, selectedValues);
-                              }}
-                              placeholder={`Select ${question.question.toLowerCase()}...`}
-                            />
-                          ) : (
-                            // Single select using regular dropdown
-                            <div className="relative">
-                              <select
-                                value={previewAnswers[question.id] || ""}
-                                onChange={(e) => handlePreviewAnswerChange(question.id, e.target.value)}
-                                className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white text-gray-700 appearance-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                              >
-                                <option value="">Select an option</option>
-                                {question.options?.map((option, optionIndex) => (
-                                  <option key={optionIndex} value={option.id}>
-                                    {option.text}
-                                  </option>
-                                ))}
-                              </select>
-                              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                                <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                </svg>
-                              </div>
-                            </div>
-                          )
-                        )}
-
-                        {question.questionType === 'short_text' && (
-                          <input
-                            type="text"
-                            value={previewAnswers[question.id] || ""}
-                            onChange={(e) => handlePreviewAnswerChange(question.id, e.target.value)}
-                            placeholder="Type your answer here"
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          />
-                        )}
-
-                        {question.questionType === 'long_text' && (
-                          <textarea
-                            value={previewAnswers[question.id] || ""}
-                            onChange={(e) => handlePreviewAnswerChange(question.id, e.target.value)}
-                            placeholder="Type your answer here"
-                            rows={3}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-                          />
-                        )}
-
-                        {question.questionType === 'picture_choice' && (
-                          <div className="grid grid-cols-2 gap-3">
-                            {question.options?.map((option, optionIndex) => (
-                              <div key={optionIndex} className="border border-gray-200 rounded-lg p-3 hover:bg-gray-50 cursor-pointer">
-                                <div className="flex items-center space-x-2">
-                                  <input
-                                    type={question.selectionType === 'multi' ? 'checkbox' : 'radio'}
-                                    name={`question-${question.id}`}
-                                    value={option.id}
-                                    checked={question.selectionType === 'multi'
-                                      ? (previewAnswers[question.id] || []).includes(option.id)
-                                      : previewAnswers[question.id] === option.id
-                                    }
-                                    onChange={(e) => {
-                                      if (question.selectionType === 'multi') {
-                                        const currentValues = previewAnswers[question.id] || [];
-                                        const newValues = e.target.checked
-                                          ? [...currentValues, option.id]
-                                          : currentValues.filter(id => id !== option.id);
-                                        handlePreviewAnswerChange(question.id, newValues);
-                                      } else {
-                                        handlePreviewAnswerChange(question.id, e.target.checked ? option.id : null);
-                                      }
-                                    }}
-                                    className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                                  />
-                                  <span className="text-sm text-gray-700">{option.text}</span>
-                                </div>
-                                {option.image && (
-                                  <div className="mt-2 w-full h-24 bg-gray-100 rounded overflow-hidden">
-                                    <img
-                                      src={option.image}
-                                      alt={option.text}
-                                      className="w-full h-full object-cover"
-                                    />
-                                  </div>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {question.questionType === 'color_choice' && (
-                          <div className="flex flex-wrap gap-3">
-                            {question.options?.map((option, optionIndex) => (
-                              <div key={optionIndex} className="flex items-center space-x-2 p-2 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
-                                <input
-                                  type={question.selectionType === 'multi' ? 'checkbox' : 'radio'}
-                                  name={`question-${question.id}`}
-                                  value={option.id}
-                                  checked={question.selectionType === 'multi'
-                                    ? (previewAnswers[question.id] || []).includes(option.id)
-                                    : previewAnswers[question.id] === option.id
-                                  }
-                                  onChange={(e) => {
-                                    if (question.selectionType === 'multi') {
-                                      const currentValues = previewAnswers[question.id] || [];
-                                      const newValues = e.target.checked
-                                        ? [...currentValues, option.id]
-                                        : currentValues.filter(id => id !== option.id);
-                                      handlePreviewAnswerChange(question.id, newValues);
-                                    } else {
-                                      handlePreviewAnswerChange(question.id, e.target.checked ? option.id : null);
-                                    }
-                                  }}
-                                  className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                                />
-                                <div className="w-6 h-6 rounded-full border border-gray-300" style={{ backgroundColor: option.color || '#ccc' }}></div>
-                                <span className="text-sm text-gray-700">{option.text}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {question.questionType === 'image_upload' && (
-                          <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:bg-gray-50 cursor-pointer transition-colors">
-                            <div className="flex flex-col items-center">
-                              <svg className="w-8 h-8 text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                              </svg>
-                              <p className="text-sm text-gray-500">Click to upload an image</p>
-                            </div>
-                          </div>
-                        )}
-
-                        {question.questionType === 'quantity_select' && (
-                          <div className="space-y-3">
-                            {question.options?.[0]?.image && (
-                              <div className="w-full h-24 bg-gray-100 rounded overflow-hidden">
-                                <img
-                                  src={question.options[0].image}
-                                  alt={question.options[0].text}
-                                  className="w-full h-full object-cover"
-                                />
-                              </div>
-                            )}
-                            <div className="flex items-center space-x-3">
-                              <button
-                                onClick={() => handlePreviewQuantityChange(question.id, -1)}
-                                className="w-8 h-8 border border-gray-300 rounded-full flex items-center justify-center text-gray-600 bg-white hover:bg-gray-50 transition-colors"
-                              >
-                                -
-                              </button>
-                              <span className="text-lg font-medium text-gray-700">{previewQuantities[question.id] || 0}</span>
-                              <button
-                                onClick={() => handlePreviewQuantityChange(question.id, 1)}
-                                className="w-8 h-8 border border-gray-300 rounded-full flex items-center justify-center text-gray-600 bg-white hover:bg-gray-50 transition-colors"
-                              >
-                                +
-                              </button>
-                              <span className="text-sm text-gray-500 ml-2">of {question.options?.[0]?.text || 'items'}</span>
-                            </div>
-                          </div>
-                        )}
-
-                        {!['multiple_choice', 'dropdown', 'short_text', 'long_text', 'picture_choice', 'color_choice', 'image_upload', 'quantity_select'].includes(question.questionType) && (
-                          <div className="text-sm text-gray-500 italic p-3 bg-gray-50 rounded-lg">
-                            Preview for {question.questionType} question type
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+              <div className="mt-8 flex justify-center">
+                <div className="relative" style={{ zIndex: 1 }}>
+                  <button
+                    ref={intakeButtonRef}
+                    id="intake-dropdown-button"
+                    onClick={() => {
+                      setIsIntakeDropdownOpen(!isIntakeDropdownOpen);
+                    }}
+                    className="bg-gray-100 hover:bg-gray-200 text-gray-900 font-bold py-2 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2"
+                    style={{ fontFamily: 'Montserrat', fontWeight: 700 }}
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span className="text-sm">New Intake Question</span>
+                  </button>
                 </div>
               </div>
             )}
 
-            <div className="bg-gray-50 rounded-lg p-6 flex flex-col items-center justify-center text-center">
-              <IntakeQuestionDropdown />
-
-              {/* Save button for intake questions */}
-              {intakeQuestionsChanged && (
-                <div className="mt-4 pt-4 border-t border-gray-200">
-                  <button
-                    onClick={handleSaveIntakeQuestions}
-                    disabled={savingIntakeQuestions}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
-                  >
-                    {savingIntakeQuestions ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Saving...</span>
-                      </>
-                    ) : (
-                      <span>Save Intake Questions</span>
-                    )}
-                  </button>
-                </div>
-              )}
-            </div>
+            {/* Save button for intake questions */}
+            {intakeQuestionsChanged && (
+              <div className="pt-4 border-t border-gray-200">
+                <button
+                  onClick={handleSaveIntakeQuestions}
+                  disabled={savingIntakeQuestions}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                >
+                  {savingIntakeQuestions ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    <span>Save Intake Questions</span>
+                  )}
+                </button>
+              </div>
+            )}
           </div>
         )
 
@@ -2171,441 +2091,478 @@ const ServiceDetails = () => {
 
       case "details":
         return (
-          <div className="p-4 space-y-6">
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                <input
-                  type="text"
-                  value={serviceData.name}
-                  onChange={(e) => setServiceData({ ...serviceData, name: e.target.value })}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2"
-                />
+          <div className="p-6 space-y-6 border-t border-gray-200">
+            {/* Service Details Section - Name, Description, Image */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
+                  <input
+                    type="text"
+                    value={serviceData.name}
+                    onChange={(e) => setServiceData({ ...serviceData, name: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                  <textarea
+                    value={serviceData.description}
+                    onChange={(e) => setServiceData({ ...serviceData, description: e.target.value })}
+                    placeholder="Optional"
+                    rows={4}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                <textarea
-                  value={serviceData.description}
-                  onChange={(e) => setServiceData({ ...serviceData, description: e.target.value })}
-                  placeholder="Optional"
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 h-24"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                <div className="relative">
-                  <select
-                    value={serviceData.category_id || ""}
-                    onChange={(e) => {
-                      const selectedCategoryId = e.target.value;
-                      console.log('🔄 Category dropdown changed:', selectedCategoryId);
-                      console.log('🔄 Available categories:', categories);
-                      const selectedCategory = categories.find(cat => cat.id == selectedCategoryId);
-                      console.log('🔄 Selected category object:', selectedCategory);
-                      setServiceData({
-                        ...serviceData,
-                        category: selectedCategory ? selectedCategory.name : "",
-                        category_id: selectedCategoryId || null
-                      });
-                      console.log('🔄 Updated serviceData.category:', selectedCategory ? selectedCategory.name : "");
-                    }}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2"
-                    disabled={categoriesLoading}
-                  >
-                    <option value="">Select a category</option>
-                    {Array.isArray(categories) && categories.length > 0 ? (
-                      categories.map((category) => (
-                        <option key={category.id} value={category.id}>
-                          {category.name}
-                        </option>
-                      ))
-                    ) : (
-                      <option value="" disabled>
-                        {categoriesLoading ? 'Loading categories...' : 'No categories available'}
-                      </option>
-                    )}
-                  </select>
-                  {categoriesLoading && (
-                    <div className="absolute right-3 top-2.5">
-                      <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+              {/* Image Upload Section */}
+              <div className="lg:col-span-1">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Image</label>
+                <div className={`border-2 border-dashed border-gray-300 rounded-lg p-6 text-center relative ${imageUploading ? 'opacity-50 pointer-events-none' : 'hover:border-gray-400 transition-colors'}`}>
+                  {imageUploading && (
+                    <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center rounded-lg z-10">
+                      <div className="text-center">
+                        <Loader2 className="w-6 h-6 animate-spin text-blue-600 mx-auto mb-2" />
+                        <p className="text-sm text-gray-600">Uploading...</p>
+                      </div>
                     </div>
                   )}
-                </div>
-                {/* Category display/input */}
-                <div className="mt-2">
-                  {serviceData.category ? (
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="text"
-                        value={serviceData.category}
-                        onChange={(e) => setServiceData({
-                          ...serviceData,
-                          category: e.target.value,
-                          category_id: null // Clear category_id when typing new category
-                        })}
-                        placeholder="Category name"
-                        className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  {serviceData.image ? (
+                    <div className="relative">
+                      <img
+                        src={serviceData.image}
+                        alt={serviceData.name}
+                        className="w-full h-40 object-cover rounded-lg mb-2"
                       />
-                      <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                        {serviceData.category_id ? 'From dropdown' : 'Custom'}
-                      </span>
+                      <button
+                        onClick={() => handleRemoveImage()}
+                        disabled={imageUploading}
+                        className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        ×
+                      </button>
                     </div>
                   ) : (
-                    <input
-                      type="text"
-                      value={serviceData.category}
-                      onChange={(e) => setServiceData({
-                        ...serviceData,
-                        category: e.target.value,
-                        category_id: null // Clear category_id when typing new category
-                      })}
-                      placeholder="Type a new category name"
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                    />
+                    <>
+                      <Camera className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                      <label className={`text-sm text-blue-600 font-medium cursor-pointer ${imageUploading ? 'pointer-events-none' : ''}`}>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageUpload}
+                          disabled={imageUploading}
+                          className="hidden"
+                        />
+                        {imageUploading ? 'Uploading...' : 'Add an image'}
+                      </label>
+                    </>
                   )}
                 </div>
               </div>
+            </div>
 
-              <div className="flex gap-4 items-start">
-                <div className="flex-1">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-3">Base Price and Duration</label>
-                    <div className="flex gap-4 mb-3">
-                      <div>
-                        <label className="block text-sm text-gray-600 mb-1">Base duration <HelpCircle className="inline-block w-4 h-4 text-gray-400" /></label>
-                        <div className="flex gap-2">
-                          <input
-                            type="number"
-                            value={Math.floor(serviceData.duration / 60)}
-                            onChange={(e) => {
-                              const hours = parseInt(e.target.value) || 0
-                              const minutes = serviceData.duration % 60
-                              setServiceData({ ...serviceData, duration: hours * 60 + minutes })
-                            }}
-                            onFocus={(e) => {
-                              e.target.select()
-                              // Clear default values when focusing
-                              if (e.target.value === '0') {
-                                e.target.value = ''
-                              }
-                            }}
-                            className="w-20 border border-gray-300 rounded-md px-2 py-1"
-                          />
-                          <span className="text-sm text-gray-600 py-1">hours</span>
-                          <input
-                            type="number"
-                            value={serviceData.duration % 60}
-                            onChange={(e) => {
-                              const hours = Math.floor(serviceData.duration / 60)
-                              const minutes = parseInt(e.target.value) || 0
-                              setServiceData({ ...serviceData, duration: hours * 60 + minutes })
-                            }}
-                            onFocus={(e) => {
-                              e.target.select()
-                              // Clear default values when focusing
-                              if (e.target.value === '0' || e.target.value === '30') {
-                                e.target.value = ''
-                              }
-                            }}
-                            className="w-20 border border-gray-300 rounded-md px-2 py-1"
-                          />
-                          <span className="text-sm text-gray-600 py-1">minutes</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-4">
-                      <div>
-                        <label className="block text-sm text-gray-600 mb-1">Base price <HelpCircle className="inline-block w-4 h-4 text-gray-400" /></label>
-                        <div className="flex gap-2">
-                          <span className="text-sm text-gray-600 py-1">$</span>
-                          <input
-                            type="number"
-                            value={serviceData.price}
-                            onChange={(e) => setServiceData({ ...serviceData, price: parseFloat(e.target.value) || 0 })}
-                            onFocus={(e) => {
-                              e.target.select()
-                              // Clear default values when focusing
-                              if (e.target.value === '0' || e.target.value === '0.00') {
-                                e.target.value = ''
-                              }
-                            }}
-                            className="w-20 border border-gray-300 rounded-md px-2 py-1"
-                            disabled={serviceData.isFree}
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-3">
-                      <label className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={serviceData.isFree}
-                          onChange={(e) => setServiceData({ ...serviceData, isFree: e.target.checked })}
-                          className="rounded border-gray-300 text-blue-600"
-                        />
-                        <span className="ml-2 text-sm text-gray-600">This service is free</span>
-                      </label>
-                    </div>
-                  </div>
-
-                  <div className="mt-6">
-                    <label className="block text-sm font-medium text-gray-700 mb-3">Booking page behavior</label>
-                    <div className="grid grid-cols-3 gap-4">
-                      <div className={`border rounded-lg p-4 cursor-pointer ${serviceData.bookingType === 'bookable' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}
-                        onClick={() => setServiceData({ ...serviceData, bookingType: 'bookable' })}>
-                        <div className="flex justify-center mb-2">📅</div>
-                        <h3 className="text-sm font-medium text-center mb-1">Bookable</h3>
-                        <p className="text-xs text-gray-500 text-center">Customers can directly book available times for this service.</p>
-                      </div>
-                      <div className={`border rounded-lg p-4 cursor-pointer ${serviceData.bookingType === 'request' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}
-                        onClick={() => setServiceData({ ...serviceData, bookingType: 'request' })}>
-                        <div className="flex justify-center mb-2">🗓️</div>
-                        <h3 className="text-sm font-medium text-center mb-1">Booking Request</h3>
-                        <p className="text-xs text-gray-500 text-center">Customers propose multiple times, and you confirm one.</p>
-                      </div>
-                      <div className={`border rounded-lg p-4 cursor-pointer ${serviceData.bookingType === 'quote' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}
-                        onClick={() => setServiceData({ ...serviceData, bookingType: 'quote' })}>
-                        <div className="flex justify-center mb-2">💰</div>
-                        <h3 className="text-sm font-medium text-center mb-1">Quote Request</h3>
-                        <p className="text-xs text-gray-500 text-center">Customers provide details, and you send them a custom price quote.</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-6">
-                    <label className="block text-sm font-medium text-gray-700 mb-3">Price display options</label>
-                    <p className="text-sm text-gray-500 mb-3">Control how pricing should be displayed to customers.</p>
-
-                    <div className="mb-3">
-                      <label className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={serviceData.hidePrice}
-                          onChange={(e) => setServiceData({ ...serviceData, hidePrice: e.target.checked })}
-                          className="rounded border-gray-300 text-blue-600"
-                        />
-                        <span className="ml-2 text-sm text-gray-600">Don't show price when booking online</span>
-                      </label>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm text-gray-600 mb-1">Display prefix <HelpCircle className="inline-block w-4 h-4 text-gray-400" /></label>
+            {/* Base Price and Duration Section */}
+            <div className="border-t border-gray-200 pt-6">
+              <h3 className="text-base font-semibold text-gray-900 mb-4">Base Price and Duration</h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
+                    Base duration
+                    <HelpCircle className="w-4 h-4 text-gray-400" />
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2">
                       <input
-                        type="text"
-                        value={serviceData.displayPrefix}
-                        onChange={(e) => setServiceData({ ...serviceData, displayPrefix: e.target.value })}
-                        className="w-full border border-gray-300 rounded-md px-3 py-2 mb-1"
+                        type="number"
+                        value={Math.floor(serviceData.duration / 60)}
+                        onChange={(e) => {
+                          const hours = parseInt(e.target.value) || 0
+                          const minutes = serviceData.duration % 60
+                          setServiceData({ ...serviceData, duration: hours * 60 + minutes })
+                        }}
+                        onFocus={(e) => {
+                          e.target.select()
+                          if (e.target.value === '0') {
+                            e.target.value = ''
+                          }
+                        }}
+                        className="w-16 border-0 focus:ring-0 p-0 text-center"
+                        min="0"
                       />
-                      <p className="text-sm text-gray-500">${serviceData.price}</p>
+                      <span className="text-sm text-gray-600">hours</span>
+                    </div>
+                    <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2">
+                      <input
+                        type="number"
+                        value={serviceData.duration % 60}
+                        onChange={(e) => {
+                          const hours = Math.floor(serviceData.duration / 60)
+                          const minutes = parseInt(e.target.value) || 0
+                          setServiceData({ ...serviceData, duration: hours * 60 + minutes })
+                        }}
+                        onFocus={(e) => {
+                          e.target.select()
+                          if (e.target.value === '0') {
+                            e.target.value = ''
+                          }
+                        }}
+                        className="w-16 border-0 focus:ring-0 p-0 text-center"
+                        min="0"
+                        max="59"
+                      />
+                      <span className="text-sm text-gray-600">minutes</span>
                     </div>
                   </div>
-
-                  <div className="mt-6">
-                    <label className="block text-sm font-medium text-gray-700 mb-3">Taxes</label>
-                    <label className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={serviceData.isTaxable}
-                        onChange={(e) => setServiceData({ ...serviceData, isTaxable: e.target.checked })}
-                        className="rounded border-gray-300 text-blue-600"
-                      />
-                      <span className="ml-2 text-sm text-gray-600">This service is taxable</span>
-                    </label>
-                  </div>
-
                 </div>
 
-                <div className="w-48">
-                  <div className={`border border-dashed border-gray-300 rounded-lg p-6 text-center relative ${imageUploading ? 'opacity-50 pointer-events-none' : ''}`}>
-                    {imageUploading && (
-                      <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center rounded-lg z-10">
-                        <div className="text-center">
-                          <Loader2 className="w-6 h-6 animate-spin text-blue-600 mx-auto mb-2" />
-                          <p className="text-sm text-gray-600">Uploading...</p>
-                        </div>
-                      </div>
-                    )}
-                    {serviceData.image ? (
-                      <div className="relative">
-                        <img
-                          src={serviceData.image}
-                          alt={serviceData.name}
-                          className="w-full h-32 object-cover rounded-lg mb-2"
-                        />
-                        <button
-                          onClick={() => handleRemoveImage()}
-                          disabled={imageUploading}
-                          className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ) : (
-                      <>
-                        <Camera className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                        <label className={`text-sm text-blue-600 font-medium cursor-pointer ${imageUploading ? 'pointer-events-none' : ''}`}>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={handleImageUpload}
-                            disabled={imageUploading}
-                            className="hidden"
-                          />
-                          {imageUploading ? 'Uploading...' : 'Add an image'}
-                        </label>
-                      </>
-                    )}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
+                    Base price
+                    <HelpCircle className="w-4 h-4 text-gray-400" />
+                  </label>
+                  <div className="flex items-center border border-gray-300 rounded-lg px-3 py-2 w-48">
+                    <span className="text-sm text-gray-600 flex-shrink-0">$</span>
+                    <input
+                      type="number"
+                      value={serviceData.price === 0 ? '' : (serviceData.price || '')}
+                      onChange={(e) => {
+                        const inputValue = e.target.value
+                        if (inputValue === '') {
+                          setServiceData({ ...serviceData, price: 0 })
+                        } else {
+                          const numValue = parseFloat(inputValue)
+                          if (!isNaN(numValue)) {
+                            setServiceData({ ...serviceData, price: numValue })
+                          }
+                        }
+                      }}
+                      onFocus={(e) => {
+                        e.target.select()
+                      }}
+                      placeholder="Base Price"
+                      className="flex-1 border-0 focus:ring-0 p-0 min-w-0 outline-none bg-transparent w-full"
+                      disabled={serviceData.isFree}
+                      readOnly={serviceData.isFree}
+                      step="0.01"
+                      min="0"
+                    />
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
+                    Minimum price
+                    <HelpCircle className="w-4 h-4 text-gray-400" />
+                  </label>
+                  <div className="flex items-center border border-gray-300 rounded-lg px-3 py-2 w-48">
+                    <span className="text-sm text-gray-600 flex-shrink-0">$</span>
+                    <input
+                      type="number"
+                      value={serviceData.minimumPrice || ''}
+                      onChange={(e) => {
+                        const value = e.target.value === '' ? '' : parseFloat(e.target.value) || 0
+                        setServiceData({ ...serviceData, minimumPrice: value })
+                      }}
+                      onFocus={(e) => {
+                        e.target.select()
+                        if (e.target.value === '0' || e.target.value === '0.00') {
+                          e.target.value = ''
+                        }
+                      }}
+                      placeholder="Optional"
+                      className="flex-1 border-0 focus:ring-0 p-0 min-w-0 outline-none"
+                      step="0.01"
+                      min="0"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="isFree"
+                    checked={serviceData.isFree}
+                    onChange={(e) => setServiceData({ ...serviceData, isFree: e.target.checked })}
+                    className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  <label htmlFor="isFree" className="ml-2 text-sm text-gray-700">
+                    This service is free
+                  </label>
                 </div>
               </div>
+            </div>
+
+            {/* Booking page behavior Section */}
+            <div className="border-t border-gray-200 pt-6">
+              <h3 className="text-base font-semibold text-gray-900 mb-4">Booking page behavior</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div
+                  className={`relative rounded-lg p-4 cursor-pointer transition-all ${
+                    serviceData.bookingType === 'bookable'
+                      ? 'border-2 border-blue-600 bg-blue-50'
+                      : 'border-2 border-gray-200 hover:border-gray-300'
+                  }`}
+                  onClick={() => setServiceData({ ...serviceData, bookingType: 'bookable' })}
+                >
+                  {serviceData.bookingType === 'bookable' && (
+                    <div className="absolute top-2 right-2">
+                      <CheckCircle2 className="w-5 h-5 text-blue-600" />
+                    </div>
+                  )}
+                  <div className="flex justify-center mb-3">
+                    <Calendar className={`w-6 h-6 ${serviceData.bookingType === 'bookable' ? 'text-blue-600' : 'text-gray-400'}`} />
+                  </div>
+                  <h3 className="text-sm font-medium text-center mb-2">Bookable</h3>
+                  <p className="text-xs text-gray-600 text-center">
+                    Customers can directly book available times for this service.
+                  </p>
+                </div>
+
+                <div
+                  className={`relative rounded-lg p-4 cursor-pointer transition-all ${
+                    serviceData.bookingType === 'request'
+                      ? 'border-2 border-blue-600 bg-blue-50'
+                      : 'border-2 border-gray-200 hover:border-gray-300'
+                  }`}
+                  onClick={() => setServiceData({ ...serviceData, bookingType: 'request' })}
+                >
+                  {serviceData.bookingType === 'request' && (
+                    <div className="absolute top-2 right-2">
+                      <CheckCircle2 className="w-5 h-5 text-blue-600" />
+                    </div>
+                  )}
+                  <div className="flex justify-center mb-3">
+                    <Wrench className={`w-6 h-6 ${serviceData.bookingType === 'request' ? 'text-blue-600' : 'text-gray-400'}`} />
+                  </div>
+                  <h3 className="text-sm font-medium text-center mb-2">Booking Request</h3>
+                  <p className="text-xs text-gray-600 text-center">
+                    Customers propose multiple times, and you confirm one.
+                  </p>
+                </div>
+
+                <div
+                  className={`relative rounded-lg p-4 cursor-pointer transition-all ${
+                    serviceData.bookingType === 'quote'
+                      ? 'border-2 border-blue-600 bg-blue-50'
+                      : 'border-2 border-gray-200 hover:border-gray-300'
+                  }`}
+                  onClick={() => setServiceData({ ...serviceData, bookingType: 'quote' })}
+                >
+                  {serviceData.bookingType === 'quote' && (
+                    <div className="absolute top-2 right-2">
+                      <CheckCircle2 className="w-5 h-5 text-blue-600" />
+                    </div>
+                  )}
+                  <div className="flex justify-center mb-3">
+                    <DollarSign className={`w-6 h-6 ${serviceData.bookingType === 'quote' ? 'text-blue-600' : 'text-gray-400'}`} />
+                  </div>
+                  <h3 className="text-sm font-medium text-center mb-2">Quote Request</h3>
+                  <p className="text-xs text-gray-600 text-center">
+                    Customers provide details, and you send them a custom price quote.
+                  </p>
+                </div>
+              </div>
+              <p className="text-sm text-gray-600 mt-4">
+                Services set to Booking Request or Quote Request will let customers submit a service request instead of booking a job instantly.{" "}
+                <a href="#" className="text-blue-600 hover:text-blue-700">Learn more...</a>
+              </p>
+            </div>
+
+            {/* PRICE DISPLAY OPTIONS Section */}
+            <div className="border-t border-gray-200 pt-6">
+              <h3 className="text-base font-semibold text-gray-900 mb-1">PRICE DISPLAY OPTIONS</h3>
+              <p className="text-sm text-gray-600 mb-4">Control how pricing should be displayed to customers.</p>
+              
+              <div className="space-y-4">
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="hidePrice"
+                    checked={serviceData.hidePrice}
+                    onChange={(e) => setServiceData({ ...serviceData, hidePrice: e.target.checked })}
+                    className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  <label htmlFor="hidePrice" className="ml-2 text-sm text-gray-700">
+                    Don't show price when booking online
+                  </label>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
+                    Display prefix
+                    <HelpCircle className="w-4 h-4 text-gray-400" />
+                  </label>
+                  <input
+                    type="text"
+                    value={serviceData.displayPrefix}
+                    onChange={(e) => setServiceData({ ...serviceData, displayPrefix: e.target.value })}
+                    maxLength={20}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">{serviceData.displayPrefix.length}/20</p>
+                </div>
+              </div>
+            </div>
+
+            {/* TAXES Section */}
+            <div className="border-t border-gray-200 pt-6">
+              <h3 className="text-base font-semibold text-gray-900 mb-4">TAXES</h3>
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="isTaxable"
+                  checked={serviceData.isTaxable}
+                  onChange={(e) => setServiceData({ ...serviceData, isTaxable: e.target.checked })}
+                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                />
+                <label htmlFor="isTaxable" className="ml-2 text-sm text-gray-700">
+                  This service is taxable
+                </label>
+              </div>
+            </div>
+
+            {/* Save Button */}
+            <div className="flex justify-end pt-4 border-t border-gray-200">
+              <button
+                onClick={() => handleSaveService()}
+                disabled={saving}
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <span>Save Changes</span>
+                )}
+              </button>
             </div>
           </div>
         )
 
       case "modifiers":
-        console.log('🔍 Rendering modifiers section')
-        console.log('🔍 serviceData.modifiers:', serviceData.modifiers)
-        console.log('🔍 serviceData.modifiers type:', typeof serviceData.modifiers)
-        console.log('🔍 serviceData.modifiers is array?', Array.isArray(serviceData.modifiers))
-        console.log('🔍 serviceData.modifiers length:', Array.isArray(serviceData.modifiers) ? serviceData.modifiers.length : 'not an array')
-        console.log('🔍 serviceData:', serviceData)
         return (
-          <div className="p-6 space-y-6">
-            <p className="text-sm text-gray-600">Service modifiers are groups of options that can adjust this service's price and duration when selected.</p>
-            <a href="#" className="text-sm text-blue-600 hover:text-blue-700 flex items-center">
-              <Info className="w-4 h-4 mr-1" />
-              Learn more about service modifiers
-            </a>
+          <div className="p-6 space-y-6 border-t border-gray-200">
+            {/* Header Section */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-3">
+                <Tag className="w-5 h-5 text-blue-600" />
+                <h3 className="text-lg font-bold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
+                  Service Modifiers
+                </h3>
+              </div>
+              <ChevronDown className="w-5 h-5 text-gray-400" />
+            </div>
 
+            {/* Description */}
+            <p className="text-sm text-gray-600 mb-4" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+              Service modifiers are groups of options that can adjust this service's price and duration when selected.
+            </p>
+
+            {/* Learn more link */}
+            <div className="mb-6">
+              <button 
+                onClick={() => {}}
+                className="text-sm text-blue-600 hover:text-blue-700 flex items-center space-x-1"
+              >
+                <BookOpen className="w-4 h-4" />
+                <span>Learn more about service modifiers</span>
+              </button>
+            </div>
+
+            {/* Modifiers List */}
             <div className="space-y-4">
               {(() => {
                 const hasModifiers = serviceData.modifiers && Array.isArray(serviceData.modifiers) && serviceData.modifiers.length > 0;
-                console.log('🔍 Modifiers condition check:', {
-                  hasModifiers,
-                  modifiers: serviceData.modifiers,
-                  isArray: Array.isArray(serviceData.modifiers),
-                  length: Array.isArray(serviceData.modifiers) ? serviceData.modifiers.length : 'not an array'
-                });
                 return hasModifiers;
               })() ? (
-                serviceData.modifiers.filter(modifier => modifier && modifier.id).map((modifier, index) => (
-                <div key={modifier.id} className="border border-gray-200 rounded-lg">
-                  <div className="flex items-center justify-between p-4">
-                    <div className="flex items-center space-x-3">
-                      <span className="text-gray-400">⋮⋮</span>
-                      <div>
-                        <div className="flex items-center space-x-2">
-                          <span className="font-medium">{modifier.title}</span>
-                          {modifier.required && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
-                              Required
-                            </span>
-                          )}
+                serviceData.modifiers.filter(modifier => modifier && modifier.id).map((modifier, index) => {
+                  // Helper function to format duration
+                  const formatDuration = (option) => {
+                    const hours = option.durationHours || (option.duration ? Math.floor(option.duration / 60) : 0);
+                    const minutes = option.durationMinutes || (option.duration ? option.duration % 60 : 0);
+                    if (hours === 0 && minutes === 0) return '';
+                    if (hours > 0 && minutes > 0) return `${hours} hr ${minutes} min`;
+                    if (hours > 0) return `${hours} hr`;
+                    if (minutes > 0) return `${minutes} min`;
+                    return '';
+                  };
+
+                  return (
+                    <div key={modifier.id} className="bg-white border border-gray-200 rounded-lg">
+                      <div className="flex items-center justify-between p-4">
+                        <div className="flex items-center space-x-3 flex-1">
+                          <GripVertical className="w-5 h-5 text-gray-400 cursor-move" />
+                          <h4 className="text-base font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                            {modifier.title || modifier.name}
+                          </h4>
                         </div>
-                        {modifier.selectionType && (
-                          <p className="text-sm text-gray-500 mt-1">
-                            {modifier.selectionType === 'single' ? 'Single Select' :
-                             modifier.selectionType === 'multi' ? 'Multi-Select' :
-                             modifier.selectionType === 'quantity' ? 'Quantity Select' : 'Select'}
-                          </p>
-                        )}
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={() => handleEditModifier(modifier)}
+                            className="px-3 py-1.5 text-sm text-gray-900 hover:bg-gray-50 rounded-lg transition-colors font-medium"
+                            style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteModifier(modifier.id)}
+                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="px-4 pb-4">
+                        <div className="flex flex-wrap gap-2">
+                          {(modifier.options && Array.isArray(modifier.options) ? modifier.options : []).map((option, optionIndex) => {
+                            const price = option.price || 0;
+                            const duration = formatDuration(option);
+                            const parts = [];
+                            
+                            if (option.label || option.name) {
+                              parts.push(option.label || option.name);
+                            }
+                            if (price > 0) {
+                              parts.push(`$${parseFloat(price).toFixed(2)}`);
+                            }
+                            if (duration) {
+                              parts.push(duration);
+                            }
+                            
+                            return (
+                              <div 
+                                key={optionIndex} 
+                                className="bg-gray-100 text-gray-900 rounded-full px-3 py-1.5 text-sm font-medium"
+                                style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
+                              >
+                                {parts.join(' • ')}
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <button
-                        onClick={() => handleCopyModifier(modifier)}
-                        className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
-                        title="Copy modifier"
-                      >
-                        {copiedModifier === modifier.id ? (
-                          <CheckCircle className="w-4 h-4 text-green-500" />
-                        ) : (
-                          <Copy className="w-4 h-4" />
-                        )}
-                      </button>
-                      <button
-                        onClick={() => handleEditModifier(modifier)}
-                        className="text-sm text-gray-600 hover:text-gray-800"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDeleteModifier(modifier.id)}
-                        className="text-sm text-gray-600 hover:text-gray-800"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                  <div className="px-4 pb-4">
-                    <div className="flex flex-wrap gap-2">
-                        {(modifier.options && Array.isArray(modifier.options) ? modifier.options : []).map((option, optionIndex) => (
-                        <div key={optionIndex} className="bg-gray-100 rounded-full px-3 py-1 text-sm flex items-center space-x-2">
-                          {option.image && (
-                            <img
-                              src={option.image}
-                              alt={option.label}
-                              className="w-4 h-4 object-cover rounded-full"
-                            />
-                          )}
-                          <span>{option.label}</span>
-                          {option.price && <span className="text-gray-500 ml-1">${option.price}</span>}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-                ))
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <p>No modifiers added yet.</p>
-                  <p className="text-sm mt-1">Click "New Modifier Group" to add your first modifier.</p>
-                </div>
-              )}
+                  );
+                })
+              ) : null}
             </div>
 
-            {/* Customer Preview Section */}
-            {serviceData.modifiers && Array.isArray(serviceData.modifiers) && serviceData.modifiers.length > 0 && (
-              <div className="border-t border-gray-200 pt-6">
-                <div className="mb-4">
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">Customer Preview</h3>
-                  <p className="text-sm text-gray-600">This is how your modifiers will appear to customers during booking.</p>
-                </div>
-
-                <div className="bg-gray-50 rounded-lg p-6">
-                  <ServiceModifiersForm
-                    modifiers={serviceData.modifiers}
-                    selectedModifiers={defaultModifierSelections}
-                    onModifiersChange={handleModifiersChange}
-                    onSave={handleSaveModifiers}
-                    isEditable={true}
-                    isSaving={savingModifiers}
-                    editedModifierPrices={editedModifierPrices}
-                    onModifierPriceChange={(priceKey, value) => {
-                      console.log('🔧 SERVICE DETAILS: Modifier price change:', priceKey, '=', value);
-                      setEditedModifierPrices(prev => ({
-                        ...prev,
-                        [priceKey]: value
-                      }));
-                    }}
-                  />
-                </div>
-              </div>
-            )}
-
-            <div className="pt-4">
+            {/* New Modifier Group Button */}
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
               <button
                 onClick={() => {
                   setEditingModifier(null)
                   setIsCreateModifierGroupModalOpen(true)
                 }}
-                className="w-full bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                className="px-4 py-2 bg-white text-gray-900 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors border border-gray-300"
+                style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
               >
-                + New Modifier Group
+                New Modifier Group
               </button>
             </div>
           </div>
@@ -2727,6 +2684,89 @@ const ServiceDetails = () => {
   // const sections = allSections.filter(section => !isSectionHidden(section.id))
   const sections = allSections
 
+  // Generate booking link URL
+  const generateBookingLink = () => {
+    const currentDomain = window.location.hostname === 'localhost' 
+      ? 'http://localhost:3000' 
+      : 'https://widget.service-flow.com'
+    
+    if (!user?.businessName) {
+      return `${currentDomain}/book/your-business?preselected=${serviceId}`
+    }
+    
+    const businessSlug = user.businessName
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '')
+      .substring(0, 20)
+    
+    return `${currentDomain}/book/${businessSlug}?preselected=${serviceId}`
+  }
+
+  const bookingLink = generateBookingLink()
+
+  // Handle copy booking link
+  const handleCopyBookingLink = async () => {
+    try {
+      await navigator.clipboard.writeText(bookingLink)
+      setSuccessMessage("Booking link copied to clipboard!")
+      setTimeout(() => setSuccessMessage(""), 3000)
+      setIsBookingLinkDropdownOpen(false)
+    } catch (err) {
+      setError("Failed to copy link. Please try again.")
+      setTimeout(() => setError(""), 3000)
+    }
+  }
+
+  // Handle view booking link
+  const handleViewBookingLink = () => {
+    window.open(bookingLink, '_blank')
+    setIsBookingLinkDropdownOpen(false)
+  }
+
+  // Booking Link Dropdown Position
+  useEffect(() => {
+    const updateBookingLinkPosition = () => {
+      if (bookingLinkButtonRef.current) {
+        const buttonRect = bookingLinkButtonRef.current.getBoundingClientRect();
+        setBookingLinkDropdownPosition({
+          top: buttonRect.bottom + window.scrollY,
+          left: buttonRect.left + window.scrollX
+        });
+      }
+    };
+
+    if (isBookingLinkDropdownOpen) {
+      updateBookingLinkPosition();
+      window.addEventListener('scroll', updateBookingLinkPosition, true);
+      window.addEventListener('resize', updateBookingLinkPosition);
+      return () => {
+        window.removeEventListener('scroll', updateBookingLinkPosition, true);
+        window.removeEventListener('resize', updateBookingLinkPosition);
+      };
+    }
+  }, [isBookingLinkDropdownOpen]);
+
+  // Close booking link dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      const dropdownContainer = document.getElementById('booking-link-dropdown-container');
+      const dropdownButton = bookingLinkButtonRef.current;
+
+      if (isBookingLinkDropdownOpen &&
+          dropdownContainer &&
+          !dropdownContainer.contains(event.target) &&
+          dropdownButton &&
+          !dropdownButton.contains(event.target)) {
+        setIsBookingLinkDropdownOpen(false);
+      }
+    };
+
+    if (isBookingLinkDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isBookingLinkDropdownOpen]);
+
   return (
     <div style={{fontFamily: 'Montserrat', fontWeight: 500}} className="flex h-screen bg-white overflow-hidden">
       {/* Image Upload Loading Overlay */}
@@ -2769,11 +2809,72 @@ const ServiceDetails = () => {
                     <span>Visible</span>
                     <ChevronDown className="w-4 h-4 text-gray-400" />
                   </button>
-                  <button className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-                    <ExternalLink className="w-4 h-4" />
-                    <span>Booking Link</span>
-                    <ChevronDown className="w-4 h-4 text-gray-400" />
-                  </button>
+                  <div className="relative">
+                    <button 
+                      ref={bookingLinkButtonRef}
+                      onClick={() => setIsBookingLinkDropdownOpen(!isBookingLinkDropdownOpen)}
+                      className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      <span>Booking Link</span>
+                      <ChevronDown className="w-4 h-4 text-gray-400" />
+                    </button>
+                    
+                    {isBookingLinkDropdownOpen && createPortal(
+                      <div
+                        id="booking-link-dropdown-container"
+                        className="fixed bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-[9999] min-w-[280px]"
+                        style={{
+                          top: `${bookingLinkDropdownPosition.top}px`,
+                          left: `${bookingLinkDropdownPosition.left}px`,
+                          transform: 'translateY(8px)'
+                        }}
+                      >
+                        <div className="px-4 py-2 border-b border-gray-200">
+                          <p className="text-xs text-gray-500 font-medium">Direct link to book this service</p>
+                        </div>
+                        <div className="px-4 py-3">
+                          <div className="flex items-center space-x-2 mb-3">
+                            <input
+                              type="text"
+                              value={bookingLink}
+                              readOnly
+                              className="flex-1 text-xs border border-gray-300 rounded px-2 py-1.5 text-gray-600 bg-gray-50"
+                              onClick={(e) => e.target.select()}
+                            />
+                          </div>
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={handleCopyBookingLink}
+                              className="flex-1 px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors flex items-center justify-center space-x-1"
+                            >
+                              <Copy className="w-3 h-3" />
+                              <span>Copy</span>
+                            </button>
+                            <button
+                              onClick={handleViewBookingLink}
+                              className="flex-1 px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors flex items-center justify-center space-x-1"
+                            >
+                              <ExternalLink className="w-3 h-3" />
+                              <span>View</span>
+                            </button>
+                          </div>
+                        </div>
+                        <div className="px-4 py-2 border-t border-gray-200">
+                          <button
+                            onClick={() => {
+                              setExpandedSection({ id: 'bookingLink' })
+                              setIsBookingLinkDropdownOpen(false)
+                            }}
+                            className="w-full text-left px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 rounded transition-colors"
+                          >
+                            Embed Service
+                          </button>
+                        </div>
+                      </div>,
+                      document.body
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

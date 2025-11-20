@@ -207,89 +207,86 @@ const ServiceModifiersForm = ({ modifiers = [], selectedModifiers: parentSelecte
                 </div>
               );
             } else {
-              return (
-                <div key={option.id} className={`flex items-center gap-4 p-4 border-2 rounded-lg transition-all ${
-                  isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
-                }`}>
-                  <label className="flex items-center gap-4 flex-1 cursor-pointer">
-                    <input
-                      type={modifier.selectionType === 'multi' ? 'checkbox' : 'radio'}
-                      name={modifier.id}
-                      checked={isSelected}
-                      onChange={(e) => {
-                        if (modifier.selectionType === 'multi') {
-                          handleModifierChange(modifier.id, option.id, e.target.checked ? 1 : -1);
-                        } else {
-                          // For single selection, always select the option
-                          handleModifierChange(modifier.id, option.id, 1);
-                        }
-                      }}
-                      required={modifier.required && modifier.selectionType === 'single'}
-                      className="w-5 h-5 text-blue-600 border-gray-300 focus:ring-blue-500 flex-shrink-0"
-                    />
-                    
-                    {option.image ? (
-                      <img
-                        src={option.image}
-                        alt={option.label || option.name}
-                        className="w-12 h-12 object-cover rounded border border-gray-200 flex-shrink-0"
-                      />
-                    ) : (
-                      <div className="w-12 h-12 bg-gray-100 rounded flex items-center justify-center border border-gray-200 flex-shrink-0">
-                        <ImageIcon className="w-5 h-5 text-gray-400" />
+              // Check if this is a single/multi select with images (like TV mounting bracket type)
+              const hasImage = option.image;
+              const optionPrice = (() => {
+                const priceKey = `${modifier.id}_option_${option.id}`;
+                const editedPrice = effectiveEditedPrices[priceKey];
+                return editedPrice !== undefined ? parseFloat(editedPrice) : parseFloat(option.price || 0);
+              })();
+              
+              if (hasImage) {
+                // Render as card with image (like TV mounting example)
+                return (
+                  <div key={option.id} className="relative">
+                    <label className={`block cursor-pointer ${isSelected ? '' : ''}`}>
+                      <div className={`border-2 rounded-lg p-4 transition-all ${
+                        isSelected ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-gray-300 bg-white'
+                      }`}>
+                        {option.image && (
+                          <div className="mb-3">
+                            <img
+                              src={option.image}
+                              alt={option.label || option.name}
+                              className="w-full h-32 object-cover rounded border border-gray-200"
+                            />
+                          </div>
+                        )}
+                        <div className="text-center">
+                          <div className="font-semibold text-gray-900 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                            {option.label || option.name}
+                          </div>
+                          <div className="text-sm font-medium text-gray-700">
+                            {optionPrice > 0 ? `+$${optionPrice.toFixed(2)}` : 'Free'}
+                          </div>
+                        </div>
                       </div>
-                    )}
-                    
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-gray-900 truncate" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
-                        {option.label || option.name || 'Unnamed option'}
-                      </div>
-                      {option.description && (
-                        <div className="text-sm text-gray-600 mt-0.5 truncate" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{option.description}</div>
-                      )}
-                    </div>
-                  </label>
-                  
-                  <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                    <div className="flex items-center gap-1">
-                      <span className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>$</span>
                       <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={(() => {
-                          const priceKey = `${modifier.id}_option_${option.id}`;
-                          const editedPrice = effectiveEditedPrices[priceKey];
-                          return editedPrice !== undefined ? editedPrice : (option.price || 0);
-                        })()}
+                        type={modifier.selectionType === 'multi' ? 'checkbox' : 'radio'}
+                        name={modifier.id}
+                        checked={isSelected}
                         onChange={(e) => {
-                          const priceKey = `${modifier.id}_option_${option.id}`;
-                          const value = e.target.value;
-                          
-                          // Update local state immediately for UI responsiveness
-                          setLocalEditedPrices(prev => ({
-                            ...prev,
-                            [priceKey]: value
-                          }));
-                          
-                          // Call parent callback to update parent state
-                          if (onModifierPriceChange) {
-                            onModifierPriceChange(modifier.id, option.id, value);
+                          if (modifier.selectionType === 'multi') {
+                            handleModifierChange(modifier.id, option.id, e.target.checked ? 1 : -1);
+                          } else {
+                            handleModifierChange(modifier.id, option.id, 1);
                           }
                         }}
-                        onClick={(e) => e.stopPropagation()}
-                        className="w-20 px-2 py-1.5 text-base text-right border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                        style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
+                        required={modifier.required && modifier.selectionType === 'single'}
+                        className="sr-only"
                       />
-                    </div>
-                    {option.duration && (
-                      <div className="text-xs text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
-                        {Math.floor(option.duration / 60)}h {option.duration % 60}m
-                      </div>
-                    )}
+                    </label>
                   </div>
-                </div>
-              );
+                );
+              } else {
+                // Render as button-style option (like Number of Bathrooms)
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => {
+                      if (modifier.selectionType === 'multi') {
+                        handleModifierChange(modifier.id, option.id, isSelected ? -1 : 1);
+                      } else {
+                        handleModifierChange(modifier.id, option.id, 1);
+                      }
+                    }}
+                    className={`px-4 py-2.5 rounded-lg font-medium text-sm transition-all ${
+                      isSelected 
+                        ? 'bg-green-600 text-white border-2 border-green-600 hover:bg-green-700' 
+                        : 'bg-white text-gray-900 border-2 border-gray-300 hover:border-gray-400'
+                    }`}
+                    style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
+                  >
+                    {option.label || option.name}
+                    {optionPrice > 0 && (
+                      <span className={`ml-2 ${isSelected ? 'text-white' : 'text-gray-600'}`}>
+                        +${optionPrice.toFixed(2)}
+                      </span>
+                    )}
+                  </button>
+                );
+              }
             }
           })}
         </div>
