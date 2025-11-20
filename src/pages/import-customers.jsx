@@ -10,6 +10,12 @@ const ImportCustomersPage = () => {
   const [error, setError] = useState('');
   const [previewData, setPreviewData] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [importProgress, setImportProgress] = useState({
+    current: 0,
+    total: 0,
+    percentage: 0,
+    batchInfo: null
+  });
 
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
@@ -274,18 +280,150 @@ const ImportCustomersPage = () => {
     setError('');
     setImportResult(null);
     
+    // Initialize progress
+    const totalCustomers = previewData.length;
+    const BATCH_SIZE = 100; // Process 100 customers at a time to avoid timeouts
+    const batches = Math.ceil(totalCustomers / BATCH_SIZE);
+    
+    setImportProgress({
+      current: 0,
+      total: totalCustomers,
+      percentage: 0,
+      batchInfo: batches > 1 ? { current: 0, total: batches } : null
+    });
+    
+    // Aggregate results
+    const aggregateResults = {
+      imported: 0,
+      skipped: 0,
+      errors: []
+    };
+    
     try {
-      const result = await customersAPI.importCustomers(previewData);
-      setImportResult(result);
+      console.log(`📤 Starting batch import: ${totalCustomers} customers in ${batches} batches of ${BATCH_SIZE}`);
+      
+      // Process customers in batches
+      for (let batchIndex = 0; batchIndex < batches; batchIndex++) {
+        const startIndex = batchIndex * BATCH_SIZE;
+        const endIndex = Math.min(startIndex + BATCH_SIZE, totalCustomers);
+        const batch = previewData.slice(startIndex, endIndex);
+        const batchNumber = batchIndex + 1;
+        
+        console.log(`📦 Processing batch ${batchNumber}/${batches}: customers ${startIndex + 1}-${endIndex}`);
+        
+        try {
+          // Update progress before sending batch
+          setImportProgress({
+            current: startIndex,
+            total: totalCustomers,
+            percentage: Math.round((startIndex / totalCustomers) * 100),
+            batchInfo: batches > 1 ? { current: batchIndex, total: batches } : null
+          });
+          
+          // Import this batch
+          const result = await customersAPI.importCustomers(batch);
+          
+          // Aggregate results
+          if (result) {
+            aggregateResults.imported += result.imported || 0;
+            aggregateResults.skipped += result.skipped || 0;
+            if (result.errors && Array.isArray(result.errors)) {
+              // Adjust error row numbers to reflect actual row numbers
+              const adjustedErrors = result.errors.map(error => {
+                // If error contains "Row X:", adjust the row number
+                if (error.includes('Row ')) {
+                  return error.replace(/Row (\d+):/, (match, rowNum) => {
+                    const actualRow = parseInt(rowNum) + startIndex;
+                    return `Row ${actualRow}:`;
+                  });
+                }
+                return `Batch ${batchNumber}: ${error}`;
+              });
+              aggregateResults.errors.push(...adjustedErrors);
+            }
+          }
+          
+          // Update progress after batch completes
+          setImportProgress({
+            current: endIndex,
+            total: totalCustomers,
+            percentage: Math.round((endIndex / totalCustomers) * 100),
+            batchInfo: batches > 1 ? { current: batchIndex + 1, total: batches } : null
+          });
+          
+          // Small delay between batches to avoid overwhelming the server
+          if (batchIndex < batches - 1) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+          
+        } catch (error) {
+          console.error(`❌ Batch ${batchNumber} error:`, error);
+          
+          // Handle batch errors
+          if (error.response?.data) {
+            const responseData = error.response.data;
+            if (responseData.imported !== undefined || responseData.errors) {
+              aggregateResults.imported += responseData.imported || 0;
+              aggregateResults.skipped += responseData.skipped || 0;
+              if (responseData.errors && Array.isArray(responseData.errors)) {
+                const adjustedErrors = responseData.errors.map(error => 
+                  `Batch ${batchNumber}: ${error}`
+                );
+                aggregateResults.errors.push(...adjustedErrors);
+              }
+            } else if (responseData.error) {
+              aggregateResults.errors.push(`Batch ${batchNumber}: ${responseData.error}`);
+            }
+          } else {
+            aggregateResults.errors.push(`Batch ${batchNumber}: ${error.message || 'Network error'}`);
+          }
+          
+          // Continue with next batch even if this one failed
+          setImportProgress({
+            current: endIndex,
+            total: totalCustomers,
+            percentage: Math.round((endIndex / totalCustomers) * 100),
+            batchInfo: batches > 1 ? { current: batchIndex + 1, total: batches } : null
+          });
+        }
+      }
+      
+      // Set final progress
+      setImportProgress({
+        current: totalCustomers,
+        total: totalCustomers,
+        percentage: 100,
+        batchInfo: batches > 1 ? { current: batches, total: batches } : null
+      });
+      
+      console.log('📊 Final import results:', aggregateResults);
+      
+      // Set the aggregated results
+      setImportResult(aggregateResults);
+      
     } catch (error) {
-      console.error('Import error:', error);
-      if (error.response?.data?.error) {
-        setError(error.response.data.error);
+      console.error('❌ Import error:', error);
+      console.error('❌ Error response:', error.response?.data);
+      console.error('❌ Error status:', error.response?.status);
+      console.error('❌ Full error:', error);
+      
+      // If we have partial results, show them
+      if (aggregateResults.imported > 0 || aggregateResults.errors.length > 0) {
+        setImportResult(aggregateResults);
       } else {
-        setError("Failed to import customers. Please check your file format.");
+        setError(`Import failed: ${error.message || 'Unknown error'}`);
       }
     } finally {
       setIsImporting(false);
+      // Reset progress after a short delay
+      setTimeout(() => {
+        setImportProgress({
+          current: 0,
+          total: 0,
+          percentage: 0,
+          batchInfo: null
+        });
+      }, 1000);
     }
   };
 
@@ -367,7 +505,35 @@ const ImportCustomersPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Fixed Progress Bar Overlay */}
+      {isImporting && (
+        <div className="fixed top-0 left-0 right-0 z-50 bg-white border-b-2 border-blue-200 shadow-lg">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+             <div className="flex items-center justify-between mb-2">
+               <div className="flex items-center space-x-3">
+                 <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
+                 <span className="text-lg font-semibold text-gray-900">Importing Customers...</span>
+                 {importProgress.batchInfo && (
+                   <span className="text-sm text-blue-600">
+                     (Batch {importProgress.batchInfo.current}/{importProgress.batchInfo.total})
+                   </span>
+                 )}
+               </div>
+               <span className="text-lg font-semibold text-blue-600">
+                 {importProgress.current} / {importProgress.total} ({importProgress.percentage}%)
+               </span>
+             </div>
+            <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+              <div
+                className="bg-blue-600 h-3 rounded-full transition-all duration-300 ease-out"
+                style={{ width: `${importProgress.percentage}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+      
+      <div className={`max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 ${isImporting ? 'pt-24' : ''}`}>
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center mb-4">
@@ -603,6 +769,44 @@ const ImportCustomersPage = () => {
                       </button>
                     </div>
                   </div>
+                  
+                  {/* Progress Bar */}
+                  {isImporting && (
+                    <div className="mt-6 bg-blue-50 border-2 border-blue-200 rounded-lg p-6 shadow-lg">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center space-x-2">
+                          <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
+                          <span className="text-base font-semibold text-gray-900">Importing Customers</span>
+                          {importProgress.batchInfo && (
+                            <span className="text-sm text-blue-600 ml-2">
+                              (Batch {importProgress.batchInfo.current}/{importProgress.batchInfo.total})
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-base font-semibold text-blue-600">
+                          {importProgress.current} / {importProgress.total} ({importProgress.percentage}%)
+                        </span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden shadow-inner">
+                        <div
+                          className="bg-blue-600 h-4 rounded-full transition-all duration-300 ease-out flex items-center justify-end pr-2"
+                          style={{ width: `${importProgress.percentage}%` }}
+                        >
+                          {importProgress.percentage > 10 && (
+                            <span className="text-xs font-medium text-white">
+                              {importProgress.percentage}%
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <p className="text-sm text-gray-600 mt-3 font-medium">
+                        {importProgress.batchInfo 
+                          ? `Processing in batches to ensure reliability. Batch ${importProgress.batchInfo.current} of ${importProgress.batchInfo.total}...`
+                          : 'Please wait while we import your customers. This may take a few moments...'
+                        }
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
