@@ -635,7 +635,8 @@ const ImportJobsPage = () => {
     const aggregateResults = {
       imported: 0,
       skipped: 0,
-      errors: []
+      errors: [],
+      warnings: [] // Track duplicate warnings separately
     };
     
     try {
@@ -679,6 +680,20 @@ const ImportJobsPage = () => {
                 return `Batch ${batchNumber}: ${error}`;
               });
               aggregateResults.errors.push(...adjustedErrors);
+            }
+            if (result.warnings && Array.isArray(result.warnings)) {
+              // Adjust warning row numbers to reflect actual row numbers
+              const adjustedWarnings = result.warnings.map(warning => {
+                // If warning contains "Row X:", adjust the row number
+                if (warning.includes('Row ')) {
+                  return warning.replace(/Row (\d+):/, (match, rowNum) => {
+                    const actualRow = parseInt(rowNum) + startIndex;
+                    return `Row ${actualRow}:`;
+                  });
+                }
+                return `Batch ${batchNumber}: ${warning}`;
+              });
+              aggregateResults.warnings.push(...adjustedWarnings);
             }
           }
           
@@ -787,6 +802,7 @@ const ImportJobsPage = () => {
   if (importResult) {
     const hasImports = importResult.imported > 0;
     const hasErrors = importResult.errors && importResult.errors.length > 0;
+    const hasWarnings = importResult.warnings && importResult.warnings.length > 0;
     
     return (
       <div className="min-h-screen bg-gray-50 py-8">
@@ -809,7 +825,7 @@ const ImportJobsPage = () => {
             
             <div className="bg-green-50 border border-green-200 rounded-xl p-6 mb-8 max-w-4xl mx-auto">
               <h3 className="text-lg font-semibold text-green-800 mb-4">Import Summary</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm mb-6">
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 text-sm mb-6">
                 <div className="bg-white rounded-lg p-4">
                   <div className="text-2xl font-bold text-green-600">{importResult.imported}</div>
                   <div className="text-green-700">Imported</div>
@@ -820,7 +836,13 @@ const ImportJobsPage = () => {
                     <div className="text-yellow-700">Skipped</div>
                   </div>
                 )}
-                {importResult.errors && importResult.errors.length > 0 && (
+                {hasWarnings && (
+                  <div className="bg-white rounded-lg p-4">
+                    <div className="text-2xl font-bold text-orange-600">{importResult.warnings.length}</div>
+                    <div className="text-orange-700">Duplicates</div>
+                  </div>
+                )}
+                {hasErrors && (
                   <div className="bg-white rounded-lg p-4">
                     <div className="text-2xl font-bold text-red-600">{importResult.errors.length}</div>
                     <div className="text-red-700">Errors</div>
@@ -828,13 +850,41 @@ const ImportJobsPage = () => {
                 )}
               </div>
               
+              {/* Duplicate Warnings Display */}
+              {hasWarnings && (
+                <div className="mt-6 bg-orange-50 border border-orange-200 rounded-xl p-6">
+                  <h4 className="text-lg font-semibold text-orange-800 mb-4 flex items-center">
+                    <AlertCircle className="w-5 h-5 mr-2" />
+                    Duplicate Jobs Skipped ({importResult.warnings.length})
+                  </h4>
+                  <p className="text-sm text-orange-700 mb-4">
+                    These jobs were skipped because they already exist in your account or are duplicates in the CSV file.
+                  </p>
+                  <div className="max-h-64 overflow-y-auto space-y-2">
+                    {importResult.warnings.slice(0, 50).map((warning, index) => (
+                      <div key={index} className="bg-white rounded-lg p-2 border border-orange-100">
+                        <p className="text-xs text-orange-700 font-mono">{warning}</p>
+                      </div>
+                    ))}
+                    {importResult.warnings.length > 50 && (
+                      <p className="text-sm text-orange-600 italic">
+                        ... and {importResult.warnings.length - 50} more duplicates
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+              
               {/* Detailed Error Display */}
-              {importResult.errors && importResult.errors.length > 0 && (
+              {hasErrors && (
                 <div className="mt-6 bg-red-50 border border-red-200 rounded-xl p-6">
                   <h4 className="text-lg font-semibold text-red-800 mb-4 flex items-center">
                     <AlertCircle className="w-5 h-5 mr-2" />
                     Import Errors ({importResult.errors.length})
                   </h4>
+                  <p className="text-sm text-red-700 mb-4">
+                    These are actual errors that prevented jobs from being imported. Please review and fix these issues.
+                  </p>
                   <div className="max-h-96 overflow-y-auto space-y-2">
                     {importResult.errors.map((error, index) => (
                       <div key={index} className="bg-white rounded-lg p-3 border border-red-100">
