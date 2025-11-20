@@ -10,6 +10,12 @@ const ImportJobsPage = () => {
   const [error, setError] = useState('');
   const [previewData, setPreviewData] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [importProgress, setImportProgress] = useState({
+    current: 0,
+    total: 0,
+    percentage: 0,
+    batchInfo: null
+  });
 
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
@@ -523,59 +529,150 @@ const ImportJobsPage = () => {
     setError('');
     setImportResult(null);
     
+    // Initialize progress
+    const totalJobs = previewData.length;
+    const BATCH_SIZE = 100; // Process 100 jobs at a time to avoid timeouts
+    const batches = Math.ceil(totalJobs / BATCH_SIZE);
+    
+    setImportProgress({
+      current: 0,
+      total: totalJobs,
+      percentage: 0,
+      batchInfo: batches > 1 ? { current: 0, total: batches } : null
+    });
+    
+    // Aggregate results
+    const aggregateResults = {
+      imported: 0,
+      skipped: 0,
+      errors: []
+    };
+    
     try {
-      // Log what we're sending
-      console.log('📤 Sending jobs to import:', previewData.length, 'jobs');
-      console.log('📤 First job sample:', JSON.stringify(previewData[0], null, 2));
+      console.log(`📤 Starting batch import: ${totalJobs} jobs in ${batches} batches of ${BATCH_SIZE}`);
       
-      const result = await jobsAPI.importJobs(previewData);
-      console.log('📥 Import result:', result);
-      
-      // Handle different response formats
-      if (result && (result.imported !== undefined || result.errors)) {
-        setImportResult(result);
-      } else {
-        // Unexpected response format
-        console.error('Unexpected response format:', result);
-        setImportResult({
-          imported: 0,
-          skipped: previewData.length,
-          errors: ['Unexpected response format from server. Please check server logs.']
-        });
+      // Process jobs in batches
+      for (let batchIndex = 0; batchIndex < batches; batchIndex++) {
+        const startIndex = batchIndex * BATCH_SIZE;
+        const endIndex = Math.min(startIndex + BATCH_SIZE, totalJobs);
+        const batch = previewData.slice(startIndex, endIndex);
+        const batchNumber = batchIndex + 1;
+        
+        console.log(`📦 Processing batch ${batchNumber}/${batches}: jobs ${startIndex + 1}-${endIndex}`);
+        
+        try {
+          // Update progress before sending batch
+          setImportProgress({
+            current: startIndex,
+            total: totalJobs,
+            percentage: Math.round((startIndex / totalJobs) * 100),
+            batchInfo: batches > 1 ? { current: batchIndex, total: batches } : null
+          });
+          
+          // Import this batch
+          const result = await jobsAPI.importJobs(batch);
+          
+          // Aggregate results
+          if (result) {
+            aggregateResults.imported += result.imported || 0;
+            aggregateResults.skipped += result.skipped || 0;
+            if (result.errors && Array.isArray(result.errors)) {
+              // Adjust error row numbers to reflect actual row numbers
+              const adjustedErrors = result.errors.map(error => {
+                // If error contains "Row X:", adjust the row number
+                if (error.includes('Row ')) {
+                  return error.replace(/Row (\d+):/, (match, rowNum) => {
+                    const actualRow = parseInt(rowNum) + startIndex;
+                    return `Row ${actualRow}:`;
+                  });
+                }
+                return `Batch ${batchNumber}: ${error}`;
+              });
+              aggregateResults.errors.push(...adjustedErrors);
+            }
+          }
+          
+          // Update progress after batch completes
+          setImportProgress({
+            current: endIndex,
+            total: totalJobs,
+            percentage: Math.round((endIndex / totalJobs) * 100),
+            batchInfo: batches > 1 ? { current: batchIndex + 1, total: batches } : null
+          });
+          
+          // Small delay between batches to avoid overwhelming the server
+          if (batchIndex < batches - 1) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+          
+        } catch (error) {
+          console.error(`❌ Batch ${batchNumber} error:`, error);
+          
+          // Handle batch errors
+          if (error.response?.data) {
+            const responseData = error.response.data;
+            if (responseData.imported !== undefined || responseData.errors) {
+              aggregateResults.imported += responseData.imported || 0;
+              aggregateResults.skipped += responseData.skipped || 0;
+              if (responseData.errors && Array.isArray(responseData.errors)) {
+                const adjustedErrors = responseData.errors.map(error => 
+                  `Batch ${batchNumber}: ${error}`
+                );
+                aggregateResults.errors.push(...adjustedErrors);
+              }
+            } else if (responseData.error) {
+              aggregateResults.errors.push(`Batch ${batchNumber}: ${responseData.error}`);
+            }
+          } else {
+            aggregateResults.errors.push(`Batch ${batchNumber}: ${error.message || 'Network error'}`);
+          }
+          
+          // Continue with next batch even if this one failed
+          setImportProgress({
+            current: endIndex,
+            total: totalJobs,
+            percentage: Math.round((endIndex / totalJobs) * 100),
+            batchInfo: batches > 1 ? { current: batchIndex + 1, total: batches } : null
+          });
+        }
       }
+      
+      // Set final progress
+      setImportProgress({
+        current: totalJobs,
+        total: totalJobs,
+        percentage: 100,
+        batchInfo: batches > 1 ? { current: batches, total: batches } : null
+      });
+      
+      console.log('📊 Final import results:', aggregateResults);
+      
+      // Set the aggregated results
+      setImportResult(aggregateResults);
+      
     } catch (error) {
       console.error('❌ Import error:', error);
       console.error('❌ Error response:', error.response?.data);
       console.error('❌ Error status:', error.response?.status);
       console.error('❌ Full error:', error);
       
-      // Check if we got a response with errors
-      if (error.response?.data) {
-        const responseData = error.response.data;
-        
-        // If response has import result structure (even if error status)
-        if (responseData.imported !== undefined || responseData.errors) {
-          setImportResult(responseData);
-        } else if (responseData.error) {
-          setImportResult({
-            imported: 0,
-            skipped: previewData.length,
-            errors: [responseData.error]
-          });
-        } else if (responseData.errors && Array.isArray(responseData.errors)) {
-          setImportResult({
-            imported: 0,
-            skipped: previewData.length,
-            errors: responseData.errors
-          });
-        } else {
-          setError(`Import failed: ${responseData.error || error.message || 'Unknown error'}`);
-        }
+      // If we have partial results, show them
+      if (aggregateResults.imported > 0 || aggregateResults.errors.length > 0) {
+        setImportResult(aggregateResults);
       } else {
-        setError(`Network error: ${error.message || 'Failed to connect to server'}`);
+        setError(`Import failed: ${error.message || 'Unknown error'}`);
       }
     } finally {
       setIsImporting(false);
+      // Reset progress after a short delay
+      setTimeout(() => {
+        setImportProgress({
+          current: 0,
+          total: 0,
+          percentage: 0,
+          batchInfo: null
+        });
+      }, 1000);
     }
   };
 
@@ -699,7 +796,35 @@ const ImportJobsPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Fixed Progress Bar Overlay */}
+      {isImporting && (
+        <div className="fixed top-0 left-0 right-0 z-50 bg-white border-b-2 border-blue-200 shadow-lg">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+             <div className="flex items-center justify-between mb-2">
+               <div className="flex items-center space-x-3">
+                 <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
+                 <span className="text-lg font-semibold text-gray-900">Importing Jobs...</span>
+                 {importProgress.batchInfo && (
+                   <span className="text-sm text-blue-600">
+                     (Batch {importProgress.batchInfo.current}/{importProgress.batchInfo.total})
+                   </span>
+                 )}
+               </div>
+               <span className="text-lg font-semibold text-blue-600">
+                 {importProgress.current} / {importProgress.total} ({importProgress.percentage}%)
+               </span>
+             </div>
+            <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+              <div
+                className="bg-blue-600 h-3 rounded-full transition-all duration-300 ease-out"
+                style={{ width: `${importProgress.percentage}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+      
+      <div className={`max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 ${isImporting ? 'pt-24' : ''}`}>
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center mb-4">
@@ -982,6 +1107,44 @@ const ImportJobsPage = () => {
                       </button>
                     </div>
                   </div>
+                  
+                  {/* Progress Bar */}
+                  {isImporting && (
+                    <div className="mt-6 bg-blue-50 border-2 border-blue-200 rounded-lg p-6 shadow-lg">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center space-x-2">
+                          <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
+                          <span className="text-base font-semibold text-gray-900">Importing Jobs</span>
+                          {importProgress.batchInfo && (
+                            <span className="text-sm text-blue-600 ml-2">
+                              (Batch {importProgress.batchInfo.current}/{importProgress.batchInfo.total})
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-base font-semibold text-blue-600">
+                          {importProgress.current} / {importProgress.total} ({importProgress.percentage}%)
+                        </span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden shadow-inner">
+                        <div
+                          className="bg-blue-600 h-4 rounded-full transition-all duration-300 ease-out flex items-center justify-end pr-2"
+                          style={{ width: `${importProgress.percentage}%` }}
+                        >
+                          {importProgress.percentage > 10 && (
+                            <span className="text-xs font-medium text-white">
+                              {importProgress.percentage}%
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <p className="text-sm text-gray-600 mt-3 font-medium">
+                        {importProgress.batchInfo 
+                          ? `Processing in batches to ensure reliability. Batch ${importProgress.batchInfo.current} of ${importProgress.batchInfo.total}...`
+                          : 'Please wait while we import your jobs. This may take a few moments...'
+                        }
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
