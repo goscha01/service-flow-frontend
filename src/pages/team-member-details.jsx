@@ -236,6 +236,17 @@ const TeamMemberDetails = () => {
               saturday: { available: false, hours: "" }
             })
           }
+        } else {
+          // No availability set - use defaults
+          setWorkingHours({
+            sunday: { available: false, hours: "" },
+            monday: { available: true, hours: "9:00 AM - 6:00 PM" },
+            tuesday: { available: true, hours: "9:00 AM - 6:00 PM" },
+            wednesday: { available: true, hours: "9:00 AM - 6:00 PM" },
+            thursday: { available: true, hours: "9:00 AM - 6:00 PM" },
+            friday: { available: true, hours: "9:00 AM - 6:00 PM" },
+            saturday: { available: false, hours: "" }
+          })
         }
 
         // Parse permissions/settings
@@ -335,6 +346,12 @@ const TeamMemberDetails = () => {
   }
 
   const confirmDeleteMember = async () => {
+    // Prevent deleting account owner
+    if (teamMember?.role === 'account owner' || teamMember?.role === 'owner' || teamMember?.role === 'admin') {
+      setDeleteError('Cannot delete account owner')
+      return
+    }
+    
     try {
       setDeleting(true)
       setDeleteError("") // Clear any previous errors
@@ -600,18 +617,50 @@ const TeamMemberDetails = () => {
     setShowAvailabilityModal(true)
   }
 
-  const handleAvailabilityModalSave = (availabilityData) => {
-    // Handle multiple dates for vacation periods
-    const newAvailabilityItems = availabilityData.dates.map(date => ({
-      id: Date.now() + Math.random(), // Ensure unique IDs
-      date: date,
-      available: availabilityData.type === 'time_period',
-      hours: availabilityData.type === 'time_period' 
-        ? availabilityData.timeSlots.map(slot => `${slot.start}-${slot.end}`).join(', ')
-        : 'Unavailable'
-    }))
+  const handleAvailabilityModalSave = async (availabilityData) => {
+    // Handle single date availability update
+    const existingIndex = customAvailability.findIndex(item => item.date === availabilityData.date)
     
-    setCustomAvailability(prev => [...prev, ...newAvailabilityItems])
+    const availabilityItem = {
+      id: existingIndex >= 0 ? customAvailability[existingIndex].id : Date.now() + Math.random(),
+      date: availabilityData.date,
+      available: availabilityData.available,
+      hours: availabilityData.hours
+    }
+    
+    if (existingIndex >= 0) {
+      // Update existing
+      setCustomAvailability(prev => prev.map((item, index) => 
+        index === existingIndex ? availabilityItem : item
+      ))
+    } else {
+      // Add new
+      setCustomAvailability(prev => [...prev, availabilityItem])
+    }
+    
+    // Save to backend
+    try {
+      setSavingCustomAvailability(true)
+      
+      const updateData = {
+        availability: JSON.stringify({
+          workingHours,
+          customAvailability: existingIndex >= 0 
+            ? customAvailability.map((item, index) => index === existingIndex ? availabilityItem : item)
+            : [...customAvailability, availabilityItem]
+        })
+      }
+      
+      await teamAPI.update(memberId, updateData)
+      
+      // Refresh team member data
+      await fetchTeamMemberDetails()
+    } catch (error) {
+      console.error('Error saving custom availability:', error)
+      alert('Failed to save availability. Please try again.')
+    } finally {
+      setSavingCustomAvailability(false)
+    }
   }
 
   const handleRemoveCustomAvailability = (id) => {
@@ -877,10 +926,7 @@ const TeamMemberDetails = () => {
   return (
     <>
    <div className="flex h-screen bg-gray-50 overflow-hidden">
-        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
-      <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72 2xl:ml-80">
-          <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
+     
 
         {/* Notification Display */}
         {notification && (
@@ -927,7 +973,17 @@ const TeamMemberDetails = () => {
                       <h1 className="text-2xl font-semibold text-gray-900">
                         {teamMember?.first_name || 'First'} {teamMember?.last_name || 'Last'}
                       </h1>
-                      <p className="text-sm text-gray-600">{teamMember?.role || 'Team Member'}</p>
+                      <p className="text-sm text-gray-600">
+                        {teamMember?.role === 'account owner' || teamMember?.role === 'owner' || teamMember?.role === 'admin' 
+                          ? 'Account Owner' 
+                          : teamMember?.role === 'manager' 
+                            ? 'Manager' 
+                            : teamMember?.role === 'scheduler' 
+                              ? 'Scheduler' 
+                              : teamMember?.role === 'worker' || teamMember?.role === 'technician' 
+                                ? 'Worker' 
+                                : teamMember?.role || 'Team Member'}
+                      </p>
                     </div>
                   </div>
                   <button
@@ -969,7 +1025,17 @@ const TeamMemberDetails = () => {
                   </div>
                   <div className="grid grid-cols-3 gap-4 py-2">
                     <span className="text-sm text-gray-600">Role</span>
-                    <span className="text-sm text-gray-900 col-span-2">{teamMember?.role || 'Team Member'}</span>
+                    <span className="text-sm text-gray-900 col-span-2">
+                      {teamMember?.role === 'account owner' || teamMember?.role === 'owner' || teamMember?.role === 'admin' 
+                        ? 'Account Owner' 
+                        : teamMember?.role === 'manager' 
+                          ? 'Manager' 
+                          : teamMember?.role === 'scheduler' 
+                            ? 'Scheduler' 
+                            : teamMember?.role === 'worker' || teamMember?.role === 'technician' 
+                              ? 'Worker' 
+                              : teamMember?.role || 'Team Member'}
+                    </span>
                   </div>
                   <div className="grid grid-cols-3 gap-4 py-2">
                     <span className="text-sm text-gray-600">Role permissions</span>
@@ -1379,20 +1445,21 @@ const TeamMemberDetails = () => {
                 </div>
               </div>
 
-              {/* Delete Button */}
-              <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <button
-                  onClick={handleDeleteMember}
-                  className="w-full px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                >
-                  Delete Team Member
-                </button>
-              </div>
+              {/* Delete Button - Hidden for account owner */}
+              {!(teamMember?.role === 'account owner' || teamMember?.role === 'owner' || teamMember?.role === 'admin') && (
+                <div className="bg-white rounded-lg border border-gray-200 p-6">
+                  <button
+                    onClick={handleDeleteMember}
+                    className="w-full px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                  >
+                    Delete Team Member
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
-    </div>
          
       {/* Add Territory Modal */}
       {showAddTerritoryModal && (
@@ -1653,6 +1720,7 @@ const TeamMemberDetails = () => {
         isOpen={showAvailabilityModal}
         onClose={() => setShowAvailabilityModal(false)}
         onSave={handleAvailabilityModalSave}
+        teamMemberName={teamMember ? `${teamMember.first_name} ${teamMember.last_name}` : ''}
         selectedDates={selectedDates}
         availability={customAvailability}
       />

@@ -8,6 +8,7 @@ import LoadingButton from "../components/loading-button"
 import AddTeamMemberModal from "../components/add-team-member-modal"
 import { useNavigate } from "react-router-dom"
 import { handleTeamDeletionError, createErrorNotification, createSuccessNotification } from "../utils/errorHandler"
+import { getImageUrl } from "../utils/imageUtils"
 
 const ServiceFlowTeam = () => {
   const { user, loading: authLoading } = useAuth()
@@ -17,6 +18,7 @@ const ServiceFlowTeam = () => {
   const [activeTab, setActiveTab] = useState("active")
   const [selectedMember, setSelectedMember] = useState(null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [memberToDelete, setMemberToDelete] = useState(null)
@@ -128,19 +130,34 @@ const ServiceFlowTeam = () => {
   }
 
   const handleAddMember = () => {
-    navigate('/add-team-member')
+    setIsAddModalOpen(true)
+  }
+
+  const handleMemberAdded = () => {
+    fetchTeamMembers()
   }
 
   const handleEditMember = (member) => {
+    // For account owner, navigate to account settings instead
+    if (member.role === 'account owner' || member.role === 'owner' || member.role === 'admin') {
+      navigate('/settings/account')
+      return
+    }
     setSelectedMember(member)
     setIsEditModalOpen(true)
   }
 
   const handleViewMember = (member) => {
+    // Navigate to team member details page for all members including account owner
     navigate(`/team/${member.id}`)
   }
 
   const handleDeleteMember = (member) => {
+    // Prevent deleting account owner
+    if (member.role === 'account owner' || member.role === 'owner' || member.role === 'admin') {
+      createErrorNotification('Cannot delete account owner')
+      return
+    }
     setMemberToDelete(member)
     setShowDeleteModal(true)
   }
@@ -217,6 +234,11 @@ const ServiceFlowTeam = () => {
   }
 
   const handleToggleActivation = async (member) => {
+    // Prevent deactivating account owner
+    if (member.role === 'account owner' || member.role === 'owner' || member.role === 'admin') {
+      createErrorNotification('Cannot deactivate account owner')
+      return
+    }
     setMemberToToggle(member)
     setShowActivationModal(true)
   }
@@ -299,11 +321,21 @@ const ServiceFlowTeam = () => {
   const getFilteredMembers = () => {
     if (!Array.isArray(teamMembers)) return [];
 
-    return teamMembers.filter(member => {
+    const filtered = teamMembers.filter(member => {
       if (activeTab === "active") return member.status === 'active';
       if (activeTab === "invited") return member.status === 'invited' || member.status === 'pending';
       if (activeTab === "deactivated") return member.status === 'inactive' || member.status === 'on_leave';
       return true;
+    });
+    
+    // Sort to ensure account owner is always first
+    return filtered.sort((a, b) => {
+      const aIsOwner = a.role === 'account owner' || a.role === 'owner' || a.role === 'admin';
+      const bIsOwner = b.role === 'account owner' || b.role === 'owner' || b.role === 'admin';
+      
+      if (aIsOwner && !bIsOwner) return -1;
+      if (!aIsOwner && bIsOwner) return 1;
+      return 0;
     });
   }
 
@@ -470,13 +502,30 @@ const ServiceFlowTeam = () => {
                             </thead>
                             <tbody className="divide-y divide-gray-200">
                               {filteredMembers.map((member) => (
-                                <tr key={member.id} className="hover:bg-gray-50 transition-colors">
+                                <tr 
+                                  key={member.id} 
+                                  className="hover:bg-gray-50 transition-colors cursor-pointer"
+                                  onClick={() => handleViewMember(member)}
+                                >
                                   <td className="px-6 py-4">
                                     <div className="flex items-center">
-                                      <div className="flex-shrink-0 h-10 w-10 rounded-full bg-orange-300 flex items-center justify-center">
-                                        <span className="text-sm font-semibold text-white">
-                                          {member.first_name?.[0]}{member.last_name?.[0]}
-                                        </span>
+                                      <div 
+                                        className="flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center overflow-hidden"
+                                        style={{ 
+                                          backgroundColor: member.profile_picture ? 'transparent' : (member.color || '#DC2626')
+                                        }}
+                                      >
+                                        {member.profile_picture ? (
+                                          <img 
+                                            src={getImageUrl(member.profile_picture)} 
+                                            alt={`${member.first_name} ${member.last_name}`}
+                                            className="w-full h-full object-cover"
+                                          />
+                                        ) : (
+                                          <span className="text-sm font-semibold text-white">
+                                            {member.first_name?.[0]}{member.last_name?.[0]}
+                                          </span>
+                                        )}
                                       </div>
                                       <div className="ml-4">
                                         <div className="flex items-center space-x-2">
@@ -502,10 +551,11 @@ const ServiceFlowTeam = () => {
                                   </td>
                                   <td className="px-6 py-4">
                                     <div className="text-sm text-gray-900">
-                                      {member.role === 'owner' || member.role === 'admin' ? 'Account Owner' :
+                                      {member.role === 'account owner' || member.role === 'owner' || member.role === 'admin' ? 'Account Owner' :
                                        member.role === 'manager' ? 'Manager' :
-                                       member.role === 'technician' ? 'Technician' :
-                                       'Team Member'}
+                                       member.role === 'scheduler' ? 'Scheduler' :
+                                       member.role === 'worker' || member.role === 'technician' ? 'Worker' :
+                                       member.role || 'Team Member'}
                                     </div>
                                   </td>
                                   <td className="px-6 py-4">
@@ -513,29 +563,45 @@ const ServiceFlowTeam = () => {
                                       {member.is_service_provider ? 'Yes' : 'No'}
                                     </div>
                                   </td>
-                                  <td className="px-6 py-4 text-right">
+                                  <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
                                     <div className="flex items-center justify-end space-x-3">
                                       <button
-                                        onClick={() => handleViewMember(member)}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleViewMember(member);
+                                        }}
                                         className="text-gray-400 hover:text-gray-600 transition-colors"
                                         title="View schedule"
                                       >
                                         <Clock className="w-5 h-5" />
                                       </button>
-                                      <button
-                                        onClick={() => handleToggleActivation(member)}
-                                        className="text-gray-400 hover:text-gray-600 transition-colors"
-                                        title={member.status === 'active' ? 'Deactivate' : 'Activate'}
-                                      >
-                                        <Zap className="w-5 h-5" />
-                                      </button>
-                                      <button
-                                        onClick={() => handleEditMember(member)}
-                                        className="text-gray-400 hover:text-gray-600 transition-colors"
-                                        title="More options"
-                                      >
-                                        <Settings className="w-5 h-5" />
-                                      </button>
+                                      {!(member.role === 'account owner' || member.role === 'owner' || member.role === 'admin') && (
+                                        <>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleToggleActivation(member);
+                                            }}
+                                            className="text-gray-400 hover:text-gray-600 transition-colors"
+                                            title={member.status === 'active' ? 'Deactivate' : 'Activate'}
+                                          >
+                                            <Zap className="w-5 h-5" />
+                                          </button>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleEditMember(member);
+                                            }}
+                                            className="text-gray-400 hover:text-gray-600 transition-colors"
+                                            title="More options"
+                                          >
+                                            <Settings className="w-5 h-5" />
+                                          </button>
+                                        </>
+                                      )}
+                                      {(member.role === 'account owner' || member.role === 'owner' || member.role === 'admin') && (
+                                        <span className="text-xs text-gray-500 italic">Account Owner</span>
+                                      )}
                                     </div>
                                   </td>
                                 </tr>
@@ -571,6 +637,19 @@ const ServiceFlowTeam = () => {
         </div>
 
       {/* Modals */}
+      {isAddModalOpen && (
+        <AddTeamMemberModal
+          isOpen={isAddModalOpen}
+          onClose={() => {
+            setIsAddModalOpen(false)
+          }}
+          onSuccess={handleMemberAdded}
+          userId={user?.id}
+          member={null}
+          isEditing={false}
+        />
+      )}
+
       {isEditModalOpen && selectedMember && (
         <AddTeamMemberModal
           isOpen={isEditModalOpen}

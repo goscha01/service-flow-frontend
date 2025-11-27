@@ -3,6 +3,7 @@ import App from "./App"
 import { BrowserRouter, Routes, Route } from "react-router-dom"
 import { AuthProvider } from "./context/AuthContext"
 import ProtectedRoute from "./components/ProtectedRoute"
+import RoleProtectedRoute from "./components/RoleProtectedRoute"
 import SignupForm from "./pages/Signup"
 import SignInForm from "./pages/Signin"
 import ServiceFlowDashboard from "./pages/dashboard-redesigned"
@@ -133,7 +134,7 @@ root.render(
       <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
       <Route path="/online-booking" element={<ServiceFlowOnlineBooking />} />
       <Route path="/embed" element={<ServiceFlowWebsiteEmbed />} />
-      <Route path="/createjob" element={<CreateJobPage />} />
+      <Route path="/createjob" element={<RoleProtectedRoute path="/createjob"><CreateJobPage /></RoleProtectedRoute>} />
       <Route path="/bookable-estimate" element={<ServiceFlowEstimatePage />} />
       <Route path="/whats-new" element={<WhatsNewPage />} />
       <Route path="/help" element={<HelpPage />} />

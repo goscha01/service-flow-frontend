@@ -34,11 +34,16 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
       sunday: { start: "09:00", end: "17:00", available: false }
     },
     permissions: {
-      viewCustomerNotes: true,
-      modifyJobStatus: true,
+      editAvailability: true,
+      viewCustomerContact: false,
+      viewCustomerNotes: false,
+      markJobStatus: true,
+      resetJobStatuses: false,
       editJobDetails: true,
+      viewEditJobPrice: false,
+      processPayments: false,
       rescheduleJobs: true,
-      editAvailability: true
+      seeOtherProviders: true
     }
   })
   const [loading, setLoading] = useState(false)
@@ -108,11 +113,16 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
         permissions: (() => {
           if (!member.permissions) {
             return {
-              viewCustomerNotes: true,
-              modifyJobStatus: true,
+              editAvailability: true,
+              viewCustomerContact: false,
+              viewCustomerNotes: false,
+              markJobStatus: true,
+              resetJobStatuses: false,
               editJobDetails: true,
+              viewEditJobPrice: false,
+              processPayments: false,
               rescheduleJobs: true,
-              editAvailability: true
+              seeOtherProviders: true
             }
           }
           
@@ -126,13 +136,27 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
             console.error('Error parsing permissions:', error)
           }
           
-          return {
-            viewCustomerNotes: true,
-            modifyJobStatus: true,
+          // Default permissions based on role
+          const defaultPerms = {
+            editAvailability: true,
+            viewCustomerContact: false,
+            viewCustomerNotes: false,
+            markJobStatus: true,
+            resetJobStatuses: false,
             editJobDetails: true,
+            viewEditJobPrice: false,
+            processPayments: false,
             rescheduleJobs: true,
-            editAvailability: true
+            seeOtherProviders: true
           }
+          
+          // If role is scheduler, set scheduler-specific defaults
+          if (member.role === 'scheduler') {
+            defaultPerms.editAvailability = true
+            defaultPerms.processPayments = false
+          }
+          
+          return defaultPerms
         })()
       })
     } else if (isOpen && !isEditing) {
@@ -148,14 +172,29 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
         zipCode: "",
         role: "worker",
         isServiceProvider: true,
+        isActive: true,
         color: "#2563EB",
         territories: [],
+        availability: {
+          monday: { start: "09:00", end: "17:00", available: true },
+          tuesday: { start: "09:00", end: "17:00", available: true },
+          wednesday: { start: "09:00", end: "17:00", available: true },
+          thursday: { start: "09:00", end: "17:00", available: true },
+          friday: { start: "09:00", end: "17:00", available: true },
+          saturday: { start: "09:00", end: "17:00", available: false },
+          sunday: { start: "09:00", end: "17:00", available: false }
+        },
         permissions: {
-          viewCustomerNotes: true,
-          modifyJobStatus: true,
+          editAvailability: true,
+          viewCustomerContact: false,
+          viewCustomerNotes: false,
+          markJobStatus: true,
+          resetJobStatuses: false,
           editJobDetails: true,
+          viewEditJobPrice: false,
+          processPayments: false,
           rescheduleJobs: true,
-          editAvailability: true
+          seeOtherProviders: true
         }
       })
     }
@@ -292,10 +331,61 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
   }
 
   const handleInputChange = (field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }))
+    setFormData(prev => {
+      const updated = {
+        ...prev,
+        [field]: value
+      }
+      
+      // When role changes, update default permissions
+      if (field === 'role') {
+        if (value === 'scheduler') {
+          // Scheduler defaults: editAvailability checked, processPayments unchecked
+          updated.permissions = {
+            editAvailability: true,
+            viewCustomerContact: true,
+            viewCustomerNotes: true,
+            markJobStatus: true,
+            resetJobStatuses: true,
+            editJobDetails: true,
+            viewEditJobPrice: true,
+            processPayments: false, // Default unchecked for scheduler
+            rescheduleJobs: true,
+            seeOtherProviders: true
+          }
+        } else if (value === 'manager') {
+          // Manager has full access, so all permissions are enabled
+          updated.permissions = {
+            editAvailability: true,
+            viewCustomerContact: true,
+            viewCustomerNotes: true,
+            markJobStatus: true,
+            resetJobStatuses: true,
+            editJobDetails: true,
+            viewEditJobPrice: true,
+            processPayments: true,
+            rescheduleJobs: true,
+            seeOtherProviders: true
+          }
+        } else if (value === 'worker') {
+          // Reset to worker defaults if switching from another role
+          updated.permissions = {
+            editAvailability: true,
+            viewCustomerContact: false,
+            viewCustomerNotes: false,
+            markJobStatus: true,
+            resetJobStatuses: false,
+            editJobDetails: true,
+            viewEditJobPrice: false,
+            processPayments: false,
+            rescheduleJobs: true,
+            seeOtherProviders: true
+          }
+        }
+      }
+      
+      return updated
+    })
   }
 
   const handleAvailabilityChange = (day, field, value) => {
@@ -385,7 +475,9 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
         role: formData.role,
         isServiceProvider: formData.isServiceProvider,
         territories: formData.territories,
-        permissions: formData.permissions,
+        permissions: typeof formData.permissions === 'string' 
+          ? formData.permissions 
+          : JSON.stringify(formData.permissions || {}),
         color: formData.color || '#2563EB'
       }
       
@@ -411,27 +503,27 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto">
-      <div className="bg-white rounded-xl w-full max-w-lg sm:max-w-md relative my-4 sm:my-6 max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3rem)] overflow-hidden flex flex-col">
+      <div className="bg-white rounded-xl w-full max-w-2xl sm:max-w-md relative my-4 sm:my-6 max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3rem)] overflow-hidden flex flex-col">
         {/* Header - Fixed */}
-        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200">
+        <div className="flex items-center justify-center p-4 sm:p-6 border-b border-gray-200">
           <div className="flex items-center">
-            {isEditing ? (
+            {/* {isEditing ? (
               <Edit className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600 mr-2" />
             ) : (
               <UserPlus className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600 mr-2" />
-            )}
-            <h3 className="text-base sm:text-lg font-medium text-gray-900">
+            )} */}
+            <h3 className="text-md sm:text-md font-semibold text-gray-900">
               {isEditing ? "Edit Team Member" : "Add Team Member"}
             </h3>
           </div>
-          <button
+          
+        </div>
+        <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 p-1"
+            className="text-black cursor-pointer bg-gray-100 rounded-sm hover:bg-gray-200 p-1 absolute top-4 right-4"
           >
             <X className="h-5 w-5 sm:h-6 sm:w-6" />
           </button>
-        </div>
-
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6">
           {/* Error Message */}
@@ -441,7 +533,7 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
             </div>
           )}
 
-          <form id="team-member-form" onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
+          <form id="team-member-form" onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
             {/* Basic Information */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -455,7 +547,7 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
                   handleInputChange('firstName', names[0] || '')
                   handleInputChange('lastName', names.slice(1).join(' ') || '')
                 }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                className="w-full text-xs px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                 placeholder="Full Name"
                 required
               />
@@ -469,12 +561,12 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
                 type="email"
                 value={formData.email}
                 onChange={(e) => handleInputChange('email', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                className="w-full text-xs px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                 placeholder="Email Address"
                 required
               />
-              <p className="mt-1 text-sm text-gray-500">
-                An email will be sent with instructions to log into their Serviceflow account.
+              <p className="mt-1 text-xs text-gray-500">
+                An email will be sent with instructions to log into their Zenbooker account.
               </p>
             </div>
 
@@ -486,15 +578,17 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
                 type="tel"
                 value={formData.phone}
                 onChange={handlePhoneChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                className="w-full text-xs px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                 placeholder="Optional"
               />
+              <p className="mt-1 text-xs text-gray-500">
+              Service providers can be notified via SMS when new jobs are assigned to them</p>
             </div>
 
             {/* Location Section */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Location
+                Start Location
               </label>
               <AddressAutocomplete
                   value={formData.location}
@@ -511,295 +605,272 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
                 }}
                 placeholder="Start typing an address..."
                 showValidationResults={true}
-                className="w-full"
+                className="w-full text-xs"
               />
-              <p className="mt-1 text-sm text-gray-500">
-                The location this team member starts work from. Select from suggestions as you type.
+              <p className="mt-1 text-xs text-gray-500">
+                The location this team member starts work from.
               </p>
             </div>
 
-            {/* Color Selection */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Color
-              </label>
-              <div className="flex items-center space-x-3">
-                <div 
-                  className="w-8 h-8 rounded border border-gray-300 flex-shrink-0"
-                  style={{ backgroundColor: formData.color || '#2563EB' }}
-                />
-                <select
-                  value={formData.color || '#2563EB'}
-                  onChange={(e) => handleInputChange('color', e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                >
-                  <option value="#2563EB">Blue</option>
-                  <option value="#DC2626">Red</option>
-                  <option value="#059669">Green</option>
-                  <option value="#D97706">Orange</option>
-                  <option value="#7C3AED">Purple</option>
-                  <option value="#DB2777">Pink</option>
-                  <option value="#6B7280">Gray</option>
-                  <option value="#F59E0B">Yellow</option>
-                  <option value="#10B981">Emerald</option>
-                  <option value="#8B5CF6">Violet</option>
-                  <option value="#EF4444">Rose</option>
-                  <option value="#14B8A6">Teal</option>
-                </select>
-              </div>
-              <p className="mt-1 text-sm text-gray-500">
-                This color will be used in the calendar and schedule views
-              </p>
-            </div>
-
-            {/* Activation Toggle */}
-            <div className="border-t border-gray-200 pt-4 sm:pt-6">
+            {/* Service Provider Toggle */}
+            <div className="border border-gray-200 p-2 rounded-lg">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
                 <div>
-                  <h3 className="text-sm font-medium text-gray-900">Account Status</h3>
-                  <p className="text-sm text-gray-500">Is this team member active and able to work?</p>
+                  <h3 className="text-sm font-medium text-gray-900">Service Provider</h3>
+                  <p className="text-xs text-gray-500">Can this team member be assigned to jobs?</p>
                 </div>
                 <div className="flex items-center">
                   <button
                     type="button"
-                    onClick={() => handleInputChange('isActive', !formData.isActive)}
+                    onClick={() => handleInputChange('isServiceProvider', !formData.isServiceProvider)}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${
-                      formData.isActive ? 'bg-green-600' : 'bg-red-600'
+                      formData.isServiceProvider ? 'bg-green-600' : 'bg-gray-300'
                     }`}
                   >
                     <span
                       className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                        formData.isActive ? 'translate-x-6' : 'translate-x-1'
+                        formData.isServiceProvider ? 'translate-x-6' : 'translate-x-1'
                       }`}
                     />
                   </button>
                   <span className="ml-2 text-sm font-medium text-gray-900">
-                    {formData.isActive ? 'ACTIVE' : 'INACTIVE'}
+                    {formData.isServiceProvider ? 'YES' : 'NO'}
                   </span>
                 </div>
               </div>
             </div>
 
-            {/* Availability Section */}
-            <div className="border-t border-gray-200 pt-4 sm:pt-6">
-              <h3 className="text-sm font-medium text-gray-900 mb-3">AVAILABILITY</h3>
-              {/* Compact Availability List - Similar to Screenshot */}
-              <div className="bg-white rounded-lg border border-gray-200">
-                {formData.availability ? Object.entries(formData.availability).map(([day, schedule], index) => (
-                  <div key={day}>
-                    <div className="flex items-center justify-between p-3 min-w-0">
-                      <div className="flex items-center space-x-3">
-                        <input
-                          type="checkbox"
-                          checked={schedule.available}
-                          onChange={(e) => handleAvailabilityChange(day, 'available', e.target.checked)}
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                        />
-                        <span className="text-sm font-medium text-gray-900 capitalize min-w-[80px]">
-                          {day}
-                        </span>
-                      </div>
-                      
-                      {schedule.available ? (
-                        <div className="flex-1 flex items-center justify-end min-w-0">
-                          <div className="flex items-center space-x-2 flex-wrap">
-                            <select
-                              value={schedule.start}
-                              onChange={(e) => handleAvailabilityChange(day, 'start', e.target.value)}
-                              className="text-sm border border-gray-300 rounded px-2 py-1 min-w-0 flex-shrink-0"
-                            >
-                              {Array.from({ length: 24 }, (_, i) => (
-                                <option key={i} value={`${i.toString().padStart(2, '0')}:00`}>
-                                  {i === 0 ? '12:00 AM' : i < 12 ? `${i}:00 AM` : i === 12 ? '12:00 PM' : `${i - 12}:00 PM`}
-                                </option>
-                              ))}
-                            </select>
-                            <span className="text-sm text-gray-500 flex-shrink-0">to</span>
-                            <select
-                              value={schedule.end}
-                              onChange={(e) => handleAvailabilityChange(day, 'end', e.target.value)}
-                              className="text-sm border border-gray-300 rounded px-2 py-1 min-w-0 flex-shrink-0"
-                            >
-                              {Array.from({ length: 24 }, (_, i) => (
-                                <option key={i} value={`${i.toString().padStart(2, '0')}:00`}>
-                                  {i === 0 ? '12:00 AM' : i < 12 ? `${i}:00 AM` : i === 12 ? '12:00 PM' : `${i - 12}:00 PM`}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="text-sm text-gray-500">
-                          Unavailable
-                        </div>
-                      )}
-                    </div>
-                    {index < Object.entries(formData.availability).length - 1 && (
-                      <div className="border-b border-gray-100"></div>
-                    )}
-                  </div>
-                )) : (
-                  <div className="p-4 text-center text-gray-500">
-                    Loading availability...
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Territories Section */}
-            <div className="border-t border-gray-200 pt-4 sm:pt-6">
-              <h3 className="text-sm font-medium text-gray-900 mb-3">TERRITORIES</h3>
-              {loadingTerritories ? (
-                <div className="flex items-center justify-center py-4">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                  <span className="ml-2 text-sm text-gray-500">Loading territories...</span>
-                </div>
-              ) : territories.length === 0 ? (
-                <div className="text-center py-4">
-                  <p className="text-sm text-gray-500">No territories available</p>
-                  <p className="text-xs text-gray-400 mt-1">Create territories in the Territories section first</p>
-                </div>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {territories.map((territory) => {
-                    const isSelected = formData.territories.includes(territory.id)
-                    console.log('🎯 Rendering territory:', territory.name, 'ID:', territory.id, 'Selected:', isSelected)
-                    console.log('🎯 Form territories:', formData.territories)
-                    return (
-                      <button
-                        key={territory.id}
-                        type="button"
-                        onClick={() => {
-                          console.log('🖱️ Territory button clicked:', territory.name, 'ID:', territory.id)
-                          handleTerritoryToggle(territory.id)
-                        }}
-                        className={`inline-flex items-center px-3 py-1.5 border rounded-full text-sm font-medium transition-colors ${
-                          isSelected
-                            ? 'border-blue-500 bg-blue-100 text-blue-800 hover:bg-blue-200'
-                            : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400'
-                        }`}
-                      >
-                        <MapPin className="w-4 h-4 mr-1" />
-                        {territory.name}
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-
             {/* User Role and Permissions */}
             <div className="border-t border-gray-200 pt-4 sm:pt-6">
-              <h3 className="text-sm font-medium text-gray-900 mb-3">User Role and Permissions</h3>
-              <div className="space-y-3">
-                <label className="flex items-center">
+              <h3 className="text-md font-semibold text-black mb-3">User Role and Permissions</h3>
+              <div className="space-y-4 ">
+                {/* Worker Role */}
+                <label className="flex divide-y items-start flex-col border border-gray-200 rounded-lg cursor-pointer">
+                <div className="flex p-3 space-x-2">  
                   <input
                     type="radio"
                     name="role"
                     value="worker"
                     checked={formData.role === 'worker'}
                     onChange={(e) => handleInputChange('role', e.target.value)}
-                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300"
+                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 mt-0.5"
                   />
-                  <div className="ml-3">
-                    <span className="text-sm font-medium text-gray-900">Worker</span>
-                    <p className="text-sm text-gray-500">Can view and update job status</p>
+                  <div className="flex flex-col">
+                   <span className="text-sm font-medium text-gray-900">Worker</span>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Can only view jobs assigned to them. You can customize what job details they can see and edit.
+                    </p>
+                    </div>
+                    </div>
+                       
+                    {/* Worker-specific permissions - only show when Worker is selected */}
+                    {formData.role === 'worker' && (
+                  <div className="p-3 flex w-full bg-gray-50">
+                   
+                 
+                      <div className="mt-2 space-y-3 pl-0 w-full">
+                          
+                          
+                          <div className="ml-6 mt-2 space-y-2">
+                          <label className="flex items-center">
+                            <input
+                              type="checkbox"
+                              checked={formData.permissions.editAvailability !== false}
+                              onChange={(e) => handleInputChange('permissions', {
+                                ...formData.permissions,
+                                editAvailability: e.target.checked
+                              })}
+                              className="h-3 w-3 rounded-sm text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                            />
+                            <span className="ml-2 text-xs text-gray-800">Edit their own availability</span>
+                          </label>
+                            <p className="text-[10px] font-medium text-gray-400 mb-2">
+                              For jobs assigned to this team member, allow them to:
+                            </p>
+                            <label className="flex items-center">
+                              <input
+                                type="checkbox"
+                                checked={formData.permissions.viewCustomerContact || false}
+                                onChange={(e) => handleInputChange('permissions', {
+                                  ...formData.permissions,
+                                  viewCustomerContact: e.target.checked
+                                })}
+                                className="h-3 w-3 rounded-sm text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                              />
+                              <span className="ml-2 text-xs text-gray-700">View contact info for customer</span>
+                            </label>
+                            <label className="flex items-center">
+                              <input
+                                type="checkbox"
+                                checked={formData.permissions.viewCustomerNotes || false}
+                                onChange={(e) => handleInputChange('permissions', {
+                                  ...formData.permissions,
+                                  viewCustomerNotes: e.target.checked
+                                })}
+                                className="h-3 w-3 rounded-sm text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                              />
+                              <span className="ml-2 text-xs text-gray-700">View customer notes</span>
+                            </label>
+                            <label className="flex items-center">
+                              <input
+                                type="checkbox"
+                                checked={formData.permissions.markJobStatus !== false}
+                                onChange={(e) => handleInputChange('permissions', {
+                                  ...formData.permissions,
+                                  markJobStatus: e.target.checked
+                                })}
+                                className="h-3 w-3 rounded-sm text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                              />
+                              <span className="ml-2 text-xs text-gray-700">Mark jobs as 'en-route', 'in-progress' & 'complete'</span>
+                            </label>
+                            <label className="flex items-center">
+                              <input
+                                type="checkbox"
+                                checked={formData.permissions.resetJobStatuses || false}
+                                onChange={(e) => handleInputChange('permissions', {
+                                  ...formData.permissions,
+                                  resetJobStatuses: e.target.checked
+                                })}
+                                className="h-3 w-3 rounded-sm text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                              />
+                              <span className="ml-2 text-xs text-gray-700">Reset job statuses</span>
+                            </label>
+                            <label className="flex items-center">
+                              <input
+                                type="checkbox"
+                                checked={formData.permissions.editJobDetails !== false}
+                                onChange={(e) => handleInputChange('permissions', {
+                                  ...formData.permissions,
+                                  editJobDetails: e.target.checked
+                                })}
+                                className="h-3 w-3 rounded-sm text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                              />
+                              <span className="ml-2 text-xs text-gray-700">Edit job details</span>
+                            </label>
+                            <label className="flex items-center">
+                              <input
+                                type="checkbox"
+                                checked={formData.permissions.viewEditJobPrice || false}
+                                onChange={(e) => handleInputChange('permissions', {
+                                  ...formData.permissions,
+                                  viewEditJobPrice: e.target.checked
+                                })}
+                                    className="h-3 w-3 rounded-sm text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                              />
+                              <span className="ml-2 text-xs text-gray-700">View & edit job price, invoice, and line items</span>
+                            </label>
+                            <label className="flex items-center">
+                              <input
+                                type="checkbox"
+                                checked={formData.permissions.processPayments || false}
+                                onChange={(e) => handleInputChange('permissions', {
+                                  ...formData.permissions,
+                                  processPayments: e.target.checked
+                                })}
+                                className="h-3 w-3 rounded-sm text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                              />
+                              <span className="ml-2 text-xs text-gray-700">Process payments and mark jobs as paid</span>
+                            </label>
+                            <label className="flex items-center">
+                              <input
+                                type="checkbox"
+                                checked={formData.permissions.rescheduleJobs !== false}
+                                onChange={(e) => handleInputChange('permissions', {
+                                  ...formData.permissions,
+                                  rescheduleJobs: e.target.checked
+                                })}
+                                className="h-3 w-3 rounded-sm text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                              />
+                              <span className="ml-2 text-xs text-gray-700">Reschedule jobs</span>
+                            </label>
+                            <label className="flex items-center">
+                              <input
+                                type="checkbox"
+                                checked={formData.permissions.seeOtherProviders !== false}
+                                onChange={(e) => handleInputChange('permissions', {
+                                  ...formData.permissions,
+                                  seeOtherProviders: e.target.checked
+                                })}
+                                  className="h-3 w-3 rounded-sm text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                              />
+                              <span className="ml-2 text-xs text-gray-700">See other providers assigned</span>
+                            </label>
+                          </div>
+                      </div>
                   </div>
+                  
+                )}
                 </label>
-                <label className="flex items-center">
+
+                {/* Scheduler Role */}
+                <label className="flex divide-y items-start flex-col border border-gray-200 rounded-lg cursor-pointer">
+                  
+                <div className="flex p-3 space-x-2">  
                   <input
                     type="radio"
                     name="role"
-                    value="supervisor"
-                    checked={formData.role === 'supervisor'}
+                    value="scheduler"
+                    checked={formData.role === 'scheduler'}
                     onChange={(e) => handleInputChange('role', e.target.value)}
-                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300"
+                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 mt-0.5"
                   />
-                  <div className="ml-3">
-                    <span className="text-sm font-medium text-gray-900">Supervisor</span>
-                    <p className="text-sm text-gray-500">Can manage jobs and team members</p>
-                  </div>
+                  <div className="ml-3 flex-1">
+                    <span className="text-sm font-medium text-gray-900">Scheduler</span>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Full access to all job and client details. Schedulers can create, dispatch, reschedule, and edit jobs.
+                    </p>
+                    </div>
+                    </div>
+                    {/* Scheduler-specific permissions - only show when Scheduler is selected */}
+                    {formData.role === 'scheduler' && (
+                       <div className="p-3 flex w-full bg-gray-50">
+                 
+                          <div className="space-y-3 p-3">
+                            <label className="flex items-center">
+                              <input
+                                type="checkbox"
+                                checked={formData.permissions.editAvailability !== false}
+                                onChange={(e) => handleInputChange('permissions', {
+                                  ...formData.permissions,
+                                  editAvailability: e.target.checked
+                                })}
+                                className="h-3 w-3 rounded-sm text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                              />
+                              <span className="ml-2 text-xs text-gray-700">Edit their own availability</span>
+                            </label>
+                            <label className="flex items-center">
+                              <input
+                                type="checkbox"
+                                checked={formData.permissions.processPayments || false}
+                                onChange={(e) => handleInputChange('permissions', {
+                                  ...formData.permissions,
+                                  processPayments: e.target.checked
+                                })}
+                                className="h-3 w-3 rounded-sm text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                              />
+                              <span className="ml-2 text-xs text-gray-700">Process payments and mark jobs as paid</span>
+                            </label>
+                      </div>
+                      </div>
+                    )}
                 </label>
-                <label className="flex items-center">
+
+                {/* Manager Role */}
+                <label className="flex items-start cursor-pointer border border-gray-200 rounded-lg p-3">
                   <input
                     type="radio"
                     name="role"
                     value="manager"
                     checked={formData.role === 'manager'}
                     onChange={(e) => handleInputChange('role', e.target.value)}
-                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300"
+                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 mt-0.5"
                   />
-                  <div className="ml-3">
+                  <div className="ml-3 flex-1">
                     <span className="text-sm font-medium text-gray-900">Manager</span>
-                    <p className="text-sm text-gray-500">Full access to all features</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Managers have full access to all areas of the business, including adding or removing users.
+                    </p>
                   </div>
-                </label>
-              </div>
-            </div>
-
-            {/* Permissions Section */}
-            <div className="border-t border-gray-200 pt-4 sm:pt-6">
-              <h3 className="text-sm font-medium text-gray-900 mb-3">PERMISSIONS</h3>
-              <div className="space-y-3">
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={formData.permissions.viewCustomerNotes}
-                    onChange={(e) => handleInputChange('permissions', {
-                      ...formData.permissions,
-                      viewCustomerNotes: e.target.checked
-                    })}
-                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                  />
-                  <span className="ml-3 text-sm text-gray-900">View Customer Notes</span>
-                </label>
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={formData.permissions.modifyJobStatus}
-                    onChange={(e) => handleInputChange('permissions', {
-                      ...formData.permissions,
-                      modifyJobStatus: e.target.checked
-                    })}
-                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                  />
-                  <span className="ml-3 text-sm text-gray-900">Modify Job Status</span>
-                </label>
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={formData.permissions.editJobDetails}
-                    onChange={(e) => handleInputChange('permissions', {
-                      ...formData.permissions,
-                      editJobDetails: e.target.checked
-                    })}
-                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                  />
-                  <span className="ml-3 text-sm text-gray-900">Edit Job Details</span>
-                </label>
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={formData.permissions.rescheduleJobs}
-                    onChange={(e) => handleInputChange('permissions', {
-                      ...formData.permissions,
-                      rescheduleJobs: e.target.checked
-                    })}
-                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                  />
-                  <span className="ml-3 text-sm text-gray-900">Reschedule Jobs</span>
-                </label>
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={formData.permissions.editAvailability}
-                    onChange={(e) => handleInputChange('permissions', {
-                      ...formData.permissions,
-                      editAvailability: e.target.checked
-                    })}
-                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                  />
-                  <span className="ml-3 text-sm text-gray-900">Edit Availability</span>
                 </label>
               </div>
             </div>

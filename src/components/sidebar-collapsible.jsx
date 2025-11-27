@@ -1,8 +1,9 @@
 "use client"
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
 import UserDropdown from "./user-dropdown"
 import { useAuth } from "../context/AuthContext"
+import { filterSidebarItems } from "../utils/roleUtils"
 import {
   Home,
   MessageSquare,
@@ -31,7 +32,7 @@ const Sidebar = ({ isOpen, onClose, forceCollapsed = false }) => {
   const { user } = useAuth()
   console.log('🔍 Sidebar: Current user data:', user)
 
-  const sidebarItems = [
+  const allSidebarItems = [
     { icon: Home, label: "Dashboard", path: "/dashboard" },
     { icon: MessageSquare, label: "Requests", path: "/request" },
     { icon: Calendar, label: "Schedule", path: "/schedule" },
@@ -49,6 +50,11 @@ const Sidebar = ({ isOpen, onClose, forceCollapsed = false }) => {
     { icon: Globe, label: "Online Booking", path: "/online-booking", hidden: true },
     { icon: Settings, label: "Settings", path: "/settings" },
   ]
+
+  // Filter sidebar items based on user role
+  const sidebarItems = useMemo(() => {
+    return filterSidebarItems(allSidebarItems, user)
+  }, [user])
 
   const integrationItems = [
     { icon: Phone, label: "SMS Settings", path: "/settings/sms-settings" },

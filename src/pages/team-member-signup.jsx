@@ -118,9 +118,9 @@ const TeamMemberSignup = () => {
       
       setSuccess('Account created successfully! Redirecting to login...')
       
-      // Redirect to team member login after a short delay
+      // Redirect to regular login page (team members login as regular users)
       setTimeout(() => {
-        navigate('/team-member/login')
+        navigate('/signin')
       }, 2000)
       
     } catch (error) {

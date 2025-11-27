@@ -1,66 +1,90 @@
 import React, { useState, useEffect } from 'react'
-import { X, Plus, Clock, Calendar } from 'lucide-react'
+import { X, Plus, ChevronLeft, ChevronRight } from 'lucide-react'
 
-const UpdateAvailabilityModal = ({ isOpen, onClose, onSave, selectedDates = [], availability = [] }) => {
+const UpdateAvailabilityModal = ({ isOpen, onClose, onSave, teamMemberName = '', selectedDates = [], availability = [] }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date())
-  const [selectedDatesState, setSelectedDatesState] = useState(selectedDates)
-  const [availabilityType, setAvailabilityType] = useState('unavailable') // 'unavailable' or 'time_period'
-  const [timeSlots, setTimeSlots] = useState([])
+  const [selectedDate, setSelectedDate] = useState(null) // Single date selection
+  const [timeSlots, setTimeSlots] = useState([]) // Array of { start, end }
   const [newTimeSlot, setNewTimeSlot] = useState({ start: '09:00', end: '17:00' })
-  const [dateRangeMode, setDateRangeMode] = useState(false) // For vacation periods
-  const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate] = useState('')
+  const [isUnavailable, setIsUnavailable] = useState(true)
 
   useEffect(() => {
     if (isOpen) {
-      setSelectedDatesState(selectedDates)
+      // Reset state when modal opens
+      setSelectedDate(null)
+      setTimeSlots([])
+      setIsUnavailable(true)
+      setNewTimeSlot({ start: '09:00', end: '17:00' })
     }
-  }, [isOpen, selectedDates])
+  }, [isOpen])
+
+  // Load existing availability for selected date
+  useEffect(() => {
+    if (selectedDate) {
+      const dateStr = formatDate(selectedDate)
+      const existingAvailability = availability.find(item => item.date === dateStr)
+      
+      if (existingAvailability) {
+        if (existingAvailability.hours === 'Unavailable' || !existingAvailability.available) {
+          setIsUnavailable(true)
+          setTimeSlots([])
+        } else {
+          setIsUnavailable(false)
+          // Parse hours string like "09:00-17:00" or "09:00-12:00, 13:00-17:00"
+          const hoursStr = existingAvailability.hours
+          const slots = hoursStr.split(',').map(slot => {
+            const [start, end] = slot.trim().split('-')
+            return { start: start.trim(), end: end.trim() }
+          })
+          setTimeSlots(slots)
+        }
+      } else {
+        setIsUnavailable(true)
+        setTimeSlots([])
+      }
+    }
+  }, [selectedDate, availability])
 
   const handleDateClick = (date) => {
-    const dateStr = date.toISOString().split('T')[0]
-    setSelectedDatesState(prev => 
-      prev.includes(dateStr) 
-        ? prev.filter(d => d !== dateStr)
-        : [...prev, dateStr]
-    )
-  }
-
-  const handleDateRangeSelect = () => {
-    if (startDate && endDate) {
-      const start = new Date(startDate)
-      const end = new Date(endDate)
-      const dates = []
-      
-      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        dates.push(d.toISOString().split('T')[0])
-      }
-      
-      setSelectedDatesState(prev => [...prev, ...dates.filter(date => !prev.includes(date))])
-      setStartDate('')
-      setEndDate('')
+    // Only allow selecting dates from current month
+    if (date.getMonth() === currentMonth.getMonth()) {
+      setSelectedDate(new Date(date))
     }
-  }
-
-  const clearAllDates = () => {
-    setSelectedDatesState([])
   }
 
   const handleAddTimeSlot = () => {
-    setTimeSlots(prev => [...prev, { ...newTimeSlot, id: Date.now() }])
-    setNewTimeSlot({ start: '09:00', end: '17:00' })
+    if (newTimeSlot.start && newTimeSlot.end) {
+      setTimeSlots(prev => [...prev, { ...newTimeSlot }])
+      setNewTimeSlot({ start: '09:00', end: '17:00' })
+      setIsUnavailable(false)
+    }
   }
 
-  const handleRemoveTimeSlot = (id) => {
-    setTimeSlots(prev => prev.filter(slot => slot.id !== id))
+  const handleRemoveTimeSlot = (index) => {
+    setTimeSlots(prev => {
+      const updated = prev.filter((_, i) => i !== index)
+      if (updated.length === 0) {
+        setIsUnavailable(true)
+      }
+      return updated
+    })
   }
 
   const handleSave = () => {
-    const availabilityData = {
-      dates: selectedDatesState,
-      type: availabilityType,
-      timeSlots: availabilityType === 'time_period' ? timeSlots : []
+    if (!selectedDate) {
+      alert('Please select a date')
+      return
     }
+
+    const dateStr = formatDate(selectedDate)
+    const availabilityData = {
+      date: dateStr,
+      available: !isUnavailable && timeSlots.length > 0,
+      hours: isUnavailable || timeSlots.length === 0 
+        ? 'Unavailable' 
+        : timeSlots.map(slot => `${slot.start}-${slot.end}`).join(', ')
+    }
+    
     onSave(availabilityData)
     onClose()
   }
@@ -76,6 +100,7 @@ const UpdateAvailabilityModal = ({ isOpen, onClose, onSave, selectedDates = [], 
     const days = []
     const currentDate = new Date(startDate)
     
+    // Generate 6 weeks of days (42 days)
     for (let i = 0; i < 42; i++) {
       days.push(new Date(currentDate))
       currentDate.setDate(currentDate.getDate() + 1)
@@ -89,7 +114,8 @@ const UpdateAvailabilityModal = ({ isOpen, onClose, onSave, selectedDates = [], 
   }
 
   const isSelected = (date) => {
-    return selectedDatesState.includes(formatDate(date))
+    if (!selectedDate) return false
+    return formatDate(date) === formatDate(selectedDate)
   }
 
   const isCurrentMonth = (date) => {
@@ -101,248 +127,223 @@ const UpdateAvailabilityModal = ({ isOpen, onClose, onSave, selectedDates = [], 
     'July', 'August', 'September', 'October', 'November', 'December'
   ]
 
+  const getInitials = (name) => {
+    if (!name) return 'EC'
+    return name
+      .split(' ')
+      .map(word => word[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2)
+  }
+
   if (!isOpen) return null
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">Update Availability</h2>
-          <div className="flex items-center space-x-3">
-            <button 
-              onClick={handleSave}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700"
-            >
-              Save
-            </button>
-            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
-              <X className="w-5 h-5 text-gray-400" />
-            </button>
+          <button 
+            onClick={onClose}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <X className="w-5 h-5 text-gray-600" />
+          </button>
+          
+          <div className="flex-1 text-center">
+            <h2 className="text-xl font-semibold text-gray-900 mb-1">Update Availability</h2>
+            {teamMemberName && (
+              <div className="flex items-center justify-center gap-2">
+                <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center text-white text-xs font-semibold">
+                  {getInitials(teamMemberName)}
+                </div>
+                <span className="text-sm text-gray-600">{teamMemberName}</span>
+              </div>
+            )}
           </div>
+          
+          <button 
+            onClick={handleSave}
+            className="bg-blue-600 text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+          >
+            Save
+          </button>
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-6">
-          {/* Dates Section */}
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Dates</h3>
-            <p className="text-sm text-gray-600 mb-4">Select the date(s) you want to assign specific hours</p>
-            
-            {/* Date Range Picker for Vacation Periods */}
-            <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="flex items-center space-x-2 mb-3">
-                <Calendar className="w-4 h-4 text-blue-600" />
-                <span className="text-sm font-medium text-blue-800">Quick Date Range Selection (for vacation periods)</span>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Start Date</label>
-                  <input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">End Date</label>
-                  <input
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-                <div className="flex items-end">
-                  <button
-                    onClick={handleDateRangeSelect}
-                    disabled={!startDate || !endDate}
-                    className="w-full px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Left Panel - Dates Selection */}
+            <div>
+              <h3 className="text-base font-semibold text-gray-900 mb-2">Dates</h3>
+              <p className="text-sm text-gray-600 mb-6">
+                Select the date(s) you want to assign specific hours
+              </p>
+              
+              {/* Calendar */}
+              <div className="border border-gray-200 rounded-lg p-5 bg-white">
+                {/* Calendar Header */}
+                <div className="flex items-center justify-between mb-4">
+                  <button 
+                    onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1))}
+                    className="p-1.5 hover:bg-gray-100 rounded transition-colors"
                   >
-                    Add Range
+                    <ChevronLeft className="w-5 h-5 text-gray-600" />
                   </button>
+                  <h4 className="text-base font-semibold text-gray-900">
+                    {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
+                  </h4>
+                  <button 
+                    onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1))}
+                    className="p-1.5 hover:bg-gray-100 rounded transition-colors"
+                  >
+                    <ChevronRight className="w-5 h-5 text-gray-600" />
+                  </button>
+                </div>
+
+                {/* Calendar Grid */}
+                <div className="grid grid-cols-7 gap-1">
+                  {/* Day headers */}
+                  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                    <div key={day} className="p-2 text-center text-xs font-medium text-gray-500">
+                      {day}
+                    </div>
+                  ))}
+                  
+                  {/* Calendar days */}
+                  {generateCalendarDays().map((date, index) => {
+                    const isSelectedDate = isSelected(date)
+                    const isCurrentMonthDate = isCurrentMonth(date)
+                    
+                    return (
+                      <button
+                        key={index}
+                        onClick={() => handleDateClick(date)}
+                        disabled={!isCurrentMonthDate}
+                        className={`
+                          p-2 text-sm rounded transition-all
+                          ${isSelectedDate 
+                            ? 'bg-blue-600 text-white font-semibold' 
+                            : isCurrentMonthDate
+                              ? 'text-gray-900 hover:bg-gray-100' 
+                              : 'text-gray-300 cursor-not-allowed'
+                          }
+                        `}
+                      >
+                        {date.getDate()}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
             </div>
 
-            {/* Selected Dates Summary */}
-            {selectedDatesState.length > 0 && (
-              <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <Calendar className="w-4 h-4 text-green-600" />
-                    <span className="text-sm font-medium text-green-800">
-                      {selectedDatesState.length} date{selectedDatesState.length !== 1 ? 's' : ''} selected
-                    </span>
-                  </div>
-                  <button
-                    onClick={clearAllDates}
-                    className="text-red-600 hover:text-red-700 text-sm font-medium"
-                  >
-                    Clear All
-                  </button>
-                </div>
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {selectedDatesState.slice(0, 5).map(date => (
-                    <span key={date} className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded">
-                      {new Date(date).toLocaleDateString()}
-                    </span>
-                  ))}
-                  {selectedDatesState.length > 5 && (
-                    <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded">
-                      +{selectedDatesState.length - 5} more
-                    </span>
-                  )}
-                </div>
-              </div>
-            )}
-            
-            {/* Calendar */}
-            <div className="border border-gray-200 rounded-lg p-4">
-              {/* Calendar Header */}
-              <div className="flex items-center justify-between mb-4">
-                <button 
-                  onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1))}
-                  className="p-2 hover:bg-gray-100 rounded"
-                >
-                  ←
-                </button>
-                <h4 className="text-lg font-medium">
-                  {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
-                </h4>
-                <button 
-                  onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1))}
-                  className="p-2 hover:bg-gray-100 rounded"
-                >
-                  →
-                </button>
-              </div>
-
-              {/* Calendar Grid */}
-              <div className="grid grid-cols-7 gap-1">
-                {/* Day headers */}
-                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                  <div key={day} className="p-2 text-center text-sm font-medium text-gray-500">
-                    {day}
-                  </div>
-                ))}
-                
-                {/* Calendar days */}
-                {generateCalendarDays().map((date, index) => (
-                  <button
-                    key={index}
-                    onClick={() => handleDateClick(date)}
-                    className={`p-2 text-sm rounded hover:bg-gray-100 ${
-                      isSelected(date) 
-                        ? 'bg-blue-600 text-white hover:bg-blue-700' 
-                        : isCurrentMonth(date) 
-                          ? 'text-gray-900' 
-                          : 'text-gray-400'
-                    }`}
-                  >
-                    {date.getDate()}
-                  </button>
-                ))}
-              </div>
+            {/* Right Panel - Calendar View (duplicate for visual balance) */}
+            <div className="hidden lg:block">
+              {/* Empty space for visual balance */}
             </div>
           </div>
 
-          {/* Availability Section */}
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Availability</h3>
-            <p className="text-sm text-gray-600 mb-4">Edit your available hours for the selected dates</p>
+          {/* Bottom Panel - Availability Input */}
+          <div className="mt-8 border-t border-gray-200 pt-6">
+            <h3 className="text-base font-semibold text-gray-900 mb-2">Availability</h3>
+            <p className="text-sm text-gray-600 mb-6">
+              Edit your available hours for the selected date
+            </p>
             
-            {/* Availability Type Selection */}
-            <div className="space-y-4">
-              <div className="flex space-x-4">
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    name="availabilityType"
-                    value="unavailable"
-                    checked={availabilityType === 'unavailable'}
-                    onChange={(e) => setAvailabilityType(e.target.value)}
-                    className="mr-2"
-                  />
-                  <span className="text-sm font-medium text-gray-700">Unavailable</span>
-                </label>
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    name="availabilityType"
-                    value="time_period"
-                    checked={availabilityType === 'time_period'}
-                    onChange={(e) => setAvailabilityType(e.target.value)}
-                    className="mr-2"
-                  />
-                  <span className="text-sm font-medium text-gray-700">Time Period</span>
-                </label>
-              </div>
-
-              {/* Time Period Configuration */}
-              {availabilityType === 'time_period' && (
-                <div className="space-y-4">
-                  <div className="flex items-center space-x-4">
-                    <input
-                      type="time"
-                      value={newTimeSlot.start}
-                      onChange={(e) => setNewTimeSlot(prev => ({ ...prev, start: e.target.value }))}
-                      className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <span className="text-gray-500">to</span>
-                    <input
-                      type="time"
-                      value={newTimeSlot.end}
-                      onChange={(e) => setNewTimeSlot(prev => ({ ...prev, end: e.target.value }))}
-                      className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <button
-                      onClick={handleAddTimeSlot}
-                      className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>Add Hours</span>
-                    </button>
+            {selectedDate ? (
+              <div className="space-y-4">
+                {/* Availability Display */}
+                {isUnavailable && timeSlots.length === 0 ? (
+                  <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg mb-4">
+                    <span className="text-sm text-gray-600">Unavailable</span>
                   </div>
-
-                  {/* Time Slots List */}
-                  {timeSlots.length > 0 && (
-                    <div className="space-y-2">
-                      {timeSlots.map((slot) => (
-                        <div key={slot.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                          <div className="flex items-center space-x-2">
-                            <Clock className="w-4 h-4 text-gray-400" />
-                            <span className="text-sm font-medium">
-                              {slot.start} - {slot.end}
-                            </span>
-                          </div>
-                          <button
-                            onClick={() => handleRemoveTimeSlot(slot.id)}
-                            className="text-red-600 hover:text-red-700"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
+                ) : (
+                  <div className="space-y-2 mb-4">
+                    {/* Existing time slots */}
+                    {timeSlots.map((slot, index) => (
+                      <div 
+                        key={index}
+                        className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg"
+                      >
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="time"
+                            value={slot.start}
+                            onChange={(e) => {
+                              const updatedSlots = [...timeSlots]
+                              updatedSlots[index].start = e.target.value
+                              setTimeSlots(updatedSlots)
+                            }}
+                            className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                          <span className="text-gray-500 text-sm">-</span>
+                          <input
+                            type="time"
+                            value={slot.end}
+                            onChange={(e) => {
+                              const updatedSlots = [...timeSlots]
+                              updatedSlots[index].end = e.target.value
+                              setTimeSlots(updatedSlots)
+                            }}
+                            className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          />
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Unavailable Display */}
-              {availabilityType === 'unavailable' && (
-                <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-                  <div className="flex items-center space-x-2">
-                    <X className="w-5 h-5 text-red-600" />
-                    <span className="text-sm font-medium text-red-800">Unavailable</span>
+                        <button
+                          onClick={() => handleRemoveTimeSlot(index)}
+                          className="text-gray-400 hover:text-red-600 transition-colors ml-2"
+                          type="button"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                    
+                    {/* New time slot input (shown when not unavailable but no slots yet, or when adding) */}
+                    {!isUnavailable && (
+                      <div className="flex items-center gap-2 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                        <input
+                          type="time"
+                          value={newTimeSlot.start}
+                          onChange={(e) => setNewTimeSlot(prev => ({ ...prev, start: e.target.value }))}
+                          className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                        <span className="text-gray-500 text-sm">-</span>
+                        <input
+                          type="time"
+                          value={newTimeSlot.end}
+                          onChange={(e) => setNewTimeSlot(prev => ({ ...prev, end: e.target.value }))}
+                          className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                      </div>
+                    )}
                   </div>
-                  <p className="text-xs text-red-600 mt-1">
-                    Selected dates will be marked as unavailable
-                  </p>
-                </div>
-              )}
-            </div>
+                )}
+
+                {/* Add Hours Button */}
+                <button
+                  onClick={() => {
+                    if (isUnavailable && timeSlots.length === 0) {
+                      // First time adding hours - replace "Unavailable" with time inputs
+                      setIsUnavailable(false)
+                    } else if (!isUnavailable) {
+                      // Add the current time slot and reset for next one
+                      handleAddTimeSlot()
+                    }
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                  type="button"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Hours
+                </button>
+              </div>
+            ) : (
+              <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg text-center">
+                <span className="text-sm text-gray-500">Please select a date from the calendar above</span>
+              </div>
+            )}
           </div>
         </div>
       </div>

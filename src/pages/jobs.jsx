@@ -8,6 +8,7 @@ import { Plus, AlertCircle, Loader2, Eye, Calendar, Clock, MapPin, Users, Dollar
 import { Link, useNavigate } from "react-router-dom"
 import { jobsAPI, invoicesAPI, territoriesAPI, teamAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
+import { canCreateJobs } from "../utils/roleUtils"
 
 const ServiceFlowJobs = () => {
   const { user, loading: authLoading } = useAuth()
@@ -455,29 +456,35 @@ const ServiceFlowJobs = () => {
         <div className="hidden lg:flex bg-white border-b border-gray-200 px-4 pt-4 pb-2 items-center justify-between">
           <h1 className="text-3xl font-semibold text-gray-900 " style={{fontFamily: 'Montserrat', fontWeight: 700}}>Jobs</h1>
           <div className="flex items-center gap-2">
-            <button
-              onClick={handleImportJobs}
-              className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2"
-              style={{fontFamily: 'Montserrat', fontWeight: 500}}
-            >
-              <Upload className="w-4 h-4" />
-              Import
-            </button>
-            <button
-              onClick={handleExportJobs}
-              className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2"
-              style={{fontFamily: 'Montserrat', fontWeight: 500}}
-            >
-              <Download className="w-4 h-4" />
-              Export
-            </button>
-            <button
-              onClick={handleCreateJob}
-              className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-              style={{fontFamily: 'Montserrat', fontWeight: 500}}
-            >
-              Create Job
-            </button>
+            {canCreateJobs(user) && (
+              <>
+                <button
+                  onClick={handleImportJobs}
+                  className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2"
+                  style={{fontFamily: 'Montserrat', fontWeight: 500}}
+                >
+                  <Upload className="w-4 h-4" />
+                  Import
+                </button>
+                <button
+                  onClick={handleExportJobs}
+                  className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2"
+                  style={{fontFamily: 'Montserrat', fontWeight: 500}}
+                >
+                  <Download className="w-4 h-4" />
+                  Export
+                </button>
+              </>
+            )}
+            {canCreateJobs(user) && (
+              <button
+                onClick={handleCreateJob}
+                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                style={{fontFamily: 'Montserrat', fontWeight: 500}}
+              >
+                Create Job
+              </button>
+            )}
           </div>
         </div>
 
@@ -485,33 +492,37 @@ const ServiceFlowJobs = () => {
         <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-4">
           <div className="flex items-center justify-between mb-3">
             <h1 className="text-xl font-semibold text-gray-900 " style={{fontFamily: 'Montserrat', fontWeight: 700}}>Jobs</h1>
-            <button
-              onClick={handleCreateJob}
-              className="px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-1"
-              style={{fontFamily: 'Montserrat', fontWeight: 500}}
-            >
-              <Plus className="w-4 h-4" />
-              Create
-            </button>
+            {canCreateJobs(user) && (
+              <button
+                onClick={handleCreateJob}
+                className="px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-1"
+                style={{fontFamily: 'Montserrat', fontWeight: 500}}
+              >
+                <Plus className="w-4 h-4" />
+                Create
+              </button>
+            )}
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleImportJobs}
-              className="flex-1 px-3 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
-              style={{fontFamily: 'Montserrat', fontWeight: 500}}
-            >
-              <Upload className="w-4 h-4" />
-              Import
-            </button>
-            <button
-              onClick={handleExportJobs}
-              className="flex-1 px-3 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
-              style={{fontFamily: 'Montserrat', fontWeight: 500}}
-            >
-              <Download className="w-4 h-4" />
-              Export
-            </button>
-          </div>
+          {canCreateJobs(user) && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleImportJobs}
+                className="flex-1 px-3 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                style={{fontFamily: 'Montserrat', fontWeight: 500}}
+              >
+                <Upload className="w-4 h-4" />
+                Import
+              </button>
+              <button
+                onClick={handleExportJobs}
+                className="flex-1 px-3 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                style={{fontFamily: 'Montserrat', fontWeight: 500}}
+              >
+                <Download className="w-4 h-4" />
+                Export
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Error Display */}
