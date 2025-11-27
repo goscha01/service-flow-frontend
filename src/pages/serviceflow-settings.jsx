@@ -1,11 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import Sidebar from "../components/sidebar"
 import MobileHeader from "../components/mobile-header"
 import BusinessDetailsModal from "../components/business-details-modal"
 import SchedulingBookingModal from "../components/scheduling-booking-modal"
+import { useAuth } from "../context/AuthContext"
+import { getUserRole, isWorker, canEditAccountOwnerSettings } from "../utils/roleUtils"
 import {
   Building2,
   Palette,
@@ -31,6 +33,14 @@ const ServiceFlowSettings = () => {
   const [businessDetailsOpen, setBusinessDetailsOpen] = useState(false)
   const [schedulingBookingOpen, setSchedulingBookingOpen] = useState(false)
   const navigate = useNavigate()
+  const { user } = useAuth()
+
+  // Redirect workers to their account settings page only
+  useEffect(() => {
+    if (user && isWorker(user)) {
+      navigate("/settings/account")
+    }
+  }, [user, navigate])
 
   const handleSettingClick = (settingId) => {
     switch (settingId) {
@@ -243,26 +253,34 @@ const ServiceFlowSettings = () => {
               >
                 <div className="flex items-center space-x-3">
                   <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
-                    <span className="text-white font-medium text-sm">JW</span>
+                    <span className="text-white font-medium text-sm">
+                      {user?.firstName?.charAt(0) || user?.email?.charAt(0) || 'U'}
+                    </span>
                   </div>
                   <div>
-                    <h3 className="font-medium text-gray-900">Just web</h3>
+                    <h3 className="font-medium text-gray-900">
+                      {user?.firstName && user?.lastName 
+                        ? `${user.firstName} ${user.lastName}`
+                        : user?.firstName || user?.email || 'User'}
+                    </h3>
                     <p className="text-sm text-gray-600">Manage your Serviceflow user account</p>
                   </div>
                 </div>
                 <ChevronRight className="w-5 h-5 text-gray-400" />
               </div>
 
-              <div 
-                onClick={() => navigate("/settings/billing")}
-                className="bg-gray-50 rounded-lg p-4 flex items-center justify-between cursor-pointer hover:bg-gray-100 transition-colors"
-              >
-                <div>
-                  <h3 className="font-medium text-gray-900">Billing</h3>
-                  <p className="text-sm text-gray-600">Manage your Serviceflow plan and billing information</p>
+              {canEditAccountOwnerSettings(user) && (
+                <div 
+                  onClick={() => navigate("/settings/billing")}
+                  className="bg-gray-50 rounded-lg p-4 flex items-center justify-between cursor-pointer hover:bg-gray-100 transition-colors"
+                >
+                  <div>
+                    <h3 className="font-medium text-gray-900">Billing</h3>
+                    <p className="text-sm text-gray-600">Manage your Serviceflow plan and billing information</p>
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-gray-400" />
                 </div>
-                <ChevronRight className="w-5 h-5 text-gray-400" />
-              </div>
+              )}
             </div>
 
             {/* Settings Sections */}

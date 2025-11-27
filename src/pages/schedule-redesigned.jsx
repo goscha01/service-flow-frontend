@@ -31,6 +31,7 @@ import { useAuth } from "../context/AuthContext"
 import { jobsAPI } from "../services/api"
 import { normalizeAPIResponse } from "../utils/dataHandler"
 import { getImageUrl } from "../utils/imageUtils"
+import AssignJobModal from "../components/assign-job-modal"
 
 const ServiceFlowSchedule = () => {
   const { user } = useAuth()
@@ -626,9 +627,50 @@ const ServiceFlowSchedule = () => {
     setExpandedDays(newExpanded)
   }
 
-  const handleJobClick = (job) => {
+  const handleJobClick = async (job) => {
+    // Set the job details immediately for quick display
     setSelectedJobDetails(job)
     setShowJobDetailsOverlay(true)
+    
+    // If job has an assigned team member ID, ensure we have the member details
+    const assignedMemberId = job.assigned_team_member_id || job.team_member_id
+    if (assignedMemberId && teamMembers.length > 0) {
+      const assignedMember = teamMembers.find(m => m.id === assignedMemberId)
+      if (assignedMember) {
+        // Update selectedJobDetails with member info if not already present
+        setSelectedJobDetails(prev => ({
+          ...prev,
+          team_member_first_name: assignedMember.first_name,
+          team_member_last_name: assignedMember.last_name
+        }))
+      }
+    }
+    
+    // Optionally fetch full job details from API for complete information
+    try {
+      const fullJobDetails = await jobsAPI.getById(job.id)
+      if (fullJobDetails) {
+        // Merge with team member info if available
+        const memberId = fullJobDetails.assigned_team_member_id || fullJobDetails.team_member_id
+        if (memberId && teamMembers.length > 0) {
+          const member = teamMembers.find(m => m.id === memberId)
+          if (member) {
+            setSelectedJobDetails({
+              ...fullJobDetails,
+              team_member_first_name: member.first_name,
+              team_member_last_name: member.last_name
+            })
+          } else {
+            setSelectedJobDetails(fullJobDetails)
+          }
+        } else {
+          setSelectedJobDetails(fullJobDetails)
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching full job details:', error)
+      // Keep the original job data if fetch fails
+    }
   }
 
   const handleCustomerClick = (e, customerId) => {
@@ -1047,11 +1089,16 @@ const ServiceFlowSchedule = () => {
       
       await jobsAPI.assignToTeamMember(selectedJobDetails.id, teamMemberId)
       
-      // Update local state
+      // Get the assigned member details
+      const assignedMember = teamMembers.find(m => m.id === teamMemberId)
+      
+      // Update local state with member details
       setSelectedJobDetails(prev => ({
         ...prev,
         assigned_team_member_id: teamMemberId,
-        team_member_id: teamMemberId
+        team_member_id: teamMemberId,
+        team_member_first_name: assignedMember?.first_name || null,
+        team_member_last_name: assignedMember?.last_name || null
       }))
       
       // Update the job in the main jobs list
@@ -2846,26 +2893,46 @@ const ServiceFlowSchedule = () => {
                         Assign
                       </button>
                     </div>
-                    {selectedJobDetails.team_member_id ? (
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold">
-                          {selectedJobDetails.team_member_first_name?.[0]}{selectedJobDetails.team_member_last_name?.[0]}
+                    {(() => {
+                      const assignedMemberId = selectedJobDetails.assigned_team_member_id || selectedJobDetails.team_member_id
+                      const assignedMember = assignedMemberId ? teamMembers.find(m => m.id === assignedMemberId) : null
+                      
+                      return assignedMember ? (
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold">
+                            {assignedMember.profile_picture ? (
+                              <img 
+                                src={getImageUrl(assignedMember.profile_picture)} 
+                                alt={`${assignedMember.first_name} ${assignedMember.last_name}`}
+                                className="w-full h-full rounded-full object-cover"
+                              />
+                            ) : (
+                              getInitials(assignedMember.first_name && assignedMember.last_name 
+                                ? `${assignedMember.first_name} ${assignedMember.last_name}` 
+                                : assignedMember.email || 'AA')
+                            )}
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                              {assignedMember.first_name} {assignedMember.last_name}
+                            </p>
+                            {assignedMember.email && (
+                              <p className="text-xs text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                                {assignedMember.email}
+                              </p>
+                            )}
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
-                            {selectedJobDetails.team_member_first_name} {selectedJobDetails.team_member_last_name}
+                      ) : (
+                        <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 text-center">
+                          <UserX className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                          <p className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Unassigned</p>
+                          <p className="text-xs text-gray-500 mt-1" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                            No service providers are assigned to this job
                           </p>
                         </div>
-                      </div>
-                    ) : (
-                      <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 text-center">
-                        <UserX className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                        <p className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Unassigned</p>
-                        <p className="text-xs text-gray-500 mt-1" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
-                          No service providers are assigned to this job
-                        </p>
-                      </div>
-                    )}
+                      )
+                    })()}
                   </div>
                 </div>
               </div>
@@ -3228,53 +3295,13 @@ const ServiceFlowSchedule = () => {
       )}
 
       {/* Assign Team Member Modal */}
-      {showAssignModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-[100] flex items-center justify-center">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Assign Team Member</h3>
-              <button
-                onClick={() => setShowAssignModal(false)}
-                className="p-2 hover:bg-gray-100 rounded-full"
-              >
-                <X className="w-5 h-5 text-gray-600" />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div className="max-h-60 overflow-y-auto">
-                {teamMembers.map((member) => (
-                  <button
-                    key={member.id}
-                    onClick={() => handleAssignTeamMember(member.id)}
-                    className="w-full flex items-center space-x-3 p-3 hover:bg-gray-50 rounded-lg transition-colors"
-                  >
-                    <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                      <span className="text-white text-sm font-medium">
-                        {member.first_name?.charAt(0)}{member.last_name?.charAt(0)}
-                      </span>
-                    </div>
-                    <div className="flex-1 text-left">
-                      <p className="text-sm font-medium text-gray-900">
-                        {member.first_name} {member.last_name}
-                      </p>
-                      <p className="text-xs text-gray-500">{member.email}</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-
-              <div className="flex items-center justify-end space-x-3">
-                <button
-                  onClick={() => setShowAssignModal(false)}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+      {showAssignModal && selectedJobDetails && (
+        <AssignJobModal
+          job={selectedJobDetails}
+          isOpen={showAssignModal}
+          onClose={() => setShowAssignModal(false)}
+          onAssign={handleAssignTeamMember}
+        />
       )}
 
       {/* Cancel Job Modal */}
