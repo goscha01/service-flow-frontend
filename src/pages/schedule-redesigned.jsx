@@ -32,6 +32,7 @@ import { jobsAPI } from "../services/api"
 import { normalizeAPIResponse } from "../utils/dataHandler"
 import { getImageUrl } from "../utils/imageUtils"
 import AssignJobModal from "../components/assign-job-modal"
+import StatusHistoryTooltip from "../components/status-history-tooltip"
 
 const ServiceFlowSchedule = () => {
   const { user } = useAuth()
@@ -144,8 +145,21 @@ const ServiceFlowSchedule = () => {
       
       const allJobs = normalizeAPIResponse(jobsResponse, 'jobs')
       
+      // Parse status_history for each job
+      const jobsWithParsedHistory = allJobs.map(job => {
+        if (job.status_history && typeof job.status_history === 'string') {
+          try {
+            job.status_history = JSON.parse(job.status_history);
+          } catch (e) {
+            console.error('Error parsing status_history:', e);
+            job.status_history = [];
+          }
+        }
+        return job;
+      });
+      
         // Filter jobs by date range without timezone conversion
-        const filteredJobs = allJobs.filter(job => {
+        const filteredJobs = jobsWithParsedHistory.filter(job => {
           if (!job.scheduled_date) return false
           
           // Extract date part without timezone conversion
@@ -628,8 +642,19 @@ const ServiceFlowSchedule = () => {
   }
 
   const handleJobClick = async (job) => {
+    // Parse status_history if it's a string
+    let parsedStatusHistory = job.status_history;
+    if (parsedStatusHistory && typeof parsedStatusHistory === 'string') {
+      try {
+        parsedStatusHistory = JSON.parse(parsedStatusHistory);
+      } catch (e) {
+        console.error('Error parsing status_history:', e);
+        parsedStatusHistory = [];
+      }
+    }
+    
     // Set the job details immediately for quick display
-    setSelectedJobDetails(job)
+    setSelectedJobDetails({ ...job, status_history: parsedStatusHistory })
     setShowJobDetailsOverlay(true)
     
     // If job has an assigned team member ID, ensure we have the member details
@@ -650,21 +675,37 @@ const ServiceFlowSchedule = () => {
     try {
       const fullJobDetails = await jobsAPI.getById(job.id)
       if (fullJobDetails) {
+        // Parse status_history if it's a string
+        let parsedFullStatusHistory = fullJobDetails.status_history;
+        if (parsedFullStatusHistory && typeof parsedFullStatusHistory === 'string') {
+          try {
+            parsedFullStatusHistory = JSON.parse(parsedFullStatusHistory);
+          } catch (e) {
+            console.error('Error parsing status_history:', e);
+            parsedFullStatusHistory = [];
+          }
+        }
+        
+        const jobWithParsedHistory = {
+          ...fullJobDetails,
+          status_history: parsedFullStatusHistory
+        };
+        
         // Merge with team member info if available
         const memberId = fullJobDetails.assigned_team_member_id || fullJobDetails.team_member_id
         if (memberId && teamMembers.length > 0) {
           const member = teamMembers.find(m => m.id === memberId)
           if (member) {
             setSelectedJobDetails({
-              ...fullJobDetails,
+              ...jobWithParsedHistory,
               team_member_first_name: member.first_name,
               team_member_last_name: member.last_name
             })
           } else {
-            setSelectedJobDetails(fullJobDetails)
+            setSelectedJobDetails(jobWithParsedHistory)
           }
         } else {
-          setSelectedJobDetails(fullJobDetails)
+          setSelectedJobDetails(jobWithParsedHistory)
         }
       }
     } catch (error) {
@@ -727,10 +768,26 @@ const ServiceFlowSchedule = () => {
       const updatedJob = await jobsAPI.getById(selectedJobDetails.id)
       const actualStatus = updatedJob?.status || newStatus
       
+      // Parse status_history if it's a string
+      let parsedStatusHistory = updatedJob?.status_history;
+      if (parsedStatusHistory && typeof parsedStatusHistory === 'string') {
+        try {
+          parsedStatusHistory = JSON.parse(parsedStatusHistory);
+        } catch (e) {
+          console.error('Error parsing status_history:', e);
+          parsedStatusHistory = [];
+        }
+      }
+      
       console.log('Status update response:', { newStatus, actualStatus, updatedJob })
       
       // Update the job in local state with actual status from backend
-      setSelectedJobDetails(prev => ({ ...prev, status: actualStatus, ...updatedJob }))
+      setSelectedJobDetails(prev => ({ 
+        ...prev, 
+        status: actualStatus, 
+        ...updatedJob,
+        status_history: parsedStatusHistory
+      }))
       
       // Update the job in the main jobs list
       setJobs(prevJobs => prevJobs.map(job => 
@@ -2371,7 +2428,7 @@ const ServiceFlowSchedule = () => {
           onClick={closeJobDetailsOverlay}
         >
           <div 
-            className="bg-white w-full max-w-md h-full overflow-y-auto"
+            className="bg-white w-full max-w-xl h-full overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -2409,7 +2466,7 @@ const ServiceFlowSchedule = () => {
                     
                     // Status progression: pending → confirmed → in-progress → completed
                     if (normalizedStatus === 'pending' || normalizedStatus === 'scheduled') {
-                      nextStatus = 'confirmed' // This maps to en_route in backend
+                      nextStatus = 'pending' // This maps to en_route in backend
                       buttonLabel = 'Mark as En Route'
                       buttonColor = 'bg-blue-600 hover:bg-blue-700'
                     } else if (normalizedStatus === 'confirmed' || normalizedStatus === 'en_route' || normalizedStatus === 'enroute') {
@@ -2457,8 +2514,8 @@ const ServiceFlowSchedule = () => {
                           const currentStatus = (selectedJobDetails?.status || 'pending').toLowerCase().trim()
                           // Normalize for comparison: scheduled=pending, en_route=confirmed, started=in-progress, complete=completed
                           const normalizedCurrent = 
-                            currentStatus === 'scheduled' ? 'pending' :
-                            currentStatus === 'en_route' || currentStatus === 'enroute' ? 'confirmed' :
+                            currentStatus === 'scheduled' ? 'Mark as Scheduled' :
+                            currentStatus === 'en_route' || currentStatus === 'pending' ? 'confirmed' :
                             currentStatus === 'started' ? 'in-progress' :
                             currentStatus === 'complete' ? 'completed' :
                             currentStatus === 'in_progress' || currentStatus === 'in_prog' ? 'in-progress' :
@@ -2497,8 +2554,8 @@ const ServiceFlowSchedule = () => {
             </div>
 
             {/* Status Progress Bar */}
-            <div className="px-4 py-3 border-b border-gray-200 bg-white">
-              <div className="flex items-center w-full">
+            <div className=" py-3 border-b border-gray-200 bg-white">
+              <div className="flex justify-between items-center w-full">
                 {(() => {
                   const statuses = [
                     { key: 'scheduled', label: 'Scheduled' },
@@ -2559,39 +2616,61 @@ const ServiceFlowSchedule = () => {
                     return mapping[key] || key
                   }
 
+                  // Map frontend status keys to backend status values for tooltip
+                  const mapStatusKeyToBackendStatus = (key) => {
+                    const mapping = {
+                      'scheduled': 'confirmed',
+                      'en_route': 'in-progress',
+                      'started': 'completed',
+                      'completed': 'completed',
+                      'paid': 'paid'
+                    };
+                    return mapping[key] || key;
+                  };
+
                   return statuses.map((status, index) => {
                     const isActive = index <= currentIndex;
                     const isFirst = index === 0;
                     const isLast = index === statuses.length - 1;
+                    const backendStatus = mapStatusKeyToBackendStatus(status.key);
+                    // Only show tooltip for statuses that have been reached (passed or current)
+                    const isReached = isActive;
 
                     return (
-                      <button
+                      <StatusHistoryTooltip
                         key={status.key}
-                        onClick={() => handleStatusChange(mapProgressBarKeyToBackendStatus(status.key))}
-                        className={`
-                          relative px-2 py-1.5 text-xs font-semibold transition-all whitespace-nowrap
-                          ${isActive 
-                            ? 'bg-green-500 text-white' 
-                            : 'bg-gray-100 text-gray-700'}
-                          ${isFirst ? 'rounded-l-md' : ''}
-                          ${isLast ? 'rounded-r-md' : ''}
-                          hover:opacity-90
-                        `}
-                        style={{ 
-                          fontFamily: 'Montserrat', fontWeight: 600,
-                          clipPath: !isFirst && !isLast
-                            ? 'polygon(0% 0%, calc(100% - 8px) 0%, 100% 50%, calc(100% - 8px) 100%, 0% 100%, 8px 50%)'
-                            : isFirst
-                            ? 'polygon(0% 0%, calc(100% - 8px) 0%, 100% 50%, calc(100% - 8px) 100%, 0% 100%)'
-                            : 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 8px 50%)',
-                          marginLeft: !isFirst ? '-8px' : '0',
-                          zIndex: isActive ? (index === currentIndex ? 10 : 5) : 1,
-                          flex: 1,
-                          minWidth: 0
-                        }}
+                        statusHistory={selectedJobDetails?.status_history}
+                        status={backendStatus}
+                        isReached={isReached}
+                        jobCreatedAt={selectedJobDetails?.created_at}
                       >
-                        {status.label}
-                      </button>
+                        <button
+                          onClick={() => handleStatusChange(mapProgressBarKeyToBackendStatus(status.key))}
+                          className={`
+                            relative px-7 py-3  text-xs font-semibold transition-all whitespace-nowrap
+                            ${isActive 
+                              ? 'bg-green-500 text-white' 
+                              : 'bg-gray-100 text-gray-700'}
+                            ${isFirst ? 'rounded-l-md' : ''}
+                            ${isLast ? 'rounded-r-md' : ''}
+                            hover:opacity-90
+                          `}
+                          style={{ 
+                            fontFamily: 'Montserrat', fontWeight: 600,
+                            clipPath: !isFirst && !isLast
+                              ? 'polygon(0% 0%, calc(100% - 15px) 0%, 100% 50%, calc(100% - 15px) 100%, 0% 100%, 15px 50%)'
+                              : isFirst
+                              ? 'polygon(0% 0%, calc(100% - 15px) 0%, 100% 50%, calc(100% - 15px) 100%, 0% 100%)'
+                              : 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 15px 50%)',
+                            marginLeft: !isFirst ? '-8px' : '0',
+                            zIndex: isActive ? (index === currentIndex ? 10 : 5) : 1,
+                            flex: 1,
+                            minWidth: 0
+                          }}
+                        >
+                          {status.label}
+                        </button>
+                      </StatusHistoryTooltip>
                     );
                   });
                 })()}

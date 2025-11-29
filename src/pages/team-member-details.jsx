@@ -98,6 +98,7 @@ const TeamMemberDetails = () => {
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState("")
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [resendingInvite, setResendingInvite] = useState(false)
   
   // Notifications
   const [notification, setNotification] = useState(null)
@@ -343,6 +344,31 @@ const TeamMemberDetails = () => {
 
   const handleDeleteMember = () => {
     setShowDeleteModal(true)
+  }
+
+  const handleResendInvite = async () => {
+    if (!teamMember?.id) return;
+    
+    try {
+      setResendingInvite(true);
+      await teamAPI.resendInvite(teamMember.id);
+      setNotification({
+        type: 'success',
+        message: 'Invitation email sent successfully!'
+      });
+      // Clear notification after 3 seconds
+      setTimeout(() => setNotification(null), 3000);
+    } catch (error) {
+      console.error('Error resending invite:', error);
+      setNotification({
+        type: 'error',
+        message: error.response?.data?.error || 'Failed to resend invitation. Please try again.'
+      });
+      // Clear notification after 5 seconds
+      setTimeout(() => setNotification(null), 5000);
+    } finally {
+      setResendingInvite(false);
+    }
   }
 
   const confirmDeleteMember = async () => {
@@ -994,6 +1020,25 @@ const TeamMemberDetails = () => {
                   </button>
                 </div>
 
+                {/* Notification Banner */}
+                {notification && (
+                  <div className={`mt-4 p-3 rounded-lg ${
+                    notification.type === 'success' 
+                      ? 'bg-green-50 border border-green-200 text-green-800' 
+                      : 'bg-red-50 border border-red-200 text-red-800'
+                  }`}>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">{notification.message}</span>
+                      <button
+                        onClick={() => setNotification(null)}
+                        className="text-gray-400 hover:text-gray-600"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 {/* Contact Information Grid */}
                 <div className="mt-6 space-y-3">
                   <div className="grid grid-cols-3 gap-4 py-2">
@@ -1017,10 +1062,47 @@ const TeamMemberDetails = () => {
                   </div>
                   <div className="grid grid-cols-3 gap-4 py-2">
                     <span className="text-sm text-gray-600">Status</span>
-                    <span className="text-sm">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                        Account Activated
-                      </span>
+                    <span className="text-sm col-span-2">
+                      {(() => {
+                        const status = teamMember?.status?.toLowerCase() || 'unknown';
+                        if (status === 'active' || status === 'activated') {
+                          return (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              <CheckCircle className="w-3 h-3 mr-1" />
+                              Account Activated
+                            </span>
+                          );
+                        } else if (status === 'invited' || status === 'pending') {
+                          return (
+                            <div className="flex items-center gap-2">
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                <AlertCircle className="w-3 h-3 mr-1" />
+                                Pending Invitation
+                              </span>
+                              <button
+                                onClick={handleResendInvite}
+                                disabled={resendingInvite}
+                                className="text-xs text-blue-600 hover:text-blue-700 font-medium underline disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                {resendingInvite ? 'Sending...' : 'Resend Invite'}
+                              </button>
+                            </div>
+                          );
+                        } else if (status === 'inactive' || status === 'deactivated') {
+                          return (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                              <XCircle className="w-3 h-3 mr-1" />
+                              Inactive
+                            </span>
+                          );
+                        } else {
+                          return (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                              {teamMember?.status || 'Unknown'}
+                            </span>
+                          );
+                        }
+                      })()}
                     </span>
                   </div>
                   <div className="grid grid-cols-3 gap-4 py-2">

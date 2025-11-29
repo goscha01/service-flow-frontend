@@ -1,10 +1,11 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { X, UserPlus, Edit, Calendar, DollarSign, Tag, MapPin, Search, CheckCircle } from "lucide-react"
+import { X, UserPlus, Edit, Calendar, DollarSign, Tag, MapPin, Search, CheckCircle, AlertCircle } from "lucide-react"
 import { teamAPI, territoriesAPI } from "../services/api"
 import AddressValidation from "./address-validation"
 import AddressAutocomplete from "./address-autocomplete"
+import Notification from "./notification"
 
 // API base URL for Google Places API proxy
 const API_BASE_URL = 'https://service-flow-backend-production.up.railway.app/api'
@@ -48,6 +49,8 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [showErrorNotification, setShowErrorNotification] = useState(false)
+  const [errorMessage, setErrorMessage] = useState("")
   const [addressSuggestions, setAddressSuggestions] = useState([])
   const [showAddressSuggestions, setShowAddressSuggestions] = useState(false)
   const [territories, setTerritories] = useState([])
@@ -435,31 +438,45 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    e.stopPropagation()
     
     if (!formData.firstName || !formData.lastName) {
-      setError("Full name is required")
+      const errorMsg = "Full name is required"
+      setError(errorMsg)
+      setErrorMessage(errorMsg)
+      setShowErrorNotification(true)
       return
     }
     
     if (!formData.email) {
-      setError("Email is required")
+      const errorMsg = "Email is required"
+      setError(errorMsg)
+      setErrorMessage(errorMsg)
+      setShowErrorNotification(true)
       return
     }
     
     // Validate email if provided
     if (formData.email && !validateEmail(formData.email)) {
-      setError("Please enter a valid email address")
+      const errorMsg = "Please enter a valid email address"
+      setError(errorMsg)
+      setErrorMessage(errorMsg)
+      setShowErrorNotification(true)
       return
     }
     
     // Validate phone if provided
     if (formData.phone && !validatePhone(formData.phone)) {
-      setError("Please enter a valid phone number")
+      const errorMsg = "Please enter a valid phone number"
+      setError(errorMsg)
+      setErrorMessage(errorMsg)
+      setShowErrorNotification(true)
       return
     }
 
     setLoading(true)
     setError("")
+    setShowErrorNotification(false)
 
     try {
       const memberData = {
@@ -493,7 +510,10 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
       onClose()
     } catch (error) {
       console.error('Error saving team member:', error)
-      setError(error.response?.data?.error || "Failed to save team member. Please try again.")
+      const errorMsg = error.response?.data?.error || error.message || "Failed to save team member. Please try again."
+      setError(errorMsg)
+      setErrorMessage(errorMsg)
+      setShowErrorNotification(true)
     } finally {
       setLoading(false)
     }
@@ -502,7 +522,17 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto">
+    <>
+      {/* Error Toast Notification */}
+      <Notification
+        message={errorMessage}
+        type="error"
+        duration={5000}
+        show={showErrorNotification}
+        onClose={() => setShowErrorNotification(false)}
+      />
+      
+      <div className="fixed inset-0 bg-black/50 flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto">
       <div className="bg-white rounded-xl w-full max-w-2xl sm:max-w-md relative my-4 sm:my-6 max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3rem)] overflow-hidden flex flex-col">
         {/* Header - Fixed */}
         <div className="flex items-center justify-center p-4 sm:p-6 border-b border-gray-200">
@@ -526,12 +556,6 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
           </button>
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-          {/* Error Message */}
-          {error && (
-            <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-3">
-              <p className="text-sm text-red-800">{error}</p>
-            </div>
-          )}
 
           <form id="team-member-form" onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
             {/* Basic Information */}
@@ -887,10 +911,13 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
             Cancel
           </button>
           <button
-            type="submit"
-            form="team-member-form"
+            type="button"
+            onClick={(e) => {
+              e.preventDefault()
+              handleSubmit(e)
+            }}
             disabled={loading}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? (
               <>
@@ -907,6 +934,7 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
         </div>
       </div>
     </div>
+    </>
   )
 }
 
