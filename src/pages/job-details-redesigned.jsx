@@ -344,13 +344,16 @@ const JobDetails = () => {
       await jobsAPI.updateStatus(job.id, newStatus)
       
       // Fetch updated job to get the actual status from backend
-      const updatedJob = await jobsAPI.getById(job.id)
-      const actualStatus = updatedJob?.status || newStatus
+      const updatedJobData = await jobsAPI.getById(job.id)
+      const actualStatus = updatedJobData?.status || newStatus
       
-      console.log('Status update response:', { newStatus, actualStatus, updatedJob })
+      console.log('Status update response:', { newStatus, actualStatus, updatedJobData })
+      
+      // Map and parse the updated job data (including status_history)
+      const mappedJob = mapJobData(updatedJobData)
       
       // Update local job state with actual status from backend
-      setJob(prev => ({ ...prev, status: actualStatus, ...updatedJob }))
+      setJob(prev => ({ ...prev, ...mappedJob }))
       
       setSuccessMessage(`Job marked as ${actualStatus.replace('_', ' ').replace('-', ' ')}`)
       setTimeout(() => setSuccessMessage(''), 3000)
@@ -475,6 +478,17 @@ const JobDetails = () => {
 
   // Helper function to map job data from API response
   const mapJobData = (jobData) => {
+    // Parse status_history if it's a string
+    let parsedStatusHistory = jobData.status_history;
+    if (parsedStatusHistory && typeof parsedStatusHistory === 'string') {
+      try {
+        parsedStatusHistory = JSON.parse(parsedStatusHistory);
+      } catch (e) {
+        console.error('Error parsing status_history:', e);
+        parsedStatusHistory = [];
+      }
+    }
+
     return {
       ...jobData,
       customer_first_name: jobData.customers?.first_name || jobData.customer_first_name,
@@ -499,7 +513,9 @@ const JobDetails = () => {
       // Map service modifiers and intake questions
       service_modifiers: jobData.service_modifiers,
       service_intake_questions: jobData.service_intake_questions,
-      intake_answers: jobData.intake_answers
+      intake_answers: jobData.intake_answers,
+      // Parse status_history
+      status_history: parsedStatusHistory
     }
   }
 
@@ -1837,6 +1853,8 @@ const JobDetails = () => {
             <StatusProgressBar 
               currentStatus={job?.status || 'scheduled'} 
               onStatusChange={handleStatusUpdate}
+              statusHistory={job?.status_history}
+              jobCreatedAt={job?.created_at}
             />
           </div>
         </div>

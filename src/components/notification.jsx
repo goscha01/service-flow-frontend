@@ -73,7 +73,7 @@ const Notification = ({ message, type = "info", duration = 3000, onClose, show =
 
   return (
     <div
-      className={`fixed top-4 right-4 z-50 max-w-sm w-full border rounded-lg p-4 shadow-lg transition-all duration-300 ${typeClasses[type]}`}
+      className={`fixed top-4 right-4 z-[100] max-w-sm w-full border rounded-lg p-4 shadow-lg transition-all duration-300 ${typeClasses[type]}`}
     >
       <div className="flex items-start">
         <div className={`flex-shrink-0 ${iconClasses[type]}`}>{icons[type]}</div>
