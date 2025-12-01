@@ -113,7 +113,7 @@ root.render(
       <Route path="/jobs" element={<ProtectedRoute><ServiceFlowJobs /></ProtectedRoute>} />
       <Route path="/job/:jobId" element={<ProtectedRoute><JobDetails /></ProtectedRoute>} />
       <Route path="/estimates" element={<ProtectedRoute><ServiceFlowEstimates /></ProtectedRoute>} />
-      <Route path="/recurring" element={<ServiceFlowRecurring />} />
+      <Route path="/recurring" element={<ProtectedRoute><ServiceFlowRecurring /></ProtectedRoute>} />
       <Route path="/recurring/create" element={<CreateRecurringBooking />} />
       <Route path="/payments" element={<ServiceFlowPayments />} />
       <Route path="/invoices" element={<ProtectedRoute><ServiceFlowInvoices /></ProtectedRoute>} />

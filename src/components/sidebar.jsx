@@ -39,7 +39,7 @@ const Sidebar = ({ isOpen, onClose }) => {
     { icon: Briefcase, label: "Jobs", path: "/jobs" },
     { icon: FileText, label: "Estimates", path: "/estimates", hidden: true },
     { icon: FileText, label: "Invoices", path: "/invoices", hidden: true },
-    { icon: RotateCcw, label: "Recurring", path: "/recurring", hidden: true },
+    { icon: RotateCcw, label: "Recurring", path: "/recurring" },
     { icon: CreditCard, label: "Payments", path: "/payments", hidden: true },
     { icon: Users, label: "Customers", path: "/customers" },
     { icon: UserCheck, label: "Team", path: "/team" },

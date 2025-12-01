@@ -508,6 +508,18 @@ export const invoicesAPI = {
     } catch (error) {
       throw error;
     }
+  },
+
+  send: async (invoiceId, invoiceData) => {
+    try {
+      const response = await api.post('/send-invoice-email', {
+        invoiceId,
+        ...invoiceData
+      });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
   }
 };
 
@@ -713,6 +725,17 @@ export const publicBookingAPI = {
 };
 
 // Jobs API functions
+export const recurringBookingsAPI = {
+  getAll: async (status = 'active') => {
+    try {
+      const response = await api.get(`/recurring-bookings?status=${status}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+};
+
 export const jobsAPI = {
   getAll: async (userId, status, search, page = 1, limit = 20, dateFilter, dateRange, sortBy, sortOrder, teamMember, invoiceStatus, customerId, territoryId, signal) => {
     try {

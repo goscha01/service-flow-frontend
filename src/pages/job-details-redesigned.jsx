@@ -73,6 +73,7 @@ import IntakeQuestionsForm from "../components/intake-questions-form"
 import StatusProgressBar from "../components/status-progress-bar"
 import { formatPhoneNumber } from "../utils/phoneFormatter"
 import { formatDateLocal } from "../utils/dateUtils"
+import { formatRecurringFrequency } from "../utils/recurringUtils"
 
 const JobDetails = () => {
   const { jobId } = useParams();
@@ -515,7 +516,11 @@ const JobDetails = () => {
       service_intake_questions: jobData.service_intake_questions,
       intake_answers: jobData.intake_answers,
       // Parse status_history
-      status_history: parsedStatusHistory
+      status_history: parsedStatusHistory,
+      // Map recurring job fields
+      is_recurring: jobData.is_recurring || jobData.recurring_job || false,
+      recurring_frequency: jobData.recurring_frequency || jobData.recurringFrequency || '',
+      recurring_end_date: jobData.recurring_end_date || jobData.recurringEndDate || null
     }
   }
 
@@ -1984,6 +1989,42 @@ const JobDetails = () => {
                 </div>
               </div>
             </div>
+            
+            {/* REPEATS Section - Show if job is recurring */}
+            {job.is_recurring && (
+              <div className="m-4 sm:mb-6 p-3 sm:p-4 lg:p-6 border-t border-gray-200">
+                <div className="flex flex-row items-start space-x-4">
+                  <RotateCw className="w-5 h-5 text-gray-400 mt-1 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <h3 style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-xs font-medium text-gray-600 mb-2">REPEATS</h3>
+                    <div className="bg-red-50 border border-red-200 rounded-full px-4 py-2 inline-block">
+                      <p style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-sm text-red-800">
+                        {(() => {
+                          const frequency = job.recurring_frequency || job.recurringFrequency || ''
+                          const scheduledDate = job.scheduled_date ? new Date(job.scheduled_date) : null
+                          const formatted = formatRecurringFrequency(frequency, scheduledDate)
+                          console.log('🔍 Job Details - Recurring Frequency Debug:', {
+                            rawFrequency: frequency,
+                            isRecurring: job.is_recurring,
+                            scheduledDate: scheduledDate,
+                            formatted: formatted
+                          })
+                          return formatted
+                        })()}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => navigate('/recurring')}
+                      className="mt-2 text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center gap-1"
+                      style={{fontFamily: 'Montserrat', fontWeight: 500}}
+                    >
+                      View recurring booking →
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+            
             <div className=" m-4 sm:mb-6 p-3 sm:p-4 lg:p-6    ">
             <div className="flex flex-row items-start space-x-4 justify-between">
               <div className="flex flex-row items-start space-x-4">

@@ -26,11 +26,17 @@ import {
   Play,
   XCircle,
   Phone, Mail, NotepadText,
+  RotateCw,
+  Image,
+  Paperclip,
+  FileText,
+  User as UserIcon,
 } from "lucide-react"
 import { useAuth } from "../context/AuthContext"
 import { jobsAPI } from "../services/api"
 import { normalizeAPIResponse } from "../utils/dataHandler"
 import { getImageUrl } from "../utils/imageUtils"
+import { formatRecurringFrequencyCompact } from "../utils/recurringUtils"
 import AssignJobModal from "../components/assign-job-modal"
 import StatusHistoryTooltip from "../components/status-history-tooltip"
 
@@ -39,7 +45,11 @@ const ServiceFlowSchedule = () => {
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [selectedDate, setSelectedDate] = useState(new Date())
-  const [viewMode, setViewMode] = useState('day') // day, week, month
+  // Load viewMode from localStorage, default to 'month'
+  const [viewMode, setViewMode] = useState(() => {
+    const savedViewMode = localStorage.getItem('scheduleViewMode')
+    return savedViewMode || 'month' // Default to 'month'
+  })
   const [activeTab, setActiveTab] = useState('jobs') // jobs, availability
   const [availabilityMonth, setAvailabilityMonth] = useState(new Date()) // Current month for availability view
   const [userBusinessHours, setUserBusinessHours] = useState(null) // User's business hours from backend
@@ -75,7 +85,12 @@ const ServiceFlowSchedule = () => {
   const [showRescheduleModal, setShowRescheduleModal] = useState(false)
   const [showAssignModal, setShowAssignModal] = useState(false)
   const [showCancelModal, setShowCancelModal] = useState(false)
+  const [showNotesModal, setShowNotesModal] = useState(false)
   const [isUpdatingJob, setIsUpdatingJob] = useState(false)
+  const [noteType, setNoteType] = useState('job') // 'job' or 'customer'
+  const [noteText, setNoteText] = useState('')
+  const [noteAttachments, setNoteAttachments] = useState([]) // Array of { file, preview, type }
+  const [uploadingFiles, setUploadingFiles] = useState(false)
   
   // Form data for editing
   const [editFormData, setEditFormData] = useState({
@@ -413,6 +428,7 @@ const ServiceFlowSchedule = () => {
   const handleDayClick = (day) => {
     setSelectedDate(new Date(day))
     setViewMode('day')
+    localStorage.setItem('scheduleViewMode', 'day')
   }
 
   // Get initials from name
@@ -1137,6 +1153,53 @@ const ServiceFlowSchedule = () => {
     }
   }
 
+  const handleTerritoryChange = async (territoryId) => {
+    if (!selectedJobDetails) return
+    
+    try {
+      setIsUpdatingJob(true)
+      setErrorMessage('')
+      
+      const updateData = {
+        territoryId: territoryId
+      }
+      
+      await jobsAPI.update(selectedJobDetails.id, updateData)
+      
+      // Update local state
+      setSelectedJobDetails(prev => ({
+        ...prev,
+        territory_id: territoryId
+      }))
+      
+      // Update the job in the main jobs list
+      setJobs(prevJobs => prevJobs.map(job => 
+        job.id === selectedJobDetails.id ? { 
+          ...job, 
+          territory_id: territoryId
+        } : job
+      ))
+      
+      // Update filtered jobs as well
+      setFilteredJobs(prevFilteredJobs => prevFilteredJobs.map(job => 
+        job.id === selectedJobDetails.id ? { 
+          ...job, 
+          territory_id: territoryId
+        } : job
+      ))
+      
+      setSuccessMessage('Territory updated successfully!')
+      setTimeout(() => setSuccessMessage(''), 3000)
+      
+    } catch (error) {
+      console.error('Error updating territory:', error)
+      setErrorMessage('Failed to update territory')
+      setTimeout(() => setErrorMessage(''), 3000)
+    } finally {
+      setIsUpdatingJob(false)
+    }
+  }
+
   const handleAssignTeamMember = async (teamMemberId) => {
     if (!selectedJobDetails) return
     
@@ -1156,6 +1219,13 @@ const ServiceFlowSchedule = () => {
         team_member_id: teamMemberId,
         team_member_first_name: assignedMember?.first_name || null,
         team_member_last_name: assignedMember?.last_name || null
+      }))
+      
+      // Update local state
+      setSelectedJobDetails(prev => ({
+        ...prev,
+        assigned_team_member_id: teamMemberId,
+        team_member_id: teamMemberId
       }))
       
       // Update the job in the main jobs list
@@ -1187,6 +1257,155 @@ const ServiceFlowSchedule = () => {
     } finally {
       setIsUpdatingJob(false)
     }
+  }
+
+  const handleSaveNotes = async () => {
+    if (!selectedJobDetails || (!noteText.trim() && noteAttachments.length === 0)) return
+    
+    try {
+      setIsUpdatingJob(true)
+      setUploadingFiles(true)
+      setErrorMessage('')
+      
+      // Upload attachments if any
+      let attachmentUrls = []
+      if (noteAttachments.length > 0) {
+        try {
+          const formData = new FormData()
+          noteAttachments.forEach(attachment => {
+            formData.append('attachments', attachment.file)
+          })
+
+          const apiUrl = process.env.REACT_APP_API_URL || 'https://service-flow-backend-production-4568.up.railway.app/api'
+          const token = localStorage.getItem('authToken')
+          
+          const uploadResponse = await fetch(`${apiUrl}/jobs/${selectedJobDetails.id}/notes/attachments`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`
+            },
+            body: formData
+          })
+
+          if (uploadResponse.ok) {
+            const uploadResult = await uploadResponse.json()
+            attachmentUrls = uploadResult.files || []
+          } else {
+            console.error('File upload failed:', uploadResponse.status)
+            throw new Error('Failed to upload attachments')
+          }
+        } catch (uploadError) {
+          console.error('Error uploading attachments:', uploadError)
+          setErrorMessage('Note saved but some attachments failed to upload')
+          setTimeout(() => setErrorMessage(''), 5000)
+        }
+      }
+
+      // Save note text
+      const noteContent = noteText.trim()
+      if (noteContent || attachmentUrls.length > 0) {
+        // Include attachment URLs in the note if needed, or store separately
+        const noteWithAttachments = noteContent + (attachmentUrls.length > 0 
+          ? '\n\n[Attachments: ' + attachmentUrls.map(f => f.filename).join(', ') + ']'
+          : '')
+        
+        const updateData = noteType === 'job' 
+          ? { internalNotes: noteWithAttachments }
+          : { notes: noteWithAttachments }
+        
+        await jobsAPI.update(selectedJobDetails.id, updateData)
+        
+        // Update local state
+        setSelectedJobDetails(prev => ({
+          ...prev,
+          notes: noteType === 'customer' ? noteWithAttachments : prev.notes,
+          internal_notes: noteType === 'job' ? noteWithAttachments : prev.internal_notes
+        }))
+        
+        // Update the job in the main jobs list
+        setJobs(prevJobs => prevJobs.map(job => 
+          job.id === selectedJobDetails.id ? { 
+            ...job, 
+            notes: noteType === 'customer' ? noteWithAttachments : job.notes,
+            internal_notes: noteType === 'job' ? noteWithAttachments : job.internal_notes
+          } : job
+        ))
+        
+        // Update filtered jobs as well
+        setFilteredJobs(prevFilteredJobs => prevFilteredJobs.map(job => 
+          job.id === selectedJobDetails.id ? { 
+            ...job, 
+            notes: noteType === 'customer' ? noteWithAttachments : job.notes,
+            internal_notes: noteType === 'job' ? noteWithAttachments : job.internal_notes
+          } : job
+        ))
+      }
+      
+      setSuccessMessage('Note saved successfully!')
+      setTimeout(() => setSuccessMessage(''), 3000)
+      setShowNotesModal(false)
+      setNoteText('')
+      setNoteType('job')
+      // Clean up preview URLs
+      noteAttachments.forEach(att => {
+        if (att.preview) URL.revokeObjectURL(att.preview)
+      })
+      setNoteAttachments([])
+      
+    } catch (error) {
+      console.error('Error saving note:', error)
+      setErrorMessage('Failed to save note')
+      setTimeout(() => setErrorMessage(''), 3000)
+    } finally {
+      setIsUpdatingJob(false)
+      setUploadingFiles(false)
+    }
+  }
+
+  const handleFileSelect = async (e, fileType) => {
+    const files = Array.from(e.target.files || [])
+    if (files.length === 0) return
+
+    const newAttachments = []
+    for (const file of files) {
+      // Create preview for images
+      let preview = null
+      if (file.type.startsWith('image/')) {
+        preview = URL.createObjectURL(file)
+      }
+
+      newAttachments.push({
+        file,
+        preview,
+        type: file.type
+      })
+    }
+
+    setNoteAttachments(prev => [...prev, ...newAttachments])
+    e.target.value = '' // Reset input
+  }
+
+  const handleRemoveAttachment = (index) => {
+    setNoteAttachments(prev => {
+      const updated = [...prev]
+      // Revoke object URL if it's an image preview
+      if (updated[index].preview) {
+        URL.revokeObjectURL(updated[index].preview)
+      }
+      updated.splice(index, 1)
+      return updated
+    })
+  }
+
+  const handleOpenNotesModal = () => {
+    // Clean up any existing preview URLs
+    noteAttachments.forEach(att => {
+      if (att.preview) URL.revokeObjectURL(att.preview)
+    })
+    setNoteText('')
+    setNoteType('job')
+    setNoteAttachments([])
+    setShowNotesModal(true)
   }
 
   const handleCancelJobConfirm = async () => {
@@ -1717,7 +1936,10 @@ const ServiceFlowSchedule = () => {
               {/* Center - View mode selector */}
               <div className="flex items-center space-x-1 bg-gray-100 rounded-lg p-1 w-full sm:w-auto justify-center">
                 <button
-                  onClick={() => setViewMode('day')}
+                  onClick={() => {
+                    setViewMode('day')
+                    localStorage.setItem('scheduleViewMode', 'day')
+                  }}
                   className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-md transition-colors flex-1 sm:flex-none ${
                     viewMode === 'day' 
                       ? 'bg-white text-gray-900 shadow-sm' 
@@ -1728,7 +1950,10 @@ const ServiceFlowSchedule = () => {
                   Day
                 </button>
                 <button
-                  onClick={() => setViewMode('week')}
+                  onClick={() => {
+                    setViewMode('week')
+                    localStorage.setItem('scheduleViewMode', 'week')
+                  }}
                   className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-md transition-colors flex-1 sm:flex-none ${
                     viewMode === 'week' 
                       ? 'bg-white text-gray-900 shadow-sm' 
@@ -1738,7 +1963,10 @@ const ServiceFlowSchedule = () => {
                   Week
                 </button>
                 <button
-                  onClick={() => setViewMode('month')}
+                  onClick={() => {
+                    setViewMode('month')
+                    localStorage.setItem('scheduleViewMode', 'month')
+                  }}
                   className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-md transition-colors flex-1 sm:flex-none ${
                     viewMode === 'month' 
                       ? 'bg-white text-gray-900 shadow-sm' 
@@ -2261,6 +2489,16 @@ const ServiceFlowSchedule = () => {
                         )}
                       </div>
 
+                      {/* Recurring Job Indicator */}
+                      {job.is_recurring && (
+                        <div className="flex items-center gap-1.5 text-xs pt-1">
+                          <RotateCw className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                          <span className="text-gray-600 font-medium">
+                            {formatRecurringFrequencyCompact(job.recurring_frequency || '', job.scheduled_date ? new Date(job.scheduled_date) : null)}
+                          </span>
+                        </div>
+                      )}
+
                       {/* Notes (if available) */}
                       {job.notes && (
                         <div className="text-xs text-gray-500 italic pt-1 border-t border-gray-100">
@@ -2438,7 +2676,30 @@ const ServiceFlowSchedule = () => {
                  
                   <div className="flex-1">
                     <h2 className="text-xl font-bold text-gray-900 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
-                      {selectedJobDetails.service_name || selectedJobDetails.service_type || 'Service'} <span className="font-normal text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>for</span> {getCustomerName(selectedJobDetails) || 'Customer'}
+                      <span 
+                        className="cursor-pointer hover:text-blue-600 transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          navigate(`/job/${selectedJobDetails.id}`)
+                        }}
+                      >
+                        {selectedJobDetails.service_name || selectedJobDetails.service_type || 'Service'}
+                      </span>
+                      {' '}
+                      <span className="font-normal text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>for</span>
+                      {' '}
+                      <span 
+                        className="cursor-pointer hover:text-blue-600 transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          const customerId = selectedJobDetails.customer_id || selectedJobDetails.customer?.id || selectedJobDetails.customers?.id
+                          if (customerId) {
+                            navigate(`/customer/${customerId}`)
+                          }
+                        }}
+                      >
+                        {getCustomerName(selectedJobDetails) || 'Customer'}
+                      </span>
                     </h2>
                     <p className="text-sm text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Job #{selectedJobDetails.id}</p>
                   </div>
@@ -2571,10 +2832,10 @@ const ServiceFlowSchedule = () => {
                     const normalized = status.toLowerCase().trim()
                     
                     // Map to progress bar keys
-                    if (normalized === 'pending' || normalized === 'scheduled' || normalized === 'confirmed') {
+                    if (normalized === 'pending' || normalized === 'scheduled') {
                       return 'scheduled'
                     }
-                    if (normalized === 'en_route' || normalized === 'enroute') {
+                    if (normalized === 'confirmed' || normalized === 'enroute') {
                       return 'en_route'
                     }
                     if (normalized === 'in-progress' || normalized === 'in_progress' || normalized === 'in_prog' || normalized === 'started') {
@@ -2607,9 +2868,9 @@ const ServiceFlowSchedule = () => {
                   // Map progress bar keys to backend status values
                   const mapProgressBarKeyToBackendStatus = (key) => {
                     const mapping = {
-                      'scheduled': 'confirmed', // Maps to en_route in backend
-                      'en_route': 'in-progress', // Maps to started in backend
-                      'started': 'completed', // Maps to complete in backend
+                      'scheduled': 'pending', // Maps to en_route in backend
+                      'en_route': 'confirmed', // Maps to started in backend
+                      'started': 'in-progress', // Maps to complete in backend
                       'completed': 'completed',
                       'paid': 'paid'
                     }
@@ -2619,9 +2880,9 @@ const ServiceFlowSchedule = () => {
                   // Map frontend status keys to backend status values for tooltip
                   const mapStatusKeyToBackendStatus = (key) => {
                     const mapping = {
-                      'scheduled': 'confirmed',
-                      'en_route': 'in-progress',
-                      'started': 'completed',
+                      'scheduled': 'pending',
+                      'en_route': 'confirmed',
+                      'started': 'in-progress',
                       'completed': 'completed',
                       'paid': 'paid'
                     };
@@ -2897,7 +3158,17 @@ const ServiceFlowSchedule = () => {
                       {(selectedJobDetails.customer_first_name?.[0] || 'A')}{(selectedJobDetails.customer_last_name?.[0] || 'A')}
                     </div>
                     <div>
-                      <p className="font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                      <p 
+                        className="font-semibold text-gray-900 cursor-pointer hover:text-blue-600 transition-colors" 
+                        style={{ fontFamily: 'Montserrat', fontWeight: 600 }}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          const customerId = selectedJobDetails.customer_id || selectedJobDetails.customer?.id || selectedJobDetails.customers?.id
+                          if (customerId) {
+                            navigate(`/customer/${customerId}`)
+                          }
+                        }}
+                      >
                         {getCustomerName(selectedJobDetails) || 'Customer'}
                       </p>
                     </div>
@@ -2942,6 +3213,31 @@ const ServiceFlowSchedule = () => {
                 <div className="px-6 py-4">
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-xs font-bold text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Team</span>
+                  </div>
+                  
+                  {/* Territory */}
+                  <div className="mb-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-bold text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Territory</span>
+                    </div>
+                    <div className="relative">
+                      <select
+                        value={selectedJobDetails.territory_id || ''}
+                        onChange={(e) => {
+                          const territoryId = e.target.value ? parseInt(e.target.value) : null
+                          handleTerritoryChange(territoryId)
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                        style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
+                      >
+                        <option value="">Unassigned</option>
+                        {territories.map(territory => (
+                          <option key={territory.id} value={territory.id}>
+                            {territory.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                   
                   {/* Job Requirements */}
@@ -3020,12 +3316,46 @@ const ServiceFlowSchedule = () => {
               <div className="bg-white border-b border-gray-200">
                 <div className="px-6 py-4">
                   <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-3" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Notes & Files</span>
-                  <div className="text-center py-6">
-                    <NotepadText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                    <p className="text-sm text-gray-600 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>No internal job or customer notes</p>
-                    <p className="text-xs text-gray-500 mb-4" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Notes and attachments are only visible to employees with appropriate permissions.</p>
-                    <button className="text-sm text-blue-600 hover:text-blue-700 font-medium" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>+ Add Note</button>
-                  </div>
+                  {selectedJobDetails.notes || selectedJobDetails.internal_notes ? (
+                    <div className="space-y-4">
+                      {selectedJobDetails.internal_notes && (
+                        <div>
+                          <p className="text-xs font-semibold text-gray-700 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Internal Notes</p>
+                          <p className="text-sm text-gray-600 whitespace-pre-wrap" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                            {selectedJobDetails.internal_notes}
+                          </p>
+                        </div>
+                      )}
+                      {selectedJobDetails.notes && (
+                        <div>
+                          <p className="text-xs font-semibold text-gray-700 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Customer Notes</p>
+                          <p className="text-sm text-gray-600 whitespace-pre-wrap" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                            {selectedJobDetails.notes}
+                          </p>
+                        </div>
+                      )}
+                      <button 
+                        onClick={handleOpenNotesModal}
+                        className="text-sm text-blue-600 hover:text-blue-700 font-medium" 
+                        style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
+                      >
+                        Edit Notes
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="text-center py-6">
+                      <NotepadText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                      <p className="text-sm text-gray-600 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>No internal job or customer notes</p>
+                      <p className="text-xs text-gray-500 mb-4" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Notes and attachments are only visible to employees with appropriate permissions.</p>
+                      <button 
+                        onClick={handleOpenNotesModal}
+                        className="text-sm text-blue-600 hover:text-blue-700 font-medium" 
+                        style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
+                      >
+                        + Add Note
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -3313,6 +3643,182 @@ const ServiceFlowSchedule = () => {
                   {isUpdatingJob ? 'Saving...' : 'Save'}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Notes Modal */}
+      {showNotesModal && selectedJobDetails && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[100] flex items-center justify-center">
+          <div className="bg-white rounded-lg w-full max-w-lg mx-4">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <button
+                onClick={() => {
+                  // Clean up preview URLs
+                  noteAttachments.forEach(att => {
+                    if (att.preview) URL.revokeObjectURL(att.preview)
+                  })
+                  setShowNotesModal(false)
+                  setNoteText('')
+                  setNoteType('job')
+                  setNoteAttachments([])
+                }}
+                className="p-2 hover:bg-gray-100 rounded-full"
+              >
+                <X className="w-5 h-5 text-gray-600" />
+              </button>
+              <h3 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>New Note</h3>
+              <button
+                onClick={handleSaveNotes}
+                disabled={isUpdatingJob || (!noteText.trim() && noteAttachments.length === 0)}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
+              >
+                {isUpdatingJob ? (uploadingFiles ? 'Uploading...' : 'Saving...') : 'Save'}
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-6">
+              {/* Text Input Area */}
+              <div>
+                <textarea
+                  value={noteText}
+                  onChange={(e) => setNoteText(e.target.value)}
+                  rows={8}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm resize-none"
+                  placeholder="Add an internal note just for employees to see..."
+                  style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
+                />
+                
+                {/* Attachment Icons */}
+                <div className="flex items-center gap-3 mt-3">
+                  <label className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer">
+                    <Image className="w-5 h-5" />
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => handleFileSelect(e, 'image')}
+                      multiple
+                    />
+                  </label>
+                  <label className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer">
+                    <Paperclip className="w-5 h-5" />
+                    <input
+                      type="file"
+                      accept="*/*"
+                      className="hidden"
+                      onChange={(e) => handleFileSelect(e, 'file')}
+                      multiple
+                    />
+                  </label>
+                </div>
+                
+                {/* Display Selected Attachments */}
+                {noteAttachments.length > 0 && (
+                  <div className="mt-4 space-y-2">
+                    {noteAttachments.map((attachment, index) => (
+                      <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
+                        {attachment.type.startsWith('image/') && attachment.preview ? (
+                          <img 
+                            src={attachment.preview} 
+                            alt={attachment.file.name}
+                            className="w-10 h-10 object-cover rounded"
+                          />
+                        ) : (
+                          <FileText className="w-5 h-5 text-gray-400" />
+                        )}
+                        <span className="flex-1 text-sm text-gray-700 truncate" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                          {attachment.file.name}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveAttachment(index)}
+                          className="p-1 text-red-500 hover:text-red-700"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Note Type Selection */}
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-3" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
+                  NOTE TYPE
+                </label>
+                <div className="space-y-3">
+                  {/* Job Note Option */}
+                  <label className="flex items-start gap-3 p-4 border-2 rounded-lg cursor-pointer transition-colors hover:bg-gray-50"
+                    style={{ 
+                      borderColor: noteType === 'job' ? '#2563eb' : '#e5e7eb',
+                      backgroundColor: noteType === 'job' ? '#eff6ff' : 'transparent'
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="noteType"
+                      value="job"
+                      checked={noteType === 'job'}
+                      onChange={(e) => setNoteType(e.target.value)}
+                      className="mt-1 w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <FileText className="w-5 h-5 text-gray-600" />
+                        <span className="font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Job note</span>
+                      </div>
+                      <p className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                        Job notes are only linked to a single job.
+                      </p>
+                    </div>
+                  </label>
+
+                  {/* Customer Note Option */}
+                  <label className="flex items-start gap-3 p-4 border-2 rounded-lg cursor-pointer transition-colors hover:bg-gray-50"
+                    style={{ 
+                      borderColor: noteType === 'customer' ? '#2563eb' : '#e5e7eb',
+                      backgroundColor: noteType === 'customer' ? '#eff6ff' : 'transparent'
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="noteType"
+                      value="customer"
+                      checked={noteType === 'customer'}
+                      onChange={(e) => setNoteType(e.target.value)}
+                      className="mt-1 w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <UserIcon className="w-5 h-5 text-gray-600" />
+                        <span className="font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Customer note</span>
+                      </div>
+                      <p className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                        Customer notes are linked to all jobs scheduled for this customer.
+                      </p>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              {/* Success/Error Messages */}
+              {successMessage && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                  <p className="text-sm text-green-800">{successMessage}</p>
+                </div>
+              )}
+
+              {errorMessage && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                  <p className="text-sm text-red-800">{errorMessage}</p>
+                </div>
+              )}
             </div>
           </div>
         </div>

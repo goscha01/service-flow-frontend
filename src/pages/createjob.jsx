@@ -54,7 +54,8 @@ import {
   Menu,
   Building,
   Truck,
-  Clipboard
+  Clipboard,
+  RotateCw
 } from 'lucide-react';
 import CustomerModal from "../components/customer-modal";
 import ServiceModal from "../components/service-modal";
@@ -69,6 +70,7 @@ import ServiceSelectionModal from "../components/service-selection-modal";
 import CreateServiceModal from "../components/create-service-modal";
 import CalendarPicker from "../components/CalendarPicker";
 import DiscountModal from "../components/discount-modal";
+import RecurringFrequencyModal from "../components/recurring-frequency-modal";
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { jobsAPI, customersAPI, servicesAPI, teamAPI, territoriesAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -76,6 +78,7 @@ import { useCategory } from '../context/CategoryContext';
 import { getImageUrl, handleImageError } from '../utils/imageUtils';
 import { formatDateLocal, formatDateDisplay, parseLocalDate } from '../utils/dateUtils';
 import { formatPhoneNumber } from '../utils/phoneFormatter';
+import { formatRecurringFrequency } from '../utils/recurringUtils';
 
 
 export default function CreateJobPage() {
@@ -106,6 +109,7 @@ export default function CreateJobPage() {
   const [showCreateServiceModal, setShowCreateServiceModal] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showDiscountModal, setShowDiscountModal] = useState(false);
+  const [showRecurringModal, setShowRecurringModal] = useState(false);
   const [discountType, setDiscountType] = useState('fixed'); // 'fixed' or 'percentage'
 
   // Form data
@@ -156,7 +160,7 @@ export default function CreateJobPage() {
     customerNotes: "",
     tags: [],
     attachments: [],
-    recurringFrequency: "weekly",
+    recurringFrequency: "",
     recurringEndDate: "",
     autoInvoice: true,
     autoReminders: true,
@@ -2623,7 +2627,7 @@ setIntakeQuestionAnswers(answers);
                     <div className="bg-gray-100 p-1 rounded-lg flex gap-1">
                         <button
                           type="button"
-                        onClick={() => setFormData(prev => ({ ...prev, scheduleType: 'one-time' }))}
+                        onClick={() => setFormData(prev => ({ ...prev, scheduleType: 'one-time', recurringJob: false }))}
                         className={`flex-1 px-6 py-2.5 rounded-md text-sm font-medium transition-all ${
                           formData.scheduleType === 'one-time'
                             ? 'bg-white text-blue-600 shadow-sm'
@@ -2635,7 +2639,7 @@ setIntakeQuestionAnswers(answers);
                         </button>
                           <button
                         type="button"
-                        onClick={() => setFormData(prev => ({ ...prev, scheduleType: 'recurring' }))}
+                        onClick={() => setFormData(prev => ({ ...prev, scheduleType: 'recurring', recurringJob: true }))}
                         className={`flex-1 px-6 py-2.5 rounded-md text-sm font-medium transition-all ${
                           formData.scheduleType === 'recurring'
                             ? 'bg-white text-blue-600 shadow-sm'
@@ -2717,7 +2721,30 @@ setIntakeQuestionAnswers(answers);
                           <p className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Send a bookable estimate to your customer, allowing them to choose a convenient time for the service.</p>
                           </div>
                         </div>
+                      </div>
+                      
+                      {/* REPEATS Section - Only show when Recurring Job is selected */}
+                      {formData.scheduleType === 'recurring' && (
+                        <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+                          <div className="flex items-center gap-2">
+                            <RotateCw className="w-5 h-5 text-gray-400" />
+                            <span className="text-sm font-medium text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                              REPEATS
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setShowRecurringModal(true)}
+                            className="flex items-center gap-2 text-sm hover:text-gray-900 transition-colors"
+                            style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
+                          >
+                            <span className={formData.recurringFrequency ? 'text-gray-900' : 'text-gray-500'}>
+                              {formatRecurringFrequency(formData.recurringFrequency || '', formData.scheduledDate ? new Date(formData.scheduledDate) : null)}
+                            </span>
+                            <ChevronRight className="w-4 h-4 text-gray-400" />
+                          </button>
                         </div>
+                      )}
 
                     {/* Assigned Section */}
                     <div className="pt-5 border-t border-gray-200">
@@ -3079,6 +3106,21 @@ setIntakeQuestionAnswers(answers);
         onSelect={handleTerritorySelect}
         territories={territories}
         user={user}
+      />
+      
+      <RecurringFrequencyModal
+        isOpen={showRecurringModal}
+        onClose={() => setShowRecurringModal(false)}
+        onSave={(data) => {
+          setFormData(prev => ({
+            ...prev,
+            recurringFrequency: data.frequency,
+            recurringEndDate: data.endDate || '',
+            recurringJob: true
+          }))
+        }}
+        currentFrequency={formData.recurringFrequency}
+        scheduledDate={formData.scheduledDate}
       />
       
       <DiscountModal
