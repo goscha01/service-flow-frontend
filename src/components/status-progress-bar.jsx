@@ -65,9 +65,9 @@ const StatusProgressBar = ({ currentStatus, onStatusChange, statusHistory, isRea
   // Map frontend status keys to backend status values for tooltip
   const mapStatusKeyToBackendStatus = (key) => {
     const mapping = {
-      'scheduled': 'confirmed',
-      'en_route': 'in-progress',
-      'started': 'completed',
+      'scheduled': 'pending',
+      'en_route': 'confirmed',
+      'started': 'in-progress',
       'completed': 'completed',
       'paid': 'paid'
     };
@@ -94,9 +94,9 @@ const StatusProgressBar = ({ currentStatus, onStatusChange, statusHistory, isRea
             <button
               onClick={() => onStatusChange && onStatusChange(mapProgressBarKeyToBackendStatus(status.key))}
               className={`
-                 w-full relative px-6 py-2.5 text-sm font-semibold whitespace-nowrap transition-all
+                 w-full flex-1 items-center justify-center relative px-6 py-2.5 text-sm font-semibold whitespace-nowrap transition-all
                 ${isActive 
-                  ? `${status.color} text-white` 
+                  ? `bg-green-500 text-white` 
                   : 'bg-gray-200 text-gray-500'}
                 ${isCurrent ? 'shadow-md' : ''}
                 ${index === 0 ? 'rounded-l-lg' : ''}

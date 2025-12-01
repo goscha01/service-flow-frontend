@@ -267,19 +267,26 @@ const CustomerDetailsRedesigned = () => {
                       </div>
                     )}
                     
-                    {customer.email && (
-                      <div className="flex items-center space-x-3">
-                        <Mail className="w-4 h-4 text-gray-400" />
-                        <span className="text-sm text-gray-900">{customer.email}</span>
-                      </div>
-                    )}
+                    <div className="flex items-center space-x-3">
+                      <Mail className="w-4 h-4 text-gray-400" />
+                      <span className="text-sm text-gray-900">
+                        {customer.email || 'No email address'}
+                      </span>
+                    </div>
                     
-                    {customer.address && (
-                      <div className="flex items-center space-x-3">
-                        <MapPin className="w-4 h-4 text-gray-400" />
-                        <span className="text-sm text-gray-900">{customer.address}</span>
-                      </div>
-                    )}
+                    <div className="flex items-center space-x-3">
+                      <MapPin className="w-4 h-4 text-gray-400" />
+                      <span className="text-sm text-gray-900">
+                        {(() => {
+                          const addressParts = []
+                          if (customer.address) addressParts.push(customer.address)
+                          if (customer.city) addressParts.push(customer.city)
+                          if (customer.state) addressParts.push(customer.state)
+                          if (customer.zip_code) addressParts.push(customer.zip_code)
+                          return addressParts.length > 0 ? addressParts.join(', ') : 'No address'
+                        })()}
+                      </span>
+                    </div>
                   </div>
 
                   <div className="mt-6 pt-4 border-t border-gray-200">
@@ -296,7 +303,37 @@ const CustomerDetailsRedesigned = () => {
                     <div className="flex items-center justify-between mt-3">
                       <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">TOTAL REVENUE</span>
                       <div className="flex items-center space-x-1">
-                        <span className="text-sm text-gray-900">-</span>
+                        <span className="text-sm text-gray-900">
+                          {(() => {
+                            // Calculate total revenue from completed jobs and paid invoices
+                            const completedJobs = jobs.filter(job => 
+                              job.status === 'completed' && job.total
+                            )
+                            const paidInvoices = invoices.filter(inv => 
+                              inv.status === 'paid' && inv.total
+                            )
+                            
+                            let totalRevenue = 0
+                            
+                            // Sum from completed jobs
+                            completedJobs.forEach(job => {
+                              totalRevenue += parseFloat(job.total || job.total_amount || 0)
+                            })
+                            
+                            // Sum from paid invoices (avoid double counting if job already counted)
+                            paidInvoices.forEach(inv => {
+                              const jobId = inv.job_id
+                              const jobAlreadyCounted = completedJobs.some(j => j.id === jobId)
+                              if (!jobAlreadyCounted) {
+                                totalRevenue += parseFloat(inv.total || 0)
+                              }
+                            })
+                            
+                            return totalRevenue > 0 
+                              ? `$${totalRevenue.toFixed(2)}` 
+                              : '$0.00'
+                          })()}
+                        </span>
                         <Info className="w-3 h-3 text-gray-400" />
                       </div>
                     </div>
@@ -307,7 +344,16 @@ const CustomerDetailsRedesigned = () => {
                 <div className="bg-white rounded-lg border border-gray-200 p-6" style={{ overflow: 'visible' }}>
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-sm font-semibold text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Jobs</h3>
-                    <div className="relative" ref={menuRef}>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={handleNewJob}
+                        className="flex items-center space-x-1 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                        style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
+                      >
+                        <Plus className="w-3 h-3" />
+                        <span>New Job</span>
+                      </button>
+                      <div className="relative" ref={menuRef}>
                       <button 
                         onClick={(e) => {
                           e.stopPropagation()
@@ -405,11 +451,11 @@ const CustomerDetailsRedesigned = () => {
                             {formatDate(job.scheduled_date)}
                           </div>
                           <div className="text-sm font-semibold text-gray-900">
-                            JOB-{job.id}
+                            JOB-#{job.id}
                           </div>
-                          <div className="text-sm text-gray-600">{job.service_name}</div>
+                          <div className="text-sm text-gray-600">{job.service_name || 'Service'}</div>
                           <div className="text-xs text-gray-500">
-                            {formatDate(job.scheduled_date).toUpperCase()}, {formatDate(job.scheduled_date)} {formatTime(job.scheduled_date)} - {formatTime(new Date(new Date(job.scheduled_date).getTime() + (job.duration || 120) * 60000))}
+                            {formatTime(job.scheduled_date)}
                           </div>
                         </div>
                       </div>
@@ -425,9 +471,12 @@ const CustomerDetailsRedesigned = () => {
                             {formatDate(job.scheduled_date)}
                           </div>
                           <div className="text-sm font-semibold text-gray-900">
-                            JOB-{job.id}
+                            JOB-#{job.id}
                           </div>
-                          <div className="text-sm text-gray-600">{job.service_name}</div>
+                          <div className="text-sm text-gray-600">{job.service_name || 'Service'}</div>
+                          <div className="text-xs text-gray-500">
+                            {formatTime(job.scheduled_date)}
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -442,9 +491,12 @@ const CustomerDetailsRedesigned = () => {
                             {formatDate(job.scheduled_date)}
                           </div>
                           <div className="text-sm font-semibold text-gray-900">
-                            JOB-{job.id}
+                            JOB-#{job.id}
                           </div>
-                          <div className="text-sm text-gray-600">{job.service_name}</div>
+                          <div className="text-sm text-gray-600">{job.service_name || 'Service'}</div>
+                          <div className="text-xs text-gray-500">
+                            {formatTime(job.scheduled_date)}
+                          </div>
                         </div>
                       </div>
                     ))}

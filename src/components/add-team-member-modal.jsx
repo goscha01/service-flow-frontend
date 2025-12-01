@@ -55,6 +55,7 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
   const [showAddressSuggestions, setShowAddressSuggestions] = useState(false)
   const [territories, setTerritories] = useState([])
   const [loadingTerritories, setLoadingTerritories] = useState(false)
+  const [fullNameInput, setFullNameInput] = useState("") // Local state for full name input to preserve spaces
 
   useEffect(() => {
     if (isOpen && member && isEditing) {
@@ -99,9 +100,12 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
         }
       }
       
+      const firstName = member.first_name || ""
+      const lastName = member.last_name || ""
+      setFullNameInput(`${firstName} ${lastName}`.trim()) // Set full name input for editing
       setFormData({
-        firstName: member.first_name || "",
-        lastName: member.last_name || "",
+        firstName: firstName,
+        lastName: lastName,
         email: member.email || "",
         phone: member.phone || "",
         location: member.location || "",
@@ -164,6 +168,7 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
       })
     } else if (isOpen && !isEditing) {
       // Reset form for new member
+      setFullNameInput("") // Reset full name input
       setFormData({
         firstName: "",
         lastName: "",
@@ -440,12 +445,17 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
     e.preventDefault()
     e.stopPropagation()
     
-    if (!formData.firstName || !formData.lastName) {
-      const errorMsg = "Full name is required"
-      setError(errorMsg)
-      setErrorMessage(errorMsg)
-      setShowErrorNotification(true)
-      return
+    // Names are optional - trim them but don't require them
+    const trimmedFirstName = formData.firstName?.trim() || ''
+    const trimmedLastName = formData.lastName?.trim() || ''
+    
+    // Update formData with trimmed values (allow empty strings)
+    if (formData.firstName !== trimmedFirstName || formData.lastName !== trimmedLastName) {
+      setFormData(prev => ({
+        ...prev,
+        firstName: trimmedFirstName,
+        lastName: trimmedLastName
+      }))
     }
     
     if (!formData.email) {
@@ -561,19 +571,30 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
             {/* Basic Information */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Full Name *
+                Full Name
               </label>
               <input
                 type="text"
-                value={`${formData.firstName} ${formData.lastName}`.trim()}
+                value={fullNameInput}
                 onChange={(e) => {
-                  const names = e.target.value.split(' ')
+                  const value = e.target.value
+                  setFullNameInput(value) // Update local state to preserve spaces while typing
+                  // Split by spaces and filter out empty strings (handles multiple spaces)
+                  const trimmedValue = value.trim()
+                  const names = trimmedValue.split(/\s+/).filter(name => name.length > 0)
+                  handleInputChange('firstName', names[0] || '')
+                  handleInputChange('lastName', names.slice(1).join(' ') || '')
+                }}
+                onBlur={() => {
+                  // Trim the input when user leaves the field
+                  const trimmed = fullNameInput.trim()
+                  setFullNameInput(trimmed)
+                  const names = trimmed.split(/\s+/).filter(name => name.length > 0)
                   handleInputChange('firstName', names[0] || '')
                   handleInputChange('lastName', names.slice(1).join(' ') || '')
                 }}
                 className="w-full text-xs px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                 placeholder="Full Name"
-                required
               />
             </div>
 

@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Clock } from 'lucide-react';
 
 const StatusHistoryTooltip = ({ statusHistory, status, children, isReached = false, jobCreatedAt = null }) => {
   const [isVisible, setIsVisible] = useState(false);
@@ -54,18 +53,31 @@ const StatusHistoryTooltip = ({ statusHistory, status, children, isReached = fal
 
   const history = parseStatusHistory();
   
-  // Check if this is a scheduled status (pending, scheduled, or confirmed all map to "scheduled")
-  const isScheduledStatus = status === 'pending' || status === 'scheduled' || status === 'confirmed';
+  // Check if this is a scheduled status (only pending and scheduled, NOT confirmed)
+  // 'confirmed' is the en_route status and should show its own history entry
+  const isScheduledStatus = status === 'pending' || status === 'scheduled';
   
   // For scheduled status, ALWAYS use job creation date
+  // But try to get the actual creator from history first
   let currentStatusEntry;
   if (isScheduledStatus && jobCreatedAt) {
-    currentStatusEntry = {
-      status: status,
-      changed_at: jobCreatedAt,
-      changed_by: 'System',
-      previous_status: null
-    };
+    // First check if there's a scheduled status entry in history (only pending or scheduled, not confirmed)
+    const scheduledHistoryEntry = history
+      .filter(entry => entry.status === 'pending' || entry.status === 'scheduled')
+      .sort((a, b) => new Date(a.changed_at) - new Date(b.changed_at))[0]; // Get the earliest one (creation)
+    
+    if (scheduledHistoryEntry) {
+      // Use the history entry which has the actual creator info
+      currentStatusEntry = scheduledHistoryEntry;
+    } else {
+      // Fallback to creation date with a default name
+      currentStatusEntry = {
+        status: status,
+        changed_at: jobCreatedAt,
+        changed_by: 'Staff',
+        previous_status: null
+      };
+    }
   } else {
     // For other statuses, find the most recent entry for the current status
     currentStatusEntry = history
@@ -126,14 +138,33 @@ const StatusHistoryTooltip = ({ statusHistory, status, children, isReached = fal
     return children;
   }
 
+  // Clone the child element and attach event handlers directly to it
+  const childWithHandlers = React.cloneElement(children, {
+    onMouseEnter: (e) => {
+      handleMouseEnter();
+      if (children.props.onMouseEnter) {
+        children.props.onMouseEnter(e);
+      }
+    },
+    onMouseLeave: (e) => {
+      handleMouseLeave();
+      if (children.props.onMouseLeave) {
+        children.props.onMouseLeave(e);
+      }
+    },
+    ref: (node) => {
+      tooltipRef.current = node;
+      if (typeof children.ref === 'function') {
+        children.ref(node);
+      } else if (children.ref) {
+        children.ref.current = node;
+      }
+    }
+  });
+
   return (
-    <div 
-      className="relative inline-block"
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-      ref={tooltipRef}
-    >
-      {children}
+    <>
+      {childWithHandlers}
       
       {isVisible && currentStatusEntry && (
         <div 
@@ -176,7 +207,7 @@ const StatusHistoryTooltip = ({ statusHistory, status, children, isReached = fal
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 };
 
