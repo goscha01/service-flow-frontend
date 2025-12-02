@@ -31,6 +31,7 @@ import {
   Paperclip,
   FileText,
   User as UserIcon,
+  CreditCard,
 } from "lucide-react"
 import { useAuth } from "../context/AuthContext"
 import { jobsAPI } from "../services/api"
@@ -39,6 +40,7 @@ import { getImageUrl } from "../utils/imageUtils"
 import { formatRecurringFrequencyCompact } from "../utils/recurringUtils"
 import AssignJobModal from "../components/assign-job-modal"
 import StatusHistoryTooltip from "../components/status-history-tooltip"
+import { canCreateJobs, isWorker } from "../utils/roleUtils"
 
 const ServiceFlowSchedule = () => {
   const { user } = useAuth()
@@ -60,7 +62,14 @@ const ServiceFlowSchedule = () => {
   const [showJobDetails, setShowJobDetails] = useState(false)
   const [teamMembers, setTeamMembers] = useState([])
   const [territories, setTerritories] = useState([])
-  const [selectedFilter, setSelectedFilter] = useState('all') // all, unassigned, or team member ID
+  // For workers, default to their own teamMemberId; for others, default to 'all'
+  const [selectedFilter, setSelectedFilter] = useState(() => {
+    // If user is a worker, set filter to their teamMemberId
+    if (user?.teamMemberId && isWorker(user)) {
+      return user.teamMemberId.toString();
+    }
+    return 'all'; // all, unassigned, or team member ID
+  })
   const [statusFilter, setStatusFilter] = useState('all') // all, pending, in_progress, completed, cancelled
   const [timeRangeFilter, setTimeRangeFilter] = useState('all') // all, today, tomorrow, this_week, this_month
   const [territoryFilter, setTerritoryFilter] = useState('all') // all or territory ID
@@ -227,14 +236,52 @@ const ServiceFlowSchedule = () => {
   const applyFilters = useCallback(() => {
     let filtered = [...jobs]
     
-    // Team member assignment filter
-    if (selectedFilter === 'unassigned') {
-      filtered = filtered.filter(job => !job.assigned_team_member_id && !job.team_member_id)
-    } else if (selectedFilter !== 'all') {
-      filtered = filtered.filter(job => 
-        job.assigned_team_member_id === selectedFilter || 
-        job.team_member_id === selectedFilter
-      )
+    // Helper function to check if a job is assigned to a team member ID
+    const isJobAssignedTo = (job, teamMemberId) => {
+      const targetId = Number(teamMemberId)
+      
+      // Check direct assignment fields (handle both string and number types)
+      const jobAssignedId = job.assigned_team_member_id ? Number(job.assigned_team_member_id) : null
+      const jobTeamMemberId = job.team_member_id ? Number(job.team_member_id) : null
+      
+      if (jobAssignedId === targetId || jobTeamMemberId === targetId) {
+        return true
+      }
+      
+      // Check team_assignments array for primary assignment
+      if (job.team_assignments && Array.isArray(job.team_assignments)) {
+        const primaryAssignment = job.team_assignments.find(ta => ta.is_primary) || job.team_assignments[0]
+        if (primaryAssignment && primaryAssignment.team_member_id) {
+          const assignmentId = Number(primaryAssignment.team_member_id)
+          if (assignmentId === targetId) {
+            return true
+          }
+        }
+      }
+      
+      return false
+    }
+    
+    // 🔒 WORKER RESTRICTION: Workers can only see jobs assigned to them
+    // Schedulers, Managers, and Account Owners can see ALL jobs (no filtering by assignment)
+    if (isWorker(user) && user?.teamMemberId) {
+      // Only filter for workers - they can only see their own assigned jobs
+      filtered = filtered.filter(job => isJobAssignedTo(job, user.teamMemberId))
+    } else {
+      // For schedulers, managers, and account owners: show all jobs by default
+      // They can optionally filter by team member assignment using the selectedFilter
+      if (selectedFilter === 'unassigned') {
+        filtered = filtered.filter(job => {
+          // Job is unassigned if no team_member_id, no assigned_team_member_id, and no team_assignments
+          const hasDirectAssignment = !!(job.assigned_team_member_id || job.team_member_id)
+          const hasTeamAssignments = job.team_assignments && Array.isArray(job.team_assignments) && job.team_assignments.length > 0
+          return !hasDirectAssignment && !hasTeamAssignments
+        })
+      } else if (selectedFilter !== 'all') {
+        // Optional filter: show only jobs assigned to a specific team member
+        filtered = filtered.filter(job => isJobAssignedTo(job, selectedFilter))
+      }
+      // If selectedFilter === 'all', no filtering is applied - show all jobs
     }
     
     // Status filter
@@ -285,7 +332,7 @@ const ServiceFlowSchedule = () => {
     }
     
     setFilteredJobs(filtered)
-  }, [jobs, selectedFilter, statusFilter, timeRangeFilter, territoryFilter])
+  }, [jobs, selectedFilter, statusFilter, timeRangeFilter, territoryFilter, user])
 
   // Fetch user availability/business hours
   const fetchUserAvailability = useCallback(async () => {
@@ -1498,6 +1545,7 @@ const ServiceFlowSchedule = () => {
           <div className="p-4 border-b border-gray-200 flex-shrink-0">
             <div className="flex items-center justify-between">
               <h2 style={{fontFamily: 'Montserrat', fontWeight: 700}} className="text-2xl font-bold text-gray-900">Schedule</h2>
+              {canCreateJobs(user) && (
               <button 
                 onClick={() => navigate('/createjob')}
                 className="bg-blue-600 text-white p-2 rounded-full hover:bg-blue-700 transition-colors"
@@ -1505,6 +1553,7 @@ const ServiceFlowSchedule = () => {
               >
                 <Plus className="w-4 h-4" />
               </button>
+              )}
             </div>
           </div>
           <div className="p-1 border-b bg-gray-100 border-gray-200 flex-shrink-0 flex justify-center items-center">
@@ -1536,7 +1585,8 @@ const ServiceFlowSchedule = () => {
           {/* Scrollable Filter Content */}
           <div className="flex-1 bg-gray-100 overflow-y-auto p-2 scrollbar-hide">
             
-            {/* Assignment Filter */}
+            {/* Assignment Filter - Hidden for workers */}
+            {!isWorker(user) && (
             <div className="mb-6">
               <h3 className="text-xs font-semibold text-gray-700 mb-3 justify-self-center items-center">JOBS ASSIGNED TO</h3>
               
@@ -1590,6 +1640,7 @@ const ServiceFlowSchedule = () => {
                 </button>
               ))}
             </div>
+            )}
 
             {/* Status Filter */}
             <div className="mb-6">
@@ -1985,7 +2036,8 @@ const ServiceFlowSchedule = () => {
         {/* Mobile Filter Bar */}
         <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-3">
           <div className="flex flex-wrap gap-2">
-            {/* Assignment Filter */}
+            {/* Assignment Filter - Hidden for workers */}
+            {!isWorker(user) && (
             <div className="flex items-center space-x-2">
               <span className="text-xs font-medium text-gray-600">ASSIGNED:</span>
               <select
@@ -2002,6 +2054,7 @@ const ServiceFlowSchedule = () => {
                 ))}
               </select>
             </div>
+            )}
 
             {/* Status Filter */}
             <div className="flex items-center space-x-2">
@@ -2906,31 +2959,31 @@ const ServiceFlowSchedule = () => {
                         jobCreatedAt={selectedJobDetails?.created_at}
                       >
                         <button
-                          onClick={() => handleStatusChange(mapProgressBarKeyToBackendStatus(status.key))}
-                          className={`
+                        onClick={() => handleStatusChange(mapProgressBarKeyToBackendStatus(status.key))}
+                        className={`
                             relative px-7 py-3  text-xs font-semibold transition-all whitespace-nowrap
-                            ${isActive 
-                              ? 'bg-green-500 text-white' 
-                              : 'bg-gray-100 text-gray-700'}
-                            ${isFirst ? 'rounded-l-md' : ''}
-                            ${isLast ? 'rounded-r-md' : ''}
-                            hover:opacity-90
-                          `}
-                          style={{ 
-                            fontFamily: 'Montserrat', fontWeight: 600,
-                            clipPath: !isFirst && !isLast
-                              ? 'polygon(0% 0%, calc(100% - 15px) 0%, 100% 50%, calc(100% - 15px) 100%, 0% 100%, 15px 50%)'
-                              : isFirst
-                              ? 'polygon(0% 0%, calc(100% - 15px) 0%, 100% 50%, calc(100% - 15px) 100%, 0% 100%)'
-                              : 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 15px 50%)',
-                            marginLeft: !isFirst ? '-8px' : '0',
-                            zIndex: isActive ? (index === currentIndex ? 10 : 5) : 1,
-                            flex: 1,
-                            minWidth: 0
-                          }}
-                        >
-                          {status.label}
-                        </button>
+                          ${isActive 
+                            ? 'bg-green-500 text-white' 
+                            : 'bg-gray-100 text-gray-700'}
+                          ${isFirst ? 'rounded-l-md' : ''}
+                          ${isLast ? 'rounded-r-md' : ''}
+                          hover:opacity-90
+                        `}
+                        style={{ 
+                          fontFamily: 'Montserrat', fontWeight: 600,
+                          clipPath: !isFirst && !isLast
+                            ? 'polygon(0% 0%, calc(100% - 15px) 0%, 100% 50%, calc(100% - 15px) 100%, 0% 100%, 15px 50%)'
+                            : isFirst
+                            ? 'polygon(0% 0%, calc(100% - 15px) 0%, 100% 50%, calc(100% - 15px) 100%, 0% 100%)'
+                            : 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 15px 50%)',
+                          marginLeft: !isFirst ? '-8px' : '0',
+                          zIndex: isActive ? (index === currentIndex ? 10 : 5) : 1,
+                          flex: 1,
+                          minWidth: 0
+                        }}
+                      >
+                        {status.label}
+                      </button>
                       </StatusHistoryTooltip>
                     );
                   });
@@ -3110,31 +3163,46 @@ const ServiceFlowSchedule = () => {
               {/* Invoice */}
               <div className="bg-white border-b border-gray-200">
                 <div className="px-6 py-4">
-                  <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <span className="text-lg font-bold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Invoice</span>
-                      <span className="px-2 py-1 text-xs font-semibold rounded bg-blue-100 text-blue-800">Draft</span>
+                      <span className="px-3 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                        {selectedJobDetails.invoice_status === 'paid' ? 'Paid' : 
+                         selectedJobDetails.invoice_status === 'sent' ? 'Sent' : 
+                         selectedJobDetails.invoice_status === 'draft' ? 'Draft' : 
+                         'Draft'}
+                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (selectedJobDetails.invoice_id) {
+                            navigate(`/invoices/${selectedJobDetails.invoice_id}`)
+                          }
+                        }}
+                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
                     </div>
-                    <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-semibold" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
-                      Add Payment
-                    </button>
                   </div>
                   <p className="text-sm text-gray-500 mb-4" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
-                    Due {new Date(new Date().getTime() + 15 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    Due {selectedJobDetails.invoice_due_date 
+                      ? new Date(selectedJobDetails.invoice_due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                      : new Date(new Date().getTime() + 15 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                   </p>
                   
-                  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                    <div className="flex items-center justify-between mb-2">
-                      <div>
-                        <p className="text-xs text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Amount paid</p>
-                        <p className="font-semibold text-gray-900 text-xl" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>$0.00</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xs text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Amount due</p>
-                        <p className="font-semibold text-gray-900 text-xl" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
-                          ${selectedJobDetails.total || selectedJobDetails.price || selectedJobDetails.service_price || '0.00'}
-                        </p>
-                      </div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Amount paid</p>
+                      <p className="font-bold text-gray-900 text-lg" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
+                        ${(selectedJobDetails.invoice_paid_amount || selectedJobDetails.amount_paid || 0).toFixed(2)}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-gray-500 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Amount due</p>
+                      <p className="font-bold text-gray-900 text-lg" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
+                        ${((selectedJobDetails.total || selectedJobDetails.price || selectedJobDetails.service_price || 0) - (selectedJobDetails.invoice_paid_amount || selectedJobDetails.amount_paid || 0)).toFixed(2)}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -3143,8 +3211,8 @@ const ServiceFlowSchedule = () => {
               {/* Customer */}
               <div className="bg-white border-b border-gray-200">
                 <div className="px-6 py-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Customer</span>
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="text-sm font-medium text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>Customer</span>
                     <button 
                       onClick={handleEditCustomer}
                       className="text-sm text-blue-600 hover:text-blue-700 font-medium"
@@ -3153,14 +3221,19 @@ const ServiceFlowSchedule = () => {
                       Edit
                     </button>
                   </div>
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-10 h-10 bg-yellow-500 rounded-full flex items-center justify-center text-white font-semibold">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div 
+                      className="w-16 h-16 rounded-full flex items-center justify-center text-white text-lg font-semibold flex-shrink-0"
+                      style={{ 
+                        backgroundColor: '#10B981' // Green color as shown in screenshot
+                      }}
+                    >
                       {(selectedJobDetails.customer_first_name?.[0] || 'A')}{(selectedJobDetails.customer_last_name?.[0] || 'A')}
                     </div>
-                    <div>
+                    <div className="flex-1">
                       <p 
-                        className="font-semibold text-gray-900 cursor-pointer hover:text-blue-600 transition-colors" 
-                        style={{ fontFamily: 'Montserrat', fontWeight: 600 }}
+                        className="font-bold text-gray-900 text-base mb-0 cursor-pointer hover:text-blue-600 transition-colors" 
+                        style={{ fontFamily: 'Montserrat', fontWeight: 700 }}
                         onClick={(e) => {
                           e.stopPropagation()
                           const customerId = selectedJobDetails.customer_id || selectedJobDetails.customer?.id || selectedJobDetails.customers?.id
@@ -3174,14 +3247,14 @@ const ServiceFlowSchedule = () => {
                     </div>
                   </div>
                   {selectedJobDetails.customer_phone && (
-                    <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
-                      <Phone className="w-4 h-4 text-gray-400" />
+                    <div className="flex items-center gap-2 text-sm text-gray-700 mb-2">
+                      <Phone className="w-4 h-4 text-gray-500" />
                       <span style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{selectedJobDetails.customer_phone}</span>
                     </div>
                   )}
                   {selectedJobDetails.customer_email && (
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <Mail className="w-4 h-4 text-gray-400" />
+                    <div className="flex items-center gap-2 text-sm text-gray-700">
+                      <Mail className="w-4 h-4 text-gray-500" />
                       <span style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{selectedJobDetails.customer_email}</span>
                     </div>
                   )}
@@ -3203,7 +3276,10 @@ const ServiceFlowSchedule = () => {
               <div className="bg-white border-b border-gray-200">
                 <div className="px-6 py-4">
                   <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-3" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Expected Payment Method</span>
-                  <p className="text-sm text-gray-600 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>No payment method on file</p>
+                  <div className="flex items-center gap-2 mb-2">
+                    <CreditCard className="w-5 h-5 text-gray-400" strokeWidth={1.5} />
+                    <p className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>No payment method on file</p>
+                  </div>
                   <button className="text-sm text-blue-600 hover:text-blue-700 font-medium" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>Add a card to charge later</button>
                 </div>
               </div>
@@ -3343,10 +3419,10 @@ const ServiceFlowSchedule = () => {
                       </button>
                     </div>
                   ) : (
-                    <div className="text-center py-6">
-                      <NotepadText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                      <p className="text-sm text-gray-600 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>No internal job or customer notes</p>
-                      <p className="text-xs text-gray-500 mb-4" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Notes and attachments are only visible to employees with appropriate permissions.</p>
+                  <div className="text-center py-6">
+                    <NotepadText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-sm text-gray-600 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>No internal job or customer notes</p>
+                    <p className="text-xs text-gray-500 mb-4" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Notes and attachments are only visible to employees with appropriate permissions.</p>
                       <button 
                         onClick={handleOpenNotesModal}
                         className="text-sm text-blue-600 hover:text-blue-700 font-medium" 
@@ -3354,7 +3430,7 @@ const ServiceFlowSchedule = () => {
                       >
                         + Add Note
                       </button>
-                    </div>
+                  </div>
                   )}
                 </div>
               </div>

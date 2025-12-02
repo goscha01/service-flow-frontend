@@ -196,11 +196,11 @@ const ServiceFlowRecurring = () => {
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
             </div>
           ) : paginatedBookings.length === 0 ? (
-            <div className="flex-1 flex items-center justify-center p-8">
-              <div className="text-center max-w-md">
-                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <RotateCcw className="w-8 h-8 text-gray-400" />
-                </div>
+        <div className="flex-1 flex items-center justify-center p-8">
+          <div className="text-center max-w-md">
+            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <RotateCcw className="w-8 h-8 text-gray-400" />
+            </div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                   No {activeTab} recurring bookings
                 </h3>
@@ -317,7 +317,7 @@ const ServiceFlowRecurring = () => {
                       <ChevronRight className="w-4 h-4" />
                     </button>
                   </div>
-                </div>
+          </div>
               )}
             </>
           )}

@@ -27,6 +27,7 @@ import Sidebar from "../components/sidebar"
 import MobileHeader from "../components/mobile-header"
 import CustomerModal from "../components/customer-modal"
 import { formatPhoneNumber } from "../utils/phoneFormatter"
+import { canCreateJobs, isAccountOwner } from "../utils/roleUtils"
 
 const CustomerDetailsRedesigned = () => {
   const { customerId } = useParams()
@@ -345,65 +346,71 @@ const CustomerDetailsRedesigned = () => {
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-sm font-semibold text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Jobs</h3>
                     <div className="flex items-center space-x-2">
-                      <button
-                        onClick={handleNewJob}
-                        className="flex items-center space-x-1 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors"
-                        style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
-                      >
-                        <Plus className="w-3 h-3" />
-                        <span>New Job</span>
-                      </button>
-                      <div className="relative" ref={menuRef}>
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setShowMenuDropdown(!showMenuDropdown)
-                        }}
-                        className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
-                        type="button"
-                      >
-                        <MoreVertical className="w-5 h-5" />
-                      </button>
-                      
-                      {showMenuDropdown && (
-                        <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-[9999]">
-                          <button
+                      {canCreateJobs(user) && (
+                        <button
+                          onClick={handleNewJob}
+                          className="flex items-center space-x-1 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                          style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
+                        >
+                          <Plus className="w-3 h-3" />
+                          <span>New Job</span>
+                        </button>
+                      )}
+                      {isAccountOwner(user) && (
+                        <div className="relative" ref={menuRef}>
+                          <button 
                             onClick={(e) => {
                               e.stopPropagation()
-                              handleEditCustomer()
+                              setShowMenuDropdown(!showMenuDropdown)
                             }}
-                            className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm"
-                            style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
+                            className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                            type="button"
                           >
-                            <Edit className="w-4 h-4 text-gray-600" />
-                            <span>Edit Customer</span>
+                            <MoreVertical className="w-5 h-5" />
                           </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleNewJob()
-                            }}
-                            className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm"
-                            style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
-                          >
-                            <FileText className="w-4 h-4 text-gray-600" />
-                            <span>New Job</span>
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleDeleteCustomer()
-                            }}
-                            className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-red-600 font-medium text-sm"
-                            style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
-                          >
-                            <Trash2 className="w-4 h-4 text-red-600" />
-                            <span>Delete</span>
-                          </button>
+                          
+                          {showMenuDropdown && (
+                            <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-[9999]">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleEditCustomer()
+                                }}
+                                className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm"
+                                style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
+                              >
+                                <Edit className="w-4 h-4 text-gray-600" />
+                                <span>Edit Customer</span>
+                              </button>
+                              {canCreateJobs(user) && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleNewJob()
+                                  }}
+                                  className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm"
+                                  style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
+                                >
+                                  <FileText className="w-4 h-4 text-gray-600" />
+                                  <span>New Job</span>
+                                </button>
+                              )}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleDeleteCustomer()
+                                }}
+                                className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-red-600 font-medium text-sm"
+                                style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
+                              >
+                                <Trash2 className="w-4 h-4 text-red-600" />
+                                <span>Delete</span>
+                              </button>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
-                  </div>
 
                   {/* Job Tabs */}
                   <div className="flex space-x-1 mb-4">
@@ -518,10 +525,12 @@ const CustomerDetailsRedesigned = () => {
                 <div className="bg-white rounded-lg border border-gray-200 p-6">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-sm font-semibold text-gray-700">Estimates</h3>
-                    <button className="flex items-center space-x-1 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700">
-                      <Plus className="w-3 h-3" />
-                      <span>New Estimate</span>
-                    </button>
+                    {canCreateJobs(user) && (
+                      <button className="flex items-center space-x-1 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700">
+                        <Plus className="w-3 h-3" />
+                        <span>New Estimate</span>
+                      </button>
+                    )}
                   </div>
                   <div className="flex flex-col items-center justify-center py-8">
                     <Link className="w-12 h-12 text-gray-300 mb-3" />
@@ -535,10 +544,12 @@ const CustomerDetailsRedesigned = () => {
                 <div className="bg-white rounded-lg border border-gray-200 p-6">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-sm font-semibold text-gray-700">Notes and Files</h3>
-                    <button className="flex items-center space-x-1 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700">
-                      <Plus className="w-3 h-3" />
-                      <span>New Note</span>
-                    </button>
+                    {canCreateJobs(user) && (
+                      <button className="flex items-center space-x-1 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700">
+                        <Plus className="w-3 h-3" />
+                        <span>New Note</span>
+                      </button>
+                    )}
                   </div>
                   <div className="flex flex-col items-center justify-center py-8">
                     <FileText className="w-12 h-12 text-gray-300 mb-3" />
@@ -555,15 +566,17 @@ const CustomerDetailsRedesigned = () => {
                 <div className="bg-white rounded-lg border border-gray-200 p-6">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-sm font-semibold text-gray-700">Properties</h3>
-                    <div className="flex items-center space-x-2">
-                      <button className="flex items-center space-x-1 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700">
-                        <Plus className="w-3 h-3" />
-                        <span>Add Property</span>
-                      </button>
-                      <button className="p-1 text-gray-400 hover:text-gray-600">
-                        <MoreVertical className="w-4 h-4" />
-                      </button>
-                    </div>
+                    {isAccountOwner(user) && (
+                      <div className="flex items-center space-x-2">
+                        <button className="flex items-center space-x-1 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700">
+                          <Plus className="w-3 h-3" />
+                          <span>Add Property</span>
+                        </button>
+                        <button className="p-1 text-gray-400 hover:text-gray-600">
+                          <MoreVertical className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                   
                   <div className="space-y-3">

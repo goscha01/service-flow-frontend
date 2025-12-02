@@ -42,17 +42,22 @@ api.interceptors.response.use(
         switch (status) {
           case 401:
             console.error('Unauthorized - checking if payment context');
-            // Only redirect to login if not in payment context
+            // Only redirect to login if not in payment context and not already on signin page
             const isPaymentContext = window.location.pathname.includes('/payment') || 
                                      window.location.pathname.includes('/public/');
+            const isSigninPage = window.location.pathname.includes('/signin');
             
-            if (!isPaymentContext) {
+            if (!isPaymentContext && !isSigninPage) {
               localStorage.removeItem('authToken');
               localStorage.removeItem('user');
               // Redirect to signin page
               window.location.href = '/signin';
             } else {
+              if (isSigninPage) {
+                console.log('Already on signin page - not redirecting');
+            } else {
               console.log('Payment context detected - not redirecting to login');
+              }
             }
             break;
           case 403:
@@ -527,7 +532,9 @@ export const invoicesAPI = {
 export const userProfileAPI = {
   getProfile: async (userId) => {
     try {
-      const response = await api.get(`/user/profile?userId=${userId}`);
+      // Note: userId parameter is kept for compatibility but endpoint uses JWT token
+      // The endpoint will automatically detect if user is team member or account owner
+      const response = await api.get(`/user/profile`);
       console.log('🔍 userProfileAPI.getProfile response:', response.data);
       return response.data;
     } catch (error) {
@@ -547,14 +554,15 @@ export const userProfileAPI = {
     }
   },
 
-  updateProfilePicture: async (userId, file) => {
+  updateProfilePicture: async (userId, file, isTeamMember = false) => {
     try {
-      console.log('🔍 Uploading profile picture for user:', userId);
+      console.log('🔍 Uploading profile picture for:', isTeamMember ? 'team member' : 'account owner', userId);
       
       // Create FormData for file upload
       const formData = new FormData();
       formData.append('profilePicture', file);
       formData.append('userId', userId);
+      formData.append('isTeamMember', isTeamMember.toString());
       
       // Upload to server
       const apiUrl = process.env.REACT_APP_API_URL || 'https://service-flow-backend-production-4568.up.railway.app/api';
@@ -582,20 +590,20 @@ export const userProfileAPI = {
     }
   },
 
-  removeProfilePicture: async (userId) => {
+  removeProfilePicture: async (userId, isTeamMember = false) => {
     try {
-      console.log('🔍 Removing profile picture for user:', userId);
+      console.log('🔍 Removing profile picture for:', isTeamMember ? 'team member' : 'account owner', userId);
       
       const apiUrl = process.env.REACT_APP_API_URL || 'https://service-flow-backend-production-4568.up.railway.app/api';
       console.log('🔍 Removing from:', `${apiUrl}/user/profile-picture`);
       
+      // Note: Backend now uses JWT token to determine user/team member, so we don't need to send userId
       const response = await fetch(`${apiUrl}/user/profile-picture`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-        },
-        body: JSON.stringify({ userId })
+        }
       });
       
       if (response.ok) {

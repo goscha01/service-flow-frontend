@@ -35,10 +35,10 @@ const ServiceFlowSettings = () => {
   const navigate = useNavigate()
   const { user } = useAuth()
 
-  // Redirect workers to their account settings page only
+  // Redirect team members to their profile editing page
   useEffect(() => {
-    if (user && isWorker(user)) {
-      navigate("/settings/account")
+    if (user && user.teamMemberId) {
+      navigate(`/settings/account`)
     }
   }, [user, navigate])
 

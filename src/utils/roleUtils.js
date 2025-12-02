@@ -20,6 +20,12 @@ export const getUserRole = (user) => {
   // Role might be stored as user.role, user.teamMemberRole, or in user.teamMember.role
   const role = user.role || user.teamMemberRole || user.teamMember?.role;
   
+  // If no role is set and user has teamMemberId, they're likely a team member
+  // Default team members to 'worker' role if no role is specified
+  if (!role && user.teamMemberId) {
+    return 'worker'; // Default team member role
+  }
+  
   // Normalize role names
   if (!role || role === 'account owner' || role === 'owner' || role === 'admin') {
     return 'owner';
@@ -83,10 +89,14 @@ export const isWorker = (user) => {
 export const canAccessRoute = (user, path) => {
   const role = getUserRole(user);
   
-  // Account owners and managers can access everything (except account owner settings for managers)
+  // Account owners and managers can access everything (except account owner settings and billing for managers)
   if (role === 'owner' || role === 'manager') {
     // Managers cannot access account owner settings
     if (role === 'manager' && path === '/settings/account') {
+      return false;
+    }
+    // Managers cannot access billing/subscription settings
+    if (role === 'manager' && (path === '/settings/billing' || path.startsWith('/settings/billing/') || path.includes('/billing'))) {
       return false;
     }
     return true;
@@ -104,8 +114,10 @@ export const canAccessRoute = (user, path) => {
       '/schedule',
       '/jobs',
       '/job', // Job details pages (matches /job/:jobId)
+      '/settings', // Settings page (will redirect to team profile)
       '/settings/account', // Only their profile settings
       '/settings/profile', // Profile settings alias
+      '/team', // Team member profile pages (matches /team/:memberId)
     ];
     
     // Check if path matches any allowed route
@@ -113,6 +125,26 @@ export const canAccessRoute = (user, path) => {
       if (route === '/job') {
         // Special handling for job routes - allow /job/:jobId
         return path === '/job' || path.startsWith('/job/');
+      }
+      if (route === '/team') {
+        // Special handling for team routes - allow /team/:memberId
+        // But only if the memberId matches the user's teamMemberId (their own profile)
+        if (path === '/team' || path.startsWith('/team/')) {
+          // Extract memberId from path
+          const match = path.match(/^\/team\/(\d+)$/);
+          if (match) {
+            const memberId = parseInt(match[1]);
+            // Allow if it's their own profile
+            return user?.teamMemberId === memberId;
+          }
+          // Allow /team route itself (will redirect)
+          return path === '/team';
+        }
+        return false;
+      }
+      if (route === '/settings') {
+        // Allow /settings route (will redirect team members to their profile)
+        return path === '/settings' || path.startsWith('/settings/');
       }
       if (route.endsWith('/')) {
         return path.startsWith(route);
@@ -153,9 +185,9 @@ export const canEditAccountOwnerSettings = (user) => {
 export const getAllowedSidebarItems = (user) => {
   const role = getUserRole(user);
   
-  // Account owners and managers see all items (except account owner settings for managers)
+  // Account owners and managers see all items (except account owner settings and billing for managers)
   if (role === 'owner' || role === 'manager') {
-    return [
+    const items = [
       '/dashboard',
       '/request',
       '/schedule',
@@ -173,6 +205,13 @@ export const getAllowedSidebarItems = (user) => {
       '/online-booking',
       '/settings',
     ];
+    
+    // Managers cannot access billing/subscription settings
+    if (role === 'manager') {
+      return items.filter(item => !item.includes('/billing'));
+    }
+    
+    return items;
   }
   
   // Schedulers have full access to jobs and clients

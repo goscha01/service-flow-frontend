@@ -7,7 +7,7 @@ import Card from "../../components/Card"
 import Button from "../../components/Button"
 import Input from "../../components/Input"
 import { Camera, Eye, EyeOff, Check, X } from "lucide-react"
-import { userProfileAPI, authAPI } from "../../services/api"
+import { userProfileAPI, authAPI, teamAPI } from "../../services/api"
 import { useAuth } from "../../context/AuthContext"
 import Sidebar from "../../components/sidebar"
 import MobileHeader from "../../components/mobile-header"
@@ -107,16 +107,24 @@ const AccountDetails = () => {
         return
       }
       
-      console.log('Fetching profile for user:', user.id);
+      console.log('Fetching profile for user:', user.id, 'teamMemberId:', user.teamMemberId);
       const profile = await userProfileAPI.getProfile(user.id)
       console.log('Profile loaded:', profile);
+      
+      // Handle both account owners and team members
+      const fullName = profile.firstName || profile.lastName 
+        ? `${profile.firstName || ''} ${profile.lastName || ''}`.trim()
+        : user.firstName && user.lastName
+        ? `${user.firstName} ${user.lastName}`
+        : user.firstName || 'User';
+      
       setFormData({
-        fullName: `${profile.firstName} ${profile.lastName}`,
+        fullName: fullName,
         businessName: profile.businessName || profile.business_name || "",
         phone: profile.phone || "",
         email: profile.email,
-        emailNotifications: profile.emailNotifications,
-        smsNotifications: profile.smsNotifications,
+        emailNotifications: profile.emailNotifications || false,
+        smsNotifications: profile.smsNotifications || false,
         profilePicture: profile.profilePicture
       })
     } catch (error) {
@@ -184,33 +192,59 @@ const AccountDetails = () => {
       const [firstName, ...lastNameParts] = formData.fullName.split(' ')
       const lastName = lastNameParts.join(' ') || ''
       
-      const result = await userProfileAPI.updateProfile({
-        userId: user.id,
-        firstName,
-        lastName,
-        businessName: formData.businessName,
-        phone: formData.phone,
-        emailNotifications: formData.emailNotifications,
-        smsNotifications: formData.smsNotifications
-      })
-      
-      // Update the user data in AuthContext and localStorage
-      const updatedUser = {
-        ...user,
-        firstName,
-        lastName,
-        businessName: formData.businessName,
-        business_name: formData.businessName,
-        phone: formData.phone,
-        emailNotifications: formData.emailNotifications,
-        smsNotifications: formData.smsNotifications
+      // If user is a team member, use team member API
+      if (user.teamMemberId) {
+        const result = await teamAPI.update(user.teamMemberId, {
+          firstName,
+          lastName,
+          phone: formData.phone,
+          email: formData.email // Team members can update their email
+        })
+        
+        // Update the user data in AuthContext and localStorage
+        const updatedUser = {
+          ...user,
+          firstName,
+          lastName,
+          phone: formData.phone,
+          email: formData.email
+        }
+        
+        // Update localStorage
+        localStorage.setItem('user', JSON.stringify(updatedUser))
+        
+        // Update AuthContext
+        updateUserProfile(updatedUser)
+      } else {
+        // Account owner update
+        const result = await userProfileAPI.updateProfile({
+          userId: user.id,
+          firstName,
+          lastName,
+          businessName: formData.businessName,
+          phone: formData.phone,
+          emailNotifications: formData.emailNotifications,
+          smsNotifications: formData.smsNotifications
+        })
+        
+        // Update the user data in AuthContext and localStorage
+        const updatedUser = {
+          ...user,
+          firstName,
+          lastName,
+          businessName: formData.businessName,
+          business_name: formData.businessName,
+          phone: formData.phone,
+          emailNotifications: formData.emailNotifications,
+          smsNotifications: formData.smsNotifications
+        }
+        
+        // Update localStorage
+        localStorage.setItem('user', JSON.stringify(updatedUser))
+        
+        // Update AuthContext
+        updateUserProfile(updatedUser)
       }
-      
-      // Update localStorage
-      localStorage.setItem('user', JSON.stringify(updatedUser))
-      
-      // Update AuthContext
-      updateUserProfile(updatedUser)
       
       // Refresh user profile to ensure all data is synced
       try {
@@ -324,8 +358,12 @@ const AccountDetails = () => {
         return;
       }
 
-      console.log('🔍 Uploading profile picture for user:', user.id);
-      const result = await userProfileAPI.updateProfilePicture(user.id, file);
+      // Use teamMemberId if it's a team member, otherwise use user.id
+      const userIdToUse = user.teamMemberId ? user.teamMemberId : user.id;
+      const isTeamMember = !!user.teamMemberId;
+      
+      console.log('🔍 Uploading profile picture for:', isTeamMember ? 'team member' : 'account owner', userIdToUse);
+      const result = await userProfileAPI.updateProfilePicture(userIdToUse, file, isTeamMember);
       
       setFormData(prev => ({
         ...prev,
@@ -459,7 +497,10 @@ const AccountDetails = () => {
                       onClick={async () => {
                         try {
                           setSaving(true);
-                          await userProfileAPI.removeProfilePicture(currentUser.id);
+                          // Use teamMemberId if it's a team member, otherwise use user.id
+                          const userIdToUse = currentUser.teamMemberId ? currentUser.teamMemberId : currentUser.id;
+                          const isTeamMember = !!currentUser.teamMemberId;
+                          await userProfileAPI.removeProfilePicture(userIdToUse, isTeamMember);
                           
                           setFormData(prev => ({ ...prev, profilePicture: null }));
                           
@@ -497,13 +538,16 @@ const AccountDetails = () => {
                     onChange={(e) => handleInputChange('fullName', e.target.value)}
                 />
                 
-                <Input
-                  label="Company Name"
-                  type="text"
-                  value={formData.businessName}
-                  onChange={(e) => handleInputChange('businessName', e.target.value)}
-                  placeholder="Your Company Name"
-                />
+                {/* Only show Company Name for account owners */}
+                {!currentUser?.teamMemberId && (
+                  <Input
+                    label="Company Name"
+                    type="text"
+                    value={formData.businessName}
+                    onChange={(e) => handleInputChange('businessName', e.target.value)}
+                    placeholder="Your Company Name"
+                  />
+                )}
                 
                 <Input
                   label="Phone"
@@ -511,25 +555,39 @@ const AccountDetails = () => {
                     value={formData.phone}
                     onChange={(e) => handleInputChange('phone', e.target.value)}
                     placeholder="Mobile Phone Number"
-                  />
+                />
               </div>
 
               {/* Email */}
               <div className="mb-8">
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Email
-                  </label>
-                  <button 
-                    onClick={() => setShowEmailModal(true)}
-                    className="text-blue-600 hover:text-blue-700 font-medium text-sm"
-                  >
-                    Change Email
-                  </button>
-                </div>
-                <div className="text-gray-900">
-                  {formData.email}
-                </div>
+                {currentUser?.teamMemberId ? (
+                  // Team members can edit email directly
+                  <Input
+                    label="Email"
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => handleInputChange('email', e.target.value)}
+                    placeholder="your.email@example.com"
+                  />
+                ) : (
+                  // Account owners use modal to change email
+                  <>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Email
+                      </label>
+                      <button 
+                        onClick={() => setShowEmailModal(true)}
+                        className="text-blue-600 hover:text-blue-700 font-medium text-sm"
+                      >
+                        Change Email
+                      </button>
+                    </div>
+                    <div className="text-gray-900">
+                      {formData.email}
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Password */}
@@ -548,7 +606,8 @@ const AccountDetails = () => {
                 </div>
               </div>
 
-              {/* Notification Preferences */}
+              {/* Notification Preferences - Only for account owners */}
+              {!currentUser?.teamMemberId && (
               <div>
                 <h3 className="text-lg font-medium text-gray-900 mb-2">NOTIFICATION PREFERENCES</h3>
                 <p className="text-gray-600 mb-6">How would you like to be notified when you are assigned to a job?</p>
@@ -599,6 +658,7 @@ const AccountDetails = () => {
                   </div>
                 </div>
               </div>
+              )}
 
               {/* Save Button */}
               <div className="mt-8 pt-6 border-t border-gray-200">
