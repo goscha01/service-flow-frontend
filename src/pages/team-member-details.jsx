@@ -31,6 +31,8 @@ import {
 } from 'lucide-react'
 import { teamAPI, territoriesAPI } from '../services/api'
 import UpdateAvailabilityModal from '../components/update-availability-modal'
+import AddTeamMemberModal from '../components/add-team-member-modal'
+import { getImageUrl } from '../utils/imageUtils'
 
 const TeamMemberDetails = () => {
   const { memberId } = useParams()
@@ -46,6 +48,8 @@ const TeamMemberDetails = () => {
   const [editFormData, setEditFormData] = useState({})
   const [territories, setTerritories] = useState([])
   const [displayedTerritories, setDisplayedTerritories] = useState([])
+  const [hasLoadedAvailability, setHasLoadedAvailability] = useState(false) // Track if availability has been loaded
+  const [hasLoadedPermissions, setHasLoadedPermissions] = useState(false) // Track if permissions have been loaded
   const [workingHours, setWorkingHours] = useState({
     sunday: { available: false, hours: "" },
     monday: { available: true, hours: "9:00 AM - 6:00 PM" },
@@ -108,8 +112,11 @@ const TeamMemberDetails = () => {
     if (memberId) {
       fetchTeamMemberDetails()
       fetchAvailableTerritories()
+    } else if (user?.teamMemberId) {
+      // If no memberId in URL but user is a team member, navigate to their own profile
+      navigate(`/team/${user.teamMemberId}`, { replace: true })
     }
-  }, [memberId])
+  }, [memberId, user?.teamMemberId])
 
 
 
@@ -119,9 +126,13 @@ const TeamMemberDetails = () => {
       setError('')
       
       console.log('Fetching team member with ID:', memberId)
+      console.log('Current user:', user)
+      console.log('User teamMemberId:', user?.teamMemberId)
       const response = await teamAPI.getById(memberId)
       console.log('Team member response:', response)
       console.log('Team member data:', JSON.stringify(response, null, 2))
+      console.log('Team member availability from API:', response.teamMember?.availability)
+      console.log('Team member permissions from API:', response.teamMember?.permissions)
       console.log('Team member territories from API:', response.teamMember?.territories)
       
       if (response && response.teamMember) {
@@ -197,8 +208,8 @@ const TeamMemberDetails = () => {
           setTerritories([])
         }
 
-        // Parse availability
-        if (teamMemberData.availability) {
+        // Parse availability - use actual data from database, only use defaults if truly no data exists
+        if (teamMemberData.availability !== null && teamMemberData.availability !== undefined) {
           try {
             let parsedAvailability;
             
@@ -221,24 +232,22 @@ const TeamMemberDetails = () => {
               if (parsedAvailability.workingHours) {
                 setWorkingHours(parsedAvailability.workingHours)
               }
-              if (parsedAvailability.customAvailability) {
-                setCustomAvailability(parsedAvailability.customAvailability)
+              if (parsedAvailability.customAvailability !== undefined) {
+                setCustomAvailability(parsedAvailability.customAvailability || [])
               }
+              setHasLoadedAvailability(true) // Mark as loaded
             }
           } catch (e) {
             console.error('Error processing availability:', e)
-            setWorkingHours({
-              sunday: { available: false, hours: "" },
-              monday: { available: true, hours: "9:00 AM - 6:00 PM" },
-              tuesday: { available: true, hours: "9:00 AM - 6:00 PM" },
-              wednesday: { available: true, hours: "9:00 AM - 6:00 PM" },
-              thursday: { available: true, hours: "9:00 AM - 6:00 PM" },
-              friday: { available: true, hours: "9:00 AM - 6:00 PM" },
-              saturday: { available: false, hours: "" }
-            })
+            // Don't reset to defaults on error - data might exist but be malformed
+            setHasLoadedAvailability(true) // Mark as attempted to load
           }
         } else {
-          // No availability set - use defaults
+          // No availability in database (null or undefined)
+          // Only set defaults if this is the first time loading (hasn't been loaded before)
+          if (!hasLoadedAvailability) {
+            // Only set defaults on first load when no data exists
+            console.log('No availability in database, setting defaults for first load')
           setWorkingHours({
             sunday: { available: false, hours: "" },
             monday: { available: true, hours: "9:00 AM - 6:00 PM" },
@@ -248,10 +257,16 @@ const TeamMemberDetails = () => {
             friday: { available: true, hours: "9:00 AM - 6:00 PM" },
             saturday: { available: false, hours: "" }
           })
+            setCustomAvailability([])
+          } else {
+            // Already loaded before, availability is null - keep current state (don't reset)
+            console.log('No availability in database, but already loaded - keeping current state')
+          }
+          setHasLoadedAvailability(true) // Mark as loaded (even though it's null)
         }
 
-        // Parse permissions/settings
-        if (teamMemberData.permissions) {
+        // Parse permissions/settings - use actual data from database
+        if (teamMemberData.permissions !== null && teamMemberData.permissions !== undefined) {
           try {
             let parsedPermissions;
             
@@ -271,11 +286,27 @@ const TeamMemberDetails = () => {
             }
             
             if (parsedPermissions && typeof parsedPermissions === 'object') {
+              // Use the actual permissions from database
               setSettings(parsedPermissions);
+              setHasLoadedPermissions(true) // Mark as loaded
             }
           } catch (e) {
             console.error('Error processing permissions:', e)
+            // Don't reset settings on error - keep current state
+            setHasLoadedPermissions(true) // Mark as attempted to load
           }
+        } else {
+          // No permissions in database (null or undefined)
+          // Only set defaults if this is the first time loading (hasn't been loaded before)
+          if (!hasLoadedPermissions) {
+            // Only set defaults on first load when no data exists
+            console.log('No permissions in database, using defaults for first load')
+            // Keep current defaults - they're already set in initial state
+          } else {
+            // Already loaded before, permissions is null - keep current state (don't reset)
+            console.log('No permissions in database, but already loaded - keeping current state')
+          }
+          setHasLoadedPermissions(true) // Mark as loaded (even though it's null)
         }
 
         // Set recent jobs if available
@@ -292,20 +323,12 @@ const TeamMemberDetails = () => {
   }
 
   const handleEditMember = () => {
-    setEditFormData({
-      first_name: teamMember.first_name || '',
-      last_name: teamMember.last_name || '',
-      email: teamMember.email || '',
-      phone: teamMember.phone || '',
-      role: teamMember.role || '',
-      location: teamMember.location || '',
-      city: teamMember.city || '',
-      state: teamMember.state || '',
-      zip_code: teamMember.zip_code || '',
-      is_service_provider: teamMember.is_service_provider || false,
-      color: teamMember.color || '#2563EB'
-    })
     setEditing(true)
+  }
+
+  const handleMemberUpdate = () => {
+    fetchTeamMemberDetails()
+    setEditing(false)
   }
 
   const handleSaveMember = async () => {
@@ -951,8 +974,9 @@ const TeamMemberDetails = () => {
 
   return (
     <>
-   <div className="flex h-screen bg-gray-50 overflow-hidden">
-     
+      <div className="flex h-screen bg-gray-50 overflow-hidden">
+        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+        <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
 
         {/* Notification Display */}
         {notification && (
@@ -973,51 +997,76 @@ const TeamMemberDetails = () => {
         )}
 
         <div className="flex-1 overflow-auto bg-gray-50">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-            {/* Back Navigation */}
-            <button
-              onClick={() => navigate("/team")}
-              className="flex items-center text-sm text-gray-600 hover:text-gray-900 mb-6"
-            >
-              <ChevronLeft className="w-4 h-4 mr-1" />
-              All Team Members
-            </button>
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
 
             {/* Main Content */}
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               {/* Profile Header Card */}
-              <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center space-x-4">
-                    <div
-                      className="w-16 h-16 rounded-lg flex items-center justify-center text-white text-xl font-semibold"
-                      style={{ backgroundColor: teamMember?.color || '#2563EB' }}
-                    >
-                      {teamMember?.first_name?.charAt(0) || 'T'}{teamMember?.last_name?.charAt(0) || 'M'}
-                    </div>
-                    <div>
-                      <h1 className="text-2xl font-semibold text-gray-900">
-                        {teamMember?.first_name || 'First'} {teamMember?.last_name || 'Last'}
-                      </h1>
-                      <p className="text-sm text-gray-600">
-                        {teamMember?.role === 'account owner' || teamMember?.role === 'owner' || teamMember?.role === 'admin' 
-                          ? 'Account Owner' 
-                          : teamMember?.role === 'manager' 
-                            ? 'Manager' 
-                            : teamMember?.role === 'scheduler' 
-                              ? 'Scheduler' 
-                              : teamMember?.role === 'worker' || teamMember?.role === 'technician' 
-                                ? 'Worker' 
-                                : teamMember?.role || 'Team Member'}
-                      </p>
-                    </div>
-                  </div>
+              <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-4 sm:mb-6 gap-4">
                   <button
-                    onClick={handleEditMember}
-                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                    onClick={() => navigate("/team")}
+                    className="flex items-center text-sm text-gray-600 hover:text-gray-900 self-start"
                   >
-                    Edit
+                    <ChevronLeft className="w-4 h-4 mr-1" />
+                    All Team Members
                   </button>
+                  <div className="flex items-center space-x-2 sm:space-x-3">
+                    <button
+                      onClick={handleEditMember}
+                      className="px-3 sm:px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                    >
+                      Edit
+                    </button>
+                    {!(teamMember?.role === 'account owner' || teamMember?.role === 'owner' || teamMember?.role === 'admin') && (
+                      <button
+                        onClick={() => setShowDeleteModal(true)}
+                        className="px-3 sm:px-4 py-2 text-sm font-medium text-white bg-red-600 border border-red-600 rounded-md hover:bg-red-700"
+                      >
+                        Deactivate
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-start space-y-4 sm:space-y-0 sm:space-x-6">
+                  {/* Profile Picture - Larger and Circular */}
+                  <div
+                    className="w-20 h-20 sm:w-24 sm:h-24 rounded-full flex items-center justify-center text-white text-xl sm:text-2xl font-semibold overflow-hidden flex-shrink-0 mx-auto sm:mx-0"
+                    style={{ backgroundColor: teamMember?.profile_picture ? 'transparent' : (teamMember?.color || '#2563EB') }}
+                  >
+                    {teamMember?.profile_picture ? (
+                      <img 
+                        src={getImageUrl(teamMember.profile_picture)} 
+                        alt={`${teamMember?.first_name || ''} ${teamMember?.last_name || ''}`}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          console.error('Failed to load profile picture:', teamMember.profile_picture);
+                          e.target.style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      <span className="text-xl sm:text-2xl">
+                        {teamMember?.first_name?.charAt(0) || 'T'}{teamMember?.last_name?.charAt(0) || 'M'}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex-1 w-full text-center sm:text-left">
+                    <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 mb-1">
+                      {teamMember?.first_name || 'First'} {teamMember?.last_name || 'Last'}
+                    </h1>
+                    <p className="text-sm text-gray-600 mb-4 sm:mb-6">
+                      {teamMember?.role === 'account owner' || teamMember?.role === 'owner' || teamMember?.role === 'admin' 
+                        ? 'Account Owner' 
+                        : teamMember?.role === 'manager' 
+                          ? 'Manager' 
+                          : teamMember?.role === 'scheduler' 
+                            ? 'Scheduler' 
+                            : teamMember?.role === 'worker' || teamMember?.role === 'technician' 
+                              ? 'Team member' 
+                              : teamMember?.role || 'Team Member'}
+                    </p>
+                  </div>
                 </div>
 
                 {/* Notification Banner */}
@@ -1040,18 +1089,18 @@ const TeamMemberDetails = () => {
                 )}
 
                 {/* Contact Information Grid */}
-                <div className="mt-6 space-y-3">
-                  <div className="grid grid-cols-3 gap-4 py-2">
-                    <span className="text-sm text-gray-600">Mobile phone</span>
-                    <span className="text-sm text-gray-900 col-span-2">{teamMember?.phone || 'No phone number'}</span>
+                <div className="mt-4 sm:mt-6 space-y-3">
+                  <div className="flex flex-col sm:grid sm:grid-cols-3 gap-2 sm:gap-4 py-2">
+                    <span className="text-sm text-gray-600 font-medium sm:font-normal">Mobile phone</span>
+                    <span className="text-sm text-gray-900 sm:col-span-2">{teamMember?.phone || 'No phone number'}</span>
                   </div>
-                  <div className="grid grid-cols-3 gap-4 py-2">
-                    <span className="text-sm text-gray-600">Email</span>
-                    <span className="text-sm text-gray-900 col-span-2">{teamMember?.email || 'No email'}</span>
+                  <div className="flex flex-col sm:grid sm:grid-cols-3 gap-2 sm:gap-4 py-2">
+                    <span className="text-sm text-gray-600 font-medium sm:font-normal">Email</span>
+                    <span className="text-sm text-gray-900 sm:col-span-2 break-words">{teamMember?.email || 'No email'}</span>
                   </div>
-                  <div className="grid grid-cols-3 gap-4 py-2">
-                    <span className="text-sm text-gray-600">Address</span>
-                    <span className="text-sm text-gray-900 col-span-2">
+                  <div className="flex flex-col sm:grid sm:grid-cols-3 gap-2 sm:gap-4 py-2">
+                    <span className="text-sm text-gray-600 font-medium sm:font-normal">Address</span>
+                    <span className="text-sm text-gray-900 sm:col-span-2">
                       {teamMember?.location || 'No address on file'}
                       {teamMember?.city && teamMember?.state && (
                         <span className="block text-gray-600">
@@ -1060,9 +1109,9 @@ const TeamMemberDetails = () => {
                       )}
                     </span>
                   </div>
-                  <div className="grid grid-cols-3 gap-4 py-2">
-                    <span className="text-sm text-gray-600">Status</span>
-                    <span className="text-sm col-span-2">
+                  <div className="flex flex-col sm:grid sm:grid-cols-3 gap-2 sm:gap-4 py-2">
+                    <span className="text-sm text-gray-600 font-medium sm:font-normal">Status</span>
+                    <span className="text-sm sm:col-span-2">
                       {(() => {
                         const status = teamMember?.status?.toLowerCase() || 'unknown';
                         if (status === 'active' || status === 'activated') {
@@ -1105,9 +1154,9 @@ const TeamMemberDetails = () => {
                       })()}
                     </span>
                   </div>
-                  <div className="grid grid-cols-3 gap-4 py-2">
-                    <span className="text-sm text-gray-600">Role</span>
-                    <span className="text-sm text-gray-900 col-span-2">
+                  <div className="flex flex-col sm:grid sm:grid-cols-3 gap-2 sm:gap-4 py-2">
+                    <span className="text-sm text-gray-600 font-medium sm:font-normal">Role</span>
+                    <span className="text-sm text-gray-900 sm:col-span-2">
                       {teamMember?.role === 'account owner' || teamMember?.role === 'owner' || teamMember?.role === 'admin' 
                         ? 'Account Owner' 
                         : teamMember?.role === 'manager' 
@@ -1119,15 +1168,54 @@ const TeamMemberDetails = () => {
                               : teamMember?.role || 'Team Member'}
                     </span>
                   </div>
-                  <div className="grid grid-cols-3 gap-4 py-2">
-                    <span className="text-sm text-gray-600">Role permissions</span>
-                    <span className="text-sm text-gray-900 col-span-2">Has full access to all areas of account</span>
+                  <div className="flex flex-col sm:grid sm:grid-cols-3 gap-2 sm:gap-4 py-2">
+                    <span className="text-sm text-gray-600 font-medium sm:font-normal">Role permissions</span>
+                    <div className="text-sm text-gray-900 sm:col-span-2 space-y-1">
+                      {(() => {
+                        // Define permission list based on role
+                        const permissions = [];
+                        if (teamMember?.role === 'worker') {
+                          // Worker permissions from settings
+                          if (settings.viewCustomerContactInfo) permissions.push('View customer contact info');
+                          if (settings.viewCustomerNotes) permissions.push('View customer notes');
+                          if (settings.modifyJobStatus) permissions.push('Modify job status');
+                          if (settings.editJobDetails) permissions.push('Edit job details');
+                          if (settings.viewEditJobPrice) permissions.push('View & edit job price, invoice, and line items');
+                          if (settings.processPayments) permissions.push('Process payments and mark jobs as paid');
+                          if (settings.editAvailability) permissions.push('Edit their availability & hours');
+                        } else if (teamMember?.role === 'scheduler') {
+                          permissions.push('Access all jobs and all customers');
+                          permissions.push('Create, edit, cancel, reschedule jobs');
+                          permissions.push('Assign or un-assign jobs');
+                          if (settings.processPayments) permissions.push('Process payments for jobs');
+                        } else if (teamMember?.role === 'manager') {
+                          permissions.push('Full access to all areas except billing');
+                        } else {
+                          permissions.push('Full access to all areas of account');
+                        }
+                        
+                        if (permissions.length === 0) {
+                          return <span>No specific permissions set</span>;
+                        }
+                        
+                        return (
+                          <ul className="space-y-1">
+                            {permissions.map((permission, index) => (
+                              <li key={index} className="flex items-center">
+                                <CheckCircle className="w-4 h-4 text-green-500 mr-2 flex-shrink-0" />
+                                <span>{permission}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        );
+                      })()}
+                    </div>
                   </div>
                 </div>
               </div>
 
               {/* Metadata Card */}
-              <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center space-x-2">
                     <h3 className="text-base font-semibold text-gray-900">Metadata</h3>
@@ -1141,7 +1229,7 @@ const TeamMemberDetails = () => {
               </div>
 
               {/* Service Provider Card */}
-              <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-base font-semibold text-gray-900">Service Provider</h3>
@@ -1167,8 +1255,8 @@ const TeamMemberDetails = () => {
               </div>
 
               {/* Availability Card */}
-              <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <div className="mb-6">
+              <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
+                <div className="mb-4 sm:mb-6">
                   <h3 className="text-base font-semibold text-gray-900 mb-2">Availability</h3>
                   <p className="text-sm text-gray-600">
                     Manage this team member's availability by editing their regular work hours, or by adding custom availability for specific dates.{' '}
@@ -1207,7 +1295,7 @@ const TeamMemberDetails = () => {
                 </div>
 
                 {/* Recurring Hours and Custom Availability Grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 mt-4 sm:mt-6">
                   {/* Recurring Hours */}
                   <div>
                     <div className="flex items-center justify-between mb-4">
@@ -1334,8 +1422,8 @@ const TeamMemberDetails = () => {
               </div>
 
               {/* Assignment Card */}
-              <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <div className="mb-4">
+              <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
+                <div className="mb-4 sm:mb-6">
                   <h3 className="text-base font-semibold text-gray-900 mb-2">Assignment</h3>
                   <p className="text-sm text-gray-600">
                     Control whether this provider can be auto-assigned to jobs, or claim eligible jobs that you've offered
@@ -1396,8 +1484,8 @@ const TeamMemberDetails = () => {
               </div>
 
               {/* Notifications Card */}
-              <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <div className="mb-4">
+              <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
+                <div className="mb-4 sm:mb-6">
                   <h3 className="text-base font-semibold text-gray-900 mb-2">Notifications</h3>
                   <p className="text-sm text-gray-600">
                     How should this service provider be notified when they are assigned to a job?
@@ -1466,8 +1554,8 @@ const TeamMemberDetails = () => {
               </div>
 
               {/* Skills Card */}
-              <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <div className="mb-4">
+              <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
+                <div className="mb-4 sm:mb-6">
                   <h3 className="text-base font-semibold text-gray-900 mb-2">Skills</h3>
                   <p className="text-sm text-gray-600">
                     Skill tags can be used to make sure workers meet specific job-related skills, certifications, equipment and licensing requirements.
@@ -1486,8 +1574,8 @@ const TeamMemberDetails = () => {
               </div>
 
               {/* Calendar Color Card */}
-              <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <div className="mb-4">
+              <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
+                <div className="mb-4 sm:mb-6">
                   <h3 className="text-base font-semibold text-gray-900">Calendar color</h3>
                 </div>
 
@@ -1807,6 +1895,19 @@ const TeamMemberDetails = () => {
         availability={customAvailability}
       />
 
+      {/* Edit Team Member Modal */}
+      {editing && teamMember && (
+        <AddTeamMemberModal
+          isOpen={editing}
+          onClose={() => {
+            setEditing(false)
+          }}
+          onSuccess={handleMemberUpdate}
+          userId={user?.id}
+          member={teamMember}
+          isEditing={true}
+        />
+      )}
     </>
   )
 }

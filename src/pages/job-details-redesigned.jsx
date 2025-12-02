@@ -395,18 +395,53 @@ const JobDetails = () => {
       
       console.log('Assigning team member:', { jobId: job.id, teamMemberId: selectedTeamMember })
       
-      // Update job with assigned team member
-      console.log('Looking for team member with ID:', selectedTeamMember)
-      console.log('Available team members:', teamMembers.map(m => ({ id: m.id, name: `${m.first_name} ${m.last_name}` })))
+      // ✅ ACTUALLY CALL THE API TO SAVE THE ASSIGNMENT
+      await jobsAPI.assignToTeamMember(job.id, selectedTeamMember)
       
-      const teamMember = teamMembers.find(member => member.id == selectedTeamMember)
-      console.log('Found team member:', teamMember)
+      // Find the team member details
+      const teamMember = teamMembers.find(member => 
+        member.id == selectedTeamMember || 
+        member.id === parseInt(selectedTeamMember) ||
+        member.id === selectedTeamMember.toString()
+      )
       
       if (teamMember) {
-        setJob(prev => ({ 
-          ...prev, 
-          assigned_team_member: teamMember 
-        }))
+        // Refresh job data from API to ensure we have the latest state with proper mapping
+        try {
+          const updatedJobData = await jobsAPI.getById(job.id)
+          if (updatedJobData) {
+            // Use mapJobData to ensure assigned_team_member is properly mapped
+            const mappedJobData = mapJobData(updatedJobData)
+            setJob(mappedJobData)
+          } else {
+            // Fallback: Update local state if API refresh fails
+            setJob(prev => ({ 
+              ...prev, 
+              assigned_team_member: {
+                id: teamMember.id,
+                first_name: teamMember.first_name,
+                last_name: teamMember.last_name,
+                email: teamMember.email
+              },
+              team_member_id: selectedTeamMember,
+              assigned_team_member_id: selectedTeamMember
+            }))
+          }
+        } catch (refreshError) {
+          console.error('Error refreshing job data:', refreshError)
+          // Fallback: Update local state if refresh fails
+          setJob(prev => ({ 
+            ...prev, 
+            assigned_team_member: {
+              id: teamMember.id,
+              first_name: teamMember.first_name,
+              last_name: teamMember.last_name,
+              email: teamMember.email
+            },
+            team_member_id: selectedTeamMember,
+            assigned_team_member_id: selectedTeamMember
+          }))
+        }
         
         setSuccessMessage(`Team member ${teamMember.first_name} ${teamMember.last_name} assigned successfully!`)
         setTimeout(() => setSuccessMessage(''), 3000)
@@ -414,29 +449,7 @@ const JobDetails = () => {
         setShowAssignModal(false)
         setSelectedTeamMember('')
       } else {
-        // Try alternative approach - create team member from selectedTeamMember
-        console.log('Team member not found, trying alternative approach...')
-        const selectedMember = teamMembers.find(member => 
-          member.id === selectedTeamMember || 
-          member.id === parseInt(selectedTeamMember) ||
-          member.id === selectedTeamMember.toString()
-        )
-        
-        if (selectedMember) {
-          console.log('Found team member with alternative approach:', selectedMember)
-          setJob(prev => ({ 
-            ...prev, 
-            assigned_team_member: selectedMember 
-          }))
-          
-          setSuccessMessage(`Team member ${selectedMember.first_name} ${selectedMember.last_name} assigned successfully!`)
-          setTimeout(() => setSuccessMessage(''), 3000)
-          
-          setShowAssignModal(false)
-          setSelectedTeamMember('')
-        } else {
-          setError(`Team member not found. Selected: ${selectedTeamMember}, Available: ${teamMembers.map(m => m.id).join(', ')}`)
-        }
+        setError(`Team member not found. Selected: ${selectedTeamMember}, Available: ${teamMembers.map(m => m.id).join(', ')}`)
       }
       
     } catch (error) {
@@ -490,6 +503,45 @@ const JobDetails = () => {
       }
     }
 
+    // Map assigned team member from various sources
+    let assignedTeamMember = null;
+    
+    // First, try to get from team_assignments array (primary assignment)
+    if (jobData.team_assignments && Array.isArray(jobData.team_assignments) && jobData.team_assignments.length > 0) {
+      const primaryAssignment = jobData.team_assignments.find(ta => ta.is_primary) || jobData.team_assignments[0];
+      if (primaryAssignment && (primaryAssignment.first_name || primaryAssignment.last_name)) {
+        assignedTeamMember = {
+          id: primaryAssignment.team_member_id,
+          first_name: primaryAssignment.first_name,
+          last_name: primaryAssignment.last_name,
+          email: primaryAssignment.email || null
+        };
+      }
+    }
+    
+    // Fallback: try to get from team_members join (from Supabase query)
+    if (!assignedTeamMember && jobData.team_members) {
+      const teamMember = jobData.team_members;
+      if (teamMember && (teamMember.first_name || teamMember.last_name)) {
+        assignedTeamMember = {
+          id: jobData.team_member_id,
+          first_name: teamMember.first_name,
+          last_name: teamMember.last_name,
+          email: teamMember.email || null
+        };
+      }
+    }
+    
+    // Fallback: try to construct from team_member_id and team_member_first_name/last_name
+    if (!assignedTeamMember && jobData.team_member_id && (jobData.team_member_first_name || jobData.team_member_last_name)) {
+      assignedTeamMember = {
+        id: jobData.team_member_id,
+        first_name: jobData.team_member_first_name || '',
+        last_name: jobData.team_member_last_name || '',
+        email: jobData.team_member_email || null
+      };
+    }
+
     return {
       ...jobData,
       customer_first_name: jobData.customers?.first_name || jobData.customer_first_name,
@@ -520,7 +572,10 @@ const JobDetails = () => {
       // Map recurring job fields
       is_recurring: jobData.is_recurring || jobData.recurring_job || false,
       recurring_frequency: jobData.recurring_frequency || jobData.recurringFrequency || '',
-      recurring_end_date: jobData.recurring_end_date || jobData.recurringEndDate || null
+      recurring_end_date: jobData.recurring_end_date || jobData.recurringEndDate || null,
+      // Map assigned team member
+      assigned_team_member: assignedTeamMember,
+      assigned_team_member_id: assignedTeamMember?.id || jobData.assigned_team_member_id || jobData.team_member_id
     }
   }
 

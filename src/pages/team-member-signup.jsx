@@ -18,6 +18,7 @@ const TeamMemberSignup = () => {
   
   const [invitationData, setInvitationData] = useState(null)
   const [formData, setFormData] = useState({
+    email: '',
     username: '',
     password: '',
     confirmPassword: '',
@@ -47,12 +48,12 @@ const TeamMemberSignup = () => {
       const data = response.data
       setInvitationData(data)
       
-      // Pre-fill form with invitation data
+      // Pre-fill form with invitation data (email is pre-filled but can be changed)
       setFormData(prev => ({
         ...prev,
         firstName: data.firstName || '',
         lastName: data.lastName || '',
-        email: data.email || ''
+        email: data.email || '' // Pre-fill but allow editing
       }))
       
     } catch (error) {
@@ -72,6 +73,18 @@ const TeamMemberSignup = () => {
   }
 
   const validateForm = () => {
+    if (!formData.email.trim()) {
+      setError('Email is required')
+      return false
+    }
+    
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(formData.email)) {
+      setError('Please enter a valid email address')
+      return false
+    }
+    
     if (!formData.username.trim()) {
       setError('Username is required')
       return false
@@ -109,6 +122,7 @@ const TeamMemberSignup = () => {
       // Call the API to complete the signup
       const response = await api.post('/team-members/complete-signup', {
           token,
+          email: formData.email,
           username: formData.username,
           password: formData.password,
           firstName: formData.firstName,
@@ -220,6 +234,26 @@ const TeamMemberSignup = () => {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+              Email Address <span className="text-gray-500 text-xs">(can be changed)</span>
+            </label>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              value={formData.email}
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              required
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              {invitationData?.email && formData.email !== invitationData.email 
+                ? `Original: ${invitationData.email}` 
+                : 'Email cannot be used by another user or active team member'}
+            </p>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-1">

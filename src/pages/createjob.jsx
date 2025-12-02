@@ -2721,7 +2721,7 @@ setIntakeQuestionAnswers(answers);
                           <p className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Send a bookable estimate to your customer, allowing them to choose a convenient time for the service.</p>
                           </div>
                         </div>
-                      </div>
+                        </div>
                       
                       {/* REPEATS Section - Only show when Recurring Job is selected */}
                       {formData.scheduleType === 'recurring' && (

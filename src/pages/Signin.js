@@ -77,34 +77,52 @@ export default function SignInForm() {
     
     setIsLoading(true)
     setApiError("")
+    setError("") // Clear any previous errors
     
     try {
-      await login(formData)
-      navigate('/dashboard')
+      const result = await login(formData)
+      // Only navigate if login was successful
+      if (result && result.success) {
+        // Small delay to ensure state is updated
+        setTimeout(() => {
+          navigate('/dashboard', { replace: true })
+        }, 100)
+      }
     } catch (error) {
       console.error('Signin error:', error)
+      console.error('Signin error details:', {
+        response: error.response,
+        message: error.message,
+        stack: error.stack
+      })
+      
+      // Prevent navigation on error
+      let errorMessage = "An error occurred. Please try again."
       
       if (error.response) {
         const { status, data } = error.response
         
         switch (status) {
           case 401:
-            setApiError("Invalid email or password")
+            errorMessage = data?.error || "Invalid email or password"
             break
           case 404:
-            setApiError("User not found")
+            errorMessage = "User not found"
             break
           case 500:
-            setApiError("Server error. Please try again later.")
+            errorMessage = data?.error || "Server error. Please try again later."
             break
           default:
-            setApiError(data?.error || "An error occurred. Please try again.")
+            errorMessage = data?.error || "An error occurred. Please try again."
         }
       } else if (error.request) {
-        setApiError("Network error. Please check your connection.")
-      } else {
-        setApiError("An unexpected error occurred.")
+        errorMessage = "Network error. Please check your connection."
+      } else if (error.message) {
+        errorMessage = error.message
       }
+      
+      setApiError(errorMessage)
+      setError(errorMessage)
     } finally {
       setIsLoading(false)
     }
@@ -148,9 +166,9 @@ export default function SignInForm() {
           </div>
 
           {/* API Error Display */}
-          {apiError && (
+          {(apiError || error) && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
-              <p className="text-red-600 text-sm">{apiError}</p>
+              <p className="text-red-600 text-sm font-medium">{apiError || error}</p>
             </div>
           )}
 
