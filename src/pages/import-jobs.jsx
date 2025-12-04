@@ -253,7 +253,12 @@ const ImportJobsPage = () => {
         job.customerName = rawData['customer_name_text'] || '';
         job.customerEmail = rawData['customer_email_text'] || '';
         job.customerPhone = rawData['customer_phone_text'] || '';
-        job.serviceName = rawData['service_selected_text'] || '';
+        // Map service name - check multiple possible field names
+        job.serviceName = rawData['service_selected_text'] || 
+                          rawData['services_list_custom_service'] || 
+                          rawData['service_name'] || 
+                          rawData['service'] || 
+                          '';
         job.price = rawData['price_number'] || rawData['pretax_total_number'] || '';
         job.total = rawData['pretax_total_number'] || rawData['price_number'] || '';
         job.subTotal = rawData['sub_total_number'] || '';
@@ -352,6 +357,10 @@ const ImportJobsPage = () => {
               break;
             case 'service name':
             case 'servicename':
+              if (!job.serviceName) job.serviceName = value;
+              break;
+            case 'service_selected_text':
+            case 'services_list_custom_service':
               if (!job.serviceName) job.serviceName = value;
               break;
             case 'service price':
