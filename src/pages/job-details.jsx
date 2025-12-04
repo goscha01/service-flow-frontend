@@ -631,11 +631,9 @@ const JobDetails = () => {
   }, [])
 
   const statusOptions = [
-    { key: 'pending', label: 'Pending', color: 'bg-gray-400' },
-    { key: 'confirmed', label: 'Confirmed', color: 'bg-blue-500' },
-    { key: 'in_progress', label: 'In Progress', color: 'bg-orange-500' },
-    { key: 'completed', label: 'Completed', color: 'bg-purple-500' },
-    { key: 'cancelled', label: 'Cancelled', color: 'bg-red-500' }
+    { key: 'confirmed', label: 'Mark as En Route', color: 'bg-blue-500' },
+    { key: 'in_progress', label: 'Mark as In Progress', color: 'bg-orange-500' },
+    { key: 'completed', label: 'Mark as Complete', color: 'bg-green-500' }
   ]
 
   const handleStatusChange = async (newStatus) => {

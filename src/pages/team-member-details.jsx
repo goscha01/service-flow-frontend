@@ -974,7 +974,7 @@ const TeamMemberDetails = () => {
 
   return (
     <>
-      <div className="flex h-screen bg-gray-50 overflow-hidden">
+   <div className="flex h-screen bg-gray-50 overflow-hidden">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
 
@@ -1004,13 +1004,13 @@ const TeamMemberDetails = () => {
               {/* Profile Header Card */}
               <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
                 <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-4 sm:mb-6 gap-4">
-                  <button
-                    onClick={() => navigate("/team")}
+            <button
+              onClick={() => navigate("/team")}
                     className="flex items-center text-sm text-gray-600 hover:text-gray-900 self-start"
-                  >
-                    <ChevronLeft className="w-4 h-4 mr-1" />
-                    All Team Members
-                  </button>
+            >
+              <ChevronLeft className="w-4 h-4 mr-1" />
+              All Team Members
+            </button>
                   <div className="flex items-center space-x-2 sm:space-x-3">
                     <button
                       onClick={handleEditMember}
@@ -1031,10 +1031,10 @@ const TeamMemberDetails = () => {
 
                 <div className="flex flex-col sm:flex-row items-start space-y-4 sm:space-y-0 sm:space-x-6">
                   {/* Profile Picture - Larger and Circular */}
-                  <div
+                    <div
                     className="w-20 h-20 sm:w-24 sm:h-24 rounded-full flex items-center justify-center text-white text-xl sm:text-2xl font-semibold overflow-hidden flex-shrink-0 mx-auto sm:mx-0"
                     style={{ backgroundColor: teamMember?.profile_picture ? 'transparent' : (teamMember?.color || '#2563EB') }}
-                  >
+                    >
                     {teamMember?.profile_picture ? (
                       <img 
                         src={getImageUrl(teamMember.profile_picture)} 
@@ -1047,26 +1047,26 @@ const TeamMemberDetails = () => {
                       />
                     ) : (
                       <span className="text-xl sm:text-2xl">
-                        {teamMember?.first_name?.charAt(0) || 'T'}{teamMember?.last_name?.charAt(0) || 'M'}
+                      {teamMember?.first_name?.charAt(0) || 'T'}{teamMember?.last_name?.charAt(0) || 'M'}
                       </span>
                     )}
-                  </div>
+                    </div>
                   <div className="flex-1 w-full text-center sm:text-left">
                     <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 mb-1">
-                      {teamMember?.first_name || 'First'} {teamMember?.last_name || 'Last'}
-                    </h1>
+                        {teamMember?.first_name || 'First'} {teamMember?.last_name || 'Last'}
+                      </h1>
                     <p className="text-sm text-gray-600 mb-4 sm:mb-6">
-                      {teamMember?.role === 'account owner' || teamMember?.role === 'owner' || teamMember?.role === 'admin' 
-                        ? 'Account Owner' 
-                        : teamMember?.role === 'manager' 
-                          ? 'Manager' 
-                          : teamMember?.role === 'scheduler' 
-                            ? 'Scheduler' 
-                            : teamMember?.role === 'worker' || teamMember?.role === 'technician' 
+                        {teamMember?.role === 'account owner' || teamMember?.role === 'owner' || teamMember?.role === 'admin' 
+                          ? 'Account Owner' 
+                          : teamMember?.role === 'manager' 
+                            ? 'Manager' 
+                            : teamMember?.role === 'scheduler' 
+                              ? 'Scheduler' 
+                              : teamMember?.role === 'worker' || teamMember?.role === 'technician' 
                               ? 'Team member' 
-                              : teamMember?.role || 'Team Member'}
-                    </p>
-                  </div>
+                                : teamMember?.role || 'Team Member'}
+                      </p>
+                    </div>
                 </div>
 
                 {/* Notification Banner */}

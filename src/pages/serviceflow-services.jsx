@@ -11,6 +11,7 @@ import { servicesAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
 import { getImageUrl, handleImageError } from "../utils/imageUtils"
 import { normalizeAPIResponse, handleAPIError } from "../utils/dataHandler"
+import { safeDecodeText } from "../utils/htmlUtils"
 import useServiceSettings from "../components/use-service-settings"
 
 const ServiceFlowServices = () => {
@@ -484,7 +485,7 @@ const ServiceFlowServices = () => {
         {service.image ? (
           <img
             src={getImageUrl(service.image)}
-            alt={service.name}
+            alt={safeDecodeText(service.name) || 'Service'}
             className="w-9 h-9 object-cover rounded flex-shrink-0"
             onError={(e) => handleImageError(e, null)}
           />
@@ -494,7 +495,9 @@ const ServiceFlowServices = () => {
           </div>
         )}
         <div className="flex flex-col min-w-0">
-          <span className="font-medium text-gray-900 text-sm truncate">{service.name}</span>
+          <span className="font-medium text-gray-900 text-sm truncate" title={safeDecodeText(service.name)}>
+            {safeDecodeText(service.name) || 'Unnamed Service'}
+          </span>
           <span className="text-xs text-gray-500">{service.price > 0 ? `${service.price}` : 'Free'}</span>
         </div>
       </div>

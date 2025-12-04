@@ -488,8 +488,53 @@ const ServiceFlowSchedule = () => {
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
   }
 
+  // Normalize customer data from API response - ensures customer fields are always in flat format
+  const normalizeCustomerData = (job) => {
+    if (!job) return job
+    
+    // Extract customer data from nested structures and ensure flat fields exist
+    const normalized = { ...job }
+    
+    // Normalize customer name fields
+    if (job.customers?.first_name || job.customers?.last_name) {
+      normalized.customer_first_name = job.customers.first_name || normalized.customer_first_name || ''
+      normalized.customer_last_name = job.customers.last_name || normalized.customer_last_name || ''
+    }
+    
+    // Normalize customer contact fields
+    if (job.customers?.email) {
+      normalized.customer_email = job.customers.email || normalized.customer_email || ''
+    }
+    if (job.customers?.phone) {
+      normalized.customer_phone = job.customers.phone || normalized.customer_phone || ''
+    }
+    
+    // Normalize customer address fields
+    if (job.customers?.address) {
+      normalized.customer_address = job.customers.address || normalized.customer_address || ''
+    }
+    if (job.customers?.city) {
+      normalized.customer_city = job.customers.city || normalized.customer_city || ''
+    }
+    if (job.customers?.state) {
+      normalized.customer_state = job.customers.state || normalized.customer_state || ''
+    }
+    if (job.customers?.zip_code) {
+      normalized.customer_zip_code = job.customers.zip_code || normalized.customer_zip_code || ''
+    }
+    
+    // Also preserve nested structure for backward compatibility
+    if (job.customers) {
+      normalized.customers = job.customers
+    }
+    
+    return normalized
+  }
+
   // Get customer name from job object - checks multiple possible locations
   const getCustomerName = (job) => {
+    if (!job) return ''
+    
     // Try direct customer_name field
     if (job.customer_name) return job.customer_name
     
@@ -738,8 +783,11 @@ const ServiceFlowSchedule = () => {
     try {
       const fullJobDetails = await jobsAPI.getById(job.id)
       if (fullJobDetails) {
+        // Normalize customer data to ensure flat fields exist
+        const normalizedJob = normalizeCustomerData(fullJobDetails)
+        
         // Parse status_history if it's a string
-        let parsedFullStatusHistory = fullJobDetails.status_history;
+        let parsedFullStatusHistory = normalizedJob.status_history;
         if (parsedFullStatusHistory && typeof parsedFullStatusHistory === 'string') {
           try {
             parsedFullStatusHistory = JSON.parse(parsedFullStatusHistory);
@@ -750,12 +798,12 @@ const ServiceFlowSchedule = () => {
         }
         
         const jobWithParsedHistory = {
-          ...fullJobDetails,
+          ...normalizedJob,
           status_history: parsedFullStatusHistory
         };
         
         // Merge with team member info if available
-        const memberId = fullJobDetails.assigned_team_member_id || fullJobDetails.team_member_id
+        const memberId = normalizedJob.assigned_team_member_id || normalizedJob.team_member_id
         if (memberId && teamMembers.length > 0) {
           const member = teamMembers.find(m => m.id === memberId)
           if (member) {
@@ -831,8 +879,11 @@ const ServiceFlowSchedule = () => {
       const updatedJob = await jobsAPI.getById(selectedJobDetails.id)
       const actualStatus = updatedJob?.status || newStatus
       
+      // Normalize customer data to ensure flat fields are preserved
+      const normalizedUpdatedJob = normalizeCustomerData(updatedJob)
+      
       // Parse status_history if it's a string
-      let parsedStatusHistory = updatedJob?.status_history;
+      let parsedStatusHistory = normalizedUpdatedJob?.status_history;
       if (parsedStatusHistory && typeof parsedStatusHistory === 'string') {
         try {
           parsedStatusHistory = JSON.parse(parsedStatusHistory);
@@ -845,12 +896,34 @@ const ServiceFlowSchedule = () => {
       console.log('Status update response:', { newStatus, actualStatus, updatedJob })
       
       // Update the job in local state with actual status from backend
-      setSelectedJobDetails(prev => ({ 
-        ...prev, 
-        status: actualStatus, 
-        ...updatedJob,
-        status_history: parsedStatusHistory
-      }))
+      // Preserve existing customer data if new data is missing
+      setSelectedJobDetails(prev => {
+        const merged = {
+          ...prev, // Preserve existing data
+          ...normalizedUpdatedJob, // Apply new data
+          status: actualStatus,
+          status_history: parsedStatusHistory
+        }
+        
+        // Ensure customer fields are preserved even if API doesn't return them
+        if (!merged.customer_first_name && prev?.customer_first_name) {
+          merged.customer_first_name = prev.customer_first_name
+        }
+        if (!merged.customer_last_name && prev?.customer_last_name) {
+          merged.customer_last_name = prev.customer_last_name
+        }
+        if (!merged.customer_email && prev?.customer_email) {
+          merged.customer_email = prev.customer_email
+        }
+        if (!merged.customer_phone && prev?.customer_phone) {
+          merged.customer_phone = prev.customer_phone
+        }
+        if (!merged.customer_address && prev?.customer_address) {
+          merged.customer_address = prev.customer_address
+        }
+        
+        return merged
+      })
       
       // Update the job in the main jobs list
       setJobs(prevJobs => prevJobs.map(job => 
@@ -2773,22 +2846,23 @@ const ServiceFlowSchedule = () => {
                       currentStatus
                     
                     // Determine next status and button label based on normalized status
+                    // Only show 3 options: En Route (confirmed), In Progress (in_progress), Complete (completed)
                     let nextStatus = null
-                    let buttonLabel = 'Update Status'
+                    let buttonLabel = 'Mark as En Route'
                     let buttonColor = 'bg-blue-600 hover:bg-blue-700'
                     let isDisabled = false
                     
-                    // Status progression: pending → confirmed → in-progress → completed
+                    // Status progression: pending → confirmed → in_progress → completed
                     if (normalizedStatus === 'pending' || normalizedStatus === 'scheduled') {
-                      nextStatus = 'pending' // This maps to en_route in backend
+                      nextStatus = 'confirmed' // Maps to "confirmed" in backend (En Route)
                       buttonLabel = 'Mark as En Route'
                       buttonColor = 'bg-blue-600 hover:bg-blue-700'
                     } else if (normalizedStatus === 'confirmed' || normalizedStatus === 'en_route' || normalizedStatus === 'enroute') {
-                      nextStatus = 'in-progress' // This maps to started in backend
-                      buttonLabel = 'Mark as Started'
+                      nextStatus = 'in_progress' // Maps to "in_progress" in backend (In Progress)
+                      buttonLabel = 'Mark as In Progress'
                       buttonColor = 'bg-orange-600 hover:bg-orange-700'
                     } else if (normalizedStatus === 'in-progress' || normalizedStatus === 'in_progress' || normalizedStatus === 'in_prog' || normalizedStatus === 'started') {
-                      nextStatus = 'completed' // This maps to complete in backend
+                      nextStatus = 'completed' // Maps to "completed" in backend (Complete)
                       buttonLabel = 'Mark as Complete'
                       buttonColor = 'bg-green-600 hover:bg-green-700'
                     } else if (normalizedStatus === 'completed' || normalizedStatus === 'complete' || normalizedStatus === 'done' || normalizedStatus === 'finished') {
@@ -2824,24 +2898,26 @@ const ServiceFlowSchedule = () => {
                   {showStatusMenu && (
                     <div className="absolute top-full right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
                       <div className="py-2">
-                        {['pending', 'confirmed', 'in-progress', 'completed', 'cancelled'].map((status) => {
+                        {[
+                          { label: 'Mark as En Route', backendStatus: 'confirmed', color: 'bg-blue-500' },
+                          { label: 'Mark as In Progress', backendStatus: 'in_progress', color: 'bg-orange-500' },
+                          { label: 'Mark as Complete', backendStatus: 'completed', color: 'bg-green-500' }
+                        ].map((statusOption) => {
                           const currentStatus = (selectedJobDetails?.status || 'pending').toLowerCase().trim()
                           // Normalize for comparison: scheduled=pending, en_route=confirmed, started=in-progress, complete=completed
                           const normalizedCurrent = 
-                            currentStatus === 'scheduled' ? 'Mark as Scheduled' :
-                            currentStatus === 'en_route' || currentStatus === 'pending' ? 'confirmed' :
-                            currentStatus === 'started' ? 'in-progress' :
-                            currentStatus === 'complete' ? 'completed' :
-                            currentStatus === 'in_progress' || currentStatus === 'in_prog' ? 'in-progress' :
-                            currentStatus === 'canceled' ? 'cancelled' :
+                            currentStatus === 'scheduled' || currentStatus === 'pending' ? 'confirmed' :
+                            currentStatus === 'en_route' || currentStatus === 'enroute' ? 'confirmed' :
+                            currentStatus === 'started' || currentStatus === 'in_progress' || currentStatus === 'in_prog' || currentStatus === 'in-progress' ? 'in_progress' :
+                            currentStatus === 'complete' || currentStatus === 'completed' ? 'completed' :
                             currentStatus
-                          const isCurrentStatus = normalizedCurrent === status
+                          const isCurrentStatus = normalizedCurrent === statusOption.backendStatus
                           
                           return (
                             <button
-                              key={status}
+                              key={statusOption.backendStatus}
                               onClick={() => {
-                                handleStatusChange(status)
+                                handleStatusChange(statusOption.backendStatus)
                                 setShowStatusMenu(false)
                               }}
                               disabled={isUpdatingStatus}
@@ -2849,14 +2925,8 @@ const ServiceFlowSchedule = () => {
                                 isCurrentStatus ? 'bg-blue-50 text-blue-700' : ''
                               }`}
                             >
-                              <div className={`w-3 h-3 rounded-full ${
-                                status === 'pending' ? 'bg-yellow-500' :
-                                status === 'confirmed' ? 'bg-blue-500' :
-                                status === 'in-progress' ? 'bg-orange-500' :
-                                status === 'completed' ? 'bg-green-500' :
-                                'bg-red-500'
-                              }`}></div>
-                              <span className="capitalize">{status.replace('-', ' ')}</span>
+                              <div className={`w-3 h-3 rounded-full ${statusOption.color}`}></div>
+                              <span>{statusOption.label}</span>
                             </button>
                           )
                         })}
@@ -3162,28 +3232,26 @@ const ServiceFlowSchedule = () => {
 
               {/* Invoice */}
               <div className="bg-white border-b border-gray-200">
-                <div className="px-6 py-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg font-bold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Invoice</span>
-                      <span className="px-3 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
-                        {selectedJobDetails.invoice_status === 'paid' ? 'Paid' : 
-                         selectedJobDetails.invoice_status === 'sent' ? 'Sent' : 
-                         selectedJobDetails.invoice_status === 'draft' ? 'Draft' : 
-                         'Draft'}
-                      </span>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          if (selectedJobDetails.invoice_id) {
-                            navigate(`/invoices/${selectedJobDetails.invoice_id}`)
-                          }
-                        }}
-                        className="text-gray-400 hover:text-gray-600 transition-colors"
-                      >
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
-                    </div>
+                <div className="px-6 py-5">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xl font-bold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Invoice</span>
+                    <span className="px-2.5 py-0.5 text-xs font-semibold rounded-md bg-gray-100 text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                      {selectedJobDetails.invoice_status === 'paid' ? 'Paid' : 
+                       selectedJobDetails.invoice_status === 'sent' ? 'Sent' : 
+                       selectedJobDetails.invoice_status === 'draft' ? 'Draft' : 
+                       'Draft'}
+                    </span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (selectedJobDetails.invoice_id) {
+                          navigate(`/invoices/${selectedJobDetails.invoice_id}`)
+                        }
+                      }}
+                      className="text-gray-500 hover:text-gray-700 transition-colors"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
                   </div>
                   <p className="text-sm text-gray-500 mb-4" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                     Due {selectedJobDetails.invoice_due_date 
@@ -3191,18 +3259,18 @@ const ServiceFlowSchedule = () => {
                       : new Date(new Date().getTime() + 15 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                   </p>
                   
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-start justify-between">
                     <div>
-                      <p className="text-xs text-gray-500 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Amount paid</p>
-                      <p className="font-bold text-gray-900 text-lg" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
+                      <p className="text-lg font-bold text-gray-900 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
                         ${(selectedJobDetails.invoice_paid_amount || selectedJobDetails.amount_paid || 0).toFixed(2)}
                       </p>
+                      <p className="text-xs text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Amount paid</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-xs text-gray-500 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Amount due</p>
-                      <p className="font-bold text-gray-900 text-lg" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
+                      <p className="text-lg font-bold text-gray-900 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
                         ${((selectedJobDetails.total || selectedJobDetails.price || selectedJobDetails.service_price || 0) - (selectedJobDetails.invoice_paid_amount || selectedJobDetails.amount_paid || 0)).toFixed(2)}
                       </p>
+                      <p className="text-xs text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Amount due</p>
                     </div>
                   </div>
                 </div>
@@ -3210,9 +3278,9 @@ const ServiceFlowSchedule = () => {
 
               {/* Customer */}
               <div className="bg-white border-b border-gray-200">
-                <div className="px-6 py-4">
+                <div className="px-6 py-5">
                   <div className="flex items-center justify-between mb-4">
-                    <span className="text-sm font-medium text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>Customer</span>
+                    <span className="text-sm font-bold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Customer</span>
                     <button 
                       onClick={handleEditCustomer}
                       className="text-sm text-blue-600 hover:text-blue-700 font-medium"
@@ -3221,18 +3289,22 @@ const ServiceFlowSchedule = () => {
                       Edit
                     </button>
                   </div>
-                  <div className="flex items-center gap-3 mb-4">
+                  <div className="flex items-start gap-3">
                     <div 
-                      className="w-16 h-16 rounded-full flex items-center justify-center text-white text-lg font-semibold flex-shrink-0"
+                      className="w-12 h-12 rounded-full flex items-center justify-center text-white text-base font-semibold flex-shrink-0"
                       style={{ 
                         backgroundColor: '#10B981' // Green color as shown in screenshot
                       }}
                     >
-                      {(selectedJobDetails.customer_first_name?.[0] || 'A')}{(selectedJobDetails.customer_last_name?.[0] || 'A')}
+                      {(() => {
+                        const firstName = selectedJobDetails.customer_first_name || selectedJobDetails.customers?.first_name || ''
+                        const lastName = selectedJobDetails.customer_last_name || selectedJobDetails.customers?.last_name || ''
+                        return `${firstName[0] || 'A'}${lastName[0] || 'A'}`
+                      })()}
                     </div>
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       <p 
-                        className="font-bold text-gray-900 text-base mb-0 cursor-pointer hover:text-blue-600 transition-colors" 
+                        className="font-bold text-gray-900 text-lg mb-3 cursor-pointer hover:text-blue-600 transition-colors" 
                         style={{ fontFamily: 'Montserrat', fontWeight: 700 }}
                         onClick={(e) => {
                           e.stopPropagation()
@@ -3244,41 +3316,45 @@ const ServiceFlowSchedule = () => {
                       >
                         {getCustomerName(selectedJobDetails) || 'Customer'}
                       </p>
+                      {(selectedJobDetails.customer_phone || selectedJobDetails.customers?.phone) && (
+                        <div className="flex items-center gap-2 text-sm text-gray-700 mb-2">
+                          <Phone className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                          <span style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                            {selectedJobDetails.customer_phone || selectedJobDetails.customers?.phone}
+                          </span>
+                        </div>
+                      )}
+                      {(selectedJobDetails.customer_email || selectedJobDetails.customers?.email) && (
+                        <div className="flex items-center gap-2 text-sm text-gray-700">
+                          <Mail className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                          <span className="truncate" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                            {selectedJobDetails.customer_email || selectedJobDetails.customers?.email}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
-                  {selectedJobDetails.customer_phone && (
-                    <div className="flex items-center gap-2 text-sm text-gray-700 mb-2">
-                      <Phone className="w-4 h-4 text-gray-500" />
-                      <span style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{selectedJobDetails.customer_phone}</span>
-                    </div>
-                  )}
-                  {selectedJobDetails.customer_email && (
-                    <div className="flex items-center gap-2 text-sm text-gray-700">
-                      <Mail className="w-4 h-4 text-gray-500" />
-                      <span style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{selectedJobDetails.customer_email}</span>
-                    </div>
-                  )}
                 </div>
               </div>
 
               {/* Billing Address */}
               <div className="bg-white border-b border-gray-200">
-                <div className="px-6 py-4">
+                <div className="px-6 py-5">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Billing Address</span>
+                    <span className="text-xs font-bold text-gray-900 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>BILLING ADDRESS</span>
                     <button className="text-sm text-blue-600 hover:text-blue-700 font-medium" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>Edit</button>
                   </div>
-                  <p className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Same as service address</p>
+                  <p className="text-sm text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Same as service address</p>
                 </div>
               </div>
 
               {/* Expected Payment Method */}
               <div className="bg-white border-b border-gray-200">
-                <div className="px-6 py-4">
-                  <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-3" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Expected Payment Method</span>
-                  <div className="flex items-center gap-2 mb-2">
+                <div className="px-6 py-5">
+                  <span className="text-xs font-bold text-gray-900 uppercase tracking-wider block mb-3" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>EXPECTED PAYMENT METHOD</span>
+                  <div className="flex items-center gap-2 mb-3">
                     <CreditCard className="w-5 h-5 text-gray-400" strokeWidth={1.5} />
-                    <p className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>No payment method on file</p>
+                    <p className="text-sm text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>No payment method on file</p>
                   </div>
                   <button className="text-sm text-blue-600 hover:text-blue-700 font-medium" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>Add a card to charge later</button>
                 </div>
@@ -3286,15 +3362,11 @@ const ServiceFlowSchedule = () => {
 
               {/* Team */}
               <div className="bg-white border-b border-gray-200">
-                <div className="px-6 py-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Team</span>
-                  </div>
-                  
+                <div className="px-6 py-5">
                   {/* Territory */}
-                  <div className="mb-4">
+                  <div className="mb-5 pb-5 border-b border-gray-200">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-bold text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Territory</span>
+                      <span className="text-xs font-bold text-gray-900 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Territory</span>
                     </div>
                     <div className="relative">
                       <select
@@ -3317,25 +3389,50 @@ const ServiceFlowSchedule = () => {
                   </div>
                   
                   {/* Job Requirements */}
-                  <div className="mb-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-bold text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Job Requirements</span>
+                  <div className="mb-5 pb-5 border-b border-gray-200">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-xs font-bold text-gray-900 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>JOB REQUIREMENTS</span>
                       <button className="text-sm text-blue-600 hover:text-blue-700 font-medium" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                         Edit
                       </button>
                     </div>
-                    <p className="text-sm text-gray-600 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
-                      Workers needed: <span className="font-semibold text-gray-900">{selectedJobDetails.workers_needed || 1} service provider</span>
-                    </p>
-                    <p className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
-                      Skills needed: <span className="font-semibold text-gray-900">No skill tags required</span>
-                    </p>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Workers needed</span>
+                        <span className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                          {selectedJobDetails.workers_needed || 1} service provider
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Skills needed</span>
+                        <span className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                          {(() => {
+                            const skills = selectedJobDetails.skills || selectedJobDetails.skills_required
+                            if (skills) {
+                              if (typeof skills === 'string') {
+                                try {
+                                  const parsed = JSON.parse(skills)
+                                  if (Array.isArray(parsed) && parsed.length > 0) {
+                                    return parsed.join(', ')
+                                  }
+                                } catch (e) {
+                                  return skills
+                                }
+                              } else if (Array.isArray(skills) && skills.length > 0) {
+                                return skills.join(', ')
+                              }
+                            }
+                            return 'No skill tags required'
+                          })()}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                   
                   {/* Assigned */}
-                  <div>
+                  <div className="mb-5 pb-5 border-b border-gray-200">
                     <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs font-bold text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Assigned</span>
+                      <span className="text-xs font-bold text-gray-900 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>ASSIGNED</span>
                       <button 
                         onClick={handleOpenAssignModal}
                         className="text-sm text-blue-600 hover:text-blue-700 font-medium"
@@ -3350,7 +3447,9 @@ const ServiceFlowSchedule = () => {
                       
                       return assignedMember ? (
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold">
+                          <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-semibold flex-shrink-0"
+                            style={{ backgroundColor: assignedMember.color || '#2563EB' }}
+                          >
                             {assignedMember.profile_picture ? (
                               <img 
                                 src={getImageUrl(assignedMember.profile_picture)} 
@@ -3363,27 +3462,61 @@ const ServiceFlowSchedule = () => {
                                 : assignedMember.email || 'AA')
                             )}
                           </div>
-                          <div>
-                            <p className="font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-gray-900 text-sm" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                               {assignedMember.first_name} {assignedMember.last_name}
                             </p>
                             {assignedMember.email && (
-                              <p className="text-xs text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                              <p className="text-xs text-gray-500 truncate" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                                 {assignedMember.email}
                               </p>
                             )}
                           </div>
                         </div>
                       ) : (
-                        <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 text-center">
-                          <UserX className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                          <p className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Unassigned</p>
-                          <p className="text-xs text-gray-500 mt-1" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                        <div className="text-center py-4">
+                          <UserX className="w-10 h-10 text-gray-400 mx-auto mb-3" />
+                          <p className="text-sm font-medium text-gray-700 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>Unassigned</p>
+                          <p className="text-xs text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                             No service providers are assigned to this job
                           </p>
                         </div>
                       )
                     })()}
+                  </div>
+                  
+                  {/* Offer job to service providers */}
+                  <div>
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex-1">
+                        <p className="text-sm font-bold text-gray-900 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
+                          Offer job to service providers
+                        </p>
+                        <p className="text-xs text-gray-500 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                          Allows qualified, available providers to see and claim this job.
+                        </p>
+                        <button className="text-xs text-blue-600 hover:text-blue-700 font-medium" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                          Learn more
+                        </button>
+                      </div>
+                      <div className="ml-4 flex-shrink-0">
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={selectedJobDetails.offer_to_providers || false}
+                            onChange={(e) => {
+                              // Handle toggle - you can add API call here
+                              setSelectedJobDetails(prev => ({
+                                ...prev,
+                                offer_to_providers: e.target.checked
+                              }))
+                            }}
+                            className="sr-only peer"
+                          />
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                        </label>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

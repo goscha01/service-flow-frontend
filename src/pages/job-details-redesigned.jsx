@@ -415,8 +415,8 @@ const JobDetails = () => {
             setJob(mappedJobData)
           } else {
             // Fallback: Update local state if API refresh fails
-            setJob(prev => ({ 
-              ...prev, 
+        setJob(prev => ({ 
+          ...prev, 
               assigned_team_member: {
                 id: teamMember.id,
                 first_name: teamMember.first_name,
@@ -442,14 +442,14 @@ const JobDetails = () => {
             assigned_team_member_id: selectedTeamMember
           }))
         }
-        
+          
         setSuccessMessage(`Team member ${teamMember.first_name} ${teamMember.last_name} assigned successfully!`)
-        setTimeout(() => setSuccessMessage(''), 3000)
-        
-        setShowAssignModal(false)
-        setSelectedTeamMember('')
-      } else {
-        setError(`Team member not found. Selected: ${selectedTeamMember}, Available: ${teamMembers.map(m => m.id).join(', ')}`)
+          setTimeout(() => setSuccessMessage(''), 3000)
+          
+          setShowAssignModal(false)
+          setSelectedTeamMember('')
+        } else {
+          setError(`Team member not found. Selected: ${selectedTeamMember}, Available: ${teamMembers.map(m => m.id).join(', ')}`)
       }
       
     } catch (error) {
@@ -1778,22 +1778,23 @@ const JobDetails = () => {
             currentStatus
           
           // Determine next status and button label based on normalized status
+          // Only show 3 options: En Route (confirmed), In Progress (in_progress), Complete (completed)
           let nextStatus = null
-          let buttonLabel = 'Update Status'
+          let buttonLabel = 'Mark as En Route'
           let buttonColor = 'bg-blue-600 hover:bg-blue-700'
           let isDisabled = false
           
-          // Status progression: pending → confirmed → in-progress → completed
+          // Status progression: pending → confirmed → in_progress → completed
           if (normalizedStatus === 'pending' || normalizedStatus === 'scheduled') {
-            nextStatus = 'confirmed' // This maps to en_route in backend
+            nextStatus = 'confirmed' // Maps to "confirmed" in backend (En Route)
             buttonLabel = 'Mark as En Route'
             buttonColor = 'bg-blue-600 hover:bg-blue-700'
           } else if (normalizedStatus === 'confirmed' || normalizedStatus === 'en_route' || normalizedStatus === 'enroute') {
-            nextStatus = 'in-progress' // This maps to started in backend
-            buttonLabel = 'Mark as Started'
+            nextStatus = 'in_progress' // Maps to "in_progress" in backend (In Progress)
+            buttonLabel = 'Mark as In Progress'
             buttonColor = 'bg-orange-600 hover:bg-orange-700'
           } else if (normalizedStatus === 'in-progress' || normalizedStatus === 'in_progress' || normalizedStatus === 'in_prog' || normalizedStatus === 'started') {
-            nextStatus = 'completed' // This maps to complete in backend
+            nextStatus = 'completed' // Maps to "completed" in backend (Complete)
             buttonLabel = 'Mark as Complete'
             buttonColor = 'bg-green-600 hover:bg-green-700'
           } else if (normalizedStatus === 'completed' || normalizedStatus === 'complete' || normalizedStatus === 'done' || normalizedStatus === 'finished') {
@@ -1829,24 +1830,26 @@ const JobDetails = () => {
         
         {statusDropdown && (
           <div className="absolute top-full mt-2 left-0 bg-white rounded-lg shadow-xl border border-gray-200 py-2 min-w-[200px] z-10">
-            {['pending', 'confirmed', 'in-progress', 'completed', 'cancelled'].map((status) => {
+            {[
+              { label: 'Mark as En Route', backendStatus: 'confirmed', color: 'bg-blue-500' },
+              { label: 'Mark as In Progress', backendStatus: 'in_progress', color: 'bg-orange-500' },
+              { label: 'Mark as Complete', backendStatus: 'completed', color: 'bg-green-500' }
+            ].map((statusOption) => {
               const currentStatus = (job?.status || 'pending').toLowerCase().trim()
               // Normalize for comparison: scheduled=pending, en_route=confirmed, started=in-progress, complete=completed
               const normalizedCurrent = 
-                currentStatus === 'scheduled' ? 'pending' :
+                currentStatus === 'scheduled' || currentStatus === 'pending' ? 'confirmed' :
                 currentStatus === 'en_route' || currentStatus === 'enroute' ? 'confirmed' :
-                currentStatus === 'started' ? 'in-progress' :
-                currentStatus === 'complete' ? 'completed' :
-                currentStatus === 'in_progress' || currentStatus === 'in_prog' ? 'in-progress' :
-                currentStatus === 'canceled' ? 'cancelled' :
+                currentStatus === 'started' || currentStatus === 'in_progress' || currentStatus === 'in_prog' || currentStatus === 'in-progress' ? 'in_progress' :
+                currentStatus === 'complete' || currentStatus === 'completed' ? 'completed' :
                 currentStatus
-              const isCurrentStatus = normalizedCurrent === status
+              const isCurrentStatus = normalizedCurrent === statusOption.backendStatus
               
               return (
                 <button
-                  key={status}
+                  key={statusOption.backendStatus}
                   onClick={() => {
-                    handleStatusUpdate(status)
+                    handleStatusUpdate(statusOption.backendStatus)
                     setStatusDropdown(false)
                   }}
                   disabled={loading}
@@ -1854,14 +1857,8 @@ const JobDetails = () => {
                     isCurrentStatus ? 'bg-blue-50 text-blue-700' : ''
                   }`}
                 >
-                  <div className={`w-3 h-3 rounded-full ${
-                    status === 'pending' ? 'bg-yellow-500' :
-                    status === 'confirmed' ? 'bg-blue-500' :
-                    status === 'in-progress' ? 'bg-orange-500' :
-                    status === 'completed' ? 'bg-green-500' :
-                    'bg-red-500'
-                  }`}></div>
-                  <span className="capitalize">{status.replace('-', ' ')}</span>
+                  <div className={`w-3 h-3 rounded-full ${statusOption.color}`}></div>
+                  <span>{statusOption.label}</span>
                 </button>
               )
             })}
