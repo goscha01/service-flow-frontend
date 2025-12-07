@@ -74,6 +74,7 @@ import StatusProgressBar from "../components/status-progress-bar"
 import { formatPhoneNumber } from "../utils/phoneFormatter"
 import { formatDateLocal } from "../utils/dateUtils"
 import { formatRecurringFrequency } from "../utils/recurringUtils"
+import { canViewCustomerContact } from "../utils/permissionUtils"
 
 const JobDetails = () => {
   const { jobId } = useParams();
@@ -1676,13 +1677,16 @@ const JobDetails = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
+      {/* Sidebar */}
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
-      <div className="flex-1 min-w-0 px-40">
+      {/* Main Content Area */}
+      <div className="flex-1 min-w-0 lg:ml-52 xl:ml-52 px-4 sm:px-6 lg:px-40">
         {/* Mobile Header */}
         <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
         
-        {/* Header */}
-        <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4">
+        {/* Header - Hidden on mobile, shown on desktop */}
+        <div className="hidden lg:block bg-white border-b border-gray-200 px-4 sm:px-6 py-4">
           <div className="mb-4">
             <button
               className="flex items-center text-gray-600 hover:text-gray-700 flex-shrink-0"
@@ -2722,20 +2726,28 @@ const JobDetails = () => {
                 </div>
               </div>
 
-              <div className="space-y-4 mb-6 px-6">   
-                <div className="flex items-center space-x-3 text-sm">
-                  <Phone className="w-4 h-4 text-gray-500" />
-                  <span className="text-gray-700 font-medium">
-                    {job.customer_phone ? formatPhoneNumber(job.customer_phone) : 'Phone placeholder'}
-                  </span>
+              {/* Contact Info - Phone and Email (conditional based on permission) */}
+              {canViewCustomerContact(user) && (
+                <div className="space-y-4 mb-6 px-6">   
+                  <div className="flex items-center space-x-3 text-sm">
+                    <Phone className="w-4 h-4 text-gray-500" />
+                    <span className="text-gray-700 font-medium">
+                      {job.customer_phone ? formatPhoneNumber(job.customer_phone) : 'Phone placeholder'}
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-3 text-sm">
+                    <Mail className="w-4 h-4 text-gray-500" />
+                    <span className="text-gray-700 font-medium truncate">
+                      {job.customer_email || 'No email address'}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-3 text-sm">
-                  <Mail className="w-4 h-4 text-gray-500" />
-                  <span className="text-gray-700 font-medium truncate">
-                    {job.customer_email || 'No email address'}
-                  </span>
+              )}
+              {!canViewCustomerContact(user) && (
+                <div className="mb-6 px-6">
+                  <p className="text-xs text-gray-500 italic">Contact information not available</p>
                 </div>
-              </div>
+              )}
 
               {/* Billing Address Section */}
               <div className="mb-6 border-t border-gray-200 px-6 pt-3">
@@ -3211,20 +3223,25 @@ const JobDetails = () => {
                       </div>
                     </div>
 
-                    <div className="space-y-3">
-                      <div className="flex items-center space-x-2 text-sm">
-                        <Phone className="w-4 h-4 text-gray-400" />
-                        <span className="text-gray-700">
-                          {formatPhoneNumber(job.customer_phone)}
-                        </span>
+                    {/* Contact Info - Phone and Email (conditional based on permission) */}
+                    {canViewCustomerContact(user) ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center space-x-2 text-sm">
+                          <Phone className="w-4 h-4 text-gray-400" />
+                          <span className="text-gray-700">
+                            {formatPhoneNumber(job.customer_phone)}
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-2 text-sm">
+                          <Mail className="w-4 h-4 text-gray-400" />
+                          <span className="text-gray-700 truncate">
+                            {job.customer_email}
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex items-center space-x-2 text-sm">
-                        <Mail className="w-4 h-4 text-gray-400" />
-                        <span className="text-gray-700 truncate">
-                          {job.customer_email}
-                        </span>
-                      </div>
-                    </div>
+                    ) : (
+                      <p className="text-xs text-gray-500 italic">Contact information not available</p>
+                    )}
                   </div>
 
                   {/* Job Requirements Section */}

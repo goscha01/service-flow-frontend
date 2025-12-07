@@ -61,7 +61,8 @@ const DashboardRedesigned = () => {
     recurringBookings: 0,
     jobValue: 0,
     customerSatisfaction: 0,
-    totalRevenue: 0
+    totalRevenue: 0,
+    incompleteJobsToday: 0
   })
 
   // Chart data state for time-series
@@ -347,11 +348,16 @@ const DashboardRedesigned = () => {
         setTerritories([])
       }
 
-      // Calculate today's data
+      // Calculate data for the selected date
       const selectedDateObj = new Date(selectedDate + 'T00:00:00')
       const selectedDayString = selectedDateObj.toLocaleDateString('en-CA')
 
-      const todayJobs = jobs.filter(job => {
+      // Get today's date string in YYYY-MM-DD format
+      const today = new Date()
+      const todayString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+
+      // Filter jobs for the selected date
+      const selectedDateJobs = jobs.filter(job => {
         let jobDateString = ''
         if (job.scheduled_date) {
           if (job.scheduled_date.includes('T')) {
@@ -363,7 +369,33 @@ const DashboardRedesigned = () => {
         return jobDateString === selectedDayString
       })
 
-      const todayEarnings = todayJobs.reduce((sum, job) => {
+      // Calculate incomplete jobs from the past (scheduled before today, not completed or cancelled)
+      const pastIncompleteJobs = jobs.filter(job => {
+        // Get job date string
+        let jobDateString = ''
+        if (job.scheduled_date) {
+          if (job.scheduled_date.includes('T')) {
+            jobDateString = job.scheduled_date.split('T')[0]
+          } else {
+            jobDateString = job.scheduled_date.split(' ')[0]
+          }
+        }
+        
+        // Only include jobs from the past (before today)
+        if (!jobDateString || jobDateString >= todayString) {
+          return false
+        }
+        
+        // Check if job is incomplete (not completed or cancelled)
+        const status = (job.status || 'pending')?.toLowerCase().trim()
+        const isCompleted = status === 'completed' || status === 'complete' || status === 'done' || status === 'finished'
+        const isCancelled = status === 'cancelled' || status === 'canceled' || status === 'cancel'
+        
+        // Return true if job is from the past AND NOT completed and NOT cancelled
+        return !isCompleted && !isCancelled
+      })
+
+      const todayEarnings = selectedDateJobs.reduce((sum, job) => {
         const invoice = invoices.find(inv =>
           inv.job_id === job.id ||
           inv.jobId === job.id ||
@@ -377,7 +409,7 @@ const DashboardRedesigned = () => {
         return sum + jobValue
       }, 0)
 
-      const todayDuration = todayJobs.reduce((sum, job) => {
+      const todayDuration = selectedDateJobs.reduce((sum, job) => {
         return sum + (parseInt(job.service_duration || 0))
       }, 0)
 
@@ -440,7 +472,7 @@ const DashboardRedesigned = () => {
       }).length
 
       const newDashboardData = {
-        todayJobs: todayJobs.length,
+        todayJobs: selectedDateJobs.length,
         todayDuration: todayDuration,
         todayEarnings: todayEarnings,
         newJobs: newJobs,
@@ -451,11 +483,12 @@ const DashboardRedesigned = () => {
         recurringBookings: recurringJobs.length,
         jobValue: avgJobValue,
         customerSatisfaction: 0,
-        totalRevenue: totalRevenue
+        totalRevenue: totalRevenue,
+        incompleteJobsToday: pastIncompleteJobs.length
       }
 
       setDashboardData(newDashboardData)
-      setTodayJobsList(todayJobs)
+      setTodayJobsList(selectedDateJobs)
 
       // Calculate chart data for time-series
       const calculateChartData = () => {
@@ -686,7 +719,6 @@ const DashboardRedesigned = () => {
     <>
       <div className="flex min-h-screen">
         {/* Sidebar */}
-       
         {/* Customer Modal */}
         <CustomerModal
           isOpen={showCustomerModal}
@@ -697,7 +729,6 @@ const DashboardRedesigned = () => {
         {/* Main Content */}
         <div className="flex-1 flex flex-col min-w-0">
           {/* Mobile Header */}
-          <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
 
         {/* Trial Banner */}
         <div className="bg-amber-50 border m-2 sm:m-4 rounded-lg border-amber-500 px-5 lg:px-40 xl:px-44 2xl:px-48 py-3">
@@ -722,44 +753,6 @@ const DashboardRedesigned = () => {
                 >
                   <span>NEW</span>
                   <Plus className="w-4 h-4" />
-                </button>
-                {showNewMenu && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
-                    {newOptions.map((option, index) => (
-                      <div
-                        key={index}
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => handleNewOptionClick(option)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleNewOptionClick(option)}
-                        className="w-full px-4 py-3 hover:bg-gray-50 cursor-pointer select-none active:bg-gray-100 border-b border-gray-100 last:border-0"
-                      >
-                        <div className="flex items-center space-x-3">
-                          <option.icon className="w-4 h-4 text-gray-500" />
-                          <span className="text-sm text-gray-700">{option.title}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Mobile Header Content */}
-          <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-lg sm:text-xl font-display font-semibold text-gray-900">{getGreeting()}, {getUserDisplayName()}.</h1>
-                <p className="text-sm text-gray-600 mt-1">Here's how Just_web is doing today.</p>
-              </div>
-              <div className="relative" ref={newMenuRef}>
-                <button
-                  onClick={() => setShowNewMenu(!showNewMenu)}
-                  className="bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-medium flex items-center space-x-1 hover:bg-blue-700 transition-colors duration-200"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>New</span>
                 </button>
                 {showNewMenu && (
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
@@ -817,9 +810,9 @@ const DashboardRedesigned = () => {
 
                 {/* Setup Section */}
                 {setupCheckCompleted && showSetupSection && !setupSectionDismissed && (
-                  <div className="bg-white rounded-lg border border-gray-200 p-6">
-                    <div className="flex items-center justify-between mb-6">
-                      <h2 className="text-base font-semibold text-gray-900">Finish setting up your account</h2>
+                  <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
+                    <div className="flex items-center justify-between mb-4 sm:mb-6">
+                      <h2 className="text-sm sm:text-base font-semibold text-gray-900">Finish setting up your account</h2>
                       <button
                         onClick={dismissSetupSection}
                         className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -859,17 +852,25 @@ const DashboardRedesigned = () => {
                     </div>
                   </div>
                 )}
-                {/* Incomplete Jobs Section */}
-                <div className="bg-white flex items-center justify-between rounded-lg border border-gray-200 px-3 py-3">
-                  <h2 className="text-base font-medium text-gray-600 flex items-center gap-2"> <BookAlert className="w-4 h-4" />  2 Incomplete Jobs</h2>
-                  <button className="text-gray-400 hover:text-gray-600 transition-colors">
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
+                {/* Incomplete Jobs Section - Only show if there are incomplete jobs for the selected date */}
+                {dashboardData.incompleteJobsToday && dashboardData.incompleteJobsToday > 0 ? (
+                  <div 
+                    onClick={() => navigate('/jobs?tab=incomplete')}
+                    className="bg-white flex items-center justify-between rounded-lg border border-gray-200 px-3 sm:px-4 py-2.5 sm:py-3 cursor-pointer hover:bg-gray-50 transition-colors"
+                  >
+                    <h2 className="text-sm sm:text-base font-medium text-gray-600 flex items-center gap-2">
+                      <BookAlert className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                      <span className="truncate">{dashboardData.incompleteJobsToday} {dashboardData.incompleteJobsToday === 1 ? 'Incomplete Job' : 'Incomplete Jobs'}</span>
+                    </h2>
+                    <button className="text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0 ml-2">
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : null}
                 
                 {/* Today Section */}
-                <div className="bg-white rounded-lg border border-gray-200 py-6">
-                  <div className="flex items-center justify-between px-6 py-3 border-b border-gray-200 pb-3">
+                <div className="bg-white rounded-lg border border-gray-200 py-4 sm:py-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-4 sm:px-6 py-3 border-b border-gray-200 pb-3 gap-3 sm:gap-0">
                     <div className="flex items-center gap-3">
                       <h2 className="text-base font-semibold text-gray-900">Today</h2>
                       <div className="relative">
@@ -893,37 +894,114 @@ const DashboardRedesigned = () => {
                         />
                       </div>
                     </div>
-                    <div className="flex gap-4 items-center">
-                    <div className="items-center justify-center flex-1">
-                      <div className="text-lg font-medium text-gray-900">{dashboardData.todayJobs} jobs</div>
-                      <div className="text-xs text-gray-400 mb-1">On the schedule</div>
+                    <div className="flex gap-3 sm:gap-4 items-center justify-between sm:justify-end">
+                      <div className="items-center justify-center text-center sm:text-left">
+                        <div className="text-base sm:text-lg font-medium text-gray-900">{dashboardData.todayJobs} jobs</div>
+                        <div className="text-xs text-gray-400">On the schedule</div>
                       </div>
-                    <div>
-                    <div className="text-lg font-medium text-gray-900">{Math.floor(dashboardData.todayDuration / 60)}h {dashboardData.todayDuration % 60}m</div>
-                    <div className="text-xs text-gray-400 mb-1">Est. duration</div>
+                      <div className="items-center justify-center text-center sm:text-left">
+                        <div className="text-base sm:text-lg font-medium text-gray-900">{Math.floor(dashboardData.todayDuration / 60)}h {dashboardData.todayDuration % 60}m</div>
+                        <div className="text-xs text-gray-400">Est. duration</div>
+                      </div>
+                      <div className="items-center justify-center text-center sm:text-left">
+                        <div className="text-base sm:text-lg font-medium text-gray-900">${dashboardData.todayEarnings}</div>
+                        <div className="text-xs text-gray-400">Est. earnings</div>
+                      </div>
                     </div>
-                    <div>
-                    <div className="text-lg font-medium text-gray-900">${dashboardData.todayEarnings}</div>
-                    <div className="text-xs text-gray-400 mb-1">Est. earnings</div>
-                       </div>
-                  </div>
                   </div>
 
                  
 
                   {/* Today's Jobs Map */}
-                  <div className="border border-gray-200 flex flex-row overflow-hidden">
+                  <div className="border border-gray-200 flex flex-col md:flex-row overflow-hidden">
                    
-                  <div className="h-80 w-1/2 relative bg-gray-50 flex flex-col items-center justify-center">
-                   <div className="flex items-center justify-center w-12 h-12 bg-gray-100 rounded-lg mb-3 items-center justify-center">
-                              <Calendar className="w-6 h-6 text-gray-400" />
+                  {dashboardData.todayJobs > 0 && todayJobsList.length > 0 ? (
+                    <div className="h-64 md:h-80 w-full md:w-1/2 relative bg-gray-50 overflow-y-auto">
+                      <div className="p-3 sm:p-4 space-y-2 sm:space-y-3">
+                        {todayJobsList.map((job) => {
+                          const formatTime = (dateString) => {
+                            if (!dateString) return 'Time not set'
+                            let timePart = ''
+                            if (dateString.includes('T')) {
+                              timePart = dateString.split('T')[1]
+                            } else {
+                              timePart = dateString.split(' ')[1]
+                            }
+                            if (!timePart) return 'Time not set'
+                            const [hours, minutes] = timePart.split(':')
+                            const hour = parseInt(hours, 10)
+                            const minute = parseInt(minutes, 10)
+                            if (isNaN(hour) || isNaN(minute)) return 'Time not set'
+                            const ampm = hour >= 12 ? 'PM' : 'AM'
+                            const displayHour = hour % 12 || 12
+                            const displayMinute = minute.toString().padStart(2, '0')
+                            return `${displayHour}:${displayMinute} ${ampm}`
+                          }
+                          
+                          const formatDate = (dateString) => {
+                            if (!dateString) return ''
+                            let jobDateString = ''
+                            if (dateString.includes('T')) {
+                              jobDateString = dateString.split('T')[0]
+                            } else {
+                              jobDateString = dateString.split(' ')[0]
+                            }
+                            const [year, month, day] = jobDateString.split('-')
+                            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+                            return `${months[parseInt(month) - 1]} ${parseInt(day)}, ${year}`
+                          }
+                          
+                          return (
+                            <div
+                              key={job.id}
+                              onClick={() => navigate(`/job/${job.id}`)}
+                              className="bg-white rounded-lg border border-gray-200 p-2.5 sm:p-3 cursor-pointer hover:shadow-md transition-shadow"
+                            >
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-1">
+                                    <span className="text-xs font-medium text-gray-500">Job #{job.id}</span>
+                                    <span className={`text-xs px-1.5 sm:px-2 py-0.5 rounded ${
+                                      job.status === 'completed' ? 'bg-green-100 text-green-700' :
+                                      job.status === 'in_progress' || job.status === 'in-progress' ? 'bg-blue-100 text-blue-700' :
+                                      job.status === 'confirmed' ? 'bg-purple-100 text-purple-700' :
+                                      'bg-gray-100 text-gray-700'
+                                    }`}>
+                                      {job.status?.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Pending'}
+                                    </span>
+                                  </div>
+                                  <h4 className="text-xs sm:text-sm font-semibold text-gray-900 truncate">
+                                    {job.service_name || 'Service'}
+                                  </h4>
+                                  <p className="text-xs text-gray-600 truncate">
+                                    {job.customer_first_name && job.customer_last_name
+                                      ? `${job.customer_first_name} ${job.customer_last_name}`
+                                      : job.customer_email || 'Customer'}
+                                  </p>
+                                  <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 mt-1 text-xs text-gray-500">
+                                    <span>{formatTime(job.scheduled_date)}</span>
+                                    {job.customer_address && (
+                                      <span className="truncate max-w-full sm:max-w-[150px]">{job.customer_address}</span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
                             </div>
-                            <h4 className="text-sm font-semibold text-gray-900 mb-1">No scheduled jobs</h4>
-                            <p className="text-xs text-gray-600">Looks like you don't have anything to do today.</p>
-                        
-                  </div>
-                    <div className="h-80 w-1/2 relative bg-gray-50">
-                    <div className="flex absolute mt-7 right-4  bg-white   rounded-md shadow-sm border border-gray-200">
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="h-64 md:h-80 w-full md:w-1/2 relative bg-gray-50 flex flex-col items-center justify-center">
+                      <div className="flex items-center justify-center w-12 h-12 bg-gray-100 rounded-lg mb-3 items-center justify-center">
+                        <Calendar className="w-6 h-6 text-gray-400" />
+                      </div>
+                      <h4 className="text-sm font-semibold text-gray-900 mb-1">No scheduled jobs</h4>
+                      <p className="text-xs text-gray-600">Looks like you don't have anything to do today.</p>
+                    </div>
+                  )}
+                    <div className="h-64 md:h-80 w-full md:w-1/2 relative bg-gray-50">
+                    <div className="flex absolute mt-2 md:mt-7 right-2 md:right-4 bg-white rounded-md shadow-sm border border-gray-200 z-10">
                         <button
                           onClick={() => setMapView('map')}
                           className={`px-3 py-1.5 text-md font-medium transition-colors ${
@@ -980,15 +1058,15 @@ const DashboardRedesigned = () => {
 
                 {/* Overview Section */}
                 <div className="">
-                  <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-md font-semibold text-gray-600"><span className="text-gray-900 font-bold text-2xl">Overview </span>Oct 19 - Today</h2>
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 gap-3 sm:gap-0">
+                    <h2 className="text-sm sm:text-md font-semibold text-gray-600"><span className="text-gray-900 font-bold text-xl sm:text-2xl">Overview </span><span className="hidden sm:inline">Oct 19 - Today</span></h2>
 
                     {/* Custom Date Range Dropdown */}
                     <div className="relative" ref={dateRangeDropdownRef}>
                       <button
                         type="button"
                         onClick={() => setShowDateRangeDropdown(!showDateRangeDropdown)}
-                        className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-md px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors duration-200 min-w-[140px]"
+                        className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-md px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors duration-200 min-w-[120px] sm:min-w-[140px]"
                       >
                         <span>
                           {dateRange === '7' && 'Last 7 days'}
@@ -1070,31 +1148,31 @@ const DashboardRedesigned = () => {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     {/* New jobs */}
-                    <div className="border bg-white border-gray-200 rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-sm font-medium text-gray-900">New jobs</h3>
-                        <Info className="h-4 w-4 text-gray-400" />
+                    <div className="border bg-white border-gray-200 rounded-lg p-3 sm:p-4">
+                      <div className="flex items-center justify-between mb-2 sm:mb-3">
+                        <h3 className="text-xs sm:text-sm font-medium text-gray-900">New jobs</h3>
+                        <Info className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />
                       </div>
-                      <div className="text-3xl font-semibold text-gray-900 mb-4">{dashboardData.newJobs}</div>
+                      <div className="text-2xl sm:text-3xl font-semibold text-gray-900 mb-3 sm:mb-4">{dashboardData.newJobs}</div>
                       <MiniChart data={chartData.newJobs} color="blue" />
                     </div>
 
                     {/* Jobs */}
-                    <div className="border bg-white border-gray-200 rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-sm font-medium text-gray-900">Jobs</h3>
-                        <Info className="h-4 w-4 text-gray-400" />
+                    <div className="border bg-white border-gray-200 rounded-lg p-3 sm:p-4">
+                      <div className="flex items-center justify-between mb-2 sm:mb-3">
+                        <h3 className="text-xs sm:text-sm font-medium text-gray-900">Jobs</h3>
+                        <Info className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />
                       </div>
                       {dashboardData.totalJobs > 0 ? (
                         <>
-                          <div className="text-3xl font-semibold text-gray-900 mb-4">{dashboardData.totalJobs}</div>
+                          <div className="text-2xl sm:text-3xl font-semibold text-gray-900 mb-3 sm:mb-4">{dashboardData.totalJobs}</div>
                           <MiniChart data={chartData.totalJobs} color="blue" />
                         </>
                       ) : (
-                        <div className="py-8">
-                          <p className="text-sm font-medium text-gray-900">No data to display</p>
+                        <div className="py-6 sm:py-8">
+                          <p className="text-xs sm:text-sm font-medium text-gray-900">No data to display</p>
                           <p className="text-xs text-gray-500 mt-1">
                             Try changing the date range filter at the top of the page
                           </p>
@@ -1103,29 +1181,29 @@ const DashboardRedesigned = () => {
                     </div>
 
                     {/* New recurring bookings */}
-                    <div className="border bg-white border-gray-200 rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-sm font-medium text-gray-900">New recurring bookings</h3>
-                        <Info className="h-4 w-4 text-gray-400" />
+                    <div className="border bg-white border-gray-200 rounded-lg p-3 sm:p-4">
+                      <div className="flex items-center justify-between mb-2 sm:mb-3">
+                        <h3 className="text-xs sm:text-sm font-medium text-gray-900">New recurring bookings</h3>
+                        <Info className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />
                       </div>
-                      <div className="text-3xl font-semibold text-gray-900 mb-4">{dashboardData.newRecurringBookings}</div>
+                      <div className="text-2xl sm:text-3xl font-semibold text-gray-900 mb-3 sm:mb-4">{dashboardData.newRecurringBookings}</div>
                       <MiniChart data={chartData.newRecurringBookings} color="purple" />
                     </div>
 
                     {/* Recurring bookings */}
-                    <div className="border bg-white border-gray-200 rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-sm font-medium text-gray-900">Recurring bookings</h3>
-                        <Info className="h-4 w-4 text-gray-400" />
+                    <div className="border bg-white border-gray-200 rounded-lg p-3 sm:p-4">
+                      <div className="flex items-center justify-between mb-2 sm:mb-3">
+                        <h3 className="text-xs sm:text-sm font-medium text-gray-900">Recurring bookings</h3>
+                        <Info className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />
                       </div>
                       {dashboardData.recurringBookings > 0 ? (
                         <>
-                          <div className="text-3xl font-semibold text-gray-900 mb-4">{dashboardData.recurringBookings}</div>
+                          <div className="text-2xl sm:text-3xl font-semibold text-gray-900 mb-3 sm:mb-4">{dashboardData.recurringBookings}</div>
                           <MiniChart data={chartData.recurringBookings} color="purple" />
                         </>
                       ) : (
-                        <div className="py-8">
-                          <p className="text-sm font-medium text-gray-900">No data to display</p>
+                        <div className="py-6 sm:py-8">
+                          <p className="text-xs sm:text-sm font-medium text-gray-900">No data to display</p>
                           <p className="text-xs text-gray-500 mt-1">
                             Try changing the date range filter at the top of the page
                           </p>
@@ -1134,76 +1212,76 @@ const DashboardRedesigned = () => {
                     </div>
 
                     {/* Job value */}
-                    <div className="border bg-white border-gray-200 rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-sm font-medium text-gray-900">Job value</h3>
-                        <Info className="h-4 w-4 text-gray-400" />
+                    <div className="border bg-white border-gray-200 rounded-lg p-3 sm:p-4">
+                      <div className="flex items-center justify-between mb-2 sm:mb-3">
+                        <h3 className="text-xs sm:text-sm font-medium text-gray-900">Job value</h3>
+                        <Info className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />
                       </div>
-                      <div className="text-3xl font-semibold text-gray-900 mb-4">${dashboardData.jobValue}</div>
+                      <div className="text-2xl sm:text-3xl font-semibold text-gray-900 mb-3 sm:mb-4">${dashboardData.jobValue}</div>
                       <MiniChart data={chartData.jobValue} color="green" />
                     </div>
 
                     {/* Payments collected */}
-                    <div className="border bg-white border-gray-200 rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-sm font-medium text-gray-900">Payments collected</h3>
-                        <Info className="h-4 w-4 text-gray-400" />
+                    <div className="border bg-white border-gray-200 rounded-lg p-3 sm:p-4">
+                      <div className="flex items-center justify-between mb-2 sm:mb-3">
+                        <h3 className="text-xs sm:text-sm font-medium text-gray-900">Payments collected</h3>
+                        <Info className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />
                       </div>
-                      <div className="text-3xl font-semibold text-gray-900 mb-4">${dashboardData.totalRevenue}</div>
+                      <div className="text-2xl sm:text-3xl font-semibold text-gray-900 mb-3 sm:mb-4">${dashboardData.totalRevenue}</div>
                       <MiniChart data={chartData.totalRevenue} color="indigo" />
                     </div>
                   </div>
 
                   {/* Rating Section */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 pt-6 border-t border-gray-200">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mt-4 sm:mt-6 pt-4 sm:pt-6 border-t border-gray-200">
                     {/* Left Card - Average feedback rating */}
                     <div className="bg-white border border-gray-200 rounded-lg">
                       {/* Top Section - Average feedback rating */}
-                      <div className="p-4 border-b border-gray-200">
-                        <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-sm font-medium text-gray-900">Average feedback rating</h3>
+                      <div className="p-3 sm:p-4 border-b border-gray-200">
+                        <div className="flex items-center justify-between mb-3 sm:mb-4">
+                        <h3 className="text-xs sm:text-sm font-medium text-gray-900">Average feedback rating</h3>
                           <div className="w-4 h-4 rounded-full bg-gray-100 flex items-center justify-center">
                             <Info className="h-3 w-3 text-gray-500" />
                           </div>
                       </div>
-                      <div className="flex items-center space-x-3">
-                        <span className="text-4xl font-semibold text-gray-900">0.0</span>
+                      <div className="flex items-center space-x-2 sm:space-x-3">
+                        <span className="text-3xl sm:text-4xl font-semibold text-gray-900">0.0</span>
                           <div className="flex space-x-0.5">
                           {[1, 2, 3, 4, 5].map((star) => (
-                              <Star key={star} className="w-5 h-5 text-gray-300 fill-none stroke-2" />
+                              <Star key={star} className="w-4 h-4 sm:w-5 sm:h-5 text-gray-300 fill-none stroke-2" />
                           ))}
                           </div>
                         </div>
                       </div>
 
                       {/* Bottom Section - Total ratings */}
-                      <div className="p-4">
-                        <div className="flex items-center justify-between mb-4">
-                          <span className="text-sm font-medium text-gray-900">Total ratings</span>
+                      <div className="p-3 sm:p-4">
+                        <div className="flex items-center justify-between mb-3 sm:mb-4">
+                          <span className="text-xs sm:text-sm font-medium text-gray-900">Total ratings</span>
                           <div className="w-4 h-4 rounded-full bg-gray-100 flex items-center justify-center">
                             <Info className="h-3 w-3 text-gray-500" />
                         </div>
                       </div>
-                        <span className="text-4xl font-semibold text-gray-900">0</span>
+                        <span className="text-3xl sm:text-4xl font-semibold text-gray-900">0</span>
                       </div>
                     </div>
 
                     {/* Right Card - Rating breakdown */}
-                    <div className="bg-white border border-gray-200 rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-6">
-                        <h3 className="text-sm font-medium text-gray-900">Rating breakdown</h3>
+                    <div className="bg-white border border-gray-200 rounded-lg p-3 sm:p-4">
+                      <div className="flex items-center justify-between mb-4 sm:mb-6">
+                        <h3 className="text-xs sm:text-sm font-medium text-gray-900">Rating breakdown</h3>
                         <div className="w-4 h-4 rounded-full bg-gray-100 flex items-center justify-center">
                           <Info className="h-3 w-3 text-gray-500" />
                       </div>
                             </div>
-                      <div className="space-y-4">
+                      <div className="space-y-3 sm:space-y-4">
                         {ratingBreakdown.map((rating) => {
                           const maxCount = Math.max(...ratingBreakdown.map(r => r.count), 1)
                           const percentage = maxCount > 0 ? (rating.count / maxCount) * 100 : 0
                           return (
-                            <div key={rating.stars} className="flex items-center gap-3">
-                              <span className="text-sm font-medium text-gray-900 w-16">{rating.stars} star</span>
-                            <div className="flex-1 bg-gray-200 rounded-full h-2 overflow-hidden">
+                            <div key={rating.stars} className="flex items-center gap-2 sm:gap-3">
+                              <span className="text-xs sm:text-sm font-medium text-gray-900 w-12 sm:w-16 flex-shrink-0">{rating.stars} star</span>
+                            <div className="flex-1 bg-gray-200 rounded-full h-2 overflow-hidden min-w-0">
                                 {rating.count > 0 && (
                                   <div 
                                     className="bg-gray-400 h-2 rounded-full" 
@@ -1211,7 +1289,7 @@ const DashboardRedesigned = () => {
                                   ></div>
                                 )}
                             </div>
-                            <span className="text-sm font-medium text-gray-900 w-8 text-right">{rating.count}</span>
+                            <span className="text-xs sm:text-sm font-medium text-gray-900 w-6 sm:w-8 text-right flex-shrink-0">{rating.count}</span>
                           </div>
                           )
                         })}
@@ -1220,15 +1298,15 @@ const DashboardRedesigned = () => {
                   </div>
 
                   {/* Service territory performance */}
-                  <div className="mt-6 pt-6 border-t border-gray-200">
-                    <div className="flex items-center justify-between mb-6">
+                  <div className="mt-4 sm:mt-6 pt-4 sm:pt-6 border-t border-gray-200">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 gap-3 sm:gap-0">
                       <div className="flex items-center gap-2">
-                        <h3 className="text-sm font-medium text-gray-900">Service territory performance</h3>
+                        <h3 className="text-xs sm:text-sm font-medium text-gray-900">Service territory performance</h3>
                         <div className="w-4 h-4 rounded-full bg-gray-100 flex items-center justify-center">
                           <Info className="h-3 w-3 text-gray-500" />
                       </div>
                       </div>
-                      <div className="flex items-center gap-2 text-sm">
+                      <div className="flex items-center gap-2 text-xs sm:text-sm">
                         <button
                           type="button"
                           onClick={() => setTerritoryViewMode('jobs')}
@@ -1255,8 +1333,8 @@ const DashboardRedesigned = () => {
                     </div>
                     
                     {territoryPerformance.length > 0 ? (
-                      <div className="bg-white border border-gray-200 rounded-lg p-4">
-                        <div className="space-y-4">
+                      <div className="bg-white border border-gray-200 rounded-lg p-3 sm:p-4">
+                        <div className="space-y-3 sm:space-y-4">
                           {territoryPerformance.map((territory) => {
                             const percentage = territoryViewMode === 'jobs' 
                               ? territory.jobPercentage 
@@ -1266,31 +1344,35 @@ const DashboardRedesigned = () => {
                               : `$${territory.totalValue.toFixed(2)}`
                             
                             return (
-                              <div key={territory.id} className="flex items-center gap-3">
-                                <MapPin className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                                <span className="text-sm font-medium text-gray-900 flex-shrink-0 min-w-[100px]">
-                                  {territory.name}
-                                </span>
-                                <span className="text-sm text-gray-600 flex-shrink-0">
-                                  {displayValue}
-                                </span>
-                                <div className="flex-1 bg-gray-200 rounded-full h-2 overflow-hidden">
-                                  <div 
-                                    className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
-                                    style={{ width: `${percentage}%` }}
-                                  ></div>
+                              <div key={territory.id} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                                <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+                                  <MapPin className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                  <span className="text-xs sm:text-sm font-medium text-gray-900 truncate">
+                                    {territory.name}
+                                  </span>
+                                  <span className="text-xs sm:text-sm text-gray-600 flex-shrink-0">
+                                    {displayValue}
+                                  </span>
                                 </div>
-                                <span className="text-sm font-medium text-gray-900 flex-shrink-0 min-w-[60px] text-right">
-                                  {percentage.toFixed(1)}%
-                                </span>
+                                <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                                  <div className="flex-1 bg-gray-200 rounded-full h-2 overflow-hidden min-w-0">
+                                    <div 
+                                      className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                                      style={{ width: `${percentage}%` }}
+                                    ></div>
+                                  </div>
+                                  <span className="text-xs sm:text-sm font-medium text-gray-900 flex-shrink-0 min-w-[50px] sm:min-w-[60px] text-right">
+                                    {percentage.toFixed(1)}%
+                                  </span>
+                                </div>
                               </div>
                             )
                           })}
                         </div>
                       </div>
                     ) : (
-                      <div className="bg-white border border-gray-200 rounded-lg p-12 text-center">
-                      <p className="text-sm font-medium text-gray-900">No data to display</p>
+                      <div className="bg-white border border-gray-200 rounded-lg p-8 sm:p-12 text-center">
+                      <p className="text-xs sm:text-sm font-medium text-gray-900">No data to display</p>
                       <p className="text-xs text-gray-500 mt-1">
                           {territories.length === 0 ? (
                             <>

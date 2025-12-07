@@ -4,8 +4,8 @@ import MobileHeader from "../components/mobile-header"
 import JobsEmptyState from "../components/jobs-empty-state"
 import ExportJobsModal from "../components/export-jobs-modal"
 
-import { Plus, AlertCircle, Loader2, Eye, Calendar, Clock, MapPin, Users, DollarSign, Phone, Mail, FileText, CheckCircle, XCircle, PlayCircle, PauseCircle, MoreVertical, Download, Upload, ChevronDown, Search, ChevronUp } from "lucide-react"
-import { Link, useNavigate } from "react-router-dom"
+import { Plus, AlertCircle, Loader2, Eye, Calendar, Clock, MapPin, Users, DollarSign, Phone, Mail, FileText, CheckCircle, XCircle, PlayCircle, PauseCircle, MoreVertical, Download, Upload, ChevronDown, Search, ChevronUp, User } from "lucide-react"
+import { Link, useNavigate, useSearchParams } from "react-router-dom"
 import { jobsAPI, invoicesAPI, territoriesAPI, teamAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
 import { canCreateJobs } from "../utils/roleUtils"
@@ -13,9 +13,20 @@ import { canCreateJobs } from "../utils/roleUtils"
 const ServiceFlowJobs = () => {
   const { user, loading: authLoading } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [activeTab, setActiveTab] = useState("all")
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tabFromUrl = searchParams.get('tab')
+  const [activeTab, setActiveTab] = useState(tabFromUrl || "all")
 
   const navigate = useNavigate()
+
+  // Update activeTab when URL parameter changes
+  useEffect(() => {
+    const tabFromUrl = searchParams.get('tab')
+    if (tabFromUrl && tabFromUrl !== activeTab) {
+      setActiveTab(tabFromUrl)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
 
   // API State
   const [jobs, setJobs] = useState([])
@@ -445,12 +456,10 @@ const ServiceFlowJobs = () => {
 
   return (
     <div className="flex h-screen overflow-hidden">
-     
-
+    
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0 ">
+      <div className="flex-1 flex flex-col min-w-0">
         {/* Mobile Header */}
-        <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
 
         {/* Desktop Header */}
         <div className="hidden lg:flex bg-white border-b border-gray-200 px-4 pt-4 pb-2 items-center justify-between">
@@ -880,9 +889,11 @@ const ServiceFlowJobs = () => {
             ) : jobs.length === 0 ? (
               <JobsEmptyState onCreateJob={handleCreateJob} />
             ) : (
-              <div className="bg-white border border-gray-200 overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
+              <>
+                {/* Desktop Table View */}
+                <div className="hidden lg:block bg-white border border-gray-200 overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
                     <thead style={{fontFamily: 'Montserrat', fontWeight: 700}} className="bg-white">
                       <tr>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -986,11 +997,105 @@ const ServiceFlowJobs = () => {
                       })}
                     </tbody>
                   </table>
+                  </div>
                 </div>
 
-                {/* Load More Button */}
+                {/* Mobile Card View */}
+                <div className="lg:hidden bg-gray-50">
+                  <div className="space-y-3 p-3">
+                    {jobs.map((job) => {
+                      const dateInfo = formatDate(job.scheduled_date)
+                      return (
+                        <div
+                          key={job.id}
+                          onClick={() => handleViewJob(job)}
+                          className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                        >
+                          {/* Header Row */}
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${getStatusLabel(job.status || 'pending', job) === 'Late' ? 'bg-orange-50 text-orange-700 border-orange-200' : getStatusColor(job.status)}`}>
+                                  {getStatusLabel(job.status || 'pending', job)}
+                                </span>
+                                <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-xs text-gray-500">
+                                  Job #{job.id}
+                                </span>
+                              </div>
+                              <h3 style={{fontFamily: 'Montserrat', fontWeight: 600}} className="text-base font-semibold text-gray-900 capitalize truncate">
+                                {job.service_name || 'Service'}
+                              </h3>
+                            </div>
+                            <div className="text-right flex-shrink-0 ml-2">
+                              <span style={{fontFamily: 'Montserrat', fontWeight: 600}} className="text-base font-semibold text-gray-900 block">
+                                {formatCurrency(job.total_amount || job.service_price || 0)}
+                              </span>
+                              <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-xs text-gray-600 bg-gray-100 px-2 py-0.5 rounded-sm inline-block mt-1">
+                                {job.invoice_status === 'paid' ? 'Paid' :
+                                 job.invoice_status === 'unpaid' ? 'Unpaid' :
+                                 job.invoice_status === 'invoiced' ? 'Invoiced' :
+                                 'No invoice'}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Customer Info */}
+                          <div className="mb-3 pb-3 border-b border-gray-100">
+                            <div className="flex items-center gap-2 mb-1">
+                              <User className="w-4 h-4 text-gray-400" />
+                              <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-sm font-medium text-gray-900 truncate">
+                                {job.customer_first_name && job.customer_last_name
+                                  ? `${job.customer_first_name} ${job.customer_last_name}`
+                                  : job.customer_email
+                                  ? job.customer_email
+                                  : 'Customer Name'
+                                }
+                              </span>
+                            </div>
+                            {job.customer_city && job.customer_state && (
+                              <div className="flex items-center gap-2 ml-6">
+                                <MapPin className="w-3.5 h-3.5 text-gray-400" />
+                                <span style={{fontFamily: 'Montserrat', fontWeight: 400}} className="text-xs text-gray-600">
+                                  {job.customer_city}, {job.customer_state}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Date and Time */}
+                          <div className="flex items-center gap-4 text-sm">
+                            <div className="flex items-center gap-2">
+                              <Calendar className="w-4 h-4 text-gray-400" />
+                              <div className="flex flex-col">
+                                <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-xs font-medium text-blue-600">
+                                  {job.scheduled_date ? `${dateInfo.weekday} ${dateInfo.monthName} ${dateInfo.day}` : 'Date not set'}
+                                </span>
+                                {job.scheduled_date && (
+                                  <span style={{fontFamily: 'Montserrat', fontWeight: 400}} className="text-xs text-gray-600">
+                                    {formatTime(job.scheduled_date)}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Users className="w-4 h-4 text-gray-400" />
+                              <span style={{fontFamily: 'Montserrat', fontWeight: 400}} className="text-xs text-gray-600">
+                                {job.team_assignments && job.team_assignments.length > 0
+                                  ? `${job.team_assignments.length} assigned`
+                                  : '0 assigned'
+                                }
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* Load More Button - Desktop */}
                 {!loadingMore && showLoadMore && hasMore && jobs.length > 0 && (
-                  <div className="bg-white px-6 py-4 border-t border-gray-200">
+                  <div className="hidden lg:block bg-white px-6 py-4 border-t border-gray-200">
                     <div className="flex flex-col items-center gap-3">
                       <div className="text-center text-sm text-gray-600">
                         Showing {jobs.length} of {totalJobs} jobs
@@ -1008,9 +1113,29 @@ const ServiceFlowJobs = () => {
                   </div>
                 )}
 
-                {/* Loading More Indicator */}
+                {/* Load More Button - Mobile */}
+                {!loadingMore && showLoadMore && hasMore && jobs.length > 0 && (
+                  <div className="lg:hidden bg-gray-50 px-4 py-4">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="text-center text-sm text-gray-600">
+                        Showing {jobs.length} of {totalJobs} jobs
+                      </div>
+                      <button
+                        onClick={handleLoadMore}
+                        disabled={loadingMore || !hasMore}
+                        className="w-full px-6 py-3 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        style={{fontFamily: 'Montserrat', fontWeight: 500}}
+                      >
+                        Load More Jobs
+                        <ChevronDown className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Loading More Indicator - Desktop */}
                 {loadingMore && (
-                  <div className="bg-white px-6 py-4 border-t border-gray-200">
+                  <div className="hidden lg:block bg-white px-6 py-4 border-t border-gray-200">
                     <div className="flex items-center justify-center gap-2">
                       <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
                       <span className="text-sm text-gray-600">Loading more jobs...</span>
@@ -1018,16 +1143,36 @@ const ServiceFlowJobs = () => {
                   </div>
                 )}
 
-                {/* Show total count when all loaded */}
+                {/* Loading More Indicator - Mobile */}
+                {loadingMore && (
+                  <div className="lg:hidden bg-gray-50 px-4 py-4">
+                    <div className="flex items-center justify-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                      <span className="text-sm text-gray-600">Loading more jobs...</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Show total count when all loaded - Desktop */}
                 {!loadingMore && !hasMore && jobs.length > 0 && (
-                  <div className="bg-white px-6 py-3 border-t border-gray-200">
+                  <div className="hidden lg:block bg-white px-6 py-3 border-t border-gray-200">
                     <div className="text-center text-sm text-gray-600">
                       Showing all {jobs.length} of {totalJobs} jobs
                       <span className="ml-2 text-gray-500">• All jobs loaded</span>
                     </div>
                   </div>
                 )}
-              </div>
+
+                {/* Show total count when all loaded - Mobile */}
+                {!loadingMore && !hasMore && jobs.length > 0 && (
+                  <div className="lg:hidden bg-gray-50 px-4 py-3">
+                    <div className="text-center text-sm text-gray-600">
+                      Showing all {jobs.length} of {totalJobs} jobs
+                      <span className="ml-2 text-gray-500">• All jobs loaded</span>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>

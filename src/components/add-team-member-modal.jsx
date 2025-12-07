@@ -118,24 +118,18 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
         territories: parsedTerritories,
         availability: parsedAvailability,
         permissions: (() => {
+          // When editing, use ONLY the saved permissions - no defaults
+          // If permissions don't exist or fail to parse, return empty object
+          // This ensures each worker only has the permissions that were explicitly saved
           if (!member.permissions) {
-            return {
-              editAvailability: true,
-              viewCustomerContact: false,
-              viewCustomerNotes: false,
-              markJobStatus: true,
-              resetJobStatuses: false,
-              editJobDetails: true,
-              viewEditJobPrice: false,
-              processPayments: false,
-              rescheduleJobs: true,
-              seeOtherProviders: true
-            }
+            return {}
           }
           
           try {
             if (typeof member.permissions === 'string') {
-              return JSON.parse(member.permissions)
+              const parsed = JSON.parse(member.permissions)
+              // Return the parsed permissions exactly as saved, or empty object if null/undefined
+              return parsed || {}
             } else if (typeof member.permissions === 'object' && member.permissions !== null) {
               return member.permissions
             }
@@ -143,27 +137,8 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
             console.error('Error parsing permissions:', error)
           }
           
-          // Default permissions based on role
-          const defaultPerms = {
-            editAvailability: true,
-            viewCustomerContact: false,
-            viewCustomerNotes: false,
-            markJobStatus: true,
-            resetJobStatuses: false,
-            editJobDetails: true,
-            viewEditJobPrice: false,
-            processPayments: false,
-            rescheduleJobs: true,
-            seeOtherProviders: true
-          }
-          
-          // If role is scheduler, set scheduler-specific defaults
-          if (member.role === 'scheduler') {
-            defaultPerms.editAvailability = true
-            defaultPerms.processPayments = false
-          }
-          
-          return defaultPerms
+          // If we can't parse permissions, return empty object - don't apply defaults
+          return {}
         })()
       })
     } else if (isOpen && !isEditing) {
@@ -346,7 +321,9 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
       }
       
       // When role changes, update default permissions
-      if (field === 'role') {
+      // BUT: Only apply defaults if we're creating a new member (not editing)
+      // When editing, preserve existing permissions to allow individual customization
+      if (field === 'role' && !isEditing) {
         if (value === 'scheduler') {
           // Scheduler defaults: editAvailability checked, processPayments unchecked
           updated.permissions = {
@@ -720,7 +697,7 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
                           <label className="flex items-center">
                             <input
                               type="checkbox"
-                              checked={formData.permissions.editAvailability !== false}
+                              checked={formData.permissions.editAvailability === true}
                               onChange={(e) => handleInputChange('permissions', {
                                 ...formData.permissions,
                                 editAvailability: e.target.checked
@@ -732,22 +709,25 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
                             <p className="text-[10px] font-medium text-gray-400 mb-2">
                               For jobs assigned to this team member, allow them to:
                             </p>
+                            <div className="flex flex-col">
+                              <label className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  checked={formData.permissions.viewCustomerContact === true}
+                                  onChange={(e) => handleInputChange('permissions', {
+                                    ...formData.permissions,
+                                    viewCustomerContact: e.target.checked
+                                  })}
+                                  className="h-3 w-3 rounded-sm text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                                />
+                                <span className="ml-2 text-xs text-gray-700">View contact info for customer (phone & email)</span>
+                              </label>
+                              <p className="ml-5 text-[10px] text-gray-500 mt-0.5">Note: Address is always visible for workers by default</p>
+                            </div>
                             <label className="flex items-center">
                               <input
                                 type="checkbox"
-                                checked={formData.permissions.viewCustomerContact || false}
-                                onChange={(e) => handleInputChange('permissions', {
-                                  ...formData.permissions,
-                                  viewCustomerContact: e.target.checked
-                                })}
-                                className="h-3 w-3 rounded-sm text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                              />
-                              <span className="ml-2 text-xs text-gray-700">View contact info for customer</span>
-                            </label>
-                            <label className="flex items-center">
-                              <input
-                                type="checkbox"
-                                checked={formData.permissions.viewCustomerNotes || false}
+                                checked={formData.permissions.viewCustomerNotes === true}
                                 onChange={(e) => handleInputChange('permissions', {
                                   ...formData.permissions,
                                   viewCustomerNotes: e.target.checked
@@ -759,7 +739,7 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
                             <label className="flex items-center">
                               <input
                                 type="checkbox"
-                                checked={formData.permissions.markJobStatus !== false}
+                                checked={formData.permissions.markJobStatus === true}
                                 onChange={(e) => handleInputChange('permissions', {
                                   ...formData.permissions,
                                   markJobStatus: e.target.checked
@@ -771,7 +751,7 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
                             <label className="flex items-center">
                               <input
                                 type="checkbox"
-                                checked={formData.permissions.resetJobStatuses || false}
+                                checked={formData.permissions.resetJobStatuses === true}
                                 onChange={(e) => handleInputChange('permissions', {
                                   ...formData.permissions,
                                   resetJobStatuses: e.target.checked
@@ -783,7 +763,7 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
                             <label className="flex items-center">
                               <input
                                 type="checkbox"
-                                checked={formData.permissions.editJobDetails !== false}
+                                checked={formData.permissions.editJobDetails === true}
                                 onChange={(e) => handleInputChange('permissions', {
                                   ...formData.permissions,
                                   editJobDetails: e.target.checked
@@ -795,7 +775,7 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
                             <label className="flex items-center">
                               <input
                                 type="checkbox"
-                                checked={formData.permissions.viewEditJobPrice || false}
+                                checked={formData.permissions.viewEditJobPrice === true}
                                 onChange={(e) => handleInputChange('permissions', {
                                   ...formData.permissions,
                                   viewEditJobPrice: e.target.checked
@@ -807,7 +787,7 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
                             <label className="flex items-center">
                               <input
                                 type="checkbox"
-                                checked={formData.permissions.processPayments || false}
+                                checked={formData.permissions.processPayments === true}
                                 onChange={(e) => handleInputChange('permissions', {
                                   ...formData.permissions,
                                   processPayments: e.target.checked
@@ -819,7 +799,7 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
                             <label className="flex items-center">
                               <input
                                 type="checkbox"
-                                checked={formData.permissions.rescheduleJobs !== false}
+                                checked={formData.permissions.rescheduleJobs === true}
                                 onChange={(e) => handleInputChange('permissions', {
                                   ...formData.permissions,
                                   rescheduleJobs: e.target.checked
@@ -831,7 +811,7 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
                             <label className="flex items-center">
                               <input
                                 type="checkbox"
-                                checked={formData.permissions.seeOtherProviders !== false}
+                                checked={formData.permissions.seeOtherProviders === true}
                                 onChange={(e) => handleInputChange('permissions', {
                                   ...formData.permissions,
                                   seeOtherProviders: e.target.checked
@@ -874,7 +854,7 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
                             <label className="flex items-center">
                               <input
                                 type="checkbox"
-                                checked={formData.permissions.editAvailability !== false}
+                                checked={formData.permissions.editAvailability === true}
                                 onChange={(e) => handleInputChange('permissions', {
                                   ...formData.permissions,
                                   editAvailability: e.target.checked
@@ -886,7 +866,7 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
                             <label className="flex items-center">
                               <input
                                 type="checkbox"
-                                checked={formData.permissions.processPayments || false}
+                                checked={formData.permissions.processPayments === true}
                                 onChange={(e) => handleInputChange('permissions', {
                                   ...formData.permissions,
                                   processPayments: e.target.checked

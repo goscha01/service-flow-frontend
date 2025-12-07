@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { Wrench, Settings, Gift, HelpCircle, LogOut } from "lucide-react"
 import { useAuth } from "../context/AuthContext"
+import { isWorker } from "../utils/roleUtils"
 
 const UserDropdown = ({ isOpen, onClose, onToggle }) => {
   const navigate = useNavigate()
@@ -46,14 +47,15 @@ const UserDropdown = ({ isOpen, onClose, onToggle }) => {
     console.log("Successfully signed out")
   }
 
-  const menuItems = [
+  const allMenuItems = [
     {
       icon: Wrench,
       label: "Services",
       onClick: () => {
         navigate("/services")
         onClose()
-      }
+      },
+      hideForWorkers: true // Hide this item for workers
     },
     {
       icon: Settings,
@@ -85,6 +87,14 @@ const UserDropdown = ({ isOpen, onClose, onToggle }) => {
       onClick: handleSignOut
     }
   ]
+
+  // Filter out menu items that should be hidden for workers
+  const menuItems = allMenuItems.filter(item => {
+    if (item.hideForWorkers && isWorker(user)) {
+      return false
+    }
+    return true
+  })
 
   if (!isOpen) return null
 

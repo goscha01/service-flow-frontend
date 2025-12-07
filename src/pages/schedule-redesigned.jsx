@@ -32,6 +32,7 @@ import {
   FileText,
   User as UserIcon,
   CreditCard,
+  Target,
 } from "lucide-react"
 import { useAuth } from "../context/AuthContext"
 import { jobsAPI } from "../services/api"
@@ -41,6 +42,17 @@ import { formatRecurringFrequencyCompact } from "../utils/recurringUtils"
 import AssignJobModal from "../components/assign-job-modal"
 import StatusHistoryTooltip from "../components/status-history-tooltip"
 import { canCreateJobs, isWorker } from "../utils/roleUtils"
+import { 
+  canMarkJobStatus, 
+  canViewCustomerContact, 
+  canViewCustomerNotes, 
+  canEditJobDetails, 
+  canViewEditJobPrice, 
+  canProcessPayments, 
+  canRescheduleJobs, 
+  canSeeOtherProviders,
+  canResetJobStatuses 
+} from "../utils/permissionUtils"
 
 const ServiceFlowSchedule = () => {
   const { user } = useAuth()
@@ -100,6 +112,8 @@ const ServiceFlowSchedule = () => {
   const [noteText, setNoteText] = useState('')
   const [noteAttachments, setNoteAttachments] = useState([]) // Array of { file, preview, type }
   const [uploadingFiles, setUploadingFiles] = useState(false)
+  const [showTerritoryDropdown, setShowTerritoryDropdown] = useState(false)
+  const territoryDropdownRef = useRef(null)
   
   // Form data for editing
   const [editFormData, setEditFormData] = useState({
@@ -130,6 +144,23 @@ const ServiceFlowSchedule = () => {
       document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [showCalendar])
+
+  // Click outside to close territory dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (territoryDropdownRef.current && !territoryDropdownRef.current.contains(event.target)) {
+        setShowTerritoryDropdown(false)
+      }
+    }
+
+    if (showTerritoryDropdown) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showTerritoryDropdown])
 
   const fetchJobs = useCallback(async () => {
     try {
@@ -1308,6 +1339,7 @@ const ServiceFlowSchedule = () => {
         } : job
       ))
       
+      setShowTerritoryDropdown(false)
       setSuccessMessage('Territory updated successfully!')
       setTimeout(() => setSuccessMessage(''), 3000)
       
@@ -1931,8 +1963,7 @@ const ServiceFlowSchedule = () => {
 
         {/* Schedule Content */}
         <div className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto scrollbar-hide bg-gray-50">
-          {/* Mobile Header */}
-          <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
+          
 
         {/* Top Header Bar */}
         <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4">
@@ -2310,9 +2341,25 @@ const ServiceFlowSchedule = () => {
                         </div>
                         {dayJobs.map((job, jobIndex) => {
                           const statusDisplay = formatStatus(job.status, job)
-                          const jobTime = new Date(job.scheduled_date)
-                          const duration = job.service_duration || job.duration || 0
-                          const endTime = new Date(jobTime.getTime() + duration * 60000)
+                          // Parse scheduled_date correctly - it's stored as string "YYYY-MM-DD HH:MM:SS"
+                          let jobTime;
+                          if (typeof job.scheduled_date === 'string' && job.scheduled_date.includes(' ')) {
+                            // Extract time directly from string to avoid timezone issues
+                            const [datePart, timePart] = job.scheduled_date.split(' ');
+                            const [hours, minutes] = timePart.split(':').map(Number);
+                            jobTime = new Date(datePart);
+                            jobTime.setHours(hours || 0, minutes || 0, 0, 0);
+                          } else {
+                            jobTime = new Date(job.scheduled_date);
+                          }
+                          
+                          // Duration is in minutes, ensure it's a number
+                          const duration = parseInt(job.service_duration || job.duration || 0);
+                          
+                          // Calculate end time
+                          const endTime = new Date(jobTime.getTime() + duration * 60000);
+                          
+                          // Format times
                           const timeString = jobTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
                           const endTimeString = endTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
                           const assignedTeamMember = teamMembers.find(m => m.id === job.assigned_team_member_id || m.id === job.team_member_id)
@@ -2429,9 +2476,25 @@ const ServiceFlowSchedule = () => {
                           isSelected && isCurrentMonth ? 'text-blue-900 font-semibold' : ''
                         }`}>{day.getDate()}</div>
                         {showJobs.map((job, jobIndex) => {
-                          const jobTime = new Date(job.scheduled_date)
-                          const duration = job.service_duration || job.duration || 0
-                          const endTime = new Date(jobTime.getTime() + duration * 60000)
+                          // Parse scheduled_date correctly - it's stored as string "YYYY-MM-DD HH:MM:SS"
+                          let jobTime;
+                          if (typeof job.scheduled_date === 'string' && job.scheduled_date.includes(' ')) {
+                            // Extract time directly from string to avoid timezone issues
+                            const [datePart, timePart] = job.scheduled_date.split(' ');
+                            const [hours, minutes] = timePart.split(':').map(Number);
+                            jobTime = new Date(datePart);
+                            jobTime.setHours(hours || 0, minutes || 0, 0, 0);
+                          } else {
+                            jobTime = new Date(job.scheduled_date);
+                          }
+                          
+                          // Duration is in minutes, ensure it's a number
+                          const duration = parseInt(job.service_duration || job.duration || 0);
+                          
+                          // Calculate end time
+                          const endTime = new Date(jobTime.getTime() + duration * 60000);
+                          
+                          // Format times
                           const timeString = jobTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
                           const endTimeString = endTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
                           const assignedTeamMember = teamMembers.find(m => m.id === job.assigned_team_member_id || m.id === job.team_member_id)
@@ -2510,19 +2573,33 @@ const ServiceFlowSchedule = () => {
             {/* Job Details Card (only in day view) */}
             {filteredJobs.map((job) => {
               // Format job data
-              const jobDate = new Date(job.scheduled_date)
+              // Parse scheduled_date correctly - it's stored as string "YYYY-MM-DD HH:MM:SS"
+              let jobDate;
+              if (typeof job.scheduled_date === 'string' && job.scheduled_date.includes(' ')) {
+                // Extract time directly from string to avoid timezone issues
+                const [datePart, timePart] = job.scheduled_date.split(' ');
+                const [hours, minutes] = timePart.split(':').map(Number);
+                jobDate = new Date(datePart);
+                jobDate.setHours(hours || 0, minutes || 0, 0, 0);
+              } else {
+                jobDate = new Date(job.scheduled_date);
+              }
+              
               const timeString = jobDate.toLocaleTimeString('en-US', { 
                 hour: 'numeric', 
                 minute: '2-digit',
                 hour12: true 
               })
-              const endTime = new Date(jobDate.getTime() + (job.service_duration || 0) * 60000)
+              
+              // Duration is in minutes, ensure it's a number
+              const duration = parseInt(job.service_duration || job.duration || 0);
+              const endTime = new Date(jobDate.getTime() + duration * 60000)
               const endTimeString = endTime.toLocaleTimeString('en-US', { 
                 hour: 'numeric', 
                 minute: '2-digit',
                 hour12: true 
               })
-              const duration = job.service_duration ? `${Math.floor(job.service_duration / 60)}h ${job.service_duration % 60}m` : 'N/A'
+              const durationDisplay = job.service_duration ? `${Math.floor(job.service_duration / 60)}h ${job.service_duration % 60}m` : 'N/A'
               const serviceName = job.service_name || job.service_type || 'Service'
               const customerName = getCustomerName(job) || 'Customer'
               const customerEmail = job.customer_email || job.customer?.email || job.customers?.email || ''
@@ -2831,110 +2908,112 @@ const ServiceFlowSchedule = () => {
                   </div>
                  
                 </div>
-              <div className="flex items-center gap-3">
-                {/* Status Action Button with Dropdown */}
-                <div className="relative flex">
-                  {(() => {
-                    const currentStatus = (selectedJobDetails?.status || 'pending').toLowerCase().trim()
+              {/* Status Action Button with Dropdown - Only show if user has permission */}
+              {canMarkJobStatus(user) && (
+                <div className="flex items-center gap-3">
+                  <div className="relative flex">
+                    {(() => {
+                      const currentStatus = (selectedJobDetails?.status || 'pending').toLowerCase().trim()
+                      
+                      // Normalize status: pending=scheduled, en_route=confirmed, started=in-progress, complete=completed
+                      const normalizedStatus = 
+                        currentStatus === 'scheduled' ? 'pending' :
+                        currentStatus === 'en_route' || currentStatus === 'enroute' ? 'confirmed' :
+                        currentStatus === 'started' ? 'in-progress' :
+                        currentStatus === 'complete' ? 'completed' :
+                        currentStatus
+                      
+                      // Determine next status and button label based on normalized status
+                      // Only show 3 options: En Route (confirmed), In Progress (in_progress), Complete (completed)
+                      let nextStatus = null
+                      let buttonLabel = 'Mark as En Route'
+                      let buttonColor = 'bg-blue-600 hover:bg-blue-700'
+                      let isDisabled = false
+                      
+                      // Status progression: pending → confirmed → in_progress → completed
+                      if (normalizedStatus === 'pending' || normalizedStatus === 'scheduled') {
+                        nextStatus = 'confirmed' // Maps to "confirmed" in backend (En Route)
+                        buttonLabel = 'Mark as En Route'
+                        buttonColor = 'bg-blue-600 hover:bg-blue-700'
+                      } else if (normalizedStatus === 'confirmed' || normalizedStatus === 'en_route' || normalizedStatus === 'enroute') {
+                        nextStatus = 'in_progress' // Maps to "in_progress" in backend (In Progress)
+                        buttonLabel = 'Mark as In Progress'
+                        buttonColor = 'bg-orange-600 hover:bg-orange-700'
+                      } else if (normalizedStatus === 'in-progress' || normalizedStatus === 'in_progress' || normalizedStatus === 'in_prog' || normalizedStatus === 'started') {
+                        nextStatus = 'completed' // Maps to "completed" in backend (Complete)
+                        buttonLabel = 'Mark as Complete'
+                        buttonColor = 'bg-green-600 hover:bg-green-700'
+                      } else if (normalizedStatus === 'completed' || normalizedStatus === 'complete' || normalizedStatus === 'done' || normalizedStatus === 'finished') {
+                        isDisabled = true
+                        buttonLabel = 'Job Complete'
+                        buttonColor = 'bg-gray-400 cursor-not-allowed'
+                      } else if (normalizedStatus === 'cancelled' || normalizedStatus === 'canceled') {
+                        isDisabled = true
+                        buttonLabel = 'Job Cancelled'
+                        buttonColor = 'bg-gray-400 cursor-not-allowed'
+                      }
+                      
+                      return (
+                        <>
+                          <button 
+                            onClick={() => nextStatus && handleStatusChange(nextStatus)}
+                            disabled={isDisabled || isUpdatingStatus}
+                            className={`${buttonColor} text-white px-4 py-2 rounded-l-lg transition-colors font-medium text-sm flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed`}
+                          >
+                            <span>{isUpdatingStatus ? 'Updating...' : buttonLabel}</span>
+                          </button>
+                          <button 
+                            onClick={() => setShowStatusMenu(!showStatusMenu)}
+                            disabled={isUpdatingStatus}
+                            className={`${buttonColor} text-white px-3 py-2 rounded-r-lg border-l border-white/20 transition-colors disabled:opacity-50`}
+                          >
+                            <ChevronDown className="w-4 h-4" />
+                          </button>
+                        </>
+                      )
+                    })()}
                     
-                    // Normalize status: pending=scheduled, en_route=confirmed, started=in-progress, complete=completed
-                    const normalizedStatus = 
-                      currentStatus === 'scheduled' ? 'pending' :
-                      currentStatus === 'en_route' || currentStatus === 'enroute' ? 'confirmed' :
-                      currentStatus === 'started' ? 'in-progress' :
-                      currentStatus === 'complete' ? 'completed' :
-                      currentStatus
-                    
-                    // Determine next status and button label based on normalized status
-                    // Only show 3 options: En Route (confirmed), In Progress (in_progress), Complete (completed)
-                    let nextStatus = null
-                    let buttonLabel = 'Mark as En Route'
-                    let buttonColor = 'bg-blue-600 hover:bg-blue-700'
-                    let isDisabled = false
-                    
-                    // Status progression: pending → confirmed → in_progress → completed
-                    if (normalizedStatus === 'pending' || normalizedStatus === 'scheduled') {
-                      nextStatus = 'confirmed' // Maps to "confirmed" in backend (En Route)
-                      buttonLabel = 'Mark as En Route'
-                      buttonColor = 'bg-blue-600 hover:bg-blue-700'
-                    } else if (normalizedStatus === 'confirmed' || normalizedStatus === 'en_route' || normalizedStatus === 'enroute') {
-                      nextStatus = 'in_progress' // Maps to "in_progress" in backend (In Progress)
-                      buttonLabel = 'Mark as In Progress'
-                      buttonColor = 'bg-orange-600 hover:bg-orange-700'
-                    } else if (normalizedStatus === 'in-progress' || normalizedStatus === 'in_progress' || normalizedStatus === 'in_prog' || normalizedStatus === 'started') {
-                      nextStatus = 'completed' // Maps to "completed" in backend (Complete)
-                      buttonLabel = 'Mark as Complete'
-                      buttonColor = 'bg-green-600 hover:bg-green-700'
-                    } else if (normalizedStatus === 'completed' || normalizedStatus === 'complete' || normalizedStatus === 'done' || normalizedStatus === 'finished') {
-                      isDisabled = true
-                      buttonLabel = 'Job Complete'
-                      buttonColor = 'bg-gray-400 cursor-not-allowed'
-                    } else if (normalizedStatus === 'cancelled' || normalizedStatus === 'canceled') {
-                      isDisabled = true
-                      buttonLabel = 'Job Cancelled'
-                      buttonColor = 'bg-gray-400 cursor-not-allowed'
-                    }
-                    
-                    return (
-                      <>
-                        <button 
-                          onClick={() => nextStatus && handleStatusChange(nextStatus)}
-                          disabled={isDisabled || isUpdatingStatus}
-                          className={`${buttonColor} text-white px-4 py-2 rounded-l-lg transition-colors font-medium text-sm flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed`}
-                        >
-                          <span>{isUpdatingStatus ? 'Updating...' : buttonLabel}</span>
-                        </button>
-                        <button 
-                          onClick={() => setShowStatusMenu(!showStatusMenu)}
-                          disabled={isUpdatingStatus}
-                          className={`${buttonColor} text-white px-3 py-2 rounded-r-lg border-l border-white/20 transition-colors disabled:opacity-50`}
-                        >
-                          <ChevronDown className="w-4 h-4" />
-                        </button>
-                      </>
-                    )
-                  })()}
-                  
-                  {showStatusMenu && (
-                    <div className="absolute top-full right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
-                      <div className="py-2">
-                        {[
-                          { label: 'Mark as En Route', backendStatus: 'confirmed', color: 'bg-blue-500' },
-                          { label: 'Mark as In Progress', backendStatus: 'in_progress', color: 'bg-orange-500' },
-                          { label: 'Mark as Complete', backendStatus: 'completed', color: 'bg-green-500' }
-                        ].map((statusOption) => {
-                          const currentStatus = (selectedJobDetails?.status || 'pending').toLowerCase().trim()
-                          // Normalize for comparison: scheduled=pending, en_route=confirmed, started=in-progress, complete=completed
-                          const normalizedCurrent = 
-                            currentStatus === 'scheduled' || currentStatus === 'pending' ? 'confirmed' :
-                            currentStatus === 'en_route' || currentStatus === 'enroute' ? 'confirmed' :
-                            currentStatus === 'started' || currentStatus === 'in_progress' || currentStatus === 'in_prog' || currentStatus === 'in-progress' ? 'in_progress' :
-                            currentStatus === 'complete' || currentStatus === 'completed' ? 'completed' :
-                            currentStatus
-                          const isCurrentStatus = normalizedCurrent === statusOption.backendStatus
-                          
-                          return (
-                            <button
-                              key={statusOption.backendStatus}
-                              onClick={() => {
-                                handleStatusChange(statusOption.backendStatus)
-                                setShowStatusMenu(false)
-                              }}
-                              disabled={isUpdatingStatus}
-                              className={`w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm disabled:opacity-50 ${
-                                isCurrentStatus ? 'bg-blue-50 text-blue-700' : ''
-                              }`}
-                            >
-                              <div className={`w-3 h-3 rounded-full ${statusOption.color}`}></div>
-                              <span>{statusOption.label}</span>
-                            </button>
-                          )
-                        })}
+                    {showStatusMenu && (
+                      <div className="absolute top-full right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+                        <div className="py-2">
+                          {[
+                            { label: 'Mark as En Route', backendStatus: 'confirmed', color: 'bg-blue-500' },
+                            { label: 'Mark as In Progress', backendStatus: 'in_progress', color: 'bg-orange-500' },
+                            { label: 'Mark as Complete', backendStatus: 'completed', color: 'bg-green-500' }
+                          ].map((statusOption) => {
+                            const currentStatus = (selectedJobDetails?.status || 'pending').toLowerCase().trim()
+                            // Normalize for comparison: scheduled=pending, en_route=confirmed, started=in-progress, complete=completed
+                            const normalizedCurrent = 
+                              currentStatus === 'scheduled' || currentStatus === 'pending' ? 'confirmed' :
+                              currentStatus === 'en_route' || currentStatus === 'enroute' ? 'confirmed' :
+                              currentStatus === 'started' || currentStatus === 'in_progress' || currentStatus === 'in_prog' || currentStatus === 'in-progress' ? 'in_progress' :
+                              currentStatus === 'complete' || currentStatus === 'completed' ? 'completed' :
+                              currentStatus
+                            const isCurrentStatus = normalizedCurrent === statusOption.backendStatus
+                            
+                            return (
+                              <button
+                                key={statusOption.backendStatus}
+                                onClick={() => {
+                                  handleStatusChange(statusOption.backendStatus)
+                                  setShowStatusMenu(false)
+                                }}
+                                disabled={isUpdatingStatus}
+                                className={`w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm disabled:opacity-50 ${
+                                  isCurrentStatus ? 'bg-blue-50 text-blue-700' : ''
+                                }`}
+                              >
+                                <div className={`w-3 h-3 rounded-full ${statusOption.color}`}></div>
+                                <span>{statusOption.label}</span>
+                              </button>
+                            )
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
-                    </div>
+              )}
             </div>
 
             {/* Status Progress Bar */}
@@ -3129,13 +3208,16 @@ const ServiceFlowSchedule = () => {
                       >
                         Cancel
                       </button>
-                      <button 
-                        onClick={handleReschedule}
-                        className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-                        style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
-                      >
-                        Reschedule
-                      </button>
+                      {/* Reschedule button - only show if user has permission */}
+                      {canRescheduleJobs(user) && (
+                        <button 
+                          onClick={handleReschedule}
+                          className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                          style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
+                        >
+                          Reschedule
+                        </button>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-2 text-gray-900 mb-1">
@@ -3168,13 +3250,16 @@ const ServiceFlowSchedule = () => {
                 <div className="px-6 py-4">
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-xs font-bold text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Job Details</span>
-                    <button 
-                      onClick={() => navigate(`/job/${selectedJobDetails.id}`)}
-                      className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-                      style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
-                    >
-                      Edit Service
-                    </button>
+                    {/* Edit Service button - only show if user has permission */}
+                    {canEditJobDetails(user) && (
+                      <button 
+                        onClick={() => navigate(`/job/${selectedJobDetails.id}`)}
+                        className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                        style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
+                      >
+                        Edit Service
+                      </button>
+                    )}
                   </div>
                   <p className="font-semibold text-gray-900 text-base mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                     {selectedJobDetails.service_name || selectedJobDetails.service_type || 'Service'}
@@ -3230,64 +3315,69 @@ const ServiceFlowSchedule = () => {
                 </div>
               </div>
 
-              {/* Invoice */}
-              <div className="bg-white border-b border-gray-200">
-                <div className="px-6 py-5">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-xl font-bold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Invoice</span>
-                    <span className="px-2.5 py-0.5 text-xs font-semibold rounded-md bg-gray-100 text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
-                      {selectedJobDetails.invoice_status === 'paid' ? 'Paid' : 
-                       selectedJobDetails.invoice_status === 'sent' ? 'Sent' : 
-                       selectedJobDetails.invoice_status === 'draft' ? 'Draft' : 
-                       'Draft'}
-                    </span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        if (selectedJobDetails.invoice_id) {
-                          navigate(`/invoices/${selectedJobDetails.invoice_id}`)
-                        }
-                      }}
-                      className="text-gray-500 hover:text-gray-700 transition-colors"
-                    >
-                      <ChevronRight className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <p className="text-sm text-gray-500 mb-4" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
-                    Due {selectedJobDetails.invoice_due_date 
-                      ? new Date(selectedJobDetails.invoice_due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                      : new Date(new Date().getTime() + 15 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                  </p>
-                  
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="text-lg font-bold text-gray-900 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
-                        ${(selectedJobDetails.invoice_paid_amount || selectedJobDetails.amount_paid || 0).toFixed(2)}
-                      </p>
-                      <p className="text-xs text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Amount paid</p>
+              {/* Invoice - only show if user has permission to view/edit job price */}
+              {canViewEditJobPrice(user) && (
+                <div className="bg-white border-b border-gray-200">
+                  <div className="px-6 py-5">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-xl font-bold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Invoice</span>
+                      <span className="px-2.5 py-0.5 text-xs font-semibold rounded-md bg-gray-100 text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                        {selectedJobDetails.invoice_status === 'paid' ? 'Paid' : 
+                         selectedJobDetails.invoice_status === 'sent' ? 'Sent' : 
+                         selectedJobDetails.invoice_status === 'draft' ? 'Draft' : 
+                         'Draft'}
+                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (selectedJobDetails.invoice_id) {
+                            navigate(`/invoices/${selectedJobDetails.invoice_id}`)
+                          }
+                        }}
+                        className="text-gray-500 hover:text-gray-700 transition-colors"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
                     </div>
-                    <div className="text-right">
-                      <p className="text-lg font-bold text-gray-900 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
-                        ${((selectedJobDetails.total || selectedJobDetails.price || selectedJobDetails.service_price || 0) - (selectedJobDetails.invoice_paid_amount || selectedJobDetails.amount_paid || 0)).toFixed(2)}
-                      </p>
-                      <p className="text-xs text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Amount due</p>
+                    <p className="text-sm text-gray-500 mb-4" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                      Due {selectedJobDetails.invoice_due_date 
+                        ? new Date(selectedJobDetails.invoice_due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                        : new Date(new Date().getTime() + 15 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </p>
+                    
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="text-lg font-bold text-gray-900 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
+                          ${(selectedJobDetails.invoice_paid_amount || selectedJobDetails.amount_paid || 0).toFixed(2)}
+                        </p>
+                        <p className="text-xs text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Amount paid</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-lg font-bold text-gray-900 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
+                          ${((selectedJobDetails.total || selectedJobDetails.price || selectedJobDetails.service_price || 0) - (selectedJobDetails.invoice_paid_amount || selectedJobDetails.amount_paid || 0)).toFixed(2)}
+                        </p>
+                        <p className="text-xs text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Amount due</p>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
 
               {/* Customer */}
               <div className="bg-white border-b border-gray-200">
                 <div className="px-6 py-5">
                   <div className="flex items-center justify-between mb-4">
                     <span className="text-sm font-bold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Customer</span>
-                    <button 
-                      onClick={handleEditCustomer}
-                      className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-                      style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
-                    >
-                      Edit
-                    </button>
+                    {/* Edit customer button - only show if user has permission */}
+                    {canEditJobDetails(user) && (
+                      <button 
+                        onClick={handleEditCustomer}
+                        className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                        style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
+                      >
+                        Edit
+                      </button>
+                    )}
                   </div>
                   <div className="flex items-start gap-3">
                     <div 
@@ -3316,21 +3406,31 @@ const ServiceFlowSchedule = () => {
                       >
                         {getCustomerName(selectedJobDetails) || 'Customer'}
                       </p>
-                      {(selectedJobDetails.customer_phone || selectedJobDetails.customers?.phone) && (
-                        <div className="flex items-center gap-2 text-sm text-gray-700 mb-2">
-                          <Phone className="w-4 h-4 text-gray-500 flex-shrink-0" />
-                          <span style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
-                            {selectedJobDetails.customer_phone || selectedJobDetails.customers?.phone}
-                          </span>
-                        </div>
+                      {/* Customer contact info - only show if user has permission */}
+                      {canViewCustomerContact(user) && (
+                        <>
+                          {(selectedJobDetails.customer_phone || selectedJobDetails.customers?.phone) && (
+                            <div className="flex items-center gap-2 text-sm text-gray-700 mb-2">
+                              <Phone className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                              <span style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                                {selectedJobDetails.customer_phone || selectedJobDetails.customers?.phone}
+                              </span>
+                            </div>
+                          )}
+                          {(selectedJobDetails.customer_email || selectedJobDetails.customers?.email) && (
+                            <div className="flex items-center gap-2 text-sm text-gray-700">
+                              <Mail className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                              <span className="truncate" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                                {selectedJobDetails.customer_email || selectedJobDetails.customers?.email}
+                              </span>
+                            </div>
+                          )}
+                        </>
                       )}
-                      {(selectedJobDetails.customer_email || selectedJobDetails.customers?.email) && (
-                        <div className="flex items-center gap-2 text-sm text-gray-700">
-                          <Mail className="w-4 h-4 text-gray-500 flex-shrink-0" />
-                          <span className="truncate" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
-                            {selectedJobDetails.customer_email || selectedJobDetails.customers?.email}
-                          </span>
-                        </div>
+                      {!canViewCustomerContact(user) && (
+                        <p className="text-xs text-gray-500 italic" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                          Contact information not available
+                        </p>
                       )}
                     </div>
                   </div>
@@ -3368,23 +3468,81 @@ const ServiceFlowSchedule = () => {
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-xs font-bold text-gray-900 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Territory</span>
                     </div>
-                    <div className="relative">
-                      <select
-                        value={selectedJobDetails.territory_id || ''}
-                        onChange={(e) => {
-                          const territoryId = e.target.value ? parseInt(e.target.value) : null
-                          handleTerritoryChange(territoryId)
-                        }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                        style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
-                      >
-                        <option value="">Unassigned</option>
-                        {territories.map(territory => (
-                          <option key={territory.id} value={territory.id}>
-                            {territory.name}
-                          </option>
-                        ))}
-                      </select>
+                    <div className="relative" ref={territoryDropdownRef}>
+                      {(() => {
+                        // Try to find territory by territory_id first
+                        let currentTerritory = selectedJobDetails.territory_id 
+                          ? territories.find(t => t.id === selectedJobDetails.territory_id)
+                          : null
+                        
+                        // If no territory_id, try to match by service_region_custom_service_region
+                        if (!currentTerritory && selectedJobDetails.service_region_custom_service_region) {
+                          const locationName = selectedJobDetails.service_region_custom_service_region
+                          // Try to match by territory name or location field
+                          currentTerritory = territories.find(t => 
+                            t.name === locationName || 
+                            t.location === locationName ||
+                            (t.location && t.location.includes(locationName)) ||
+                            (locationName && t.name && t.name.toLowerCase().includes(locationName.toLowerCase()))
+                          )
+                        }
+                        
+                        const territoryName = currentTerritory ? currentTerritory.name : 'Unassigned'
+                        const territoryId = currentTerritory ? currentTerritory.id : null
+                        
+                        return (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => setShowTerritoryDropdown(!showTerritoryDropdown)}
+                              className="w-full flex items-center justify-between px-3 py-2.5 border border-gray-300 rounded-lg text-sm hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white transition-colors"
+                              style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
+                            >
+                              <div className="flex items-center gap-2">
+                                {territoryId ? (
+                                  <Target className="w-4 h-4 text-blue-500" />
+                                ) : (
+                                  <Target className="w-4 h-4 text-gray-400" />
+                                )}
+                                <span className={territoryId ? 'text-gray-900' : 'text-gray-500'}>
+                                  {territoryName}
+                                </span>
+                              </div>
+                              <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${showTerritoryDropdown ? 'transform rotate-180' : ''}`} />
+                            </button>
+                            
+                            {showTerritoryDropdown && (
+                              <div className="absolute top-full left-0 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-64 overflow-y-auto">
+                                <button
+                                  className={`w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-2 ${
+                                    !territoryId ? 'font-semibold bg-gray-50' : ''
+                                  }`}
+                                  onClick={() => {
+                                    handleTerritoryChange(null)
+                                  }}
+                                >
+                                  <Target className="w-4 h-4 text-gray-400" />
+                                  <span>Unassigned</span>
+                                </button>
+                                {territories.map(t => (
+                                  <button
+                                    key={t.id}
+                                    className={`w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-2 ${
+                                      territoryId === t.id ? 'font-semibold bg-blue-50' : ''
+                                    }`}
+                                    onClick={() => {
+                                      handleTerritoryChange(t.id)
+                                    }}
+                                  >
+                                    <Target className={`w-4 h-4 ${territoryId === t.id ? 'text-blue-500' : 'text-gray-400'}`} />
+                                    <span>{t.name}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </>
+                        )
+                      })()}
                     </div>
                   </div>
                   
@@ -3535,7 +3693,8 @@ const ServiceFlowSchedule = () => {
                           </p>
                         </div>
                       )}
-                      {selectedJobDetails.notes && (
+                      {/* Customer notes - only show if user has permission */}
+                      {canViewCustomerNotes(user) && selectedJobDetails.notes && (
                         <div>
                           <p className="text-xs font-semibold text-gray-700 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Customer Notes</p>
                           <p className="text-sm text-gray-600 whitespace-pre-wrap" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
