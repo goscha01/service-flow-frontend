@@ -271,15 +271,55 @@ const ImportJobsPage = () => {
         
         // Parse scheduled date/time
         const startDateTime = rawData['start_time_for_full_cal_date'];
+        const endDateTime = rawData['end_time_for_full_cal_date'] || rawData['finish_time_for_full_cal_date'] || rawData['finish_time_date'];
         const timeHumanReadable = rawData['time_human_readable_text'];
         const timezone = rawData['timezone_text'];
         const dateTimeParts = parseZenBookerDateTime(startDateTime, timeHumanReadable, timezone);
         job.scheduledDate = dateTimeParts.date || null;
         job.scheduledTime = dateTimeParts.time || '09:00:00';
         
+        // If we have both start and end times, calculate duration from them
+        // This ensures the job duration matches the actual time range
+        if (endDateTime && startDateTime) {
+          try {
+            const startParts = parseZenBookerDateTime(startDateTime, timeHumanReadable, timezone);
+            const endParts = parseZenBookerDateTime(endDateTime, null, timezone);
+            
+            if (startParts.date && endParts.date && startParts.time && endParts.time) {
+              // Parse times to calculate duration
+              const [startHours, startMinutes] = startParts.time.split(':').map(Number);
+              const [endHours, endMinutes] = endParts.time.split(':').map(Number);
+              
+              // Calculate duration in minutes
+              let durationMinutes = (endHours * 60 + endMinutes) - (startHours * 60 + startMinutes);
+              
+              // Handle case where end time is next day (e.g., 11 PM to 2 AM)
+              if (durationMinutes < 0) {
+                durationMinutes += 24 * 60; // Add 24 hours
+              }
+              
+              // If we calculated a valid duration, use it (unless duration was already explicitly provided)
+              if (durationMinutes > 0 && !job.duration) {
+                job.duration = durationMinutes.toString();
+                console.log(`Row ${i + 1}: Calculated duration ${durationMinutes} minutes from start ${startParts.time} to end ${endParts.time}`);
+              } else if (durationMinutes > 0 && job.duration) {
+                // If both exist, prefer the calculated duration from times
+                const providedDuration = parseInt(job.duration);
+                if (Math.abs(durationMinutes - providedDuration) > 5) {
+                  // If there's a significant difference (>5 min), use calculated duration
+                  console.log(`Row ${i + 1}: Duration mismatch - provided: ${providedDuration} min, calculated: ${durationMinutes} min. Using calculated.`);
+                  job.duration = durationMinutes.toString();
+                }
+              }
+            }
+          } catch (error) {
+            console.warn(`Row ${i + 1}: Error calculating duration from start/end times:`, error);
+          }
+        }
+        
         // Log the parsed date for debugging
         if (job.scheduledDate) {
-          console.log(`Row ${i + 1}: Parsed date from "${startDateTime}" -> "${job.scheduledDate}"`);
+          console.log(`Row ${i + 1}: Parsed date from "${startDateTime}" -> "${job.scheduledDate}" at "${job.scheduledTime}"`);
         }
         
         // If no date, skip this job (can't create job without date)
@@ -382,7 +422,26 @@ const ImportJobsPage = () => {
               break;
             case 'scheduled date':
             case 'scheduleddate':
+            case 'start date':
+            case 'startdate':
               if (!job.scheduledDate) job.scheduledDate = value;
+              break;
+            case 'scheduled time':
+            case 'scheduledtime':
+            case 'start time':
+            case 'starttime':
+              if (!job.scheduledTime || job.scheduledTime === '09:00:00') job.scheduledTime = value;
+              break;
+            case 'end time':
+            case 'endtime':
+            case 'finish time':
+            case 'finishtime':
+            case 'end_time':
+            case 'finish_time':
+              // Store end time to calculate duration if needed
+              if (value && !job.endTime) {
+                job.endTime = value;
+              }
               break;
             case 'team member':
             case 'teammember':

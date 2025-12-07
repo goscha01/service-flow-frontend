@@ -8,6 +8,8 @@
  * Permissions are stored in the user object as user.permissions
  */
 
+import { getUserRole, isAccountOwner, isManager, isScheduler, isWorker } from './roleUtils';
+
 /**
  * Get user permissions from user object
  * @param {Object} user - User object from AuthContext
@@ -36,11 +38,6 @@ export const getUserPermissions = (user) => {
 };
 
 /**
- * Get user role (from roleUtils)
- */
-import { getUserRole, isAccountOwner, isManager, isScheduler, isWorker } from './roleUtils';
-
-/**
  * Check if user has a specific permission
  * @param {Object} user - User object from AuthContext
  * @param {string} permission - Permission name to check
@@ -57,18 +54,12 @@ export const hasPermission = (user, permission) => {
     return true;
   }
   
-  // Schedulers: check specific permission, default to true unless explicitly false
+  // Schedulers: ONLY allow if permission is explicitly set to true
+  // Each checkbox must be checked individually - no defaults for granular permissions
+  // This ensures unchecked permissions (like "Process payments") hide functionality
   if (role === 'scheduler') {
-    // If permission is explicitly set to false, deny it
-    if (permissions[permission] === false) {
-      return false;
-    }
-    // If permission is explicitly set to true, allow it
-    if (permissions[permission] === true) {
-      return true;
-    }
-    // If not set, default to true for schedulers (they have broader access)
-    return true;
+    // Schedulers must have the permission explicitly enabled (checked)
+    return permissions[permission] === true;
   }
   
   // Workers: ONLY allow if permission is explicitly set to true
@@ -89,102 +80,66 @@ export const hasPermission = (user, permission) => {
 // Availability permissions
 export const canEditOwnAvailability = (user) => {
   if (isAccountOwner(user) || isManager(user)) return true;
-  if (isScheduler(user)) {
-    // Schedulers can edit availability unless explicitly denied
-    return hasPermission(user, 'editAvailability');
-  }
-  // Workers: must have permission explicitly checked
+  // Both schedulers and workers need explicit permission (checkbox must be checked)
   return hasPermission(user, 'editAvailability');
 };
 
 // Customer permissions
 export const canViewCustomerContact = (user) => {
   if (isAccountOwner(user) || isManager(user)) return true;
-  if (isScheduler(user)) {
-    // Schedulers have access by default
-    return hasPermission(user, 'viewCustomerContact');
-  }
-  // Workers: must have permission explicitly checked
+  // Both schedulers and workers need explicit permission (checkbox must be checked)
   return hasPermission(user, 'viewCustomerContact');
 };
 
 export const canViewCustomerNotes = (user) => {
   if (isAccountOwner(user) || isManager(user)) return true;
-  if (isScheduler(user)) {
-    // Schedulers have access by default
-    return hasPermission(user, 'viewCustomerNotes');
-  }
-  // Workers: must have permission explicitly checked
+  // Both schedulers and workers need explicit permission (checkbox must be checked)
   return hasPermission(user, 'viewCustomerNotes');
 };
 
 // Job status permissions
 export const canMarkJobStatus = (user) => {
   if (isAccountOwner(user) || isManager(user)) return true;
-  if (isScheduler(user)) {
-    // Schedulers can mark job status by default
-    return hasPermission(user, 'markJobStatus');
-  }
-  // Workers: must have permission explicitly checked
+  // Both schedulers and workers need explicit permission (checkbox must be checked)
   return hasPermission(user, 'markJobStatus');
 };
 
 export const canResetJobStatuses = (user) => {
   if (isAccountOwner(user) || isManager(user)) return true;
-  if (isScheduler(user)) {
-    // Schedulers can reset statuses by default
-    return hasPermission(user, 'resetJobStatuses');
-  }
-  // Workers: must have permission explicitly checked
+  // Both schedulers and workers need explicit permission (checkbox must be checked)
   return hasPermission(user, 'resetJobStatuses');
 };
 
 // Job editing permissions
 export const canEditJobDetails = (user) => {
   if (isAccountOwner(user) || isManager(user)) return true;
-  if (isScheduler(user)) {
-    // Schedulers can edit job details by default
-    return hasPermission(user, 'editJobDetails');
-  }
-  // Workers: must have permission explicitly checked
+  // Both schedulers and workers need explicit permission (checkbox must be checked)
   return hasPermission(user, 'editJobDetails');
 };
 
 export const canViewEditJobPrice = (user) => {
   if (isAccountOwner(user) || isManager(user)) return true;
-  if (isScheduler(user)) {
-    // Schedulers can view/edit prices by default
-    return hasPermission(user, 'viewEditJobPrice');
-  }
-  // Workers: must have permission explicitly checked
+  // Both schedulers and workers need explicit permission (checkbox must be checked)
   return hasPermission(user, 'viewEditJobPrice');
 };
 
 export const canRescheduleJobs = (user) => {
   if (isAccountOwner(user) || isManager(user)) return true;
-  if (isScheduler(user)) {
-    // Schedulers can reschedule by default
-    return hasPermission(user, 'rescheduleJobs');
-  }
-  // Workers: must have permission explicitly checked
+  // Both schedulers and workers need explicit permission (checkbox must be checked)
   return hasPermission(user, 'rescheduleJobs');
 };
 
 // Payment permissions
 export const canProcessPayments = (user) => {
   if (isAccountOwner(user) || isManager(user)) return true;
-  // Both schedulers and workers need explicit permission for payments
+  // Both schedulers and workers need explicit permission (checkbox must be checked)
   return hasPermission(user, 'processPayments');
 };
 
 // Team member visibility
 export const canSeeOtherProviders = (user) => {
   if (isAccountOwner(user) || isManager(user)) return true;
-  if (isScheduler(user)) {
-    // Schedulers can see other providers by default
-    return hasPermission(user, 'seeOtherProviders');
-  }
-  // Workers: must have permission explicitly checked
+  // Both schedulers and workers need explicit permission (checkbox must be checked)
   return hasPermission(user, 'seeOtherProviders');
 };
 

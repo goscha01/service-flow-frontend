@@ -297,15 +297,8 @@ const TeamMemberDetails = () => {
           }
         } else {
           // No permissions in database (null or undefined)
-          // Only set defaults if this is the first time loading (hasn't been loaded before)
-          if (!hasLoadedPermissions) {
-            // Only set defaults on first load when no data exists
-            console.log('No permissions in database, using defaults for first load')
-            // Keep current defaults - they're already set in initial state
-          } else {
-            // Already loaded before, permissions is null - keep current state (don't reset)
-            console.log('No permissions in database, but already loaded - keeping current state')
-          }
+          // Don't apply defaults - use empty object to ensure each worker only has explicitly saved permissions
+          setSettings({});
           setHasLoadedPermissions(true) // Mark as loaded (even though it's null)
         }
 
@@ -1175,14 +1168,18 @@ const TeamMemberDetails = () => {
                         // Define permission list based on role
                         const permissions = [];
                         if (teamMember?.role === 'worker') {
-                          // Worker permissions from settings
-                          if (settings.viewCustomerContactInfo) permissions.push('View customer contact info');
-                          if (settings.viewCustomerNotes) permissions.push('View customer notes');
-                          if (settings.modifyJobStatus) permissions.push('Modify job status');
-                          if (settings.editJobDetails) permissions.push('Edit job details');
-                          if (settings.viewEditJobPrice) permissions.push('View & edit job price, invoice, and line items');
-                          if (settings.processPayments) permissions.push('Process payments and mark jobs as paid');
-                          if (settings.editAvailability) permissions.push('Edit their availability & hours');
+                          // Worker permissions from settings - use exact field names from database
+                          // Only show permissions that are explicitly set to true
+                          if (settings.viewCustomerContact === true) permissions.push('View contact info for customer (phone & email)');
+                          if (settings.viewCustomerNotes === true) permissions.push('View customer notes');
+                          if (settings.markJobStatus === true) permissions.push('Mark jobs as \'en-route\', \'in-progress\' & \'complete\'');
+                          if (settings.resetJobStatuses === true) permissions.push('Reset job statuses');
+                          if (settings.editJobDetails === true) permissions.push('Edit job details');
+                          if (settings.viewEditJobPrice === true) permissions.push('View & edit job price, invoice, and line items');
+                          if (settings.processPayments === true) permissions.push('Process payments and mark jobs as paid');
+                          if (settings.rescheduleJobs === true) permissions.push('Reschedule jobs');
+                          if (settings.seeOtherProviders === true) permissions.push('See other providers assigned');
+                          if (settings.editAvailability === true) permissions.push('Edit their own availability');
                         } else if (teamMember?.role === 'scheduler') {
                           permissions.push('Access all jobs and all customers');
                           permissions.push('Create, edit, cancel, reschedule jobs');
