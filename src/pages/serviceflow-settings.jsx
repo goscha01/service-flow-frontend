@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import Sidebar from "../components/sidebar"
-import MobileHeader from "../components/mobile-header"
 import BusinessDetailsModal from "../components/business-details-modal"
 import SchedulingBookingModal from "../components/scheduling-booking-modal"
 import { useAuth } from "../context/AuthContext"
@@ -237,8 +236,6 @@ const ServiceFlowSettings = () => {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden min-w-0 lg:mx-44 xl:mx-48">
-        {/* Mobile Header */}
-        <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
 
         {/* Content Area */}
         <main className="flex-1 overflow-y-auto">

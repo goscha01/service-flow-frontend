@@ -6,7 +6,6 @@ import { ChevronLeft, Edit, Trash2, Send, Check, FileText, User, Calendar, Dolla
 import { invoicesAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
 import Sidebar from "../components/sidebar"
-import MobileHeader from "../components/mobile-header"
 import { formatPhoneNumber } from "../utils/phoneFormatter"
 import SendInvoiceModal from "../components/send-invoice-modal"
 import Notification from "../components/notification"
@@ -135,7 +134,6 @@ const InvoiceDetails = () => {
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         
         <div className="flex-1 flex flex-col min-w-0">
-          <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
           
           <div className="flex-1 overflow-auto flex items-center justify-center">
             <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
@@ -151,7 +149,6 @@ const InvoiceDetails = () => {
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         
         <div className="flex-1 flex flex-col min-w-0">
-          <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
           
           <div className="flex-1 overflow-auto flex items-center justify-center">
             <div className="text-center">
@@ -178,7 +175,6 @@ const InvoiceDetails = () => {
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         
         <div className="flex-1 flex flex-col min-w-0">
-          <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
           
           <div className="flex-1 overflow-auto flex items-center justify-center">
             <div className="text-center">
@@ -203,7 +199,6 @@ const InvoiceDetails = () => {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
       <div className="flex-1 flex flex-col min-w-0">
-        <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
         
         <div className="flex-1 overflow-auto">
           <div className="px-4 sm:px-6 lg:px-8 py-8">

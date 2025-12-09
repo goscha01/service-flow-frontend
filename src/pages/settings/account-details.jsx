@@ -10,7 +10,6 @@ import { Camera, Eye, EyeOff, Check, X } from "lucide-react"
 import { userProfileAPI, authAPI, teamAPI } from "../../services/api"
 import { useAuth } from "../../context/AuthContext"
 import Sidebar from "../../components/sidebar"
-import MobileHeader from "../../components/mobile-header"
 
 const AccountDetails = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -398,7 +397,6 @@ const AccountDetails = () => {
       <div className="flex h-screen bg-gray-50 overflow-hidden">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <div className="flex-1 flex flex-col min-w-0">
-          <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
@@ -415,7 +413,6 @@ const AccountDetails = () => {
       <div className="flex h-screen bg-gray-50 overflow-hidden">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <div className="flex-1 flex flex-col min-w-0">
-          <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>

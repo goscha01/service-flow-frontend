@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import Sidebar from "../components/sidebar"
-import MobileHeader from "../components/mobile-header"
 import TerritoryMap from "../components/territory-map"
 import {
   Plus,
@@ -178,7 +177,6 @@ const ServiceFlowTerritories = () => {
   return (
     <div className="flex h-screen bg-gray-50">
       <div className="flex-1 flex flex-col overflow-hidden">
-        <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
 
         <main className="flex-1 overflow-y-auto">
           <div className="px-5 lg:px-40 xl:px-44 2xl:px-48 py-4 sm:py-6 lg:py-8">

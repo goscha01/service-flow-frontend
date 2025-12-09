@@ -6,7 +6,6 @@ import { ChevronLeft, Edit, Trash2, Phone, Mail, MapPin, Calendar, DollarSign, F
 import { customersAPI, jobsAPI, estimatesAPI, invoicesAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
 import Sidebar from "../components/sidebar"
-import MobileHeader from "../components/mobile-header"
 
 import CustomerModal from "../components/customer-modal"
 import { formatPhoneNumber } from "../utils/phoneFormatter"
@@ -286,7 +285,6 @@ const CustomerDetails = () => {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
       <div className="flex-1 flex flex-col overflow-hidden min-w-0 lg:mx-44 xl:mx-48">
-        <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
 
         <main className="flex-1 overflow-y-auto">
           {/* Header */}

@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Sidebar from '../components/sidebar'
-import MobileHeader from '../components/mobile-header'
 import AddressValidation from '../components/address-validation'
 import AddressAutocomplete from '../components/address-autocomplete'
 import { 
@@ -969,7 +968,6 @@ const TeamMemberDetails = () => {
     <>
    <div className="flex h-screen bg-gray-50 overflow-hidden">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-        <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
 
         {/* Notification Display */}
         {notification && (

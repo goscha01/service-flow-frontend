@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import Sidebar from "../components/sidebar"
-import MobileHeader from "../components/mobile-header"
 import { Plus, Search, Filter, FileText, Send, Check, X, Eye, Edit, Trash2, Calendar, DollarSign, User, AlertCircle, RefreshCw } from "lucide-react"
 import { useAuth } from "../context/AuthContext"
 import { estimatesAPI, customersAPI, servicesAPI } from "../services/api"
@@ -254,7 +253,6 @@ const ServiceflowEstimates = () => {
       <div className="flex h-screen bg-gray-50 overflow-hidden">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <div className="flex-1 flex flex-col min-w-0">
-          <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <h2 className="text-xl font-semibold text-gray-900 mb-2">Please log in</h2>
@@ -271,7 +269,6 @@ const ServiceflowEstimates = () => {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
-        <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
 
         <div className="flex-1 overflow-auto">
           <div className="px-4 sm:px-6 lg:px-8 py-8">

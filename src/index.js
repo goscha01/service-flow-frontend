@@ -10,6 +10,7 @@ import ServiceFlowDashboard from "./pages/dashboard-redesigned"
 import ServiceFlowRequests from "./pages/Request"
 import ServiceFlowSchedule from "./pages/schedule-redesigned"
 import ServiceFlowJobs from "./pages/jobs"
+import WorkerAvailability from "./pages/worker-availability"
 import JobDetails from "./pages/job-details-redesigned"
 import ServiceFlowEstimates from "./pages/serviceflow-estimates"
 import ServiceFlowRecurring from "./pages/serviceflow-recurring"
@@ -111,6 +112,7 @@ root.render(
       <Route path="/request" element={<ProtectedRoute><ServiceFlowRequests /></ProtectedRoute>} />
       <Route path="/schedule" element={<ProtectedRoute><ServiceFlowSchedule /></ProtectedRoute>} />
       <Route path="/jobs" element={<ProtectedRoute><ServiceFlowJobs /></ProtectedRoute>} />
+      <Route path="/availability" element={<ProtectedRoute><WorkerAvailability /></ProtectedRoute>} />
       <Route path="/job/:jobId" element={<ProtectedRoute><JobDetails /></ProtectedRoute>} />
       <Route path="/estimates" element={<ProtectedRoute><ServiceFlowEstimates /></ProtectedRoute>} />
       <Route path="/recurring" element={<ProtectedRoute><ServiceFlowRecurring /></ProtectedRoute>} />

@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, User, Mail, Phone, MapPin, Clock, Settings, Plus, X, Trash2, Save } from 'lucide-react'
 import Sidebar from '../components/sidebar'
-import MobileHeader from '../components/mobile-header'
 import ErrorPopup from '../components/ErrorPopup'
 import AddressValidation from '../components/address-validation'
 import AddressAutocomplete from '../components/address-autocomplete'
@@ -457,7 +456,6 @@ const AddTeamMember = () => {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
       <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
-        <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
         
         <div className="flex-1 overflow-auto">
           <div className="px-4 sm:px-6 lg:px-8 py-8">

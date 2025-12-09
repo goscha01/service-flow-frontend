@@ -1,14 +1,15 @@
 import { useState, useEffect, useRef } from "react"
 import Sidebar from "../components/sidebar"
-import MobileHeader from "../components/mobile-header"
 import JobsEmptyState from "../components/jobs-empty-state"
 import ExportJobsModal from "../components/export-jobs-modal"
 
-import { Plus, AlertCircle, Loader2, Eye, Calendar, Clock, MapPin, Users, DollarSign, Phone, Mail, FileText, CheckCircle, XCircle, PlayCircle, PauseCircle, MoreVertical, Download, Upload, ChevronDown, Search, ChevronUp, User } from "lucide-react"
+import { Plus, AlertCircle, Loader2, Eye, Calendar, Clock, MapPin, Users, DollarSign, Phone, Mail, FileText, CheckCircle, XCircle, PlayCircle, PauseCircle, MoreVertical, Download, Upload, ChevronDown, Search, ChevronUp, User, SlidersHorizontal, Home, Briefcase, Megaphone, Bell, Menu, UserX, X } from "lucide-react"
 import { Link, useNavigate, useSearchParams } from "react-router-dom"
 import { jobsAPI, invoicesAPI, territoriesAPI, teamAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
 import { canCreateJobs } from "../utils/roleUtils"
+import { getImageUrl } from "../utils/imageUtils"
+import MobileBottomNav from "../components/mobile-bottom-nav"
 
 const ServiceFlowJobs = () => {
   const { user, loading: authLoading } = useAuth()
@@ -16,7 +17,7 @@ const ServiceFlowJobs = () => {
   const [searchParams, setSearchParams] = useSearchParams()
   const tabFromUrl = searchParams.get('tab')
   const [activeTab, setActiveTab] = useState(tabFromUrl || "all")
-
+  const width = window.innerWidth;
   const navigate = useNavigate()
 
   // Update activeTab when URL parameter changes
@@ -56,6 +57,9 @@ const ServiceFlowJobs = () => {
     tag: ""
   })
   const [isExportModalOpen, setIsExportModalOpen] = useState(false)
+  const [showFilterModal, setShowFilterModal] = useState(false)
+  const [showSearch, setShowSearch] = useState(false)
+  const searchInputRef = useRef(null)
   
   // Dropdown state
   const [openDropdown, setOpenDropdown] = useState(null)
@@ -89,6 +93,16 @@ const ServiceFlowJobs = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [openDropdown])
   
+  // Get initials from name
+  const getInitials = (name) => {
+    if (!name) return '?'
+    const parts = name.trim().split(' ')
+    if (parts.length === 1) {
+      return parts[0].substring(0, 2).toUpperCase()
+    }
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+  }
+
   const getFilterLabel = (type) => {
     switch (type) {
       case 'tag':
@@ -435,6 +449,74 @@ const ServiceFlowJobs = () => {
     }).format(amount || 0)
   }
 
+  // Group jobs by date for mobile view
+  const groupJobsByDate = (jobs) => {
+    const groups = {}
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const yesterday = new Date(today)
+    yesterday.setDate(yesterday.getDate() - 1)
+
+    jobs.forEach(job => {
+      if (!job.scheduled_date) {
+        if (!groups['No Date']) groups['No Date'] = []
+        groups['No Date'].push(job)
+        return
+      }
+
+      const jobDate = new Date(job.scheduled_date)
+      jobDate.setHours(0, 0, 0, 0)
+      
+      let dateKey = ''
+      if (jobDate.getTime() === today.getTime()) {
+        dateKey = 'TODAY'
+      } else if (jobDate.getTime() === yesterday.getTime()) {
+        const dateInfo = formatDate(job.scheduled_date)
+        dateKey = `YESTERDAY, ${dateInfo.monthName.toUpperCase()} ${dateInfo.day}`
+      } else {
+        const dateInfo = formatDate(job.scheduled_date)
+        dateKey = `${dateInfo.weekday.toUpperCase()}, ${dateInfo.monthName.toUpperCase()} ${dateInfo.day}`
+      }
+
+      if (!groups[dateKey]) groups[dateKey] = []
+      groups[dateKey].push(job)
+    })
+
+    return groups
+  }
+
+  // Format time range for mobile view
+  const formatTimeRange = (dateString) => {
+    if (!dateString) return 'Time not set'
+    const time = formatTime(dateString)
+    // For now, just show the time. You can extend this to show a range if you have end time
+    return time
+  }
+
+  // Get assigned team member name
+  const getAssignedMemberName = (job) => {
+    if (job.team_assignments && job.team_assignments.length > 0) {
+      const member = job.team_assignments[0]
+      if (member.first_name && member.last_name) {
+        return `${member.first_name} ${member.last_name}`
+      } else if (member.name) {
+        return member.name
+      } else if (member.first_name) {
+        return member.first_name
+      } else if (member.email) {
+        return member.email
+      }
+    }
+    return null
+  }
+
+  // Get assigned count
+  const getAssignedCount = (job) => {
+    const assigned = job.team_assignments?.length || 0
+    const needed = job.workers_needed || 1
+    return `${assigned}/${needed}`
+  }
+
   // Show loading spinner while auth is loading
   if (authLoading) {
     return (
@@ -455,10 +537,10 @@ const ServiceFlowJobs = () => {
   ]
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-hidden" style={{ maxWidth: '100vw', width: '100%', overflowX: 'hidden' }}>
     
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0" style={{ maxWidth: '100%', overflowX: 'hidden' }}>
         {/* Mobile Header */}
 
         {/* Desktop Header */}
@@ -498,40 +580,34 @@ const ServiceFlowJobs = () => {
         </div>
 
         {/* Mobile Header Content */}
-        <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-4">
-          <div className="flex items-center justify-between mb-3">
-            <h1 className="text-xl font-semibold text-gray-900 " style={{fontFamily: 'Montserrat', fontWeight: 700}}>Jobs</h1>
-            {canCreateJobs(user) && (
+        <div className="lg:hidden bg-white border-b border-gray-200 sticky top-0 z-20">
+          <div className="flex items-center justify-between px-4 py-3">
+            {/* Title - Centered */}
+            <h1 className="text-xl font-bold text-gray-900 flex-1 text-center" style={{fontFamily: 'Montserrat', fontWeight: 700}}>Jobs</h1>
+            
+            {/* Search and Filter Icons */}
+            <div className="flex items-center gap-3">
               <button
-                onClick={handleCreateJob}
-                className="px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-1"
-                style={{fontFamily: 'Montserrat', fontWeight: 500}}
+                onClick={() => {
+                  setShowSearch(true)
+                  setTimeout(() => {
+                    if (searchInputRef.current) {
+                      searchInputRef.current.focus()
+                    }
+                  }, 100)
+                }}
+                className="p-2 text-gray-600 hover:text-gray-900"
               >
-                <Plus className="w-4 h-4" />
-                Create
-              </button>
-            )}
-          </div>
-          {canCreateJobs(user) && (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleImportJobs}
-                className="flex-1 px-3 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
-                style={{fontFamily: 'Montserrat', fontWeight: 500}}
-              >
-                <Upload className="w-4 h-4" />
-                Import
+                <Search className="w-5 h-5" />
               </button>
               <button
-                onClick={handleExportJobs}
-                className="flex-1 px-3 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
-                style={{fontFamily: 'Montserrat', fontWeight: 500}}
+                onClick={() => setShowFilterModal(true)}
+                className="p-2 text-gray-600 hover:text-gray-900"
               >
-                <Download className="w-4 h-4" />
-                Export
+                <SlidersHorizontal className="w-5 h-5" />
               </button>
             </div>
-          )}
+          </div>
         </div>
 
         {/* Error Display */}
@@ -552,14 +628,47 @@ const ServiceFlowJobs = () => {
           </div>
         )}
 
+        {/* Mobile Search Bar */}
+        {showSearch && (
+          <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-3 sticky top-[73px] z-10">
+            <div className="flex items-center gap-3">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  placeholder="Search jobs..."
+                  value={filters.search}
+                  onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  style={{fontFamily: 'Montserrat', fontWeight: 400}}
+                />
+              </div>
+              <button
+                onClick={() => {
+                  setShowSearch(false)
+                  setFilters(prev => ({ ...prev, search: '' }))
+                }}
+                className="text-sm text-gray-600 font-medium px-2"
+                style={{fontFamily: 'Montserrat', fontWeight: 500}}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Tabs */}
-        <div className="bg-white border-b border-gray-200 px-4">
-          <div className="flex space-x-4">
+        <div className={`bg-white border-b border-gray-200 lg:hidden sticky ${showSearch ? 'top-[133px]' : 'top-[73px]'} z-10 w-full transition-all`} style={{ maxWidth: '100vw', overflowX: 'auto' }}>
+          <div className="flex space-x-4 overflow-x-auto scrollbar-hide px-4" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch', maxWidth: '100%' }}>
             {tabs.map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`py-3 border-b-2 font-medium text-sm transition-colors ${
+                onClick={() => {
+                  setActiveTab(tab.id)
+                  setSearchParams({ tab: tab.id })
+                }}
+                className={`py-3 border-b-2 font-medium text-sm transition-colors whitespace-nowrap flex-shrink-0 ${
                   activeTab === tab.id
                     ? "border-blue-600 text-blue-600"
                     : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
@@ -572,11 +681,35 @@ const ServiceFlowJobs = () => {
           </div>
         </div>
 
-        {/* Search and Filters */}
-        <div className="bg-white border-b border-gray-200 px-8 py-4">
-          <div className="flex items-center justify-between gap-4">
+        {/* Desktop Tabs */}
+        <div className="hidden lg:block bg-white border-b border-gray-200 px-4">
+          <div className="flex space-x-4 overflow-x-auto scrollbar-hide -mx-4 px-4">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => {
+                  setActiveTab(tab.id)
+                  setSearchParams({ tab: tab.id })
+                }}
+                className={`py-3 border-b-2 font-medium text-sm transition-colors whitespace-nowrap flex-shrink-0 ${
+                  activeTab === tab.id
+                    ? "border-blue-600 text-blue-600"
+                    : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
+                }`}
+                style={{fontFamily: 'Montserrat', fontWeight: 700}}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Search and Filters - Desktop Only */}
+        <div className="hidden lg:block bg-white border-b border-gray-200 px-4 lg:px-8 py-4">
+          <div className="flex w-full items-center flex-col justify-between gap-4">
             {/* Search */}
-            <div className="flex-1 max-w-md relative">
+            <div className="flex w-full">
+            <div className="flex-1 w-full relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
@@ -620,14 +753,14 @@ const ServiceFlowJobs = () => {
                 )}
               </div>
             )}
-
+            </div>
             {/* Filter Buttons */}
-            <div className="flex items-center gap-2">
+            <div className="w-full lg:flex flex flex-row flex-wrap items-center gap-2 pb-2 lg:pb-0">
               {/* Tag Filter */}
               <div className="relative" ref={tagDropdownRef}>
                 <button
                   onClick={() => setOpenDropdown(openDropdown === 'tag' ? null : 'tag')}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-200 transition-colors flex items-center gap-2"
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-200 transition-colors flex items-center gap-2 whitespace-nowrap"
                 >
                   {getFilterLabel('tag')}
                   {openDropdown === 'tag' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -651,7 +784,7 @@ const ServiceFlowJobs = () => {
               <div className="relative" ref={paymentMethodDropdownRef}>
                 <button
                   onClick={() => setOpenDropdown(openDropdown === 'paymentMethod' ? null : 'paymentMethod')}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-200 transition-colors flex items-center gap-2"
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-200 transition-colors flex items-center gap-2 whitespace-nowrap"
                 >
                   {getFilterLabel('paymentMethod')}
                   {openDropdown === 'paymentMethod' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -702,7 +835,7 @@ const ServiceFlowJobs = () => {
               <div className="relative" ref={invoiceStatusDropdownRef}>
                 <button
                   onClick={() => setOpenDropdown(openDropdown === 'invoiceStatus' ? null : 'invoiceStatus')}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-200 transition-colors flex items-center gap-2"
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-200 transition-colors flex items-center gap-2 whitespace-nowrap"
                 >
                   {getFilterLabel('invoiceStatus')}
                   {openDropdown === 'invoiceStatus' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -744,7 +877,7 @@ const ServiceFlowJobs = () => {
               <div className="relative" ref={territoryDropdownRef}>
                 <button
                   onClick={() => setOpenDropdown(openDropdown === 'territory' ? null : 'territory')}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-200 transition-colors flex items-center gap-2"
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-200 transition-colors flex items-center gap-2 whitespace-nowrap"
                 >
                   {getFilterLabel('territory')}
                   {openDropdown === 'territory' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -780,7 +913,7 @@ const ServiceFlowJobs = () => {
               <div className="relative" ref={assignedDropdownRef}>
                 <button
                   onClick={() => setOpenDropdown(openDropdown === 'assigned' ? null : 'assigned')}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-200 transition-colors flex items-center gap-2"
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-200 transition-colors flex items-center gap-2 whitespace-nowrap"
                 >
                   {getFilterLabel('assigned')}
                   {openDropdown === 'assigned' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -828,7 +961,7 @@ const ServiceFlowJobs = () => {
               <div className="relative" ref={sortDropdownRef}>
                 <button
                   onClick={() => setOpenDropdown(openDropdown === 'sort' ? null : 'sort')}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-200 transition-colors flex items-center gap-2"
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-200 transition-colors flex items-center gap-2 whitespace-nowrap"
                 >
                   {getFilterLabel('sort')}
                   {openDropdown === 'sort' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -879,15 +1012,15 @@ const ServiceFlowJobs = () => {
         </div>
 
         {/* Jobs List */}
-        <div className="flex-1 overflow-auto bg-gray-50 jobs-scroll-container">
-          <div className="">
+        <div className="flex-1 overflow-auto bg-white lg:bg-gray-50 jobs-scroll-container pb-20 lg:pb-0" style={{ maxWidth: '100%', width: '100%' }}>
+          <div className="" style={{ maxWidth: '100%' }}>
             {loading ? (
               <div className="flex items-center justify-center py-12">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                 <span className="ml-3 text-gray-600">Loading jobs...</span>
               </div>
             ) : jobs.length === 0 ? (
-              <JobsEmptyState onCreateJob={handleCreateJob} />
+              <JobsEmptyState activeTab={activeTab} onCreateJob={handleCreateJob} />
             ) : (
               <>
                 {/* Desktop Table View */}
@@ -1001,96 +1134,158 @@ const ServiceFlowJobs = () => {
                 </div>
 
                 {/* Mobile Card View */}
-                <div className="lg:hidden bg-gray-50">
-                  <div className="space-y-3 p-3">
-                    {jobs.map((job) => {
-                      const dateInfo = formatDate(job.scheduled_date)
-                      return (
-                        <div
-                          key={job.id}
-                          onClick={() => handleViewJob(job)}
-                          className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-                        >
-                          {/* Header Row */}
-                          <div className="flex items-start justify-between mb-3">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1">
-                                <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${getStatusLabel(job.status || 'pending', job) === 'Late' ? 'bg-orange-50 text-orange-700 border-orange-200' : getStatusColor(job.status)}`}>
-                                  {getStatusLabel(job.status || 'pending', job)}
-                                </span>
-                                <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-xs text-gray-500">
-                                  Job #{job.id}
-                                </span>
-                              </div>
-                              <h3 style={{fontFamily: 'Montserrat', fontWeight: 600}} className="text-base font-semibold text-gray-900 capitalize truncate">
-                                {job.service_name || 'Service'}
-                              </h3>
-                            </div>
-                            <div className="text-right flex-shrink-0 ml-2">
-                              <span style={{fontFamily: 'Montserrat', fontWeight: 600}} className="text-base font-semibold text-gray-900 block">
-                                {formatCurrency(job.total_amount || job.service_price || 0)}
-                              </span>
-                              <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-xs text-gray-600 bg-gray-100 px-2 py-0.5 rounded-sm inline-block mt-1">
-                                {job.invoice_status === 'paid' ? 'Paid' :
-                                 job.invoice_status === 'unpaid' ? 'Unpaid' :
-                                 job.invoice_status === 'invoiced' ? 'Invoiced' :
-                                 'No invoice'}
-                              </span>
-                            </div>
-                          </div>
+                <div className="lg:hidden bg-white pb-20">
+                  {(() => {
+                    const groupedJobs = groupJobsByDate(jobs)
+                    const dateKeys = Object.keys(groupedJobs).sort((a, b) => {
+                      if (a === 'TODAY') return -1
+                      if (b === 'TODAY') return 1
+                      if (a === 'YESTERDAY') return -1
+                      if (b === 'YESTERDAY') return 1
+                      if (a === 'No Date') return 1
+                      if (b === 'No Date') return -1
+                      return a.localeCompare(b)
+                    })
 
-                          {/* Customer Info */}
-                          <div className="mb-3 pb-3 border-b border-gray-100">
-                            <div className="flex items-center gap-2 mb-1">
-                              <User className="w-4 h-4 text-gray-400" />
-                              <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-sm font-medium text-gray-900 truncate">
-                                {job.customer_first_name && job.customer_last_name
-                                  ? `${job.customer_first_name} ${job.customer_last_name}`
-                                  : job.customer_email
-                                  ? job.customer_email
-                                  : 'Customer Name'
-                                }
-                              </span>
-                            </div>
-                            {job.customer_city && job.customer_state && (
-                              <div className="flex items-center gap-2 ml-6">
-                                <MapPin className="w-3.5 h-3.5 text-gray-400" />
-                                <span style={{fontFamily: 'Montserrat', fontWeight: 400}} className="text-xs text-gray-600">
-                                  {job.customer_city}, {job.customer_state}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Date and Time */}
-                          <div className="flex items-center gap-4 text-sm">
-                            <div className="flex items-center gap-2">
-                              <Calendar className="w-4 h-4 text-gray-400" />
-                              <div className="flex flex-col">
-                                <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-xs font-medium text-blue-600">
-                                  {job.scheduled_date ? `${dateInfo.weekday} ${dateInfo.monthName} ${dateInfo.day}` : 'Date not set'}
-                                </span>
-                                {job.scheduled_date && (
-                                  <span style={{fontFamily: 'Montserrat', fontWeight: 400}} className="text-xs text-gray-600">
-                                    {formatTime(job.scheduled_date)}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Users className="w-4 h-4 text-gray-400" />
-                              <span style={{fontFamily: 'Montserrat', fontWeight: 400}} className="text-xs text-gray-600">
-                                {job.team_assignments && job.team_assignments.length > 0
-                                  ? `${job.team_assignments.length} assigned`
-                                  : '0 assigned'
-                                }
-                              </span>
-                            </div>
-                          </div>
+                    return dateKeys.map((dateKey) => (
+                      <div key={dateKey} className="mb-6">
+                        {/* Date Header */}
+                        <div className="px-4 py-2 bg-gray-50">
+                          <h3 className="text-xs font-semibold text-gray-600 uppercase tracking-wider" style={{fontFamily: 'Montserrat', fontWeight: 700}}>
+                            {dateKey}
+                          </h3>
                         </div>
-                      )
-                    })}
-                  </div>
+
+                        {/* Job Cards */}
+                        <div className="space-y-0">
+                          {groupedJobs[dateKey].map((job) => {
+                            const assignedMember = getAssignedMemberName(job)
+                            const assignedCount = getAssignedCount(job)
+                            const statusLabel = getStatusLabel(job.status || 'pending', job)
+                            const isLate = statusLabel === 'Late'
+                            
+                            // Get time range - if we have duration, calculate end time
+                            let timeRange = formatTime(job.scheduled_date)
+                            if (job.scheduled_date && job.service_duration) {
+                              const startTime = new Date(job.scheduled_date)
+                              const endTime = new Date(startTime.getTime() + (job.service_duration * 60000))
+                              timeRange = `${formatTime(job.scheduled_date)} - ${formatTime(endTime.toISOString())}`
+                            }
+
+                            return (
+                              <div
+                                key={job.id}
+                                onClick={() => handleViewJob(job)}
+                                className="px-4 py-4 border-b border-gray-100 active:bg-gray-50 cursor-pointer"
+                              >
+                                {/* Job Header */}
+                                <div className="flex items-start justify-between mb-2">
+                                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                                    <span className="text-xs font-medium text-gray-500" style={{fontFamily: 'Montserrat', fontWeight: 500}}>
+                                      JOB #{job.id}
+                                    </span>
+                                    {isLate && (
+                                      <span className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded text-xs font-medium" style={{fontFamily: 'Montserrat', fontWeight: 500}}>
+                                        Late
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className="text-sm font-medium text-gray-700 ml-2 whitespace-nowrap" style={{fontFamily: 'Montserrat', fontWeight: 500}}>
+                                    {timeRange}
+                                  </span>
+                                </div>
+
+                                {/* Job Title */}
+                                <h4 className="text-base font-semibold text-gray-900 mb-3" style={{fontFamily: 'Montserrat', fontWeight: 600}}>
+                                  {job.service_name || 'Service'}
+                                </h4>
+
+                                {/* Job Details */}
+                                <div className="space-y-2">
+                                  {/* Assigned Member */}
+                                  {assignedMember && (
+                                    <div className="flex items-center gap-2">
+                                      <User className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                      <span className="text-sm text-gray-700" style={{fontFamily: 'Montserrat', fontWeight: 400}}>
+                                        {assignedMember}
+                                      </span>
+                                    </div>
+                                  )}
+
+                                  {/* Location */}
+                                  {(job.service_address_city || job.service_address_state) && (
+                                    <div className="flex items-center gap-2">
+                                      <MapPin className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                      <span className="text-sm text-gray-700 uppercase" style={{fontFamily: 'Montserrat', fontWeight: 400}}>
+                                        {[job.service_address_city, job.service_address_state].filter(Boolean).join(', ')}
+                                      </span>
+                                    </div>
+                                  )}
+
+                                  {/* Duration and Assignment */}
+                                  <div className="flex items-center gap-4">
+                                    {job.service_duration && (
+                                      <div className="flex items-center gap-2">
+                                        <Clock className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                        <span className="text-sm text-gray-700" style={{fontFamily: 'Montserrat', fontWeight: 400}}>
+                                          {(() => {
+                                            const hours = Math.floor(job.service_duration / 60)
+                                            const minutes = job.service_duration % 60
+                                            if (hours > 0 && minutes > 0) {
+                                              return `${hours} hr ${minutes} min`
+                                            } else if (hours > 0) {
+                                              return `${hours} hr`
+                                            } else {
+                                              return `${minutes} min`
+                                            }
+                                          })()}
+                                        </span>
+                                      </div>
+                                    )}
+                                    
+                                    {/* Assignment Status */}
+                                    <div className="flex items-center gap-2">
+                                      {job.team_assignments && job.team_assignments.length > 0 ? (
+                                        <>
+                                          <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                                            <span className="text-xs text-blue-700 font-semibold uppercase">
+                                              {(() => {
+                                                const member = job.team_assignments[0]
+                                                if (member.first_name && member.last_name) {
+                                                  return `${member.first_name[0]}${member.last_name[0]}`
+                                                } else if (member.name) {
+                                                  const nameParts = member.name.trim().split(' ')
+                                                  return nameParts.length > 1 
+                                                    ? `${nameParts[0][0]}${nameParts[nameParts.length - 1][0]}`
+                                                    : nameParts[0][0]
+                                                } else if (member.first_name) {
+                                                  return member.first_name[0]
+                                                } else if (member.email) {
+                                                  return member.email[0].toUpperCase()
+                                                }
+                                                return 'AA'
+                                              })()}
+                                            </span>
+                                          </div>
+                                          <span className="text-sm text-gray-700" style={{fontFamily: 'Montserrat', fontWeight: 400}}>
+                                            {assignedCount} assigned
+                                          </span>
+                                        </>
+                                      ) : (
+                                        <span className="text-sm text-gray-700" style={{fontFamily: 'Montserrat', fontWeight: 400}}>
+                                          {assignedCount} assigned
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    ))
+                  })()}
                 </div>
 
                 {/* Load More Button - Desktop */}
@@ -1163,12 +1358,43 @@ const ServiceFlowJobs = () => {
                   </div>
                 )}
 
-                {/* Show total count when all loaded - Mobile */}
-                {!loadingMore && !hasMore && jobs.length > 0 && (
-                  <div className="lg:hidden bg-gray-50 px-4 py-3">
-                    <div className="text-center text-sm text-gray-600">
-                      Showing all {jobs.length} of {totalJobs} jobs
-                      <span className="ml-2 text-gray-500">• All jobs loaded</span>
+                {/* Pagination Footer - Mobile */}
+                {!loadingMore && jobs.length > 0 && (
+                  <div className="lg:hidden bg-white border-t border-gray-200 px-4 py-3">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm text-gray-600" style={{fontFamily: 'Montserrat', fontWeight: 500}}>
+                        {(() => {
+                          const start = (page - 1) * limit + 1
+                          const end = Math.min(page * limit, totalJobs)
+                          return `${start}-${end} of ${totalJobs}`
+                        })()}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          disabled={page === 1}
+                          className="p-2 rounded border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+                          onClick={() => {
+                            if (page > 1) {
+                              setPage(prev => prev - 1)
+                              setJobs([])
+                              setHasMore(true)
+                            }
+                          }}
+                        >
+                          <ChevronDown className="w-4 h-4 text-gray-600 rotate-90" />
+                        </button>
+                        <button
+                          disabled={!hasMore}
+                          className="p-2 rounded border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+                          onClick={() => {
+                            if (hasMore) {
+                              setPage(prev => prev + 1)
+                            }
+                          }}
+                        >
+                          <ChevronDown className="w-4 h-4 text-gray-600 -rotate-90" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1177,6 +1403,180 @@ const ServiceFlowJobs = () => {
           </div>
         </div>
       </div>
+
+      {/* Floating Action Button - Mobile Only */}
+      {canCreateJobs(user) && (
+        <button
+          onClick={handleCreateJob}
+          className="lg:hidden fixed bottom-24 right-4 w-14 h-14 bg-blue-600 rounded-full shadow-lg flex items-center justify-center text-white hover:bg-blue-700 transition-colors z-40"
+          aria-label="Create Job"
+        >
+          <div className="relative">
+            <Calendar className="w-6 h-6" />
+            <Plus className="w-4 h-4 absolute -top-1 -right-1" />
+          </div>
+        </button>
+      )}
+
+      {/* Bottom Navigation Bar - Mobile Only */}
+      <MobileBottomNav teamMembers={teamMembers} />
+
+      {/* Filter Modal - Mobile Only */}
+      {showFilterModal && (
+        <div className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-[9999] flex items-end justify-center" onClick={() => setShowFilterModal(false)}>
+          <div className="bg-white rounded-t-2xl w-full max-h-[70vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            {/* Modal Header */}
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900" style={{fontFamily: 'Montserrat', fontWeight: 700}}>Filter Jobs</h2>
+              <button
+                onClick={() => setShowFilterModal(false)}
+                className="p-2 -mr-2 text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="px-4 py-6 space-y-6">
+              {/* Assignee Section */}
+              <div>
+                <h3 className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-4" style={{fontFamily: 'Montserrat', fontWeight: 700}}>
+                  ASSIGNEE
+                </h3>
+                <div className="space-y-3">
+                  {/* All Jobs */}
+                  <button
+                    onClick={() => {
+                      setFilters(prev => ({ ...prev, teamMember: '' }))
+                    }}
+                    className="w-full flex items-center justify-between py-3 px-2 hover:bg-gray-50 rounded-lg transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Users className="w-5 h-5 text-gray-600" />
+                      <span className="text-sm font-medium text-gray-900" style={{fontFamily: 'Montserrat', fontWeight: 500}}>
+                        All Jobs
+                      </span>
+                    </div>
+                    {!filters.teamMember && (
+                      <div className="w-5 h-5 rounded-full border-2 border-blue-600 flex items-center justify-center">
+                        <div className="w-3 h-3 bg-blue-600 rounded-full"></div>
+                      </div>
+                    )}
+                    {filters.teamMember && (
+                      <div className="w-5 h-5 rounded-full border-2 border-gray-300"></div>
+                    )}
+                  </button>
+
+                  {/* Unassigned */}
+                  <button
+                    onClick={() => {
+                      setFilters(prev => ({ ...prev, teamMember: 'unassigned' }))
+                    }}
+                    className="w-full flex items-center justify-between py-3 px-2 hover:bg-gray-50 rounded-lg transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <UserX className="w-5 h-5 text-gray-600" />
+                      <span className="text-sm font-medium text-gray-900" style={{fontFamily: 'Montserrat', fontWeight: 500}}>
+                        Unassigned
+                      </span>
+                    </div>
+                    {filters.teamMember === 'unassigned' && (
+                      <div className="w-5 h-5 rounded-full border-2 border-blue-600 flex items-center justify-center">
+                        <div className="w-3 h-3 bg-blue-600 rounded-full"></div>
+                      </div>
+                    )}
+                    {filters.teamMember !== 'unassigned' && (
+                      <div className="w-5 h-5 rounded-full border-2 border-gray-300"></div>
+                    )}
+                  </button>
+
+                  {/* Team Members */}
+                  {teamMembers.map((member) => {
+                    const memberName = member.name || `${member.first_name || ''} ${member.last_name || ''}`.trim() || `Member ${member.id}`
+                    const initials = memberName.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) || 'AA'
+                    const isSelected = filters.teamMember === member.id.toString()
+                    
+                    return (
+                      <button
+                        key={member.id}
+                        onClick={() => {
+                          setFilters(prev => ({ ...prev, teamMember: member.id.toString() }))
+                        }}
+                        className="w-full flex items-center justify-between py-3 px-2 hover:bg-gray-50 rounded-lg transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                            <span className="text-xs text-blue-700 font-semibold">{initials}</span>
+                          </div>
+                          <span className="text-sm font-medium text-gray-900" style={{fontFamily: 'Montserrat', fontWeight: 500}}>
+                            {memberName}
+                          </span>
+                        </div>
+                        {isSelected && (
+                          <div className="w-5 h-5 rounded-full border-2 border-blue-600 flex items-center justify-center">
+                            <div className="w-3 h-3 bg-blue-600 rounded-full"></div>
+                          </div>
+                        )}
+                        {!isSelected && (
+                          <div className="w-5 h-5 rounded-full border-2 border-gray-300"></div>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Sort By Section */}
+              <div>
+                <h3 className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-4" style={{fontFamily: 'Montserrat', fontWeight: 700}}>
+                  SORT BY
+                </h3>
+                <div className="space-y-3">
+                  {/* Latest */}
+                  <button
+                    onClick={() => {
+                      setFilters(prev => ({ ...prev, sortBy: 'scheduled_date', sortOrder: 'DESC' }))
+                    }}
+                    className="w-full flex items-center justify-between py-3 px-2 hover:bg-gray-50 rounded-lg transition-colors"
+                  >
+                    <span className="text-sm font-medium text-gray-900" style={{fontFamily: 'Montserrat', fontWeight: 500}}>
+                      Latest
+                    </span>
+                    {filters.sortBy === 'scheduled_date' && filters.sortOrder === 'DESC' && (
+                      <div className="w-5 h-5 rounded-full border-2 border-blue-600 flex items-center justify-center">
+                        <div className="w-3 h-3 bg-blue-600 rounded-full"></div>
+                      </div>
+                    )}
+                    {!(filters.sortBy === 'scheduled_date' && filters.sortOrder === 'DESC') && (
+                      <div className="w-5 h-5 rounded-full border-2 border-gray-300"></div>
+                    )}
+                  </button>
+
+                  {/* Soonest */}
+                  <button
+                    onClick={() => {
+                      setFilters(prev => ({ ...prev, sortBy: 'scheduled_date', sortOrder: 'ASC' }))
+                    }}
+                    className="w-full flex items-center justify-between py-3 px-2 hover:bg-gray-50 rounded-lg transition-colors"
+                  >
+                    <span className="text-sm font-medium text-gray-900" style={{fontFamily: 'Montserrat', fontWeight: 500}}>
+                      Soonest
+                    </span>
+                    {filters.sortBy === 'scheduled_date' && filters.sortOrder === 'ASC' && (
+                      <div className="w-5 h-5 rounded-full border-2 border-blue-600 flex items-center justify-center">
+                        <div className="w-3 h-3 bg-blue-600 rounded-full"></div>
+                      </div>
+                    )}
+                    {!(filters.sortBy === 'scheduled_date' && filters.sortOrder === 'ASC') && (
+                      <div className="w-5 h-5 rounded-full border-2 border-gray-300"></div>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Export Jobs Modal */}
       <ExportJobsModal

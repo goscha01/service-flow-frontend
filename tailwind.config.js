@@ -84,6 +84,9 @@ module.exports = {
       backdropBlur: {
         xs: "2px",
       },
+      screens: {
+        'xs': {'max': '600px'},   // applies ONLY when screen ≤ 600px
+      },
     },
   },
   plugins: [require("tailwindcss-animate")],
