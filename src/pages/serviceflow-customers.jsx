@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import Sidebar from "../components/sidebar"
-import MobileHeader from "../components/mobile-header"
 import CustomerModal from "../components/customer-modal"
 import ExportCustomersModal from "../components/export-customers-modal"
 import { Search, User, Plus, AlertCircle, Loader2, X } from "lucide-react"
@@ -243,13 +242,12 @@ const ServiceFlowCustomers = () => {
   }
 
   return (
-    <div style={{fontFamily: 'Montserrat', fontWeight: 500}} className="flex h-screen bg-gray-50 overflow-hidden">
+    <div style={{fontFamily: 'Montserrat', fontWeight: 500}} className="flex-1 h-screen bg-gray-50">
 
       
-      <div className="flex-1 flex flex-col overflow-y-auto min-w-0 w-full">
-      
+     
 
-        <div className="flex-1 w-full lg:mx-44 xl:mx-48">
+        <div className="flex-1 w-full lg:px-40 xl:px-44 2xl:px-48">
           <div className="p-4 sm:p-6">
             {/* Header - Mobile Optimized */}
             <div className="mb-4 sm:mb-6">
@@ -436,7 +434,6 @@ const ServiceFlowCustomers = () => {
             )}
           </div>
         </div>
-      </div>
 
       {/* Modals */}
       <CustomerModal

@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import Sidebar from "../../components/sidebar"
-import MobileHeader from "../../components/mobile-header"
 import PlanSelectionModal from "../../components/plan-selection-modal"
 import StripeAPISetup from "../../components/StripeAPISetup"
 import { ChevronLeft, Lock, Check, X, CreditCard, Calendar, AlertCircle } from "lucide-react"
@@ -232,7 +231,6 @@ const BillingSettings = () => {
       <div className="flex h-screen bg-gray-50 overflow-hidden">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
-          <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
@@ -249,7 +247,6 @@ const BillingSettings = () => {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
-        <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
 
         {/* Header */}
         <div className="bg-white border-b border-gray-200 px-6 py-4">

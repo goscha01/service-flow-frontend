@@ -3,7 +3,6 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import Sidebar from "../../components/sidebar"
-import MobileHeader from "../../components/mobile-header"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 
 const ClientTeamNotifications = () => {
@@ -138,7 +137,6 @@ const ClientTeamNotifications = () => {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
-        <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
 
         {/* Header */}
         <div className="bg-white border-b border-gray-200 px-6 py-4">

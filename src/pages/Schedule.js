@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react"
 import { Plus, ChevronLeft, ChevronRight, Calendar, Grid3X3, MapPin, Clock, DollarSign, User, Filter, AlertTriangle, RefreshCw, Map, BarChart3, Users, UserX, CheckCircle, PlayCircle, XCircle } from "lucide-react"
 import Sidebar from "../components/sidebar"
-import MobileHeader from "../components/mobile-header"
 import ScheduleSidebar from "../components/schedule-sidebar"
 import { useNavigate } from "react-router-dom"
 
@@ -1189,7 +1188,6 @@ const ServiceFlowSchedule = () => {
         
         
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden h-full">
-          <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
           
           <div className="flex-1 flex flex-col overflow-hidden">
           <div className="border-b border-gray-200 bg-white flex-shrink-0">

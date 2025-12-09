@@ -2,7 +2,6 @@ import { useEffect, useState, useCallback } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
 import Sidebar from "../components/sidebar"
-import MobileHeader from "../components/mobile-header"
 import TerritoryMap from "../components/territory-map"
 import { territoriesAPI, servicesAPI } from "../services/api"
 import CreateTerritoryModal from "../components/create-territory-modal"
@@ -193,7 +192,6 @@ const TerritoryDetails = () => {
   return (
     <div className="flex h-screen bg-gray-50">
       <div className="flex-1 flex flex-col overflow-hidden ">
-        <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
 
         <main className="flex-1 overflow-y-auto">
           <div className="max-w-[1600px] mx-auto px-5 lg:px-40 xl:px-44 2xl:px-48 py-8">

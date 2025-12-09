@@ -3,7 +3,6 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { CreditCard, Settings, CheckCircle, AlertCircle, ExternalLink, ChevronLeft } from 'lucide-react';
 import StripeAPISetup from '../../components/StripeAPISetup';
 import Sidebar from '../../components/sidebar';
-import MobileHeader from '../../components/mobile-header';
 
 const StripeConnectSettings = () => {
   const [error, setError] = useState('');
@@ -28,7 +27,6 @@ const StripeConnectSettings = () => {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
       <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
-        <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
         
         {/* Header */}
         <div className="bg-white border-b border-gray-200 px-6 py-4">

@@ -60,7 +60,6 @@ import { jobsAPI, notificationAPI, territoriesAPI, teamAPI, invoicesAPI, twilioA
 import api, { stripeAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
 import Sidebar from "../components/sidebar"
-import MobileHeader from "../components/mobile-header"
 import AddressAutocomplete from "../components/address-autocomplete"
 import IntakeAnswersDisplay from "../components/intake-answers-display"
 import IntakeQuestionsForm from "../components/intake-questions-form"
@@ -1402,7 +1401,6 @@ const JobDetails = () => {
       
       <div className="flex-1 lg:ml-64 xl:ml-72">
         {/* Mobile Header */}
-        <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
         
         {/* Header */}
         <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4">

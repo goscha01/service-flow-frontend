@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import Sidebar from "../components/sidebar"
-import MobileHeader from "../components/mobile-header"
 import { GripVertical, Wrench, Plus, AlertCircle, AlertTriangle, Loader2, Trash2, X, Copy, Edit, Eye, EyeOff } from "lucide-react"
 import SimpleCreateServiceModal from "../components/simple-create-service-modal"
 import ServiceTemplatesModal from "../components/service-templates-modal"
@@ -558,7 +557,6 @@ const ServiceFlowServices = () => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         {/* Mobile Header */}
-        <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
 
         {/* Desktop Header */}
         <div className="hidden lg:flex bg-white border-b border-gray-200 px-5 lg:px-40 xl:px-44 2xl:px-48 py-4 items-center justify-between">

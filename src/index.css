@@ -18,3 +18,17 @@ code {
 .feature-hidden {
   display: none !important;
 }
+
+/* Hide scrollbar utility */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+@media (max-width: 600px) {
+  html {
+    font-size: 14px; /* ALL text scales down */
+  }
+}

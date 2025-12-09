@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from "react"
 import { createPortal } from "react-dom"
 import { useNavigate, useParams } from "react-router-dom"
 import Sidebar from "../components/sidebar"
-import MobileHeader from "../components/mobile-header"
 import CreateRecurringOptionModal from "../components/create-recurring-option-modal"
 import TerritoryAdjustmentModal from "../components/territory-adjustment-modal"
 
@@ -2786,7 +2785,6 @@ const ServiceDetails = () => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0 lg:mx-44 xl:mx-48 bg-gray-50/50">
         {/* Mobile Header */}
-        <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
 
         {/* Header */}
         <div className="bg-white border-b border-gray-200 sticky top-0 z-10">

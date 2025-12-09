@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Sidebar from '../components/sidebar'
-import MobileHeader from '../components/mobile-header'
 import { 
   ChevronLeft, 
   Edit,
@@ -219,7 +218,6 @@ const TeamMemberDetailsRedesigned = () => {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
       <div className="flex-1 min-w-0 overflow-hidden ml-16 lg:ml-64 xl:ml-72">
-        <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
         
         <div className="p-6">
           {/* Header */}

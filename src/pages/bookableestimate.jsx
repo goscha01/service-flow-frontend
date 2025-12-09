@@ -18,7 +18,6 @@ import {
   Zap
 } from 'lucide-react';
 import Sidebar from '../components/sidebar';
-import MobileHeader from '../components/mobile-header';
 
 const ServiceFlowEstimatePage = () => {
   const [selectedCustomer, setSelectedCustomer] = useState('');
@@ -50,7 +49,6 @@ const ServiceFlowEstimatePage = () => {
           {/* Main Content */}
           <div className="flex-1 flex flex-col min-w-0">
             {/* Mobile Header */}
-            <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
       {/* Main Content */}
       <div className="flex-1 flex flex-col  h-screen overflow-scroll">
         {/* Header */}

@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from "react"
 import Sidebar from "../components/sidebar"
-import MobileHeader from "../components/mobile-header"
 import CustomerModal from "../components/customer-modal"
 import { 
   Box,
@@ -554,7 +553,6 @@ const DashboardMUI = () => {
         {/* Main Content */}
         <Box flex={1} display="flex" flexDirection="column" minWidth={0} sx={{ ml: { lg: '256px', xl: '288px' } }}>
           {/* Mobile Header */}
-          <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
 
           {/* Trial Banner - Orange */}
           <Alert 

@@ -66,7 +66,6 @@ import { jobsAPI, notificationAPI, territoriesAPI, teamAPI, invoicesAPI, twilioA
 import api, { stripeAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
 import Sidebar from "../components/sidebar"
-import MobileHeader from "../components/mobile-header"
 import AddressAutocomplete from "../components/address-autocomplete"
 import IntakeAnswersDisplay from "../components/intake-answers-display"
 import IntakeQuestionsForm from "../components/intake-questions-form"
@@ -74,7 +73,17 @@ import StatusProgressBar from "../components/status-progress-bar"
 import { formatPhoneNumber } from "../utils/phoneFormatter"
 import { formatDateLocal } from "../utils/dateUtils"
 import { formatRecurringFrequency } from "../utils/recurringUtils"
-import { canViewCustomerContact } from "../utils/permissionUtils"
+import { 
+  canViewCustomerContact, 
+  canViewCustomerNotes,
+  canMarkJobStatus, 
+  canResetJobStatuses,
+  canRescheduleJobs, 
+  canEditJobDetails, 
+  canProcessPayments,
+  canViewEditJobPrice,
+  canSeeOtherProviders
+} from "../utils/permissionUtils"
 
 const JobDetails = () => {
   const { jobId } = useParams();
@@ -229,6 +238,8 @@ const JobDetails = () => {
   const [teamMembers, setTeamMembers] = useState([])
   const [assigning, setAssigning] = useState(false)
   const [selectedTeamMember, setSelectedTeamMember] = useState(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [showDriveTime, setShowDriveTime] = useState(true)
   const [invoice, setInvoice] = useState(null)
   const [emailNotifications, setEmailNotifications] = useState(true)
   const [smsNotifications, setSmsNotifications] = useState(false)
@@ -261,6 +272,11 @@ const JobDetails = () => {
   const [statusDropdown, setStatusDropdown] = useState(false)
   const [moreDropdown, setMoreDropdown] = useState(false)
   const [showAssignModal, setShowAssignModal] = useState(false)
+  const [showEditJobRequirementsModal, setShowEditJobRequirementsModal] = useState(false)
+  const [editJobRequirementsData, setEditJobRequirementsData] = useState({
+    workers_needed: 1,
+    required_skills: []
+  })
   const moreRef = useRef(null)
   const territoryRef = useRef(null)
 
@@ -1428,6 +1444,17 @@ const JobDetails = () => {
     }
   }
 
+  // Format date for assign modal (Monday, Dec 8)
+  const formatDateForAssign = (dateString) => {
+    if (!dateString) return ''
+    const date = new Date(dateString)
+    return date.toLocaleDateString('en-US', { 
+      weekday: 'long', 
+      month: 'short', 
+      day: 'numeric'
+    })
+  }
+
   const formatDate = (dateString) => {
     if (!dateString) return 'Date placeholder'
     
@@ -1675,18 +1702,580 @@ const JobDetails = () => {
     )
   }
 
+  // Helper function to get customer name
+  const getCustomerName = () => {
+    if (job?.customer_first_name || job?.customer_last_name) {
+      return `${job.customer_first_name || ''} ${job.customer_last_name || ''}`.trim()
+    }
+    if (job?.customer?.first_name || job?.customer?.last_name) {
+      return `${job.customer.first_name || ''} ${job.customer.last_name || ''}`.trim()
+    }
+    if (job?.customers?.first_name || job?.customers?.last_name) {
+      return `${job.customers.first_name || ''} ${job.customers.last_name || ''}`.trim()
+    }
+    return 'Customer'
+  }
+
+  // Check if job is late
+  const isJobLate = () => {
+    if (!job?.scheduled_date) return false
+    const scheduledDate = new Date(job.scheduled_date)
+    const now = new Date()
+    const status = (job?.status || '').toLowerCase()
+    return scheduledDate < now && status !== 'completed' && status !== 'cancelled'
+  }
+
+  // Format arrival window
+  const formatArrivalWindow = () => {
+    if (!job?.scheduled_date) return ''
+    const scheduledDate = new Date(job.scheduled_date)
+    const duration = parseInt(job.service_duration || job.duration || 60)
+    const startTime = new Date(scheduledDate)
+    const endTime = new Date(scheduledDate.getTime() + duration * 60000)
+    
+    const start = startTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+    const end = endTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+    return `${start} - ${end}`
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      {/* Sidebar */}
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      
-      {/* Main Content Area */}
-      <div className="flex-1 min-w-0 lg:ml-52 xl:ml-52 px-4 sm:px-6 lg:px-40">
+    <>
+    <div className="min-h-screen bg-gray-50">
+      {/* Mobile View - Shown on screens smaller than lg */}
+      <div className="lg:hidden w-full max-w-full overflow-x-hidden">
         {/* Mobile Header */}
-        <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
+        <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
+          <div className="px-4 py-3 flex items-center justify-between">
+            <button
+              onClick={() => navigate('/jobs')}
+              className="p-2 -ml-2"
+            >
+              <ArrowLeft className="w-5 h-5 text-gray-900" />
+            </button>
+            <h1 className="text-base font-semibold text-gray-900">Job #{job?.id || job?.job_id}</h1>
+            <button
+              onClick={() => setShowMobileSidebar(true)}
+              className="p-2 -mr-2"
+            >
+              <MoreVertical className="w-5 h-5 text-gray-900" />
+            </button>
+          </div>
+        </div>
+
+        {/* Map Section */}
+        <div className="w-full h-48 bg-gray-200 relative">
+          {job?.service_address_street && (
+            <iframe
+              title="Job Location Map"
+              width="100%"
+              height="100%"
+              style={{ border: 0 }}
+              src={`https://www.google.com/maps/embed/v1/place?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&q=${encodeURIComponent(
+                `${job.service_address_street}, ${job.service_address_city}, ${job.service_address_state} ${job.service_address_zip}`
+              )}&zoom=15`}
+              allowFullScreen=""
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+            />
+          )}
+        </div>
+
+        {/* Job Overview Card - Date, Time, Customer Info */}
+        <div className="bg-white border-b border-gray-200 px-4 py-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center space-x-2">
+              <p className="text-sm text-gray-900">{formatDate(job?.scheduled_date)}</p>
+              {isJobLate() && (
+                <span className="px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs font-medium rounded">
+                  Late
+                </span>
+              )}
+            </div>
+            <button className="flex items-center space-x-1 px-2 py-1 border border-gray-300 rounded text-xs text-gray-700 hover:bg-gray-50">
+              <Plus className="w-3 h-3" />
+              <span>Add Tag</span>
+            </button>
+          </div>
+          <p className="text-sm text-gray-600 mb-4">{formatArrivalWindow()}</p>
+          
+          {/* Customer Name with Phone Icon */}
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm font-medium text-gray-900">{getCustomerName()}</p>
+            {canViewCustomerContact(user) && job?.customer_phone && (
+              <a href={`tel:${job.customer_phone}`} className="p-1.5 hover:bg-gray-100 rounded">
+                <Phone className="w-4 h-4 text-gray-600" />
+              </a>
+            )}
+          </div>
+          
+          {/* Address */}
+          <p className="text-sm text-gray-600 mb-1">
+            {job?.service_address_street || ''}
+            {job?.service_address_unit && (
+              <>
+                <br />
+                {job.service_address_unit}
+              </>
+            )}
+          </p>
+          <p className="text-sm text-gray-600 mb-4">
+            {[job?.service_address_city, job?.service_address_state, job?.service_address_zip, job?.service_address_country].filter(Boolean).join(', ')}
+          </p>
+          
+          {/* Action Links */}
+          <div className="flex items-center space-x-4 mb-4">
+            <a
+              href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
+                `${job?.service_address_street}, ${job?.service_address_city}, ${job?.service_address_state} ${job?.service_address_zip}`
+              )}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-blue-600 font-medium"
+            >
+              View directions →
+            </a>
+            <button
+              onClick={() => {
+                const address = `${job?.service_address_street}${job?.service_address_unit ? `, ${job.service_address_unit}` : ''}, ${job?.service_address_city}, ${job?.service_address_state} ${job?.service_address_zip}, ${job?.service_address_country || 'USA'}`
+                navigator.clipboard.writeText(address)
+                setSuccessMessage('Address copied to clipboard!')
+                setTimeout(() => setSuccessMessage(''), 3000)
+              }}
+              className="text-sm text-blue-600 font-medium flex items-center space-x-1"
+            >
+              <Copy className="w-3 h-3" />
+              <span>Copy Address</span>
+            </button>
+          </div>
+          
+          {/* Action Buttons */}
+          <div className="flex space-x-3">
+            {canMarkJobStatus(user) && (
+              <button
+                onClick={() => handleStatusChange('en_route')}
+                className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg font-medium text-sm"
+              >
+                En Route
+              </button>
+            )}
+            <button
+              onClick={() => setShowMobileSidebar(true)}
+              className="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium text-sm"
+            >
+              More Actions
+            </button>
+          </div>
+        </div>
+
+        {/* Services Section */}
+        <div className="bg-white border-b border-gray-200 px-4 py-4 mt-2">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-base font-semibold text-gray-900">Services</h2>
+            {canEditJobDetails(user) && (
+              <button
+                onClick={() => setShowEditServiceModal(true)}
+                className="text-sm text-blue-600 font-medium"
+              >
+                Edit
+              </button>
+            )}
+          </div>
+          <div className="space-y-3">
+            <p className="text-sm font-medium text-gray-900">{job?.service_name || 'Service'}</p>
+            {(() => {
+              // Get intake questions and answers
+              const intakeQuestions = getServiceIntakeQuestions()
+              const equipmentQuestion = intakeQuestions.find(q => 
+                q.question?.toLowerCase().includes('equipment') || 
+                q.question?.toLowerCase().includes('type of')
+              )
+              const problemQuestion = intakeQuestions.find(q => 
+                q.question?.toLowerCase().includes('problem') || 
+                q.question?.toLowerCase().includes('nature') ||
+                q.question?.toLowerCase().includes('issue')
+              )
+              
+              return (
+                <>
+                  {equipmentQuestion?.answer && (
+                    <div>
+                      <p className="text-xs text-gray-600 mb-1">Type of Equipment:</p>
+                      <p className="text-sm text-gray-900">{equipmentQuestion.answer}</p>
+                    </div>
+                  )}
+                  {problemQuestion?.answer && (
+                    <div>
+                      <p className="text-xs text-gray-600 mb-1">Nature of Problem:</p>
+                      <p className="text-sm text-gray-900">{problemQuestion.answer}</p>
+                    </div>
+                  )}
+                  {/* Fallback to job fields if no intake questions */}
+                  {!equipmentQuestion?.answer && job?.service_type && (
+                    <div>
+                      <p className="text-xs text-gray-600 mb-1">Type of Equipment:</p>
+                      <p className="text-sm text-gray-900">{job.service_type}</p>
+                    </div>
+                  )}
+                  {!problemQuestion?.answer && job?.service_description && (
+                    <div>
+                      <p className="text-xs text-gray-600 mb-1">Nature of Problem:</p>
+                      <p className="text-sm text-gray-900">{job.service_description}</p>
+                    </div>
+                  )}
+                </>
+              )
+            })()}
+            <div>
+              <p className="text-xs text-gray-600 mb-1">Estimated duration:</p>
+              <p className="text-sm text-gray-900">
+                {(() => {
+                  const duration = parseInt(job?.service_duration || job?.duration || 60)
+                  const hours = Math.floor(duration / 60)
+                  const minutes = duration % 60
+                  if (hours > 0 && minutes > 0) {
+                    return `${hours} hour${hours > 1 ? 's' : ''} ${minutes} minute${minutes > 1 ? 's' : ''}`
+                  } else if (hours > 0) {
+                    return `${hours} hour${hours > 1 ? 's' : ''}`
+                  } else {
+                    return `${minutes} minute${minutes > 1 ? 's' : ''}`
+                  }
+                })()}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Notes and Attachments Section */}
+        <div className="bg-white border-b border-gray-200 px-4 py-4 mt-2">
+          <h2 className="text-base font-semibold text-gray-900 mb-3">Notes and attachments</h2>
+          {canViewCustomerNotes(user) ? (
+            <button
+              onClick={() => setEditingField('notes')}
+              className="w-full border-2 border-dashed border-gray-300 rounded-lg px-4 py-3 text-sm text-gray-600 hover:border-blue-500 hover:text-blue-600 transition-colors"
+            >
+              + Add Note
+            </button>
+          ) : (
+            <p className="text-sm text-gray-500 italic">You don't have permission to view notes.</p>
+          )}
+        </div>
+
+        {/* Invoice Section */}
+        {canViewEditJobPrice(user) && (
+          <div className="bg-white border-b border-gray-200 px-4 py-4 mt-2">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-base font-semibold text-gray-900">Invoice</h2>
+              <div className="flex items-center space-x-2">
+                <button className="p-1.5 hover:bg-gray-100 rounded">
+                  <Mail className="w-4 h-4 text-gray-600" />
+                </button>
+                <button className="p-1.5 hover:bg-gray-100 rounded">
+                  <Printer className="w-4 h-4 text-gray-600" />
+                </button>
+                <button className="p-1.5 hover:bg-gray-100 rounded">
+                  <MoreVertical className="w-4 h-4 text-gray-600" />
+                </button>
+              </div>
+            </div>
+            <div className="space-y-2 mb-4">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-sm font-medium text-gray-900">{job?.service_name || 'Service'}</p>
+                  <p className="text-xs text-gray-600">Base Price (${(parseFloat(job?.services?.price) || calculateTotalPrice()).toFixed(2)})</p>
+                </div>
+                <span className="text-sm font-medium text-gray-900">${(parseFloat(job?.services?.price) || calculateTotalPrice()).toFixed(2)}</span>
+              </div>
+              {canEditJobDetails(user) && (
+                <button 
+                  onClick={() => setShowEditServiceModal(true)}
+                  className="text-sm text-blue-600 font-medium flex items-center space-x-1"
+                >
+                  <Edit className="w-3 h-3" />
+                  <span>Edit Service & Pricing</span>
+                </button>
+              )}
+              <div className="border-t border-gray-200 pt-2 mt-2 space-y-1">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Subtotal</span>
+                  <span className="text-gray-900">${calculateTotalPrice().toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-sm font-semibold">
+                  <span className="text-gray-900">Total</span>
+                  <span className="text-gray-900">${calculateTotalPrice().toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-sm pt-2 border-t border-gray-200">
+                  <span className="text-gray-600">Amount paid</span>
+                  <span className="text-gray-900">${job?.total_paid_amount ? job.total_paid_amount.toFixed(2) : '0.00'}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Total due</span>
+                  <span className={`font-semibold ${job?.invoice_status === 'paid' ? 'text-green-600' : 'text-red-600'}`}>
+                    ${job?.invoice_status === 'paid' ? '0.00' : (job?.total_invoice_amount ? job.total_invoice_amount.toFixed(2) : calculateTotalPrice().toFixed(2))}
+                  </span>
+                </div>
+              </div>
+            </div>
+            {canProcessPayments(user) && (
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => setShowSendInvoiceModal(true)}
+                  className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg font-medium text-sm flex items-center justify-center space-x-2"
+                >
+                  <CreditCard className="w-4 h-4" />
+                  <span>Charge Customer</span>
+                </button>
+                <button
+                  onClick={() => setShowAddPaymentModal(true)}
+                  className="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium text-sm"
+                >
+                  Record a Payment
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Payments Section */}
+        {canProcessPayments(user) && (
+          <div className="bg-white border-b border-gray-200 px-4 py-4 mt-2">
+            <h2 className="text-base font-semibold text-gray-900 mb-3">Payments</h2>
+            {job?.total_paid_amount > 0 ? (
+              <div className="text-sm text-gray-600">
+                <p>Payment history would go here</p>
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <CreditCard className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+                <p className="text-sm text-gray-500">
+                  No payments. When you process or record a payment for this invoice, it will appear here.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Customer Section */}
+        <div className="bg-white border-b border-gray-200 px-4 py-4 mt-2">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-base font-semibold text-gray-900">Customer</h2>
+            {canEditJobDetails(user) && (
+              <button 
+                onClick={() => {
+                  setEditCustomerData({
+                    firstName: job?.customer_first_name || '',
+                    lastName: job?.customer_last_name || '',
+                    email: job?.customer_email || '',
+                    phone: job?.customer_phone || ''
+                  })
+                  setShowEditCustomerModal(true)
+                }}
+                className="text-sm text-blue-600 font-medium"
+              >
+                Edit
+              </button>
+            )}
+          </div>
+          <div className="space-y-3">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                <span className="text-green-600 font-semibold text-sm">
+                  {getCustomerName().split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2)}
+                </span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-900">{getCustomerName()}</p>
+                {canViewCustomerContact(user) && job?.customer_phone && (
+                  <div className="flex items-center space-x-1 mt-1">
+                    <Phone className="w-3 h-3 text-gray-500" />
+                    <a href={`tel:${job.customer_phone}`} className="text-xs text-gray-600">
+                      {formatPhoneNumber(job.customer_phone)}
+                    </a>
+                  </div>
+                )}
+                {canViewCustomerContact(user) && job?.customer_email && (
+                  <div className="flex items-center space-x-1 mt-1">
+                    <Mail className="w-3 h-3 text-gray-500" />
+                    <a href={`mailto:${job.customer_email}`} className="text-xs text-gray-600 truncate">
+                      {job.customer_email}
+                    </a>
+                  </div>
+                )}
+              </div>
+            </div>
+            {canViewEditJobPrice(user) && (
+            <div>
+              <p className="text-xs text-gray-600 mb-1">EXPECTED PAYMENT METHOD</p>
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-gray-900">No payment method on file</p>
+                  {canEditJobDetails(user) && (
+                <button className="text-sm text-blue-600 font-medium">Change</button>
+                  )}
+              </div>
+            </div>
+            )}
+            {canEditJobDetails(user) && (
+            <div>
+              <p className="text-xs text-gray-600 mb-1">NOTIFICATION PREFERENCES</p>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <span className={`px-2 py-0.5 rounded text-xs font-medium ${emailNotifications ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
+                    Email {emailNotifications ? 'Enabled' : 'Disabled'}
+                  </span>
+                  <span className={`px-2 py-0.5 rounded text-xs font-medium ${smsNotifications ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
+                    SMS {smsNotifications ? 'Enabled' : 'Disabled'}
+                  </span>
+                </div>
+                <button 
+                  onClick={() => setShowNotificationModal(true)}
+                  className="text-sm text-blue-600 font-medium"
+                >
+                  Edit
+                </button>
+              </div>
+            </div>
+            )}
+            <div>
+              <p className="text-xs text-gray-600 mb-1">BILLING ADDRESS</p>
+              <p className="text-sm text-gray-900">Same as service address</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Team Section */}
+        <div className="bg-white border-b border-gray-200 px-4 py-4 mt-2 mb-20">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-base font-semibold text-gray-900">Team</h2>
+            {canEditJobDetails(user) && (
+              <button 
+                onClick={() => {
+                  setEditJobRequirementsData({
+                    workers_needed: job?.workers_needed || 1,
+                    required_skills: job?.required_skills || []
+                  })
+                  setShowEditJobRequirementsModal(true)
+                }}
+                className="text-sm text-blue-600 font-medium"
+              >
+                Edit
+              </button>
+            )}
+          </div>
+          <div className="space-y-3">
+            <div>
+              <p className="text-xs text-gray-600 mb-1">JOB REQUIREMENTS</p>
+              <p className="text-sm text-gray-900 mb-1">Workers needed: {job?.workers_needed || 1} service provider</p>
+              <p className="text-sm text-gray-900">Skills needed: {job?.required_skills && job.required_skills.length > 0 ? job.required_skills.join(', ') : 'No skill tags required'}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-600 mb-2">ASSIGNED</p>
+              {(() => {
+                const assignedMember = teamMembers.find(m => 
+                  m.id === job?.assigned_team_member_id || 
+                  m.id === job?.team_member_id ||
+                  (job?.assigned_team_member && m.id === job.assigned_team_member.id)
+                )
+                const getTeamMemberInitials = (member) => {
+                  if (!member) return '?'
+                  const firstName = member.first_name || member.name || ''
+                  const lastName = member.last_name || ''
+                  if (firstName && lastName) {
+                    return (firstName[0] + lastName[0]).toUpperCase()
+                  }
+                  if (firstName) {
+                    return firstName.substring(0, 2).toUpperCase()
+                  }
+                  return '?'
+                }
+                const getTeamMemberName = (member) => {
+                  if (!member) return ''
+                  if (member.name) return member.name
+                  return `${member.first_name || ''} ${member.last_name || ''}`.trim()
+                }
+                
+                return assignedMember ? (
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                        <span className="text-blue-600 font-semibold text-xs">
+                          {getTeamMemberInitials(assignedMember)}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-900">{getTeamMemberName(assignedMember)}</p>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <button className="text-sm text-blue-600 font-medium">Assign more</button>
+                      <button 
+                        onClick={async () => {
+                          try {
+                            setLoading(true)
+                            await jobsAPI.update(job.id, { assigned_team_member_id: null })
+                            setJob(prev => ({ ...prev, assigned_team_member_id: null }))
+                            setSuccessMessage('Team member unassigned')
+                            setTimeout(() => setSuccessMessage(''), 3000)
+                          } catch (error) {
+                            setError('Failed to unassign team member')
+                          } finally {
+                            setLoading(false)
+                          }
+                        }}
+                        className="p-1 hover:bg-gray-100 rounded"
+                      >
+                        <X className="w-4 h-4 text-gray-600" />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button 
+                    onClick={() => setShowMobileSidebar(true)}
+                    className="text-sm text-blue-600 font-medium"
+                  >
+                    Assign team member
+                  </button>
+                )
+              })()}
+            </div>
+            <div className="pt-3 border-t border-gray-200">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-gray-900">Offer job to service providers</span>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={job?.offer_to_providers || false}
+                    onChange={async (e) => {
+                      try {
+                        setLoading(true)
+                        await jobsAPI.update(job.id, { offer_to_providers: e.target.checked })
+                        setJob(prev => ({ ...prev, offer_to_providers: e.target.checked }))
+                        setSuccessMessage(`Job ${e.target.checked ? 'offered' : 'removed from'} service providers`)
+                        setTimeout(() => setSuccessMessage(''), 3000)
+                      } catch (error) {
+                        setError('Failed to update job offer status')
+                      } finally {
+                        setLoading(false)
+                      }
+                    }}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
+              </div>
+              <p className="text-xs text-gray-600">
+                Allows qualified, available providers to see and claim this job. <button className="text-blue-600">Learn more</button>
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Desktop View - Shown on lg screens and above */}
+      <div className="hidden lg:flex min-h-screen bg-gray-50">
+        {/* Sidebar */}
+        
+        {/* Main Content Area */}
+        <div className="flex-1 min-w-0 px-4 sm:px-6 lg:px-40">
         
         {/* Header - Hidden on mobile, shown on desktop */}
-        <div className="hidden lg:block bg-white border-b border-gray-200 px-4 sm:px-6 py-4">
+        <div className="hidden lg:block  px-4 sm:px-6 py-4">
           <div className="mb-4">
             <button
               className="flex items-center text-gray-600 hover:text-gray-700 flex-shrink-0"
@@ -1768,7 +2357,8 @@ const JobDetails = () => {
               </div>
 
               <div className="flex items-center gap-3 ">
-      {/* Status Action Button with Dropdown */}
+      {/* Status Action Button with Dropdown - Only show if user has permission */}
+      {canMarkJobStatus(user) && (
       <div className="relative flex">
         {(() => {
           const currentStatus = (job?.status || 'pending').toLowerCase().trim()
@@ -1869,6 +2459,7 @@ const JobDetails = () => {
           </div>
         )}
       </div>
+      )}
 
       {/* More Options Button */}
       <div className="relative" ref={moreRef}>
@@ -1881,18 +2472,24 @@ const JobDetails = () => {
         
         {moreDropdown && (
           <div className="absolute top-full mt-2 right-0 bg-white rounded-lg shadow-xl border border-gray-200 py-2 min-w-[200px] z-10">
+            {canEditJobDetails(user) && (
             <button className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm">
               <ClipboardList size={18} className="text-gray-600" />
               Edit Service
             </button>
+            )}
+            {canEditJobDetails(user) && (
             <button className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm">
               <MapPin size={18} className="text-gray-600" />
               Edit Address
             </button>
+            )}
+            {canRescheduleJobs(user) && (
             <button className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm">
               <Calendar size={18} className="text-gray-600" />
               Reschedule
             </button>
+            )}
             <button className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm">
               <XCircle size={18} className="text-gray-600" />
               Cancel Job
@@ -1938,7 +2535,7 @@ const JobDetails = () => {
         {/* Main Content */}
         <div className="flex flex-col lg:flex-row min-w-0">
           {/* Left Column */}
-          <div className="flex-1 lg:max-w-3xl p-3 sm:p-4 lg:p-6 pb-20 lg:pb-6 min-w-0">
+          <div className="flex-1 lg:max-w-xl p-3 sm:p-4 lg:p-6 pb-20 lg:pb-6 min-w-0">
             {/* Map Section */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-3 sm:mb-4 lg:mb-6 divide-y divide-gray-200">
               <div className="relative">
@@ -2035,6 +2632,7 @@ const JobDetails = () => {
                   >
                     Cancel
                   </button>
+                  {canRescheduleJobs(user) && (
                   <button 
                   style={{fontFamily: 'Montserrat', fontWeight: 500}}
                     onClick={() => setShowRescheduleModal(true)}
@@ -2042,6 +2640,7 @@ const JobDetails = () => {
                     >
                     Reschedule
                   </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -2540,7 +3139,8 @@ const JobDetails = () => {
                 </div>
               </div>
 
-              {/* Service Details Section */}
+              {/* Service Details Section - Only show if user has permission */}
+              {canViewEditJobPrice(user) ? (
               <div className="bg-gray-50 rounded-lg p-4 mb-6">
                 <h4 className="font-semibold text-gray-900 mb-4">{job.service_name}</h4>
                 
@@ -2645,8 +3245,14 @@ const JobDetails = () => {
                   </button>
                     </div>
               </div>
+              ) : (
+                <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                  <p className="text-sm text-gray-500 italic">Price and invoice information is not available. You don't have permission to view job pricing.</p>
+                </div>
+              )}
 
-              {/* Summary Section */}
+              {/* Summary Section - Only show if user has permission */}
+              {canViewEditJobPrice(user) && (
               <div className="space-y-4">
                 <div className="flex justify-between items-center py-2 border-b border-gray-200">
                   <span className="text-sm text-gray-600">Subtotal</span>
@@ -2672,8 +3278,10 @@ const JobDetails = () => {
                   </span>
                   </div>
                 </div>
+              )}
 
-              {/* Payments Section */}
+              {/* Payments Section - Only show if user has permission */}
+              {canProcessPayments(user) && (
               <div className="mt-8">
                 <h4 className="font-semibold text-gray-900 mb-4">Payments</h4>
                   <div className="text-center py-8">
@@ -2686,10 +3294,12 @@ const JobDetails = () => {
                     </p>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
-            {/* Right Sidebar - Mobile Collapsible */}
-          <div className="lg:block w-full lg:w-80 xl:w-96 p-3 sm:p-4 lg:p-6 space-y-4 lg:space-y-6">
+           
+          </div>
+           {/* Right Sidebar - Mobile Collapsible */}
+           <div className="lg:block w-full lg:w-80 xl:w-96 p-3 sm:p-4 lg:p-6 space-y-4 lg:space-y-6">
             {/* Customer Card */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 py-2">
               {/* Customer Section */}
@@ -2814,43 +3424,63 @@ const JobDetails = () => {
                   </div>
                 </div>
 
-                {/* Assigned Section */}
-                <div className="px-6 border-y border-gray-200 py-3">
-                  <div className="flex justify-between items-center mb-2">
-                    <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="font-bold text-gray-700 text-xs">ASSIGNED</span>
-                    <button 
-                      onClick={() => setShowAssignModal(true)}
-                      style={{fontFamily: 'Montserrat', fontWeight: 500}}
-                      className="text-blue-700 rounded hover:bg-blue-50 flex items-center space-x-2 text-sm font-medium"
-                    >
-                      Assign
-                    </button>
-                  </div>
+                {/* Assigned Section - Show if user has permission or if showing themselves */}
+                {(() => {
+                  const isCurrentUserAssigned = user?.teamMemberId && job.assigned_team_member?.id === user.teamMemberId;
+                  const canSee = canSeeOtherProviders(user) || isCurrentUserAssigned;
                   
-                  {job.assigned_team_member ? (
-                    <div className="flex items-center space-x-2">
-                      <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
-                        <span className="text-white font-semibold text-sm">
-                          {job.assigned_team_member.first_name?.[0]}{job.assigned_team_member.last_name?.[0]}
-                        </span>
+                  if (!canSee) {
+                    return (
+                      <div className="px-6 border-y border-gray-200 py-3">
+                        <div className="flex justify-between items-center mb-2">
+                          <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="font-bold text-gray-700 text-xs">ASSIGNED</span>
+                        </div>
+                        <p className="text-xs text-gray-500 italic">Other assigned providers are not visible. You don't have permission to see other providers.</p>
                       </div>
-                      <div>
-                        <p className="font-semibold text-gray-900">
-                          {job.assigned_team_member.first_name} {job.assigned_team_member.last_name}
-                        </p>
-                        <p className="text-sm text-gray-600">{job.assigned_team_member.email}</p>
+                    );
+                  }
+                  
+                  return (
+                    <div className="px-6 border-y border-gray-200 py-3">
+                      <div className="flex justify-between items-center mb-2">
+                        <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="font-bold text-gray-700 text-xs">ASSIGNED</span>
+                        {canEditJobDetails(user) && (
+                        <button 
+                          onClick={() => setShowAssignModal(true)}
+                          style={{fontFamily: 'Montserrat', fontWeight: 500}}
+                          className="text-blue-700 rounded hover:bg-blue-50 flex items-center space-x-2 text-sm font-medium"
+                        >
+                          Assign
+                        </button>
+                        )}
                       </div>
+                      
+                      {job.assigned_team_member ? (
+                        <div className="flex items-center space-x-2">
+                          <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
+                            <span className="text-white font-semibold text-sm">
+                              {job.assigned_team_member.first_name?.[0]}{job.assigned_team_member.last_name?.[0]}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-900">
+                              {job.assigned_team_member.first_name} {job.assigned_team_member.last_name}
+                            </p>
+                            <p className="text-sm text-gray-600">{job.assigned_team_member.email}</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center py-2">
+                          <div className="w-16 h-16 mx-auto mb-3 flex items-center justify-center">
+                            <UserX className="w-8 h-8 text-gray-400" />
+                          </div>
+                          <p style={{fontFamily: 'Montserrat', fontWeight: 500}} className="font-semibold text-sm text-gray-700 mb-1">Unassigned</p>
+                          <p style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-xs text-gray-400">No service providers are assigned to this job</p>
+                        </div>
+                      )}
                     </div>
-                  ) : (
-                    <div className="text-center py-2">
-                      <div className="w-16 h-16 mx-auto mb-3 flex items-center justify-center">
-                        <UserX className="w-8 h-8 text-gray-400" />
-                      </div>
-                      <p style={{fontFamily: 'Montserrat', fontWeight: 500}} className="font-semibold text-sm text-gray-700 mb-1">Unassigned</p>
-                      <p style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-xs text-gray-400">No service providers are assigned to this job</p>
-                    </div>
-                  )}
-                </div>
+                  );
+                })()}
 
                 {/* Offer job to service providers Section */}
                 <div className="px-6 pt-1 pb-3">
@@ -2905,17 +3535,25 @@ const JobDetails = () => {
                   </>
                 ) : (
                   <>
-                    <p className="text-gray-700 mb-2 whitespace-pre-line min-h-[48px] text-center">
-                      {job.notes || <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-gray-600">No internal job or customer notes </span>}<br/>
-                      {job.notes || <span className="text-gray-400 text-xs">Notes and attachments are only visible to employees with appropriate permissions. </span>}
+                    {canViewCustomerNotes(user) ? (
+                      <>
+                        <p className="text-gray-700 mb-2 whitespace-pre-line min-h-[48px] text-center">
+                          {job.notes || <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-gray-600">No internal job or customer notes </span>}<br/>
+                          {job.notes || <span className="text-gray-400 text-xs">Notes and attachments are only visible to employees with appropriate permissions. </span>}
+                        </p>
+                        <button
+                          className="px-3 py-1 border border-gray-300 border-dashed text-blue-500 rounded hover:text-blue-700 hover:border-blue-500 flex items-center justify-self-center space-x-2"
+                          onClick={() => setEditingField('notes')}
+                        >
+                          <Plus className="w-4 h-4" />
+                          <span>{job.notes ? "Edit Note" : "Add Note"}</span>
+                        </button>
+                      </>
+                    ) : (
+                      <p className="text-gray-500 mb-2 whitespace-pre-line min-h-[48px] text-center text-sm italic">
+                        Customer notes are not available. You don't have permission to view customer notes.
                       </p>
-                    <button
-                      className="px-3 py-1 border border-gray-300 border-dashed text-blue-500 rounded hover:text-blue-700 hover:border-blue-500 flex items-center justify-self-center space-x-2"
-                      onClick={() => setEditingField('notes')}
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>{job.notes ? "Edit Note" : "Add Note"}</span>
-                    </button>
+                    )}
                   </>
                 )}
               </div>
@@ -3148,8 +3786,6 @@ const JobDetails = () => {
               </div>
             </div>
           </div>
-          </div>
-
           
 
        
@@ -3192,10 +3828,10 @@ const JobDetails = () => {
           {showMobileSidebar && (
             <>
               <div 
-                className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden" 
+                className="fixed inset-0 bg-black bg-opacity-50 z-[9997] lg:hidden" 
                 onClick={() => setShowMobileSidebar(false)}
               />
-              <div className="fixed top-0 right-0 h-full w-full max-w-sm bg-white shadow-xl transform transition-transform duration-300 ease-in-out z-50 lg:hidden overflow-y-auto">
+              <div className="fixed top-0 right-0 h-full w-full max-w-sm bg-white shadow-xl transform transition-transform duration-300 ease-in-out z-[9997] lg:hidden overflow-y-auto">
                 <div className="p-4 border-b border-gray-200">
                   <div className="flex items-center justify-between">
                     <h2 className="text-lg font-semibold text-gray-900">Job Details</h2>
@@ -4066,9 +4702,9 @@ const JobDetails = () => {
           </div>
         )}
 
-        {/* Edit Customer Modal */}
+        {/* Edit Customer Modal - Desktop View */}
         {showEditCustomerModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="hidden lg:flex fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-gray-900">Edit Customer</h3>
@@ -4202,10 +4838,11 @@ const JobDetails = () => {
             </div>
           </div>
         )}
+      </div>
 
-        {/* Notification Modal */}
-        {showNotificationModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        {/* Notification Modal - Desktop View (for sending notifications) */}
+        {showNotificationModal && notificationType && (
+          <div className="hidden lg:flex fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-6">
@@ -5091,18 +5728,21 @@ const JobDetails = () => {
           </div>
         )}
 
-        {/* Team Assignment Modal */}
+        {/* Team Assignment Modal - Desktop View */}
         {showAssignModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="hidden lg:flex fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-gray-900">Assign Team Member</h3>
-                <button
-                  onClick={() => setShowAssignModal(false)}
+              <button
+                onClick={() => {
+                  setShowAssignModal(false)
+                  setSelectedTeamMember(null)
+                }}
                   className="text-gray-400 hover:text-gray-600"
-                >
+              >
                   <X className="w-5 h-5" />
-                </button>
+              </button>
               </div>
               
               <div className="space-y-4">
@@ -5111,7 +5751,7 @@ const JobDetails = () => {
                     Select Team Member
                   </label>
                   <select
-                    value={selectedTeamMember}
+                    value={selectedTeamMember || ''}
                     onChange={(e) => {
                       console.log('Team member selected:', e.target.value)
                       setSelectedTeamMember(e.target.value)
@@ -5133,8 +5773,11 @@ const JobDetails = () => {
                 </div>
                 
                 <div className="flex space-x-3 pt-4">
-                  <button
-                    onClick={() => setShowAssignModal(false)}
+              <button
+                onClick={() => {
+                      setShowAssignModal(false)
+                      setSelectedTeamMember(null)
+                    }}
                     className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
                   >
                     Cancel
@@ -5144,20 +5787,603 @@ const JobDetails = () => {
                       console.log('Assign button clicked!')
                       console.log('selectedTeamMember:', selectedTeamMember)
                       console.log('assigning:', assigning)
-                      handleTeamAssignment()
-                    }}
-                    disabled={!selectedTeamMember || assigning}
+                    handleTeamAssignment()
+                }}
+                disabled={!selectedTeamMember || assigning}
                     className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
+              >
                     {assigning ? 'Assigning...' : 'Assign'}
-                  </button>
+              </button>
                 </div>
               </div>
             </div>
           </div>
         )}
         </div>
-    )
-  }
+        </div>
+
+      {/* Modals - Rendered outside main container for proper z-index stacking */}
+      {/* Edit Customer Modal - Mobile View */}
+      {showEditCustomerModal && (
+        <div className="lg:hidden fixed inset-0 bg-white z-[99999] flex flex-col" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}>
+          {/* Mobile Header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+            <button
+              onClick={() => setShowEditCustomerModal(false)}
+              className="p-2 -ml-2"
+            >
+              <X className="w-5 h-5 text-gray-900" />
+            </button>
+            <h2 className="text-base font-semibold text-gray-900">Edit Customer</h2>
+            <div className="w-10"></div> {/* Spacer for centering */}
+            </div>
+
+            {/* Scrollable Content */}
+          <div className="flex-1 overflow-y-auto px-4 py-4">
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="edit-first-name-mobile" className="block text-sm font-medium text-gray-700 mb-2">
+                  First Name
+                </label>
+                <input
+                  type="text"
+                  id="edit-first-name-mobile"
+                  value={editCustomerData.firstName}
+                  onChange={(e) => setEditCustomerData(prev => ({ ...prev, firstName: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                  </div>
+              
+              <div>
+                <label htmlFor="edit-last-name-mobile" className="block text-sm font-medium text-gray-700 mb-2">
+                  Last Name
+                </label>
+                <input
+                  type="text"
+                  id="edit-last-name-mobile"
+                  value={editCustomerData.lastName}
+                  onChange={(e) => setEditCustomerData(prev => ({ ...prev, lastName: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                          </div>
+              
+              <div>
+                <label htmlFor="edit-email-mobile" className="block text-sm font-medium text-gray-700 mb-2">
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  id="edit-email-mobile"
+                  value={editCustomerData.email}
+                  onChange={(e) => setEditCustomerData(prev => ({ ...prev, email: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Enter email address"
+                />
+                </div>
+                
+              <div>
+                <label htmlFor="edit-phone-mobile" className="block text-sm font-medium text-gray-700 mb-2">
+                  Phone Number
+                </label>
+                <input
+                  type="tel"
+                  id="edit-phone-mobile"
+                  value={editCustomerData.phone}
+                  onChange={(e) => setEditCustomerData(prev => ({ ...prev, phone: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Enter phone number"
+                />
+                  </div>
+                  </div>
+                  </div>
+
+          {/* Footer with buttons */}
+          <div className="border-t border-gray-200 px-4 py-3 space-y-2">
+            <button
+              onClick={async () => {
+                // Frontend validation
+                if (editCustomerData.firstName && editCustomerData.firstName.trim() && (editCustomerData.firstName.trim().length < 2 || editCustomerData.firstName.trim().length > 50)) {
+                  setError('First name must be between 2 and 50 characters');
+                  return;
+                }
+                
+                if (editCustomerData.lastName && editCustomerData.lastName.trim() && (editCustomerData.lastName.trim().length < 2 || editCustomerData.lastName.trim().length > 50)) {
+                  setError('Last name must be between 2 and 50 characters');
+                  return;
+                }
+                
+                if (editCustomerData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editCustomerData.email)) {
+                  setError('Please enter a valid email address');
+                  return;
+                }
+
+                try {
+                  setLoading(true);
+                  setError(''); // Clear any previous errors
+                  
+                  const response = await api.put(`/customers/${job.customer_id}`, {
+                    firstName: editCustomerData.firstName,
+                    lastName: editCustomerData.lastName,
+                    email: editCustomerData.email,
+                    phone: editCustomerData.phone
+                  });
+
+                  console.log('✅ Customer updated successfully:', response.data);
+                  
+                  // Update the job data with new customer info
+                  setJob(prev => ({
+                    ...prev,
+                    customer_first_name: editCustomerData.firstName,
+                    customer_last_name: editCustomerData.lastName,
+                    customer_email: editCustomerData.email,
+                    customer_phone: editCustomerData.phone
+                  }));
+
+                  setSuccessMessage('Customer updated successfully!');
+                  setTimeout(() => setSuccessMessage(""), 3000);
+                  setShowEditCustomerModal(false);
+                } catch (error) {
+                  console.error('❌ Error updating customer:', error);
+                  setError(`Failed to update customer: ${error.response?.data?.error || error.message}`);
+                } finally {
+                  setLoading(false);
+                }
+              }}
+              className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={loading}
+            >
+              {loading ? 'Saving...' : 'Save Changes'}
+            </button>
+            <button
+              onClick={() => setShowEditCustomerModal(false)}
+              className="w-full px-4 py-3 text-gray-700 border border-gray-300 rounded-lg font-medium hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+                  </div>
+                </div>
+      )}
+
+      {/* Customer Notifications Modal - Mobile View */}
+      {showNotificationModal && !notificationType && (
+        <div className="lg:hidden fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-[99999]" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}>
+          <div className="bg-white rounded-t-2xl w-full max-h-[60vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Customer Notifications</h3>
+                <button
+                  onClick={() => {
+                    setShowNotificationModal(false);
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <p className="text-sm text-gray-600 mb-6">
+                Select how {getCustomerName()} should receive updates for their appointment.
+              </p>
+              
+              <div className="space-y-4">
+                {/* Email Toggle */}
+                <div className="flex items-center justify-between py-3 border-b border-gray-200">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">Emails</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={emailNotifications}
+                      onChange={(e) => handleNotificationToggle('email', e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className={`w-11 h-6 rounded-full peer peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all ${
+                      emailNotifications 
+                        ? 'bg-green-500 peer-checked:after:translate-x-full' 
+                        : 'bg-gray-200'
+                    }`}></div>
+                  </label>
+              </div>
+
+                {/* SMS Toggle */}
+                <div className="flex items-center justify-between py-3 border-b border-gray-200">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">Text messages</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={smsNotifications}
+                      onChange={(e) => handleNotificationToggle('sms', e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className={`w-11 h-6 rounded-full peer peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all ${
+                      smsNotifications 
+                        ? 'bg-green-500 peer-checked:after:translate-x-full' 
+                        : 'bg-gray-200'
+                    }`}></div>
+                  </label>
+                  </div>
+                </div>
+              </div>
+          </div>
+        </div>
+      )}
+
+      {/* Team Assignment Modal - Mobile View */}
+      {showAssignModal && (
+        <div className="lg:hidden fixed inset-0 bg-white z-[99999] flex flex-col" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}>
+          {/* Mobile Header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+            <button
+              onClick={() => {
+                setShowAssignModal(false)
+                setSelectedTeamMember(null)
+              }}
+              className="p-2 -ml-2"
+            >
+              <X className="w-5 h-5 text-gray-900" />
+            </button>
+            <h2 className="text-base font-semibold text-gray-900">Assign Job</h2>
+            <button
+              onClick={() => {
+                if (selectedTeamMember) {
+                  handleTeamAssignment()
+                }
+              }}
+              disabled={!selectedTeamMember || assigning}
+              className="px-4 py-1.5 bg-gray-200 text-gray-700 rounded-lg font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Assign
+            </button>
+          </div>
+
+          {/* Scrollable Content */}
+          <div className="flex-1 overflow-y-auto">
+            {/* Job Information Card */}
+            <div className="bg-white border-b border-gray-200 px-4 py-4">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex-1">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-1">
+                    {job.service_names && job.service_names.length > 1 
+                      ? `${job.service_names.length} Services` 
+                      : (job.service_name || 'Service')
+                    }
+                  </h3>
+                  <p className="text-xs text-gray-600">Job #{job.id || job.job_id}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Team Member Selection */}
+            <div className="px-4 py-4">
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Select Team Member
+              </label>
+              <select
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                value={selectedTeamMember || ''}
+                onChange={(e) => setSelectedTeamMember(e.target.value)}
+              >
+                <option value="">Choose a team member...</option>
+                {teamMembers.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.first_name} {member.last_name} ({member.email})
+                  </option>
+                ))}
+              </select>
+              
+              {teamMembers.length === 0 && (
+                <div className="text-center py-8">
+                  <Users className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+                  <p className="text-gray-500 text-sm">No team members available</p>
+                  <p className="text-gray-400 text-xs mt-1">Add team members in the Team section first</p>
+                </div>
+                              )}
+                            </div>
+                          </div>
+
+          {/* Footer */}
+          <div className="border-t border-gray-200 px-4 py-3 space-y-2">
+            <button
+              onClick={() => {
+                if (selectedTeamMember) {
+                  handleTeamAssignment()
+                }
+              }}
+              disabled={!selectedTeamMember || assigning}
+              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {assigning ? 'Assigning...' : 'Assign'}
+                            </button>
+                          </div>
+                            </div>
+                          )}
+
+      {/* Edit Job Requirements Modal - Mobile View */}
+      {showEditJobRequirementsModal && (
+        <div className="lg:hidden fixed inset-0 bg-white z-[99999] flex flex-col" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}>
+          {/* Mobile Header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+            <button
+              onClick={() => setShowEditJobRequirementsModal(false)}
+              className="p-2 -ml-2"
+            >
+              <X className="w-5 h-5 text-gray-900" />
+            </button>
+            <h2 className="text-base font-semibold text-gray-900">Edit Job Requirements</h2>
+            <div className="w-10"></div> {/* Spacer for centering */}
+                        </div>
+
+          {/* Scrollable Content */}
+          <div className="flex-1 overflow-y-auto px-4 py-4">
+            <div className="space-y-6">
+              {/* Workers Needed Section */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  How many service providers are required?
+                </label>
+                <div className="flex items-center space-x-3">
+                  <button
+                    onClick={() => {
+                      if (editJobRequirementsData.workers_needed > 1) {
+                        setEditJobRequirementsData(prev => ({
+                          ...prev,
+                          workers_needed: prev.workers_needed - 1
+                        }))
+                      }
+                    }}
+                    disabled={editJobRequirementsData.workers_needed <= 1}
+                    className="w-10 h-10 flex items-center justify-center border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <span className="text-xl">−</span>
+                  </button>
+                  <input
+                    type="number"
+                    min="1"
+                    value={editJobRequirementsData.workers_needed}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value) || 1
+                      setEditJobRequirementsData(prev => ({
+                        ...prev,
+                        workers_needed: Math.max(1, value)
+                      }))
+                    }}
+                    className="w-20 px-3 py-2 border border-gray-300 rounded-lg text-center text-lg font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <button
+                    onClick={() => {
+                      setEditJobRequirementsData(prev => ({
+                        ...prev,
+                        workers_needed: prev.workers_needed + 1
+                      }))
+                    }}
+                    className="w-10 h-10 flex items-center justify-center border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50"
+                  >
+                    <span className="text-xl">+</span>
+                  </button>
+                      </div>
+                </div>
+
+              {/* Required Skills Section */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Required skills
+                </label>
+                <input
+                  type="text"
+                  placeholder="Select required skills..."
+                  value={editJobRequirementsData.required_skills.join(', ')}
+                  onChange={(e) => {
+                    const skills = e.target.value.split(',').map(s => s.trim()).filter(s => s)
+                    setEditJobRequirementsData(prev => ({
+                      ...prev,
+                      required_skills: skills
+                    }))
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                <p className="text-sm text-gray-600 mt-2">
+                  {editJobRequirementsData.required_skills.length === 0 
+                    ? 'No skill tags required. Any service provider can be assigned to this job.'
+                    : `${editJobRequirementsData.required_skills.length} skill tag${editJobRequirementsData.required_skills.length !== 1 ? 's' : ''} required.`
+                  }
+                </p>
+                <button className="text-sm text-blue-600 mt-1">
+                  Learn more about skill tags
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer with buttons */}
+          <div className="border-t border-gray-200 px-4 py-3 space-y-2">
+            <button
+              onClick={async () => {
+                try {
+                  setLoading(true)
+                  // API expects 'workers' and 'skills' fields
+                  await jobsAPI.update(job.id, {
+                    workers: editJobRequirementsData.workers_needed,
+                    skills: editJobRequirementsData.required_skills
+                  })
+                  
+                  // Fetch updated job to get the actual data from backend
+                  const updatedJobData = await jobsAPI.getById(job.id)
+                  
+                  // Update the job data with the response from backend
+                  setJob(prev => ({
+                    ...prev,
+                    workers_needed: updatedJobData.workers_needed || updatedJobData.workers || editJobRequirementsData.workers_needed,
+                    required_skills: updatedJobData.required_skills || updatedJobData.skills || editJobRequirementsData.required_skills
+                  }))
+
+                  setSuccessMessage('Job requirements updated successfully!')
+                  setTimeout(() => setSuccessMessage(""), 3000)
+                  setShowEditJobRequirementsModal(false)
+                } catch (error) {
+                  console.error('Error updating job requirements:', error)
+                  setError(`Failed to update job requirements: ${error.response?.data?.error || error.message}`)
+                } finally {
+                  setLoading(false)
+                }
+              }}
+              className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={loading}
+            >
+              {loading ? 'Saving...' : 'Save'}
+            </button>
+            <button
+              onClick={() => setShowEditJobRequirementsModal(false)}
+              className="w-full px-4 py-3 text-gray-700 border border-gray-300 rounded-lg font-medium hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            </div>
+          </div>
+        )}
+
+      {/* Edit Job Requirements Modal - Desktop View */}
+      {showEditJobRequirementsModal && (
+          <div className="hidden lg:flex fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+              <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Edit Job Requirements</h3>
+                <button
+                onClick={() => setShowEditJobRequirementsModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              
+            <div className="space-y-6">
+              {/* Workers Needed Section */}
+                <div>
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  How many service providers are required?
+                  </label>
+                <div className="flex items-center space-x-3">
+                  <button
+                    onClick={() => {
+                      if (editJobRequirementsData.workers_needed > 1) {
+                        setEditJobRequirementsData(prev => ({
+                          ...prev,
+                          workers_needed: prev.workers_needed - 1
+                        }))
+                      }
+                    }}
+                    disabled={editJobRequirementsData.workers_needed <= 1}
+                    className="w-10 h-10 flex items-center justify-center border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <span className="text-xl">−</span>
+                  </button>
+                  <input
+                    type="number"
+                    min="1"
+                    value={editJobRequirementsData.workers_needed}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value) || 1
+                      setEditJobRequirementsData(prev => ({
+                        ...prev,
+                        workers_needed: Math.max(1, value)
+                      }))
+                    }}
+                    className="w-20 px-3 py-2 border border-gray-300 rounded-lg text-center text-lg font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <button
+                    onClick={() => {
+                      setEditJobRequirementsData(prev => ({
+                        ...prev,
+                        workers_needed: prev.workers_needed + 1
+                      }))
+                    }}
+                    className="w-10 h-10 flex items-center justify-center border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50"
+                  >
+                    <span className="text-xl">+</span>
+                  </button>
+                </div>
+                </div>
+                
+              {/* Required Skills Section */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Required skills
+                </label>
+                <input
+                  type="text"
+                  placeholder="Select required skills..."
+                  value={editJobRequirementsData.required_skills.join(', ')}
+                  onChange={(e) => {
+                    const skills = e.target.value.split(',').map(s => s.trim()).filter(s => s)
+                    setEditJobRequirementsData(prev => ({
+                      ...prev,
+                      required_skills: skills
+                    }))
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                <p className="text-sm text-gray-600 mt-2">
+                  {editJobRequirementsData.required_skills.length === 0 
+                    ? 'No skill tags required. Any service provider can be assigned to this job.'
+                    : `${editJobRequirementsData.required_skills.length} skill tag${editJobRequirementsData.required_skills.length !== 1 ? 's' : ''} required.`
+                  }
+                </p>
+                <button className="text-sm text-blue-600 mt-1">
+                  Learn more about skill tags
+                </button>
+              </div>
+            </div>
+
+            {/* Footer with buttons */}
+            <div className="flex space-x-3 mt-6">
+              <button
+                onClick={() => setShowEditJobRequirementsModal(false)}
+                className="flex-1 px-4 py-2 text-gray-700 border border-gray-300 rounded-lg font-medium hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                onClick={async () => {
+                  try {
+                    setLoading(true)
+                    // API expects 'workers' and 'skills' fields
+                    await jobsAPI.update(job.id, {
+                      workers: editJobRequirementsData.workers_needed,
+                      skills: editJobRequirementsData.required_skills
+                    })
+                    
+                    // Fetch updated job to get the actual data from backend
+                    const updatedJobData = await jobsAPI.getById(job.id)
+                    
+                    // Update the job data with the response from backend
+                    setJob(prev => ({
+                      ...prev,
+                      workers_needed: updatedJobData.workers_needed || updatedJobData.workers || editJobRequirementsData.workers_needed,
+                      required_skills: updatedJobData.required_skills || updatedJobData.skills || editJobRequirementsData.required_skills
+                    }))
+
+                    setSuccessMessage('Job requirements updated successfully!')
+                    setTimeout(() => setSuccessMessage(""), 3000)
+                    setShowEditJobRequirementsModal(false)
+                  } catch (error) {
+                    console.error('Error updating job requirements:', error)
+                    setError(`Failed to update job requirements: ${error.response?.data?.error || error.message}`)
+                  } finally {
+                    setLoading(false)
+                  }
+                }}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={loading}
+                  >
+                {loading ? 'Saving...' : 'Save'}
+                  </button>
+              </div>
+            </div>
+          </div>
+        )}
+    </>
+  )
+}
 
 export default JobDetails 

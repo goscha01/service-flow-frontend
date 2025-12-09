@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { Bell, ChevronLeft, AlertCircle } from 'lucide-react';
 import NotificationTesting from '../../components/NotificationTesting';
 import Sidebar from '../../components/sidebar';
-import MobileHeader from '../../components/mobile-header';
 
 const NotificationTestingSettings = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -15,7 +14,6 @@ const NotificationTestingSettings = () => {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
       <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
-        <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
         
         {/* Header */}
         <div className="bg-white border-b border-gray-200 px-6 py-4">

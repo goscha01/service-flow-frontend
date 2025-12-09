@@ -1,9 +1,8 @@
 "use client"
 
-import React, { useState, useEffect, useRef, useCallback } from "react"
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
 import Sidebar from "../components/sidebar-collapsible"
-import MobileHeader from "../components/mobile-header"
 import { teamAPI, territoriesAPI, availabilityAPI } from "../services/api"
 import api from "../services/api"
 import { 
@@ -33,6 +32,11 @@ import {
   User as UserIcon,
   CreditCard,
   Target,
+  Home,
+  Briefcase,
+  Megaphone,
+  Bell,
+  Menu,
 } from "lucide-react"
 import { useAuth } from "../context/AuthContext"
 import { jobsAPI } from "../services/api"
@@ -41,6 +45,7 @@ import { getImageUrl } from "../utils/imageUtils"
 import { formatRecurringFrequencyCompact } from "../utils/recurringUtils"
 import AssignJobModal from "../components/assign-job-modal"
 import StatusHistoryTooltip from "../components/status-history-tooltip"
+import MobileBottomNav from "../components/mobile-bottom-nav"
 import { canCreateJobs, isWorker } from "../utils/roleUtils"
 import { 
   canMarkJobStatus, 
@@ -59,6 +64,7 @@ const ServiceFlowSchedule = () => {
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [selectedDate, setSelectedDate] = useState(new Date())
+  const [dateUpdateKey, setDateUpdateKey] = useState(0) // Force re-renders on date change
   // Load viewMode from localStorage, default to 'month'
   const [viewMode, setViewMode] = useState(() => {
     const savedViewMode = localStorage.getItem('scheduleViewMode')
@@ -128,22 +134,7 @@ const ServiceFlowSchedule = () => {
   })
 
 
-  // Click outside to close calendar
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (calendarRef.current && !calendarRef.current.contains(event.target)) {
-        setShowCalendar(false)
-      }
-    }
-
-    if (showCalendar) {
-      document.addEventListener('mousedown', handleClickOutside)
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [showCalendar])
+  // No click-outside handler - using backdrop overlay approach instead
 
   // Click outside to close territory dropdown
   useEffect(() => {
@@ -612,13 +603,20 @@ const ServiceFlowSchedule = () => {
   }
 
   const getWeekDays = () => {
-    const startOfWeek = new Date(selectedDate)
-    startOfWeek.setDate(selectedDate.getDate() - selectedDate.getDay())
+    // Create a new date object to avoid mutating selectedDate
+    const date = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate())
+    const dayOfWeek = date.getDay()
+    // Calculate the start of the week (Sunday)
+    const startOfWeek = new Date(date)
+    startOfWeek.setDate(date.getDate() - dayOfWeek)
+    startOfWeek.setHours(0, 0, 0, 0)
+    
     const days = []
     for (let i = 0; i < 7; i++) {
-      const date = new Date(startOfWeek)
-      date.setDate(startOfWeek.getDate() + i)
-      days.push(date)
+      const weekDay = new Date(startOfWeek)
+      weekDay.setDate(startOfWeek.getDate() + i)
+      weekDay.setHours(0, 0, 0, 0)
+      days.push(weekDay)
     }
     return days
   }
@@ -1628,18 +1626,391 @@ const ServiceFlowSchedule = () => {
 
   const stats = getSummaryStats()
 
+  // Mobile schedule view - Available for all users
+  // Get jobs for the selected date - use dateUpdateKey to force recalculation
+  const selectedDateJobs = useMemo(() => {
+    if (!selectedDate) return []
+    
+    const selectedYear = selectedDate.getFullYear()
+    const selectedMonth = selectedDate.getMonth()
+    const selectedDay = selectedDate.getDate()
+    const selectedDateString = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`
+    
+    return filteredJobs.filter(job => {
+      if (!job.scheduled_date) return false
+      let jobDateString = ''
+      if (job.scheduled_date.includes('T')) {
+        jobDateString = job.scheduled_date.split('T')[0]
+      } else if (job.scheduled_date.includes(' ')) {
+        jobDateString = job.scheduled_date.split(' ')[0]
+      } else {
+        jobDateString = job.scheduled_date
+      }
+      return jobDateString === selectedDateString
+    })
+  }, [selectedDate, filteredJobs, dateUpdateKey])
+
+  // Get job count for a specific date
+  const getJobCountForDate = (date) => {
+    const dateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+    return filteredJobs.filter(job => {
+      if (!job.scheduled_date) return false
+      let jobDateString = ''
+      if (job.scheduled_date.includes('T')) {
+        jobDateString = job.scheduled_date.split('T')[0]
+      } else if (job.scheduled_date.includes(' ')) {
+        jobDateString = job.scheduled_date.split(' ')[0]
+      } else {
+        jobDateString = job.scheduled_date
+      }
+      return jobDateString === dateString
+    }).length
+  }
+
+  // Recalculate week days when selectedDate changes - use dateUpdateKey to force recalculation
+  const weekDays = useMemo(() => getWeekDays(), [selectedDate, dateUpdateKey])
+
+  // Format date for mobile (shorter format)
+  const formatDateMobile = (date) => {
+    const day = date.toLocaleDateString('en-US', { weekday: 'short' })
+    const month = date.toLocaleDateString('en-US', { month: 'short' })
+    const dayNum = date.getDate()
+    const suffix = dayNum === 1 || dayNum === 21 || dayNum === 31 ? 'st' :
+                   dayNum === 2 || dayNum === 22 ? 'nd' :
+                   dayNum === 3 || dayNum === 23 ? 'rd' : 'th'
+    return `${day}, ${month} ${dayNum}${suffix}`
+  }
+  
+  // Format date for empty state message
+  const formatDateForMessage = (date) => {
+    return date.toLocaleDateString('en-US', { 
+      weekday: 'long', 
+      month: 'long', 
+      day: 'numeric',
+      year: 'numeric'
+    })
+  }
+
+  // Combined view - Mobile and Desktop (shown/hidden via CSS classes)
   return (
-    <>
-      <style jsx>{`
-        .scrollbar-hide {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-        .scrollbar-hide::-webkit-scrollbar {
-          display: none;
-        }
-      `}</style>
-      <div className="min-h-screen bg-gray-50 flex">
+      <>
+        <style>{`
+          .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+          }
+          .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+          }
+          .touch-manipulation {
+            touch-action: manipulation;
+          }
+        `}</style>
+        
+        {/* Mobile view - shown on mobile, hidden on desktop */}
+        <div className="lg:hidden min-h-screen bg-gray-50 pb-20 w-full max-w-full overflow-x-hidden">
+        {/* Mobile Header - Date Selector Only */}
+        <div className="lg:hidden bg-white border-b border-gray-200 sticky top-0 z-20">
+          <div className="flex items-center justify-between px-4 py-3">
+            {/* Left spacer for centering */}
+            <div className="w-10"></div>
+            
+            {/* Date Selector - Centered */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                setShowCalendar(!showCalendar)
+              }}
+              className="flex items-center space-x-1 text-gray-900 font-bold text-base flex-1 justify-center min-w-0"
+              style={{fontFamily: 'Montserrat', fontWeight: 700}}
+            >
+              <span className="truncate" key={`date-${selectedDate.getTime()}`}>{formatDateMobile(selectedDate)}</span>
+              <ChevronDown className="w-4 h-4 flex-shrink-0" />
+            </button>
+            
+            {/* Right spacer for centering */}
+            <div className="w-10"></div>
+          </div>
+          
+          {/* Calendar Popup */}
+          {showCalendar && (
+            <>
+              {/* Backdrop */}
+              <div 
+                className="fixed inset-0 bg-black bg-opacity-20 z-40"
+                onClick={(e) => {
+                  // Only close if clicking directly on backdrop, not on calendar
+                  if (e.target === e.currentTarget) {
+                    setShowCalendar(false)
+                  }
+                }}
+              />
+              {/* Calendar */}
+              <div 
+                ref={calendarRef} 
+                className="fixed top-[73px] left-1/2 transform -translate-x-1/2 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 p-4 w-[calc(100vw-2rem)] max-w-[320px]"
+                onClick={(e) => e.stopPropagation()}
+              >
+              <div className="grid grid-cols-7 gap-1">
+                <div className="col-span-7 flex items-center justify-between mb-2">
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      const newDate = new Date(selectedDate)
+                      newDate.setMonth(newDate.getMonth() - 1)
+                      setSelectedDate(newDate)
+                    }}
+                    className="p-1 hover:bg-gray-100 rounded"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <span className="text-sm font-medium">
+                    {selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                  </span>
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      const newDate = new Date(selectedDate)
+                      newDate.setMonth(newDate.getMonth() + 1)
+                      setSelectedDate(newDate)
+                    }}
+                    className="p-1 hover:bg-gray-100 rounded"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+                {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(day => (
+                  <div key={day} className="text-xs font-medium text-gray-500 text-center py-1">
+                    {day}
+                  </div>
+                ))}
+                {(() => {
+                  const firstDay = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1)
+                  const lastDay = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0)
+                  const days = []
+                  const startDate = new Date(firstDay)
+                  startDate.setDate(startDate.getDate() - startDate.getDay())
+                  
+                  for (let i = 0; i < 42; i++) {
+                    const date = new Date(startDate)
+                    date.setDate(startDate.getDate() + i)
+                    days.push(date)
+                  }
+                  return days.map((day, index) => {
+                    // Normalize dates for comparison
+                    const normalizedDay = new Date(day.getFullYear(), day.getMonth(), day.getDate())
+                    normalizedDay.setHours(0, 0, 0, 0)
+                    const normalizedSelected = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate())
+                    normalizedSelected.setHours(0, 0, 0, 0)
+                    const normalizedToday = new Date()
+                    normalizedToday.setHours(0, 0, 0, 0)
+                    
+                    const isCurrentMonth = day.getMonth() === selectedDate.getMonth()
+                    const isSelected = normalizedDay.getTime() === normalizedSelected.getTime()
+                    const isToday = normalizedDay.getTime() === normalizedToday.getTime()
+                    
+                    return (
+                      <button
+                        key={index}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          // Create a completely new date object
+                          const year = day.getFullYear()
+                          const month = day.getMonth()
+                          const dateNum = day.getDate()
+                          const newSelectedDate = new Date(year, month, dateNum, 0, 0, 0, 0)
+                          
+                          // Update selected date and force re-render with key
+                          setSelectedDate(newSelectedDate)
+                          setDateUpdateKey(prev => prev + 1)
+                          
+                          // Close calendar after state update
+                          setTimeout(() => {
+                            setShowCalendar(false)
+                          }, 200)
+                        }}
+                        className={`text-xs p-2 rounded hover:bg-gray-100 transition-colors w-full ${
+                          isCurrentMonth ? 'text-gray-900' : 'text-gray-400'
+                        } ${
+                          isSelected ? 'bg-blue-600 text-white hover:bg-blue-700' : ''
+                        } ${
+                          isToday && !isSelected ? 'bg-blue-50 text-blue-600' : ''
+                        }`}
+                      >
+                        {day.getDate()}
+                      </button>
+                    )
+                  })
+                })()}
+              </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Horizontal Calendar Strip - Mobile Only */}
+        <div className="lg:hidden bg-white border-b border-gray-200 w-full overflow-x-auto scrollbar-hide" style={{ maxWidth: '100vw', overflowX: 'auto' }} key={`week-strip-${dateUpdateKey}`}>
+          <div className="flex items-center space-x-4 px-4 py-3 min-w-max">
+            {weekDays.map((day, index) => {
+              // Normalize dates for comparison
+              const normalizedDay = new Date(day.getFullYear(), day.getMonth(), day.getDate())
+              normalizedDay.setHours(0, 0, 0, 0)
+              const normalizedSelected = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate())
+              normalizedSelected.setHours(0, 0, 0, 0)
+              const normalizedToday = new Date()
+              normalizedToday.setHours(0, 0, 0, 0)
+              
+              const isSelected = normalizedDay.getTime() === normalizedSelected.getTime()
+              const isToday = normalizedDay.getTime() === normalizedToday.getTime()
+              const dayName = day.toLocaleDateString('en-US', { weekday: 'short' })
+              const dayNum = day.getDate()
+              const jobCount = getJobCountForDate(day)
+              
+              return (
+                <button
+                  key={index}
+                  onClick={() => {
+                    const year = day.getFullYear()
+                    const month = day.getMonth()
+                    const dateNum = day.getDate()
+                    const newSelectedDate = new Date(year, month, dateNum, 0, 0, 0, 0)
+                    
+                    // Update selected date and force re-render
+                    setSelectedDate(newSelectedDate)
+                    setDateUpdateKey(prev => prev + 1)
+                  }}
+                  className="flex flex-col items-center space-y-1 flex-shrink-0 touch-manipulation min-w-[50px]"
+                >
+                  <span className="text-xs font-medium text-gray-500 uppercase">
+                    {dayName}
+                  </span>
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0 transition-colors ${
+                    isSelected 
+                      ? 'bg-blue-600 text-white' 
+                      : isToday
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'bg-gray-100 text-gray-900'
+                  }`}>
+                    {dayNum}
+                  </div>
+                  {jobCount > 0 && (
+                    <span className="text-xs text-gray-600 font-medium">
+                      {jobCount} job{jobCount !== 1 ? 's' : ''}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Jobs List */}
+        <div className="px-3 sm:px-4 py-3 sm:py-4 space-y-3 pb-24 w-full max-w-full overflow-x-hidden" key={`jobs-${dateUpdateKey}`}>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            </div>
+          ) : selectedDateJobs.length === 0 ? (
+            <div className="flex-1 flex flex-col items-center justify-center py-16 px-4 min-h-[60vh]">
+              <div className="relative w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-6">
+                <Calendar className="w-8 h-8 text-gray-300" />
+                <X className="w-6 h-6 text-white absolute" strokeWidth={3} />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-3" style={{fontFamily: 'Montserrat', fontWeight: 700}}>
+                No Scheduled Jobs
+              </h3>
+              <p className="text-sm text-gray-600 text-center max-w-sm leading-relaxed" style={{fontFamily: 'Montserrat', fontWeight: 400}}>
+                Looks like you don't have any assigned jobs on your schedule for {formatDateForMessage(selectedDate)}.
+              </p>
+            </div>
+          ) : (
+            selectedDateJobs.map((job) => {
+              // Parse scheduled_date
+              let jobDate
+              if (typeof job.scheduled_date === 'string' && job.scheduled_date.includes(' ')) {
+                const [datePart, timePart] = job.scheduled_date.split(' ')
+                const [hours, minutes] = timePart.split(':').map(Number)
+                jobDate = new Date(datePart)
+                jobDate.setHours(hours || 0, minutes || 0, 0, 0)
+              } else {
+                jobDate = new Date(job.scheduled_date)
+              }
+              
+              const timeString = jobDate.toLocaleTimeString('en-US', { 
+                hour: 'numeric', 
+                minute: '2-digit',
+                hour12: true 
+              })
+              
+              const customerName = getCustomerName(job) || 'Customer'
+              const serviceName = job.service_name || job.service_type || 'Service'
+              
+              // Build address parts
+              const street = job.service_address_street || job.customer_address || ''
+              const unit = job.service_address_unit || job.service_address_apt || ''
+              const city = job.service_address_city || job.customer_city || ''
+              const state = job.service_address_state || job.customer_state || ''
+              const zip = job.service_address_zip || job.customer_zip_code || ''
+              const country = job.service_address_country || 'USA'
+              
+              const cityStateZip = [city, state, zip].filter(Boolean).join(', ')
+              const fullLocation = cityStateZip ? `${cityStateZip}, ${country}` : country
+
+              return (
+                <div
+                  key={job.id}
+                  onClick={() => navigate(`/job/${job.id}`)}
+                  className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 flex items-start space-x-2 sm:space-x-3 cursor-pointer active:bg-gray-50 hover:shadow-md transition-all touch-manipulation w-full max-w-full overflow-hidden"
+                >
+                  {/* Status Indicator Circle */}
+                  <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-blue-600 flex-shrink-0 mt-1.5 sm:mt-1" />
+                  
+                  <div className="flex-1 min-w-0 overflow-hidden">
+                    {/* Time */}
+                    <div className="text-sm sm:text-base font-semibold text-gray-900 mb-1 truncate">
+                      {timeString}
+                    </div>
+                    
+                    {/* Customer Name and Service */}
+                    <div className="text-sm sm:text-base font-medium text-gray-900 mb-1.5">
+                      <span className="break-words">{customerName}</span>
+                      <span className="text-gray-600"> - </span>
+                      <span className="break-words">{serviceName}</span>
+                    </div>
+                    
+                    {/* Address */}
+                    <div className="text-xs sm:text-sm text-gray-600 space-y-0.5">
+                      {street && <div className="break-words">{street}</div>}
+                      {unit && <div className="break-words">{unit}</div>}
+                      {fullLocation && <div className="break-words">{fullLocation}</div>}
+                    </div>
+                  </div>
+                </div>
+              )
+            })
+          )}
+        </div>
+        
+        {/* Floating Action Button - Mobile Only */}
+        {canCreateJobs(user) && (
+          <button
+            onClick={() => navigate('/createjob')}
+            className="lg:hidden fixed bottom-20 right-4 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-blue-700 transition-colors z-30"
+            aria-label="Create Job"
+          >
+            <div className="relative">
+              <Calendar className="w-6 h-6" />
+              <Plus className="w-4 h-4 absolute -top-1 -right-1" strokeWidth={3} />
+            </div>
+          </button>
+        )}
+        
+        {/* Bottom Navigation Bar - Mobile Only */}
+        <MobileBottomNav teamMembers={teamMembers} />
+        </div>
+        
+        {/* Desktop view - hidden on mobile, shown on desktop */}
+        <div className="hidden lg:flex min-h-screen bg-gray-50">
       {/* Sidebar - Always Collapsed */}
      
       {/* Main Content */}

@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from "react"
 import Sidebar from "../components/sidebar"
-import MobileHeader from "../components/mobile-header"
 import CustomerModal from "../components/customer-modal"
 import CalendarPicker from "../components/CalendarPicker"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
@@ -975,8 +974,6 @@ const ServiceFlowDashboard = () => {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
-        {/* Mobile Header */}
-        <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
 
         {/* Trial Banner */}
         <div className="bg-orange-50 border-b border-orange-100 px-2 sm:px-4 md:px-6 lg:px-8 py-3">

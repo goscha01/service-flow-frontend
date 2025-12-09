@@ -24,7 +24,6 @@ import {
 import { customersAPI, jobsAPI, estimatesAPI, invoicesAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
 import Sidebar from "../components/sidebar"
-import MobileHeader from "../components/mobile-header"
 import CustomerModal from "../components/customer-modal"
 import { formatPhoneNumber } from "../utils/phoneFormatter"
 import { canCreateJobs, isAccountOwner } from "../utils/roleUtils"
@@ -216,7 +215,6 @@ const CustomerDetailsRedesigned = () => {
     <div className="flex h-screen bg-gray-50">
       
       <div className="flex-1 flex flex-col min-w-0 lg:mx-44 xl:mx-48">
-        <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
         
         <div className="flex-1 overflow-auto">
           <div className="p-6">

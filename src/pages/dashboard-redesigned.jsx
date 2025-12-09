@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import Sidebar from "../components/sidebar"
-import MobileHeader from "../components/mobile-header"
 import CustomerModal from "../components/customer-modal"
 import CalendarPicker from "../components/CalendarPicker"
 import {

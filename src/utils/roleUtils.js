@@ -114,6 +114,7 @@ export const canAccessRoute = (user, path) => {
       '/schedule',
       '/jobs',
       '/job', // Job details pages (matches /job/:jobId)
+      '/availability', // Worker availability page
       '/settings', // Settings page (will redirect to team profile)
       '/settings/account', // Only their profile settings
       '/settings/profile', // Profile settings alias
@@ -238,6 +239,7 @@ export const getAllowedSidebarItems = (user) => {
       '/dashboard',
       '/schedule',
       '/jobs',
+      '/availability',
       '/settings',
     ];
   }
