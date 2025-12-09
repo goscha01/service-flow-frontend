@@ -26,14 +26,16 @@ import {
   Globe,
   Settings,
   ChevronRight,
+  LogOut,
 } from "lucide-react"
 
 const MobileBottomNav = ({ teamMembers = [] }) => {
   const navigate = useNavigate()
   const location = useLocation()
-  const { user } = useAuth()
+  const { user, logout } = useAuth()
   const [showMoreOverlay, setShowMoreOverlay] = useState(false)
   const overlayRef = useRef(null)
+  const isWorkerUser = isWorker(user)
 
   // Bottom nav items - always visible
   const bottomNavItems = [
@@ -74,6 +76,13 @@ const MobileBottomNav = ({ teamMembers = [] }) => {
   const remainingItems = filteredSidebarItems.filter(item => 
     !bottomNavPaths.includes(item.path) && !item.hidden
   )
+
+  // Handle sign out
+  const handleSignOut = () => {
+    logout()
+    navigate('/signin')
+    setShowMoreOverlay(false)
+  }
 
   // Get initials helper
   const getInitials = (name) => {
@@ -132,8 +141,8 @@ const MobileBottomNav = ({ teamMembers = [] }) => {
   const userName = `${userFirstName} ${userLastName}`.trim() || user?.email || 'User'
   const userProfilePicture = user?.profilePicture || user?.profile_picture || null
 
-  // Show "More" button only if user is NOT a worker
-  const showMoreButton = !isWorker(user)
+  // Show "More" button for all users
+  const showMoreButton = true
 
   return (
     <>
@@ -161,7 +170,7 @@ const MobileBottomNav = ({ teamMembers = [] }) => {
             )
           })}
           
-          {/* More button - only show if NOT a worker */}
+          {/* More button - show for all users */}
           {showMoreButton && (
             <button
               onClick={() => setShowMoreOverlay(true)}
@@ -206,66 +215,94 @@ const MobileBottomNav = ({ teamMembers = [] }) => {
               </button>
             </div>
             
-            {/* Account Section */}
-            <div 
-              className="px-6 py-4 border-b border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors"
-              onClick={() => {
-                navigate('/settings/account')
-                setShowMoreOverlay(false)
-              }}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div 
-                    className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden"
-                    style={{ backgroundColor: userProfilePicture ? 'transparent' : userColor }}
-                  >
-                    {userProfilePicture ? (
-                      <img 
-                        src={getImageUrl(userProfilePicture)} 
-                        alt={userName}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.target.style.display = 'none'
-                          e.target.nextSibling.style.display = 'flex'
-                        }}
-                      />
-                    ) : null}
-                    <span 
-                      className={`text-white font-bold text-sm ${userProfilePicture ? 'hidden' : 'flex items-center justify-center'}`}
+            {/* Account Section - Only show for non-workers */}
+            {!isWorkerUser && (
+              <div 
+                className="px-6 py-4 border-b border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors"
+                onClick={() => {
+                  navigate('/settings/account')
+                  setShowMoreOverlay(false)
+                }}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div 
+                      className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden"
+                      style={{ backgroundColor: userProfilePicture ? 'transparent' : userColor }}
                     >
-                      {getInitials(userName)}
-                    </span>
+                      {userProfilePicture ? (
+                        <img 
+                          src={getImageUrl(userProfilePicture)} 
+                          alt={userName}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.target.style.display = 'none'
+                            e.target.nextSibling.style.display = 'flex'
+                          }}
+                        />
+                      ) : null}
+                      <span 
+                        className={`text-white font-bold text-sm ${userProfilePicture ? 'hidden' : 'flex items-center justify-center'}`}
+                      >
+                        {getInitials(userName)}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">
+                        {user?.business_name || user?.businessName || user?.email || 'Business'}
+                      </p>
+                      <p className="text-xs text-gray-500">Account Settings</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">
-                      {user?.business_name || user?.businessName || user?.email || 'Business'}
-                    </p>
-                    <p className="text-xs text-gray-500">Account Settings</p>
-                  </div>
+                  <ChevronRight className="w-5 h-5 text-gray-400" />
                 </div>
-                <ChevronRight className="w-5 h-5 text-gray-400" />
               </div>
-            </div>
+            )}
             
             {/* Menu Items */}
             <div className="py-2">
-              {remainingItems.map((item, index) => {
-                const Icon = item.icon
-                return (
-                  <button
-                    key={index}
-                    onClick={() => handleNavigation(item.path)}
-                    className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors text-left"
-                  >
-                    <div className="flex items-center space-x-3">
-                      <Icon className="w-5 h-5 text-gray-600" />
-                      <span className="text-sm font-medium text-gray-900">{item.label}</span>
-                    </div>
-                    <ChevronRight className="w-5 h-5 text-gray-400" />
-                  </button>
-                )
-              })}
+              {/* For workers, only show Settings */}
+              {isWorkerUser ? (
+                <button
+                  onClick={() => handleNavigation('/settings')}
+                  className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors text-left"
+                >
+                  <div className="flex items-center space-x-3">
+                    <Settings className="w-5 h-5 text-gray-600" />
+                    <span className="text-sm font-medium text-gray-900">Settings</span>
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-gray-400" />
+                </button>
+              ) : (
+                remainingItems.map((item, index) => {
+                  const Icon = item.icon
+                  return (
+                    <button
+                      key={index}
+                      onClick={() => handleNavigation(item.path)}
+                      className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors text-left"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <Icon className="w-5 h-5 text-gray-600" />
+                        <span className="text-sm font-medium text-gray-900">{item.label}</span>
+                      </div>
+                      <ChevronRight className="w-5 h-5 text-gray-400" />
+                    </button>
+                  )
+                })
+              )}
+              
+              {/* Sign Out Button - Show for all users */}
+              <button
+                onClick={handleSignOut}
+                className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors text-left border-t border-gray-200 mt-2"
+              >
+                <div className="flex items-center space-x-3">
+                  <LogOut className="w-5 h-5 text-red-600" />
+                  <span className="text-sm font-medium text-red-600">Sign Out</span>
+                </div>
+                <ChevronRight className="w-5 h-5 text-gray-400" />
+              </button>
             </div>
           </div>
         </div>
