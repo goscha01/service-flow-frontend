@@ -18,8 +18,8 @@ const WorkerBottomNav = () => {
   
   const handleNavigation = (path) => {
     // For routes that don't exist yet, show a message or navigate to dashboard
-    if (path === "/offers" || path === "/notifications") {
-      // TODO: Create these routes or show a coming soon message
+    if (path === "/notifications") {
+      // TODO: Create notifications route or show a coming soon message
       console.log(`Route ${path} not yet implemented`)
       // For now, navigate to dashboard
       navigate("/dashboard")

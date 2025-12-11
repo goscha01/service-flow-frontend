@@ -189,3 +189,206 @@ export const formatRecurringFrequencyCompact = (frequency, scheduledDate = null)
   return fullFormat
 }
 
+/**
+ * Calculates the next recurring job date based on frequency and current date
+ * @param {string} frequency - The frequency string (e.g., "weekly-friday", "monthly-day-15", "daily")
+ * @param {Date|string} currentDate - The current/previous job date
+ * @returns {Date} The next job date
+ */
+export const calculateNextRecurringDate = (frequency, currentDate) => {
+  if (!frequency || frequency === '' || frequency === 'never') {
+    return null
+  }
+
+  const freq = frequency.toLowerCase().trim()
+  const baseDate = currentDate instanceof Date ? new Date(currentDate) : new Date(currentDate)
+  const nextDate = new Date(baseDate)
+
+  // Handle daily frequencies
+  if (freq === 'daily' || /^\d+\s*days?$/.test(freq)) {
+    const dayMatch = freq.match(/(\d+)\s*days?/) || (freq === 'daily' ? ['', '1'] : null)
+    const days = dayMatch ? parseInt(dayMatch[1]) : 1
+    nextDate.setDate(nextDate.getDate() + days)
+    return nextDate
+  }
+
+  // Handle weekly frequencies: "weekly-friday", "2 weeks-friday", etc.
+  if (freq.includes('week')) {
+    const parts = freq.split('-')
+    const weekMatch = parts[0].match(/(\d+)\s*weeks?/) || parts[0].match(/weekly/)
+    const weeks = weekMatch && weekMatch[1] ? parseInt(weekMatch[1]) : 1
+    
+    // If day of week is specified, find the next occurrence of that day
+    if (parts.length > 1) {
+      const dayPart = parts[parts.length - 1]
+      const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+      const targetDayIndex = dayNames.findIndex(day => dayPart.includes(day))
+      
+      if (targetDayIndex !== -1) {
+        // Calculate days until next occurrence of that weekday
+        const currentDayIndex = baseDate.getDay()
+        let daysUntilNext = (targetDayIndex - currentDayIndex + 7) % 7
+        
+        // If it's the same day, move to next week
+        if (daysUntilNext === 0) {
+          daysUntilNext = 7
+        }
+        
+        // Add the weeks multiplier
+        nextDate.setDate(nextDate.getDate() + daysUntilNext + ((weeks - 1) * 7))
+        return nextDate
+      }
+    }
+    
+    // No specific day, just add weeks
+    nextDate.setDate(nextDate.getDate() + (weeks * 7))
+    return nextDate
+  }
+
+  // Handle bi-weekly (special case)
+  if (freq === 'biweekly' || freq === 'bi-weekly') {
+    // Try to preserve the weekday
+    const currentDayIndex = baseDate.getDay()
+    nextDate.setDate(nextDate.getDate() + 14)
+    
+    // If weekday is specified in a format like "biweekly-friday", use that
+    const parts = freq.split('-')
+    if (parts.length > 1) {
+      const dayPart = parts[parts.length - 1]
+      const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+      const targetDayIndex = dayNames.findIndex(day => dayPart.includes(day))
+      if (targetDayIndex !== -1) {
+        const daysUntilNext = (targetDayIndex - nextDate.getDay() + 7) % 7
+        nextDate.setDate(nextDate.getDate() + daysUntilNext)
+      }
+    }
+    
+    return nextDate
+  }
+
+  // Handle monthly frequencies
+  if (freq.includes('month')) {
+    const parts = freq.split('-')
+    const monthMatch = parts[0].match(/(\d+)\s*months?/) || parts[0].match(/monthly/)
+    const months = monthMatch && monthMatch[1] ? parseInt(monthMatch[1]) : 1
+    
+    // Format: monthly-day-15 or X months-day-15
+    if (parts.includes('day') && parts.length > 2) {
+      const dayValue = parseInt(parts[parts.length - 1])
+      if (dayValue && dayValue >= 1 && dayValue <= 31) {
+        nextDate.setMonth(nextDate.getMonth() + months)
+        // Set to the specific day of month
+        const daysInMonth = new Date(nextDate.getFullYear(), nextDate.getMonth() + 1, 0).getDate()
+        nextDate.setDate(Math.min(dayValue, daysInMonth))
+        return nextDate
+      }
+    }
+    // Format: monthly-2nd-friday or X months-2nd-friday
+    else if (parts.length > 2) {
+      const ordinalsList = ["1st", "2nd", "3rd", "4th", "last"]
+      const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+      
+      let ordinal = null
+      let weekdayIndex = null
+      
+      for (const part of parts) {
+        const lowerPart = part.toLowerCase()
+        if (ordinalsList.some(ord => lowerPart.includes(ord.toLowerCase()))) {
+          ordinal = ordinalsList.find(ord => lowerPart.includes(ord.toLowerCase()))
+        }
+        const dayIndex = dayNames.findIndex(day => lowerPart.includes(day))
+        if (dayIndex !== -1) {
+          weekdayIndex = dayIndex
+        }
+      }
+      
+      if (ordinal && weekdayIndex !== null) {
+        // Move to next month
+        nextDate.setMonth(nextDate.getMonth() + months)
+        
+        // Find the nth occurrence of the weekday in that month
+        const year = nextDate.getFullYear()
+        const month = nextDate.getMonth()
+        
+        // Start from the first day of the month
+        const firstDay = new Date(year, month, 1)
+        const firstDayOfWeek = firstDay.getDay()
+        
+        // Calculate the first occurrence of the target weekday
+        let firstOccurrence = (weekdayIndex - firstDayOfWeek + 7) % 7
+        if (firstOccurrence === 0) firstOccurrence = 7
+        
+        let targetDate = 1 + firstOccurrence - 1
+        
+        // Adjust for ordinal (1st, 2nd, 3rd, 4th, last)
+        if (ordinal === '1st') {
+          targetDate = 1 + firstOccurrence - 1
+        } else if (ordinal === '2nd') {
+          targetDate = 1 + firstOccurrence - 1 + 7
+        } else if (ordinal === '3rd') {
+          targetDate = 1 + firstOccurrence - 1 + 14
+        } else if (ordinal === '4th') {
+          targetDate = 1 + firstOccurrence - 1 + 21
+        } else if (ordinal === 'last') {
+          // Find the last occurrence
+          const lastDay = new Date(year, month + 1, 0)
+          const lastDayOfWeek = lastDay.getDay()
+          let lastOccurrence = lastDay.getDate() - ((lastDayOfWeek - weekdayIndex + 7) % 7)
+          if (lastOccurrence > lastDay.getDate()) {
+            lastOccurrence -= 7
+          }
+          targetDate = lastOccurrence
+        }
+        
+        // Validate the date is within the month
+        const daysInMonth = new Date(year, month + 1, 0).getDate()
+        if (targetDate > daysInMonth) {
+          targetDate = daysInMonth
+        }
+        
+        nextDate.setDate(targetDate)
+        return nextDate
+      }
+    }
+    
+    // Fallback: add months and try to preserve the day of month
+    const originalDay = baseDate.getDate()
+    nextDate.setMonth(nextDate.getMonth() + months)
+    
+    // Handle month-end edge cases (e.g., Jan 31 -> Feb 28/29)
+    const daysInMonth = new Date(nextDate.getFullYear(), nextDate.getMonth() + 1, 0).getDate()
+    nextDate.setDate(Math.min(originalDay, daysInMonth))
+    
+    return nextDate
+  }
+
+  // Default: return null if frequency is not recognized
+  return null
+}
+
+/**
+ * Validates if a recurring frequency string is valid
+ * @param {string} frequency - The frequency string to validate
+ * @returns {boolean} True if valid, false otherwise
+ */
+export const isValidRecurringFrequency = (frequency) => {
+  if (!frequency || frequency === '' || frequency === 'never') {
+    return false
+  }
+
+  const freq = frequency.toLowerCase().trim()
+  
+  // Check for valid patterns
+  const validPatterns = [
+    /^daily$/,
+    /^\d+\s*days?$/,
+    /^weekly(-\w+)?$/,
+    /^\d+\s*weeks?(-\w+)?$/,
+    /^biweekly(-\w+)?$/,
+    /^bi-weekly(-\w+)?$/,
+    /^monthly(-(day-\d+|1st|2nd|3rd|4th|last)-\w+)?$/,
+    /^\d+\s*months?(-(day-\d+|1st|2nd|3rd|4th|last)-\w+)?$/
+  ]
+
+  return validPatterns.some(pattern => pattern.test(freq))
+}

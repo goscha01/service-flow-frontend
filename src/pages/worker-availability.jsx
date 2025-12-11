@@ -1,10 +1,11 @@
 "use client"
 
-import { useState, useEffect, useMemo, useCallback } from "react"
+import { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
-import { ChevronLeft, ChevronRight, Settings, RefreshCw, Clock, User } from "lucide-react"
-import { availabilityAPI } from "../services/api"
+import { ChevronLeft, ChevronRight, Settings, RefreshCw, Clock, User, X, Plus, Trash2, RotateCw, Calendar } from "lucide-react"
+import { availabilityAPI, teamAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
+import { getImageUrl } from "../utils/imageUtils"
 
 const WorkerAvailability = () => {
   const { user } = useAuth()
@@ -21,6 +22,30 @@ const WorkerAvailability = () => {
   
   // Availability data - store per day
   const [availabilityData, setAvailabilityData] = useState({})
+  
+  // Selected day and popup menu state
+  const [selectedDay, setSelectedDay] = useState(null)
+  const [popupPosition, setPopupPosition] = useState({ top: 0, left: 0 })
+  const popupRef = useRef(null)
+  
+  // Weekly hours editing modal state
+  const [showEditWeeklyHoursModal, setShowEditWeeklyHoursModal] = useState(false)
+  const [editingDayOfWeek, setEditingDayOfWeek] = useState(null) // e.g., 'wednesday'
+  const [workingHours, setWorkingHours] = useState({
+    sunday: { available: false, timeSlots: [] },
+    monday: { available: true, timeSlots: [{ id: 1, start: '09:00', end: '18:00' }] },
+    tuesday: { available: true, timeSlots: [{ id: 2, start: '09:00', end: '18:00' }] },
+    wednesday: { available: true, timeSlots: [{ id: 3, start: '09:00', end: '18:00' }] },
+    thursday: { available: true, timeSlots: [{ id: 4, start: '09:00', end: '18:00' }] },
+    friday: { available: true, timeSlots: [{ id: 5, start: '09:00', end: '18:00' }] },
+    saturday: { available: false, timeSlots: [] }
+  })
+  const [savingWeeklyHours, setSavingWeeklyHours] = useState(false)
+  
+  // Single date editing modal state
+  const [showEditSingleDateModal, setShowEditSingleDateModal] = useState(false)
+  const [editingDate, setEditingDate] = useState(null)
+  const [singleDateHours, setSingleDateHours] = useState([])
   
   // Get days in current month
   const daysInMonth = useMemo(() => {
@@ -43,8 +68,132 @@ const WorkerAvailability = () => {
   }, [currentMonth, currentYear])
   
   const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
+  const dayNamesFull = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+  const dayNamesLower = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
   const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
                      'July', 'August', 'September', 'October', 'November', 'December']
+  
+  // Generate time options for time inputs
+  const generateTimeOptions = () => {
+    const options = []
+    for (let hour = 0; hour < 24; hour++) {
+      for (let minute = 0; minute < 60; minute += 30) {
+        const time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
+        const displayHour = hour % 12 || 12
+        const ampm = hour >= 12 ? 'PM' : 'AM'
+        options.push({
+          value: time,
+          label: `${displayHour}:${minute.toString().padStart(2, '0')} ${ampm}`
+        })
+      }
+    }
+    return options
+  }
+  
+  const timeOptions = generateTimeOptions()
+  
+  // Load working hours from team member availability
+  const loadWorkingHours = useCallback(async () => {
+    // For non-workers (account owners/managers), they might not have teamMemberId
+    // In that case, use user availability API instead
+    if (!user?.teamMemberId && !user?.id) return
+    
+    try {
+      // Try team member availability first if user has teamMemberId
+      // Otherwise fall back to user availability
+      let availability
+      if (user?.teamMemberId) {
+        availability = await teamAPI.getAvailability(user.teamMemberId)
+      } else {
+        // For account owners/managers without teamMemberId, use user availability
+        availability = await availabilityAPI.getAvailability(user.id)
+      }
+      
+      if (user?.teamMemberId && availability?.availability) {
+        // Team member format - workingHours
+        let availData = availability.availability
+        if (typeof availData === 'string') {
+          try {
+            availData = JSON.parse(availData)
+          } catch (e) {
+            console.error('Error parsing availability:', e)
+          }
+        }
+        
+        if (availData?.workingHours) {
+          // Convert to our format
+          const newWorkingHours = {}
+          Object.keys(dayNamesLower).forEach((dayIdx) => {
+            const dayName = dayNamesLower[dayIdx]
+            const dayData = availData.workingHours[dayName]
+            
+            if (dayData) {
+              newWorkingHours[dayName] = {
+                available: dayData.available !== false,
+                timeSlots: dayData.timeSlots || (dayData.hours ? [{
+                  id: Date.now() + dayIdx,
+                  start: dayData.hours.split(' - ')[0]?.replace(' AM', '').replace(' PM', '') || '09:00',
+                  end: dayData.hours.split(' - ')[1]?.replace(' AM', '').replace(' PM', '') || '18:00'
+                }] : [])
+              }
+            } else {
+              newWorkingHours[dayName] = {
+                available: dayIdx !== 0 && dayIdx !== 6, // Not Sunday or Saturday
+                timeSlots: dayIdx !== 0 && dayIdx !== 6 ? [{ id: Date.now() + dayIdx, start: '09:00', end: '18:00' }] : []
+              }
+            }
+          })
+          
+          setWorkingHours(newWorkingHours)
+        }
+      } else if (!user?.teamMemberId && availability?.businessHours) {
+        // User availability format - businessHours
+        let businessHours = availability.businessHours
+        if (typeof businessHours === 'string') {
+          try {
+            businessHours = JSON.parse(businessHours)
+          } catch (e) {
+            console.error('Error parsing businessHours:', e)
+          }
+        }
+        
+        if (businessHours) {
+          // Convert businessHours format to workingHours format
+          const newWorkingHours = {}
+          Object.keys(dayNamesLower).forEach((dayIdx) => {
+            const dayName = dayNamesLower[dayIdx]
+            const dayData = businessHours[dayName]
+            
+            if (dayData && dayData.enabled) {
+              newWorkingHours[dayName] = {
+                available: true,
+                timeSlots: [{
+                  id: Date.now() + dayIdx,
+                  start: dayData.start || '09:00',
+                  end: dayData.end || '18:00'
+                }]
+              }
+            } else {
+              newWorkingHours[dayName] = {
+                available: false,
+                timeSlots: []
+              }
+            }
+          })
+          
+          setWorkingHours(newWorkingHours)
+        }
+      }
+    } catch (error) {
+      console.error('Error loading working hours:', error)
+    }
+  }, [user?.teamMemberId, user?.id])
+  
+  useEffect(() => {
+    if ((user?.teamMemberId || user?.id) && showEditWeeklyHoursModal) {
+      loadWorkingHours()
+    }
+  }, [user?.teamMemberId, user?.id, showEditWeeklyHoursModal, loadWorkingHours])
   
   const loadAvailabilityData = useCallback(async () => {
     if (!user?.id) return
@@ -118,12 +267,186 @@ const WorkerAvailability = () => {
     }
   }, [user?.id, currentYear, currentMonth, loadAvailabilityData])
   
+  // Click outside handler for popup
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (popupRef.current && !popupRef.current.contains(event.target)) {
+        setSelectedDay(null)
+      }
+    }
+    
+    if (selectedDay) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside)
+      }
+    }
+  }, [selectedDay])
+  
   const handlePreviousMonth = () => {
     setCurrentDate(new Date(currentYear, currentMonth - 1, 1))
+    setSelectedDay(null)
   }
   
   const handleNextMonth = () => {
     setCurrentDate(new Date(currentYear, currentMonth + 1, 1))
+    setSelectedDay(null)
+  }
+  
+  // Handle day click to show popup
+  const handleDayClick = (day, event) => {
+    event.stopPropagation()
+    const rect = event.currentTarget.getBoundingClientRect()
+    setSelectedDay(day)
+    setPopupPosition({
+      top: rect.bottom + window.scrollY,
+      left: rect.right + window.scrollX - 200 // Position to the right
+    })
+  }
+  
+  // Handle "Edit [Day]" - e.g., "Edit Wednesdays"
+  const handleEditDayOfWeek = (day) => {
+    const dayName = dayNamesLower[day.dayOfWeek]
+    setEditingDayOfWeek(dayName)
+    setShowEditWeeklyHoursModal(true)
+    setSelectedDay(null)
+  }
+  
+  // Handle "Edit 1 Date"
+  const handleEditSingleDate = (day) => {
+    setEditingDate(day.fullDate)
+    const dayData = availabilityData[day.fullDate] || { available: false, timeRange: null }
+    
+    if (dayData.timeRange) {
+      setSingleDateHours([{ id: 1, start: dayData.timeRange.start, end: dayData.timeRange.end }])
+    } else {
+      setSingleDateHours([])
+    }
+    
+    setShowEditSingleDateModal(true)
+    setSelectedDay(null)
+  }
+  
+  // Save weekly hours
+  const handleSaveWeeklyHours = async () => {
+    if (!user?.teamMemberId && !user?.id) return
+    
+    try {
+      setSavingWeeklyHours(true)
+      
+      // Convert workingHours to API format
+      const workingHoursForAPI = {}
+      Object.keys(workingHours).forEach(day => {
+        const dayData = workingHours[day]
+        if (dayData.available && dayData.timeSlots.length > 0) {
+          workingHoursForAPI[day] = {
+            available: true,
+            timeSlots: dayData.timeSlots.map(slot => ({
+              start: slot.start,
+              end: slot.end
+            }))
+          }
+        } else {
+          workingHoursForAPI[day] = {
+            available: false,
+            timeSlots: []
+          }
+        }
+      })
+      
+      // Save to appropriate endpoint based on user type
+      if (user?.teamMemberId) {
+        // Workers: use team member availability endpoint
+        const availabilityData = {
+          workingHours: workingHoursForAPI,
+          customAvailability: []
+        }
+        await teamAPI.updateAvailability(user.teamMemberId, JSON.stringify(availabilityData))
+      } else {
+        // Account owners/managers: use user availability endpoint
+        // Convert to businessHours format for user availability
+        const businessHours = {}
+        Object.keys(workingHoursForAPI).forEach(day => {
+          const dayData = workingHoursForAPI[day]
+          if (dayData.available && dayData.timeSlots.length > 0) {
+            // Take the first time slot for business hours format
+            const firstSlot = dayData.timeSlots[0]
+            businessHours[day] = {
+              enabled: true,
+              start: firstSlot.start,
+              end: firstSlot.end
+            }
+          } else {
+            businessHours[day] = {
+              enabled: false,
+              start: '09:00',
+              end: '17:00'
+            }
+          }
+        })
+        
+        await availabilityAPI.updateAvailability({
+          userId: user.id,
+          businessHours: businessHours,
+          timeslotTemplates: []
+        })
+      }
+      
+      setShowEditWeeklyHoursModal(false)
+      setMessage({ type: 'success', text: 'Weekly hours saved successfully!' })
+      setTimeout(() => setMessage({ type: '', text: '' }), 3000)
+      
+      // Reload availability data
+      await loadAvailabilityData()
+      await loadWorkingHours()
+    } catch (error) {
+      console.error('Error saving weekly hours:', error)
+      setMessage({ type: 'error', text: 'Failed to save weekly hours' })
+    } finally {
+      setSavingWeeklyHours(false)
+    }
+  }
+  
+  // Add time slot to a day
+  const handleAddTimeSlot = (day) => {
+    setWorkingHours(prev => ({
+      ...prev,
+      [day]: {
+        ...prev[day],
+        timeSlots: [
+          ...(prev[day]?.timeSlots || []),
+          {
+            id: Date.now(),
+            start: '09:00',
+            end: '18:00'
+          }
+        ]
+      }
+    }))
+  }
+  
+  // Remove time slot from a day
+  const handleRemoveTimeSlot = (day, slotId) => {
+    setWorkingHours(prev => ({
+      ...prev,
+      [day]: {
+        ...prev[day],
+        timeSlots: (prev[day]?.timeSlots || []).filter(slot => slot.id !== slotId)
+      }
+    }))
+  }
+  
+  // Update time slot
+  const handleTimeSlotChange = (day, slotId, field, value) => {
+    setWorkingHours(prev => ({
+      ...prev,
+      [day]: {
+        ...prev[day],
+        timeSlots: (prev[day]?.timeSlots || []).map(slot =>
+          slot.id === slotId ? { ...slot, [field]: value } : slot
+        )
+      }
+    }))
   }
   
   const toggleDayAvailability = async (date) => {
@@ -191,6 +514,28 @@ const WorkerAvailability = () => {
     return `${displayHour}:${minutes} ${ampm}`
   }
   
+  // Get user's team member data for display
+  const getUserInitials = () => {
+    const firstName = user?.firstName || user?.first_name || ''
+    const lastName = user?.lastName || user?.last_name || ''
+    if (firstName && lastName) {
+      return (firstName[0] + lastName[0]).toUpperCase()
+    }
+    if (firstName) {
+      return firstName.substring(0, 2).toUpperCase()
+    }
+    return (user?.email?.[0] || 'U').toUpperCase()
+  }
+  
+  const getUserDisplayName = () => {
+    const firstName = user?.firstName || user?.first_name || ''
+    const lastName = user?.lastName || user?.last_name || ''
+    if (firstName || lastName) {
+      return `${firstName} ${lastName}`.trim()
+    }
+    return user?.email || 'User'
+  }
+  
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -203,125 +548,302 @@ const WorkerAvailability = () => {
   }
   
   return (
-    <div className="min-h-screen bg-gray-50 pb-24 lg:pb-0">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="px-4 py-4">
-          <div className="flex items-center justify-between">
-            {/* Profile Icon */}
-            <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
-              <span className="text-orange-600 font-semibold text-sm">
-                {user?.firstName?.[0] || user?.email?.[0] || 'U'}
-                {user?.lastName?.[0] || ''}
-              </span>
+    <>
+      <div className="min-h-screen bg-gray-50 pb-24 lg:pb-0">
+        {/* Header */}
+        <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
+          <div className="px-4 py-4">
+            <div className="flex items-center justify-between">
+              {/* Profile Icon */}
+              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                <span className="text-blue-600 font-semibold text-sm">
+                  {getUserInitials()}
+                </span>
+              </div>
+              
+              {/* Title */}
+              <h1 className="text-xl font-semibold text-gray-900 flex-1 text-center">
+                My Availability
+              </h1>
+              
+              {/* Settings Icon - Gear with clock */}
+              <button
+                onClick={() => navigate('/settings/availability')}
+                className="w-10 h-10 flex items-center justify-center text-gray-600 hover:text-gray-900 relative"
+              >
+                <Settings className="w-5 h-5" />
+                <Clock className="w-3 h-3 absolute bottom-0 right-0" />
+              </button>
             </div>
-            
-            {/* Title */}
-            <h1 className="text-xl font-semibold text-gray-900 flex-1 text-center">
-              My Availability
-            </h1>
-            
-            {/* Settings Icon - Gear with clock */}
+          </div>
+        </div>
+        
+        {/* Month Navigation */}
+        <div className="bg-white border-b border-gray-200 px-4 py-4">
+          <div className="flex items-center justify-between">
             <button
-              onClick={() => navigate('/settings/availability')}
-              className="w-10 h-10 flex items-center justify-center text-gray-600 hover:text-gray-900 relative"
+              onClick={handlePreviousMonth}
+              className="p-2 text-gray-600 hover:text-gray-900"
             >
-              <Settings className="w-5 h-5" />
-              <Clock className="w-3 h-3 absolute bottom-0 right-0" />
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            
+            <h2 className="text-lg font-semibold text-gray-900">
+              {monthNames[currentMonth]} {currentYear}
+            </h2>
+            
+            <button
+              onClick={handleNextMonth}
+              className="p-2 text-gray-600 hover:text-gray-900"
+            >
+              <ChevronRight className="w-5 h-5" />
             </button>
           </div>
         </div>
-      </div>
-      
-      {/* Month Navigation */}
-      <div className="bg-white border-b border-gray-200 px-4 py-4">
-        <div className="flex items-center justify-between">
-          <button
-            onClick={handlePreviousMonth}
-            className="p-2 text-gray-600 hover:text-gray-900"
-          >
-            <ChevronLeft className="w-5 h-5" />
-          </button>
-          
-          <h2 className="text-lg font-semibold text-gray-900">
-            {monthNames[currentMonth]} {currentYear}
-          </h2>
-          
-          <button
-            onClick={handleNextMonth}
-            className="p-2 text-gray-600 hover:text-gray-900"
-          >
-            <ChevronRight className="w-5 h-5" />
-          </button>
-        </div>
-      </div>
-      
-      {/* Message */}
-      {message.text && (
-        <div className={`px-4 py-3 ${message.type === 'success' ? 'bg-green-50 border-l-4 border-green-400' : 'bg-red-50 border-l-4 border-red-400'}`}>
-          <span className={`text-sm ${message.type === 'success' ? 'text-green-700' : 'text-red-700'}`}>
-            {message.text}
-          </span>
-        </div>
-      )}
-      
-      {/* Availability List */}
-      <div className="px-4 py-4 space-y-3">
-        {daysInMonth.map((day) => {
-          const dayData = availabilityData[day.fullDate] || { available: false, timeRange: null, allDay: true }
-          const isAvailable = dayData.available
-          const timeRange = dayData.timeRange
-          const isAllDay = dayData.allDay || !timeRange
-          
-          return (
-            <div
-              key={day.fullDate}
-              className="bg-white rounded-lg border border-gray-200 p-4 flex items-center justify-between"
-            >
-              <div className="flex items-center space-x-3 flex-1">
-                {/* Checkbox-like circle */}
-                <div className="w-5 h-5 rounded-full border-2 border-gray-300 flex-shrink-0" />
-                
-                <div className="flex flex-col min-w-[60px]">
-                  <span className="text-xs font-semibold text-gray-500 uppercase">
-                    {dayNames[day.dayOfWeek]}
-                  </span>
-                  <span className="text-lg font-bold text-gray-900">
-                    {day.date}
-                  </span>
-                </div>
-                
-                <div className="flex-1">
-                  <div className={`text-sm font-medium ${isAvailable ? 'text-green-600' : 'text-gray-500'}`}>
-                    {isAvailable ? 'Available' : 'Unavailable'}
+        
+        {/* Message */}
+        {message.text && (
+          <div className={`px-4 py-3 ${message.type === 'success' ? 'bg-green-50 border-l-4 border-green-400' : 'bg-red-50 border-l-4 border-red-400'}`}>
+            <span className={`text-sm ${message.type === 'success' ? 'text-green-700' : 'text-red-700'}`}>
+              {message.text}
+            </span>
+          </div>
+        )}
+        
+        {/* Availability List */}
+        <div className="px-4 py-4 space-y-3">
+          {daysInMonth.map((day) => {
+            const dayData = availabilityData[day.fullDate] || { available: false, timeRange: null, allDay: true }
+            const isAvailable = dayData.available
+            const timeRange = dayData.timeRange
+            const isAllDay = dayData.allDay || !timeRange
+            const isSelected = selectedDay?.fullDate === day.fullDate
+            
+            return (
+              <div
+                key={day.fullDate}
+                onClick={(e) => handleDayClick(day, e)}
+                className={`bg-white rounded-lg border-2 p-4 flex items-center justify-between cursor-pointer transition-colors ${
+                  isSelected ? 'border-blue-500' : 'border-gray-200'
+                }`}
+              >
+                <div className="flex items-center space-x-3 flex-1">
+                  {/* Checkbox-like circle */}
+                  <div className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${
+                    isSelected ? 'border-blue-500 bg-blue-500' : 'border-gray-300'
+                  }`}>
+                    {isSelected && (
+                      <div className="w-2 h-2 rounded-full bg-white" />
+                    )}
                   </div>
-                  {isAvailable && !isAllDay && timeRange && (
-                    <div className="text-xs text-gray-600 mt-1">
-                      {formatTime(timeRange.start)} - {formatTime(timeRange.end)}
+                  
+                  <div className="flex flex-col min-w-[60px]">
+                    <span className="text-xs font-semibold text-gray-500 uppercase">
+                      {dayNames[day.dayOfWeek]}
+                    </span>
+                    <span className="text-lg font-bold text-gray-900">
+                      {day.date}
+                    </span>
+                  </div>
+                  
+                  <div className="flex-1">
+                    <div className={`text-sm font-medium ${isAvailable ? 'text-green-600' : 'text-gray-500'}`}>
+                      {isAvailable ? 'Available' : 'Unavailable'}
                     </div>
-                  )}
-                  {(isAllDay || (!isAvailable && !timeRange)) && (
-                    <div className="text-xs text-gray-600 mt-1">
-                      All day
-                    </div>
-                  )}
+                    {isAvailable && !isAllDay && timeRange && (
+                      <div className="text-xs text-gray-600 mt-1">
+                        {formatTime(timeRange.start)} - {formatTime(timeRange.end)}
+                      </div>
+                    )}
+                    {(isAllDay || (!isAvailable && !timeRange)) && (
+                      <div className="text-xs text-gray-600 mt-1">
+                        All day
+                      </div>
+                    )}
+                  </div>
                 </div>
+                
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    toggleDayAvailability(day.fullDate)
+                  }}
+                  disabled={saving}
+                  className="p-2 text-gray-400 hover:text-gray-600 disabled:opacity-50"
+                >
+                  <RotateCw className="w-5 h-5" />
+                </button>
               </div>
+            )
+          })}
+        </div>
+        
+        {/* Popup Menu */}
+        {selectedDay && (
+          <div
+            ref={popupRef}
+            className="fixed bg-white rounded-lg shadow-lg border border-gray-200 z-50 p-3"
+            style={{
+              top: `${popupPosition.top}px`,
+              left: `${popupPosition.left}px`,
+              transform: 'translateY(-100%)'
+            }}
+          >
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => handleEditDayOfWeek(selectedDay)}
+                className="flex flex-col items-center p-2 hover:bg-gray-50 rounded transition-colors"
+              >
+                <RotateCw className="w-5 h-5 text-gray-600 mb-1" />
+                <span className="text-xs text-gray-700">Edit {dayNamesFull[selectedDay.dayOfWeek]}s</span>
+              </button>
               
               <button
-                onClick={() => toggleDayAvailability(day.fullDate)}
-                disabled={saving}
-                className="p-2 text-gray-400 hover:text-gray-600 disabled:opacity-50"
+                onClick={() => handleEditSingleDate(selectedDay)}
+                className="flex flex-col items-center p-2 hover:bg-gray-50 rounded transition-colors"
               >
-                <RefreshCw className="w-5 h-5" />
+                <Calendar className="w-5 h-5 text-gray-600 mb-1" />
+                <span className="text-xs text-gray-700">Edit 1 Date</span>
+              </button>
+              
+              <button
+                onClick={() => setSelectedDay(null)}
+                className="p-2 hover:bg-gray-50 rounded transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-600" />
               </button>
             </div>
-          )
-        })}
+          </div>
+        )}
       </div>
-    </div>
+      
+      {/* Edit Weekly Hours Modal */}
+      {showEditWeeklyHoursModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[9999] flex items-end justify-center lg:items-center">
+          <div className="bg-white rounded-t-2xl lg:rounded-2xl w-full lg:w-[600px] max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <button
+                onClick={() => setShowEditWeeklyHoursModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-600" />
+              </button>
+              
+              <h2 className="text-lg font-semibold text-gray-900">Edit Weekly Hours</h2>
+              
+              <button
+                onClick={handleSaveWeeklyHours}
+                disabled={savingWeeklyHours}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {savingWeeklyHours ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+            
+            {/* Service/User Identifier */}
+            <div className="px-6 py-3 border-b border-gray-200 flex items-center space-x-2">
+              <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                <span className="text-blue-600 font-semibold text-xs">
+                  {getUserInitials()}
+                </span>
+              </div>
+              <span className="text-sm text-gray-700">{getUserDisplayName()}</span>
+            </div>
+            
+            {/* Modal Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="space-y-4">
+                {dayNamesLower.map((day, index) => {
+                  const dayData = workingHours[day] || { available: false, timeSlots: [] }
+                  
+                  return (
+                    <div key={day} className="space-y-2">
+                      <div className="flex items-center space-x-3">
+                        <input
+                          type="checkbox"
+                          checked={dayData.available}
+                          onChange={(e) => {
+                            setWorkingHours(prev => ({
+                              ...prev,
+                              [day]: {
+                                ...prev[day],
+                                available: e.target.checked,
+                                timeSlots: e.target.checked && prev[day]?.timeSlots.length === 0
+                                  ? [{ id: Date.now(), start: '09:00', end: '18:00' }]
+                                  : prev[day]?.timeSlots || []
+                              }
+                            }))
+                          }}
+                          className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 border-gray-300"
+                        />
+                        <span className="text-sm font-medium text-gray-900 capitalize">
+                          {day}
+                        </span>
+                      </div>
+                      
+                      {dayData.available && (
+                        <div className="ml-7 space-y-2">
+                          {dayData.timeSlots.length === 0 ? (
+                            <button
+                              onClick={() => handleAddTimeSlot(day)}
+                              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                            >
+                              + Add Hours
+                            </button>
+                          ) : (
+                            <>
+                              {dayData.timeSlots.map((slot, slotIndex) => (
+                                <div key={slot.id} className="flex items-center space-x-2">
+                                  <select
+                                    value={slot.start}
+                                    onChange={(e) => handleTimeSlotChange(day, slot.id, 'start', e.target.value)}
+                                    className="text-sm border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  >
+                                    {timeOptions.map(opt => (
+                                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                    ))}
+                                  </select>
+                                  <span className="text-sm text-gray-500">-</span>
+                                  <select
+                                    value={slot.end}
+                                    onChange={(e) => handleTimeSlotChange(day, slot.id, 'end', e.target.value)}
+                                    className="text-sm border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  >
+                                    {timeOptions.map(opt => (
+                                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                    ))}
+                                  </select>
+                                  <button
+                                    onClick={() => handleRemoveTimeSlot(day, slot.id)}
+                                    className="p-1 text-red-600 hover:text-red-700 transition-colors"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                  {slotIndex === dayData.timeSlots.length - 1 && (
+                                    <button
+                                      onClick={() => handleAddTimeSlot(day)}
+                                      className="text-sm text-blue-600 hover:text-blue-700 font-medium px-2"
+                                    >
+                                      + Add More
+                                    </button>
+                                  )}
+                                </div>
+                              ))}
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
 
 export default WorkerAvailability
-

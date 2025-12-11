@@ -796,6 +796,26 @@ export const jobsAPI = {
     }
   },
 
+  // Get available jobs for workers
+  getAvailableForWorkers: async () => {
+    try {
+      const response = await api.get('/jobs/available-for-workers');
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Claim a job (for workers)
+  claim: async (jobId, notes) => {
+    try {
+      const response = await api.post(`/jobs/${jobId}/claim`, { notes });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
   delete: async (id) => {
     try {
       const response = await api.delete(`/jobs/${id}`);

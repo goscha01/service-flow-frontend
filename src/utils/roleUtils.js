@@ -89,6 +89,11 @@ export const isWorker = (user) => {
 export const canAccessRoute = (user, path) => {
   const role = getUserRole(user);
   
+  // Availability page is accessible to all authenticated users
+  if (path === '/availability' || path.startsWith('/availability/')) {
+    return true;
+  }
+  
   // Account owners and managers can access everything (except account owner settings and billing for managers)
   if (role === 'owner' || role === 'manager') {
     // Managers cannot access account owner settings
@@ -114,7 +119,8 @@ export const canAccessRoute = (user, path) => {
       '/schedule',
       '/jobs',
       '/job', // Job details pages (matches /job/:jobId)
-      '/availability', // Worker availability page
+      '/availability', // Availability page (mobile view)
+      '/offers', // Available jobs page
       '/settings', // Settings page (will redirect to team profile)
       '/settings/account', // Only their profile settings
       '/settings/profile', // Profile settings alias
