@@ -84,6 +84,7 @@ import {
   canViewEditJobPrice,
   canSeeOtherProviders
 } from "../utils/permissionUtils"
+import { isWorker } from "../utils/roleUtils"
 
 const JobDetails = () => {
   const { jobId } = useParams();
@@ -246,6 +247,13 @@ const JobDetails = () => {
   const [userTwilioConnected, setUserTwilioConnected] = useState(false)
   const [intakeQuestionAnswers, setIntakeQuestionAnswers] = useState({})
   const [originalJobData, setOriginalJobData] = useState(null)
+  const [paymentHistory, setPaymentHistory] = useState([])
+  const [paymentFormData, setPaymentFormData] = useState({
+    amount: '',
+    paymentMethod: 'cash',
+    paymentDate: new Date().toISOString().split('T')[0],
+    notes: ''
+  })
   
   // Keepalive functionality to prevent Railway backend from sleeping
   useEffect(() => {
@@ -625,6 +633,103 @@ const JobDetails = () => {
       }))
     }
   }, [showRescheduleModal, job])
+
+  // Fetch payment history
+  useEffect(() => {
+    const fetchPaymentHistory = async () => {
+      if (job?.id) {
+        try {
+          const response = await api.get(`/transactions/job/${job.id}`)
+          if (response.data) {
+            const transactions = response.data.transactions || []
+            const totalPaid = response.data.totalPaid || transactions.reduce((sum, tx) => sum + parseFloat(tx.amount || 0), 0)
+            
+            setPaymentHistory(transactions)
+            
+            // Update job state with payment info
+            setJob(prev => ({
+              ...prev,
+              total_paid_amount: totalPaid,
+              invoice_paid_amount: totalPaid
+            }))
+          }
+        } catch (error) {
+          console.error('Error fetching payment history:', error)
+          setPaymentHistory([])
+        }
+      }
+    }
+    fetchPaymentHistory()
+  }, [job?.id])
+
+  // Handle record payment
+  const handleRecordPayment = async () => {
+    if (!job) return
+    
+    try {
+      setLoading(true)
+      setError('')
+      
+      if (!paymentFormData.amount || parseFloat(paymentFormData.amount) <= 0) {
+        setError('Please enter a valid payment amount')
+        setTimeout(() => setError(''), 3000)
+        return
+      }
+      
+      const paymentData = {
+        jobId: job.id,
+        invoiceId: job.invoice_id || null,
+        customerId: job.customer_id || null,
+        amount: parseFloat(paymentFormData.amount),
+        paymentMethod: paymentFormData.paymentMethod,
+        paymentDate: paymentFormData.paymentDate,
+        notes: paymentFormData.notes || null
+      }
+      
+      console.log('💳 Recording payment:', paymentData)
+      
+      const response = await api.post('/transactions/record-payment', paymentData)
+      
+      console.log('✅ Payment recorded:', response.data)
+      
+      // Reset form
+      setPaymentFormData({
+        amount: '',
+        paymentMethod: 'cash',
+        paymentDate: new Date().toISOString().split('T')[0],
+        notes: ''
+      })
+      
+      // Refresh payment history
+      const historyResponse = await api.get(`/transactions/job/${job.id}`)
+      if (historyResponse.data) {
+        const transactions = historyResponse.data.transactions || []
+        const totalPaid = historyResponse.data.totalPaid || transactions.reduce((sum, tx) => sum + parseFloat(tx.amount || 0), 0)
+        
+        setPaymentHistory(transactions)
+        
+        // Update job state with payment info
+        setJob(prev => ({
+          ...prev,
+          total_paid_amount: totalPaid,
+          invoice_paid_amount: totalPaid
+        }))
+      }
+      
+      // Refresh job data
+      await fetchInvoiceStatus(job.id)
+      
+      setSuccessMessage('Payment recorded successfully!')
+      setTimeout(() => setSuccessMessage(''), 3000)
+      setShowAddPaymentModal(false)
+    } catch (error) {
+      console.error('Error recording payment:', error)
+      setError(error.response?.data?.error || 'Failed to record payment')
+      setTimeout(() => setError(''), 3000)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   // Fetch payment status from transactions table
   const fetchInvoiceStatus = async (jobId) => {
@@ -2025,7 +2130,15 @@ const JobDetails = () => {
                   <span>Charge Customer</span>
                 </button>
                 <button
-                  onClick={() => setShowAddPaymentModal(true)}
+                  onClick={() => {
+                    setPaymentFormData({
+                      amount: calculateTotalPrice().toString(),
+                      paymentMethod: 'cash',
+                      paymentDate: new Date().toISOString().split('T')[0],
+                      notes: ''
+                    })
+                    setShowAddPaymentModal(true)
+                  }}
                   className="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium text-sm"
                 >
                   Record a Payment
@@ -2039,9 +2152,39 @@ const JobDetails = () => {
         {canProcessPayments(user) && (
           <div className="bg-white border-b border-gray-200 px-4 py-4 mt-2">
             <h2 className="text-base font-semibold text-gray-900 mb-3">Payments</h2>
-            {job?.total_paid_amount > 0 ? (
-              <div className="text-sm text-gray-600">
-                <p>Payment history would go here</p>
+            {paymentHistory && paymentHistory.length > 0 ? (
+              <div className="space-y-3">
+                {paymentHistory.map((payment, index) => (
+                  <div key={payment.id || index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-sm font-semibold text-gray-900">
+                          ${parseFloat(payment.amount || 0).toFixed(2)}
+                        </span>
+                        <span className="text-xs text-gray-500 capitalize">
+                          {payment.payment_method || 'cash'}
+                        </span>
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {payment.created_at ? new Date(payment.created_at).toLocaleDateString('en-US', { 
+                          month: 'short', 
+                          day: 'numeric', 
+                          year: 'numeric',
+                          hour: 'numeric',
+                          minute: '2-digit'
+                        }) : 'Date not available'}
+                      </div>
+                      {payment.notes && (
+                        <div className="text-xs text-gray-600 mt-1">
+                          {payment.notes}
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-xs text-green-600 font-semibold">
+                      Completed
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : (
               <div className="text-center py-8">
@@ -2145,7 +2288,7 @@ const JobDetails = () => {
         <div className="bg-white border-b border-gray-200 px-4 py-4 mt-2 mb-20">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-base font-semibold text-gray-900">Team</h2>
-            {canEditJobDetails(user) && (
+            {canEditJobDetails(user) && !isWorker(user) && (
               <button 
                 onClick={() => {
                   setEditJobRequirementsData({
@@ -2202,67 +2345,82 @@ const JobDetails = () => {
                       </div>
                       <p className="text-sm text-gray-900">{getTeamMemberName(assignedMember)}</p>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <button className="text-sm text-blue-600 font-medium">Assign more</button>
-                      <button 
-                        onClick={async () => {
-                          try {
-                            setLoading(true)
-                            await jobsAPI.update(job.id, { assigned_team_member_id: null })
-                            setJob(prev => ({ ...prev, assigned_team_member_id: null }))
-                            setSuccessMessage('Team member unassigned')
-                            setTimeout(() => setSuccessMessage(''), 3000)
-                          } catch (error) {
-                            setError('Failed to unassign team member')
-                          } finally {
-                            setLoading(false)
-                          }
-                        }}
-                        className="p-1 hover:bg-gray-100 rounded"
-                      >
-                        <X className="w-4 h-4 text-gray-600" />
-                      </button>
-                    </div>
+                    {canEditJobDetails(user) && (
+                      <div className="flex items-center space-x-2">
+                        <button 
+                          onClick={() => setShowAssignModal(true)}
+                          className="text-sm text-blue-600 font-medium"
+                        >
+                          Assign more
+                        </button>
+                        <button 
+                          onClick={async () => {
+                            try {
+                              setLoading(true)
+                              await jobsAPI.update(job.id, { assigned_team_member_id: null })
+                              setJob(prev => ({ ...prev, assigned_team_member_id: null }))
+                              setSuccessMessage('Team member unassigned')
+                              setTimeout(() => setSuccessMessage(''), 3000)
+                            } catch (error) {
+                              setError('Failed to unassign team member')
+                            } finally {
+                              setLoading(false)
+                            }
+                          }}
+                          className="p-1 hover:bg-gray-100 rounded"
+                        >
+                          <X className="w-4 h-4 text-gray-600" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ) : (
-                  <button 
-                    onClick={() => setShowMobileSidebar(true)}
-                    className="text-sm text-blue-600 font-medium"
-                  >
-                    Assign team member
-                  </button>
+                  canEditJobDetails(user) && (
+                    <button 
+                      onClick={() => setShowAssignModal(true)}
+                      className="text-sm text-blue-600 font-medium"
+                    >
+                      Assign team member
+                    </button>
+                  )
                 )
               })()}
             </div>
-            <div className="pt-3 border-t border-gray-200">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-900">Offer job to service providers</span>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={job?.offer_to_providers || false}
-                    onChange={async (e) => {
-                      try {
-                        setLoading(true)
-                        await jobsAPI.update(job.id, { offer_to_providers: e.target.checked })
-                        setJob(prev => ({ ...prev, offer_to_providers: e.target.checked }))
-                        setSuccessMessage(`Job ${e.target.checked ? 'offered' : 'removed from'} service providers`)
-                        setTimeout(() => setSuccessMessage(''), 3000)
-                      } catch (error) {
-                        setError('Failed to update job offer status')
-                      } finally {
-                        setLoading(false)
-                      }
-                    }}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                </label>
+            {canEditJobDetails(user) && (
+              <div className="pt-3 border-t border-gray-200">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-900">Offer job to service providers</span>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={job?.offer_to_providers || false}
+                      disabled={loading}
+                      onChange={async (e) => {
+                        try {
+                          setLoading(true)
+                          // Send as offerToProviders (camelCase) to match backend mapping
+                          await jobsAPI.update(job.id, { offerToProviders: e.target.checked })
+                          setJob(prev => ({ ...prev, offer_to_providers: e.target.checked }))
+                          setSuccessMessage(`Job ${e.target.checked ? 'offered' : 'removed from'} service providers`)
+                          setTimeout(() => setSuccessMessage(''), 3000)
+                        } catch (error) {
+                          console.error('Error updating offer status:', error)
+                          setError(error.response?.data?.error || 'Failed to update job offer status')
+                          setTimeout(() => setError(''), 5000)
+                        } finally {
+                          setLoading(false)
+                        }
+                      }}
+                      className="sr-only peer"
+                    />
+                    <div className={`w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}></div>
+                  </label>
+                </div>
+                <p className="text-xs text-gray-600">
+                  Allows qualified, available providers to see and claim this job. <button className="text-blue-600 hover:text-blue-700">Learn more</button>
+                </p>
               </div>
-              <p className="text-xs text-gray-600">
-                Allows qualified, available providers to see and claim this job. <button className="text-blue-600">Learn more</button>
-              </p>
-            </div>
+            )}
           </div>
         </div>
       </div>
@@ -2950,7 +3108,7 @@ const JobDetails = () => {
 
             {/* Team Assignment Modal */}
             {assigning && (
-              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
                 <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[80vh] overflow-y-auto">
                   <div className="p-6">
                     <div className="flex items-center justify-between mb-4">
@@ -3284,6 +3442,41 @@ const JobDetails = () => {
               {canProcessPayments(user) && (
               <div className="mt-8">
                 <h4 className="font-semibold text-gray-900 mb-4">Payments</h4>
+                {paymentHistory && paymentHistory.length > 0 ? (
+                  <div className="space-y-3">
+                    {paymentHistory.map((payment, index) => (
+                      <div key={payment.id || index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-sm font-semibold text-gray-900">
+                              ${parseFloat(payment.amount || 0).toFixed(2)}
+                            </span>
+                            <span className="text-xs text-gray-500 capitalize">
+                              {payment.payment_method || 'cash'}
+                            </span>
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {payment.created_at ? new Date(payment.created_at).toLocaleDateString('en-US', { 
+                              month: 'short', 
+                              day: 'numeric', 
+                              year: 'numeric',
+                              hour: 'numeric',
+                              minute: '2-digit'
+                            }) : 'Date not available'}
+                          </div>
+                          {payment.notes && (
+                            <div className="text-xs text-gray-600 mt-1">
+                              {payment.notes}
+                            </div>
+                          )}
+                        </div>
+                        <div className="text-xs text-green-600 font-semibold">
+                          Completed
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
                   <div className="text-center py-8">
                   <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
                     <CreditCard className="w-6 h-6 text-gray-400" />
@@ -3293,6 +3486,7 @@ const JobDetails = () => {
                       When you process or record a payment for this invoice, it will appear here.
                     </p>
                   </div>
+                )}
                 </div>
               )}
             </div>
@@ -3395,10 +3589,21 @@ const JobDetails = () => {
                 <div className="px-6">
                   <div className="flex justify-between items-center mb-1">
                     <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="font-bold text-gray-700 text-xs">JOB REQUIREMENTS</span>
-                    <button style={{fontFamily: 'Montserrat', fontWeight: 500}} className=" text-blue-700 rounded hover:bg-blue-50 flex items-center space-x-2 text-sm font-medium">
-                   
-                   <span>Edit</span>
-                 </button>
+                    {canEditJobDetails(user) && !isWorker(user) && (
+                      <button 
+                        onClick={() => {
+                          setEditJobRequirementsData({
+                            workers_needed: job?.workers_needed || 1,
+                            required_skills: job?.required_skills || []
+                          })
+                          setShowEditJobRequirementsModal(true)
+                        }}
+                        style={{fontFamily: 'Montserrat', fontWeight: 500}} 
+                        className=" text-blue-700 rounded hover:bg-blue-50 flex items-center space-x-2 text-sm font-medium"
+                      >
+                        <span>Edit</span>
+                      </button>
+                    )}
                   </div>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
@@ -3483,27 +3688,42 @@ const JobDetails = () => {
                 })()}
 
                 {/* Offer job to service providers Section */}
-                <div className="px-6 pt-1 pb-3">
-                  <div className="flex items-center justify-between mb-1">
-                    <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="font-medium text-gray-700 text-sm">Offer job to service providers</span>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        checked={formData.offer_to_providers || false}
-                        onChange={(e) => {
-                          setFormData(prev => ({ ...prev, offer_to_providers: e.target.checked }))
-                          handleSave()
-                        }}
-                        className="sr-only peer" 
-                      />
-                      <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
-                    </label>
+                {canEditJobDetails(user) && (
+                  <div className="px-6 pt-1 pb-3">
+                    <div className="flex items-center justify-between mb-1">
+                      <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="font-medium text-gray-700 text-sm">Offer job to service providers</span>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          checked={job?.offer_to_providers || false}
+                          disabled={loading}
+                          onChange={async (e) => {
+                            try {
+                              setLoading(true)
+                              // Send as offerToProviders (camelCase) to match backend mapping
+                              await jobsAPI.update(job.id, { offerToProviders: e.target.checked })
+                              setJob(prev => ({ ...prev, offer_to_providers: e.target.checked }))
+                              setSuccessMessage(`Job ${e.target.checked ? 'offered' : 'removed from'} service providers`)
+                              setTimeout(() => setSuccessMessage(''), 3000)
+                            } catch (error) {
+                              console.error('Error updating offer status:', error)
+                              setError(error.response?.data?.error || 'Failed to update job offer status')
+                              setTimeout(() => setError(''), 5000)
+                            } finally {
+                              setLoading(false)
+                            }
+                          }}
+                          className="sr-only peer" 
+                        />
+                        <div className={`w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}></div>
+                      </label>
+                    </div>
+                    <p className="text-xs text-gray-600">
+                      Allows qualified, available providers to see and claim this job. 
+                      <button className="text-blue-600 hover:text-blue-700 ml-1">Learn more</button>
+                    </p>
                   </div>
-                  <p className="text-xs text-gray-600">
-                    Allows qualified, available providers to see and claim this job. 
-                    <button className="text-blue-600 hover:text-blue-700 ml-1">Learn more</button>
-                  </p>
-                </div>
+                )}
               </div>
             </div>
 
@@ -3976,11 +4196,14 @@ const JobDetails = () => {
             </>
           )}
         </div>
+        </div>
+      </div>
+    </div>
 
-        {/* Modals */}
-        {/* Reschedule Modal */}
-        {showRescheduleModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    {/* Modals - Rendered outside main container for proper z-index stacking */}
+    {/* Reschedule Modal */}
+      {showRescheduleModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
@@ -4034,7 +4257,7 @@ const JobDetails = () => {
 
         {/* Cancel Modal */}
         {showCancelModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
@@ -4074,7 +4297,7 @@ const JobDetails = () => {
 
         {/* Edit Service Modal */}
         {showEditServiceModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col">
               <div className="p-6 flex-1 overflow-y-auto">
                 <div className="flex items-center justify-between mb-6">
@@ -4257,7 +4480,7 @@ const JobDetails = () => {
 
         {/* Edit Address Modal */}
         {showEditAddressModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
@@ -4432,7 +4655,7 @@ const JobDetails = () => {
 
         {/* Send Invoice Modal */}
         {showSendInvoiceModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-6">
@@ -4631,7 +4854,7 @@ const JobDetails = () => {
 
         {/* Email Required Modal */}
         {showEmailRequiredModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-gray-900">Email Required</h3>
@@ -4704,7 +4927,7 @@ const JobDetails = () => {
 
         {/* Edit Customer Modal - Desktop View */}
         {showEditCustomerModal && (
-          <div className="hidden lg:flex fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-50 p-4">
+          <div className="hidden lg:flex fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-[9999] p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-gray-900">Edit Customer</h3>
@@ -4838,11 +5061,10 @@ const JobDetails = () => {
             </div>
           </div>
         )}
-      </div>
 
         {/* Notification Modal - Desktop View (for sending notifications) */}
         {showNotificationModal && notificationType && (
-          <div className="hidden lg:flex fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-50 p-4">
+          <div className="hidden lg:flex fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-[9999] p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-6">
@@ -5287,7 +5509,7 @@ const JobDetails = () => {
 
         {/* Message Viewer Modal */}
         {showMessageViewer && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
               <div className="flex items-center justify-between p-6 border-b border-gray-200">
                 <h3 className="text-lg font-semibold text-gray-900">
@@ -5402,7 +5624,7 @@ const JobDetails = () => {
 
         {/* Custom Message Modal */}
         {showCustomMessageModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-6">
@@ -5530,7 +5752,7 @@ const JobDetails = () => {
 
         {/* Add Payment Modal */}
         {showAddPaymentModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
@@ -5545,7 +5767,11 @@ const JobDetails = () => {
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Payment Method</label>
-                    <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <select 
+                      value={paymentFormData.paymentMethod}
+                      onChange={(e) => setPaymentFormData(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
                       <option value="cash">Cash</option>
                       <option value="check">Check</option>
                       <option value="credit_card">Credit Card</option>
@@ -5558,7 +5784,8 @@ const JobDetails = () => {
                     <input
                       type="number"
                       step="0.01"
-                      defaultValue={parseFloat(job.total) || parseFloat(job.service_price) || 0}
+                      value={paymentFormData.amount || (job ? (parseFloat(job.total) || parseFloat(job.service_price) || 0) : '')}
+                      onChange={(e) => setPaymentFormData(prev => ({ ...prev, amount: e.target.value }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       placeholder="Enter amount"
                     />
@@ -5567,7 +5794,8 @@ const JobDetails = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-2">Payment Date</label>
                     <input
                       type="date"
-                      defaultValue={new Date().toISOString().split('T')[0]}
+                      value={paymentFormData.paymentDate}
+                      onChange={(e) => setPaymentFormData(prev => ({ ...prev, paymentDate: e.target.value }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
@@ -5575,6 +5803,8 @@ const JobDetails = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-2">Notes</label>
                     <textarea
                       rows={3}
+                      value={paymentFormData.notes}
+                      onChange={(e) => setPaymentFormData(prev => ({ ...prev, notes: e.target.value }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       placeholder="Optional payment notes"
                     />
@@ -5583,20 +5813,25 @@ const JobDetails = () => {
                 
                 <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 mt-6">
                   <button
-                    onClick={() => setShowAddPaymentModal(false)}
+                    onClick={() => {
+                      setShowAddPaymentModal(false)
+                      setPaymentFormData({
+                        amount: '',
+                        paymentMethod: 'cash',
+                        paymentDate: new Date().toISOString().split('T')[0],
+                        notes: ''
+                      })
+                    }}
                     className="px-4 py-2 text-gray-600 hover:text-gray-800 order-2 sm:order-1"
                   >
                     Cancel
                   </button>
                   <button
-                    onClick={() => {
-                      setSuccessMessage('Payment recorded successfully!')
-                      setTimeout(() => setSuccessMessage(""), 3000)
-                      setShowAddPaymentModal(false)
-                    }}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 order-1 sm:order-2"
+                    onClick={handleRecordPayment}
+                    disabled={loading}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 order-1 sm:order-2 disabled:opacity-50"
                   >
-                    Record Payment
+                    {loading ? 'Recording...' : 'Record Payment'}
                   </button>
                 </div>
               </div>
@@ -5606,7 +5841,7 @@ const JobDetails = () => {
 
         {/* Discount Modal */}
         {showDiscountModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
@@ -5668,7 +5903,7 @@ const JobDetails = () => {
 
         {/* Tip Modal */}
         {showTipModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
@@ -5729,8 +5964,8 @@ const JobDetails = () => {
         )}
 
         {/* Team Assignment Modal - Desktop View */}
-        {showAssignModal && (
-          <div className="hidden lg:flex fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-50 p-4">
+        {showAssignModal && canEditJobDetails(user) && (
+          <div className="hidden lg:flex fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-[9999] p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-gray-900">Assign Team Member</h3>
@@ -5799,10 +6034,8 @@ const JobDetails = () => {
             </div>
           </div>
         )}
-        </div>
-        </div>
 
-      {/* Modals - Rendered outside main container for proper z-index stacking */}
+    {/* Modals - Rendered outside main container for proper z-index stacking */}
       {/* Edit Customer Modal - Mobile View */}
       {showEditCustomerModal && (
         <div className="lg:hidden fixed inset-0 bg-white z-[99999] flex flex-col" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}>
@@ -6011,7 +6244,7 @@ const JobDetails = () => {
       )}
 
       {/* Team Assignment Modal - Mobile View */}
-      {showAssignModal && (
+      {showAssignModal && canEditJobDetails(user) && (
         <div className="lg:hidden fixed inset-0 bg-white z-[99999] flex flex-col" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}>
           {/* Mobile Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
@@ -6101,7 +6334,7 @@ const JobDetails = () => {
                           )}
 
       {/* Edit Job Requirements Modal - Mobile View */}
-      {showEditJobRequirementsModal && (
+      {showEditJobRequirementsModal && canEditJobDetails(user) && (
         <div className="lg:hidden fixed inset-0 bg-white z-[99999] flex flex-col" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}>
           {/* Mobile Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
@@ -6244,8 +6477,8 @@ const JobDetails = () => {
         )}
 
       {/* Edit Job Requirements Modal - Desktop View */}
-      {showEditJobRequirementsModal && (
-          <div className="hidden lg:flex fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-50 p-4">
+      {showEditJobRequirementsModal && canEditJobDetails(user) && (
+          <div className="hidden lg:flex fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-[9999] p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
               <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Edit Job Requirements</h3>

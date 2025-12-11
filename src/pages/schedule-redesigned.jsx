@@ -3,8 +3,8 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
 import Sidebar from "../components/sidebar-collapsible"
-import { teamAPI, territoriesAPI, availabilityAPI } from "../services/api"
-import api from "../services/api"
+import { teamAPI, territoriesAPI, availabilityAPI, invoicesAPI } from "../services/api"
+import api, { stripeAPI } from "../services/api"
 import { 
   Plus, 
   Calendar, 
@@ -37,6 +37,10 @@ import {
   Megaphone,
   Bell,
   Menu,
+  MoreVertical,
+  Eye,
+  Printer,
+  Edit,
 } from "lucide-react"
 import { useAuth } from "../context/AuthContext"
 import { jobsAPI } from "../services/api"
@@ -58,6 +62,7 @@ import {
   canSeeOtherProviders,
   canResetJobStatuses 
 } from "../utils/permissionUtils"
+import { formatPhoneNumber } from "../utils/phoneFormatter"
 
 const ServiceFlowSchedule = () => {
   const { user } = useAuth()
@@ -120,6 +125,29 @@ const ServiceFlowSchedule = () => {
   const [uploadingFiles, setUploadingFiles] = useState(false)
   const [showTerritoryDropdown, setShowTerritoryDropdown] = useState(false)
   const territoryDropdownRef = useRef(null)
+  const [showTerritoryModal, setShowTerritoryModal] = useState(false)
+  const [selectedNewTerritory, setSelectedNewTerritory] = useState(null)
+  const [openNotificationMenu, setOpenNotificationMenu] = useState(null) // 'confirmation' or 'reminder'
+  const [showMessageViewer, setShowMessageViewer] = useState(false)
+  const [viewingMessageType, setViewingMessageType] = useState(null) // 'confirmation' or 'reminder'
+  const confirmationMenuRef = useRef(null)
+  const reminderMenuRef = useRef(null)
+  const [emailNotifications, setEmailNotifications] = useState(true)
+  const [smsNotifications, setSmsNotifications] = useState(false)
+  const [invoiceExpanded, setInvoiceExpanded] = useState(false)
+  const [showAddPaymentModal, setShowAddPaymentModal] = useState(false)
+  const [showSendInvoiceModal, setShowSendInvoiceModal] = useState(false)
+  const [showEditServiceModal, setShowEditServiceModal] = useState(false)
+  const [includePaymentLink, setIncludePaymentLink] = useState(true)
+  const [stripeConnected, setStripeConnected] = useState(false)
+  const [manualEmail, setManualEmail] = useState('')
+  const [paymentHistory, setPaymentHistory] = useState([])
+  const [paymentFormData, setPaymentFormData] = useState({
+    amount: '',
+    paymentMethod: 'cash',
+    paymentDate: new Date().toISOString().split('T')[0],
+    notes: ''
+  })
   
   // Form data for editing
   const [editFormData, setEditFormData] = useState({
@@ -136,22 +164,166 @@ const ServiceFlowSchedule = () => {
 
   // No click-outside handler - using backdrop overlay approach instead
 
-  // Click outside to close territory dropdown
+  // Click outside to close territory dropdown and notification menus
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (territoryDropdownRef.current && !territoryDropdownRef.current.contains(event.target)) {
         setShowTerritoryDropdown(false)
       }
+      if (confirmationMenuRef.current && !confirmationMenuRef.current.contains(event.target)) {
+        setOpenNotificationMenu(null)
+      }
+      if (reminderMenuRef.current && !reminderMenuRef.current.contains(event.target)) {
+        setOpenNotificationMenu(null)
+      }
     }
 
-    if (showTerritoryDropdown) {
+    if (showTerritoryDropdown || openNotificationMenu) {
       document.addEventListener('mousedown', handleClickOutside)
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [showTerritoryDropdown])
+  }, [showTerritoryDropdown, openNotificationMenu])
+
+  // Check Stripe connection when send invoice modal opens
+  useEffect(() => {
+    if (showSendInvoiceModal) {
+      const checkStripeConnection = async () => {
+        try {
+          const response = await stripeAPI.testConnection()
+          setStripeConnected(response.connected)
+        } catch (error) {
+          console.error('Error checking Stripe connection:', error)
+          setStripeConnected(false)
+        }
+      }
+      checkStripeConnection()
+    }
+  }, [showSendInvoiceModal])
+
+  // Fetch payment history when job is selected and invoice is expanded
+  useEffect(() => {
+    const fetchPaymentHistory = async () => {
+      if (selectedJobDetails?.id && invoiceExpanded) {
+        try {
+          const response = await api.get(`/transactions/job/${selectedJobDetails.id}`)
+          if (response.data) {
+            const transactions = response.data.transactions || []
+            const totalPaid = response.data.totalPaid || transactions.reduce((sum, tx) => sum + parseFloat(tx.amount || 0), 0)
+            
+            setPaymentHistory(transactions)
+            // Update selectedJobDetails with payment info
+            setSelectedJobDetails(prev => ({
+              ...prev,
+              total_paid_amount: totalPaid,
+              invoice_paid_amount: totalPaid
+            }))
+          }
+        } catch (error) {
+          console.error('Error fetching payment history:', error)
+          setPaymentHistory([])
+        }
+      }
+    }
+    fetchPaymentHistory()
+  }, [selectedJobDetails?.id, invoiceExpanded])
+
+  // Handle record payment
+  const handleRecordPayment = async () => {
+    if (!selectedJobDetails) return
+    
+    try {
+      setIsUpdatingJob(true)
+      setErrorMessage('')
+      
+      if (!paymentFormData.amount || parseFloat(paymentFormData.amount) <= 0) {
+        setErrorMessage('Please enter a valid payment amount')
+        setTimeout(() => setErrorMessage(''), 3000)
+        return
+      }
+      
+      const paymentData = {
+        jobId: selectedJobDetails.id,
+        invoiceId: selectedJobDetails.invoice_id || null,
+        customerId: selectedJobDetails.customer_id || null,
+        amount: parseFloat(paymentFormData.amount),
+        paymentMethod: paymentFormData.paymentMethod,
+        paymentDate: paymentFormData.paymentDate,
+        notes: paymentFormData.notes || null
+      }
+      
+      console.log('💳 Recording payment:', paymentData)
+      
+      const response = await api.post('/transactions/record-payment', paymentData)
+      
+      console.log('✅ Payment recorded:', response.data)
+      
+      // Reset form
+      setPaymentFormData({
+        amount: '',
+        paymentMethod: 'cash',
+        paymentDate: new Date().toISOString().split('T')[0],
+        notes: ''
+      })
+      
+      // Refresh payment history
+      const historyResponse = await api.get(`/transactions/job/${selectedJobDetails.id}`)
+      if (historyResponse.data) {
+        const transactions = historyResponse.data.transactions || []
+        const totalPaid = historyResponse.data.totalPaid || transactions.reduce((sum, tx) => sum + parseFloat(tx.amount || 0), 0)
+        
+        setPaymentHistory(transactions)
+        
+        // Update selectedJobDetails with payment info
+        setSelectedJobDetails(prev => ({
+          ...prev,
+          total_paid_amount: totalPaid,
+          invoice_paid_amount: totalPaid
+        }))
+      }
+      
+      // Refresh job data
+      const jobData = await jobsAPI.getById(selectedJobDetails.id)
+      const mappedJobData = normalizeCustomerData(jobData)
+      setSelectedJobDetails(prev => ({
+        ...mappedJobData,
+        total_paid_amount: prev.total_paid_amount || mappedJobData.total_paid_amount || 0,
+        invoice_paid_amount: prev.invoice_paid_amount || mappedJobData.invoice_paid_amount || 0
+      }))
+      
+      setSuccessMessage('Payment recorded successfully!')
+      setTimeout(() => setSuccessMessage(''), 3000)
+      setShowAddPaymentModal(false)
+    } catch (error) {
+      console.error('Error recording payment:', error)
+      setErrorMessage(error.response?.data?.error || 'Failed to record payment')
+      setTimeout(() => setErrorMessage(''), 3000)
+    } finally {
+      setIsUpdatingJob(false)
+    }
+  }
+  
+  // Helper function to get time ago
+  const getTimeAgo = (dateString) => {
+    if (!dateString) return ''
+    const date = new Date(dateString)
+    const now = new Date()
+    const diffInSeconds = Math.floor((now - date) / 1000)
+    
+    if (diffInSeconds < 60) return 'Just now'
+    if (diffInSeconds < 3600) {
+      const minutes = Math.floor(diffInSeconds / 60)
+      return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'} ago`
+    }
+    if (diffInSeconds < 86400) {
+      const hours = Math.floor(diffInSeconds / 3600)
+      return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`
+    }
+    const days = Math.floor(diffInSeconds / 86400)
+    return `${days} ${days === 1 ? 'day' : 'days'} ago`
+  }
 
   const fetchJobs = useCallback(async () => {
     try {
@@ -1009,6 +1181,443 @@ const ServiceFlowSchedule = () => {
     }
   }
 
+  // Calculate total price for invoice
+  const calculateTotalPrice = () => {
+    if (!selectedJobDetails) return 0
+    try {
+      const baseTotal = parseFloat(selectedJobDetails.total || selectedJobDetails.service_price || selectedJobDetails.price || 0)
+      return baseTotal
+    } catch (error) {
+      console.error('Error calculating total price:', error)
+      return 0
+    }
+  }
+
+  // Handle print invoice
+  const handlePrintInvoice = () => {
+    if (!selectedJobDetails) return
+
+    const invoiceNumber = selectedJobDetails.invoice_id ? `INV-${selectedJobDetails.invoice_id}` : `JOB-${selectedJobDetails.id}`
+    const customerName = getCustomerName(selectedJobDetails)
+    const serviceName = selectedJobDetails.service_name || selectedJobDetails.service_type || 'Service'
+    const serviceDate = selectedJobDetails.scheduled_date 
+      ? new Date(selectedJobDetails.scheduled_date).toLocaleDateString('en-US', { 
+          weekday: 'long', 
+          month: 'long', 
+          day: 'numeric', 
+          year: 'numeric' 
+        })
+      : 'Not scheduled'
+    const dueDate = selectedJobDetails.invoice_due_date
+      ? new Date(selectedJobDetails.invoice_due_date).toLocaleDateString('en-US', { 
+          month: 'long', 
+          day: 'numeric', 
+          year: 'numeric' 
+        })
+      : new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { 
+          month: 'long', 
+          day: 'numeric', 
+          year: 'numeric' 
+        })
+    const serviceAddress = selectedJobDetails.customer_address || selectedJobDetails.address || 'Address not provided'
+    const subtotal = calculateTotalPrice()
+    const totalPaid = selectedJobDetails.invoice_paid_amount || selectedJobDetails.amount_paid || 0
+    const totalDue = subtotal - totalPaid
+    const status = selectedJobDetails.invoice_status === 'paid' ? 'Paid' : 
+                   selectedJobDetails.invoice_status === 'sent' ? 'Sent' : 
+                   selectedJobDetails.invoice_status === 'draft' ? 'Draft' : 
+                   'Draft'
+
+    const printWindow = window.open('', '_blank', 'width=800,height=600')
+    
+    const invoiceHTML = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Invoice ${invoiceNumber}</title>
+        <style>
+          @media print {
+            body { margin: 0; padding: 20px; }
+            .no-print { display: none; }
+            @page { margin: 1cm; }
+          }
+          * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+          }
+          body {
+            font-family: 'Montserrat', Arial, sans-serif;
+            color: #333;
+            line-height: 1.6;
+            padding: 40px;
+            background: white;
+          }
+          .invoice-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+          }
+          .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e5e7eb;
+          }
+          .company-info h1 {
+            font-size: 28px;
+            font-weight: 700;
+            color: #111827;
+            margin-bottom: 5px;
+          }
+          .company-info p {
+            font-size: 14px;
+            color: #6b7280;
+          }
+          .invoice-info {
+            text-align: right;
+          }
+          .invoice-info h2 {
+            font-size: 24px;
+            font-weight: 700;
+            color: #111827;
+            margin-bottom: 5px;
+          }
+          .invoice-info .invoice-number {
+            font-size: 18px;
+            font-weight: 600;
+            color: #4b5563;
+          }
+          .invoice-info .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-top: 8px;
+            background: #f3f4f6;
+            color: #374151;
+          }
+          .details-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            margin-bottom: 40px;
+          }
+          .section {
+            margin-bottom: 30px;
+          }
+          .section h3 {
+            font-size: 14px;
+            font-weight: 700;
+            color: #111827;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+          }
+          .section p {
+            font-size: 14px;
+            color: #4b5563;
+            margin-bottom: 8px;
+          }
+          .section .label {
+            font-size: 12px;
+            color: #6b7280;
+            font-weight: 500;
+          }
+          .section .value {
+            font-size: 14px;
+            color: #111827;
+            font-weight: 600;
+            margin-top: 4px;
+          }
+          .service-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+          }
+          .service-table thead {
+            background: #f9fafb;
+            border-bottom: 2px solid #e5e7eb;
+          }
+          .service-table th {
+            padding: 12px;
+            text-align: left;
+            font-size: 12px;
+            font-weight: 700;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+          .service-table td {
+            padding: 16px 12px;
+            border-bottom: 1px solid #e5e7eb;
+            font-size: 14px;
+            color: #111827;
+          }
+          .service-table tbody tr:last-child td {
+            border-bottom: none;
+          }
+          .service-name {
+            font-weight: 600;
+          }
+          .service-price {
+            text-align: right;
+            font-weight: 600;
+          }
+          .totals {
+            margin-top: 30px;
+            margin-left: auto;
+            width: 300px;
+          }
+          .totals-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            font-size: 14px;
+          }
+          .totals-row.label {
+            color: #6b7280;
+          }
+          .totals-row.value {
+            color: #111827;
+            font-weight: 600;
+          }
+          .totals-row.total {
+            border-top: 2px solid #e5e7eb;
+            padding-top: 12px;
+            margin-top: 8px;
+            font-size: 16px;
+            font-weight: 700;
+          }
+          .footer {
+            margin-top: 60px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+            text-align: center;
+            color: #6b7280;
+            font-size: 14px;
+          }
+          .print-button {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            z-index: 1000;
+          }
+          .print-button:hover {
+            background: #1d4ed8;
+          }
+        </style>
+      </head>
+      <body>
+        <button class="print-button no-print" onclick="window.print()">Print Invoice</button>
+        <div class="invoice-container">
+          <div class="header">
+            <div class="company-info">
+              <h1>${user?.business_name || user?.businessName || user?.email || 'Your Business'}</h1>
+              <p>Professional Services</p>
+            </div>
+            <div class="invoice-info">
+              <h2>Invoice</h2>
+              <div class="invoice-number">${invoiceNumber}</div>
+              <div class="status">${status}</div>
+            </div>
+          </div>
+
+          <div class="details-section">
+            <div>
+              <div class="section">
+                <h3>Bill To</h3>
+                <p class="value">${customerName}</p>
+                ${selectedJobDetails.customer_email ? `<p style="font-size: 12px; color: #6b7280; margin-top: 4px;">${selectedJobDetails.customer_email}</p>` : ''}
+                ${selectedJobDetails.customer_phone ? `<p style="font-size: 12px; color: #6b7280; margin-top: 4px;">${formatPhoneNumber(selectedJobDetails.customer_phone)}</p>` : ''}
+              </div>
+              <div class="section">
+                <h3>Service Address</h3>
+                <p class="value">${serviceAddress}</p>
+              </div>
+            </div>
+            <div>
+              <div class="section">
+                <h3>Invoice Details</h3>
+                <p><span class="label">Due Date:</span></p>
+                <p class="value">${dueDate}</p>
+                <p style="margin-top: 12px;"><span class="label">Service Date:</span></p>
+                <p class="value">${serviceDate}</p>
+                ${selectedJobDetails.id ? `<p style="margin-top: 12px;"><span class="label">Job Number:</span></p><p class="value">#${selectedJobDetails.id}</p>` : ''}
+              </div>
+            </div>
+          </div>
+
+          <table class="service-table">
+            <thead>
+              <tr>
+                <th>Service</th>
+                <th style="text-align: right;">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="service-name">${serviceName}</td>
+                <td class="service-price">$${subtotal.toFixed(2)}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="totals">
+            <div class="totals-row">
+              <span class="label">Subtotal</span>
+              <span class="value">$${subtotal.toFixed(2)}</span>
+            </div>
+            <div class="totals-row">
+              <span class="label">Total</span>
+              <span class="value">$${subtotal.toFixed(2)}</span>
+            </div>
+            <div class="totals-row">
+              <span class="label">Amount Paid</span>
+              <span class="value">$${totalPaid.toFixed(2)}</span>
+            </div>
+            <div class="totals-row total">
+              <span>Total Due</span>
+              <span>$${totalDue.toFixed(2)}</span>
+            </div>
+          </div>
+
+          <div class="footer">
+            <p>We appreciate your business.</p>
+            <p style="margin-top: 8px;">Thank you for choosing our services!</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `
+
+    printWindow.document.write(invoiceHTML)
+    printWindow.document.close()
+    
+    // Wait for content to load, then trigger print
+    setTimeout(() => {
+      printWindow.print()
+    }, 250)
+  }
+
+  // Handle test email
+  const handleTestEmail = async () => {
+    if (!selectedJobDetails) return
+    try {
+      setIsUpdatingJob(true)
+      
+      const emailToUse = manualEmail || selectedJobDetails.customer_email
+      
+      if (!emailToUse) {
+        setErrorMessage('Please enter a customer email address')
+        setTimeout(() => setErrorMessage(''), 3000)
+        return
+      }
+      
+      const response = await api.post('/test-sendgrid', {
+        testEmail: emailToUse
+      })
+      
+      console.log('Test email result:', response.data)
+      setSuccessMessage('Test email sent successfully!')
+      setTimeout(() => setSuccessMessage(''), 3000)
+    } catch (error) {
+      console.error('Error sending test email:', error)
+      setErrorMessage('Failed to send test email: ' + (error.response?.data?.error || error.message))
+      setTimeout(() => setErrorMessage(''), 3000)
+    } finally {
+      setIsUpdatingJob(false)
+    }
+  }
+
+  // Handle send invoice
+  const handleSendInvoice = async () => {
+    if (!selectedJobDetails) return
+    try {
+      setIsUpdatingJob(true)
+      setErrorMessage('')
+      
+      const calculatedAmount = calculateTotalPrice()
+      console.log('💰 Creating invoice with amount:', calculatedAmount)
+      
+      if (calculatedAmount <= 0) {
+        setErrorMessage('Invoice amount must be greater than $0. Please check the job pricing.')
+        setTimeout(() => setErrorMessage(''), 3000)
+        return
+      }
+      
+      const createInvoiceData = {
+        jobId: selectedJobDetails.id,
+        customerId: selectedJobDetails.customer_id,
+        amount: calculatedAmount,
+        taxAmount: 0,
+        totalAmount: calculatedAmount,
+        dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      }
+      
+      console.log('💰 Sending invoice data to server:', createInvoiceData)
+      
+      const invoiceResponse = await api.post('/create-invoice', createInvoiceData)
+      const invoice = invoiceResponse.data
+      console.log('📄 Invoice created:', invoice)
+      
+      const emailToUse = manualEmail || selectedJobDetails.customer_email
+      
+      if (!emailToUse) {
+        setErrorMessage('Please enter a customer email address')
+        setTimeout(() => setErrorMessage(''), 3000)
+        return
+      }
+      
+      const invoiceData = {
+        invoiceId: invoice.id,
+        jobId: selectedJobDetails.id,
+        customerEmail: emailToUse,
+        customerName: getCustomerName(selectedJobDetails),
+        amount: calculateTotalPrice(),
+        serviceName: selectedJobDetails.service_name || selectedJobDetails.service_type || 'Service',
+        serviceDate: selectedJobDetails.scheduled_date,
+        address: selectedJobDetails.customer_address || selectedJobDetails.address || 'Address not provided',
+        includePaymentLink: includePaymentLink
+      }
+      
+      console.log('📧 Sending invoice email with data:', invoiceData)
+      
+      const emailResponse = await api.post('/send-invoice-email', invoiceData)
+      console.log('Invoice email sent:', emailResponse.data)
+      
+      await api.put(`/invoices/${invoice.id}`, {
+        status: 'sent'
+      })
+      
+      await jobsAPI.update(selectedJobDetails.id, {
+        invoiceStatus: 'invoiced'
+      })
+      
+      setSelectedJobDetails(prev => ({ ...prev, invoice_status: 'invoiced' }))
+      setSuccessMessage('Invoice sent successfully!')
+      setTimeout(() => setSuccessMessage(''), 3000)
+      setShowSendInvoiceModal(false)
+      setManualEmail('')
+    } catch (error) {
+      console.error('Error sending invoice:', error)
+      setErrorMessage('Failed to send invoice')
+      setTimeout(() => setErrorMessage(''), 3000)
+    } finally {
+      setIsUpdatingJob(false)
+    }
+  }
 
   const handleEditCustomer = () => {
     if (!selectedJobDetails) return
@@ -1338,6 +1947,57 @@ const ServiceFlowSchedule = () => {
       ))
       
       setShowTerritoryDropdown(false)
+      setSuccessMessage('Territory updated successfully!')
+      setTimeout(() => setSuccessMessage(''), 3000)
+      
+    } catch (error) {
+      console.error('Error updating territory:', error)
+      setErrorMessage('Failed to update territory')
+      setTimeout(() => setErrorMessage(''), 3000)
+    } finally {
+      setIsUpdatingJob(false)
+    }
+  }
+
+  const handleSaveTerritoryChange = async () => {
+    if (!selectedJobDetails) return
+    
+    const territoryId = selectedNewTerritory?.id || null
+    
+    try {
+      setIsUpdatingJob(true)
+      setErrorMessage('')
+      
+      const updateData = {
+        territoryId: territoryId
+      }
+      
+      await jobsAPI.update(selectedJobDetails.id, updateData)
+      
+      // Update local state
+      setSelectedJobDetails(prev => ({
+        ...prev,
+        territory_id: territoryId
+      }))
+      
+      // Update the job in the main jobs list
+      setJobs(prevJobs => prevJobs.map(job => 
+        job.id === selectedJobDetails.id ? { 
+          ...job, 
+          territory_id: territoryId
+        } : job
+      ))
+      
+      // Update filtered jobs as well
+      setFilteredJobs(prevFilteredJobs => prevFilteredJobs.map(job => 
+        job.id === selectedJobDetails.id ? { 
+          ...job, 
+          territory_id: territoryId
+        } : job
+      ))
+      
+      setShowTerritoryModal(false)
+      setSelectedNewTerritory(null)
       setSuccessMessage('Territory updated successfully!')
       setTimeout(() => setSuccessMessage(''), 3000)
       
@@ -3236,7 +3896,7 @@ const ServiceFlowSchedule = () => {
      
       {showJobDetailsOverlay && selectedJobDetails && (
         <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-end"
+          className="fixed inset-0 bg-black bg-opacity-50 z-[9999] flex justify-end"
           onClick={closeJobDetailsOverlay}
         >
           <div 
@@ -3617,7 +4277,7 @@ const ServiceFlowSchedule = () => {
               </div>
 
               {/* Job Details */}
-              <div className="bg-white border-b border-gray-200">
+              <div className="bg-white ">
                 <div className="px-6 py-4">
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-xs font-bold text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Job Details</span>
@@ -3688,27 +4348,87 @@ const ServiceFlowSchedule = () => {
 
               {/* Invoice - only show if user has permission to view/edit job price */}
               {canViewEditJobPrice(user) && (
-                <div className="bg-white border-b border-gray-200">
-                  <div className="px-6 py-5">
-                    <div className="flex items-center gap-2 mb-2">
+                <div className="bg-white border rounded-lg border-gray-200">
+                  {/* Invoice Header */}
+                  <div className="px-6 py-5 border-b border-gray-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
                       <span className="text-xl font-bold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Invoice</span>
-                      <span className="px-2.5 py-0.5 text-xs font-semibold rounded-md bg-gray-100 text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                        <div className="relative">
+                          <span className="px-2.5 py-0.5 text-xs font-semibold rounded-md bg-gray-100 text-gray-700 flex items-center gap-1" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                         {selectedJobDetails.invoice_status === 'paid' ? 'Paid' : 
                          selectedJobDetails.invoice_status === 'sent' ? 'Sent' : 
                          selectedJobDetails.invoice_status === 'draft' ? 'Draft' : 
                          'Draft'}
+                            <ChevronDown className="w-3 h-3" />
                       </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {invoiceExpanded && canProcessPayments(user) && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
-                          if (selectedJobDetails.invoice_id) {
-                            navigate(`/invoices/${selectedJobDetails.invoice_id}`)
-                          }
+                              setPaymentFormData({
+                                amount: calculateTotalPrice().toString(),
+                                paymentMethod: 'cash',
+                                paymentDate: new Date().toISOString().split('T')[0],
+                                notes: ''
+                              })
+                              setShowAddPaymentModal(true)
+                            }}
+                            className="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md flex items-center gap-1 transition-colors"
+                            style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
+                          >
+                            Add Payment
+                            <ChevronDown className="w-4 h-4" />
+                          </button>
+                        )}
+                        {invoiceExpanded && (
+                          <>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setShowSendInvoiceModal(true)
+                              }}
+                              className="p-1.5 hover:bg-gray-100 rounded-full transition-colors"
+                            >
+                              <Mail className="w-4 h-4 text-gray-600" />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handlePrintInvoice()
+                              }}
+                              className="p-1.5 hover:bg-gray-100 rounded-full transition-colors"
+                            >
+                              <Printer className="w-4 h-4 text-gray-600" />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                // TODO: Add menu functionality
+                              }}
+                              className="p-1.5 hover:bg-gray-100 rounded-full transition-colors"
+                            >
+                              <MoreVertical className="w-4 h-4 text-gray-600" />
+                            </button>
+                          </>
+                        )}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setInvoiceExpanded(!invoiceExpanded)
                         }}
                         className="text-gray-500 hover:text-gray-700 transition-colors"
                       >
+                          {invoiceExpanded ? (
+                            <ChevronDown className="w-4 h-4" />
+                          ) : (
                         <ChevronRight className="w-4 h-4" />
+                          )}
                       </button>
+                      </div>
                     </div>
                     <p className="text-sm text-gray-500 mb-4" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                       Due {selectedJobDetails.invoice_due_date 
@@ -3731,41 +4451,158 @@ const ServiceFlowSchedule = () => {
                       </div>
                     </div>
                   </div>
+
+                  {/* Expanded Invoice Details */}
+                  {invoiceExpanded && (
+                    <div className="px-6 py-5 space-y-6">
+                      {/* Service Details */}
+                      <div>
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex-1">
+                            <p className="text-sm font-bold text-gray-900 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
+                              {selectedJobDetails.service_name || selectedJobDetails.service_type || 'Service'}
+                            </p>
+                            <p className="text-xs text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                              Base Price (${(selectedJobDetails.service_price || selectedJobDetails.price || selectedJobDetails.total || 0).toFixed(2)})
+                            </p>
+                </div>
+                          <span className="text-sm font-bold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
+                            ${(selectedJobDetails.service_price || selectedJobDetails.price || selectedJobDetails.total || 0).toFixed(2)}
+                          </span>
+                        </div>
+                        {canEditJobDetails(user) && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setShowEditServiceModal(true)
+                            }}
+                            className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1 mt-2"
+                            style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
+                          >
+                            <Edit className="w-3 h-3" />
+                            <span>Edit Service & Pricing</span>
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Financial Breakdown */}
+                      <div className="space-y-2 pt-4 border-t border-gray-200">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Subtotal</span>
+                          <span className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                            ${(selectedJobDetails.service_price || selectedJobDetails.price || selectedJobDetails.total || 0).toFixed(2)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center pt-2 border-t border-gray-200">
+                          <span className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>Total</span>
+                          <span className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                            ${(selectedJobDetails.service_price || selectedJobDetails.price || selectedJobDetails.total || 0).toFixed(2)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center pt-2">
+                          <span className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Amount paid</span>
+                          <span className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                            ${(selectedJobDetails.invoice_paid_amount || selectedJobDetails.amount_paid || 0).toFixed(2)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center pt-2 border-t border-gray-200">
+                          <span className="text-sm font-bold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Total due</span>
+                          <span className="text-sm font-bold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
+                            ${((selectedJobDetails.total || selectedJobDetails.price || selectedJobDetails.service_price || 0) - (selectedJobDetails.invoice_paid_amount || selectedJobDetails.amount_paid || 0)).toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Payments Section */}
+                      {canProcessPayments(user) && (
+                        <div className="pt-4 border-t border-gray-200">
+                          <h3 className="text-sm font-semibold text-gray-900 mb-4" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Payments</h3>
+                          {paymentHistory && paymentHistory.length > 0 ? (
+                            <div className="space-y-3">
+                              {paymentHistory.map((payment, index) => (
+                                <div key={payment.id || index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <span className="text-sm font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                                        ${parseFloat(payment.amount || 0).toFixed(2)}
+                                      </span>
+                                      <span className="text-xs text-gray-500 capitalize" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                                        {payment.payment_method || 'cash'}
+                                      </span>
+                                    </div>
+                                    <div className="text-xs text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                                      {payment.created_at ? new Date(payment.created_at).toLocaleDateString('en-US', { 
+                                        month: 'short', 
+                                        day: 'numeric', 
+                                        year: 'numeric',
+                                        hour: 'numeric',
+                                        minute: '2-digit'
+                                      }) : 'Date not available'}
+                                    </div>
+                                    {payment.notes && (
+                                      <div className="text-xs text-gray-600 mt-1" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                                        {payment.notes}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="text-xs text-green-600 font-semibold" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                                    Completed
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-center py-8">
+                              <div className="w-12 h-12 rounded-full border-2 border-gray-300 flex items-center justify-center mx-auto mb-3">
+                                <CreditCard className="w-6 h-6 text-gray-400" />
+                              </div>
+                              <p className="text-sm font-bold text-gray-900 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>No payments</p>
+                              <p className="text-xs text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                                When you process or record a payment for this invoice, it will appear here.
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
               {/* Customer */}
-              <div className="bg-white border-b border-gray-200">
-                <div className="px-6 py-5">
+              <div className="bg-white rounded-lg border border-gray-200">
+                <div className="px-6 py-5 border-b border-gray-200">
                   <div className="flex items-center justify-between mb-4">
                     <span className="text-sm font-bold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Customer</span>
                     {/* Edit customer button - only show if user has permission */}
                     {canEditJobDetails(user) && (
                       <button 
                         onClick={handleEditCustomer}
-                        className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                        className="text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors"
                         style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                       >
                         Edit
                       </button>
                     )}
                   </div>
-                  <div className="flex items-start gap-3">
+                  <div className="flex flex-col items-start gap-4">
+                    <div className="flex items-center gap-4">
                     <div 
-                      className="w-12 h-12 rounded-full flex items-center justify-center text-white text-base font-semibold flex-shrink-0"
+                      className="w-12 h-12 rounded-full flex items-center justify-center text-white text-sm font-semibold flex-shrink-0 shadow-sm"
                       style={{ 
-                        backgroundColor: '#10B981' // Green color as shown in screenshot
+                        backgroundColor: '#84CC16' // Lime green color as shown in screenshot
                       }}
                     >
                       {(() => {
                         const firstName = selectedJobDetails.customer_first_name || selectedJobDetails.customers?.first_name || ''
                         const lastName = selectedJobDetails.customer_last_name || selectedJobDetails.customers?.last_name || ''
-                        return `${firstName[0] || 'A'}${lastName[0] || 'A'}`
+                        const initials = `${firstName[0] || 'A'}${lastName[0] || 'A'}`.toUpperCase()
+                        return initials
                       })()}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p 
-                        className="font-bold text-gray-900 text-lg mb-3 cursor-pointer hover:text-blue-600 transition-colors" 
+                        className="font-bold text-gray-900 text-base cursor-pointer hover:text-blue-600 transition-colors" 
                         style={{ fontFamily: 'Montserrat', fontWeight: 700 }}
                         onClick={(e) => {
                           e.stopPropagation()
@@ -3777,14 +4614,16 @@ const ServiceFlowSchedule = () => {
                       >
                         {getCustomerName(selectedJobDetails) || 'Customer'}
                       </p>
+                      </div>
+                    </div>
                       {/* Customer contact info - only show if user has permission */}
                       {canViewCustomerContact(user) && (
-                        <>
+                        <div className="space-y-2">
                           {(selectedJobDetails.customer_phone || selectedJobDetails.customers?.phone) && (
-                            <div className="flex items-center gap-2 text-sm text-gray-700 mb-2">
+                            <div className="flex items-center gap-2 text-sm text-gray-700">
                               <Phone className="w-4 h-4 text-gray-500 flex-shrink-0" />
                               <span style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
-                                {selectedJobDetails.customer_phone || selectedJobDetails.customers?.phone}
+                                {formatPhoneNumber(selectedJobDetails.customer_phone || selectedJobDetails.customers?.phone || '')}
                               </span>
                             </div>
                           )}
@@ -3796,50 +4635,62 @@ const ServiceFlowSchedule = () => {
                               </span>
                             </div>
                           )}
-                        </>
+                        </div>
                       )}
                       {!canViewCustomerContact(user) && (
-                        <p className="text-xs text-gray-500 italic" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                        <p className="text-xs text-gray-500 italic mt-2" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                           Contact information not available
                         </p>
                       )}
                     </div>
                   </div>
-                </div>
-              </div>
-
               {/* Billing Address */}
               <div className="bg-white border-b border-gray-200">
                 <div className="px-6 py-5">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-bold text-gray-900 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>BILLING ADDRESS</span>
-                    <button className="text-sm text-blue-600 hover:text-blue-700 font-medium" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>Edit</button>
+                    {canEditJobDetails(user) && (
+                      <button 
+                        className="text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors" 
+                        style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
+                      >
+                        Edit
+                      </button>
+                    )}
                   </div>
                   <p className="text-sm text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Same as service address</p>
                 </div>
               </div>
 
               {/* Expected Payment Method */}
-              <div className="bg-white border-b border-gray-200">
+              <div className=" ">
                 <div className="px-6 py-5">
                   <span className="text-xs font-bold text-gray-900 uppercase tracking-wider block mb-3" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>EXPECTED PAYMENT METHOD</span>
                   <div className="flex items-center gap-2 mb-3">
-                    <CreditCard className="w-5 h-5 text-gray-400" strokeWidth={1.5} />
+                    <CreditCard className="w-5 h-5 text-gray-400 flex-shrink-0" strokeWidth={1.5} />
                     <p className="text-sm text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>No payment method on file</p>
                   </div>
-                  <button className="text-sm text-blue-600 hover:text-blue-700 font-medium" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>Add a card to charge later</button>
+                  {canEditJobDetails(user) && (
+                    <button 
+                      className="text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors" 
+                      style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
+                    >
+                      Add a card to charge later
+                    </button>
+                  )}
+                </div>
                 </div>
               </div>
 
+           
+
               {/* Team */}
-              <div className="bg-white border-b border-gray-200">
-                <div className="px-6 py-5">
+              <div className="bg-white border border-gray-200 rounded-lg">
+                <div className="">
+                  <div className="border-b border-gray-200 p-4">
                   {/* Territory */}
-                  <div className="mb-5 pb-5 border-b border-gray-200">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-bold text-gray-900 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Territory</span>
-                    </div>
-                    <div className="relative" ref={territoryDropdownRef}>
+                  <div className=" flex items-center justify-between mb-3 ">
+                    <p className="text-xs font-bold text-gray-900 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Team</p>
                       {(() => {
                         // Try to find territory by territory_id first
                         let currentTerritory = selectedJobDetails.territory_id 
@@ -3862,63 +4713,28 @@ const ServiceFlowSchedule = () => {
                         const territoryId = currentTerritory ? currentTerritory.id : null
                         
                         return (
-                          <>
                             <button
                               type="button"
-                              onClick={() => setShowTerritoryDropdown(!showTerritoryDropdown)}
-                              className="w-full flex items-center justify-between px-3 py-2.5 border border-gray-300 rounded-lg text-sm hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white transition-colors"
-                              style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
-                            >
-                              <div className="flex items-center gap-2">
-                                {territoryId ? (
-                                  <Target className="w-4 h-4 text-blue-500" />
-                                ) : (
-                                  <Target className="w-4 h-4 text-gray-400" />
-                                )}
-                                <span className={territoryId ? 'text-gray-900' : 'text-gray-500'}>
+                          onClick={() => {
+                            // Initialize with current territory
+                            setSelectedNewTerritory(currentTerritory || null)
+                            setShowTerritoryModal(true)
+                          }}
+                          className=" flex items-center gap-2  p-1 bg-gray-50 border border-gray-300 rounded-xl hover:bg-gray-100 transition-colors cursor-pointer"
+                        >
+                          <MapPin className="w-3 h-3 text-gray-600 flex-shrink-0" />
+                          <span className="text-xs text-gray-600 flex-shrink-0" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Territory</span>
+                          <span className="text-xs font-bold text-gray-900 flex-1 text-left" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
                                   {territoryName}
                                 </span>
-                              </div>
-                              <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${showTerritoryDropdown ? 'transform rotate-180' : ''}`} />
+                          <ChevronDown className="w-3 h-3 text-gray-600 flex-shrink-0" />
                             </button>
-                            
-                            {showTerritoryDropdown && (
-                              <div className="absolute top-full left-0 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-64 overflow-y-auto">
-                                <button
-                                  className={`w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-2 ${
-                                    !territoryId ? 'font-semibold bg-gray-50' : ''
-                                  }`}
-                                  onClick={() => {
-                                    handleTerritoryChange(null)
-                                  }}
-                                >
-                                  <Target className="w-4 h-4 text-gray-400" />
-                                  <span>Unassigned</span>
-                                </button>
-                                {territories.map(t => (
-                                  <button
-                                    key={t.id}
-                                    className={`w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-2 ${
-                                      territoryId === t.id ? 'font-semibold bg-blue-50' : ''
-                                    }`}
-                                    onClick={() => {
-                                      handleTerritoryChange(t.id)
-                                    }}
-                                  >
-                                    <Target className={`w-4 h-4 ${territoryId === t.id ? 'text-blue-500' : 'text-gray-400'}`} />
-                                    <span>{t.name}</span>
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-                          </>
                         )
                       })()}
-                    </div>
                   </div>
                   
                   {/* Job Requirements */}
-                  <div className="mb-5 pb-5 border-b border-gray-200">
+                  <div className=" ">
                     <div className="flex items-center justify-between mb-3">
                       <span className="text-xs font-bold text-gray-900 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>JOB REQUIREMENTS</span>
                       <button className="text-sm text-blue-600 hover:text-blue-700 font-medium" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
@@ -3957,9 +4773,9 @@ const ServiceFlowSchedule = () => {
                       </div>
                     </div>
                   </div>
-                  
+                  </div>
                   {/* Assigned */}
-                  <div className="mb-5 pb-5 border-b border-gray-200">
+                  <div className=" p-5 border-b border-gray-200">
                     <div className="flex items-center justify-between mb-3">
                       <span className="text-xs font-bold text-gray-900 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>ASSIGNED</span>
                       <button 
@@ -4003,8 +4819,8 @@ const ServiceFlowSchedule = () => {
                           </div>
                         </div>
                       ) : (
-                        <div className="text-center py-4">
-                          <UserX className="w-10 h-10 text-gray-400 mx-auto mb-3" />
+                        <div className="text-center py-2">
+                          <UserX className="w-8 h-8 text-gray-400 mx-auto mb-3" />
                           <p className="text-sm font-medium text-gray-700 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>Unassigned</p>
                           <p className="text-xs text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                             No service providers are assigned to this job
@@ -4015,8 +4831,8 @@ const ServiceFlowSchedule = () => {
                   </div>
                   
                   {/* Offer job to service providers */}
-                  <div>
-                    <div className="flex items-start justify-between mb-2">
+                  <div className="p-4">
+                    <div className="flex items-start justify-between ">
                       <div className="flex-1">
                         <p className="text-sm font-bold text-gray-900 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
                           Offer job to service providers
@@ -4051,7 +4867,7 @@ const ServiceFlowSchedule = () => {
               </div>
 
               {/* Notes & Files */}
-              <div className="bg-white border-b border-gray-200">
+              <div className="bg-white border rounded-lg border-gray-200">
                 <div className="px-6 py-4">
                   <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-3" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Notes & Files</span>
                   {selectedJobDetails.notes || selectedJobDetails.internal_notes ? (
@@ -4082,13 +4898,13 @@ const ServiceFlowSchedule = () => {
                       </button>
                     </div>
                   ) : (
-                  <div className="text-center py-6">
-                    <NotepadText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <div className="text-center py-2">
+                    <NotepadText className="w-8 h-8 text-gray-300 mx-auto mb-1" />
                     <p className="text-sm text-gray-600 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>No internal job or customer notes</p>
                     <p className="text-xs text-gray-500 mb-4" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Notes and attachments are only visible to employees with appropriate permissions.</p>
                       <button 
                         onClick={handleOpenNotesModal}
-                        className="text-sm text-blue-600 hover:text-blue-700 font-medium" 
+                        className="text-xs text-blue-600 border hover:border-blue-700 rounded-md px-3 py-1 hover:text-blue-700 font-medium" 
                         style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                       >
                         + Add Note
@@ -4099,9 +4915,9 @@ const ServiceFlowSchedule = () => {
               </div>
 
               {/* Customer Notifications */}
-              <div className="bg-white border-b border-gray-200">
+              <div className="bg-white border rounded-lg border-gray-200">
                 <div className="px-6 py-4">
-                  <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-4" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Customer notifications</span>
+                  <span className="text-smd font-medium text-gray-500 tracking-wider block mb-4" style={{ fontFamily: 'Montserrat' }}>Customer notifications</span>
                   
                   {/* Notification Preferences */}
                   <div className="mb-4">
@@ -4109,44 +4925,168 @@ const ServiceFlowSchedule = () => {
                       <span className="text-xs font-bold text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Notification Preferences</span>
                     </div>
                     <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Emails</span>
+                      <div className="flex items-center gap-2">
+                        
                         <label className="relative inline-flex items-center cursor-pointer">
                           <input type="checkbox" checked readOnly className="sr-only peer" />
                           <div className="w-10 h-6 bg-blue-600 rounded-full peer peer-checked:bg-blue-600 after:content-[''] after:absolute after:top-[2px] after:right-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
                         </label>
+                        <span className="text-sm text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Emails</span>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Text messages</span>
+                      <div className="flex items-center gap-2">
                         <label className="relative inline-flex items-center cursor-pointer">
                           <input type="checkbox" readOnly className="sr-only peer" />
                           <div className="w-10 h-6 bg-gray-200 rounded-full peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
                         </label>
+                        <span className="text-sm text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Text messages</span>
                       </div>
                     </div>
                   </div>
                   
                   {/* Confirmation */}
-                  <div className="mb-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>Confirmation</span>
+                  <div className="mb-4 pt-4 border-t border-gray-200">
+                    <div className="flex items-start space-x-3 items-center">
+                      <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                        <Mail className="w-5 h-5 text-blue-600" />
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-600 mb-1">
-                      <Mail className="w-4 h-4 text-gray-400" />
-                      <span style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Appointment Confirmation</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Confirmation</span>
                     </div>
-                    <p className="text-xs text-gray-500 pl-6" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
-                      {selectedJobDetails.confirmation_sent ? 
-                        `${selectedJobDetails.confirmation_sent_at ? new Date(selectedJobDetails.confirmation_sent_at).toLocaleString() : '5 days ago'} - Email - Sent` :
-                        'Not sent yet'
-                      }
+                        <p className="text-sm font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Appointment Confirmation</p>
+                        <p className="text-xs text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                          {selectedJobDetails.confirmation_sent && selectedJobDetails.confirmation_sent_at
+                            ? `${getTimeAgo(selectedJobDetails.confirmation_sent_at)} • Email Sent`
+                            : selectedJobDetails.confirmation_failed
+                              ? `Failed to send: ${selectedJobDetails.confirmation_error || 'Unknown error'}`
+                              : !emailNotifications && !smsNotifications
+                                ? "Notifications are disabled for this customer"
+                                : "Not sent yet"}
+                        </p>
+                      </div>
+                      <div className="relative" ref={confirmationMenuRef}>
+                        <button
+                          onClick={() => setOpenNotificationMenu(openNotificationMenu === 'confirmation' ? null : 'confirmation')}
+                          className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
+                        >
+                          <MoreVertical className="w-4 h-4 text-blue-600" />
+                        </button>
+                        {openNotificationMenu === 'confirmation' && (
+                          <div className="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[180px] z-50">
+                            <button
+                              onClick={() => {
+                                setViewingMessageType('confirmation')
+                                setShowMessageViewer(true)
+                                setOpenNotificationMenu(null)
+                              }}
+                              className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                            >
+                              <Eye className="w-4 h-4" />
+                              View Message
+                            </button>
+                            <button
+                              onClick={() => {
+                                setNotificationType('confirmation')
+                                const hasEmail = selectedJobDetails.customer_email && selectedJobDetails.customer_email.trim() !== ''
+                                if (hasEmail && emailNotifications) {
+                                  setSelectedNotificationMethod('email')
+                                  setNotificationEmail(selectedJobDetails.customer_email || '')
+                                } else if (smsNotifications) {
+                                  setSelectedNotificationMethod('sms')
+                                  setNotificationPhone(selectedJobDetails.customer_phone || '')
+                                } else if (emailNotifications) {
+                                  setSelectedNotificationMethod('email')
+                                  setNotificationEmail(selectedJobDetails.customer_email || '')
+                                }
+                                setShowNotificationModal(true)
+                                setOpenNotificationMenu(null)
+                              }}
+                              className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                              disabled={!emailNotifications && !smsNotifications}
+                            >
+                              <RotateCw className="w-4 h-4" />
+                              {selectedJobDetails.confirmation_sent ? 'Resend Email' : 'Send Email'}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Reminder */}
+                  <div className="mb-4 pt-4 border-t border-gray-200">
+                    <div className="flex items-start space-x-3 items-center">
+                      <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                        <Mail className="w-5 h-5 text-blue-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Reminder</span>
+                        </div>
+                        <p className="text-sm font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Appointment Reminder</p>
+                        <p className="text-xs text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                          {selectedJobDetails.reminder_sent && selectedJobDetails.reminder_sent_at
+                            ? `${getTimeAgo(selectedJobDetails.reminder_sent_at)} • Email Sent`
+                            : selectedJobDetails.reminder_failed
+                              ? `Failed to send: ${selectedJobDetails.reminder_error || 'Unknown error'}`
+                              : !emailNotifications && !smsNotifications
+                                ? "Notifications are disabled for this customer"
+                                : "Scheduled for 2 hours before appointment"}
                     </p>
+                  </div>
+                      <div className="relative" ref={reminderMenuRef}>
+                        <button
+                          onClick={() => setOpenNotificationMenu(openNotificationMenu === 'reminder' ? null : 'reminder')}
+                          className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
+                        >
+                          <MoreVertical className="w-4 h-4 text-blue-600" />
+                        </button>
+                        {openNotificationMenu === 'reminder' && (
+                          <div className="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[180px] z-50">
+                            <button
+                              onClick={() => {
+                                setViewingMessageType('reminder')
+                                setShowMessageViewer(true)
+                                setOpenNotificationMenu(null)
+                              }}
+                              className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                            >
+                              <Eye className="w-4 h-4" />
+                              View Message
+                            </button>
+                            <button
+                              onClick={() => {
+                                setNotificationType('reminder')
+                                const hasEmail = selectedJobDetails.customer_email && selectedJobDetails.customer_email.trim() !== ''
+                                if (hasEmail && emailNotifications) {
+                                  setSelectedNotificationMethod('email')
+                                  setNotificationEmail(selectedJobDetails.customer_email || '')
+                                } else if (smsNotifications) {
+                                  setSelectedNotificationMethod('sms')
+                                  setNotificationPhone(selectedJobDetails.customer_phone || '')
+                                } else if (emailNotifications) {
+                                  setSelectedNotificationMethod('email')
+                                  setNotificationEmail(selectedJobDetails.customer_email || '')
+                                }
+                                setShowNotificationModal(true)
+                                setOpenNotificationMenu(null)
+                              }}
+                              className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                              disabled={!emailNotifications && !smsNotifications}
+                            >
+                              <RotateCw className="w-4 h-4" />
+                              {selectedJobDetails.reminder_sent ? 'Resend Email' : 'Send Email'}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
 
               {/* Customer Feedback */}
-              <div className="bg-white border-b border-gray-200">
+              <div className="bg-white border rounded-lg border-gray-200">
                 <div className="px-6 py-4">
                   <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-3" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Customer feedback</span>
                   <p className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
@@ -4156,7 +5096,7 @@ const ServiceFlowSchedule = () => {
               </div>
 
               {/* Conversion Summary */}
-              <div className="bg-white px-6 py-4">
+              <div className="bg-white border rounded-lg border-gray-200 px-6 py-4">
                 <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-3" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Conversion summary</span>
                 <p className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                   Jobs created by team members from the Zenbooker admin won't have any conversion details associated. <button className="text-blue-600 hover:text-blue-700 font-medium">Learn more</button>
@@ -4279,7 +5219,7 @@ const ServiceFlowSchedule = () => {
 
       {/* Edit Customer Modal */}
       {showEditCustomerModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-[100] flex items-center justify-center">
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[9999] flex items-center justify-center">
           <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Edit Customer</h3>
@@ -4344,7 +5284,7 @@ const ServiceFlowSchedule = () => {
 
       {/* Edit Address Modal */}
       {showEditAddressModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-[100] flex items-center justify-center">
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[9999] flex items-center justify-center">
           <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Edit Service Address</h3>
@@ -4389,7 +5329,7 @@ const ServiceFlowSchedule = () => {
 
       {/* Notes Modal */}
       {showNotesModal && selectedJobDetails && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-[100] flex items-center justify-center">
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[9999] flex items-center justify-center">
           <div className="bg-white rounded-lg w-full max-w-lg mx-4">
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
@@ -4565,7 +5505,7 @@ const ServiceFlowSchedule = () => {
 
       {/* Reschedule Modal */}
       {showRescheduleModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-[100] flex items-center justify-center">
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[9999] flex items-center justify-center">
           <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Reschedule Job</h3>
@@ -4628,9 +5568,217 @@ const ServiceFlowSchedule = () => {
         />
       )}
 
+      {/* Change Territory Modal */}
+      {showTerritoryModal && selectedJobDetails && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-[9999] flex items-center justify-center p-4 sm:p-6"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowTerritoryModal(false)
+              setSelectedNewTerritory(null)
+            }
+          }}
+        >
+          <div className="bg-white rounded-lg w-full max-w-lg mx-auto shadow-2xl max-h-[90vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-200 relative flex-shrink-0">
+              <button
+                onClick={() => {
+                  setShowTerritoryModal(false)
+                  setSelectedNewTerritory(null)
+                }}
+                className="absolute left-4 sm:left-6 p-1.5 hover:bg-gray-100 rounded-full transition-colors z-20"
+              >
+                <X className="w-5 h-5 text-gray-900" strokeWidth={2.5} />
+              </button>
+              <h2 className="text-lg font-semibold text-gray-900 flex-1 text-center" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                Change Territory
+              </h2>
+              <button
+                onClick={handleSaveTerritoryChange}
+                disabled={isUpdatingJob || (() => {
+                  // Disable if no change is made
+                  let currentTerritory = selectedJobDetails.territory_id 
+                    ? territories.find(t => t.id === selectedJobDetails.territory_id)
+                    : null
+                  const currentId = currentTerritory?.id || null
+                  const selectedId = selectedNewTerritory?.id || null
+                  return currentId === selectedId
+                })()}
+                className="absolute right-4 sm:right-6 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed z-20 shadow-sm"
+                style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
+              >
+                {isUpdatingJob ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="px-4 sm:px-6 py-6 space-y-6 overflow-y-auto flex-1">
+              {/* Current Territory Section */}
+              <div>
+                <label className="block text-xs font-bold text-gray-900 uppercase tracking-wider mb-3" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
+                  CURRENT TERRITORY
+                </label>
+                {(() => {
+                  // Try to find territory by territory_id first
+                  let currentTerritory = selectedJobDetails.territory_id 
+                    ? territories.find(t => t.id === selectedJobDetails.territory_id)
+                    : null
+                  
+                  // If no territory_id, try to match by service_region_custom_service_region
+                  if (!currentTerritory && selectedJobDetails.service_region_custom_service_region) {
+                    const locationName = selectedJobDetails.service_region_custom_service_region
+                    currentTerritory = territories.find(t => 
+                      t.name === locationName || 
+                      t.location === locationName ||
+                      (t.location && t.location.includes(locationName)) ||
+                      (locationName && t.name && t.name.toLowerCase().includes(locationName.toLowerCase()))
+                    )
+                  }
+                  
+                  const territoryName = currentTerritory ? currentTerritory.name : 'Unassigned'
+                  
+                  return (
+                    <div className="flex items-center gap-3 px-3 py-2.5 bg-white border border-gray-300 rounded-lg">
+                      <MapPin className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                      <span className="text-sm font-bold text-gray-900 flex-1" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
+                        {territoryName}
+                      </span>
+                      {currentTerritory && (
+                        <div className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
+                          <div className="w-2 h-2 rounded-full bg-white"></div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })()}
+              </div>
+
+              {/* Select New Territory Section */}
+              <div>
+                <label className="block text-xs font-bold text-gray-900 uppercase tracking-wider mb-3" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
+                  SELECT NEW TERRITORY
+                </label>
+                <div className="space-y-2 max-h-80 overflow-y-auto">
+                  {(() => {
+                    // Get current territory timezone
+                    let currentTerritory = selectedJobDetails.territory_id 
+                      ? territories.find(t => t.id === selectedJobDetails.territory_id)
+                      : null
+                    
+                    if (!currentTerritory && selectedJobDetails.service_region_custom_service_region) {
+                      const locationName = selectedJobDetails.service_region_custom_service_region
+                      currentTerritory = territories.find(t => 
+                        t.name === locationName || 
+                        t.location === locationName ||
+                        (t.location && t.location.includes(locationName)) ||
+                        (locationName && t.name && t.name.toLowerCase().includes(locationName.toLowerCase()))
+                      )
+                    }
+                    
+                    const currentTimezone = currentTerritory?.timezone || 'America/New_York'
+                    
+                    return (
+                      <>
+                        {/* Unassigned Option */}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedNewTerritory(null)}
+                          className={`w-full text-left px-3 py-3 border rounded-lg transition-all ${
+                            selectedNewTerritory === null
+                              ? 'border-blue-600 bg-blue-50'
+                              : 'border-gray-300 bg-white hover:border-gray-400 hover:bg-gray-50'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3 flex-1">
+                              <MapPin className={`w-4 h-4 flex-shrink-0 ${
+                                selectedNewTerritory === null ? 'text-blue-600' : 'text-gray-400'
+                              }`} />
+                              <div className="flex-1 min-w-0">
+                                <span className={`text-sm block ${
+                                  selectedNewTerritory === null 
+                                    ? 'font-bold text-gray-900' 
+                                    : 'font-medium text-gray-700'
+                                }`} style={{ fontFamily: 'Montserrat' }}>
+                                  Unassigned
+                                </span>
+                              </div>
+                            </div>
+                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                              selectedNewTerritory === null
+                                ? 'border-blue-600 bg-blue-600'
+                                : 'border-gray-300 bg-white'
+                            }`}>
+                              {selectedNewTerritory === null && (
+                                <div className="w-2 h-2 rounded-full bg-white"></div>
+                              )}
+                            </div>
+                          </div>
+                        </button>
+                        
+                        {/* Territory Options */}
+                        {territories.map(territory => {
+                          const isSelected = selectedNewTerritory?.id === territory.id
+                          const hasTimezoneDiff = territory.timezone && territory.timezone !== currentTimezone
+                          
+                          return (
+                            <button
+                              key={territory.id}
+                              type="button"
+                              onClick={() => setSelectedNewTerritory(territory)}
+                              className={`w-full text-left px-3 py-3 border rounded-lg transition-all ${
+                                isSelected
+                                  ? 'border-blue-600 bg-blue-50'
+                                  : 'border-gray-300 bg-white hover:border-gray-400 hover:bg-gray-50'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3 flex-1 min-w-0">
+                                  <MapPin className={`w-4 h-4 flex-shrink-0 ${
+                                    isSelected ? 'text-blue-600' : 'text-gray-400'
+                                  }`} />
+                                  <div className="flex-1 min-w-0">
+                                    <span className={`text-sm block ${
+                                      isSelected 
+                                        ? 'font-bold text-gray-900' 
+                                        : 'font-medium text-gray-700'
+                                    }`} style={{ fontFamily: 'Montserrat' }}>
+                                      {territory.name}
+                                    </span>
+                                    {hasTimezoneDiff && (
+                                      <span className="text-xs text-gray-500 mt-1 block" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                                        This territory's timezone is different from the job's timezone
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                                  isSelected
+                                    ? 'border-blue-600 bg-blue-600'
+                                    : 'border-gray-300 bg-white'
+                                }`}>
+                                  {isSelected && (
+                                    <div className="w-2 h-2 rounded-full bg-white"></div>
+                                  )}
+                                </div>
+                              </div>
+                            </button>
+                          )
+                        })}
+                      </>
+                    )
+                  })()}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Cancel Job Modal */}
       {showCancelModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-[100] flex items-center justify-center">
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[9999] flex items-center justify-center">
           <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Cancel Job</h3>
@@ -4660,6 +5808,275 @@ const ServiceFlowSchedule = () => {
                   className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50"
                 >
                   {isUpdatingJob ? 'Cancelling...' : 'Cancel Job'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Send Invoice Modal */}
+      {showSendInvoiceModal && selectedJobDetails && (
+        <div className="fixed inset-0 bg-white z-[9999] flex flex-col">
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+            <button
+              onClick={() => {
+                setShowSendInvoiceModal(false)
+                setManualEmail('')
+              }}
+              className="text-gray-900 hover:text-gray-600 p-1"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <h3 className="text-lg font-semibold text-gray-900 flex-1 text-center" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Email Invoice</h3>
+            <button
+              onClick={handleSendInvoice}
+              disabled={isUpdatingJob}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
+            >
+              {isUpdatingJob ? 'Sending...' : 'Send'}
+            </button>
+          </div>
+
+          {/* Scrollable Content */}
+          <div className="flex-1 overflow-y-auto">
+            <div className="p-4 space-y-4">
+              {/* Email Details */}
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Send to</label>
+                  <input
+                    type="email"
+                    value={manualEmail || selectedJobDetails.customer_email || ''}
+                    onChange={(e) => setManualEmail(e.target.value)}
+                    className="w-full text-sm text-gray-900 border-0 focus:ring-0 p-0"
+                    placeholder="Enter email address"
+                    style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Subject</label>
+                  <input
+                    type="text"
+                    defaultValue={`You have a new invoice from ${user?.business_name || user?.businessName || user?.email || 'Your Business'}`}
+                    className="w-full text-sm text-gray-900 border-0 focus:ring-0 p-0"
+                    style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
+                  />
+                </div>
+              </div>
+
+              {/* Invoice Preview */}
+              <div className="bg-white border border-gray-200 rounded-lg p-6 mt-4">
+                {/* Invoice Header */}
+                <h2 className="text-lg font-bold text-gray-900 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
+                  Your invoice from {user?.business_name || user?.businessName || user?.email || 'Your Business'}
+                </h2>
+                
+                {/* Greeting */}
+                <p className="text-sm text-gray-900 mb-3" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                  Hi {getCustomerName(selectedJobDetails) || 'Customer'},
+                </p>
+                
+                {/* Message */}
+                <p className="text-sm text-gray-700 mb-6" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                  Thank you for your recent business with us. Please find a detailed copy of <strong>Invoice #{selectedJobDetails.invoice_id ? `INV-${selectedJobDetails.invoice_id}` : `#${selectedJobDetails.id}`}</strong> below.
+                </p>
+
+                {/* Key Details - Right Aligned */}
+                <div className="text-right mb-6 space-y-1">
+                  <div className="flex justify-end items-baseline gap-2">
+                    <span className="text-xs text-gray-600 uppercase" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>AMOUNT DUE</span>
+                    <span className="text-base font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>${calculateTotalPrice().toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-end items-baseline gap-2">
+                    <span className="text-xs text-gray-600 uppercase" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>DUE BY</span>
+                    <span className="text-sm text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                      {new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </span>
+                  </div>
+                  <div className="flex justify-end items-baseline gap-2">
+                    <span className="text-xs text-gray-600 uppercase" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>SERVICE DATE</span>
+                    <span className="text-sm text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                      {selectedJobDetails.scheduled_date ? new Date(selectedJobDetails.scheduled_date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) : 'Not scheduled'}
+                    </span>
+                  </div>
+                  <div className="flex justify-end items-baseline gap-2">
+                    <span className="text-xs text-gray-600 uppercase" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>SERVICE ADDRESS</span>
+                    <span className="text-sm text-gray-900 text-right max-w-xs" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                      {selectedJobDetails.service_address_street || selectedJobDetails.customer_address || 'Address not provided'}
+                      {selectedJobDetails.service_address_city && `, ${selectedJobDetails.service_address_city}`}
+                      {selectedJobDetails.service_address_state && `, ${selectedJobDetails.service_address_state}`}
+                      {selectedJobDetails.service_address_zip && ` ${selectedJobDetails.service_address_zip}`}
+                      {selectedJobDetails.service_address_country && `, ${selectedJobDetails.service_address_country}`}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Summary Section */}
+                <div className="border-t border-gray-200 pt-4 mt-4">
+                  <h3 className="text-xs text-gray-500 uppercase mb-3" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>SUMMARY</h3>
+                  <div className="flex justify-between items-center mb-4">
+                    <span className="text-sm font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                      {selectedJobDetails.service_name || selectedJobDetails.service_type || 'Service'}
+                    </span>
+                    <span className="text-sm text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                      ${calculateTotalPrice().toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Financial Breakdown */}
+                <div className="space-y-2 mt-4">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Subtotal</span>
+                    <span className="text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>${calculateTotalPrice().toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Total</span>
+                    <span className="text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>${calculateTotalPrice().toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Total Paid</span>
+                    <span className="text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                      ${(selectedJobDetails.invoice_paid_amount || selectedJobDetails.amount_paid || selectedJobDetails.total_paid_amount || 0).toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm font-semibold pt-2 border-t border-gray-200">
+                    <span className="text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Total Due</span>
+                    <span className="text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                      ${(calculateTotalPrice() - (selectedJobDetails.invoice_paid_amount || selectedJobDetails.amount_paid || selectedJobDetails.total_paid_amount || 0)).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Closing Message */}
+                <p className="text-sm text-gray-600 mt-6" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                  We appreciate your business.
+                </p>
+              </div>
+
+              {/* Payment Link Option - Hidden by default, can be shown if needed */}
+              {stripeConnected && (
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div className="flex-1">
+                    <h4 className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>Include payment link</h4>
+                    <p className="text-xs text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                      Allow customer to pay directly via Stripe
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="sr-only peer"
+                      checked={includePaymentLink}
+                      onChange={(e) => setIncludePaymentLink(e.target.checked)}
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                  </label>
+                </div>
+              )}
+
+              {/* Error Message */}
+              {errorMessage && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-sm text-red-800" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{errorMessage}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Payment Modal */}
+      {showAddPaymentModal && selectedJobDetails && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Add Payment</h3>
+                <button
+                  onClick={() => setShowAddPaymentModal(false)}
+                  className="text-gray-400 hover:text-gray-600 p-1"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>Payment Method</label>
+                  <select 
+                    value={paymentFormData.paymentMethod}
+                    onChange={(e) => setPaymentFormData(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+                    style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
+                  >
+                    <option value="cash">Cash</option>
+                    <option value="check">Check</option>
+                    <option value="credit_card">Credit Card</option>
+                    <option value="bank_transfer">Bank Transfer</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>Amount</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={paymentFormData.amount || calculateTotalPrice()}
+                    onChange={(e) => setPaymentFormData(prev => ({ ...prev, amount: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Enter amount"
+                    style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>Payment Date</label>
+                  <input
+                    type="date"
+                    value={paymentFormData.paymentDate}
+                    onChange={(e) => setPaymentFormData(prev => ({ ...prev, paymentDate: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>Notes</label>
+                  <textarea
+                    rows={3}
+                    value={paymentFormData.notes}
+                    onChange={(e) => setPaymentFormData(prev => ({ ...prev, notes: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Optional payment notes"
+                    style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
+                  />
+                </div>
+              </div>
+              
+              <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 mt-6">
+                <button
+                  onClick={() => {
+                    setShowAddPaymentModal(false)
+                    setPaymentFormData({
+                      amount: '',
+                      paymentMethod: 'cash',
+                      paymentDate: new Date().toISOString().split('T')[0],
+                      notes: ''
+                    })
+                  }}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800 order-2 sm:order-1"
+                  style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleRecordPayment}
+                  disabled={isUpdatingJob}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 order-1 sm:order-2 disabled:opacity-50"
+                  style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
+                >
+                  {isUpdatingJob ? 'Recording...' : 'Record Payment'}
                 </button>
               </div>
             </div>

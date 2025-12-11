@@ -27,6 +27,7 @@ import {
   Settings,
   ChevronRight,
   LogOut,
+  Clock,
 } from "lucide-react"
 
 const MobileBottomNav = ({ teamMembers = [] }) => {
@@ -104,8 +105,8 @@ const MobileBottomNav = ({ teamMembers = [] }) => {
 
   // Handle navigation
   const handleNavigation = (path) => {
-    if (path === "/offers" || path === "/notifications") {
-      // TODO: Create these routes or show a coming soon message
+    if (path === "/notifications") {
+      // TODO: Create notifications route or show a coming soon message
       console.log(`Route ${path} not yet implemented`)
       return
     }
@@ -261,35 +262,60 @@ const MobileBottomNav = ({ teamMembers = [] }) => {
             
             {/* Menu Items */}
             <div className="py-2">
-              {/* For workers, only show Settings */}
+              {/* For workers, show Availability and Settings */}
               {isWorkerUser ? (
-                <button
-                  onClick={() => handleNavigation('/settings')}
-                  className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors text-left"
-                >
-                  <div className="flex items-center space-x-3">
-                    <Settings className="w-5 h-5 text-gray-600" />
-                    <span className="text-sm font-medium text-gray-900">Settings</span>
-                  </div>
-                  <ChevronRight className="w-5 h-5 text-gray-400" />
-                </button>
+                <>
+                  <button
+                    onClick={() => handleNavigation('/availability')}
+                    className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors text-left"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <Clock className="w-5 h-5 text-gray-600" />
+                      <span className="text-sm font-medium text-gray-900">Availability</span>
+                    </div>
+                    <ChevronRight className="w-5 h-5 text-gray-400" />
+                  </button>
+                  <button
+                    onClick={() => handleNavigation('/settings')}
+                    className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors text-left"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <Settings className="w-5 h-5 text-gray-600" />
+                      <span className="text-sm font-medium text-gray-900">Settings</span>
+                    </div>
+                    <ChevronRight className="w-5 h-5 text-gray-400" />
+                  </button>
+                </>
               ) : (
-                remainingItems.map((item, index) => {
-                  const Icon = item.icon
-                  return (
-                    <button
-                      key={index}
-                      onClick={() => handleNavigation(item.path)}
-                      className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors text-left"
-                    >
-                      <div className="flex items-center space-x-3">
-                        <Icon className="w-5 h-5 text-gray-600" />
-                        <span className="text-sm font-medium text-gray-900">{item.label}</span>
-                      </div>
-                      <ChevronRight className="w-5 h-5 text-gray-400" />
-                    </button>
-                  )
-                })
+                <>
+                  {remainingItems.map((item, index) => {
+                    const Icon = item.icon
+                    return (
+                      <button
+                        key={index}
+                        onClick={() => handleNavigation(item.path)}
+                        className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors text-left"
+                      >
+                        <div className="flex items-center space-x-3">
+                          <Icon className="w-5 h-5 text-gray-600" />
+                          <span className="text-sm font-medium text-gray-900">{item.label}</span>
+                        </div>
+                        <ChevronRight className="w-5 h-5 text-gray-400" />
+                      </button>
+                    )
+                  })}
+                  {/* Availability for all users - use mobile view */}
+                  <button
+                    onClick={() => handleNavigation('/availability')}
+                    className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors text-left"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <Clock className="w-5 h-5 text-gray-600" />
+                      <span className="text-sm font-medium text-gray-900">Availability</span>
+                    </div>
+                    <ChevronRight className="w-5 h-5 text-gray-400" />
+                  </button>
+                </>
               )}
               
               {/* Sign Out Button - Show for all users */}
