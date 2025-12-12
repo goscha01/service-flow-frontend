@@ -23,6 +23,7 @@ import {
   X,
   Phone,
   Zap,
+  Target,
 } from "lucide-react"
 
 const Sidebar = ({ isOpen, onClose, forceCollapsed = false }) => {
@@ -42,6 +43,7 @@ const Sidebar = ({ isOpen, onClose, forceCollapsed = false }) => {
     { icon: RotateCcw, label: "Recurring", path: "/recurring", hidden: true },
     { icon: CreditCard, label: "Payments", path: "/payments", hidden: true },
     { icon: Users, label: "Customers", path: "/customers" },
+    { icon: Target, label: "Leads", path: "/leads" },
     { icon: UserCheck, label: "Team", path: "/team" },
     { icon: Wrench, label: "Services", path: "/services" },
     { icon: Tag, label: "Coupons", path: "/coupons", hidden: true },

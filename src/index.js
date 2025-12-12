@@ -94,6 +94,7 @@ import DropdownMultiselectDemo from "./pages/dropdown-multiselect-demo"
 import ImportDataPage from "./pages/import-data"
 import ImportCustomersPage from "./pages/import-customers"
 import ImportJobsPage from "./pages/import-jobs"
+import LeadsPipeline from "./pages/leads-pipeline"
 import { TeamMemberAuthProvider } from "./context/TeamMemberAuthContext"
 import { CategoryProvider } from "./context/CategoryContext"
 import AppLayout from "./components/app-layout"
@@ -123,6 +124,7 @@ root.render(
       <Route path="/invoices" element={<ProtectedRoute><ServiceFlowInvoices /></ProtectedRoute>} />
       <Route path="/customers" element={<ServiceFlowCustomers />} />
       <Route path="/customer/:customerId" element={<ProtectedRoute><CustomerDetails /></ProtectedRoute>} />
+      <Route path="/leads" element={<ProtectedRoute><LeadsPipeline /></ProtectedRoute>} />
       <Route path="/invoices/:invoiceId" element={<ProtectedRoute><InvoiceDetails /></ProtectedRoute>} />
       <Route path="/invoices/:invoiceId/edit" element={<ProtectedRoute><InvoiceEdit /></ProtectedRoute>} />
       <Route path="/team" element={<ServiceFlowTeam />} />

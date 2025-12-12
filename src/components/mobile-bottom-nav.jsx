@@ -28,6 +28,7 @@ import {
   ChevronRight,
   LogOut,
   Clock,
+  Target,
 } from "lucide-react"
 
 const MobileBottomNav = ({ teamMembers = [] }) => {
@@ -58,6 +59,7 @@ const MobileBottomNav = ({ teamMembers = [] }) => {
     { icon: RotateCw, label: "Recurring", path: "/recurring" },
     { icon: CreditCard, label: "Payments", path: "/payments", hidden: true },
     { icon: Users, label: "Customers", path: "/customers" },
+    { icon: Target, label: "Leads", path: "/leads" },
     { icon: UserCheck, label: "Team", path: "/team" },
     { icon: Wrench, label: "Services", path: "/services" },
     { icon: Tag, label: "Coupons", path: "/coupons", hidden: true },
