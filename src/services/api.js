@@ -796,6 +796,43 @@ export const jobsAPI = {
     }
   },
 
+  convertToRecurring: async (id, data) => {
+    try {
+      const response = await api.post(`/jobs/${id}/convert-to-recurring`, data);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  getImportedJobsCount: async (params = {}) => {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params.startDate) queryParams.append('startDate', params.startDate);
+      if (params.endDate) queryParams.append('endDate', params.endDate);
+      const queryString = queryParams.toString();
+      const url = `/jobs/imported/count${queryString ? `?${queryString}` : ''}`;
+      const response = await api.get(url);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  deleteImportedJobs: async (params = {}) => {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params.startDate) queryParams.append('startDate', params.startDate);
+      if (params.endDate) queryParams.append('endDate', params.endDate);
+      const queryString = queryParams.toString();
+      const url = `/jobs/delete-imported${queryString ? `?${queryString}` : ''}`;
+      const response = await api.delete(url);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
   // Get available jobs for workers
   getAvailableForWorkers: async () => {
     try {
@@ -2046,6 +2083,159 @@ export const placesAPI = {
   getDetails: async (placeId) => {
     try {
       const response = await api.get(`/places/details?place_id=${placeId}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+};
+
+// Leads Pipeline API functions
+export const leadsAPI = {
+  // Get pipeline with stages
+  getPipeline: async () => {
+    try {
+      const response = await api.get('/leads/pipeline');
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Update pipeline stages
+  updateStages: async (stages) => {
+    try {
+      const response = await api.put('/leads/pipeline/stages', { stages });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Delete a stage
+  deleteStage: async (stageId) => {
+    try {
+      const response = await api.delete(`/leads/pipeline/stages/${stageId}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Get all leads
+  getAll: async () => {
+    try {
+      const response = await api.get('/leads');
+      return response.data.leads || [];
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Get a single lead
+  getById: async (id) => {
+    try {
+      const response = await api.get(`/leads/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Create a new lead
+  create: async (leadData) => {
+    try {
+      const response = await api.post('/leads', leadData);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Update a lead
+  update: async (id, leadData) => {
+    try {
+      const response = await api.put(`/leads/${id}`, leadData);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Delete a lead
+  delete: async (id) => {
+    try {
+      const response = await api.delete(`/leads/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Move lead to different stage
+  moveToStage: async (leadId, stageId) => {
+    try {
+      const response = await api.put(`/leads/${leadId}/move`, { stageId });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Convert lead to customer
+  convertToCustomer: async (leadId) => {
+    try {
+      const response = await api.post(`/leads/${leadId}/convert`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Tasks API
+  getTasks: async (leadId) => {
+    try {
+      const response = await api.get(`/leads/${leadId}/tasks`);
+      return response.data.tasks || [];
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  getAllTasks: async (params = {}) => {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params.status) queryParams.append('status', params.status);
+      if (params.overdue) queryParams.append('overdue', params.overdue);
+      
+      const response = await api.get(`/leads/tasks?${queryParams}`);
+      return response.data.tasks || [];
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  createTask: async (leadId, taskData) => {
+    try {
+      const response = await api.post(`/leads/${leadId}/tasks`, taskData);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  updateTask: async (taskId, taskData) => {
+    try {
+      const response = await api.put(`/leads/tasks/${taskId}`, taskData);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  deleteTask: async (taskId) => {
+    try {
+      const response = await api.delete(`/leads/tasks/${taskId}`);
       return response.data;
     } catch (error) {
       throw error;

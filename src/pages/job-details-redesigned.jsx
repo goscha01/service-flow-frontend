@@ -73,6 +73,7 @@ import StatusProgressBar from "../components/status-progress-bar"
 import { formatPhoneNumber } from "../utils/phoneFormatter"
 import { formatDateLocal } from "../utils/dateUtils"
 import { formatRecurringFrequency } from "../utils/recurringUtils"
+import ConvertToRecurringModal from "../components/convert-to-recurring-modal"
 import { 
   canViewCustomerContact, 
   canViewCustomerNotes,
@@ -125,6 +126,7 @@ const JobDetails = () => {
   const [showCancelModal, setShowCancelModal] = useState(false)
   const [showEditServiceModal, setShowEditServiceModal] = useState(false)
   const [showEditAddressModal, setShowEditAddressModal] = useState(false)
+  const [showConvertToRecurringModal, setShowConvertToRecurringModal] = useState(false)
   const [showMobileSidebar, setShowMobileSidebar] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [showSendInvoiceModal, setShowSendInvoiceModal] = useState(false)
@@ -2835,6 +2837,20 @@ const JobDetails = () => {
                     </button>
                   </div>
                 </div>
+              </div>
+            )}
+            
+            {/* Convert to Recurring Button - Show if job is NOT recurring */}
+            {!job.is_recurring && canEditJobDetails(user) && (
+              <div className="m-4 sm:mb-6 p-3 sm:p-4 lg:p-6 border-t border-gray-200">
+                <button
+                  onClick={() => setShowConvertToRecurringModal(true)}
+                  className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2"
+                  style={{fontFamily: 'Montserrat', fontWeight: 500}}
+                >
+                  <RotateCw className="w-4 h-4" />
+                  Convert to Recurring
+                </button>
               </div>
             )}
             
@@ -6615,6 +6631,30 @@ const JobDetails = () => {
             </div>
           </div>
         )}
+        
+        {/* Convert to Recurring Modal */}
+        <ConvertToRecurringModal
+          isOpen={showConvertToRecurringModal}
+          onClose={() => setShowConvertToRecurringModal(false)}
+          job={job}
+          onConvert={async (data) => {
+            try {
+              setLoading(true);
+              const result = await jobsAPI.convertToRecurring(jobId, data);
+              setSuccessMessage('Job converted to recurring successfully!');
+              setTimeout(() => setSuccessMessage(""), 3000);
+              // Reload job data
+              const updatedJob = await jobsAPI.getById(jobId);
+              setJob(updatedJob.job || updatedJob);
+              setShowConvertToRecurringModal(false);
+            } catch (error) {
+              console.error('Error converting job to recurring:', error);
+              setError(`Failed to convert job: ${error.response?.data?.error || error.message}`);
+            } finally {
+              setLoading(false);
+            }
+          }}
+        />
     </>
   )
 }
