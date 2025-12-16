@@ -1128,6 +1128,45 @@ export const payrollAPI = {
   }
 };
 
+// Staff Locations API functions
+export const staffLocationsAPI = {
+  // Record a staff location
+  recordLocation: async (locationData) => {
+    try {
+      const response = await api.post('/staff-locations', locationData);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Get current staff locations
+  getLocations: async (teamMemberId = null) => {
+    try {
+      const params = new URLSearchParams();
+      if (teamMemberId) params.append('teamMemberId', teamMemberId);
+      const response = await api.get(`/staff-locations?${params}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Get location history for a team member
+  getLocationHistory: async (teamMemberId, startDate = null, endDate = null, limit = 100) => {
+    try {
+      const params = new URLSearchParams();
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+      if (limit) params.append('limit', limit);
+      const response = await api.get(`/staff-locations/${teamMemberId}/history?${params}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+};
+
 // Service Templates API functions
 export const serviceTemplatesAPI = {
   getAll: async () => {

@@ -58,6 +58,30 @@ const LeadsPipeline = () => {
     value: ''
   });
   
+  // Lead sources - customizable list (load from localStorage or use defaults)
+  const [leadSources, setLeadSources] = useState(() => {
+    const saved = localStorage.getItem('leadSources');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        return ['Website', 'Referral', 'Cold Call', 'Social Media', 'Email Campaign', 'Trade Show', 'Partner', 'Other'];
+      }
+    }
+    return ['Website', 'Referral', 'Cold Call', 'Social Media', 'Email Campaign', 'Trade Show', 'Partner', 'Other'];
+  });
+  const [showSourceDropdown, setShowSourceDropdown] = useState(false);
+  const [customSource, setCustomSource] = useState('');
+  
+  // Name autocomplete state
+  const [nameSuggestions, setNameSuggestions] = useState([]);
+  const [showNameSuggestions, setShowNameSuggestions] = useState(false);
+  
+  // Save lead sources to localStorage when they change
+  useEffect(() => {
+    localStorage.setItem('leadSources', JSON.stringify(leadSources));
+  }, [leadSources]);
+  
   const [stageFormData, setStageFormData] = useState({
     name: '',
     color: '#3B82F6'
@@ -376,25 +400,25 @@ const LeadsPipeline = () => {
       
       {/* Header */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Leads Pipeline</h1>
-              <p className="text-xs sm:text-sm text-gray-600 mt-1">Manage your sales pipeline</p>
+        <div className="w-full px-2 sm:px-3 lg:px-4 py-3">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate">Leads Pipeline</h1>
+              <p className="text-xs text-gray-600 mt-0.5">Manage your sales pipeline</p>
             </div>
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:space-x-3">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:space-x-2 flex-shrink-0">
               <button
                 onClick={() => setShowEditStageModal(true)}
-                className="flex items-center justify-center space-x-2 px-3 sm:px-4 py-2 text-sm sm:text-base text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                className="flex items-center justify-center space-x-1.5 px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 whitespace-nowrap"
               >
-                <Settings className="w-4 h-4" />
+                <Settings className="w-3.5 h-3.5" />
                 <span>Manage Stages</span>
               </button>
               <button
                 onClick={() => setShowCreateLeadModal(true)}
-                className="flex items-center justify-center space-x-2 px-3 sm:px-4 py-2 text-sm sm:text-base bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="flex items-center justify-center space-x-1.5 px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 whitespace-nowrap"
               >
-                <Plus className="w-4 h-4" />
+                <Plus className="w-3.5 h-3.5" />
                 <span>Add Lead</span>
               </button>
             </div>
@@ -403,40 +427,40 @@ const LeadsPipeline = () => {
       </div>
       
       {/* Pipeline Board */}
-      <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-6 xl:px-8 py-4 sm:py-6">
-        <div className="flex space-x-2 sm:space-x-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100" style={{ minHeight: '400px' }}>
+      <div className="w-full px-2 sm:px-3 lg:px-4 py-4 sm:py-6 overflow-x-hidden">
+        <div className="flex space-x-1.5 sm:space-x-2 pb-4" style={{ minHeight: '400px' }}>
           {pipeline.stages && pipeline.stages.map((stage) => {
             const stageLeads = getLeadsForStage(stage.id);
             
             return (
               <div
                 key={stage.id}
-                className="flex-shrink-0 w-[280px] sm:w-80 bg-gray-100 rounded-lg p-3 sm:p-4"
+                className="flex-shrink-0 w-[160px] sm:w-[170px] lg:w-[180px] bg-gray-100 rounded-lg p-2"
                 onDragOver={handleDragOver}
                 onDrop={() => handleDrop(stage.id)}
               >
                 {/* Stage Header */}
                 <div 
-                  className="flex items-center justify-between mb-3 sm:mb-4 p-2 sm:p-3 rounded-lg text-white font-semibold text-sm sm:text-base"
+                  className="flex items-center justify-between mb-2 p-2 rounded-lg text-white font-semibold text-sm"
                   style={{ backgroundColor: stage.color }}
                 >
-                  <div className="flex items-center space-x-2 min-w-0 flex-1">
+                  <div className="flex items-center space-x-1.5 min-w-0 flex-1">
                     <span className="truncate">{stage.name}</span>
-                    <span className="bg-white bg-opacity-30 px-2 py-1 rounded text-xs sm:text-sm flex-shrink-0">
+                    <span className="bg-white bg-opacity-30 px-1.5 py-0.5 rounded text-xs flex-shrink-0 font-semibold">
                       {stageLeads.length}
                     </span>
                   </div>
                   <button
                     onClick={() => handleDeleteStage(stage.id)}
-                    className="text-white hover:text-gray-200 flex-shrink-0 ml-2"
+                    className="text-white hover:text-gray-200 flex-shrink-0 ml-1"
                     title="Delete stage"
                   >
-                    <X className="w-4 h-4" />
+                    <X className="w-3 h-3" />
                   </button>
                 </div>
                 
                 {/* Leads in Stage */}
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {stageLeads.map((lead) => (
                     <div
                       key={lead.id}
@@ -446,34 +470,34 @@ const LeadsPipeline = () => {
                         setSelectedLead(lead);
                         setShowLeadDetailsModal(true);
                       }}
-                      className="bg-white rounded-lg p-3 sm:p-4 shadow-sm hover:shadow-md cursor-move transition-shadow"
+                      className="bg-white rounded-lg p-2 shadow-sm hover:shadow-md cursor-move transition-shadow"
                     >
-                      <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-start justify-between mb-1">
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-sm sm:text-base text-gray-900 truncate">
+                          <h3 className="font-semibold text-xs text-gray-900 truncate">
                             {lead.first_name} {lead.last_name}
                           </h3>
                           {lead.company && (
-                            <p className="text-xs sm:text-sm text-gray-600 flex items-center mt-1 truncate">
+                            <p className="text-xs text-gray-600 flex items-center mt-0.5 truncate">
                               <Building className="w-3 h-3 mr-1 flex-shrink-0" />
                               <span className="truncate">{lead.company}</span>
                             </p>
                           )}
                         </div>
-                        <GripVertical className="w-4 h-4 text-gray-400 flex-shrink-0 ml-2" />
+                        <GripVertical className="w-3 h-3 text-gray-400 flex-shrink-0 ml-1" />
                       </div>
                       
-                      <div className="space-y-1 text-xs sm:text-sm text-gray-600">
+                      <div className="space-y-0.5 text-xs text-gray-600">
                         {lead.email && (
                           <div className="flex items-center truncate">
-                            <Mail className="w-3 h-3 mr-2 flex-shrink-0" />
+                            <Mail className="w-3 h-3 mr-1 flex-shrink-0" />
                             <span className="truncate">{lead.email}</span>
                           </div>
                         )}
                         {lead.phone && (
-                          <div className="flex items-center">
-                            <Phone className="w-3 h-3 mr-2 flex-shrink-0" />
-                            <span>{formatPhoneNumber(lead.phone)}</span>
+                          <div className="flex items-center truncate">
+                            <Phone className="w-3 h-3 mr-1 flex-shrink-0" />
+                            <span className="truncate">{formatPhoneNumber(lead.phone)}</span>
                           </div>
                         )}
                         {lead.value && (
@@ -485,8 +509,8 @@ const LeadsPipeline = () => {
                       </div>
                       
                       {lead.source && (
-                        <div className="mt-2">
-                          <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded truncate inline-block max-w-full">
+                        <div className="mt-1.5">
+                          <span className="text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded truncate inline-block max-w-full">
                             {lead.source}
                           </span>
                         </div>
@@ -521,16 +545,6 @@ const LeadsPipeline = () => {
             </div>
             
             <div className="overflow-y-auto flex-1 p-4 sm:p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold text-gray-900">Add New Lead</h2>
-                <button
-                  onClick={() => setShowCreateLeadModal(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              
               <form onSubmit={handleCreateLead} className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
@@ -562,12 +576,102 @@ const LeadsPipeline = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Email
                   </label>
-                  <input
-                    type="email"
-                    value={leadFormData.email}
-                    onChange={(e) => setLeadFormData({ ...leadFormData, email: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
+                  <div className="relative">
+                    <input
+                      type="email"
+                      value={leadFormData.email}
+                      onChange={async (e) => {
+                        const email = e.target.value;
+                        setLeadFormData({ ...leadFormData, email: email });
+                        
+                        // Search for existing customer/lead by email to auto-populate name
+                        if (email && email.includes('@')) {
+                          try {
+                            // Search in existing leads
+                            const existingLeads = leads.filter(lead => 
+                              lead.email && lead.email.toLowerCase() === email.toLowerCase()
+                            );
+                            
+                            if (existingLeads.length > 0) {
+                              const foundLead = existingLeads[0];
+                              setNameSuggestions([{
+                                firstName: foundLead.first_name || '',
+                                lastName: foundLead.last_name || '',
+                                email: foundLead.email || ''
+                              }]);
+                              setShowNameSuggestions(true);
+                            } else {
+                              // Try searching customers API if available
+                              try {
+                                const apiModule = await import('../services/api');
+                                if (apiModule.customersAPI) {
+                                  const customers = await apiModule.customersAPI.getAll();
+                                  const foundCustomer = customers.find(c => 
+                                    c.email && c.email.toLowerCase() === email.toLowerCase()
+                                  );
+                                  
+                                  if (foundCustomer) {
+                                    setNameSuggestions([{
+                                      firstName: foundCustomer.firstName || foundCustomer.first_name || '',
+                                      lastName: foundCustomer.lastName || foundCustomer.last_name || '',
+                                      email: foundCustomer.email || ''
+                                    }]);
+                                    setShowNameSuggestions(true);
+                                  } else {
+                                    setNameSuggestions([]);
+                                    setShowNameSuggestions(false);
+                                  }
+                                } else {
+                                  setNameSuggestions([]);
+                                  setShowNameSuggestions(false);
+                                }
+                              } catch (err) {
+                                // customersAPI might not be available, that's okay
+                                setNameSuggestions([]);
+                                setShowNameSuggestions(false);
+                              }
+                            }
+                          } catch (err) {
+                            setNameSuggestions([]);
+                            setShowNameSuggestions(false);
+                          }
+                        } else {
+                          setNameSuggestions([]);
+                          setShowNameSuggestions(false);
+                        }
+                      }}
+                      onBlur={() => {
+                        // Delay hiding suggestions to allow click
+                        setTimeout(() => setShowNameSuggestions(false), 200);
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                    {showNameSuggestions && nameSuggestions.length > 0 && (
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                        {nameSuggestions.map((suggestion, idx) => (
+                          <div
+                            key={idx}
+                            onClick={() => {
+                              setLeadFormData({
+                                ...leadFormData,
+                                firstName: suggestion.firstName,
+                                lastName: suggestion.lastName,
+                                email: suggestion.email
+                              });
+                              setNameSuggestions([]);
+                              setShowNameSuggestions(false);
+                            }}
+                            className="px-4 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                          >
+                            <div className="text-sm font-medium text-gray-900">
+                              {suggestion.firstName} {suggestion.lastName}
+                            </div>
+                            <div className="text-xs text-gray-500">{suggestion.email}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 
                 <div>
@@ -598,13 +702,101 @@ const LeadsPipeline = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Source
                   </label>
-                  <input
-                    type="text"
-                    value={leadFormData.source}
-                    onChange={(e) => setLeadFormData({ ...leadFormData, source: e.target.value })}
-                    placeholder="e.g., Website, Referral, Cold Call"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
+                  <div className="relative">
+                    <div className="flex gap-2">
+                      <select
+                        value={leadFormData.source}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          if (value === '__custom__') {
+                            setCustomSource('');
+                            setShowSourceDropdown(true);
+                          } else {
+                            setLeadFormData({ ...leadFormData, source: value });
+                            setShowSourceDropdown(false);
+                          }
+                        }}
+                        onFocus={() => setShowSourceDropdown(true)}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="">Select a source...</option>
+                        {leadSources.map((source) => (
+                          <option key={source} value={source}>
+                            {source}
+                          </option>
+                        ))}
+                        <option value="__custom__">+ Add Custom Source</option>
+                      </select>
+                    </div>
+                    
+                    {showSourceDropdown && leadFormData.source === '__custom__' && (
+                      <div className="mt-2 p-3 bg-gray-50 border border-gray-300 rounded-lg">
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Custom Source Name
+                        </label>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={customSource}
+                            onChange={(e) => setCustomSource(e.target.value)}
+                            placeholder="Enter custom source name"
+                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && customSource.trim()) {
+                                e.preventDefault();
+                                const newSource = customSource.trim();
+                                if (!leadSources.includes(newSource)) {
+                                  const updatedSources = [...leadSources, newSource];
+                                  setLeadSources(updatedSources);
+                                  localStorage.setItem('leadSources', JSON.stringify(updatedSources));
+                                }
+                                setLeadFormData({ ...leadFormData, source: newSource });
+                                setCustomSource('');
+                                setShowSourceDropdown(false);
+                              }
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (customSource.trim()) {
+                                const newSource = customSource.trim();
+                                if (!leadSources.includes(newSource)) {
+                                  const updatedSources = [...leadSources, newSource];
+                                  setLeadSources(updatedSources);
+                                  localStorage.setItem('leadSources', JSON.stringify(updatedSources));
+                                }
+                                setLeadFormData({ ...leadFormData, source: newSource });
+                                setCustomSource('');
+                                setShowSourceDropdown(false);
+                              }
+                            }}
+                            className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                          >
+                            Add
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCustomSource('');
+                              setShowSourceDropdown(false);
+                              setLeadFormData({ ...leadFormData, source: '' });
+                            }}
+                            className="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Allow typing custom source directly if not in dropdown */}
+                    {leadFormData.source && !leadSources.includes(leadFormData.source) && leadFormData.source !== '__custom__' && (
+                      <div className="mt-1 text-xs text-gray-500">
+                        Press Enter or click outside to save as custom source
+                      </div>
+                    )}
+                  </div>
                 </div>
                 
                 <div>
@@ -751,16 +943,6 @@ const LeadsPipeline = () => {
             </div>
             
             <div className="overflow-y-auto flex-1 p-4 sm:p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold text-gray-900">Lead Details</h2>
-                <button
-                  onClick={() => setShowLeadDetailsModal(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              
               <div className="space-y-4">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">
