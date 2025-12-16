@@ -315,6 +315,19 @@ const TeamMemberDetails = () => {
   }
 
   const handleEditMember = () => {
+    setEditFormData({
+      first_name: teamMember?.first_name || '',
+      last_name: teamMember?.last_name || '',
+      email: teamMember?.email || '',
+      phone: teamMember?.phone || '',
+      role: teamMember?.role || '',
+      location: teamMember?.location || '',
+      city: teamMember?.city || '',
+      state: teamMember?.state || '',
+      zip_code: teamMember?.zip_code || '',
+      hourly_rate: teamMember?.hourly_rate || null,
+      commission_percentage: teamMember?.commission_percentage || null
+    })
     setEditing(true)
   }
 
@@ -1158,6 +1171,105 @@ const TeamMemberDetails = () => {
                               ? 'Worker' 
                               : teamMember?.role || 'Team Member'}
                     </span>
+                  </div>
+                  {/* Payment Settings Section */}
+                  <div className="border-t border-gray-200 pt-4 mt-4">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-3">Payment Settings</h3>
+                    
+                    <div className="flex flex-col sm:grid sm:grid-cols-3 gap-2 sm:gap-4 py-2">
+                      <span className="text-sm text-gray-600 font-medium sm:font-normal">Hourly Rate</span>
+                      <span className="text-sm text-gray-900 sm:col-span-2">
+                        {editing ? (
+                          <div className="flex items-center space-x-2">
+                            <span className="text-gray-500">$</span>
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={editFormData.hourly_rate !== undefined ? editFormData.hourly_rate : (teamMember?.hourly_rate || '')}
+                              onChange={(e) => setEditFormData({ ...editFormData, hourly_rate: parseFloat(e.target.value) || null })}
+                              className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="0.00"
+                            />
+                            <span className="text-xs text-gray-400">/hour</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center space-x-2">
+                            {teamMember?.hourly_rate 
+                              ? <span>${parseFloat(teamMember.hourly_rate).toFixed(2)}/hour</span>
+                              : <span className="text-gray-400 italic">Not set</span>
+                            }
+                            {!editing && (
+                              <button
+                                onClick={handleEditMember}
+                                className="text-xs text-blue-600 hover:text-blue-700 underline ml-2"
+                              >
+                                Set hourly rate
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </span>
+                    </div>
+                    
+                    <div className="flex flex-col sm:grid sm:grid-cols-3 gap-2 sm:gap-4 py-2">
+                      <span className="text-sm text-gray-600 font-medium sm:font-normal">Commission %</span>
+                      <span className="text-sm text-gray-900 sm:col-span-2">
+                        {editing ? (
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              max="100"
+                              value={editFormData.commission_percentage !== undefined ? editFormData.commission_percentage : (teamMember?.commission_percentage || '')}
+                              onChange={(e) => setEditFormData({ ...editFormData, commission_percentage: parseFloat(e.target.value) || null })}
+                              className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="0.00"
+                            />
+                            <span className="text-gray-500">%</span>
+                            <span className="text-xs text-gray-400">of job revenue</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center space-x-2">
+                            {teamMember?.commission_percentage 
+                              ? <span>{parseFloat(teamMember.commission_percentage).toFixed(2)}% of job revenue</span>
+                              : <span className="text-gray-400 italic">Not set</span>
+                            }
+                            {!editing && (
+                              <button
+                                onClick={handleEditMember}
+                                className="text-xs text-blue-600 hover:text-blue-700 underline ml-2"
+                              >
+                                Set commission
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </span>
+                    </div>
+                    
+                    {(teamMember?.hourly_rate || teamMember?.commission_percentage) && (
+                      <div className="flex flex-col sm:grid sm:grid-cols-3 gap-2 sm:gap-4 py-2">
+                        <span className="text-sm text-gray-600 font-medium sm:font-normal">Payment Method</span>
+                        <span className="text-sm text-gray-900 sm:col-span-2">
+                          {teamMember?.hourly_rate && teamMember?.commission_percentage 
+                            ? 'Hybrid (Hourly + Commission)'
+                            : teamMember?.hourly_rate 
+                              ? 'Hourly Rate Only'
+                              : 'Commission Percentage Only'
+                          }
+                        </span>
+                      </div>
+                    )}
+                    
+                    {!editing && !teamMember?.hourly_rate && !teamMember?.commission_percentage && (
+                      <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <p className="text-xs text-yellow-800">
+                          <strong>Note:</strong> Set an hourly rate or commission percentage to enable payroll calculations. Click "Edit" above to set payment settings.
+                        </p>
+                      </div>
+                    )}
                   </div>
                   <div className="flex flex-col sm:grid sm:grid-cols-3 gap-2 sm:gap-4 py-2">
                     <span className="text-sm text-gray-600 font-medium sm:font-normal">Role permissions</span>

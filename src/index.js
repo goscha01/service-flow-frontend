@@ -32,6 +32,9 @@ import ServiceFlowOnlineBooking from "./pages/serviceflow-online-booking"
 import ServiceFlowWebsiteEmbed from "./pages/serviceflow-website-embed"
 import ServiceFlowSettings from "./pages/serviceflow-settings"
 import TeamMemberDetails from "./pages/team-member-details"
+import TeamAvailabilityCalendar from "./pages/team-availability-calendar"
+import UnifiedCalendar from "./pages/unified-calendar"
+import Payroll from "./pages/payroll"
 import AddTeamMember from "./pages/add-team-member"
 import ServiceDetails from "./pages/service-details"
 import WhatsNewPage from "./pages/whats-new"
@@ -130,6 +133,9 @@ root.render(
       <Route path="/team" element={<ServiceFlowTeam />} />
       <Route path="/team/:memberId" element={<ProtectedRoute><TeamMemberDetails /></ProtectedRoute>} />
       <Route path="/add-team-member" element={<AddTeamMember />} />
+      <Route path="/team-availability" element={<ProtectedRoute><TeamAvailabilityCalendar /></ProtectedRoute>} />
+      <Route path="/calendar" element={<ProtectedRoute><UnifiedCalendar /></ProtectedRoute>} />
+      <Route path="/payroll" element={<ProtectedRoute><Payroll /></ProtectedRoute>} />
       <Route path="/services" element={<ServiceFlowServices />} />
       <Route path="/services/:serviceId" element={<ServiceDetails />} />
       <Route path="/services/:serviceId/:section" element={<ServiceDetails />} />

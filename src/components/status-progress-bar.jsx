@@ -1,7 +1,7 @@
 import React from 'react';
 import StatusHistoryTooltip from './status-history-tooltip';
 
-const StatusProgressBar = ({ currentStatus, onStatusChange, statusHistory, isReached = false, jobCreatedAt = null }) => {
+const StatusProgressBar = ({ currentStatus, onStatusChange, statusHistory, isReached = false, jobCreatedAt = null, invoiceStatus = null }) => {
   const statuses = [
     { key: 'scheduled', label: 'Scheduled', color: 'bg-green-500' },
     { key: 'en_route', label: 'En Route', color: 'bg-blue-500' },
@@ -77,7 +77,16 @@ const StatusProgressBar = ({ currentStatus, onStatusChange, statusHistory, isRea
   return (
     <div className="flex items-center w-full justify-between gap-2">
       {statuses.map((status, index) => {
-        const isActive = index <= currentIndex;
+        // For "Paid" status, only mark as active if invoice_status is actually 'paid'
+        let isActive;
+        if (status.key === 'paid') {
+          // Paid status is only active if invoice_status is 'paid'
+          isActive = invoiceStatus === 'paid';
+        } else {
+          // For other statuses, use the normal logic
+          isActive = index <= currentIndex;
+        }
+        
         const isCurrent = index === currentIndex;
         const backendStatus = mapStatusKeyToBackendStatus(status.key);
         // Only show tooltip for statuses that have been reached (passed or current)

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react"
+import { useNavigate } from "react-router-dom"
 import Sidebar from "../components/sidebar"
-import { Plus, Search, Filter, Users, TrendingUp, Calendar, DollarSign, Clock, Eye, Edit, Trash2, UserPlus, BarChart3, Mail, Phone, AlertCircle } from "lucide-react"
+import { Plus, Search, Filter, Users, TrendingUp, Calendar, DollarSign, Clock, Eye, Edit, Trash2, UserPlus, BarChart3, Mail, Phone, AlertCircle, Receipt } from "lucide-react"
 import { useAuth } from "../context/AuthContext"
 import { teamAPI } from "../services/api"
 import AddTeamMemberModal from "../components/add-team-member-modal"
@@ -8,6 +9,7 @@ import LoadingButton from "../components/loading-button"
 
 const TeamPage = () => {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [activeTab, setActiveTab] = useState("members")
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
@@ -207,13 +209,29 @@ const TeamPage = () => {
                   Manage your team members, track performance, and optimize productivity
                 </p>
               </div>
-              <button
-                onClick={handleAddMember}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                <UserPlus className="w-4 h-4 mr-2" />
-                Add Team Member
-              </button>
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={() => navigate('/calendar')}
+                  className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  <Calendar className="w-4 h-4 mr-2" />
+                  Calendar
+                </button>
+                <button
+                  onClick={() => navigate('/payroll')}
+                  className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  <Receipt className="w-4 h-4 mr-2" />
+                  Payroll
+                </button>
+                <button
+                  onClick={handleAddMember}
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Add Team Member
+                </button>
+              </div>
             </div>
           </div>
 

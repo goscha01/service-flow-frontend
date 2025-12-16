@@ -3,7 +3,7 @@ import Sidebar from "../components/sidebar"
 import JobsEmptyState from "../components/jobs-empty-state"
 import ExportJobsModal from "../components/export-jobs-modal"
 
-import { Plus, AlertCircle, Loader2, Eye, Calendar, Clock, MapPin, Users, DollarSign, Phone, Mail, FileText, CheckCircle, XCircle, PlayCircle, PauseCircle, MoreVertical, Download, Upload, ChevronDown, Search, ChevronUp, User, SlidersHorizontal, Home, Briefcase, Megaphone, Bell, Menu, UserX, X } from "lucide-react"
+import { Plus, AlertCircle, Loader2, Eye, Calendar, Clock, MapPin, Users, DollarSign, Phone, Mail, FileText, CheckCircle, XCircle, PlayCircle, PauseCircle, MoreVertical, Download, Upload, ChevronDown, Search, ChevronUp, User, SlidersHorizontal, Home, Briefcase, Megaphone, Bell, Menu, UserX, X, RotateCw } from "lucide-react"
 import { Link, useNavigate, useSearchParams } from "react-router-dom"
 import { jobsAPI, invoicesAPI, territoriesAPI, teamAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
@@ -54,7 +54,8 @@ const ServiceFlowJobs = () => {
     sortOrder: "DESC",
     territoryId: "",
     paymentMethod: "",
-    tag: ""
+    tag: "",
+    recurring: ""
   })
   const [isExportModalOpen, setIsExportModalOpen] = useState(false)
   const [showFilterModal, setShowFilterModal] = useState(false)
@@ -69,6 +70,7 @@ const ServiceFlowJobs = () => {
   const territoryDropdownRef = useRef(null)
   const assignedDropdownRef = useRef(null)
   const sortDropdownRef = useRef(null)
+  const recurringDropdownRef = useRef(null)
   
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -80,7 +82,8 @@ const ServiceFlowJobs = () => {
           invoiceStatus: invoiceStatusDropdownRef,
           territory: territoryDropdownRef,
           assigned: assignedDropdownRef,
-          sort: sortDropdownRef
+          sort: sortDropdownRef,
+          recurring: recurringDropdownRef
         }
         const ref = refs[openDropdown]
         if (ref && ref.current && !ref.current.contains(event.target)) {
@@ -132,18 +135,22 @@ const ServiceFlowJobs = () => {
         if (filters.sortBy === 'total_amount' && filters.sortOrder === 'DESC') return 'Sort by: Highest Amount'
         if (filters.sortBy === 'total_amount' && filters.sortOrder === 'ASC') return 'Sort by: Lowest Amount'
         return 'Sort by: Recent'
+      case 'recurring':
+        if (filters.recurring === 'recurring') return 'Recurring Only'
+        if (filters.recurring === 'one-time') return 'One-Time Only'
+        return 'All Jobs'
       default:
         return ''
     }
   }
 
-  // Reset page and jobs when filters or tab change
+  // Reset page and jobs when filters or tab change (except search which is debounced)
   useEffect(() => {
     setPage(1)
     setJobs([])
     setHasMore(true)
     setShowLoadMore(true)
-  }, [activeTab, filters.search, filters.status, filters.teamMember, filters.invoiceStatus, filters.sortBy, filters.sortOrder, filters.territoryId, filters.paymentMethod, filters.tag, filters.dateFrom, filters.dateTo])
+  }, [activeTab, filters.status, filters.teamMember, filters.invoiceStatus, filters.sortBy, filters.sortOrder, filters.territoryId, filters.paymentMethod, filters.tag, filters.dateFrom, filters.dateTo, filters.recurring])
 
   // Load more button handler
   const handleLoadMore = () => {
@@ -207,22 +214,36 @@ const ServiceFlowJobs = () => {
     }
   }, [user?.id, authLoading])
 
-  // Debounced search to prevent too many API calls
+  // Track previous search value to detect search-only changes
+  const prevSearchRef = useRef(filters.search)
+
+  // Fetch jobs when filters, tab, or page changes
   useEffect(() => {
     if (!authLoading && user?.id) {
+      const isSearchOnlyChange = prevSearchRef.current !== filters.search && 
+        prevSearchRef.current !== undefined
+      
+      // Debounce only search changes, apply other filters immediately
+      const delay = isSearchOnlyChange ? 300 : 0
+      
+      prevSearchRef.current = filters.search
+      
       const timeoutId = setTimeout(() => {
         fetchJobs()
-      }, 300) // 300ms delay
+      }, delay)
 
       return () => clearTimeout(timeoutId)
     } else if (!authLoading && !user?.id) {
       // If auth is done loading but no user, redirect to signin
       navigate('/signin')
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, filters, user?.id, authLoading, page])
 
   const fetchJobs = async () => {
-    if (!user?.id || !hasMore) return
+    if (!user?.id) return
+    // Don't check hasMore here - let the API call determine if there are more results
+    // hasMore check should only apply when loading more pages (page > 1)
 
     try {
       if (page === 1) {
@@ -288,7 +309,8 @@ const ServiceFlowJobs = () => {
         filters.teamMember,
         filters.invoiceStatus,
         undefined, // customerId
-        filters.territoryId // pass territoryId to API
+        filters.territoryId, // pass territoryId to API
+        filters.recurring // pass recurring filter to API
       )
 
       const newJobs = response.jobs || []
@@ -905,6 +927,48 @@ const ServiceFlowJobs = () => {
                         {territory.name || `Territory ${territory.id}`}
                       </button>
                     ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Recurring Filter */}
+              <div className="relative" ref={recurringDropdownRef}>
+                <button
+                  onClick={() => setOpenDropdown(openDropdown === 'recurring' ? null : 'recurring')}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-200 transition-colors flex items-center gap-2 whitespace-nowrap"
+                >
+                  {getFilterLabel('recurring')}
+                  {openDropdown === 'recurring' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </button>
+                {openDropdown === 'recurring' && (
+                  <div className="absolute top-full mt-1 right-0 bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[180px] z-50">
+                    <button
+                      onClick={() => {
+                        setFilters(prev => ({ ...prev, recurring: '' }))
+                        setOpenDropdown(null)
+                      }}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${!filters.recurring ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
+                    >
+                      All Jobs
+                    </button>
+                    <button
+                      onClick={() => {
+                        setFilters(prev => ({ ...prev, recurring: 'recurring' }))
+                        setOpenDropdown(null)
+                      }}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${filters.recurring === 'recurring' ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
+                    >
+                      Recurring Only
+                    </button>
+                    <button
+                      onClick={() => {
+                        setFilters(prev => ({ ...prev, recurring: 'one-time' }))
+                        setOpenDropdown(null)
+                      }}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${filters.recurring === 'one-time' ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
+                    >
+                      One-Time Only
+                    </button>
                   </div>
                 )}
               </div>

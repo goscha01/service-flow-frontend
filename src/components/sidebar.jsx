@@ -8,6 +8,7 @@ import {
   Home,
   MessageSquare,
   Calendar,
+  CalendarDays,
   Briefcase,
   FileText,
   RotateCcw,
@@ -24,6 +25,7 @@ import {
   Phone,
   Zap,
   Target,
+  Receipt,
 } from "lucide-react"
 
 const Sidebar = ({ isOpen, onClose }) => {
@@ -37,6 +39,7 @@ const Sidebar = ({ isOpen, onClose }) => {
     { icon: Home, label: "Dashboard", path: "/dashboard" },
     { icon: MessageSquare, label: "Requests", path: "/request" },
     { icon: Calendar, label: "Schedule", path: "/schedule" },
+    { icon: CalendarDays, label: "Calendar", path: "/calendar" },
     { icon: Briefcase, label: "Jobs", path: "/jobs" },
     { icon: FileText, label: "Estimates", path: "/estimates", hidden: true },
     { icon: FileText, label: "Invoices", path: "/invoices", hidden: true },
@@ -45,6 +48,7 @@ const Sidebar = ({ isOpen, onClose }) => {
     { icon: Users, label: "Customers", path: "/customers" },
     { icon: Target, label: "Leads", path: "/leads" },
     { icon: UserCheck, label: "Team", path: "/team" },
+    { icon: Receipt, label: "Payroll", path: "/payroll" },
     { icon: Wrench, label: "Services", path: "/services" },
     { icon: Tag, label: "Coupons", path: "/coupons", hidden: true },
     { icon: MapPin, label: "Territories", path: "/territories" },
@@ -58,10 +62,20 @@ const Sidebar = ({ isOpen, onClose }) => {
     return filterSidebarItems(allSidebarItems, user)
   }, [user])
 
-  const integrationItems = [
-    { icon: Phone, label: "SMS Settings", path: "/settings/sms-settings" },
-    { icon: Zap, label: "Stripe Connect", path: "/settings/stripe-connect" },
-  ]
+  // Filter integration items - hide Stripe Connect and SMS Settings for workers
+  const integrationItems = useMemo(() => {
+    const items = [
+      { icon: Phone, label: "SMS Settings", path: "/settings/sms-settings" },
+      { icon: Zap, label: "Stripe Connect", path: "/settings/stripe-connect" },
+    ]
+    
+    // Hide integration items for workers
+    if (getUserRole(user) === 'worker') {
+      return []
+    }
+    
+    return items
+  }, [user])
 
   const handleNavigation = (path) => {
     navigate(path)
@@ -136,12 +150,13 @@ const Sidebar = ({ isOpen, onClose }) => {
           </ul>
 
           {/* Integrations Section */}
-          <div className="mt-6">
-            <h3 className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 md:hidden lg:block">
-              Integrations
-            </h3>
-            <ul className="space-y-1">
-              {integrationItems.map((item, index) => {
+          {integrationItems.length > 0 && (
+            <div className="mt-6">
+              <h3 className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 md:hidden lg:block">
+                Integrations
+              </h3>
+              <ul className="space-y-1">
+                {integrationItems.map((item, index) => {
                 const Icon = item.icon
                 const isActive = location.pathname === item.path
                 return (
@@ -163,8 +178,9 @@ const Sidebar = ({ isOpen, onClose }) => {
                   </li>
                 )
               })}
-            </ul>
-          </div>
+              </ul>
+            </div>
+          )}
         </nav>
 
         {/* User Profile */}

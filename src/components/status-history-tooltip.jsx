@@ -124,6 +124,39 @@ const StatusHistoryTooltip = ({ statusHistory, status, children, isReached = fal
     return statusMap[statusValue?.toLowerCase()] || statusValue || 'Unknown';
   };
 
+  // Calculate elapsed time between started and completed statuses
+  const getElapsedTimeAfterStarted = (currentEntry) => {
+    // Only calculate for completed status
+    const isCompleted = currentEntry.status === 'completed' || currentEntry.status === 'complete';
+    if (!isCompleted) return null;
+
+    // Find the "started" or "in-progress" status entry
+    const startedEntry = history
+      .filter(entry => {
+        const entryStatus = entry.status?.toLowerCase();
+        return entryStatus === 'started' || 
+               entryStatus === 'in-progress' || 
+               entryStatus === 'in_progress' || 
+               entryStatus === 'in_prog';
+      })
+      .sort((a, b) => new Date(b.changed_at) - new Date(a.changed_at))[0]; // Get most recent started entry
+
+    if (!startedEntry || !startedEntry.changed_at) return null;
+
+    try {
+      const startedTime = new Date(startedEntry.changed_at);
+      const completedTime = new Date(currentEntry.changed_at);
+      const diffInMinutes = Math.floor((completedTime - startedTime) / (1000 * 60));
+      
+      if (diffInMinutes < 0) return null; // Invalid if negative
+      
+      return diffInMinutes;
+    } catch (e) {
+      console.error('Error calculating elapsed time:', e);
+      return null;
+    }
+  };
+
   // Get action description
   const getActionDescription = (entry) => {
     const statusLabel = getStatusLabel(entry.status);
@@ -199,6 +232,17 @@ const StatusHistoryTooltip = ({ statusHistory, status, children, isReached = fal
             <div className="text-base font-bold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
               {getActionDescription(currentStatusEntry)}
             </div>
+            {(() => {
+              const elapsedMinutes = getElapsedTimeAfterStarted(currentStatusEntry);
+              if (elapsedMinutes !== null) {
+                return (
+                  <div className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                    {elapsedMinutes} {elapsedMinutes === 1 ? 'min' : 'min'} after job started
+                  </div>
+                );
+              }
+              return null;
+            })()}
             {currentStatusEntry.changed_by && (
               <div className="text-sm text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                 Via {currentStatusEntry.changed_by}

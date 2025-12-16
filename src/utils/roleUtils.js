@@ -114,9 +114,15 @@ export const canAccessRoute = (user, path) => {
   
   // Workers have limited access - only specific routes
   if (role === 'worker') {
+    // Explicitly deny access to Stripe Connect and SMS Settings for workers
+    if (path === '/settings/stripe-connect' || path === '/settings/sms-settings') {
+      return false;
+    }
+    
     const allowedRoutes = [
       '/dashboard',
       '/schedule',
+      '/calendar',
       '/jobs',
       '/job', // Job details pages (matches /job/:jobId)
       '/availability', // Availability page (mobile view)
@@ -151,6 +157,7 @@ export const canAccessRoute = (user, path) => {
       }
       if (route === '/settings') {
         // Allow /settings route (will redirect team members to their profile)
+        // But exclude integration routes which are already denied above
         return path === '/settings' || path.startsWith('/settings/');
       }
       if (route.endsWith('/')) {
@@ -198,6 +205,7 @@ export const getAllowedSidebarItems = (user) => {
       '/dashboard',
       '/request',
       '/schedule',
+      '/calendar',
       '/jobs',
       '/estimates',
       '/invoices',
@@ -206,6 +214,7 @@ export const getAllowedSidebarItems = (user) => {
       '/customers',
       '/leads',
       '/team',
+      '/payroll',
       '/services',
       '/coupons',
       '/territories',
@@ -228,6 +237,7 @@ export const getAllowedSidebarItems = (user) => {
       '/dashboard',
       '/request',
       '/schedule',
+      '/calendar',
       '/jobs',
       '/estimates',
       '/invoices',
@@ -246,6 +256,7 @@ export const getAllowedSidebarItems = (user) => {
     return [
       '/dashboard',
       '/schedule',
+      '/calendar',
       '/jobs',
       '/availability',
       '/settings',
@@ -257,6 +268,7 @@ export const getAllowedSidebarItems = (user) => {
     '/dashboard',
     '/request',
     '/schedule',
+    '/calendar',
     '/jobs',
     '/estimates',
     '/invoices',
