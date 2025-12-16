@@ -1835,7 +1835,25 @@ const JobDetails = () => {
   // Format arrival window
   const formatArrivalWindow = () => {
     if (!job?.scheduled_date) return ''
-    const scheduledDate = new Date(job.scheduled_date)
+    
+    // Parse scheduled_date correctly - it's stored as string "YYYY-MM-DD HH:MM:SS"
+    let scheduledDate;
+    if (typeof job.scheduled_date === 'string' && job.scheduled_date.includes(' ')) {
+      // Extract time directly from string to avoid timezone issues
+      const [datePart, timePart] = job.scheduled_date.split(' ');
+      const [hours, minutes] = timePart.split(':').map(Number);
+      scheduledDate = new Date(datePart);
+      scheduledDate.setHours(hours || 0, minutes || 0, 0, 0);
+    } else if (typeof job.scheduled_date === 'string' && job.scheduled_date.includes('T')) {
+      // Handle ISO format
+      const [datePart, timePart] = job.scheduled_date.split('T');
+      const [hours, minutes] = timePart.split(':').map(Number);
+      scheduledDate = new Date(datePart);
+      scheduledDate.setHours(hours || 0, minutes || 0, 0, 0);
+    } else {
+      scheduledDate = new Date(job.scheduled_date);
+    }
+    
     const duration = parseInt(job.service_duration || job.duration || 60)
     const startTime = new Date(scheduledDate)
     const endTime = new Date(scheduledDate.getTime() + duration * 60000)
@@ -2389,39 +2407,39 @@ const JobDetails = () => {
               })()}
             </div>
             {canEditJobDetails(user) && (
-              <div className="pt-3 border-t border-gray-200">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-900">Offer job to service providers</span>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={job?.offer_to_providers || false}
+            <div className="pt-3 border-t border-gray-200">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-gray-900">Offer job to service providers</span>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={job?.offer_to_providers || false}
                       disabled={loading}
-                      onChange={async (e) => {
-                        try {
-                          setLoading(true)
+                    onChange={async (e) => {
+                      try {
+                        setLoading(true)
                           // Send as offerToProviders (camelCase) to match backend mapping
                           await jobsAPI.update(job.id, { offerToProviders: e.target.checked })
-                          setJob(prev => ({ ...prev, offer_to_providers: e.target.checked }))
-                          setSuccessMessage(`Job ${e.target.checked ? 'offered' : 'removed from'} service providers`)
-                          setTimeout(() => setSuccessMessage(''), 3000)
-                        } catch (error) {
+                        setJob(prev => ({ ...prev, offer_to_providers: e.target.checked }))
+                        setSuccessMessage(`Job ${e.target.checked ? 'offered' : 'removed from'} service providers`)
+                        setTimeout(() => setSuccessMessage(''), 3000)
+                      } catch (error) {
                           console.error('Error updating offer status:', error)
                           setError(error.response?.data?.error || 'Failed to update job offer status')
                           setTimeout(() => setError(''), 5000)
-                        } finally {
-                          setLoading(false)
-                        }
-                      }}
-                      className="sr-only peer"
-                    />
+                      } finally {
+                        setLoading(false)
+                      }
+                    }}
+                    className="sr-only peer"
+                  />
                     <div className={`w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}></div>
-                  </label>
-                </div>
-                <p className="text-xs text-gray-600">
-                  Allows qualified, available providers to see and claim this job. <button className="text-blue-600 hover:text-blue-700">Learn more</button>
-                </p>
+                </label>
               </div>
+              <p className="text-xs text-gray-600">
+                  Allows qualified, available providers to see and claim this job. <button className="text-blue-600 hover:text-blue-700">Learn more</button>
+              </p>
+            </div>
             )}
           </div>
         </div>
@@ -2673,6 +2691,7 @@ const JobDetails = () => {
               onStatusChange={handleStatusUpdate}
               statusHistory={job?.status_history}
               jobCreatedAt={job?.created_at}
+              invoiceStatus={job?.invoice_status}
             />
           </div>
         </div>
@@ -3705,12 +3724,12 @@ const JobDetails = () => {
 
                 {/* Offer job to service providers Section */}
                 {canEditJobDetails(user) && (
-                  <div className="px-6 pt-1 pb-3">
-                    <div className="flex items-center justify-between mb-1">
-                      <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="font-medium text-gray-700 text-sm">Offer job to service providers</span>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input 
-                          type="checkbox" 
+                <div className="px-6 pt-1 pb-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="font-medium text-gray-700 text-sm">Offer job to service providers</span>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input 
+                        type="checkbox" 
                           checked={job?.offer_to_providers || false}
                           disabled={loading}
                           onChange={async (e) => {
@@ -3728,17 +3747,17 @@ const JobDetails = () => {
                             } finally {
                               setLoading(false)
                             }
-                          }}
-                          className="sr-only peer" 
-                        />
+                        }}
+                        className="sr-only peer" 
+                      />
                         <div className={`w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}></div>
-                      </label>
-                    </div>
-                    <p className="text-xs text-gray-600">
-                      Allows qualified, available providers to see and claim this job. 
-                      <button className="text-blue-600 hover:text-blue-700 ml-1">Learn more</button>
-                    </p>
+                    </label>
                   </div>
+                  <p className="text-xs text-gray-600">
+                    Allows qualified, available providers to see and claim this job. 
+                    <button className="text-blue-600 hover:text-blue-700 ml-1">Learn more</button>
+                  </p>
+                </div>
                 )}
               </div>
             </div>
@@ -4214,11 +4233,11 @@ const JobDetails = () => {
         </div>
         </div>
       </div>
-    </div>
+        </div>
 
     {/* Modals - Rendered outside main container for proper z-index stacking */}
-    {/* Reschedule Modal */}
-      {showRescheduleModal && (
+        {/* Reschedule Modal */}
+        {showRescheduleModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
               <div className="p-6">
@@ -4311,8 +4330,8 @@ const JobDetails = () => {
           </div>
         )}
 
-    {/* Edit Service Modal */}
-    {showEditServiceModal && (
+        {/* Edit Service Modal */}
+        {showEditServiceModal && (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col">
               <div className="p-6 flex-1 overflow-y-auto">
@@ -6051,7 +6070,7 @@ const JobDetails = () => {
           </div>
         )}
 
-    {/* Modals - Rendered outside main container for proper z-index stacking */}
+      {/* Modals - Rendered outside main container for proper z-index stacking */}
       {/* Edit Customer Modal - Mobile View */}
       {showEditCustomerModal && (
         <div className="lg:hidden fixed inset-0 bg-white z-[99999] flex flex-col" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}>

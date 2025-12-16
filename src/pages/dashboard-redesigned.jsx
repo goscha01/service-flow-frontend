@@ -1058,7 +1058,17 @@ const DashboardRedesigned = () => {
                 {/* Overview Section */}
                 <div className="">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 gap-3 sm:gap-0">
-                    <h2 className="text-sm sm:text-md font-semibold text-gray-600"><span className="text-gray-900 font-bold text-xl sm:text-2xl">Overview </span><span className="hidden sm:inline">Oct 19 - Today</span></h2>
+                    <h2 className="text-sm sm:text-md font-semibold text-gray-600">
+                      <span className="text-gray-900 font-bold text-xl sm:text-2xl">Overview </span>
+                      <span className="hidden sm:inline">
+                        {(() => {
+                          const daysAgo = parseInt(dateRange) - 1;
+                          const startDate = new Date();
+                          startDate.setDate(startDate.getDate() - daysAgo);
+                          return `${startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - Today`;
+                        })()}
+                      </span>
+                    </h2>
 
                     {/* Custom Date Range Dropdown */}
                     <div className="relative" ref={dateRangeDropdownRef}>

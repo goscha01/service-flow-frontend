@@ -25,6 +25,8 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
     isActive: true,
     color: "#2563EB",
     territories: [],
+    hourlyRate: null,
+    commissionPercentage: null,
     availability: {
       monday: { start: "09:00", end: "17:00", available: true },
       tuesday: { start: "09:00", end: "17:00", available: true },
@@ -116,6 +118,8 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
         isServiceProvider: member.is_service_provider !== false,
         color: member.color || "#2563EB",
         territories: parsedTerritories,
+        hourlyRate: member.hourly_rate || null,
+        commissionPercentage: member.commission_percentage || null,
         availability: parsedAvailability,
         permissions: (() => {
           // When editing, use ONLY the saved permissions - no defaults
@@ -158,6 +162,8 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
         isActive: true,
         color: "#2563EB",
         territories: [],
+        hourlyRate: null,
+        commissionPercentage: null,
         availability: {
           monday: { start: "09:00", end: "17:00", available: true },
           tuesday: { start: "09:00", end: "17:00", available: true },
@@ -479,6 +485,8 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
         role: formData.role,
         isServiceProvider: formData.isServiceProvider,
         territories: formData.territories,
+        hourlyRate: formData.hourlyRate || null,
+        commissionPercentage: formData.commissionPercentage || null,
         permissions: typeof formData.permissions === 'string' 
           ? formData.permissions 
           : JSON.stringify(formData.permissions || {}),
@@ -659,6 +667,89 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
                     {formData.isServiceProvider ? 'YES' : 'NO'}
                   </span>
                 </div>
+              </div>
+            </div>
+
+            {/* Payment Settings Section */}
+            <div className="border-t border-gray-200 pt-4">
+              <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
+                <DollarSign className="w-4 h-4 mr-2 text-gray-600" />
+                Payment Settings
+              </h3>
+              <p className="text-xs text-gray-500 mb-3">
+                Set how this team member gets paid for payroll calculations.
+              </p>
+              
+              <div className="space-y-3">
+                {/* Hourly Rate */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Hourly Rate
+                  </label>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-gray-500">$</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={formData.hourlyRate !== null && formData.hourlyRate !== undefined ? formData.hourlyRate : ''}
+                      onChange={(e) => handleInputChange('hourlyRate', e.target.value ? parseFloat(e.target.value) : null)}
+                      className="flex-1 text-xs px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                      placeholder="0.00"
+                    />
+                    <span className="text-xs text-gray-400">/hour</span>
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Salary = Hours Worked × Hourly Rate
+                  </p>
+                </div>
+
+                {/* Commission Percentage */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Commission Percentage
+                  </label>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      value={formData.commissionPercentage !== null && formData.commissionPercentage !== undefined ? formData.commissionPercentage : ''}
+                      onChange={(e) => handleInputChange('commissionPercentage', e.target.value ? parseFloat(e.target.value) : null)}
+                      className="flex-1 text-xs px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                      placeholder="0.00"
+                    />
+                    <span className="text-gray-500">%</span>
+                    <span className="text-xs text-gray-400">of job revenue</span>
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Commission = Job Revenue × Commission %
+                  </p>
+                </div>
+
+                {/* Payment Method Info */}
+                {(formData.hourlyRate || formData.commissionPercentage) && (
+                  <div className="p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-xs text-blue-800">
+                      <strong>Payment Method:</strong> {
+                        formData.hourlyRate && formData.commissionPercentage
+                          ? 'Hybrid (Hourly + Commission)'
+                          : formData.hourlyRate
+                            ? 'Hourly Rate Only'
+                            : 'Commission Percentage Only'
+                      }
+                    </p>
+                  </div>
+                )}
+
+                {!formData.hourlyRate && !formData.commissionPercentage && (
+                  <div className="p-2 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <p className="text-xs text-yellow-800">
+                      <strong>Note:</strong> Set at least one payment method to enable payroll calculations.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 

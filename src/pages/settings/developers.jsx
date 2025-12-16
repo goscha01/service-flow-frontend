@@ -16,6 +16,7 @@ const Developers = () => {
   const [importedJobsCount, setImportedJobsCount] = useState(0)
   const [loadingCount, setLoadingCount] = useState(true)
   const [deleting, setDeleting] = useState(false)
+  const [deleteProgress, setDeleteProgress] = useState({ deleted: 0, total: 0 })
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
@@ -43,16 +44,20 @@ const Developers = () => {
   const handleDeleteImportedJobs = async () => {
     try {
       setDeleting(true)
+      setDeleteProgress({ deleted: 0, total: importedJobsCount })
       const params = {}
       if (useDateRange && startDate) params.startDate = startDate
       if (useDateRange && endDate) params.endDate = endDate
       const response = await jobsAPI.deleteImportedJobs(params)
+      setDeleteProgress({ deleted: response.deleted, total: importedJobsCount })
       showNotification(`Successfully deleted ${response.deleted} imported job(s)`, 'success', 5000)
       setShowDeleteConfirm(false)
+      setDeleteProgress({ deleted: 0, total: 0 })
       await loadImportedJobsCount() // Reload count after deletion
     } catch (error) {
       const errorMessage = error.response?.data?.error || error.message || 'Failed to delete imported jobs'
       showNotification(errorMessage, 'error', 5000)
+      setDeleteProgress({ deleted: 0, total: 0 })
     } finally {
       setDeleting(false)
     }
@@ -258,12 +263,47 @@ const Developers = () => {
                     Delete {useDateRange && (startDate || endDate) ? 'Filtered' : 'All'} Imported Jobs?
                   </h3>
                   <p className="text-sm text-gray-600 mb-4">
+                    {deleting ? (
+                      <>
+                        Deleting <strong>{importedJobsCount.toLocaleString()} imported job(s)</strong>
+                        {useDateRange && (startDate || endDate) && (
+                          <span> within the date range ({startDate || 'any'} to {endDate || 'any'})</span>
+                        )}
+                        {' '}and all associated data. This may take a few minutes...
+                      </>
+                    ) : (
+                      <>
                     This will permanently delete <strong>{importedJobsCount.toLocaleString()} imported job(s)</strong>
                     {useDateRange && (startDate || endDate) && (
                       <span> within the date range ({startDate || 'any'} to {endDate || 'any'})</span>
                     )}
                     {' '}and all associated data (transactions, assignments, etc.). This action cannot be undone.
+                      </>
+                    )}
                   </p>
+                  
+                  {deleting && deleteProgress.total > 0 && (
+                    <div className="mb-4">
+                      <div className="flex justify-between text-xs text-gray-600 mb-1">
+                        <span>Deleting jobs...</span>
+                        <span>{deleteProgress.deleted > 0 ? `${deleteProgress.deleted.toLocaleString()} / ${deleteProgress.total.toLocaleString()}` : 'Processing...'}</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div 
+                          className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                          style={{ 
+                            width: deleteProgress.deleted > 0 
+                              ? `${Math.min((deleteProgress.deleted / deleteProgress.total) * 100, 100)}%` 
+                              : '10%'
+                          }}
+                        ></div>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2">
+                        Please wait while jobs are being deleted. Do not close this window.
+                      </p>
+                    </div>
+                  )}
+                  
                   <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
                     <button
                       onClick={() => setShowDeleteConfirm(false)}

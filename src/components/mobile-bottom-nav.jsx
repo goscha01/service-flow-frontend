@@ -9,6 +9,7 @@ import {
   Home,
   Briefcase,
   Calendar,
+  CalendarDays,
   Megaphone,
   Bell,
   Menu,
@@ -29,6 +30,7 @@ import {
   LogOut,
   Clock,
   Target,
+  Receipt,
 } from "lucide-react"
 
 const MobileBottomNav = ({ teamMembers = [] }) => {
@@ -53,6 +55,7 @@ const MobileBottomNav = ({ teamMembers = [] }) => {
     { icon: Home, label: "Dashboard", path: "/dashboard" },
     { icon: MessageSquare, label: "Requests", path: "/request" },
     { icon: Calendar, label: "Schedule", path: "/schedule" },
+    { icon: CalendarDays, label: "Calendar", path: "/calendar" },
     { icon: Briefcase, label: "Jobs", path: "/jobs" },
     { icon: FileText, label: "Estimates", path: "/estimates", hidden: true },
     { icon: FileText, label: "Invoices", path: "/invoices", hidden: true },
@@ -61,6 +64,7 @@ const MobileBottomNav = ({ teamMembers = [] }) => {
     { icon: Users, label: "Customers", path: "/customers" },
     { icon: Target, label: "Leads", path: "/leads" },
     { icon: UserCheck, label: "Team", path: "/team" },
+    { icon: Receipt, label: "Payroll", path: "/payroll" },
     { icon: Wrench, label: "Services", path: "/services" },
     { icon: Tag, label: "Coupons", path: "/coupons", hidden: true },
     { icon: MapPin, label: "Territories", path: "/territories" },

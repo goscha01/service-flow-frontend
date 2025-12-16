@@ -47,6 +47,7 @@ import { jobsAPI } from "../services/api"
 import { normalizeAPIResponse } from "../utils/dataHandler"
 import { getImageUrl } from "../utils/imageUtils"
 import { formatRecurringFrequencyCompact } from "../utils/recurringUtils"
+import RecurringIndicator from "../components/recurring-indicator"
 import AssignJobModal from "../components/assign-job-modal"
 import StatusHistoryTooltip from "../components/status-history-tooltip"
 import MobileBottomNav from "../components/mobile-bottom-nav"
@@ -96,6 +97,7 @@ const ServiceFlowSchedule = () => {
   const [statusFilter, setStatusFilter] = useState('all') // all, pending, in_progress, completed, cancelled
   const [timeRangeFilter, setTimeRangeFilter] = useState('all') // all, today, tomorrow, this_week, this_month
   const [territoryFilter, setTerritoryFilter] = useState('all') // all or territory ID
+  const [recurringFilter, setRecurringFilter] = useState('all') // all, recurring, one-time
   const [filteredJobs, setFilteredJobs] = useState([])
   const [showCalendar, setShowCalendar] = useState(false)
   const calendarRef = useRef(null)
@@ -525,8 +527,16 @@ const ServiceFlowSchedule = () => {
       )
     }
     
+    // Recurring filter
+    if (recurringFilter === 'recurring') {
+      filtered = filtered.filter(job => job.is_recurring === true)
+    } else if (recurringFilter === 'one-time') {
+      filtered = filtered.filter(job => !job.is_recurring || job.is_recurring === false)
+    }
+    // If recurringFilter === 'all', show all jobs
+    
     setFilteredJobs(filtered)
-  }, [jobs, selectedFilter, statusFilter, timeRangeFilter, territoryFilter, user])
+  }, [jobs, selectedFilter, statusFilter, timeRangeFilter, territoryFilter, recurringFilter, user])
 
   // Fetch user availability/business hours
   const fetchUserAvailability = useCallback(async () => {
@@ -589,7 +599,7 @@ const ServiceFlowSchedule = () => {
 
   useEffect(() => {
     applyFilters()
-  }, [jobs, selectedFilter, statusFilter, timeRangeFilter, territoryFilter, applyFilters])
+  }, [jobs, selectedFilter, statusFilter, timeRangeFilter, territoryFilter, recurringFilter, applyFilters])
 
   const formatDate = (date) => {
     return date.toLocaleDateString('en-US', { 
@@ -598,6 +608,50 @@ const ServiceFlowSchedule = () => {
       day: 'numeric', 
       year: 'numeric' 
     })
+  }
+
+  // Get duration from job object - checks all possible fields
+  const getJobDuration = (job) => {
+    if (!job) return 0;
+    
+    // Debug: Log the job to see what fields are available
+    // console.log('Job duration fields:', { 
+    //   service_duration: job.service_duration,
+    //   duration: job.duration,
+    //   estimated_duration: job.estimated_duration,
+    //   service: job.service,
+    //   services: job.services
+    // });
+    
+    // Check all possible duration fields in order of priority
+    // Try estimated_duration first as it's often the most accurate
+    let duration = job.estimated_duration || 
+                   job.service_duration || 
+                   job.duration ||
+                   (job.service && (job.service.duration || job.service.service_duration || job.service.estimated_duration)) ||
+                   (job.services && (job.services.duration || job.services.service_duration || job.services.estimated_duration)) ||
+                   0;
+    
+    // Parse to integer, defaulting radix to 10
+    duration = parseInt(duration, 10);
+    
+    // If duration is 0 or invalid, return 0 (don't use NaN)
+    return isNaN(duration) ? 0 : duration;
+  }
+
+  // Format duration for display (compact format: "5h 30m" or "5h" or "30m")
+  // Always shows minutes if they exist
+  const formatDuration = (minutes) => {
+    if (!minutes || minutes === 0) return '';
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    if (hours > 0 && mins > 0) {
+      return `${hours}h ${mins}m`;
+    } else if (hours > 0) {
+      return `${hours}h`;
+    } else {
+      return `${mins}m`;
+    }
   }
 
   // Normalize status to a standard format
@@ -2268,7 +2322,7 @@ const ServiceFlowSchedule = () => {
   const getSummaryStats = () => {
     const totalJobs = filteredJobs.length
     const totalDuration = filteredJobs.reduce((sum, job) => {
-      const duration = parseInt(job.service_duration || 0)
+      const duration = getJobDuration(job)
       return sum + duration
     }, 0)
     const totalEarnings = filteredJobs.reduce((sum, job) => {
@@ -2369,9 +2423,41 @@ const ServiceFlowSchedule = () => {
         
         {/* Mobile view - shown on mobile, hidden on desktop */}
         <div className="lg:hidden min-h-screen bg-gray-50 pb-20 w-full max-w-full overflow-x-hidden">
-        {/* Mobile Header - Date Selector Only */}
+        {/* Mobile Header - Date Selector and Tabs */}
         <div className="lg:hidden bg-white border-b border-gray-200 sticky top-0 z-20">
-          <div className="flex items-center justify-between px-4 py-3">
+          {/* Tabs - Jobs and Availability */}
+          <div className="px-4 pt-3 pb-2">
+            <div className="relative bg-gray-50 rounded-2xl p-1 inline-flex gap-1 w-full">
+              <button
+                type="button"
+                onClick={() => setActiveTab('jobs')}
+                className={`relative flex-1 px-2 py-1.5 rounded-xl text-xs font-medium transition-all duration-200 whitespace-nowrap ${
+                  activeTab === 'jobs'
+                    ? 'text-blue-600 bg-white'
+                    : 'text-gray-900'
+                }`}
+                style={{fontFamily: 'Montserrat', fontWeight: 600}}
+              >
+                Jobs
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('availability')}
+                className={`relative flex-1 px-2 py-1.5 rounded-xl text-xs font-medium transition-all duration-200 whitespace-nowrap ${
+                  activeTab === 'availability'
+                    ? 'text-blue-600 bg-white'
+                    : 'text-gray-900'
+                }`}
+                style={{fontFamily: 'Montserrat', fontWeight: 600}}
+              >
+                Availability
+              </button>
+            </div>
+          </div>
+          
+          {/* Date Selector - Only show for Jobs tab */}
+          {activeTab === 'jobs' && (
+            <div className="flex items-center justify-between px-4 pb-3">
             {/* Left spacer for centering */}
             <div className="w-10"></div>
             
@@ -2391,6 +2477,30 @@ const ServiceFlowSchedule = () => {
             {/* Right spacer for centering */}
             <div className="w-10"></div>
           </div>
+          )}
+          
+          {/* Availability Month Selector - Only show for Availability tab */}
+          {activeTab === 'availability' && (
+            <div className="flex items-center justify-between px-4 pb-3">
+              <div className="flex items-center bg-gray-200 rounded-full px-3 py-1.5">
+                <button
+                  onClick={() => navigateAvailabilityMonth(-1)}
+                  className="p-1 hover:bg-gray-300 rounded-full transition-colors"
+                >
+                  <ChevronLeft className="w-4 h-4 text-gray-700" />
+                </button>
+                <span className="text-sm font-semibold text-gray-900 mx-3">
+                  {availabilityMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                </span>
+                <button
+                  onClick={() => navigateAvailabilityMonth(1)}
+                  className="p-1 hover:bg-gray-300 rounded-full transition-colors"
+                >
+                  <ChevronRight className="w-4 h-4 text-gray-700" />
+                </button>
+              </div>
+            </div>
+          )}
           
           {/* Calendar Popup */}
           {showCalendar && (
@@ -2602,6 +2712,16 @@ const ServiceFlowSchedule = () => {
                 hour12: true 
               })
               
+              // Duration is in minutes, ensure it's a number - check all possible duration fields
+              const duration = getJobDuration(job);
+              const endTime = new Date(jobDate.getTime() + duration * 60000);
+              const endTimeString = endTime.toLocaleTimeString('en-US', { 
+                hour: 'numeric', 
+                minute: '2-digit',
+                hour12: true 
+              });
+              const durationFormatted = formatDuration(duration);
+              
               const customerName = getCustomerName(job) || 'Customer'
               const serviceName = job.service_name || job.service_type || 'Service'
               
@@ -2626,9 +2746,9 @@ const ServiceFlowSchedule = () => {
                   <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-blue-600 flex-shrink-0 mt-1.5 sm:mt-1" />
                   
                   <div className="flex-1 min-w-0 overflow-hidden">
-                    {/* Time */}
-                    <div className="text-sm sm:text-base font-semibold text-gray-900 mb-1 truncate">
-                      {timeString}
+                    {/* Time with Duration */}
+                    <div className="text-[10px] sm:text-[11px] font-semibold text-gray-900 mb-1 truncate">
+                      {timeString} - {endTimeString}{durationFormatted && ` ${durationFormatted}`}
                     </div>
                     
                     {/* Customer Name and Service */}
@@ -2872,6 +2992,62 @@ const ServiceFlowSchedule = () => {
                   <XCircle className="w-3 h-3 text-red-600" />
                 </div>
                 <span>Cancelled</span>
+              </button>
+            </div>
+
+            {/* Recurring Filter */}
+            <div className="mb-6">
+              <h3 className="text-xs font-semibold text-gray-700 mb-3 justify-self-center items-center">RECURRING</h3>
+              
+              {/* All Jobs */}
+              <button
+                onClick={() => setRecurringFilter('all')}
+                className={`w-full flex items-center space-x-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors mb-2 ${
+                  recurringFilter === 'all' 
+                    ? 'bg-white text-blue-700' 
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                }`}
+              >
+                <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
+                  recurringFilter === 'all' ? 'bg-blue-100' : 'bg-gray-100'
+                }`}>
+                  <Calendar className={`w-3 h-3 ${recurringFilter === 'all' ? 'text-blue-600' : 'text-gray-600'}`} />
+                </div>
+                <span>All Jobs</span>
+              </button>
+
+              {/* Recurring Only */}
+              <button
+                onClick={() => setRecurringFilter('recurring')}
+                className={`w-full flex items-center space-x-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors mb-2 ${
+                  recurringFilter === 'recurring' 
+                    ? 'bg-white text-blue-700' 
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                }`}
+              >
+                <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
+                  recurringFilter === 'recurring' ? 'bg-blue-100' : 'bg-gray-100'
+                }`}>
+                  <RotateCw className={`w-3 h-3 ${recurringFilter === 'recurring' ? 'text-blue-600' : 'text-gray-600'}`} />
+                </div>
+                <span>Recurring Only</span>
+              </button>
+
+              {/* One-Time Only */}
+              <button
+                onClick={() => setRecurringFilter('one-time')}
+                className={`w-full flex items-center space-x-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors mb-2 ${
+                  recurringFilter === 'one-time' 
+                    ? 'bg-white text-blue-700' 
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                }`}
+              >
+                <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
+                  recurringFilter === 'one-time' ? 'bg-blue-100' : 'bg-gray-100'
+                }`}>
+                  <Calendar className={`w-3 h-3 ${recurringFilter === 'one-time' ? 'text-blue-600' : 'text-gray-600'}`} />
+                </div>
+                <span>One-Time Only</span>
               </button>
             </div>
 
@@ -3207,6 +3383,20 @@ const ServiceFlowSchedule = () => {
               </select>
             </div>
 
+            {/* Recurring Filter */}
+            <div className="flex items-center space-x-2">
+              <span className="text-xs font-medium text-gray-600">TYPE:</span>
+              <select
+                value={recurringFilter}
+                onChange={(e) => setRecurringFilter(e.target.value)}
+                className="text-xs border border-gray-300 rounded px-2 py-1 bg-white"
+              >
+                <option value="all">All Jobs</option>
+                <option value="recurring">Recurring Only</option>
+                <option value="one-time">One-Time Only</option>
+              </select>
+            </div>
+
             {/* Time Range Filter */}
             <div className="flex items-center space-x-2">
               <span className="text-xs font-medium text-gray-600">TIME:</span>
@@ -3384,8 +3574,8 @@ const ServiceFlowSchedule = () => {
                             jobTime = new Date(job.scheduled_date);
                           }
                           
-                          // Duration is in minutes, ensure it's a number
-                          const duration = parseInt(job.service_duration || job.duration || 0);
+                          // Duration is in minutes, ensure it's a number - check all possible duration fields
+                          const duration = getJobDuration(job);
                           
                           // Calculate end time
                           const endTime = new Date(jobTime.getTime() + duration * 60000);
@@ -3393,6 +3583,7 @@ const ServiceFlowSchedule = () => {
                           // Format times
                           const timeString = jobTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
                           const endTimeString = endTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+                          const durationFormatted = formatDuration(duration)
                           const assignedTeamMember = teamMembers.find(m => m.id === job.assigned_team_member_id || m.id === job.team_member_id)
                           const teamMemberName = assignedTeamMember ? (assignedTeamMember.name || `${assignedTeamMember.first_name || ''} ${assignedTeamMember.last_name || ''}`.trim()) : null
                           const customerName = getCustomerName(job) || 'Customer'
@@ -3409,8 +3600,8 @@ const ServiceFlowSchedule = () => {
                               }}
                             >
                               <div className="flex items-center justify-between mb-1">
-                                <div className="font-semibold text-gray-900 truncate" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
-                                  {timeString} - {endTimeString}
+                                <div className="font-medium text-gray-900 truncate text-[9px]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                                  {timeString} - {endTimeString}{durationFormatted && ` ${durationFormatted}`}
                                 </div>
                                 {territoryName && (
                                   <span className="text-[10px] text-blue-600 font-medium truncate max-w-[60px]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
@@ -3519,8 +3710,8 @@ const ServiceFlowSchedule = () => {
                             jobTime = new Date(job.scheduled_date);
                           }
                           
-                          // Duration is in minutes, ensure it's a number
-                          const duration = parseInt(job.service_duration || job.duration || 0);
+                          // Duration is in minutes, ensure it's a number - check all possible duration fields
+                          const duration = getJobDuration(job);
                           
                           // Calculate end time
                           const endTime = new Date(jobTime.getTime() + duration * 60000);
@@ -3528,6 +3719,7 @@ const ServiceFlowSchedule = () => {
                           // Format times
                           const timeString = jobTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
                           const endTimeString = endTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+                          const durationFormatted = formatDuration(duration)
                           const assignedTeamMember = teamMembers.find(m => m.id === job.assigned_team_member_id || m.id === job.team_member_id)
                           const teamMemberName = assignedTeamMember ? (assignedTeamMember.name || `${assignedTeamMember.first_name || ''} ${assignedTeamMember.last_name || ''}`.trim()) : null
                           const customerName = getCustomerName(job) || 'Customer'
@@ -3544,8 +3736,8 @@ const ServiceFlowSchedule = () => {
                               }}
                             >
                               <div className="flex items-center justify-between mb-0.5">
-                                <div className="font-semibold text-gray-900 truncate text-[10px]" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
-                                  {timeString} - {endTimeString}
+                                <div className="font-medium text-gray-900 truncate text-[9px]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                                  {timeString} - {endTimeString}{durationFormatted && ` ${durationFormatted}`}
                                 </div>
                                 <div className="flex items-center space-x-0.5">
                                   {assignedTeamMember ? (
@@ -3622,15 +3814,15 @@ const ServiceFlowSchedule = () => {
                 hour12: true 
               })
               
-              // Duration is in minutes, ensure it's a number
-              const duration = parseInt(job.service_duration || job.duration || 0);
+              // Duration is in minutes, ensure it's a number - check all possible duration fields
+              const duration = getJobDuration(job);
               const endTime = new Date(jobDate.getTime() + duration * 60000)
               const endTimeString = endTime.toLocaleTimeString('en-US', { 
                 hour: 'numeric', 
                 minute: '2-digit',
                 hour12: true 
               })
-              const durationDisplay = job.service_duration ? `${Math.floor(job.service_duration / 60)}h ${job.service_duration % 60}m` : 'N/A'
+              const durationFormatted = formatDuration(duration)
               const serviceName = job.service_name || job.service_type || 'Service'
               const customerName = getCustomerName(job) || 'Customer'
               const customerEmail = job.customer_email || job.customer?.email || job.customers?.email || ''
@@ -3657,13 +3849,13 @@ const ServiceFlowSchedule = () => {
                   <h3 className="text-[10px] sm:text-[10px] font-semibold text-gray-500 pl-1">JOB #{job.id}</h3>
                      
                     {/* Time and Duration */}
-                    <div className="flex flex-col sm:flex-row sm:items-center  space-y-1 sm:space-y-0 sm:space-x-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center space-y-1 sm:space-y-0 sm:space-x-3">
                       <div className="flex items-center space-x-2">
                         <Clock className="w-3 h-3 text-gray-400" />
-                        <span className="text-xs sm:text-xs font-medium text-gray-900">{timeString} - {endTimeString}</span>
+                        <span className="text-[9px] sm:text-[9px] font-medium text-gray-900">
+                          {timeString} - {endTimeString}{durationFormatted && ` ${durationFormatted}`}
+                        </span>
                       </div>
-                      <div className="flex items-center space-x-1">
-                        <span className="text-xs sm:text-xs text-gray-500">{duration}</span>
                         <div className="flex items-center justify-between">
                       {/* Team Member Avatar */}
                       {assignedTeamMember ? (
@@ -3682,17 +3874,14 @@ const ServiceFlowSchedule = () => {
                               getInitials(teamMemberName)
                             )}
                           </div>
-                          
                         </div>
                       ) : (
-                        <div className="flex items-center ">
+                          <div className="flex items-center">
                           <div className="w-4 h-4 rounded-full bg-gray-200 flex items-center justify-center text-gray-400 flex-shrink-0">
                             <UserX className="w-2.5 h-2.5" />
                           </div>
-                          
                         </div>
                       )}
-                    </div>
                       </div>
                     </div>
                     <div 
@@ -3724,14 +3913,14 @@ const ServiceFlowSchedule = () => {
                       </div>
 
                       {/* Recurring Job Indicator */}
-                      {job.is_recurring && (
-                        <div className="flex items-center gap-1.5 text-xs pt-1">
-                          <RotateCw className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                          <span className="text-gray-600 font-medium">
-                            {formatRecurringFrequencyCompact(job.recurring_frequency || '', job.scheduled_date ? new Date(job.scheduled_date) : null)}
-                          </span>
-                        </div>
-                      )}
+                      <RecurringIndicator
+                        isRecurring={job.is_recurring}
+                        frequency={job.recurring_frequency}
+                        scheduledDate={job.scheduled_date}
+                        size="sm"
+                        showText={true}
+                        className="pt-1"
+                      />
 
                       {/* Notes (if available) */}
                       {job.notes && (
@@ -3771,12 +3960,33 @@ const ServiceFlowSchedule = () => {
                 <div className="h-full">
                   {(() => {
                     const firstJob = filteredJobs[0]
-                    const jobDate = new Date(firstJob.scheduled_date)
+                    // Parse scheduled_date correctly
+                    let jobDate;
+                    if (typeof firstJob.scheduled_date === 'string' && firstJob.scheduled_date.includes(' ')) {
+                      const [datePart, timePart] = firstJob.scheduled_date.split(' ');
+                      const [hours, minutes] = timePart.split(':').map(Number);
+                      jobDate = new Date(datePart);
+                      jobDate.setHours(hours || 0, minutes || 0, 0, 0);
+                    } else {
+                      jobDate = new Date(firstJob.scheduled_date);
+                    }
+                    
                     const timeString = jobDate.toLocaleTimeString('en-US', { 
                       hour: 'numeric', 
                       minute: '2-digit',
                       hour12: true 
                     })
+                    
+                    // Duration is in minutes, ensure it's a number - check all possible duration fields
+                    const duration = getJobDuration(firstJob);
+                    const endTime = new Date(jobDate.getTime() + duration * 60000);
+                    const endTimeString = endTime.toLocaleTimeString('en-US', { 
+                      hour: 'numeric', 
+                      minute: '2-digit',
+                      hour12: true 
+                    });
+                    const durationFormatted = formatDuration(duration);
+                    
                     const serviceName = firstJob.service_name || firstJob.service_type || 'Service'
                     const customerName = getCustomerName(firstJob) || 'Customer'
                     const address = firstJob.customer_address || firstJob.address || 'Address not provided'
@@ -3824,7 +4034,9 @@ const ServiceFlowSchedule = () => {
                         {/* Map Marker Popup */}
                         <div className="absolute top-4 left-4 bg-white rounded-lg shadow-lg p-3 max-w-xs">
                           <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-medium text-gray-900">{timeString}</span>
+                            <span className="text-[11px] font-medium text-gray-900">
+                              {timeString} - {endTimeString}{durationFormatted && ` ${durationFormatted}`}
+                            </span>
                             <button 
                               onClick={() => setShowJobDetails(!showJobDetails)}
                               className="text-gray-400 hover:text-gray-600"
@@ -4123,7 +4335,16 @@ const ServiceFlowSchedule = () => {
                   };
 
                   return statuses.map((status, index) => {
-                    const isActive = index <= currentIndex;
+                    // For "Paid" status, only mark as active if invoice_status is actually 'paid'
+                    let isActive;
+                    if (status.key === 'paid') {
+                      // Paid status is only active if invoice_status is 'paid'
+                      isActive = selectedJobDetails?.invoice_status === 'paid';
+                    } else {
+                      // For other statuses, use the normal logic
+                      isActive = index <= currentIndex;
+                    }
+                    
                     const isFirst = index === 0;
                     const isLast = index === statuses.length - 1;
                     const backendStatus = mapStatusKeyToBackendStatus(status.key);
@@ -4254,15 +4475,42 @@ const ServiceFlowSchedule = () => {
                   <div className="flex items-center gap-2 text-gray-900 mb-1">
                     <Calendar className="w-5 h-5 text-gray-400" />
                     <p className="font-semibold" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
-                      {new Date(selectedJobDetails.scheduled_date).toLocaleTimeString('en-US', { 
+                      {(() => {
+                        // Parse scheduled_date correctly - it's stored as string "YYYY-MM-DD HH:MM:SS"
+                        let jobDate;
+                        if (typeof selectedJobDetails.scheduled_date === 'string' && selectedJobDetails.scheduled_date.includes(' ')) {
+                          // Extract time directly from string to avoid timezone issues
+                          const [datePart, timePart] = selectedJobDetails.scheduled_date.split(' ');
+                          const [hours, minutes] = timePart.split(':').map(Number);
+                          jobDate = new Date(datePart);
+                          jobDate.setHours(hours || 0, minutes || 0, 0, 0);
+                        } else if (typeof selectedJobDetails.scheduled_date === 'string' && selectedJobDetails.scheduled_date.includes('T')) {
+                          // Handle ISO format
+                          const [datePart, timePart] = selectedJobDetails.scheduled_date.split('T');
+                          const [hours, minutes] = timePart.split(':').map(Number);
+                          jobDate = new Date(datePart);
+                          jobDate.setHours(hours || 0, minutes || 0, 0, 0);
+                        } else {
+                          jobDate = new Date(selectedJobDetails.scheduled_date);
+                        }
+                        
+                        const startTimeString = jobDate.toLocaleTimeString('en-US', { 
                         hour: 'numeric', 
                         minute: '2-digit',
                         hour12: true 
-                      })} - {new Date(new Date(selectedJobDetails.scheduled_date).getTime() + (selectedJobDetails.service_duration || 0) * 60000).toLocaleTimeString('en-US', { 
+                        });
+                        
+                        // Duration is in minutes, ensure it's a number - check all possible duration fields
+                        const duration = getJobDuration(selectedJobDetails);
+                        const endTime = new Date(jobDate.getTime() + duration * 60000);
+                        const endTimeString = endTime.toLocaleTimeString('en-US', { 
                         hour: 'numeric', 
                         minute: '2-digit',
                         hour12: true 
-                      })}
+                        });
+                        // Don't show duration here - it has its own section
+                        return `${startTimeString} - ${endTimeString}`;
+                      })()}
                     </p>
                   </div>
                   <p className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
@@ -4339,9 +4587,19 @@ const ServiceFlowSchedule = () => {
                   })()}
                   
                   <p className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
-                    {selectedJobDetails.duration ? `${Math.floor(selectedJobDetails.duration / 60)} hours ${selectedJobDetails.duration % 60} minutes` : 
-                     selectedJobDetails.service_duration ? `${Math.floor(selectedJobDetails.service_duration / 60)} hours ${selectedJobDetails.service_duration % 60} minutes` : 
-                     ''}
+                    {(() => {
+                      const duration = getJobDuration(selectedJobDetails);
+                      if (!duration) return '';
+                      const hours = Math.floor(duration / 60);
+                      const minutes = duration % 60;
+                      if (hours > 0 && minutes > 0) {
+                        return `${hours} hour${hours > 1 ? 's' : ''} ${minutes} minute${minutes > 1 ? 's' : ''}`;
+                      } else if (hours > 0) {
+                        return `${hours} hour${hours > 1 ? 's' : ''}`;
+                      } else {
+                        return `${minutes} minute${minutes > 1 ? 's' : ''}`;
+                      }
+                    })()}
                   </p>
                 </div>
               </div>

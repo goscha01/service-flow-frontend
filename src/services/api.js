@@ -745,7 +745,7 @@ export const recurringBookingsAPI = {
 };
 
 export const jobsAPI = {
-  getAll: async (userId, status, search, page = 1, limit = 20, dateFilter, dateRange, sortBy, sortOrder, teamMember, invoiceStatus, customerId, territoryId, signal) => {
+  getAll: async (userId, status, search, page = 1, limit = 20, dateFilter, dateRange, sortBy, sortOrder, teamMember, invoiceStatus, customerId, territoryId, recurring, signal) => {
     try {
       const params = new URLSearchParams({ userId });
       if (status) params.append('status', status);
@@ -760,6 +760,7 @@ export const jobsAPI = {
       if (invoiceStatus) params.append('invoiceStatus', invoiceStatus);
       if (customerId) params.append('customerId', customerId);
       if (territoryId) params.append('territoryId', territoryId);
+      if (recurring) params.append('recurring', recurring);
       
       const config = signal ? { signal } : {};
       const response = await api.get(`/jobs?${params}`, config);
@@ -1031,6 +1032,37 @@ export const teamAPI = {
     }
   },
 
+  // Time tracking and salary
+  recordStartTime: async (jobId, startTime) => {
+    try {
+      const response = await api.post(`/jobs/${jobId}/start-time`, { startTime });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  recordEndTime: async (jobId, endTime) => {
+    try {
+      const response = await api.post(`/jobs/${jobId}/end-time`, { endTime });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  getSalary: async (teamMemberId, startDate, endDate) => {
+    try {
+      const params = new URLSearchParams();
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+      const response = await api.get(`/team-members/${teamMemberId}/salary?${params}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
   getAnalytics: async (userId, startDate, endDate) => {
     try {
       const params = new URLSearchParams({ userId });
@@ -1074,6 +1106,21 @@ export const teamAPI = {
   updateSettings: async (memberId, settings) => {
     try {
       const response = await api.put(`/team-members/${memberId}/settings`, { settings });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+};
+
+// Payroll API functions
+export const payrollAPI = {
+  getPayroll: async (startDate, endDate) => {
+    try {
+      const params = new URLSearchParams();
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+      const response = await api.get(`/payroll?${params}`);
       return response.data;
     } catch (error) {
       throw error;

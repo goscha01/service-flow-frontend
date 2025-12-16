@@ -958,7 +958,12 @@ const DashboardMUI = () => {
                   <CardContent>
                     <Box display="flex" alignItems="center" justifyContent="space-between" mb={3}>
                       <Typography variant="h6" fontWeight="semibold" color="grey.900">
-                        Overview Oct 18 - Today
+                        {(() => {
+                          const daysAgo = parseInt(dateRange) - 1;
+                          const startDate = new Date();
+                          startDate.setDate(startDate.getDate() - daysAgo);
+                          return `Overview ${startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - Today`;
+                        })()}
                       </Typography>
                       
                       <FormControl size="small" sx={{ minWidth: 120 }}>
