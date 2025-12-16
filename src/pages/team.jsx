@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import Sidebar from "../components/sidebar"
-import { Plus, Search, Filter, Users, TrendingUp, Calendar, DollarSign, Clock, Eye, Edit, Trash2, UserPlus, BarChart3, Mail, Phone, AlertCircle, Receipt } from "lucide-react"
+import { Plus, Search, Filter, Users, TrendingUp, Calendar, DollarSign, Clock, Eye, Edit, Trash2, UserPlus, BarChart3, Mail, Phone, AlertCircle, Receipt, MapPin } from "lucide-react"
 import { useAuth } from "../context/AuthContext"
 import { teamAPI } from "../services/api"
 import AddTeamMemberModal from "../components/add-team-member-modal"
@@ -223,6 +223,13 @@ const TeamPage = () => {
                 >
                   <Receipt className="w-4 h-4 mr-2" />
                   Payroll
+                </button>
+                <button
+                  onClick={() => navigate('/staff-locations')}
+                  className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  <MapPin className="w-4 h-4 mr-2" />
+                  Staff Locations
                 </button>
                 <button
                   onClick={handleAddMember}
