@@ -74,6 +74,7 @@ import { formatPhoneNumber } from "../utils/phoneFormatter"
 import { formatDateLocal } from "../utils/dateUtils"
 import { formatRecurringFrequency } from "../utils/recurringUtils"
 import ConvertToRecurringModal from "../components/convert-to-recurring-modal"
+import DuplicateJobModal from "../components/duplicate-job-modal"
 import { 
   canViewCustomerContact, 
   canViewCustomerNotes,
@@ -281,6 +282,7 @@ const JobDetails = () => {
   const [isRetrying, setIsRetrying] = useState(false)
   const [statusDropdown, setStatusDropdown] = useState(false)
   const [moreDropdown, setMoreDropdown] = useState(false)
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false)
   const [showAssignModal, setShowAssignModal] = useState(false)
   const [showEditJobRequirementsModal, setShowEditJobRequirementsModal] = useState(false)
   const [editJobRequirementsData, setEditJobRequirementsData] = useState({
@@ -2650,33 +2652,86 @@ const JobDetails = () => {
         
         {moreDropdown && (
           <div className="absolute top-full mt-2 right-0 bg-white rounded-lg shadow-xl border border-gray-200 py-2 min-w-[200px] z-10">
-            {canEditJobDetails(user) && (
-            <button className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm">
-              <ClipboardList size={18} className="text-gray-600" />
-              Edit Service
-            </button>
-            )}
-            {canEditJobDetails(user) && (
-            <button className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm">
-              <MapPin size={18} className="text-gray-600" />
-              Edit Address
-            </button>
-            )}
-            {canRescheduleJobs(user) && (
-            <button className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm">
-              <Calendar size={18} className="text-gray-600" />
-              Reschedule
-            </button>
-            )}
-            <button className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm">
-              <XCircle size={18} className="text-gray-600" />
-              Cancel Job
-            </button>
-            <div className="border-t border-gray-200 my-1"></div>
-            <button className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm">
-              <ExternalLink size={18} className="text-gray-600" />
-              Rescheduling Page
-            </button>
+            {(() => {
+              const isCompleted = (job?.status || '').toLowerCase() === 'completed' || (job?.status || '').toLowerCase() === 'complete';
+              
+              // If job is completed, only show Duplicate and Reset options
+              if (isCompleted) {
+                return (
+                  <>
+                    {canEditJobDetails(user) && (
+                      <button 
+                        onClick={() => {
+                          setShowDuplicateModal(true)
+                          setMoreDropdown(false)
+                        }}
+                        className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm"
+                      >
+                        <Copy size={18} className="text-gray-600" />
+                        Duplicate Job
+                      </button>
+                    )}
+                    {canResetJobStatuses(user) && (
+                      <button 
+                        onClick={() => {
+                          handleStatusUpdate('pending')
+                          setMoreDropdown(false)
+                        }}
+                        className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm"
+                      >
+                        <RotateCw size={18} className="text-gray-600" />
+                        Reset Job Status
+                      </button>
+                    )}
+                  </>
+                )
+              }
+              
+              // Normal menu for non-completed jobs
+              return (
+                <>
+                  {canEditJobDetails(user) && (
+                    <button className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm">
+                      <ClipboardList size={18} className="text-gray-600" />
+                      Edit Service
+                    </button>
+                  )}
+                  {canEditJobDetails(user) && (
+                    <button className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm">
+                      <MapPin size={18} className="text-gray-600" />
+                      Edit Address
+                    </button>
+                  )}
+                  {canRescheduleJobs(user) && (
+                    <button className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm">
+                      <Calendar size={18} className="text-gray-600" />
+                      Reschedule
+                    </button>
+                  )}
+                  <button className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm">
+                    <XCircle size={18} className="text-gray-600" />
+                    Cancel Job
+                  </button>
+                  <div className="border-t border-gray-200 my-1"></div>
+                  {canEditJobDetails(user) && (
+                    <button 
+                      onClick={() => {
+                        setShowDuplicateModal(true)
+                        setMoreDropdown(false)
+                      }}
+                      className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm"
+                    >
+                      <Copy size={18} className="text-gray-600" />
+                      Duplicate Job
+                    </button>
+                  )}
+                  <button className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm">
+                    <ExternalLink size={18} className="text-gray-600" />
+                    Rescheduling Page
+                  </button>
+                </>
+              )
+            })()}
           </div>
         )}
       </div>
@@ -6669,6 +6724,36 @@ const JobDetails = () => {
             } catch (error) {
               console.error('Error converting job to recurring:', error);
               setError(`Failed to convert job: ${error.response?.data?.error || error.message}`);
+            } finally {
+              setLoading(false);
+            }
+          }}
+        />
+
+        {/* Duplicate Job Modal */}
+        <DuplicateJobModal
+          isOpen={showDuplicateModal}
+          onClose={() => setShowDuplicateModal(false)}
+          job={job}
+          onDuplicate={async (data) => {
+            try {
+              setLoading(true);
+              const result = await jobsAPI.duplicate(jobId, data);
+              setSuccessMessage(data.isRecurring 
+                ? 'Job duplicated and set as recurring successfully!' 
+                : 'Job duplicated successfully!');
+              setTimeout(() => setSuccessMessage(""), 3000);
+              // Navigate to the new job or refresh
+              if (result.job?.id || result.job?.job_id) {
+                navigate(`/jobs/${result.job.id || result.job.job_id}`);
+              } else {
+                // Reload current job data
+                const updatedJob = await jobsAPI.getById(jobId);
+                setJob(updatedJob.job || updatedJob);
+              }
+            } catch (error) {
+              console.error('Error duplicating job:', error);
+              setError(`Failed to duplicate job: ${error.response?.data?.error || error.message}`);
             } finally {
               setLoading(false);
             }

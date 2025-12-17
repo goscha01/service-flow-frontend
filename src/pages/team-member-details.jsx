@@ -28,7 +28,7 @@ import {
   User,
   AlertCircle
 } from 'lucide-react'
-import { teamAPI, territoriesAPI } from '../services/api'
+import { teamAPI, territoriesAPI, staffLocationsAPI } from '../services/api'
 import UpdateAvailabilityModal from '../components/update-availability-modal'
 import AddTeamMemberModal from '../components/add-team-member-modal'
 import { getImageUrl } from '../utils/imageUtils'
@@ -83,6 +83,8 @@ const TeamMemberDetails = () => {
     revenueGenerated: 0
   })
   const [recentJobs, setRecentJobs] = useState([])
+  const [allTeamMembers, setAllTeamMembers] = useState([]) // For map display
+  const [staffLocationsEnabled, setStaffLocationsEnabled] = useState(true) // Global setting for staff locations
   
   // Google Places Autocomplete
   const addressRef = useRef(null)
@@ -111,11 +113,38 @@ const TeamMemberDetails = () => {
     if (memberId) {
       fetchTeamMemberDetails()
       fetchAvailableTerritories()
+      fetchAllTeamMembers() // Fetch all members for map
+      fetchStaffLocationsSetting() // Fetch global setting
     } else if (user?.teamMemberId) {
       // If no memberId in URL but user is a team member, navigate to their own profile
       navigate(`/team/${user.teamMemberId}`, { replace: true })
     }
   }, [memberId, user?.teamMemberId])
+
+  // Fetch global staff locations setting
+  const fetchStaffLocationsSetting = async () => {
+    try {
+      const response = await staffLocationsAPI.getStaffLocationsSetting()
+      setStaffLocationsEnabled(response?.staff_locations_enabled !== false) // Default to true
+    } catch (error) {
+      console.error('Error fetching staff locations setting:', error)
+      // Default to enabled if error
+      setStaffLocationsEnabled(true)
+    }
+  }
+
+  // Fetch all team members for map display
+  const fetchAllTeamMembers = async () => {
+    try {
+      if (user?.id) {
+        const response = await teamAPI.getAll(user.id, { status: 'active' })
+        const members = response.teamMembers || response || []
+        setAllTeamMembers(members)
+      }
+    } catch (error) {
+      console.error('Error fetching all team members:', error)
+    }
+  }
 
 
 
@@ -1005,7 +1034,7 @@ const TeamMemberDetails = () => {
 
             {/* Main Content */}
             <div className="space-y-4 sm:space-y-6">
-              {/* Profile Header Card */}
+              {/* Profile Header Card with Map */}
               <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
                 <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-4 sm:mb-6 gap-4">
             <button
@@ -1033,6 +1062,10 @@ const TeamMemberDetails = () => {
                   </div>
                 </div>
 
+                {/* Two Column Layout: Profile Info Left, Map Right */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Left Column: Profile Information */}
+                  <div className="lg:col-span-2 space-y-4">
                 <div className="flex flex-col sm:flex-row items-start space-y-4 sm:space-y-0 sm:space-x-6">
                   {/* Profile Picture - Larger and Circular */}
                     <div
@@ -1317,6 +1350,67 @@ const TeamMemberDetails = () => {
                         );
                       })()}
                     </div>
+                  </div>
+                </div>
+                  </div>
+
+                  {/* Right Column: Map */}
+                  <div className="lg:col-span-1">
+                    {!staffLocationsEnabled ? (
+                      <div className="h-64 sm:h-80 bg-gray-100 rounded-lg flex items-center justify-center border border-gray-200">
+                        <div className="text-center px-4">
+                          <MapPin className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+                          <p className="text-sm text-gray-500">Staff locations are currently hidden</p>
+                        </div>
+                      </div>
+                    ) : (() => {
+                      // Helper function to get address from team member
+                      const getMemberAddress = (member) => {
+                        if (member.location) return member.location
+                        if (member.city && member.state) {
+                          const parts = [member.city, member.state]
+                          if (member.zip_code) parts.push(member.zip_code)
+                          return parts.join(', ')
+                        }
+                        if (member.address) return member.address
+                        return null
+                      }
+
+                      // Get current team member's address only
+                      const currentAddress = getMemberAddress(teamMember)
+
+                      if (!currentAddress) {
+                        return (
+                          <div className="h-64 sm:h-80 bg-gray-100 rounded-lg flex items-center justify-center border border-gray-200">
+                            <div className="text-center">
+                              <MapPin className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+                              <p className="text-sm text-gray-500">No address on file</p>
+                            </div>
+                          </div>
+                        )
+                      }
+
+                      // Build Google Maps URL for current member's address only
+                      // Use place API with higher zoom (15) for close range view
+                      const mapUrl = `https://www.google.com/maps/embed/v1/place?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&q=${encodeURIComponent(currentAddress)}&zoom=15&maptype=roadmap`
+
+                      return (
+                        <div className="relative">
+                          <div className="h-64 sm:h-80 rounded-lg overflow-hidden border border-gray-200">
+                            <iframe
+                              title="Team Member Location"
+                              width="100%"
+                              height="100%"
+                              style={{ border: 0 }}
+                              loading="lazy"
+                              allowFullScreen
+                              referrerPolicy="no-referrer-when-downgrade"
+                              src={mapUrl}
+                            />
+                          </div>
+                        </div>
+                      )
+                    })()}
                   </div>
                 </div>
               </div>

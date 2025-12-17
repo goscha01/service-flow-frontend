@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import Sidebar from "../components/sidebar"
-import { Plus, Search, Filter, Users, TrendingUp, Calendar, DollarSign, Clock, Eye, Edit, Trash2, UserPlus, BarChart3, Mail, Phone, AlertCircle, Receipt, MapPin } from "lucide-react"
+import { Plus, Search, Filter, Users, TrendingUp, Calendar, DollarSign, Clock, Eye, Edit, Trash2, UserPlus, BarChart3, Mail, Phone, AlertCircle, Receipt, MapPin, EyeOff } from "lucide-react"
 import { useAuth } from "../context/AuthContext"
 import { teamAPI } from "../services/api"
 import AddTeamMemberModal from "../components/add-team-member-modal"
 import LoadingButton from "../components/loading-button"
+import { isAccountOwner } from "../utils/roleUtils"
+import api from "../services/api"
 
 const TeamPage = () => {
   const { user } = useAuth()
@@ -27,6 +29,8 @@ const TeamPage = () => {
     sortBy: "first_name",
     sortOrder: "ASC"
   })
+  const [staffLocationsEnabled, setStaffLocationsEnabled] = useState(true)
+  const [updatingLocationSetting, setUpdatingLocationSetting] = useState(false)
 
   // Debounced search
   useEffect(() => {
@@ -42,6 +46,53 @@ const TeamPage = () => {
       fetchAnalytics()
     }
   }, [activeTab])
+
+  useEffect(() => {
+    if (user?.id) {
+      // Check if user is account owner - try multiple role checks
+      const isOwner = isAccountOwner(user) || 
+                     user?.role === 'owner' || 
+                     user?.role === 'account owner' || 
+                     user?.role === 'admin'
+      
+      console.log('User role check:', { 
+        userRole: user?.role, 
+        isAccountOwner: isAccountOwner(user),
+        isOwner 
+      })
+      
+      if (isOwner) {
+        fetchStaffLocationsSetting()
+      }
+    }
+  }, [user])
+
+  const fetchStaffLocationsSetting = async () => {
+    try {
+      const response = await api.get('/user/staff-locations-setting')
+      setStaffLocationsEnabled(response.data?.staff_locations_enabled !== false) // Default to true
+    } catch (error) {
+      console.error('Error fetching staff locations setting:', error)
+      // Default to enabled if error
+      setStaffLocationsEnabled(true)
+    }
+  }
+
+  const handleToggleStaffLocations = async () => {
+    if (!isAccountOwner(user)) return
+    
+    setUpdatingLocationSetting(true)
+    try {
+      const newValue = !staffLocationsEnabled
+      await api.put('/user/staff-locations-setting', { staff_locations_enabled: newValue })
+      setStaffLocationsEnabled(newValue)
+    } catch (error) {
+      console.error('Error updating staff locations setting:', error)
+      alert('Failed to update setting. Please try again.')
+    } finally {
+      setUpdatingLocationSetting(false)
+    }
+  }
 
   const fetchTeamMembers = async () => {
     if (!user?.id) return
@@ -230,6 +281,29 @@ const TeamPage = () => {
                 >
                   <MapPin className="w-4 h-4 mr-2" />
                   Staff Locations
+                </button>
+                {/* Staff Locations Toggle - Admin Only */}
+                <button
+                  onClick={handleToggleStaffLocations}
+                  disabled={updatingLocationSetting}
+                  className={`inline-flex items-center px-4 py-2 border text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+                    staffLocationsEnabled
+                      ? 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'
+                      : 'border-red-300 text-red-700 bg-red-50 hover:bg-red-100'
+                  } disabled:opacity-50`}
+                  title={staffLocationsEnabled ? 'Hide Staff Locations Globally' : 'Show Staff Locations Globally'}
+                >
+                  {staffLocationsEnabled ? (
+                    <>
+                      <Eye className="w-4 h-4 mr-2" />
+                      Hide Locations
+                    </>
+                  ) : (
+                    <>
+                      <EyeOff className="w-4 h-4 mr-2" />
+                      Show Locations
+                    </>
+                  )}
                 </button>
                 <button
                   onClick={handleAddMember}
