@@ -806,6 +806,15 @@ export const jobsAPI = {
     }
   },
 
+  duplicate: async (id, data) => {
+    try {
+      const response = await api.post(`/jobs/${id}/duplicate`, data);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
   getImportedJobsCount: async (params = {}) => {
     try {
       const queryParams = new URLSearchParams();
@@ -1125,6 +1134,18 @@ export const payrollAPI = {
     } catch (error) {
       throw error;
     }
+  },
+  getSalaryAnalytics: async (startDate, endDate, groupBy = 'day') => {
+    try {
+      const params = new URLSearchParams();
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+      if (groupBy) params.append('groupBy', groupBy);
+      const response = await api.get(`/analytics/salary?${params}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
   }
 };
 
@@ -1160,6 +1181,26 @@ export const staffLocationsAPI = {
       if (endDate) params.append('endDate', endDate);
       if (limit) params.append('limit', limit);
       const response = await api.get(`/staff-locations/${teamMemberId}/history?${params}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Get global staff locations setting
+  getStaffLocationsSetting: async () => {
+    try {
+      const response = await api.get('/user/staff-locations-setting');
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Update global staff locations setting
+  updateStaffLocationsSetting: async (enabled) => {
+    try {
+      const response = await api.put('/user/staff-locations-setting', { staff_locations_enabled: enabled });
       return response.data;
     } catch (error) {
       throw error;
@@ -1656,6 +1697,49 @@ export const analyticsAPI = {
       if (endDate) params.append('endDate', endDate);
       
       const response = await api.get(`/analytics/service-performance?${params}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  getConversionMetrics: async (startDate, endDate, groupBy = 'day') => {
+    try {
+      const params = new URLSearchParams();
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+      if (groupBy) params.append('groupBy', groupBy);
+      
+      const response = await api.get(`/analytics/conversion?${params}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  getRecurringConversionMetrics: async (startDate, endDate, groupBy = 'day') => {
+    try {
+      const params = new URLSearchParams();
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+      if (groupBy) params.append('groupBy', groupBy);
+      
+      const response = await api.get(`/analytics/recurring-conversion?${params}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  getLostCustomersMetrics: async (startDate, endDate, groupBy = 'day', inactiveDays = 90) => {
+    try {
+      const params = new URLSearchParams();
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+      if (groupBy) params.append('groupBy', groupBy);
+      if (inactiveDays) params.append('inactiveDays', inactiveDays);
+      
+      const response = await api.get(`/analytics/lost-customers?${params}`);
       return response.data;
     } catch (error) {
       throw error;

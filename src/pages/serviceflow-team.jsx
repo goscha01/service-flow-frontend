@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react"
 import Sidebar from "../components/sidebar"
-import { Plus, Search, Filter, Users, TrendingUp, Calendar, DollarSign, Clock, Eye, Edit, Trash2, UserPlus, BarChart3, AlertCircle, MapPin, Loader2, Power, PowerOff, Zap, Settings, ChevronLeft, ChevronRight, HelpCircle } from "lucide-react"
+import { Plus, Search, Filter, Users, TrendingUp, Calendar, DollarSign, Clock, Eye, Edit, Trash2, UserPlus, BarChart3, AlertCircle, MapPin, Loader2, Power, PowerOff, Zap, Settings, ChevronLeft, ChevronRight, HelpCircle, EyeOff } from "lucide-react"
 import { useAuth } from "../context/AuthContext"
 import { teamAPI } from "../services/api"
+import { isAccountOwner } from "../utils/roleUtils"
+import api from "../services/api"
 import LoadingButton from "../components/loading-button"
 import AddTeamMemberModal from "../components/add-team-member-modal"
 import { useNavigate } from "react-router-dom"
@@ -41,6 +43,8 @@ const ServiceFlowTeam = () => {
     sortBy: "first_name",
     sortOrder: "ASC"
   })
+  const [staffLocationsEnabled, setStaffLocationsEnabled] = useState(true)
+  const [updatingLocationSetting, setUpdatingLocationSetting] = useState(false)
 
   const navigate = useNavigate()
 
@@ -70,6 +74,50 @@ const ServiceFlowTeam = () => {
       fetchAnalytics()
     }
   }, [activeTab, authLoading, user?.id])
+
+  useEffect(() => {
+    if (user?.id && isAccountOwner(user)) {
+      fetchStaffLocationsSetting()
+    }
+  }, [user])
+
+  const fetchStaffLocationsSetting = async () => {
+    try {
+      const response = await api.get('/user/staff-locations-setting')
+      setStaffLocationsEnabled(response.data?.staff_locations_enabled !== false) // Default to true
+    } catch (error) {
+      console.error('Error fetching staff locations setting:', error)
+      console.error('Error details:', error.response?.status, error.response?.data)
+      // Default to enabled if error (404 means endpoint doesn't exist yet, so default to enabled)
+      setStaffLocationsEnabled(true)
+    }
+  }
+
+  const handleToggleStaffLocations = async () => {
+    if (!isAccountOwner(user)) return
+    
+    setUpdatingLocationSetting(true)
+    try {
+      const newValue = !staffLocationsEnabled
+      const response = await api.put('/user/staff-locations-setting', { staff_locations_enabled: newValue })
+      setStaffLocationsEnabled(newValue)
+      setNotification({
+        type: 'success',
+        message: newValue ? 'Staff locations are now visible' : 'Staff locations are now hidden globally'
+      })
+      setTimeout(() => setNotification(null), 3000)
+    } catch (error) {
+      console.error('Error updating staff locations setting:', error)
+      console.error('Error details:', error.response?.status, error.response?.data)
+      setNotification({
+        type: 'error',
+        message: error.response?.data?.error || 'Failed to update setting. Please try again.'
+      })
+      setTimeout(() => setNotification(null), 5000)
+    } finally {
+      setUpdatingLocationSetting(false)
+    }
+  }
 
   const fetchTeamMembers = async () => {
     console.log('Fetching team members for user:', user?.id)
@@ -359,12 +407,40 @@ const ServiceFlowTeam = () => {
                   <div className="mb-4 sm:mb-6">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
                       <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">Team Members</h1>
-                      <button
-                        onClick={handleAddMember}
-                        className="w-full sm:w-auto inline-flex items-center justify-center px-4 sm:px-5 py-2 sm:py-2.5 text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-                      >
-                        Add Team Member
-                      </button>
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        {isAccountOwner(user) && (
+                          <button
+                            onClick={handleToggleStaffLocations}
+                            disabled={updatingLocationSetting}
+                            className={`inline-flex items-center px-3 sm:px-4 py-2 text-sm font-medium rounded-lg border focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors ${
+                              staffLocationsEnabled
+                                ? 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'
+                                : 'border-red-300 text-red-700 bg-red-50 hover:bg-red-100'
+                            } disabled:opacity-50`}
+                            title={staffLocationsEnabled ? 'Hide Staff Locations Globally' : 'Show Staff Locations Globally'}
+                          >
+                            {staffLocationsEnabled ? (
+                              <>
+                                <Eye className="w-4 h-4 mr-1.5 sm:mr-2" />
+                                <span className="hidden sm:inline">Hide Locations</span>
+                                <span className="sm:hidden">Hide</span>
+                              </>
+                            ) : (
+                              <>
+                                <EyeOff className="w-4 h-4 mr-1.5 sm:mr-2" />
+                                <span className="hidden sm:inline">Show Locations</span>
+                                <span className="sm:hidden">Show</span>
+                              </>
+                            )}
+                          </button>
+                        )}
+                        <button
+                          onClick={handleAddMember}
+                          className="w-full sm:w-auto inline-flex items-center justify-center px-4 sm:px-5 py-2 sm:py-2.5 text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                        >
+                          Add Team Member
+                        </button>
+                      </div>
                     </div>
                   </div>
 

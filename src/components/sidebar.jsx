@@ -52,7 +52,7 @@ const Sidebar = ({ isOpen, onClose }) => {
     { icon: Wrench, label: "Services", path: "/services" },
     { icon: Tag, label: "Coupons", path: "/coupons", hidden: true },
     { icon: MapPin, label: "Territories", path: "/territories" },
-    { icon: BarChart3, label: "Analytics", path: "/analytics", hidden: true },
+    { icon: BarChart3, label: "Analytics", path: "/analytics" },
     { icon: Globe, label: "Online Booking", path: "/online-booking", hidden: true },
     { icon: Settings, label: "Settings", path: "/settings" },
   ]

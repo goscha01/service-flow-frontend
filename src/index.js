@@ -145,7 +145,7 @@ root.render(
       <Route path="/coupons/create" element={<CreateCoupon />} />
       <Route path="/territories" element={<ServiceFlowTerritories />} />
       <Route path="/territories/:territoryId" element={<TerritoryDetails />} />
-      <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
+      <Route path="/analytics" element={<RoleProtectedRoute path="/analytics"><Analytics /></RoleProtectedRoute>} />
       <Route path="/online-booking" element={<ServiceFlowOnlineBooking />} />
       <Route path="/embed" element={<ServiceFlowWebsiteEmbed />} />
       <Route path="/createjob" element={<RoleProtectedRoute path="/createjob"><CreateJobPage /></RoleProtectedRoute>} />

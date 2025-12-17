@@ -89,6 +89,11 @@ export const isWorker = (user) => {
 export const canAccessRoute = (user, path) => {
   const role = getUserRole(user);
   
+  // Analytics is only accessible to account owners
+  if (path === '/analytics' || path.startsWith('/analytics')) {
+    return role === 'owner';
+  }
+  
   // Availability page is accessible to all authenticated users
   if (path === '/availability' || path.startsWith('/availability/')) {
     return true;
@@ -218,10 +223,14 @@ export const getAllowedSidebarItems = (user) => {
       '/services',
       '/coupons',
       '/territories',
-      '/analytics',
       '/online-booking',
       '/settings',
     ];
+    
+    // Only account owners can access analytics
+    if (role === 'owner') {
+      items.push('/analytics');
+    }
     
     // Managers cannot access billing/subscription settings
     if (role === 'manager') {
