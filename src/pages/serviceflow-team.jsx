@@ -434,12 +434,12 @@ const ServiceFlowTeam = () => {
                             )}
                           </button>
                         )}
-                        <button
-                          onClick={handleAddMember}
-                          className="w-full sm:w-auto inline-flex items-center justify-center px-4 sm:px-5 py-2 sm:py-2.5 text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-                        >
-                          Add Team Member
-                        </button>
+                      <button
+                        onClick={handleAddMember}
+                        className="w-full sm:w-auto inline-flex items-center justify-center px-4 sm:px-5 py-2 sm:py-2.5 text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                      >
+                        Add Team Member
+                      </button>
                       </div>
                     </div>
                   </div>

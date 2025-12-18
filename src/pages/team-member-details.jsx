@@ -1209,24 +1209,24 @@ const TeamMemberDetails = () => {
                   <div className="border-t border-gray-200 pt-4 mt-4">
                     <h3 className="text-sm font-semibold text-gray-900 mb-3">Payment Settings</h3>
                     
-                    <div className="flex flex-col sm:grid sm:grid-cols-3 gap-2 sm:gap-4 py-2">
-                      <span className="text-sm text-gray-600 font-medium sm:font-normal">Hourly Rate</span>
-                      <span className="text-sm text-gray-900 sm:col-span-2">
-                        {editing ? (
-                          <div className="flex items-center space-x-2">
-                            <span className="text-gray-500">$</span>
-                            <input
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              value={editFormData.hourly_rate !== undefined ? editFormData.hourly_rate : (teamMember?.hourly_rate || '')}
-                              onChange={(e) => setEditFormData({ ...editFormData, hourly_rate: parseFloat(e.target.value) || null })}
-                              className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              placeholder="0.00"
-                            />
+                  <div className="flex flex-col sm:grid sm:grid-cols-3 gap-2 sm:gap-4 py-2">
+                    <span className="text-sm text-gray-600 font-medium sm:font-normal">Hourly Rate</span>
+                    <span className="text-sm text-gray-900 sm:col-span-2">
+                      {editing ? (
+                        <div className="flex items-center space-x-2">
+                          <span className="text-gray-500">$</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={editFormData.hourly_rate !== undefined ? editFormData.hourly_rate : (teamMember?.hourly_rate || '')}
+                            onChange={(e) => setEditFormData({ ...editFormData, hourly_rate: parseFloat(e.target.value) || null })}
+                            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="0.00"
+                          />
                             <span className="text-xs text-gray-400">/hour</span>
-                          </div>
-                        ) : (
+                        </div>
+                      ) : (
                           <div className="flex items-center space-x-2">
                             {teamMember?.hourly_rate 
                               ? <span>${parseFloat(teamMember.hourly_rate).toFixed(2)}/hour</span>
@@ -1241,8 +1241,8 @@ const TeamMemberDetails = () => {
                               </button>
                             )}
                           </div>
-                        )}
-                      </span>
+                      )}
+                    </span>
                     </div>
                     
                     <div className="flex flex-col sm:grid sm:grid-cols-3 gap-2 sm:gap-4 py-2">
