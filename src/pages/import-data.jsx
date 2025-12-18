@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { FileSpreadsheet, Calendar, Download, CheckCircle, AlertCircle } from 'lucide-react';
+import { FileSpreadsheet, Calendar, Download, CheckCircle, AlertCircle, Upload } from 'lucide-react';
 import GoogleSheetsImport from '../components/GoogleSheetsImport';
 import GoogleCalendarImport from '../components/GoogleCalendarImport';
+import BookingKoalaImport from '../components/BookingKoalaImport';
 
 const ImportDataPage = () => {
   const [importType, setImportType] = useState(null); // 'sheets-customers', 'sheets-jobs', 'calendar'
@@ -29,6 +30,13 @@ const ImportDataPage = () => {
       description: 'Import calendar events as jobs',
       icon: Calendar,
       color: 'purple'
+    },
+    {
+      id: 'booking-koala',
+      title: 'Import from Booking Koala',
+      description: 'Import customers and jobs from Booking Koala CSV/Excel export',
+      icon: Upload,
+      color: 'orange'
     }
   ];
 
@@ -135,6 +143,13 @@ const ImportDataPage = () => {
 
         {importType === 'calendar' && (
           <GoogleCalendarImport
+            onSuccess={handleImportSuccess}
+            onError={handleImportError}
+          />
+        )}
+
+        {importType === 'booking-koala' && (
+          <BookingKoalaImport
             onSuccess={handleImportSuccess}
             onError={handleImportError}
           />

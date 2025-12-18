@@ -2690,29 +2690,29 @@ const JobDetails = () => {
               // Normal menu for non-completed jobs
               return (
                 <>
-                  {canEditJobDetails(user) && (
-                    <button className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm">
-                      <ClipboardList size={18} className="text-gray-600" />
-                      Edit Service
-                    </button>
-                  )}
-                  {canEditJobDetails(user) && (
-                    <button className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm">
-                      <MapPin size={18} className="text-gray-600" />
-                      Edit Address
-                    </button>
-                  )}
-                  {canRescheduleJobs(user) && (
-                    <button className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm">
-                      <Calendar size={18} className="text-gray-600" />
-                      Reschedule
-                    </button>
-                  )}
-                  <button className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm">
-                    <XCircle size={18} className="text-gray-600" />
-                    Cancel Job
-                  </button>
-                  <div className="border-t border-gray-200 my-1"></div>
+            {canEditJobDetails(user) && (
+            <button className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm">
+              <ClipboardList size={18} className="text-gray-600" />
+              Edit Service
+            </button>
+            )}
+            {canEditJobDetails(user) && (
+            <button className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm">
+              <MapPin size={18} className="text-gray-600" />
+              Edit Address
+            </button>
+            )}
+            {canRescheduleJobs(user) && (
+            <button className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm">
+              <Calendar size={18} className="text-gray-600" />
+              Reschedule
+            </button>
+            )}
+            <button className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm">
+              <XCircle size={18} className="text-gray-600" />
+              Cancel Job
+            </button>
+            <div className="border-t border-gray-200 my-1"></div>
                   {canEditJobDetails(user) && (
                     <button 
                       onClick={() => {
@@ -2725,10 +2725,10 @@ const JobDetails = () => {
                       Duplicate Job
                     </button>
                   )}
-                  <button className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm">
-                    <ExternalLink size={18} className="text-gray-600" />
-                    Rescheduling Page
-                  </button>
+            <button className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm">
+              <ExternalLink size={18} className="text-gray-600" />
+              Rescheduling Page
+            </button>
                 </>
               )
             })()}

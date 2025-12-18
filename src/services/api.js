@@ -149,6 +149,14 @@ export const authAPI = {
     } catch (error) {
       throw error;
     }
+  },
+  connectGoogle: async (googleData) => {
+    try {
+      const response = await api.post('/auth/connect-google', googleData);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
   }
 };
 
@@ -1855,6 +1863,22 @@ export const calendarAPI = {
   syncJob: async (jobData) => {
     try {
       const response = await api.post('/calendar/sync-job', jobData);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+  getSettings: async () => {
+    try {
+      const response = await api.get('/calendar/settings');
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+  updateSettings: async (settings) => {
+    try {
+      const response = await api.put('/calendar/settings', settings);
       return response.data;
     } catch (error) {
       throw error;
