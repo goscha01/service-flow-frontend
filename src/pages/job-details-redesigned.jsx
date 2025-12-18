@@ -48,6 +48,7 @@ import {
   MoreVertical,
   ExternalLink,
   Printer,
+  CalendarCheck,
   Send,
   Edit3,
   MapPin as LocationIcon,
@@ -1945,9 +1946,26 @@ const JobDetails = () => {
               </>
             )}
           </p>
-          <p className="text-sm text-gray-600 mb-4">
+          <p className="text-sm text-gray-600 mb-3">
             {[job?.service_address_city, job?.service_address_state, job?.service_address_zip, job?.service_address_country].filter(Boolean).join(', ')}
           </p>
+          
+          {/* Google Calendar Sync Indicator */}
+          {job?.google_calendar_event_id && (
+            <div className="flex items-center space-x-2 mb-4 p-2 bg-blue-50 border border-blue-200 rounded-lg">
+              <CalendarCheck className="w-4 h-4 text-blue-600 flex-shrink-0" />
+              <span className="text-xs text-blue-700 font-medium flex-1">Synced to Google Calendar</span>
+              <a
+                href={`https://calendar.google.com/calendar/event?eid=${encodeURIComponent(job.google_calendar_event_id)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-blue-600 hover:text-blue-800 underline flex items-center space-x-1"
+              >
+                <span>View</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+          )}
           
           {/* Action Links */}
           <div className="flex items-center space-x-4 mb-4">
@@ -2475,7 +2493,25 @@ const JobDetails = () => {
                   : (job.service_name || 'Service')
                 } <span style={{fontFamily: 'Montserrat', fontWeight: 400}} className="font-normal text-gray-500">for</span> {job.customer_first_name} {job.customer_last_name}
               </h1>
-              <p className="text-sm text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Job #{job.id || job.job_id}</p>
+              <div className="flex items-center space-x-3">
+                <p className="text-sm text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Job #{job.id || job.job_id}</p>
+                {job?.google_calendar_event_id && (
+                  <div className="flex items-center space-x-1.5 px-2 py-0.5 bg-blue-50 border border-blue-200 rounded-md">
+                    <CalendarCheck className="w-3.5 h-3.5 text-blue-600" />
+                    <span className="text-xs text-blue-700 font-medium">Synced</span>
+                    <a
+                      href={`https://calendar.google.com/calendar/event?eid=${btoa(job.google_calendar_event_id)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-blue-600 hover:text-blue-800 underline flex items-center space-x-0.5 ml-1"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <span>View</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
