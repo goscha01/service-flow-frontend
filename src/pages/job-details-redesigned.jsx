@@ -63,7 +63,7 @@ import {
   Eye,
   RotateCw
 } from "lucide-react"
-import { jobsAPI, notificationAPI, territoriesAPI, teamAPI, invoicesAPI, twilioAPI } from "../services/api"
+import { jobsAPI, notificationAPI, territoriesAPI, teamAPI, invoicesAPI, twilioAPI, calendarAPI } from "../services/api"
 import api, { stripeAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
 import Sidebar from "../components/sidebar"
@@ -405,6 +405,65 @@ const JobDetails = () => {
       setLoading(false)
     }
   }
+
+  // Sync job to Google Calendar
+  const handleSyncToCalendar = async () => {
+    if (!job) return;
+    
+    try {
+      setLoading(true);
+      setError('');
+      
+      const customerName = getCustomerName();
+      const serviceName = job.service_name || 'Service';
+      const scheduledDate = job.scheduled_date;
+      const address = job.service_address_street 
+        ? `${job.service_address_street}${job.service_address_unit ? `, ${job.service_address_unit}` : ''}, ${job.service_address_city}, ${job.service_address_state} ${job.service_address_zip}`
+        : job.customer_address || '';
+      
+      // Extract time from scheduled_date
+      let scheduledTime = '';
+      if (scheduledDate) {
+        if (scheduledDate.includes('T')) {
+          scheduledTime = scheduledDate.split('T')[1]?.substring(0, 5) || '';
+        } else if (scheduledDate.includes(' ')) {
+          scheduledTime = scheduledDate.split(' ')[1]?.substring(0, 5) || '';
+        }
+      }
+      
+      const duration = job.duration || job.service_duration || 60;
+      
+      const response = await calendarAPI.syncJob({
+        jobId: job.id,
+        customerName,
+        serviceName,
+        scheduledDate: scheduledDate?.split(' ')[0] || scheduledDate?.split('T')[0] || '',
+        scheduledTime,
+        duration,
+        address
+      });
+      
+      console.log('✅ Job synced to calendar:', response);
+      
+      // Refresh job data to get the updated google_calendar_event_id
+      const updatedJob = await jobsAPI.getById(job.id);
+      if (updatedJob) {
+        const mappedJobData = mapJobData(updatedJob);
+        setJob(mappedJobData);
+      }
+      
+      setSuccessMessage('Job synced to Google Calendar successfully!');
+      setTimeout(() => setSuccessMessage(''), 3000);
+      setMoreDropdown(false);
+    } catch (error) {
+      console.error('❌ Error syncing to calendar:', error);
+      const errorMsg = error.response?.data?.error || error.message || 'Failed to sync to Google Calendar';
+      setError(errorMsg);
+      setTimeout(() => setError(''), 5000);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Team assignment handler
   const handleTeamAssignment = async () => {
@@ -2760,6 +2819,28 @@ const JobDetails = () => {
                       <Copy size={18} className="text-gray-600" />
                       Duplicate Job
                     </button>
+                  )}
+                  {job && !job.google_calendar_event_id && (
+                    <button 
+                      onClick={handleSyncToCalendar}
+                      disabled={loading}
+                      className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm disabled:opacity-50"
+                    >
+                      <CalendarCheck size={18} className="text-gray-600" />
+                      Sync to Calendar
+                    </button>
+                  )}
+                  {job?.google_calendar_event_id && (
+                    <a
+                      href={`https://calendar.google.com/calendar/event?eid=${encodeURIComponent(job.google_calendar_event_id)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => setMoreDropdown(false)}
+                      className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm"
+                    >
+                      <ExternalLink size={18} className="text-gray-600" />
+                      View in Calendar
+                    </a>
                   )}
             <button className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm">
               <ExternalLink size={18} className="text-gray-600" />
