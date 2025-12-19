@@ -1,15 +1,44 @@
 "use client"
 
-import { useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useState, useEffect } from "react"
+import { useNavigate, useSearchParams } from "react-router-dom"
 import Sidebar from "../../components/sidebar"
 import CalendarSyncSettings from "../../components/CalendarSyncSettings"
-import { ChevronLeft, Calendar, FileText } from "lucide-react"
+import { ChevronLeft, Calendar, FileText, CheckCircle, AlertCircle } from "lucide-react"
 
 const CalendarSyncing = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [serviceProviderSync, setServiceProviderSync] = useState(false)
+  const [oauthMessage, setOauthMessage] = useState(null)
+
+  useEffect(() => {
+    // Check for OAuth callback parameters
+    const success = searchParams.get('success')
+    const error = searchParams.get('error')
+    
+    if (success === 'connected') {
+      setOauthMessage({ type: 'success', text: 'Google account connected successfully! Refresh token saved.' });
+      // Remove query params from URL
+      navigate('/settings/calendar-syncing', { replace: true });
+      setTimeout(() => setOauthMessage(null), 5000);
+    } else if (error) {
+      const errorMessages = {
+        'user_not_authenticated': 'You must be logged in to connect your Google account.',
+        'user_not_found': 'User account not found. Please try logging in again.',
+        'update_failed': 'Failed to save Google account connection. Please try again.',
+        'callback_failed': 'Google OAuth callback failed. Please try again.'
+      };
+      setOauthMessage({ 
+        type: 'error', 
+        text: errorMessages[error] || 'Failed to connect Google account. Please try again.' 
+      });
+      // Remove query params from URL
+      navigate('/settings/calendar-syncing', { replace: true });
+      setTimeout(() => setOauthMessage(null), 5000);
+    }
+  }, [searchParams, navigate]);
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
@@ -34,6 +63,28 @@ const CalendarSyncing = () => {
         {/* Content */}
         <div className="flex-1 overflow-auto">
           <div className="max-w-4xl mx-auto p-6 space-y-8">
+            {/* OAuth Callback Messages */}
+            {oauthMessage && (
+              <div className={`p-4 rounded-lg border ${
+                oauthMessage.type === 'success' 
+                  ? 'bg-green-50 border-green-200' 
+                  : 'bg-red-50 border-red-200'
+              }`}>
+                <div className="flex items-center space-x-2">
+                  {oauthMessage.type === 'success' ? (
+                    <CheckCircle className="w-5 h-5 text-green-600" />
+                  ) : (
+                    <AlertCircle className="w-5 h-5 text-red-600" />
+                  )}
+                  <span className={`text-sm font-medium ${
+                    oauthMessage.type === 'success' ? 'text-green-800' : 'text-red-800'
+                  }`}>
+                    {oauthMessage.text}
+                  </span>
+                </div>
+              </div>
+            )}
+
             {/* Google Calendar Sync Settings */}
             <CalendarSyncSettings />
 

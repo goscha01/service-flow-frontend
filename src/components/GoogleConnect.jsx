@@ -158,13 +158,29 @@ const GoogleConnect = ({ onSuccess, onError, buttonText = 'Continue with Google'
           </svg>
           <span class="text-sm font-medium text-gray-700">Continue with Google</span>
         `;
-        customButton.onclick = (e) => {
+        customButton.onclick = async (e) => {
           e.preventDefault();
-          // Request access token with consent to ensure we get refresh token
-          tokenClient.requestAccessToken({ 
-            prompt: 'consent', // Force consent screen to get refresh token
-            enable_granular_consent: true
-          });
+          setIsLoading(true);
+          
+          try {
+            // Use authorization code flow to get refresh token
+            // Import authAPI dynamically to avoid circular dependencies
+            const { authAPI } = await import('../services/api');
+            const { data } = await authAPI.getGoogleAuthUrl();
+            
+            if (data?.authUrl) {
+              // Redirect to Google OAuth authorization page
+              window.location.href = data.authUrl;
+            } else {
+              throw new Error('Failed to get authorization URL');
+            }
+          } catch (err) {
+            console.error('❌ Error initiating Google OAuth:', err);
+            setIsLoading(false);
+            if (onError) {
+              onError(err);
+            }
+          }
         };
         buttonElement.appendChild(customButton);
         isInitializedRef.current = true;

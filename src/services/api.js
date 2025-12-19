@@ -157,6 +157,14 @@ export const authAPI = {
     } catch (error) {
       throw error;
     }
+  },
+  getGoogleAuthUrl: async () => {
+    try {
+      const response = await api.get('/auth/google/authorize');
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
   }
 };
 
