@@ -12,6 +12,7 @@ const CalendarSyncSettings = () => {
     enabled: false,
     calendarId: 'primary',
     connected: false,
+    hasAccessToken: false,
     migrationRequired: false
   });
   const [error, setError] = useState('');
@@ -129,10 +130,14 @@ const CalendarSyncSettings = () => {
                     : 'Enable to automatically sync jobs to Google Calendar when created or updated'
                   }
                 </p>
-                {!settings.connected && (
+                {(!settings.connected || !settings.hasAccessToken) && (
                   <p className="text-xs text-amber-600 mt-2 ml-5 flex items-center space-x-1">
                     <AlertCircle className="w-3 h-3" />
-                    <span>Connect your Google account first to use this feature</span>
+                    <span>
+                      {settings.connected && !settings.hasAccessToken
+                        ? 'Reconnect your Google account with calendar permissions to use this feature'
+                        : 'Connect your Google account first to use this feature'}
+                    </span>
                   </p>
                 )}
               </div>
@@ -141,20 +146,20 @@ const CalendarSyncSettings = () => {
               <div className="relative">
                 <button
                   onClick={() => {
-                    if (!settings.connected) {
-                      setError('Please connect your Google account first to enable calendar syncing.');
+                    if (!settings.connected || !settings.hasAccessToken) {
+                      setError('Please connect your Google account with calendar permissions first to enable calendar syncing.');
                       return;
                     }
                     if (saving) return;
                     handleToggle(!settings.enabled);
                   }}
-                  disabled={saving || !settings.connected}
+                  disabled={saving || !settings.connected || !settings.hasAccessToken}
                   className={`relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
                     settings.enabled 
                       ? 'bg-blue-600 shadow-lg shadow-blue-200' 
                       : 'bg-gray-300'
                   } ${
-                    saving || !settings.connected 
+                    saving || !settings.connected || !settings.hasAccessToken
                       ? 'opacity-50 cursor-not-allowed' 
                       : 'hover:bg-opacity-80 active:scale-95'
                   }`}
@@ -203,14 +208,36 @@ const CalendarSyncSettings = () => {
           )}
 
           {/* Google Connection Section */}
-          {!settings.connected && (
-            <div className="p-5 bg-gradient-to-r from-amber-50 to-yellow-50 border-2 border-amber-200 rounded-lg">
+          {(!settings.connected || (settings.connected && !settings.hasAccessToken)) && (
+            <div className={`p-5 border-2 rounded-lg ${
+              settings.connected && !settings.hasAccessToken
+                ? 'bg-red-50 border-red-200'
+                : 'bg-gradient-to-r from-amber-50 to-yellow-50 border-amber-200'
+            }`}>
               <div className="flex items-start space-x-3 mb-4">
-                <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                <AlertCircle className={`w-5 h-5 mt-0.5 flex-shrink-0 ${
+                  settings.connected && !settings.hasAccessToken
+                    ? 'text-red-600'
+                    : 'text-amber-600'
+                }`} />
                 <div className="flex-1">
-                  <p className="text-sm font-semibold text-amber-900">Connect Your Google Account</p>
-                  <p className="text-sm text-amber-700 mt-1">
-                    Connect your Google account to enable automatic calendar syncing. This allows jobs to be automatically synced to your Google Calendar.
+                  <p className={`text-sm font-semibold ${
+                    settings.connected && !settings.hasAccessToken
+                      ? 'text-red-900'
+                      : 'text-amber-900'
+                  }`}>
+                    {settings.connected && !settings.hasAccessToken
+                      ? 'Reconnect Your Google Account'
+                      : 'Connect Your Google Account'}
+                  </p>
+                  <p className={`text-sm mt-1 ${
+                    settings.connected && !settings.hasAccessToken
+                      ? 'text-red-700'
+                      : 'text-amber-700'
+                  }`}>
+                    {settings.connected && !settings.hasAccessToken
+                      ? 'Your Google account is connected but missing calendar permissions. Please reconnect to grant access to sync jobs to your Google Calendar.'
+                      : 'Connect your Google account to enable automatic calendar syncing. This allows jobs to be automatically synced to your Google Calendar.'}
                   </p>
                 </div>
               </div>
