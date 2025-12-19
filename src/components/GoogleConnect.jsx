@@ -94,7 +94,12 @@ const GoogleConnect = ({ onSuccess, onError, buttonText = 'Continue with Google'
           client_id: process.env.REACT_APP_GOOGLE_CLIENT_ID,
           scope: 'https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events',
           callback: async (tokenResponse) => {
-            console.log('🔗 OAuth2 token received:', tokenResponse);
+            console.log('🔗 OAuth2 token received:', {
+              hasAccessToken: !!tokenResponse.access_token,
+              hasRefreshToken: !!tokenResponse.refresh_token,
+              expiresIn: tokenResponse.expires_in,
+              scope: tokenResponse.scope
+            });
             
             if (tokenResponse.access_token) {
               // Get ID token for user identification
@@ -105,26 +110,33 @@ const GoogleConnect = ({ onSuccess, onError, buttonText = 'Continue with Google'
                     'Authorization': `Bearer ${tokenResponse.access_token}`
                   }
                 });
+                
+                if (!userInfoResponse.ok) {
+                  throw new Error(`Failed to get user info: ${userInfoResponse.status}`);
+                }
+                
                 const userInfo = await userInfoResponse.json();
+                
+                console.log('🔗 User info retrieved:', { email: userInfo.email, id: userInfo.id });
                 
                 // Call success with both tokens
                 if (onSuccess) {
                   await onSuccess({
                     accessToken: tokenResponse.access_token,
-                    refreshToken: tokenResponse.refresh_token,
+                    refreshToken: tokenResponse.refresh_token || null, // May be null on first request
                     idToken: null, // We'll use the access token to verify
                     email: userInfo.email,
                     googleId: userInfo.id
                   });
                 }
               } catch (err) {
-                console.error('Error getting user info:', err);
+                console.error('❌ Error getting user info:', err);
                 if (onError) {
                   onError(err);
                 }
               }
             } else if (tokenResponse.error) {
-              console.error('OAuth2 error:', tokenResponse.error);
+              console.error('❌ OAuth2 error:', tokenResponse.error);
               if (onError) {
                 onError(new Error(tokenResponse.error));
               }
@@ -148,7 +160,11 @@ const GoogleConnect = ({ onSuccess, onError, buttonText = 'Continue with Google'
         `;
         customButton.onclick = (e) => {
           e.preventDefault();
-          tokenClient.requestAccessToken({ prompt: 'consent' });
+          // Request access token with consent to ensure we get refresh token
+          tokenClient.requestAccessToken({ 
+            prompt: 'consent', // Force consent screen to get refresh token
+            enable_granular_consent: true
+          });
         };
         buttonElement.appendChild(customButton);
         isInitializedRef.current = true;
