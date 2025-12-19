@@ -2553,7 +2553,7 @@ const JobDetails = () => {
                 } <span style={{fontFamily: 'Montserrat', fontWeight: 400}} className="font-normal text-gray-500">for</span> {job.customer_first_name} {job.customer_last_name}
               </h1>
               <div className="flex items-center space-x-3">
-                <p className="text-sm text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Job #{job.id || job.job_id}</p>
+              <p className="text-sm text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Job #{job.id || job.job_id}</p>
                 {job?.google_calendar_event_id && (
                   <div className="flex items-center space-x-1.5 px-2 py-0.5 bg-blue-50 border border-blue-200 rounded-md">
                     <CalendarCheck className="w-3.5 h-3.5 text-blue-600" />
