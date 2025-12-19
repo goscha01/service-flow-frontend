@@ -33,7 +33,8 @@ const CalendarSyncing = () => {
         'user_not_authenticated': 'You must be logged in to connect your Google account.',
         'user_not_found': 'User account not found. Please try logging in again.',
         'update_failed': 'Failed to save Google account connection. Please try again.',
-        'callback_failed': 'Google OAuth callback failed. Please try again.'
+        'callback_failed': 'Google OAuth callback failed. Please try again.',
+        'invalid_client_credentials': 'Google OAuth client credentials are invalid. Please check GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in your backend environment variables.'
       };
       setOauthMessage({ 
         type: 'error', 
