@@ -38,6 +38,14 @@ const CalendarSyncSettings = () => {
     }
   };
 
+  // Refresh settings after OAuth callback
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('success') === 'connected') {
+      fetchSettings();
+    }
+  }, []);
+
   const handleToggle = async (newEnabled) => {
     // Optimistically update UI
     const previousEnabled = settings.enabled;
@@ -243,27 +251,9 @@ const CalendarSyncSettings = () => {
               </div>
               <div className="mt-4">
                 <GoogleConnect
-                  onSuccess={async (googleData) => {
-                    try {
-                      setSaving(true);
-                      setError('');
-                      console.log('🔗 Connecting Google account...', googleData);
-                      
-                      const response = await authAPI.connectGoogle(googleData);
-                      console.log('✅ Google account connected:', response);
-                      
-                      // Refresh settings to update connected status
-                      await fetchSettings();
-                      
-                      setSuccess('Google account connected successfully!');
-                      setTimeout(() => setSuccess(''), 3000);
-                    } catch (err) {
-                      console.error('❌ Error connecting Google account:', err);
-                      const errorMessage = err.response?.data?.error || 'Failed to connect Google account';
-                      setError(errorMessage);
-                    } finally {
-                      setSaving(false);
-                    }
+                  onSuccess={async () => {
+                    // This won't be called with authorization code flow (redirect)
+                    // The success is handled via URL query params in the calendar-syncing page
                   }}
                   onError={(error) => {
                     console.error('❌ Google Connect error:', error);
@@ -271,6 +261,10 @@ const CalendarSyncSettings = () => {
                   }}
                   buttonText="connect_with"
                 />
+                <p className="text-xs text-gray-500 mt-2">
+                  Clicking the button will redirect you to Google to authorize calendar access. 
+                  You'll be redirected back after authorization.
+                </p>
               </div>
             </div>
           )}
