@@ -166,19 +166,27 @@ const GoogleConnect = ({ onSuccess, onError, buttonText = 'Continue with Google'
             // Use authorization code flow to get refresh token
             // Import authAPI dynamically to avoid circular dependencies
             const { authAPI } = await import('../services/api');
-            const { data } = await authAPI.getGoogleAuthUrl();
+            console.log('🔗 Requesting Google OAuth authorization URL...');
+            const response = await authAPI.getGoogleAuthUrl();
+            console.log('🔗 Authorization URL response:', response);
             
-            if (data?.authUrl) {
+            // Handle different response structures
+            const authUrl = response?.authUrl || response?.data?.authUrl;
+            
+            if (authUrl) {
+              console.log('✅ Got authorization URL, redirecting...');
               // Redirect to Google OAuth authorization page
-              window.location.href = data.authUrl;
+              window.location.href = authUrl;
             } else {
-              throw new Error('Failed to get authorization URL');
+              console.error('❌ No authUrl in response:', response);
+              throw new Error('Failed to get authorization URL. Please check your Google OAuth configuration.');
             }
           } catch (err) {
             console.error('❌ Error initiating Google OAuth:', err);
             setIsLoading(false);
+            const errorMessage = err.response?.data?.error || err.message || 'Failed to get authorization URL';
             if (onError) {
-              onError(err);
+              onError(new Error(errorMessage));
             }
           }
         };

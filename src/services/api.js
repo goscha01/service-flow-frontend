@@ -160,9 +160,12 @@ export const authAPI = {
   },
   getGoogleAuthUrl: async () => {
     try {
+      console.log('🔗 Calling /auth/google/authorize endpoint...');
       const response = await api.get('/auth/google/authorize');
+      console.log('🔗 Authorization URL response:', response.data);
       return response.data;
     } catch (error) {
+      console.error('❌ Error getting Google auth URL:', error.response?.data || error.message);
       throw error;
     }
   }
