@@ -2014,15 +2014,27 @@ const JobDetails = () => {
             <div className="flex items-center space-x-2 mb-4 p-2 bg-blue-50 border border-blue-200 rounded-lg">
               <CalendarCheck className="w-4 h-4 text-blue-600 flex-shrink-0" />
               <span className="text-xs text-blue-700 font-medium flex-1">Synced to Google Calendar</span>
-              <a
-                href={`https://www.google.com/calendar/event?eid=${encodeURIComponent(job.google_calendar_event_id)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-blue-600 hover:text-blue-800 underline flex items-center space-x-1"
-              >
-                <span>View</span>
-                <ExternalLink className="w-3 h-3" />
-              </a>
+              {job?.google_calendar_event_link ? (
+                <a
+                  href={job.google_calendar_event_link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-blue-600 hover:text-blue-800 underline flex items-center space-x-1"
+                >
+                  <span>View</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              ) : (
+                <a
+                  href={`https://calendar.google.com/calendar/u/0/r/day/${new Date(job.scheduled_date || Date.now()).toISOString().split('T')[0].replace(/-/g, '/')}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-blue-600 hover:text-blue-800 underline flex items-center space-x-1"
+                >
+                  <span>View</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              )}
             </div>
           )}
           
@@ -2558,16 +2570,29 @@ const JobDetails = () => {
                   <div className="flex items-center space-x-1.5 px-2 py-0.5 bg-blue-50 border border-blue-200 rounded-md">
                     <CalendarCheck className="w-3.5 h-3.5 text-blue-600" />
                     <span className="text-xs text-blue-700 font-medium">Synced</span>
-                    <a
-                      href={`https://www.google.com/calendar/event?eid=${encodeURIComponent(job.google_calendar_event_id)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-blue-600 hover:text-blue-800 underline flex items-center space-x-0.5 ml-1"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <span>View</span>
-                      <ExternalLink className="w-3 h-3" />
-                    </a>
+                    {job?.google_calendar_event_link ? (
+                      <a
+                        href={job.google_calendar_event_link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-blue-600 hover:text-blue-800 underline flex items-center space-x-0.5 ml-1"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <span>View</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    ) : (
+                      <a
+                        href={`https://calendar.google.com/calendar/u/0/r/day/${new Date(job.scheduled_date || Date.now()).toISOString().split('T')[0].replace(/-/g, '/')}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-blue-600 hover:text-blue-800 underline flex items-center space-x-0.5 ml-1"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <span>View</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    )}
                   </div>
                 )}
               </div>
@@ -2832,7 +2857,7 @@ const JobDetails = () => {
                   )}
                   {job?.google_calendar_event_id && (
                     <a
-                      href={`https://www.google.com/calendar/event?eid=${encodeURIComponent(job.google_calendar_event_id)}`}
+                      href={job?.google_calendar_event_link || `https://calendar.google.com/calendar/u/0/r/day/${new Date(job.scheduled_date || Date.now()).toISOString().split('T')[0].replace(/-/g, '/')}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={() => setMoreDropdown(false)}
