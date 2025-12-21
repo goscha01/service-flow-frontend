@@ -6877,28 +6877,14 @@ const JobDetails = () => {
           isOpen={showDuplicateModal}
           onClose={() => setShowDuplicateModal(false)}
           job={job}
-          onDuplicate={async (data) => {
-            try {
-              setLoading(true);
-              const result = await jobsAPI.duplicate(jobId, data);
-              setSuccessMessage(data.isRecurring 
-                ? 'Job duplicated and set as recurring successfully!' 
-                : 'Job duplicated successfully!');
-              setTimeout(() => setSuccessMessage(""), 3000);
-              // Navigate to the new job or refresh
-              if (result.job?.id || result.job?.job_id) {
-                navigate(`/jobs/${result.job.id || result.job.job_id}`);
-              } else {
-                // Reload current job data
-                const updatedJob = await jobsAPI.getById(jobId);
-                setJob(updatedJob.job || updatedJob);
+          onDuplicate={async () => {
+            // Navigate to create job page with all job details pre-filled
+            navigate('/createjob', {
+              state: {
+                duplicateJob: job,
+                fromJobId: jobId
               }
-            } catch (error) {
-              console.error('Error duplicating job:', error);
-              setError(`Failed to duplicate job: ${error.response?.data?.error || error.message}`);
-            } finally {
-              setLoading(false);
-            }
+            });
           }}
         />
     </>

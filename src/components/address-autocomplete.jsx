@@ -190,6 +190,42 @@ const AddressAutocomplete = ({
     return <MapPin className="w-4 h-4 text-gray-400" />;
   };
 
+  // Add styles for Google Places Autocomplete dropdown
+  useEffect(() => {
+    if (googleMapsReady && inputRef.current) {
+      // Ensure Google Places Autocomplete dropdown is visible
+      const style = document.createElement('style');
+      style.textContent = `
+        .pac-container {
+          z-index: 9999 !important;
+          border-radius: 8px !important;
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+          border: 1px solid #e5e7eb !important;
+          margin-top: 4px !important;
+        }
+        .pac-item {
+          padding: 12px !important;
+          cursor: pointer !important;
+          border-bottom: 1px solid #f3f4f6 !important;
+        }
+        .pac-item:hover {
+          background-color: #f9fafb !important;
+        }
+        .pac-item-selected {
+          background-color: #eff6ff !important;
+        }
+        .pac-icon {
+          margin-right: 8px !important;
+        }
+      `;
+      document.head.appendChild(style);
+      
+      return () => {
+        document.head.removeChild(style);
+      };
+    }
+  }, [googleMapsReady]);
+
   return (
     <div className={`relative ${className}`}>
       <div className="relative">

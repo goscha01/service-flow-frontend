@@ -20,6 +20,8 @@ const ServiceFlowCustomers = () => {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [customerToDelete, setCustomerToDelete] = useState(null)
+  const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false)
+  const [deleteAllLoading, setDeleteAllLoading] = useState(false)
 
   // API State
   const [customers, setCustomers] = useState([])
@@ -217,6 +219,48 @@ const ServiceFlowCustomers = () => {
     fetchCustomers()
   }
 
+  const handleDeleteAll = () => {
+    setShowDeleteAllConfirm(true)
+  }
+
+  const confirmDeleteAll = async () => {
+    try {
+      setDeleteAllLoading(true)
+      setError("")
+      setSuccessMessage("")
+
+      await customersAPI.deleteAll()
+
+      // Clear all customers from local state
+      setCustomers([])
+      setShowDeleteAllConfirm(false)
+
+      // Show success message
+      setSuccessMessage('All customers deleted successfully.')
+
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccessMessage(""), 3000)
+    } catch (error) {
+      console.error('Error deleting all customers:', error)
+
+      // Handle specific error messages from server
+      if (error.response) {
+        const { status, data } = error.response
+        switch (status) {
+          case 500:
+            setError("Server error. Please try again later.")
+            break
+          default:
+            setError(data?.error || "Failed to delete all customers. Please try again.")
+        }
+      } else {
+        setError("Network error. Please check your connection and try again.")
+      }
+    } finally {
+      setDeleteAllLoading(false)
+    }
+  }
+
   const filteredCustomers = customers.filter(customer => {
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase()
@@ -274,7 +318,7 @@ const ServiceFlowCustomers = () => {
               </div>
 
               {/* Action Buttons - Mobile Layout */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <button
                   onClick={handleExport}
                   className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
@@ -287,6 +331,14 @@ const ServiceFlowCustomers = () => {
                 >
                   Import
                 </button>
+                {customers.length > 0 && (
+                  <button
+                    onClick={handleDeleteAll}
+                    className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                  >
+                    Delete All
+                  </button>
+                )}
                 <button
                   onClick={handleAddCustomer}
                   className="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
@@ -480,6 +532,37 @@ const ServiceFlowCustomers = () => {
                 className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
               >
                 {deleteLoading === customerToDelete.id ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete All Confirmation Modal */}
+      {showDeleteAllConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-4 sm:p-6 max-w-md w-full mx-4">
+            <div className="flex items-center mb-4">
+              <AlertCircle className="h-5 w-5 sm:h-6 sm:w-6 text-red-600 mr-3" />
+              <h3 className="text-base sm:text-lg font-medium text-gray-900">Delete All Customers</h3>
+            </div>
+            <p className="text-xs sm:text-sm text-gray-500 mb-6">
+              Are you sure you want to delete <strong>all {customers.length} customers</strong>? 
+              This action cannot be undone and will permanently remove all customer records.
+            </p>
+            <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3">
+              <button
+                onClick={() => setShowDeleteAllConfirm(false)}
+                className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeleteAll}
+                disabled={deleteAllLoading}
+                className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
+              >
+                {deleteAllLoading ? "Deleting..." : "Delete All"}
               </button>
             </div>
           </div>
