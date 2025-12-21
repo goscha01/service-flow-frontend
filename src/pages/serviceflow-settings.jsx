@@ -25,6 +25,7 @@ import {
   Smartphone,
   ChevronRight,
   Settings,
+  FileSpreadsheet,
 } from "lucide-react"
 
 const ServiceFlowSettings = () => {
@@ -84,6 +85,9 @@ const ServiceFlowSettings = () => {
         break
       case "calendar-syncing":
         navigate("/settings/calendar-syncing")
+        break
+      case "google-sheets":
+        navigate("/settings/google-sheets")
         break
       case "developers":
         navigate("/settings/developers")
@@ -212,6 +216,12 @@ const ServiceFlowSettings = () => {
           icon: CalendarDays,
           title: "Calendar Syncing",
           description: "Sync your Serviceflow schedule to external calendar apps",
+        },
+        {
+          id: "google-sheets",
+          icon: FileSpreadsheet,
+          title: "Google Sheets",
+          description: "Export data to Google Sheets and import from spreadsheets",
         },
         {
           id: "developers",

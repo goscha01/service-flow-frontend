@@ -71,7 +71,7 @@ import CreateServiceModal from "../components/create-service-modal";
 import CalendarPicker from "../components/CalendarPicker";
 import DiscountModal from "../components/discount-modal";
 import RecurringFrequencyModal from "../components/recurring-frequency-modal";
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { jobsAPI, customersAPI, servicesAPI, teamAPI, territoriesAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useCategory } from '../context/CategoryContext';
@@ -83,6 +83,7 @@ import { formatRecurringFrequency } from '../utils/recurringUtils';
 
 export default function CreateJobPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const { user, loading: authLoading } = useAuth();
   const { selectedCategoryId, selectedCategoryName } = useCategory();
@@ -255,10 +256,125 @@ export default function CreateJobPage() {
     }
   }, [user?.id]);
 
+  // Handle duplicate job from location state
+  useEffect(() => {
+    if (location.state?.duplicateJob && customers.length > 0 && services.length > 0) {
+      const duplicateJob = location.state.duplicateJob;
+      console.log('📋 Loading duplicate job data:', duplicateJob);
+      
+      // Set customer
+      if (duplicateJob.customer_id) {
+        const customer = customers.find(c => c.id === duplicateJob.customer_id);
+        if (customer) {
+          setSelectedCustomer(customer);
+          setCustomerSelected(true);
+        }
+      }
+      
+      // Set service
+      if (duplicateJob.service_id) {
+        const service = services.find(s => s.id === duplicateJob.service_id);
+        if (service) {
+          setSelectedService(service);
+          setSelectedServices([service]);
+          setServiceSelected(true);
+          setJobselected(true);
+        }
+      } else if (duplicateJob.service_name) {
+        // If no service_id, try to find by name
+        const service = services.find(s => s.name === duplicateJob.service_name);
+        if (service) {
+          setSelectedService(service);
+          setSelectedServices([service]);
+          setServiceSelected(true);
+          setJobselected(true);
+        }
+      }
+      
+      // Set team member
+      if (duplicateJob.team_member_id && teamMembers.length > 0) {
+        const teamMember = teamMembers.find(tm => tm.id === duplicateJob.team_member_id);
+        if (teamMember) {
+          setSelectedTeamMember(teamMember);
+          setSelectedTeamMembers([teamMember]);
+        }
+      }
+      
+      // Parse scheduled date and time
+      let scheduledDate = '';
+      let scheduledTime = '09:00';
+      if (duplicateJob.scheduled_date) {
+        const dateStr = duplicateJob.scheduled_date;
+        if (dateStr.includes('T')) {
+          const [datePart, timePart] = dateStr.split('T');
+          scheduledDate = datePart;
+          if (timePart) {
+            scheduledTime = timePart.substring(0, 5); // Get HH:MM
+          }
+        } else if (dateStr.includes(' ')) {
+          const [datePart, timePart] = dateStr.split(' ');
+          scheduledDate = datePart;
+          if (timePart) {
+            scheduledTime = timePart.substring(0, 5);
+          }
+        } else {
+          scheduledDate = dateStr;
+        }
+      }
+      
+      // Set form data
+      setFormData(prev => ({
+        ...prev,
+        customerId: duplicateJob.customer_id || '',
+        serviceId: duplicateJob.service_id || '',
+        teamMemberId: duplicateJob.team_member_id || '',
+        scheduledDate: scheduledDate,
+        scheduledTime: scheduledTime,
+        notes: duplicateJob.notes || '',
+        duration: duplicateJob.duration || duplicateJob.estimated_duration || 360,
+        estimatedDuration: duplicateJob.estimated_duration || duplicateJob.duration || 360,
+        workers: duplicateJob.workers_needed || duplicateJob.workers || 0,
+        skillsRequired: duplicateJob.skills_required || 0,
+        price: duplicateJob.price || duplicateJob.service_price || 0,
+        discount: duplicateJob.discount || 0,
+        additionalFees: duplicateJob.additional_fees || 0,
+        taxes: duplicateJob.taxes || 0,
+        total: duplicateJob.total || duplicateJob.total_amount || 0,
+        paymentMethod: duplicateJob.payment_method || '',
+        territory: duplicateJob.territory_id || '',
+        recurringJob: duplicateJob.is_recurring || false,
+        recurringFrequency: duplicateJob.recurring_frequency || '',
+        recurringEndDate: duplicateJob.recurring_end_date || '',
+        serviceName: duplicateJob.service_name || '',
+        invoiceStatus: duplicateJob.invoice_status || 'draft',
+        paymentStatus: duplicateJob.payment_status || 'pending',
+        offerToProviders: duplicateJob.offer_to_providers || false,
+        serviceModifiers: duplicateJob.service_modifiers || [],
+        serviceIntakeQuestions: duplicateJob.service_intake_questions || [],
+        serviceAddress: {
+          street: duplicateJob.service_address_street || '',
+          city: duplicateJob.service_address_city || '',
+          state: duplicateJob.service_address_state || '',
+          zipCode: duplicateJob.service_address_zip || '',
+          country: duplicateJob.service_address_country || 'USA',
+          unit: duplicateJob.service_address_unit || ''
+        }
+      }));
+      
+      // Set territory
+      if (duplicateJob.territory_id) {
+        setDetectedTerritory(duplicateJob.territory_id);
+      }
+      
+      // Clear location state to prevent re-loading on refresh
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state, customers, services, teamMembers]);
+
   // Handle customerId from URL params
   useEffect(() => {
     const customerIdFromUrl = searchParams.get('customerId');
-    if (customerIdFromUrl && customers.length > 0) {
+    if (customerIdFromUrl && customers.length > 0 && !location.state?.duplicateJob) {
       const customer = customers.find(c => c.id === parseInt(customerIdFromUrl) || c.id === customerIdFromUrl);
       if (customer) {
         setSelectedCustomer(customer);
@@ -266,7 +382,7 @@ export default function CreateJobPage() {
         setFormData(prev => ({ ...prev, customerId: customer.id }));
       }
     }
-  }, [searchParams, customers]);
+  }, [searchParams, customers, location.state]);
 
   useEffect(() => {
     // Filter customers based on search

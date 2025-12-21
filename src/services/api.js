@@ -364,6 +364,15 @@ export const customersAPI = {
     }
   },
 
+  deleteAll: async () => {
+    try {
+      const response = await api.delete('/customers/all');
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
   export: async (format = 'csv') => {
     try {
       if (format === 'csv') {

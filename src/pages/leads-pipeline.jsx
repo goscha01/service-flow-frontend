@@ -15,9 +15,13 @@ import {
   Save,
   GripVertical,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  ExternalLink,
+  MapPin,
+  Home,
+  Loader2
 } from 'lucide-react';
-import { leadsAPI, teamAPI } from '../services/api';
+import { leadsAPI, teamAPI, servicesAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { formatPhoneNumber } from '../utils/phoneFormatter';
 import Notification, { useNotification } from '../components/notification';
@@ -25,6 +29,7 @@ import TaskCard from '../components/task-card';
 import CreateTaskModal from '../components/create-task-modal';
 import ConvertLeadModal from '../components/convert-lead-modal';
 import MobileBottomNav from '../components/mobile-bottom-nav';
+import AddressAutocomplete from '../components/address-autocomplete';
 
 const LeadsPipeline = () => {
   const navigate = useNavigate();
@@ -56,8 +61,16 @@ const LeadsPipeline = () => {
     company: '',
     source: '',
     notes: '',
-    value: ''
+    value: '',
+    address: '',
+    serviceId: ''
   });
+  
+  // Services and Zillow state
+  const [services, setServices] = useState([]);
+  const [zillowData, setZillowData] = useState(null);
+  const [zillowLoading, setZillowLoading] = useState(false);
+  const [selectedAddress, setSelectedAddress] = useState(null);
   
   // Lead sources - customizable list (load from localStorage or use defaults)
   const [leadSources, setLeadSources] = useState(() => {
@@ -92,12 +105,75 @@ const LeadsPipeline = () => {
   const [draggedLead, setDraggedLead] = useState(null);
   const [draggedStage, setDraggedStage] = useState(null);
   
-  // Load pipeline, leads, and team members
+  // Load pipeline, leads, team members, and services
   useEffect(() => {
     loadPipeline();
     loadLeads();
     loadTeamMembers();
+    loadServices();
   }, []);
+  
+  const loadServices = async () => {
+    try {
+      if (user?.id) {
+        const response = await servicesAPI.getAll(user.id);
+        const servicesArray = response.services || response || [];
+        setServices(servicesArray);
+      }
+    } catch (err) {
+      console.error('Error loading services:', err);
+    }
+  };
+  
+  // Check property data when address is selected (using ATTOM Data API)
+  const checkZillowProperty = async (addressData) => {
+    if (!addressData || !addressData.formattedAddress) return;
+    
+    setZillowLoading(true);
+    setZillowData(null);
+    
+    try {
+      // Call backend API to check Zillow
+      const apiModule = await import('../services/api');
+      const api = apiModule.default;
+      
+      const response = await api.post('/zillow/property', {
+        address: addressData.formattedAddress,
+        street: addressData.components?.streetNumber && addressData.components?.route 
+          ? `${addressData.components.streetNumber} ${addressData.components.route}`
+          : addressData.formattedAddress,
+        city: addressData.components?.city,
+        state: addressData.components?.state,
+        zipCode: addressData.components?.zipCode
+      });
+      
+      if (response.data) {
+        setZillowData(response.data);
+      } else {
+        // Explicitly set to null if no data (property not found)
+        setZillowData(null);
+      }
+    } catch (err) {
+      console.error('Error checking property data:', err);
+      // Set to null on error so UI shows "no property found" message
+      setZillowData(null);
+    } finally {
+      setZillowLoading(false);
+    }
+  };
+  
+  // Auto-calculate value when service is selected
+  useEffect(() => {
+    if (leadFormData.serviceId) {
+      const selectedService = services.find(s => s.id === parseInt(leadFormData.serviceId));
+      if (selectedService && selectedService.price) {
+        setLeadFormData(prev => ({
+          ...prev,
+          value: selectedService.price.toString()
+        }));
+      }
+    }
+  }, [leadFormData.serviceId, services]);
   
   // Load tasks when a lead is selected
   useEffect(() => {
@@ -172,8 +248,12 @@ const LeadsPipeline = () => {
         company: '',
         source: '',
         notes: '',
-        value: ''
+        value: '',
+        address: '',
+        serviceId: ''
       });
+      setZillowData(null);
+      setSelectedAddress(null);
       loadLeads();
     } catch (err) {
       const errorMessage = err.response?.data?.error || err.message || 'Failed to create lead';
@@ -534,7 +614,7 @@ const LeadsPipeline = () => {
       {/* Create Lead Modal */}
       {showCreateLeadModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] flex flex-col">
+          <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 flex-shrink-0">
               <h2 className="text-lg sm:text-xl font-bold text-gray-900">Add New Lead</h2>
               <button
@@ -546,7 +626,9 @@ const LeadsPipeline = () => {
             </div>
             
             <div className="overflow-y-auto flex-1 p-4 sm:p-6">
-              <form onSubmit={handleCreateLead} className="space-y-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Left Column - Form */}
+                <form onSubmit={handleCreateLead} className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -689,13 +771,24 @@ const LeadsPipeline = () => {
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Company
+                    Address
                   </label>
-                  <input
-                    type="text"
-                    value={leadFormData.company}
-                    onChange={(e) => setLeadFormData({ ...leadFormData, company: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  <AddressAutocomplete
+                    value={leadFormData.address}
+                    onChange={(value) => {
+                      setLeadFormData({ ...leadFormData, address: value });
+                    }}
+                    onAddressSelect={(addressData) => {
+                      setSelectedAddress(addressData);
+                      setLeadFormData(prev => ({
+                        ...prev,
+                        address: addressData.formattedAddress
+                      }));
+                      // Check property data when address is selected
+                      checkZillowProperty(addressData);
+                    }}
+                    placeholder="Enter property address"
+                    className="w-full"
                   />
                 </div>
                 
@@ -802,6 +895,27 @@ const LeadsPipeline = () => {
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Service
+                  </label>
+                  <select
+                    value={leadFormData.serviceId}
+                    onChange={(e) => setLeadFormData({ ...leadFormData, serviceId: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Select a service...</option>
+                    {services.map((service) => (
+                      <option key={service.id} value={service.id}>
+                        {service.name} - ${service.price || 0}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Selecting a service will automatically set the estimated value
+                  </p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     Estimated Value ($)
                   </label>
                   <input
@@ -810,10 +924,16 @@ const LeadsPipeline = () => {
                     value={leadFormData.value}
                     onChange={(e) => setLeadFormData({ ...leadFormData, value: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    readOnly={!!leadFormData.serviceId}
                   />
+                  {leadFormData.serviceId && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Value calculated from selected service
+                    </p>
+                  )}
                 </div>
                 
-                <div>
+                <div className="col-span-1 sm:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Notes
                   </label>
@@ -825,10 +945,14 @@ const LeadsPipeline = () => {
                   />
                 </div>
                 
-                <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 pt-4 border-t border-gray-200 mt-4">
+                <div className="col-span-1 sm:col-span-2 flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 pt-4 border-t border-gray-200 mt-4">
                   <button
                     type="button"
-                    onClick={() => setShowCreateLeadModal(false)}
+                    onClick={() => {
+                      setShowCreateLeadModal(false);
+                      setZillowData(null);
+                      setSelectedAddress(null);
+                    }}
                     className="w-full sm:w-auto px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
                   >
                     Cancel
@@ -841,6 +965,135 @@ const LeadsPipeline = () => {
                   </button>
                 </div>
               </form>
+              
+              {/* Right Column - Zillow Property Info */}
+              <div className="lg:border-l lg:pl-6 lg:ml-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2">
+                  <Home className="w-5 h-5 text-blue-600" />
+                  <span>Property Information</span>
+                </h3>
+                
+                {zillowLoading && (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+                    <span className="ml-2 text-gray-600">Checking Zillow...</span>
+                  </div>
+                )}
+                
+                {!zillowLoading && !zillowData && selectedAddress && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <div className="flex items-start space-x-3">
+                      <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <h4 className="text-sm font-medium text-yellow-800 mb-1">No Property Data Found</h4>
+                        <p className="text-sm text-yellow-700">
+                          No property information found for this address. The address may not be in the property database, or the property may not have available data.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {!zillowLoading && !zillowData && !selectedAddress && (
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
+                    <MapPin className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                    <p className="text-sm text-gray-600">
+                      Enter an address to see property information
+                    </p>
+                  </div>
+                )}
+                
+                {zillowData && (
+                  <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-4">
+                    {zillowData.zpid && (
+                      <div className="flex items-center justify-between mb-3 pb-3 border-b border-gray-200">
+                        <h4 className="font-semibold text-gray-900">Property Information</h4>
+                        {zillowData.zpid && zillowData.zpid.startsWith('zpid') && (
+                          <a
+                            href={`https://www.zillow.com/homedetails/${zillowData.zpid.replace('zpid-', '')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-blue-600 hover:text-blue-800 flex items-center space-x-1"
+                          >
+                            <span>View on Zillow</span>
+                            <ExternalLink className="w-4 h-4" />
+                          </a>
+                        )}
+                      </div>
+                    )}
+                    
+                    {zillowData.address && (
+                      <div>
+                        <label className="text-xs font-medium text-gray-500 uppercase">Address</label>
+                        <p className="text-sm text-gray-900 mt-1">{zillowData.address}</p>
+                      </div>
+                    )}
+                    
+                    {zillowData.price && (
+                      <div>
+                        <label className="text-xs font-medium text-gray-500 uppercase">Zestimate</label>
+                        <p className="text-lg font-semibold text-gray-900 mt-1">
+                          ${parseInt(zillowData.price).toLocaleString()}
+                        </p>
+                      </div>
+                    )}
+                    
+                    {zillowData.bedrooms && (
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-xs font-medium text-gray-500 uppercase">Bedrooms</label>
+                          <p className="text-sm text-gray-900 mt-1">{zillowData.bedrooms}</p>
+                        </div>
+                        {zillowData.bathrooms && (
+                          <div>
+                            <label className="text-xs font-medium text-gray-500 uppercase">Bathrooms</label>
+                            <p className="text-sm text-gray-900 mt-1">{zillowData.bathrooms}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
+                    {zillowData.squareFeet && (
+                      <div>
+                        <label className="text-xs font-medium text-gray-500 uppercase">Square Feet</label>
+                        <p className="text-sm text-gray-900 mt-1">{parseInt(zillowData.squareFeet).toLocaleString()} sq ft</p>
+                      </div>
+                    )}
+                    
+                    {zillowData.yearBuilt && (
+                      <div>
+                        <label className="text-xs font-medium text-gray-500 uppercase">Year Built</label>
+                        <p className="text-sm text-gray-900 mt-1">{zillowData.yearBuilt}</p>
+                      </div>
+                    )}
+                    
+                    {zillowData.propertyType && (
+                      <div>
+                        <label className="text-xs font-medium text-gray-500 uppercase">Property Type</label>
+                        <p className="text-sm text-gray-900 mt-1">{zillowData.propertyType}</p>
+                      </div>
+                    )}
+                    
+                    {zillowData.lotSize && (
+                      <div>
+                        <label className="text-xs font-medium text-gray-500 uppercase">Lot Size</label>
+                        <p className="text-sm text-gray-900 mt-1">{zillowData.lotSize}</p>
+                      </div>
+                    )}
+                    
+                    {zillowData.image && (
+                      <div>
+                        <img
+                          src={zillowData.image}
+                          alt="Property"
+                          className="w-full h-48 object-cover rounded-lg"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+              </div>
             </div>
           </div>
         </div>
