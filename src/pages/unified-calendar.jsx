@@ -13,8 +13,8 @@ const UnifiedCalendar = () => {
   const { user } = useAuth()
   const navigate = useNavigate()
   
-  // View mode: 'worker-availability' | 'remaining-availability' | 'tasks-list' | 'tasks-calendar'
-  const [viewMode, setViewMode] = useState('remaining-availability')
+  // View mode: 'worker-availability' | 'tasks-list' | 'tasks-calendar'
+  const [viewMode, setViewMode] = useState('worker-availability')
   const [loading, setLoading] = useState(true)
   const [teamMembers, setTeamMembers] = useState([])
   const [selectedTeamMemberId, setSelectedTeamMemberId] = useState(null) // Selected team member for calendar view
@@ -77,70 +77,6 @@ const UnifiedCalendar = () => {
     return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`
   }
 
-  // Calculate remaining availability by subtracting assigned jobs from base availability
-  const calculateRemainingAvailability = (baseHours, assignedJobs) => {
-    if (!baseHours || baseHours.length === 0) return []
-    if (!assignedJobs || assignedJobs.length === 0) return baseHours
-
-    const baseRanges = baseHours.map(slot => ({
-      start: timeToMinutes(slot.start),
-      end: timeToMinutes(slot.end)
-    }))
-
-    const jobRanges = assignedJobs.map(job => {
-      let jobTime = '09:00'
-      if (job.scheduled_time) {
-        jobTime = job.scheduled_time.includes(':') ? job.scheduled_time.split(':').slice(0, 2).join(':') : job.scheduled_time
-      } else if (job.scheduled_date) {
-        const dateStr = job.scheduled_date.toString()
-        const timeMatch = dateStr.match(/(\d{1,2}):(\d{2})/)
-        if (timeMatch) {
-          jobTime = `${timeMatch[1].padStart(2, '0')}:${timeMatch[2]}`
-        }
-      }
-      
-      const jobStartMinutes = timeToMinutes(jobTime)
-      const duration = job.duration || 60
-      return {
-        start: jobStartMinutes,
-        end: jobStartMinutes + duration
-      }
-    })
-
-    const remainingRanges = []
-    
-    baseRanges.forEach(baseRange => {
-      let currentStart = baseRange.start
-      
-      const dayJobs = jobRanges
-        .filter(job => job.start >= baseRange.start && job.end <= baseRange.end)
-        .sort((a, b) => a.start - b.start)
-      
-      dayJobs.forEach(jobRange => {
-        if (currentStart < jobRange.start) {
-          remainingRanges.push({
-            start: currentStart,
-            end: jobRange.start
-          })
-        }
-        currentStart = Math.max(currentStart, jobRange.end)
-      })
-      
-      if (currentStart < baseRange.end) {
-        remainingRanges.push({
-          start: currentStart,
-          end: baseRange.end
-        })
-      }
-    })
-
-    return remainingRanges
-      .filter(range => range.end - range.start >= 15)
-      .map(range => ({
-        start: minutesToTime(range.start),
-        end: minutesToTime(range.end)
-      }))
-  }
 
   // Helper to convert 12-hour to 24-hour format
   const convertTo24Hour = (hour, minute, ampm) => {
@@ -165,12 +101,18 @@ const UnifiedCalendar = () => {
       const members = response.teamMembers || response || []
       setTeamMembers(members)
       
-      // Set default selected team member (first active member, or current user's team member if worker)
-      if (members.length > 0 && !selectedTeamMemberId) {
-        const defaultMember = user?.teamMemberId 
-          ? members.find(m => m.id === user.teamMemberId) || members[0]
-          : members[0]
-        setSelectedTeamMemberId(defaultMember.id)
+      // Set default: account owner (null) if no team members, otherwise first team member
+      // Don't auto-select if user has already made a selection
+      if (selectedTeamMemberId === undefined) {
+        if (members.length > 0) {
+          const defaultMember = user?.teamMemberId 
+            ? members.find(m => m.id === user.teamMemberId) || members[0]
+            : members[0]
+          setSelectedTeamMemberId(defaultMember.id)
+        } else {
+          // No team members, default to account owner
+          setSelectedTeamMemberId(null)
+        }
       }
     } catch (error) {
       console.error('Error fetching team members:', error)
@@ -180,23 +122,35 @@ const UnifiedCalendar = () => {
     }
   }, [user?.id, filterStatus])
 
-  // Fetch jobs and availability for a specific team member
+  // Fetch jobs and availability for a specific team member or account owner
   const fetchMemberData = useCallback(async (memberId) => {
-    if (!memberId || !user?.id) return
+    // memberId can be null for account owner
+    if (!user?.id) return
     
     try {
       setLoading(true)
       const startDate = new Date(currentYear, currentMonth, 1).toISOString().split('T')[0]
       const endDate = new Date(currentYear, currentMonth + 1, 0).toISOString().split('T')[0]
       
-      // Fetch jobs assigned to this member
+      // Fetch jobs assigned to this member (or account owner if memberId is null)
       let jobs = []
       try {
-        const jobsResponse = await jobsAPI.getAll(
-          user.id, '', '', 1, 1000, '', `${startDate},${endDate}`, 'scheduled_date', 'ASC',
-          memberId.toString(), '', '', '', '', null
-        )
-        jobs = jobsResponse.jobs || jobsResponse || []
+        if (memberId) {
+          // Team member - fetch jobs assigned to this member
+          const jobsResponse = await jobsAPI.getAll(
+            user.id, '', '', 1, 1000, '', `${startDate},${endDate}`, 'scheduled_date', 'ASC',
+            memberId.toString(), '', '', '', '', null
+          )
+          jobs = jobsResponse.jobs || jobsResponse || []
+        } else {
+          // Account owner - fetch jobs assigned to the user (not to any specific team member)
+          const jobsResponse = await jobsAPI.getAll(
+            user.id, '', '', 1, 1000, '', `${startDate},${endDate}`, 'scheduled_date', 'ASC',
+            '', '', '', '', '', null
+          )
+          // Filter to only jobs not assigned to any team member (account owner's jobs)
+          jobs = (jobsResponse.jobs || jobsResponse || []).filter(job => !job.team_member_id)
+        }
         setAssignedJobs(jobs)
       } catch (jobError) {
         console.error('Error fetching jobs:', jobError)
@@ -207,10 +161,26 @@ const UnifiedCalendar = () => {
       // Fetch availability
       let availability = null
       try {
-        availability = await teamAPI.getAvailability(memberId, startDate, endDate)
+        if (memberId) {
+          // Team member - fetch team member availability
+          availability = await teamAPI.getAvailability(memberId, startDate, endDate)
+        } else {
+          // Account owner - fetch user availability
+          const { userProfileAPI } = await import('../services/api')
+          const userAvail = await userProfileAPI.getAvailability(user.id)
+          // Convert user availability format to team member format for processing
+          if (userAvail?.business_hours) {
+            const businessHours = typeof userAvail.business_hours === 'string' 
+              ? JSON.parse(userAvail.business_hours) 
+              : userAvail.business_hours
+            availability = { availability: { workingHours: businessHours, customAvailability: [] } }
+          } else {
+            availability = { availability: null }
+          }
+        }
       } catch (availError) {
         console.error('Error fetching availability:', availError)
-        // Continue with empty availability - jobs will still show
+        // Continue with empty availability
         availability = { availability: null }
       }
       
@@ -248,10 +218,45 @@ const UnifiedCalendar = () => {
         const workingHours = availData.workingHours || availData || {}
         const customAvailability = availData.customAvailability || []
         
+        // Helper to parse hours string like "9:00 AM - 5:00 PM" to time slots
+        const parseHoursString = (hoursStr) => {
+          if (!hoursStr || typeof hoursStr !== 'string') return []
+          
+          // Try to match formats like "9:00 AM - 5:00 PM" or "09:00 - 17:00"
+          const hoursMatch = hoursStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?\s*-\s*(\d{1,2}):(\d{2})\s*(AM|PM)?/i)
+          if (hoursMatch) {
+            let startHour = parseInt(hoursMatch[1])
+            const startMin = hoursMatch[2]
+            let endHour = parseInt(hoursMatch[4])
+            const endMin = hoursMatch[5]
+            
+            // Convert to 24-hour format if AM/PM is present
+            if (hoursMatch[3]) {
+              const period = hoursMatch[3].toUpperCase()
+              if (period === 'PM' && startHour !== 12) startHour += 12
+              if (period === 'AM' && startHour === 12) startHour = 0
+            }
+            if (hoursMatch[6]) {
+              const period = hoursMatch[6].toUpperCase()
+              if (period === 'PM' && endHour !== 12) endHour += 12
+              if (period === 'AM' && endHour === 12) endHour = 0
+            }
+            
+            return [{
+              start: `${startHour.toString().padStart(2, '0')}:${startMin}`,
+              end: `${endHour.toString().padStart(2, '0')}:${endMin}`
+            }]
+          }
+          return []
+        }
+        
         // Update processedData with actual availability
         Object.keys(processedData).forEach(dateStr => {
-          const date = new Date(dateStr)
-          const dayOfWeek = date.getDay()
+          // Parse date string to avoid timezone issues
+          const [year, month, day] = dateStr.split('-').map(Number)
+          const date = new Date(year, month - 1, day) // month is 0-indexed in JS
+          const dayOfWeek = date.getDay() // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+          // Map to lowercase day name matching availability format: 'sunday', 'monday', etc.
           const dayName = dayNamesFull[dayOfWeek].toLowerCase()
           
           const dateOverride = customAvailability.find(item => item.date === dateStr)
@@ -264,25 +269,34 @@ const UnifiedCalendar = () => {
           if (dateOverride) {
             dayData.available = dateOverride.available !== false
             if (dateOverride.hours) {
-              dayData.hours = Array.isArray(dateOverride.hours) ? dateOverride.hours : [dateOverride.hours]
+              if (Array.isArray(dateOverride.hours)) {
+                dayData.hours = dateOverride.hours.map(slot => {
+                  if (typeof slot === 'string') {
+                    // If it's a string, try to parse it
+                    const parsed = parseHoursString(slot)
+                    return parsed.length > 0 ? parsed[0] : null
+                  }
+                  return slot
+                }).filter(Boolean)
+              } else if (typeof dateOverride.hours === 'string') {
+                dayData.hours = parseHoursString(dateOverride.hours)
+              } else {
+                dayData.hours = [dateOverride.hours]
+              }
             }
           } else {
             const dayWorkingHours = workingHours[dayName]
             if (dayWorkingHours && dayWorkingHours.available !== false) {
               dayData.available = true
               if (dayWorkingHours.timeSlots && dayWorkingHours.timeSlots.length > 0) {
+                // Already in time slot format
                 dayData.hours = dayWorkingHours.timeSlots.map(slot => ({
                   start: slot.start,
                   end: slot.end
                 }))
               } else if (dayWorkingHours.hours) {
-                const hoursMatch = dayWorkingHours.hours.match(/(\d+):(\d+)\s*(AM|PM)\s*-\s*(\d+):(\d+)\s*(AM|PM)/)
-                if (hoursMatch) {
-                  dayData.hours = [{
-                    start: convertTo24Hour(hoursMatch[1], hoursMatch[2], hoursMatch[3]),
-                    end: convertTo24Hour(hoursMatch[4], hoursMatch[5], hoursMatch[6])
-                  }]
-                }
+                // Parse hours string format
+                dayData.hours = parseHoursString(dayWorkingHours.hours)
               }
             }
           }
@@ -292,7 +306,9 @@ const UnifiedCalendar = () => {
       }
       
       // Always set availability data (even if empty/default)
-      setAvailabilityData({ [memberId]: processedData })
+      // Use 'user' as key for account owner, memberId for team members
+      const dataKey = memberId || 'user'
+      setAvailabilityData({ [dataKey]: processedData })
     } catch (error) {
       console.error('Error fetching member data:', error)
       const errorMessage = error.response?.data?.error || error.message || 'Failed to load team member data'
@@ -353,21 +369,7 @@ const UnifiedCalendar = () => {
       try {
         const availability = await teamAPI.getAvailability(member.id, startDate, endDate)
         
-        // Fetch assigned jobs for remaining availability view
-        let assignedJobs = []
-        if (viewMode === 'remaining-availability') {
-          try {
-            const jobsResponse = await jobsAPI.getAll(
-              user.id, '', '', 1, 1000, '', `${startDate},${endDate}`, 'scheduled_date', 'ASC',
-              member.id.toString(), '', '', '', '', null
-            )
-            assignedJobs = jobsResponse.jobs || jobsResponse || []
-          } catch (jobError) {
-            console.error(`Error fetching jobs for member ${member.id}:`, jobError)
-          }
-        }
-        
-        return { memberId: member.id, availability, assignedJobs }
+        return { memberId: member.id, availability, assignedJobs: [] }
       } catch (error) {
         console.error(`Error fetching availability for member ${member.id}:`, error)
         return { memberId: member.id, availability: null, assignedJobs: [] }
@@ -393,11 +395,47 @@ const UnifiedCalendar = () => {
         const workingHours = availData.workingHours || availData || {}
         const customAvailability = availData.customAvailability || []
         
+        // Helper to parse hours string like "9:00 AM - 5:00 PM" to time slots
+        const parseHoursString = (hoursStr) => {
+          if (!hoursStr || typeof hoursStr !== 'string') return []
+          
+          // Try to match formats like "9:00 AM - 5:00 PM" or "09:00 - 17:00"
+          const hoursMatch = hoursStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?\s*-\s*(\d{1,2}):(\d{2})\s*(AM|PM)?/i)
+          if (hoursMatch) {
+            let startHour = parseInt(hoursMatch[1])
+            const startMin = hoursMatch[2]
+            let endHour = parseInt(hoursMatch[4])
+            const endMin = hoursMatch[5]
+            
+            // Convert to 24-hour format if AM/PM is present
+            if (hoursMatch[3]) {
+              const period = hoursMatch[3].toUpperCase()
+              if (period === 'PM' && startHour !== 12) startHour += 12
+              if (period === 'AM' && startHour === 12) startHour = 0
+            }
+            if (hoursMatch[6]) {
+              const period = hoursMatch[6].toUpperCase()
+              if (period === 'PM' && endHour !== 12) endHour += 12
+              if (period === 'AM' && endHour === 12) endHour = 0
+            }
+            
+            return [{
+              start: `${startHour.toString().padStart(2, '0')}:${startMin}`,
+              end: `${endHour.toString().padStart(2, '0')}:${endMin}`
+            }]
+          }
+          return []
+        }
+        
         calendarDays.forEach(({ date }) => {
           if (!date.isCurrentMonth) return
           
           const dateStr = date.date.toISOString().split('T')[0]
-          const dayOfWeek = date.date.getDay()
+          // Parse date components to avoid timezone issues
+          const [year, month, day] = dateStr.split('-').map(Number)
+          const dateObj = new Date(year, month - 1, day) // month is 0-indexed in JS
+          const dayOfWeek = dateObj.getDay() // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+          // Map to lowercase day name matching availability format: 'sunday', 'monday', etc.
           const dayName = dayNamesFull[dayOfWeek].toLowerCase()
           
           const dateOverride = customAvailability.find(item => item.date === dateStr)
@@ -405,7 +443,6 @@ const UnifiedCalendar = () => {
           let dayData = {
             available: false,
             hours: null,
-            remainingHours: [],
             assignedJobs: []
           }
           
@@ -415,9 +452,19 @@ const UnifiedCalendar = () => {
               dayData.available = false
             } else if (dateOverride.hours) {
               dayData.available = true
-              baseHours = Array.isArray(dateOverride.hours) 
-                ? dateOverride.hours 
-                : [dateOverride.hours]
+              if (Array.isArray(dateOverride.hours)) {
+                baseHours = dateOverride.hours.map(slot => {
+                  if (typeof slot === 'string') {
+                    const parsed = parseHoursString(slot)
+                    return parsed.length > 0 ? parsed[0] : null
+                  }
+                  return slot
+                }).filter(Boolean)
+              } else if (typeof dateOverride.hours === 'string') {
+                baseHours = parseHoursString(dateOverride.hours)
+              } else {
+                baseHours = [dateOverride.hours]
+              }
             }
           } else {
             const dayWorkingHours = workingHours[dayName]
@@ -430,13 +477,7 @@ const UnifiedCalendar = () => {
                     end: slot.end
                   }))
                 } else if (dayWorkingHours.hours) {
-                  const hoursMatch = dayWorkingHours.hours.match(/(\d+):(\d+)\s*(AM|PM)\s*-\s*(\d+):(\d+)\s*(AM|PM)/)
-                  if (hoursMatch) {
-                    baseHours = [{
-                      start: convertTo24Hour(hoursMatch[1], hoursMatch[2], hoursMatch[3]),
-                      end: convertTo24Hour(hoursMatch[4], hoursMatch[5], hoursMatch[6])
-                    }]
-                  }
+                  baseHours = parseHoursString(dayWorkingHours.hours)
                 }
               }
             }
@@ -445,15 +486,18 @@ const UnifiedCalendar = () => {
           dayData.hours = baseHours
           
           const dayJobs = assignedJobs.filter(job => {
-            const jobDate = new Date(job.scheduled_date || job.scheduledDate)
+            if (!job.scheduled_date && !job.scheduledDate) return false
+            let jobDate
+            if (typeof job.scheduled_date === 'string' && job.scheduled_date.includes(' ')) {
+              const [datePart] = job.scheduled_date.split(' ')
+              jobDate = new Date(datePart)
+            } else {
+              jobDate = new Date(job.scheduled_date || job.scheduledDate)
+            }
             return jobDate.toISOString().split('T')[0] === dateStr
           })
           
           dayData.assignedJobs = dayJobs
-          
-          if (dayData.available && baseHours.length > 0 && viewMode === 'remaining-availability') {
-            dayData.remainingHours = calculateRemainingAvailability(baseHours, dayJobs)
-          }
           
           processedData[memberId][dateStr] = dayData
         })
@@ -464,7 +508,7 @@ const UnifiedCalendar = () => {
   }
 
   useEffect(() => {
-    if (viewMode === 'worker-availability' || viewMode === 'remaining-availability') {
+    if (viewMode === 'worker-availability') {
       fetchTeamMembers()
     } else if (viewMode === 'tasks-list' || viewMode === 'tasks-calendar') {
       fetchTasks()
@@ -473,11 +517,11 @@ const UnifiedCalendar = () => {
 
   // Fetch member data when selected member or month changes
   useEffect(() => {
-    if (selectedTeamMemberId && (viewMode === 'worker-availability' || viewMode === 'remaining-availability')) {
+    if ((selectedTeamMemberId || selectedTeamMemberId === null) && viewMode === 'worker-availability') {
       // Clear previous data when switching members or months
       setAssignedJobs([])
       setAvailabilityData({})
-      // Fetch new data
+      // Fetch new data - null means account owner
       fetchMemberData(selectedTeamMemberId)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -495,7 +539,7 @@ const UnifiedCalendar = () => {
     setSelectedDate(day.date)
     setSelectedMember(member)
     const dateStr = day.date.toISOString().split('T')[0]
-    const memberAvailability = availabilityData[member.id]?.[dateStr] || { available: false, hours: null, remainingHours: [], assignedJobs: [] }
+    const memberAvailability = availabilityData[member.id]?.[dateStr] || { available: false, hours: null, assignedJobs: [] }
     setEditingAvailability({
       date: dateStr,
       available: memberAvailability.available,
@@ -605,23 +649,6 @@ const UnifiedCalendar = () => {
       return { status: 'unavailable', text: 'Unavailable' }
     }
     
-    if (viewMode === 'remaining-availability') {
-      if (memberData.remainingHours && memberData.remainingHours.length > 0) {
-        const firstSlot = memberData.remainingHours[0]
-        const slotCount = memberData.remainingHours.length
-        return { 
-          status: 'available', 
-          text: slotCount > 1 
-            ? `${formatTime(firstSlot.start)} - ${formatTime(firstSlot.end)} (+${slotCount - 1})`
-            : `${formatTime(firstSlot.start)} - ${formatTime(firstSlot.end)}`
-        }
-      }
-      
-      if (memberData.assignedJobs && memberData.assignedJobs.length > 0) {
-        return { status: 'booked', text: `${memberData.assignedJobs.length} job(s)` }
-      }
-    }
-    
     if (memberData.hours && memberData.hours.length > 0) {
       const firstSlot = memberData.hours[0]
       return { 
@@ -715,40 +742,16 @@ const UnifiedCalendar = () => {
               <div>
                 <h1 className="text-xl lg:text-2xl font-semibold text-gray-900">Calendar</h1>
                 <p className="text-sm text-gray-500 mt-1">
-                  {viewMode === 'worker-availability' && 'View team member schedule and assigned jobs'}
-                  {viewMode === 'remaining-availability' && 'View team member schedule and assigned jobs'}
+                  {viewMode === 'worker-availability' && 'View team member availability'}
                   {viewMode === 'tasks-list' && 'View and manage all tasks'}
                   {viewMode === 'tasks-calendar' && 'Tasks organized by due date'}
                 </p>
               </div>
             </div>
             
-            {/* View Mode Switcher */}
-            <div className="flex items-center space-x-2 flex-wrap">
-              <div className="flex items-center bg-gray-100 rounded-lg p-1">
-                <button
-                  onClick={() => setViewMode('worker-availability')}
-                  className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-                    viewMode === 'worker-availability'
-                      ? 'bg-white text-blue-600 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  Worker Availability
-                </button>
-                <button
-                  onClick={() => setViewMode('remaining-availability')}
-                  className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-                    viewMode === 'remaining-availability'
-                      ? 'bg-white text-blue-600 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  Remaining Availability
-                </button>
-              </div>
-              
-              {(viewMode === 'tasks-list' || viewMode === 'tasks-calendar') && (
+            {/* View Mode Switcher - Only for Tasks */}
+            {(viewMode === 'tasks-list' || viewMode === 'tasks-calendar') && (
+              <div className="flex items-center space-x-2 flex-wrap">
                 <div className="flex items-center bg-gray-100 rounded-lg p-1">
                   <button
                     onClick={() => setViewMode('tasks-list')}
@@ -773,37 +776,41 @@ const UnifiedCalendar = () => {
                     Calendar
                   </button>
                 </div>
-              )}
-              
-              {viewMode.startsWith('tasks') && (
-                <button
-                  onClick={() => {
-                    setEditingTask(null)
-                    setShowCreateTaskModal(true)
+              </div>
+            )}
+            
+            {viewMode.startsWith('tasks') && (
+              <button
+                onClick={() => {
+                  setEditingTask(null)
+                  setShowCreateTaskModal(true)
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+              >
+                + New Task
+              </button>
+            )}
+            
+            {viewMode === 'worker-availability' && (
+              <div className="flex items-center space-x-2">
+                <Users className="w-4 h-4 text-gray-400" />
+                <select
+                  value={selectedTeamMemberId === null ? 'user' : (selectedTeamMemberId || '')}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    setSelectedTeamMemberId(value === 'user' ? null : parseInt(value))
                   }}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[200px]"
                 >
-                  + New Task
-                </button>
-              )}
-              
-              {(viewMode === 'worker-availability' || viewMode === 'remaining-availability') && (
-                <div className="flex items-center space-x-2">
-                  <Users className="w-4 h-4 text-gray-400" />
-                  <select
-                    value={selectedTeamMemberId || ''}
-                    onChange={(e) => setSelectedTeamMemberId(parseInt(e.target.value))}
-                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[200px]"
-                  >
-                    {teamMembers.map((member) => (
-                      <option key={member.id} value={member.id}>
-                        {member.first_name} {member.last_name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-            </div>
+                  <option value="user">Me (Account Owner)</option>
+                  {teamMembers.map((member) => (
+                    <option key={member.id} value={member.id}>
+                      {member.first_name} {member.last_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -880,7 +887,7 @@ const UnifiedCalendar = () => {
       )}
 
       {/* Tasks Calendar View or Availability Calendar */}
-      {(viewMode === 'tasks-calendar' || viewMode === 'worker-availability' || viewMode === 'remaining-availability') && (
+      {(viewMode === 'tasks-calendar' || viewMode === 'worker-availability') && (
         <>
           {/* Month Navigation */}
           <div className="bg-white border-b border-gray-200 px-4 py-4 lg:px-6">
@@ -970,91 +977,59 @@ const UnifiedCalendar = () => {
                         </div>
                       )}
                       
-                      {/* Availability Views - Show Jobs for Selected Team Member */}
-                      {(viewMode === 'worker-availability' || viewMode === 'remaining-availability') && selectedTeamMemberId && (
+                      {/* Calendar View - Show UNASSIGNED/FREE time during availability (opposite of Schedule) */}
+                      {viewMode === 'worker-availability' && (selectedTeamMemberId || selectedTeamMemberId === null) && (
                         <>
                           {(() => {
                             // Get availability for this day
-                            const memberAvailability = availabilityData[selectedTeamMemberId]?.[dateStr]
+                            // Use 'user' as key for account owner, selectedTeamMemberId for team members
+                            const dataKey = selectedTeamMemberId || 'user'
+                            const memberAvailability = availabilityData[dataKey]?.[dateStr]
                             const isUnavailable = memberAvailability && !memberAvailability.available
                             
-                            // Get jobs for this day
-                            const dayJobs = assignedJobs.filter(job => {
-                              if (!job.scheduled_date) return false
-                              let jobDate
-                              if (typeof job.scheduled_date === 'string' && job.scheduled_date.includes(' ')) {
-                                const [datePart] = job.scheduled_date.split(' ')
-                                jobDate = new Date(datePart)
-                              } else {
-                                jobDate = new Date(job.scheduled_date)
-                              }
-                              return jobDate.toISOString().split('T')[0] === dateStr
-                            })
-                            
-                            // Disable day if unavailable
+                            // Disable day if unavailable or not current month
                             const dayDisabled = !day.isCurrentMonth || isUnavailable
+                            
+                            // Get availability hours
+                            const availabilityHours = memberAvailability?.hours || []
                             
                             return (
                               <div className={`space-y-1 ${dayDisabled ? 'opacity-50 pointer-events-none' : ''}`}>
                                 {isUnavailable && day.isCurrentMonth ? (
-                                  <div className="px-2 py-1.5 rounded text-xs bg-gray-100 text-gray-500 border border-gray-200 text-center">
+                                  <div className="px-2 py-1 rounded text-xs bg-gray-100 text-gray-500 border border-gray-200 text-center">
                                     Unavailable
                                   </div>
-                                ) : dayJobs.length > 0 ? (
-                                  dayJobs.map((job) => {
-                                    // Parse job time
-                                    let jobTime
-                                    if (typeof job.scheduled_date === 'string' && job.scheduled_date.includes(' ')) {
-                                      const [datePart, timePart] = job.scheduled_date.split(' ')
-                                      const [hours, minutes] = timePart.split(':').map(Number)
-                                      jobTime = new Date(datePart)
-                                      jobTime.setHours(hours || 0, minutes || 0, 0, 0)
-                                    } else {
-                                      jobTime = new Date(job.scheduled_date)
-                                    }
-                                    
-                                    const timeString = jobTime.toLocaleTimeString('en-US', { 
-                                      hour: 'numeric', 
-                                      minute: '2-digit',
-                                      hour12: true 
-                                    })
-                                    
-                                    const serviceName = job.service_name || job.service_type || 'Service'
-                                    const customerName = job.customer_first_name && job.customer_last_name
-                                      ? `${job.customer_first_name} ${job.customer_last_name}`
-                                      : job.customer_name || 'Customer'
-                                    
-                                    // Get status color
-                                    const statusColors = {
-                                      'completed': 'bg-green-100 text-green-800 border-green-200',
-                                      'in-progress': 'bg-blue-100 text-blue-800 border-blue-200',
-                                      'pending': 'bg-yellow-100 text-yellow-800 border-yellow-200',
-                                      'cancelled': 'bg-gray-100 text-gray-600 border-gray-200',
-                                    }
-                                    const statusColor = statusColors[job.status] || 'bg-gray-100 text-gray-800 border-gray-200'
-                                    
+                                ) : availabilityHours.length > 0 ? (
+                                  // Show availability time slots
+                                  availabilityHours.slice(0, 2).map((slot, idx) => {
+                                    const startTime = formatTime(slot.start)
+                                    const endTime = formatTime(slot.end)
                                     return (
                                       <div
-                                        key={job.id}
-                                        onClick={() => !dayDisabled && navigate(`/job/${job.id}`)}
-                                        className={`px-2 py-1.5 rounded text-xs border cursor-pointer hover:opacity-80 transition-opacity ${statusColor}`}
-                                        title={`${serviceName} - ${customerName} at ${timeString}`}
+                                        key={idx}
+                                        className="px-2 py-1 rounded text-xs bg-blue-50 text-blue-700 border border-blue-200 text-center"
+                                        title={`Available: ${startTime} - ${endTime}`}
                                       >
-                                        <div className="font-medium truncate">{timeString}</div>
-                                        <div className="truncate">{serviceName}</div>
-                                        {customerName && (
-                                          <div className="text-xs opacity-75 truncate">{customerName}</div>
-                                        )}
+                                        <div className="font-medium text-xs">{startTime} - {endTime}</div>
                                       </div>
                                     )
-                                  })
-                                ) : (
-                                  !dayDisabled && (
-                                    <div className="text-xs text-gray-400 text-center py-2">
-                                      No jobs
-                                    </div>
+                                  }).concat(
+                                    availabilityHours.length > 2 ? (
+                                      <div key="more" className="text-xs text-blue-600 text-center py-0.5">
+                                        +{availabilityHours.length - 2}
+                                      </div>
+                                    ) : null
                                   )
-                                )}
+                                ) : memberAvailability?.available && day.isCurrentMonth ? (
+                                  // Available but no specific time slots
+                                  <div className="text-xs text-blue-600 text-center py-1">
+                                    Available
+                                  </div>
+                                ) : day.isCurrentMonth ? (
+                                  <div className="text-xs text-gray-400 text-center py-1">
+                                    -
+                                  </div>
+                                ) : null}
                               </div>
                             )
                           })()}
@@ -1093,9 +1068,6 @@ const UnifiedCalendar = () => {
                       month: 'long', 
                       day: 'numeric' 
                     })}
-                  </p>
-                  <p className="text-xs text-gray-400 mt-1">
-                    Editing base availability (affects remaining availability)
                   </p>
                 </div>
               </div>
@@ -1194,73 +1166,6 @@ const UnifiedCalendar = () => {
                   </div>
                 )}
 
-                {/* Remaining Availability Info */}
-                {(() => {
-                  const dateStr = editingAvailability.date
-                  const memberData = availabilityData[selectedMember.id]?.[dateStr]
-                  const assignedJobs = memberData?.assignedJobs || []
-                  const remainingHours = memberData?.remainingHours || []
-                  
-                  if (assignedJobs.length > 0 || remainingHours.length > 0) {
-                    return (
-                      <div className="mt-6 pt-6 border-t border-gray-200 space-y-3">
-                        <h4 className="text-sm font-semibold text-gray-900">Remaining Availability</h4>
-                        
-                        {assignedJobs.length > 0 && (
-                          <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
-                            <p className="text-xs font-medium text-orange-800 mb-2">
-                              {assignedJobs.length} job{assignedJobs.length > 1 ? 's' : ''} assigned
-                            </p>
-                            <div className="space-y-1">
-                              {assignedJobs.slice(0, 3).map((job, idx) => {
-                                let jobTime = '09:00'
-                                if (job.scheduled_time) {
-                                  jobTime = job.scheduled_time.includes(':') ? job.scheduled_time.split(':').slice(0, 2).join(':') : job.scheduled_time
-                                } else if (job.scheduled_date) {
-                                  const dateStr = job.scheduled_date.toString()
-                                  const timeMatch = dateStr.match(/(\d{1,2}):(\d{2})/)
-                                  if (timeMatch) {
-                                    jobTime = `${timeMatch[1].padStart(2, '0')}:${timeMatch[2]}`
-                                  }
-                                }
-                                return (
-                                  <p key={idx} className="text-xs text-orange-700">
-                                    • {job.service_name || 'Job'} at {formatTime(jobTime)}
-                                  </p>
-                                )
-                              })}
-                              {assignedJobs.length > 3 && (
-                                <p className="text-xs text-orange-600">+ {assignedJobs.length - 3} more</p>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                        
-                        {remainingHours.length > 0 ? (
-                          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                            <p className="text-xs font-medium text-green-800 mb-2">
-                              Available time slots:
-                            </p>
-                            <div className="space-y-1">
-                              {remainingHours.map((slot, idx) => (
-                                <p key={idx} className="text-xs text-green-700">
-                                  • {formatTime(slot.start)} - {formatTime(slot.end)}
-                                </p>
-                              ))}
-                            </div>
-                          </div>
-                        ) : assignedJobs.length > 0 && editingAvailability.available ? (
-                          <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-                            <p className="text-xs text-gray-600">
-                              All available time is booked
-                            </p>
-                          </div>
-                        ) : null}
-                      </div>
-                    )
-                  }
-                  return null
-                })()}
               </div>
             </div>
             
@@ -1333,4 +1238,5 @@ const UnifiedCalendar = () => {
 }
 
 export default UnifiedCalendar
+
 
