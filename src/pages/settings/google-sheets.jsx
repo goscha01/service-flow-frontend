@@ -8,7 +8,7 @@ import GoogleConnect from '../../components/GoogleConnect';
 import api from '../../services/api';
 
 const GoogleSheetsSettings = () => {
-  const { user } = useAuth();
+  const { user, refreshUserProfile } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [connected, setConnected] = useState(false);
@@ -19,7 +19,9 @@ const GoogleSheetsSettings = () => {
 
   useEffect(() => {
     // Check if Google account is connected
-    setConnected(!!user?.google_access_token);
+    const isConnected = !!user?.google_access_token;
+    setConnected(isConnected);
+    console.log('Google connection status:', { isConnected, hasToken: !!user?.google_access_token, userId: user?.id });
   }, [user]);
 
   // Handle OAuth callback from Google redirect
@@ -29,7 +31,13 @@ const GoogleSheetsSettings = () => {
     
     if (successParam === 'true') {
       setSuccess('Google account connected successfully!');
-      setConnected(true);
+      // Refresh user profile to get updated Google token
+      if (refreshUserProfile) {
+        // Refresh user profile - this will update the user state in AuthContext
+        refreshUserProfile(false).catch((error) => {
+          console.error('Error refreshing user profile:', error);
+        });
+      }
       // Clear URL params
       navigate('/settings/google-sheets', { replace: true });
       setTimeout(() => setSuccess(''), 5000);
