@@ -33,8 +33,18 @@ const SheetsExport = ({ exportType = 'customers', dateRange = null, onSuccess, o
 
     } catch (error) {
       console.error('❌ Sheets export error:', error);
-      const errorMessage = error.response?.data?.error || 'Failed to export to Google Sheets';
-      setError(errorMessage);
+      
+      // Check for insufficient scopes error
+      if (error.response?.data?.error === 'insufficient_scopes' || 
+          error.response?.status === 403 ||
+          (error.response?.data?.requiresReconnect)) {
+        const errorMessage = error.response?.data?.message || 
+          'Your Google account connection does not have the required permissions for Google Sheets. Please disconnect and reconnect your Google account in Settings > Google Sheets Integration to grant the necessary permissions.';
+        setError(errorMessage);
+      } else {
+        const errorMessage = error.response?.data?.error || error.response?.data?.message || 'Failed to export to Google Sheets';
+        setError(errorMessage);
+      }
       
       if (onError) {
         onError(error);
@@ -90,9 +100,19 @@ const SheetsExport = ({ exportType = 'customers', dateRange = null, onSuccess, o
       </button>
 
       {error && (
-        <div className="flex items-center space-x-2 text-red-600 bg-red-50 p-3 rounded-lg">
-          <AlertCircle className="w-4 h-4" />
-          <span className="text-sm">{error}</span>
+        <div className="flex items-start space-x-2 text-red-600 bg-red-50 p-3 rounded-lg">
+          <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+          <div className="flex-1">
+            <span className="text-sm block">{error}</span>
+            {error.includes('disconnect and reconnect') && (
+              <a 
+                href="/settings/google-sheets" 
+                className="text-sm text-blue-600 hover:text-blue-800 underline mt-2 inline-block"
+              >
+                Go to Google Sheets Settings →
+              </a>
+            )}
+          </div>
         </div>
       )}
 
