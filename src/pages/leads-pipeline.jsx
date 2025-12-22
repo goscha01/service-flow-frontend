@@ -1009,15 +1009,15 @@ const LeadsPipeline = () => {
                       <div className="flex items-center justify-between mb-3 pb-3 border-b border-gray-200">
                         <h4 className="font-semibold text-gray-900">Property Information</h4>
                         {zillowData.zpid && zillowData.zpid.startsWith('zpid') && (
-                          <a
+                        <a
                             href={`https://www.zillow.com/homedetails/${zillowData.zpid.replace('zpid-', '')}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm text-blue-600 hover:text-blue-800 flex items-center space-x-1"
-                          >
-                            <span>View on Zillow</span>
-                            <ExternalLink className="w-4 h-4" />
-                          </a>
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-blue-600 hover:text-blue-800 flex items-center space-x-1"
+                        >
+                          <span>View on Zillow</span>
+                          <ExternalLink className="w-4 h-4" />
+                        </a>
                         )}
                       </div>
                     )}
