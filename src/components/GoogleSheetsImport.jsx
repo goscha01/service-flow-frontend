@@ -61,11 +61,23 @@ const GoogleSheetsImport = ({ importType = 'customers', onSuccess, onError }) =>
   const loadSpreadsheets = async () => {
     try {
       setLoading(true);
+      setError(''); // Clear any previous errors
       const response = await api.get('/google/sheets/list');
       setSpreadsheets(response.data.spreadsheets);
     } catch (error) {
       console.error('Error loading spreadsheets:', error);
-      setError('Failed to load Google Sheets. Please make sure your Google account is connected.');
+      
+      // Check for specific error types
+      if (error.response?.data?.error === 'drive_api_not_enabled') {
+        setError(
+          'Google Drive API is not enabled. Please enable it in Google Cloud Console. ' +
+          'This is a server configuration issue that needs to be fixed by an administrator.'
+        );
+      } else if (error.response?.data?.error === 'insufficient_scopes') {
+        setError(error.response.data.message || 'Your Google account connection does not have the required permissions. Please disconnect and reconnect your Google account.');
+      } else {
+        setError(error.response?.data?.message || 'Failed to load Google Sheets. Please make sure your Google account is connected.');
+      }
     } finally {
       setLoading(false);
     }
