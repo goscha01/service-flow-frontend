@@ -101,17 +101,20 @@ const UnifiedCalendar = () => {
       const members = response.teamMembers || response || []
       setTeamMembers(members)
       
-      // Set default: account owner (null) if no team members, otherwise first team member
+      // Set default: find account owner in the list, or first member
       // Don't auto-select if user has already made a selection
-      if (selectedTeamMemberId === undefined) {
+      if (selectedTeamMemberId === undefined || selectedTeamMemberId === null) {
         if (members.length > 0) {
-          const defaultMember = user?.teamMemberId 
-            ? members.find(m => m.id === user.teamMemberId) || members[0]
-            : members[0]
+          // Try to find account owner (by role or user_id/email match)
+          const accountOwner = members.find(m => 
+            m.role === 'account owner' || 
+            m.role === 'owner' || 
+            m.role === 'admin' ||
+            (user?.email && m.email === user.email) ||
+            (user?.id && m.user_id === user.id)
+          )
+          const defaultMember = accountOwner || members[0]
           setSelectedTeamMemberId(defaultMember.id)
-        } else {
-          // No team members, default to account owner
-          setSelectedTeamMemberId(null)
         }
       }
     } catch (error) {
@@ -122,35 +125,23 @@ const UnifiedCalendar = () => {
     }
   }, [user?.id, filterStatus])
 
-  // Fetch jobs and availability for a specific team member or account owner
+  // Fetch jobs and availability for a specific team member
   const fetchMemberData = useCallback(async (memberId) => {
-    // memberId can be null for account owner
-    if (!user?.id) return
+    if (!user?.id || !memberId) return
     
     try {
       setLoading(true)
       const startDate = new Date(currentYear, currentMonth, 1).toISOString().split('T')[0]
       const endDate = new Date(currentYear, currentMonth + 1, 0).toISOString().split('T')[0]
       
-      // Fetch jobs assigned to this member (or account owner if memberId is null)
+      // Fetch jobs assigned to this member
       let jobs = []
       try {
-        if (memberId) {
-          // Team member - fetch jobs assigned to this member
-          const jobsResponse = await jobsAPI.getAll(
-            user.id, '', '', 1, 1000, '', `${startDate},${endDate}`, 'scheduled_date', 'ASC',
-            memberId.toString(), '', '', '', '', null
-          )
-          jobs = jobsResponse.jobs || jobsResponse || []
-        } else {
-          // Account owner - fetch jobs assigned to the user (not to any specific team member)
-          const jobsResponse = await jobsAPI.getAll(
-            user.id, '', '', 1, 1000, '', `${startDate},${endDate}`, 'scheduled_date', 'ASC',
-            '', '', '', '', '', null
-          )
-          // Filter to only jobs not assigned to any team member (account owner's jobs)
-          jobs = (jobsResponse.jobs || jobsResponse || []).filter(job => !job.team_member_id)
-        }
+        const jobsResponse = await jobsAPI.getAll(
+          user.id, '', '', 1, 1000, '', `${startDate},${endDate}`, 'scheduled_date', 'ASC',
+          memberId.toString(), '', '', '', '', null
+        )
+        jobs = jobsResponse.jobs || jobsResponse || []
         setAssignedJobs(jobs)
       } catch (jobError) {
         console.error('Error fetching jobs:', jobError)
@@ -158,26 +149,10 @@ const UnifiedCalendar = () => {
         // Continue even if jobs fail
       }
       
-      // Fetch availability
+      // Fetch availability for this team member
       let availability = null
       try {
-        if (memberId) {
-          // Team member - fetch team member availability
-          availability = await teamAPI.getAvailability(memberId, startDate, endDate)
-        } else {
-          // Account owner - fetch user availability
-          const { userProfileAPI } = await import('../services/api')
-          const userAvail = await userProfileAPI.getAvailability(user.id)
-          // Convert user availability format to team member format for processing
-          if (userAvail?.business_hours) {
-            const businessHours = typeof userAvail.business_hours === 'string' 
-              ? JSON.parse(userAvail.business_hours) 
-              : userAvail.business_hours
-            availability = { availability: { workingHours: businessHours, customAvailability: [] } }
-          } else {
-            availability = { availability: null }
-          }
-        }
+        availability = await teamAPI.getAvailability(memberId, startDate, endDate)
       } catch (availError) {
         console.error('Error fetching availability:', availError)
         // Continue with empty availability
@@ -307,8 +282,7 @@ const UnifiedCalendar = () => {
       
       // Always set availability data (even if empty/default)
       // Use 'user' as key for account owner, memberId for team members
-      const dataKey = memberId || 'user'
-      setAvailabilityData({ [dataKey]: processedData })
+      setAvailabilityData({ [memberId]: processedData })
     } catch (error) {
       console.error('Error fetching member data:', error)
       const errorMessage = error.response?.data?.error || error.message || 'Failed to load team member data'
@@ -517,11 +491,11 @@ const UnifiedCalendar = () => {
 
   // Fetch member data when selected member or month changes
   useEffect(() => {
-    if ((selectedTeamMemberId || selectedTeamMemberId === null) && viewMode === 'worker-availability') {
+    if (selectedTeamMemberId && viewMode === 'worker-availability') {
       // Clear previous data when switching members or months
       setAssignedJobs([])
       setAvailabilityData({})
-      // Fetch new data - null means account owner
+      // Fetch new data for selected team member
       fetchMemberData(selectedTeamMemberId)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -795,14 +769,13 @@ const UnifiedCalendar = () => {
               <div className="flex items-center space-x-2">
                 <Users className="w-4 h-4 text-gray-400" />
                 <select
-                  value={selectedTeamMemberId === null ? 'user' : (selectedTeamMemberId || '')}
+                  value={selectedTeamMemberId || ''}
                   onChange={(e) => {
                     const value = e.target.value
-                    setSelectedTeamMemberId(value === 'user' ? null : parseInt(value))
+                    setSelectedTeamMemberId(value ? parseInt(value) : null)
                   }}
                   className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[200px]"
                 >
-                  <option value="user">Me (Account Owner)</option>
                   {teamMembers.map((member) => (
                     <option key={member.id} value={member.id}>
                       {member.first_name} {member.last_name}
@@ -978,13 +951,11 @@ const UnifiedCalendar = () => {
                       )}
                       
                       {/* Calendar View - Show UNASSIGNED/FREE time during availability (opposite of Schedule) */}
-                      {viewMode === 'worker-availability' && (selectedTeamMemberId || selectedTeamMemberId === null) && (
+                      {viewMode === 'worker-availability' && selectedTeamMemberId && (
                         <>
                           {(() => {
                             // Get availability for this day
-                            // Use 'user' as key for account owner, selectedTeamMemberId for team members
-                            const dataKey = selectedTeamMemberId || 'user'
-                            const memberAvailability = availabilityData[dataKey]?.[dateStr]
+                            const memberAvailability = availabilityData[selectedTeamMemberId]?.[dateStr]
                             const isUnavailable = memberAvailability && !memberAvailability.available
                             
                             // Disable day if unavailable or not current month
