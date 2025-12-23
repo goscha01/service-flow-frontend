@@ -26,6 +26,7 @@ import {
   Zap,
   Target,
   Receipt,
+  FileSpreadsheet,
 } from "lucide-react"
 
 const Sidebar = ({ isOpen, onClose }) => {
@@ -62,9 +63,11 @@ const Sidebar = ({ isOpen, onClose }) => {
     return filterSidebarItems(allSidebarItems, user)
   }, [user])
 
-  // Filter integration items - hide Stripe Connect and SMS Settings for workers
+  // Filter integration items - hide for workers
   const integrationItems = useMemo(() => {
     const items = [
+      { icon: CalendarDays, label: "Calendar Syncing", path: "/settings/calendar-syncing" },
+      { icon: FileSpreadsheet, label: "Google Sheets", path: "/settings/google-sheets" },
       { icon: Phone, label: "SMS Settings", path: "/settings/sms-settings" },
       { icon: Zap, label: "Stripe Connect", path: "/settings/stripe-connect" },
     ]
