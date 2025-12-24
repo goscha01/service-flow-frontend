@@ -8,6 +8,7 @@ import api, { stripeAPI } from "../services/api"
 import { 
   Plus, 
   Calendar, 
+  CalendarDays,
   Clock, 
   MapPin, 
   User, 
@@ -3196,13 +3197,23 @@ const ServiceFlowSchedule = () => {
                 </button>
               </div>
 
-              {/* Right - Territory Name */}
-              {getSelectedTerritoryName() && (
-                <div className="flex items-center space-x-2 text-gray-700">
-                  <MapPin className="w-4 h-4" />
-                  <span className="text-sm font-medium">{getSelectedTerritoryName()} Hours</span>
-                </div>
-              )}
+              {/* Right - Territory Name and Calendar Button */}
+              <div className="flex items-center space-x-4">
+                {getSelectedTerritoryName() && (
+                  <div className="flex items-center space-x-2 text-gray-700">
+                    <MapPin className="w-4 h-4" />
+                    <span className="text-sm font-medium">{getSelectedTerritoryName()} Hours</span>
+                  </div>
+                )}
+                <button
+                  onClick={() => navigate('/calendar')}
+                  className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                  title="Open Calendar"
+                >
+                  <CalendarDays className="w-4 h-4" />
+                  <span>Calendar</span>
+                </button>
+              </div>
             </div>
           ) : ( 
             /* Jobs View Header */
@@ -3339,7 +3350,17 @@ const ServiceFlowSchedule = () => {
                 </button>
               </div>
 
-             
+              {/* Right - Calendar Button */}
+              <div className="flex items-center">
+                <button
+                  onClick={() => navigate('/calendar')}
+                  className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                  title="Open Calendar"
+                >
+                  <CalendarDays className="w-4 h-4" />
+                  <span className="hidden sm:inline">Calendar</span>
+                </button>
+              </div>
             </div>
           )}
         </div>

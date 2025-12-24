@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useEffect, useMemo, useCallback } from "react"
+import { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { useNavigate } from "react-router-dom"
-import { ChevronLeft, ChevronRight, Calendar, Clock, Users, Filter, Edit, X, Check, AlertCircle, List, Grid, Phone, Mail, DollarSign } from "lucide-react"
+import { ChevronLeft, ChevronRight, Calendar, CalendarDays, Clock, Users, Filter, Edit, X, Check, AlertCircle, List, Grid, Phone, Mail, DollarSign } from "lucide-react"
 import { teamAPI, jobsAPI, leadsAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
 import { getImageUrl } from "../utils/imageUtils"
@@ -15,12 +15,16 @@ const UnifiedCalendar = () => {
   
   // View mode: 'worker-availability' | 'tasks-list' | 'tasks-calendar'
   const [viewMode, setViewMode] = useState('worker-availability')
+  // Calendar view: 'month' | 'week' | 'day'
+  const [calendarView, setCalendarView] = useState('month')
   const [loading, setLoading] = useState(true)
   const [teamMembers, setTeamMembers] = useState([])
-  const [selectedTeamMemberId, setSelectedTeamMemberId] = useState(null) // Selected team member for calendar view
+  const [selectedTeamMemberId, setSelectedTeamMemberId] = useState(null) // Single selected team member
   const [availabilityData, setAvailabilityData] = useState({})
   const [assignedJobs, setAssignedJobs] = useState([]) // Jobs assigned to selected team member
   const [tasks, setTasks] = useState([])
+  const [showCalendarPicker, setShowCalendarPicker] = useState(false)
+  const calendarPickerRef = useRef(null)
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedMember, setSelectedMember] = useState(null)
   const [selectedDate, setSelectedDate] = useState(null)
@@ -102,20 +106,17 @@ const UnifiedCalendar = () => {
       setTeamMembers(members)
       
       // Set default: find account owner in the list, or first member
-      // Don't auto-select if user has already made a selection
-      if (selectedTeamMemberId === undefined || selectedTeamMemberId === null) {
-        if (members.length > 0) {
-          // Try to find account owner (by role or user_id/email match)
-          const accountOwner = members.find(m => 
-            m.role === 'account owner' || 
-            m.role === 'owner' || 
-            m.role === 'admin' ||
-            (user?.email && m.email === user.email) ||
-            (user?.id && m.user_id === user.id)
-          )
-          const defaultMember = accountOwner || members[0]
-          setSelectedTeamMemberId(defaultMember.id)
-        }
+      if (!selectedTeamMemberId && members.length > 0) {
+        // Try to find account owner (by role or user_id/email match)
+        const accountOwner = members.find(m => 
+          m.role === 'account owner' || 
+          m.role === 'owner' || 
+          m.role === 'admin' ||
+          (user?.email && m.email === user.email) ||
+          (user?.id && m.user_id === user.id)
+        )
+        const defaultMember = accountOwner || members[0]
+        setSelectedTeamMemberId(defaultMember.id)
       }
     } catch (error) {
       console.error('Error fetching team members:', error)
@@ -495,18 +496,94 @@ const UnifiedCalendar = () => {
       // Clear previous data when switching members or months
       setAssignedJobs([])
       setAvailabilityData({})
-      // Fetch new data for selected team member
+      // Fetch data for selected team member
       fetchMemberData(selectedTeamMemberId)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTeamMemberId, currentMonth, currentYear, viewMode])
 
+  // Close calendar picker when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (calendarPickerRef.current && !calendarPickerRef.current.contains(event.target)) {
+        setShowCalendarPicker(false)
+      }
+    }
+
+    if (showCalendarPicker) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showCalendarPicker])
+
   const handlePreviousMonth = () => {
-    setCurrentDate(new Date(currentYear, currentMonth - 1, 1))
+    if (calendarView === 'day') {
+      const newDate = new Date(currentDate)
+      newDate.setDate(newDate.getDate() - 1)
+      setCurrentDate(newDate)
+    } else if (calendarView === 'week') {
+      const newDate = new Date(currentDate)
+      newDate.setDate(newDate.getDate() - 7)
+      setCurrentDate(newDate)
+    } else {
+      setCurrentDate(new Date(currentYear, currentMonth - 1, 1))
+    }
   }
 
   const handleNextMonth = () => {
-    setCurrentDate(new Date(currentYear, currentMonth + 1, 1))
+    if (calendarView === 'day') {
+      const newDate = new Date(currentDate)
+      newDate.setDate(newDate.getDate() + 1)
+      setCurrentDate(newDate)
+    } else if (calendarView === 'week') {
+      const newDate = new Date(currentDate)
+      newDate.setDate(newDate.getDate() + 7)
+      setCurrentDate(newDate)
+    } else {
+      setCurrentDate(new Date(currentYear, currentMonth + 1, 1))
+    }
+  }
+
+  const getWeekStartDate = () => {
+    const date = new Date(currentDate)
+    const day = date.getDay()
+    const diff = date.getDate() - day + (day === 0 ? -6 : 1) // Adjust when day is Sunday
+    return new Date(date.setDate(diff))
+  }
+
+  const getWeekDates = () => {
+    const start = getWeekStartDate()
+    const dates = []
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(start)
+      date.setDate(start.getDate() + i)
+      dates.push(date)
+    }
+    return dates
+  }
+
+  const generateCalendarPickerDays = () => {
+    const year = currentDate.getFullYear()
+    const month = currentDate.getMonth()
+    const firstDay = new Date(year, month, 1)
+    const startDate = new Date(firstDay)
+    startDate.setDate(startDate.getDate() - firstDay.getDay())
+    
+    const days = []
+    for (let i = 0; i < 42; i++) {
+      const date = new Date(startDate)
+      date.setDate(startDate.getDate() + i)
+      days.push(date)
+    }
+    return days
+  }
+
+  const handleCalendarDateChange = (newDate) => {
+    setCurrentDate(newDate)
+    setShowCalendarPicker(false)
   }
 
   const handleDayClick = (day, member) => {
@@ -700,206 +777,441 @@ const UnifiedCalendar = () => {
     )
   }
 
+  const handleSelectTeamMember = (memberId) => {
+    setSelectedTeamMemberId(memberId)
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50 pb-24 lg:pb-0">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="px-4 py-4 lg:px-6">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => navigate('/team')}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <ChevronLeft className="w-5 h-5 text-gray-600" />
-              </button>
-              <div>
-                <h1 className="text-xl lg:text-2xl font-semibold text-gray-900">Calendar</h1>
-                <p className="text-sm text-gray-500 mt-1">
-                  {viewMode === 'worker-availability' && 'View team member availability'}
-                  {viewMode === 'tasks-list' && 'View and manage all tasks'}
-                  {viewMode === 'tasks-calendar' && 'Tasks organized by due date'}
-                </p>
-              </div>
-            </div>
-            
-            {/* View Mode Switcher - Only for Tasks */}
-            {(viewMode === 'tasks-list' || viewMode === 'tasks-calendar') && (
-              <div className="flex items-center space-x-2 flex-wrap">
-                <div className="flex items-center bg-gray-100 rounded-lg p-1">
-                  <button
-                    onClick={() => setViewMode('tasks-list')}
-                    className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-                      viewMode === 'tasks-list'
-                        ? 'bg-white text-blue-600 shadow-sm'
-                        : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    <List className="w-4 h-4 inline mr-1" />
-                    List
-                  </button>
-                  <button
-                    onClick={() => setViewMode('tasks-calendar')}
-                    className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-                      viewMode === 'tasks-calendar'
-                        ? 'bg-white text-blue-600 shadow-sm'
-                        : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    <Calendar className="w-4 h-4 inline mr-1" />
-                    Calendar
-                  </button>
-                </div>
-              </div>
-            )}
-            
-            {viewMode.startsWith('tasks') && (
-              <button
-                onClick={() => {
-                  setEditingTask(null)
-                  setShowCreateTaskModal(true)
-                }}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
-              >
-                + New Task
-              </button>
-            )}
-            
-            {viewMode === 'worker-availability' && (
-              <div className="flex items-center space-x-2">
-                <Users className="w-4 h-4 text-gray-400" />
-                <select
-                  value={selectedTeamMemberId || ''}
-                  onChange={(e) => {
-                    const value = e.target.value
-                    setSelectedTeamMemberId(value ? parseInt(value) : null)
-                  }}
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[200px]"
-                >
-                  {teamMembers.map((member) => (
-                    <option key={member.id} value={member.id}>
-                      {member.first_name} {member.last_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Message */}
-      {message.text && (
-        <div className={`px-4 py-3 ${message.type === 'success' ? 'bg-green-50 border-l-4 border-green-400' : 'bg-red-50 border-l-4 border-red-400'}`}>
-          <span className={`text-sm ${message.type === 'success' ? 'text-green-700' : 'text-red-700'}`}>
-            {message.text}
-          </span>
-        </div>
-      )}
-
-      {/* Tasks List View */}
-      {viewMode === 'tasks-list' && (
-        <div className="px-4 py-6 lg:px-6">
-          <div className="bg-white rounded-lg shadow-sm">
-            <div className="px-6 py-4 border-b border-gray-200">
+    <div className="flex h-screen bg-gray-50 overflow-hidden">
+      {/* Sidebar - Always Collapsed */}
+      
+      {/* Main Content */}
+      <div className="flex-1 flex min-w-0">
+        {/* Filter Sidebar - Hidden on mobile */}
+        {viewMode === 'worker-availability' && (
+          <div className="hidden lg:flex w-56 bg-white border-r border-gray-200 flex-shrink-0 flex-col h-screen">
+            {/* Fixed Header */}
+            <div className="p-4 border-b border-gray-200 flex-shrink-0">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-900">Tasks</h2>
-                <div className="flex items-center space-x-2">
-                  <select
-                    value={taskFilter}
-                    onChange={(e) => setTaskFilter(e.target.value)}
-                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="all">All Tasks</option>
-                    <option value="pending">Pending</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="completed">Completed</option>
-                    <option value="overdue">Overdue</option>
-                  </select>
-                </div>
+                <h2 style={{fontFamily: 'Montserrat', fontWeight: 700}} className="text-2xl font-bold text-gray-900">Calendar</h2>
               </div>
             </div>
             
-            <div className="p-6">
-              {getFilteredTasks().length === 0 ? (
-                <div className="text-center py-12 text-gray-500">
-                  <Calendar className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                  <p className="text-lg font-medium mb-2">No tasks found</p>
-                  <p className="text-sm mb-4">
-                    {taskFilter !== 'all' ? `No ${taskFilter} tasks` : 'Get started by creating your first task'}
-                  </p>
-                  {taskFilter === 'all' && (
+            {/* Scrollable Filter Content */}
+            <div className="flex-1 bg-gray-100 overflow-y-auto p-2 scrollbar-hide">
+              {/* Team Members Filter */}
+              <div className="mb-6">
+                <h3 className="text-xs font-semibold text-gray-700 mb-3 justify-self-center items-center">TEAM MEMBERS</h3>
+                
+                {teamMembers.map((member) => {
+                  const isSelected = selectedTeamMemberId === member.id
+                  const memberColor = member.color || '#3B82F6'
+                  
+                  return (
                     <button
-                      onClick={() => {
-                        setEditingTask(null)
-                        setShowCreateTaskModal(true)
-                      }}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                      key={member.id}
+                      onClick={() => handleSelectTeamMember(member.id)}
+                      className={`w-full flex items-center space-x-2 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors mb-2 ${
+                        isSelected 
+                          ? 'bg-white text-blue-700' 
+                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                      }`}
                     >
-                      Create Task
+                      <div 
+                        className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[8px] font-semibold"
+                        style={{ backgroundColor: memberColor }}
+                      >
+                        {getMemberInitials(member)}
+                      </div>
+                      <span className="truncate">{member.first_name} {member.last_name}</span>
                     </button>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Calendar Content */}
+        <div className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto scrollbar-hide bg-gray-50">
+          {/* Message */}
+          {message.text && (
+            <div className={`px-4 py-3 ${message.type === 'success' ? 'bg-green-50 border-l-4 border-green-400' : 'bg-red-50 border-l-4 border-red-400'}`}>
+              <span className={`text-sm ${message.type === 'success' ? 'text-green-700' : 'text-red-700'}`}>
+                {message.text}
+              </span>
+            </div>
+          )}
+
+          {/* Tasks List View */}
+          {viewMode === 'tasks-list' && (
+            <div className="px-4 py-6 lg:px-6">
+              <div className="bg-white rounded-lg shadow-sm">
+                <div className="px-6 py-4 border-b border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-lg font-semibold text-gray-900">Tasks</h2>
+                    <div className="flex items-center space-x-2">
+                      <select
+                        value={taskFilter}
+                        onChange={(e) => setTaskFilter(e.target.value)}
+                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="all">All Tasks</option>
+                        <option value="pending">Pending</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="completed">Completed</option>
+                        <option value="overdue">Overdue</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="p-6">
+                  {getFilteredTasks().length === 0 ? (
+                    <div className="text-center py-12 text-gray-500">
+                      <Calendar className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                      <p className="text-lg font-medium mb-2">No tasks found</p>
+                      <p className="text-sm mb-4">
+                        {taskFilter !== 'all' ? `No ${taskFilter} tasks` : 'Get started by creating your first task'}
+                      </p>
+                      {taskFilter === 'all' && (
+                        <button
+                          onClick={() => {
+                            setEditingTask(null)
+                            setShowCreateTaskModal(true)
+                          }}
+                          className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                        >
+                          Create Task
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {getFilteredTasks().map((task) => (
+                        <TaskCard
+                          key={task.id}
+                          task={task}
+                          onEdit={handleEditTask}
+                          onDelete={handleDeleteTask}
+                          onStatusChange={handleTaskStatusChange}
+                          showLeadInfo={true}
+                        />
+                      ))}
+                    </div>
                   )}
                 </div>
-              ) : (
-                <div className="space-y-4">
-                  {getFilteredTasks().map((task) => (
-                    <TaskCard
-                      key={task.id}
-                      task={task}
-                      onEdit={handleEditTask}
-                      onDelete={handleDeleteTask}
-                      onStatusChange={handleTaskStatusChange}
-                      showLeadInfo={true}
-                    />
+              </div>
+            </div>
+          )}
+          {/* Tasks Calendar View or Availability Calendar */}
+          {(viewMode === 'tasks-calendar' || viewMode === 'worker-availability') && (
+            <>
+              {/* Top Header Bar */}
+              <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4">
+                <div className="flex items-center justify-between">
+                  {/* Left - View Switcher and Date Navigation */}
+                  <div className="flex items-center space-x-4">
+                    {/* View Switcher */}
+                    <div className="flex items-center bg-gray-100 rounded-lg p-1">
+                      <button
+                        onClick={() => setCalendarView('day')}
+                        className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                          calendarView === 'day'
+                            ? 'bg-white text-blue-600 shadow-sm'
+                            : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                      >
+                        Day
+                      </button>
+                      <button
+                        onClick={() => setCalendarView('week')}
+                        className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                          calendarView === 'week'
+                            ? 'bg-white text-blue-600 shadow-sm'
+                            : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                      >
+                        Week
+                      </button>
+                      <button
+                        onClick={() => setCalendarView('month')}
+                        className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                          calendarView === 'month'
+                            ? 'bg-white text-blue-600 shadow-sm'
+                            : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                      >
+                        Month
+                      </button>
+                    </div>
+                    
+                    {/* Date Navigation (Pill Shape) */}
+                    <div className="flex items-center space-x-2 relative">
+                      <div className="flex items-center bg-gray-200 rounded-full px-3 py-1.5">
+                        <button
+                          onClick={handlePreviousMonth}
+                          className="p-1 hover:bg-gray-300 rounded-full transition-colors"
+                        >
+                          <ChevronLeft className="w-4 h-4 text-gray-700" />
+                        </button>
+                        <button
+                          onClick={() => setShowCalendarPicker(!showCalendarPicker)}
+                          className="text-sm font-semibold text-gray-900 mx-3 hover:text-blue-600 transition-colors cursor-pointer min-w-[140px] text-center"
+                        >
+                          {calendarView === 'day' 
+                            ? currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+                            : calendarView === 'week'
+                            ? `Week of ${getWeekStartDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                            : `${monthNames[currentMonth]} ${currentYear}`
+                          }
+                        </button>
+                        <button
+                          onClick={handleNextMonth}
+                          className="p-1 hover:bg-gray-300 rounded-full transition-colors"
+                        >
+                          <ChevronRight className="w-4 h-4 text-gray-700" />
+                        </button>
+                      </div>
+
+                      {/* Calendar Picker Popup */}
+                      {showCalendarPicker && (
+                        <div ref={calendarPickerRef} className="absolute top-full left-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 p-4 w-72 sm:w-80">
+                          <div className="grid grid-cols-7 gap-1">
+                            {/* Calendar Header */}
+                            <div className="col-span-7 flex items-center justify-between mb-2">
+                              <button 
+                                onClick={() => {
+                                  const newDate = new Date(currentDate)
+                                  newDate.setMonth(newDate.getMonth() - 1)
+                                  setCurrentDate(newDate)
+                                }}
+                                className="p-1 hover:bg-gray-100 rounded"
+                              >
+                                <ChevronLeft className="w-4 h-4" />
+                              </button>
+                              <span className="text-sm font-medium">
+                                {currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                              </span>
+                              <button 
+                                onClick={() => {
+                                  const newDate = new Date(currentDate)
+                                  newDate.setMonth(newDate.getMonth() + 1)
+                                  setCurrentDate(newDate)
+                                }}
+                                className="p-1 hover:bg-gray-100 rounded"
+                              >
+                                <ChevronRight className="w-4 h-4" />
+                              </button>
+                            </div>
+
+                            {/* Day Headers */}
+                            {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(day => (
+                              <div key={day} className="text-xs font-medium text-gray-500 text-center py-1">
+                                {day}
+                              </div>
+                            ))}
+
+                            {/* Calendar Days */}
+                            {generateCalendarPickerDays().map((day, index) => {
+                              const isCurrentMonth = day.getMonth() === currentDate.getMonth()
+                              const isSelected = day.toDateString() === currentDate.toDateString()
+                              const isToday = day.toDateString() === new Date().toDateString()
+                              
+                              return (
+                                <button
+                                  key={index}
+                                  onClick={() => handleCalendarDateChange(day)}
+                                  className={`text-xs p-2 rounded hover:bg-gray-100 transition-colors ${
+                                    isCurrentMonth ? 'text-gray-900' : 'text-gray-400'
+                                  } ${
+                                    isSelected ? 'bg-blue-600 text-white hover:bg-blue-700' : ''
+                                  } ${
+                                    isToday && !isSelected ? 'bg-blue-50 text-blue-600' : ''
+                                  }`}
+                                >
+                                  {day.getDate()}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Right - Navigate to Schedule */}
+                  <button
+                    onClick={() => navigate('/schedule')}
+                    className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                    title="Open Schedule"
+                  >
+                    <Calendar className="w-4 h-4" />
+                    <span>Schedule</span>
+                  </button>
+                </div>
+              </div>
+
+          {/* Day View */}
+          {calendarView === 'day' && selectedTeamMemberId && (
+            <div className="px-4 py-4 lg:px-6">
+              <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+                <div className="border-b border-gray-200 p-4">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    {currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                  </h3>
+                </div>
+                <div className="p-4">
+                  {(() => {
+                    const dateStr = currentDate.toISOString().split('T')[0]
+                    const member = teamMembers.find(m => m.id === selectedTeamMemberId)
+                    if (!member) return null
+                    
+                    const memberAvailability = availabilityData[selectedTeamMemberId]?.[dateStr]
+                    const isUnavailable = memberAvailability && !memberAvailability.available
+                    const availabilityHours = memberAvailability?.hours || []
+                    
+                    if (isUnavailable) {
+                      return (
+                        <div className="text-center py-8">
+                          <div className="text-gray-500 text-lg font-medium">Unavailable</div>
+                        </div>
+                      )
+                    }
+                    
+                    if (availabilityHours.length === 0) {
+                      return (
+                        <div className="text-center py-8">
+                          <div className="text-gray-500 text-lg font-medium">No availability set</div>
+                        </div>
+                      )
+                    }
+                    
+                    return (
+                      <div className="space-y-3">
+                        <h4 className="text-sm font-semibold text-gray-700 mb-3">Available Time Slots</h4>
+                        {availabilityHours.map((slot, idx) => {
+                          const startTime = formatTime(slot.start)
+                          const endTime = formatTime(slot.end)
+                          return (
+                            <div
+                              key={idx}
+                              className="flex items-center justify-between p-4 bg-blue-50 border border-blue-200 rounded-lg"
+                            >
+                              <div className="flex items-center space-x-3">
+                                <Clock className="w-5 h-5 text-blue-600" />
+                                <div>
+                                  <div className="text-sm font-medium text-gray-900">{startTime} - {endTime}</div>
+                                  <div className="text-xs text-gray-500">Available for scheduling</div>
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )
+                  })()}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Week View */}
+          {calendarView === 'week' && selectedTeamMemberId && (
+            <div className="px-4 py-4 lg:px-6 overflow-x-auto">
+              <div className="min-w-max w-full">
+                {/* Day Headers */}
+                <div className="grid grid-cols-7 gap-2 mb-2">
+                  {getWeekDates().map((date, idx) => (
+                    <div key={idx} className="p-2 text-center">
+                      <div className="text-xs font-medium text-gray-500">
+                        {dayNames[date.getDay()]}
+                      </div>
+                      <div className={`text-lg font-semibold mt-1 ${
+                        date.toDateString() === new Date().toDateString()
+                          ? 'text-blue-600'
+                          : 'text-gray-900'
+                      }`}>
+                        {date.getDate()}
+                      </div>
+                    </div>
                   ))}
                 </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Tasks Calendar View or Availability Calendar */}
-      {(viewMode === 'tasks-calendar' || viewMode === 'worker-availability') && (
-        <>
-          {/* Month Navigation */}
-          <div className="bg-white border-b border-gray-200 px-4 py-4 lg:px-6">
-            <div className="flex items-center justify-between">
-              <button
-                onClick={handlePreviousMonth}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <ChevronLeft className="w-5 h-5 text-gray-600" />
-              </button>
-              
-              <h2 className="text-lg lg:text-xl font-semibold text-gray-900">
-                {monthNames[currentMonth]} {currentYear}
-              </h2>
-              
-              <button
-                onClick={handleNextMonth}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <ChevronRight className="w-5 h-5 text-gray-600" />
-              </button>
-            </div>
-          </div>
-
-
-          {/* Calendar Grid */}
-          <div className="px-4 py-4 lg:px-6 overflow-x-auto">
-            <div className="min-w-max">
-              {/* Day Headers */}
-              <div className="grid grid-cols-7 gap-2 mb-2">
-                {dayNames.map(day => (
-                  <div key={day} className="p-2 text-center text-sm font-medium text-gray-500 w-32">
-                    {day}
-                  </div>
-                ))}
+                
+                {/* Week Days */}
+                <div className="grid grid-cols-7 gap-2">
+                  {getWeekDates().map((date, idx) => {
+                    const dateStr = date.toISOString().split('T')[0]
+                    const member = teamMembers.find(m => m.id === selectedTeamMemberId)
+                    if (!member) return null
+                    
+                    const memberAvailability = availabilityData[selectedTeamMemberId]?.[dateStr]
+                    const isUnavailable = memberAvailability && !memberAvailability.available
+                    const availabilityHours = memberAvailability?.hours || []
+                    const isToday = date.toDateString() === new Date().toDateString()
+                    
+                    return (
+                      <div
+                        key={idx}
+                        className={`border rounded-lg p-3 min-h-[200px] ${
+                          isToday
+                            ? 'bg-white border-blue-500 ring-2 ring-blue-500'
+                            : 'bg-white border-gray-200'
+                        }`}
+                      >
+                        {isUnavailable ? (
+                          <div className="text-center py-4">
+                            <div className="text-xs text-gray-500 font-medium">Unavailable</div>
+                          </div>
+                        ) : availabilityHours.length > 0 ? (
+                          <div className="space-y-2">
+                            {availabilityHours.map((slot, slotIdx) => {
+                              const startTime = formatTime(slot.start)
+                              const endTime = formatTime(slot.end)
+                              return (
+                                <div
+                                  key={slotIdx}
+                                  className="px-2 py-1.5 rounded text-xs bg-blue-50 text-blue-700 border border-blue-200"
+                                  title={`${startTime} - ${endTime}`}
+                                >
+                                  <div className="font-medium">{startTime}</div>
+                                  <div className="text-blue-600">{endTime}</div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        ) : memberAvailability?.available ? (
+                          <div className="text-center py-4">
+                            <div className="text-xs text-blue-600 font-medium">Available</div>
+                          </div>
+                        ) : (
+                          <div className="text-center py-4">
+                            <div className="text-xs text-gray-400">No data</div>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
-              
-              {/* Calendar Days */}
-              <div className="grid grid-cols-7 gap-2">
+            </div>
+          )}
+
+          {/* Month View */}
+          {calendarView === 'month' && (
+            <div className="px-4 py-4 lg:px-6 overflow-x-auto">
+              <div className="min-w-max">
+                {/* Day Headers */}
+                <div className="grid grid-cols-7 gap-2 mb-2">
+                  {dayNames.map(day => (
+                    <div key={day} className="p-2 text-center text-sm font-medium text-gray-500 w-32">
+                      {day}
+                    </div>
+                  ))}
+                </div>
+                
+                {/* Calendar Days */}
+                <div className="grid grid-cols-7 gap-2">
                 {calendarDays.map((day, index) => {
                   const dateStr = day.date.toISOString().split('T')[0]
                   
@@ -909,9 +1221,13 @@ const UnifiedCalendar = () => {
                       className={`w-32 border rounded-lg p-2 min-h-[120px] ${
                         (() => {
                           if (!day.isCurrentMonth) return 'bg-gray-50 border-gray-200'
-                          const memberAvailability = selectedTeamMemberId ? availabilityData[selectedTeamMemberId]?.[dateStr] : null
-                          const isUnavailable = memberAvailability && !memberAvailability.available
-                          if (isUnavailable) return 'bg-gray-100 border-gray-300 opacity-60'
+                          // Check if selected member is unavailable
+                          if (selectedTeamMemberId) {
+                            const memberAvailability = availabilityData[selectedTeamMemberId]?.[dateStr]
+                            if (memberAvailability && !memberAvailability.available) {
+                              return 'bg-gray-100 border-gray-300 opacity-60'
+                            }
+                          }
                           if (day.isToday) return 'bg-white border-blue-500 ring-2 ring-blue-500'
                           return 'bg-white border-gray-200'
                         })()
@@ -950,59 +1266,57 @@ const UnifiedCalendar = () => {
                         </div>
                       )}
                       
-                      {/* Calendar View - Show UNASSIGNED/FREE time during availability (opposite of Schedule) */}
+                      {/* Calendar View - Show availability for selected team member */}
                       {viewMode === 'worker-availability' && selectedTeamMemberId && (
                         <>
                           {(() => {
-                            // Get availability for this day
+                            const member = teamMembers.find(m => m.id === selectedTeamMemberId)
+                            if (!member) return null
+                            
                             const memberAvailability = availabilityData[selectedTeamMemberId]?.[dateStr]
                             const isUnavailable = memberAvailability && !memberAvailability.available
-                            
-                            // Disable day if unavailable or not current month
-                            const dayDisabled = !day.isCurrentMonth || isUnavailable
-                            
-                            // Get availability hours
                             const availabilityHours = memberAvailability?.hours || []
                             
-                            return (
-                              <div className={`space-y-1 ${dayDisabled ? 'opacity-50 pointer-events-none' : ''}`}>
-                                {isUnavailable && day.isCurrentMonth ? (
+                            if (!day.isCurrentMonth || isUnavailable) {
+                              if (isUnavailable && day.isCurrentMonth) {
+                                return (
                                   <div className="px-2 py-1 rounded text-xs bg-gray-100 text-gray-500 border border-gray-200 text-center">
                                     Unavailable
                                   </div>
-                                ) : availabilityHours.length > 0 ? (
-                                  // Show availability time slots
-                                  availabilityHours.slice(0, 2).map((slot, idx) => {
-                                    const startTime = formatTime(slot.start)
-                                    const endTime = formatTime(slot.end)
-                                    return (
-                                      <div
-                                        key={idx}
-                                        className="px-2 py-1 rounded text-xs bg-blue-50 text-blue-700 border border-blue-200 text-center"
-                                        title={`Available: ${startTime} - ${endTime}`}
-                                      >
-                                        <div className="font-medium text-xs">{startTime} - {endTime}</div>
-                                      </div>
-                                    )
-                                  }).concat(
-                                    availabilityHours.length > 2 ? (
-                                      <div key="more" className="text-xs text-blue-600 text-center py-0.5">
-                                        +{availabilityHours.length - 2}
-                                      </div>
-                                    ) : null
-                                  )
-                                ) : memberAvailability?.available && day.isCurrentMonth ? (
-                                  // Available but no specific time slots
-                                  <div className="text-xs text-blue-600 text-center py-1">
-                                    Available
+                                )
+                              }
+                              return null
+                            }
+                            
+                            if (availabilityHours.length > 0) {
+                              // Show availability time slots
+                              return availabilityHours.slice(0, 2).map((slot, idx) => {
+                                const startTime = formatTime(slot.start)
+                                const endTime = formatTime(slot.end)
+                                return (
+                                  <div
+                                    key={idx}
+                                    className="px-2 py-1 rounded text-xs bg-blue-50 text-blue-700 border border-blue-200 text-center mb-1"
+                                    title={`Available: ${startTime} - ${endTime}`}
+                                  >
+                                    <div className="font-medium text-xs">{startTime} - {endTime}</div>
                                   </div>
-                                ) : day.isCurrentMonth ? (
-                                  <div className="text-xs text-gray-400 text-center py-1">
-                                    -
+                                )
+                              }).concat(
+                                availabilityHours.length > 2 ? (
+                                  <div key="more" className="text-xs text-blue-600 text-center py-0.5">
+                                    +{availabilityHours.length - 2}
                                   </div>
-                                ) : null}
-                              </div>
-                            )
+                                ) : null
+                              )
+                            } else if (memberAvailability?.available) {
+                              return (
+                                <div className="text-xs text-blue-600 text-center py-1">
+                                  Available
+                                </div>
+                              )
+                            }
+                            return null
                           })()}
                         </>
                       )}
@@ -1012,8 +1326,11 @@ const UnifiedCalendar = () => {
               </div>
             </div>
           </div>
+        )}
         </>
       )}
+        </div>
+      </div>
 
       {/* Edit Availability Modal */}
       {showEditModal && selectedMember && editingAvailability && (

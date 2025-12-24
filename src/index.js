@@ -100,6 +100,7 @@ import ImportDataPage from "./pages/import-data"
 import ImportCustomersPage from "./pages/import-customers"
 import ImportJobsPage from "./pages/import-jobs"
 import LeadsPipeline from "./pages/leads-pipeline"
+import LandingPageLegacy from "./pages/LandingPage"
 import { TeamMemberAuthProvider } from "./context/TeamMemberAuthContext"
 import { CategoryProvider } from "./context/CategoryContext"
 import AppLayout from "./components/app-layout"
@@ -114,6 +115,7 @@ root.render(
       <Route index element={<App />} />
       <Route path="signup" element={<SignupForm />} />
       <Route path="signin" element={<SignInForm />} />
+      <Route path="legacy-landing" element={<LandingPageLegacy />} />
       <Route element={<AppLayout />}>
       <Route path="/dashboard" element={<ProtectedRoute><ServiceFlowDashboard /></ProtectedRoute>} />
       <Route path="/request" element={<ProtectedRoute><ServiceFlowRequests /></ProtectedRoute>} />
