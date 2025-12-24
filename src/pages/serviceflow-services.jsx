@@ -29,6 +29,8 @@ const ServiceFlowServices = () => {
   const [templatesModalOpen, setTemplatesModalOpen] = useState(false)
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [serviceToDelete, setServiceToDelete] = useState(null)
+  const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false)
+  const [deleteAllLoading, setDeleteAllLoading] = useState(false)
   const [duplicateSuccessModalOpen, setDuplicateSuccessModalOpen] = useState(false)
   const [duplicatedService, setDuplicatedService] = useState(null)
   const [categories, setCategories] = useState([])
@@ -201,6 +203,40 @@ const ServiceFlowServices = () => {
       }
     } finally {
       setDeleteLoading(null)
+    }
+  }
+
+  const confirmDeleteAll = async () => {
+    try {
+      setDeleteAllLoading(true)
+      setError("")
+
+      await servicesAPI.deleteAll()
+      setServices([])
+      setShowDeleteAllConfirm(false)
+
+      // Show success message
+      setTimeout(() => {
+        fetchServices()
+      }, 500)
+    } catch (error) {
+      console.error('Error deleting all services:', error)
+      if (error.response) {
+        const { status, data } = error.response
+        switch (status) {
+          case 500:
+            setError("Server error. Please try again later.")
+            break
+          default:
+            setError(data?.error || "Failed to delete all services. Please try again.")
+        }
+      } else if (error.request) {
+        setError("Network error. Please check your connection.")
+      } else {
+        setError("An unexpected error occurred.")
+      }
+    } finally {
+      setDeleteAllLoading(false)
     }
   }
 
@@ -562,6 +598,16 @@ const ServiceFlowServices = () => {
         <div className="hidden lg:flex bg-white border-b border-gray-200 px-5 lg:px-40 xl:px-44 2xl:px-48 py-4 items-center justify-between">
           <div className="max-w-7xl mx-auto w-full flex items-center justify-between">
             <h1 className="text-2xl font-semibold text-gray-900">Services</h1>
+            <div className="flex items-center space-x-2">
+              {services.length > 0 && (
+                <button
+                  onClick={() => setShowDeleteAllConfirm(true)}
+                  className="bg-red-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-red-700 transition-colors flex items-center space-x-2"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>Delete All</span>
+                </button>
+              )}
             <button
               onClick={() => setCreateModalOpen(true)}
               className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center space-x-2"
@@ -569,6 +615,7 @@ const ServiceFlowServices = () => {
               <Plus className="w-4 h-4" />
               <span>Add Service</span>
             </button>
+            </div>
           </div>
         </div>
 
@@ -576,6 +623,16 @@ const ServiceFlowServices = () => {
         <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-4">
           <div className="flex items-center justify-between">
             <h1 className="text-xl font-semibold text-gray-900">Services</h1>
+            <div className="flex items-center space-x-2">
+              {services.length > 0 && (
+                <button
+                  onClick={() => setShowDeleteAllConfirm(true)}
+                  className="bg-red-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-red-700 transition-colors flex items-center space-x-2"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>Delete All</span>
+                </button>
+              )}
             <button
               onClick={() => setCreateModalOpen(true)}
               className="bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors flex items-center space-x-2"
@@ -583,6 +640,7 @@ const ServiceFlowServices = () => {
               <Plus className="w-4 h-4" />
               <span>Add Service</span>
             </button>
+            </div>
           </div>
         </div>
 
@@ -891,6 +949,63 @@ const ServiceFlowServices = () => {
                     <>
                       <Trash2 className="w-4 h-4" />
                       <span>Delete Service</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete All Confirmation Modal */}
+      {showDeleteAllConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all duration-300 ease-out">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-red-100 rounded-full">
+                  <AlertTriangle className="w-5 h-5 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Delete All Services</h3>
+                  <p className="text-sm text-gray-500">This action cannot be undone</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowDeleteAllConfirm(false)}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                disabled={deleteAllLoading}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6">
+              <p className="text-gray-700 mb-4">
+                Are you sure you want to delete all {services.length} service(s)? This action is permanent and cannot be undone.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
+                <button
+                  onClick={() => setShowDeleteAllConfirm(false)}
+                  disabled={deleteAllLoading}
+                  className="flex-1 sm:flex-none px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmDeleteAll}
+                  disabled={deleteAllLoading}
+                  className="flex-1 sm:flex-none px-6 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                >
+                  {deleteAllLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Deleting...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4" />
+                      <span>Delete All Services</span>
                     </>
                   )}
                 </button>

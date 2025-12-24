@@ -6,7 +6,6 @@ import { useAuth } from "../context/AuthContext"
 import { filterSidebarItems, getUserRole } from "../utils/roleUtils"
 import {
   Home,
-  MessageSquare,
   Calendar,
   CalendarDays,
   Briefcase,
@@ -38,7 +37,7 @@ const Sidebar = ({ isOpen, onClose }) => {
 
   const allSidebarItems = [
     { icon: Home, label: "Dashboard", path: "/dashboard" },
-    { icon: MessageSquare, label: "Requests", path: "/request" },
+    { icon: Target, label: "Leads", path: "/leads" },
     { icon: Calendar, label: "Schedule", path: "/schedule" },
     { icon: CalendarDays, label: "Calendar", path: "/calendar" },
     { icon: Briefcase, label: "Jobs", path: "/jobs" },
@@ -47,7 +46,6 @@ const Sidebar = ({ isOpen, onClose }) => {
     { icon: RotateCcw, label: "Recurring", path: "/recurring" },
     { icon: CreditCard, label: "Payments", path: "/payments", hidden: true },
     { icon: Users, label: "Customers", path: "/customers" },
-    { icon: Target, label: "Leads", path: "/leads" },
     { icon: UserCheck, label: "Team", path: "/team" },
     { icon: Receipt, label: "Payroll", path: "/payroll" },
     { icon: Wrench, label: "Services", path: "/services" },

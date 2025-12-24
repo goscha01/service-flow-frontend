@@ -225,6 +225,15 @@ export const servicesAPI = {
     }
   },
 
+  deleteAll: async () => {
+    try {
+      const response = await api.delete('/services/all');
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
   getServiceSettings: async () => {
     try {
       const response = await api.get('/services/settings');

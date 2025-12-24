@@ -18,7 +18,8 @@ import UpdatesSection from "../components/UpdatesSection"
 import CTASection from "../components/CTASection"
 import Footer from "../components/Footer"
 
-export default function LandingPage() {
+// Legacy landing page - moved to /legacy-landing route (no links point to this)
+export default function LandingPageLegacy() {
   return (
     <div className="min-h-screen bg-white">
       <Header />
