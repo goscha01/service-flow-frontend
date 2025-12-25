@@ -2878,24 +2878,29 @@ const ServiceFlowSchedule = () => {
               </button>
 
               {/* Team Members */}
-              {teamMembers.map((member) => (
-                <button
-                  key={member.id}
-                  onClick={() => setSelectedFilter(member.id)}
-                  className={`w-full flex items-center space-x-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors mb-2 ${
-                    selectedFilter === member.id 
-                      ? 'bg-white text-blue-700' 
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                  }`}
-                >
-                  <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center">
-                    <span className="text-white text-[8px] font-semibold">
-                      {member.first_name?.charAt(0)}{member.last_name?.charAt(0)}
+              {teamMembers.map((member) => {
+                const fullName = `${member.first_name || ''} ${member.last_name || ''}`.trim()
+                return (
+                  <button
+                    key={member.id}
+                    onClick={() => setSelectedFilter(member.id)}
+                    className={`w-full flex items-center space-x-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors mb-2 ${
+                      selectedFilter === member.id 
+                        ? 'bg-white text-blue-700' 
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    }`}
+                  >
+                    <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center flex-shrink-0">
+                      <span className="text-white text-[8px] font-semibold">
+                        {member.first_name?.charAt(0)}{member.last_name?.charAt(0)}
+                      </span>
+                    </div>
+                    <span className="truncate flex-1 min-w-0" title={fullName}>
+                      {fullName.length > 25 ? `${fullName.substring(0, 25)}...` : fullName}
                     </span>
-                  </div>
-                  <span>{member.first_name} {member.last_name}</span>
-                </button>
-              ))}
+                  </button>
+                )
+              })}
             </div>
             )}
 
@@ -3383,11 +3388,14 @@ const ServiceFlowSchedule = () => {
               >
                 <option value="all">All Jobs</option>
                 <option value="unassigned">Unassigned</option>
-                {teamMembers.map((member) => (
-                  <option key={member.id} value={member.id}>
-                    {member.first_name} {member.last_name}
-                  </option>
-                ))}
+                {teamMembers.map((member) => {
+                  const fullName = `${member.first_name || ''} ${member.last_name || ''}`.trim()
+                  return (
+                    <option key={member.id} value={member.id} title={fullName}>
+                      {fullName.length > 30 ? `${fullName.substring(0, 30)}...` : fullName}
+                    </option>
+                  )
+                })}
               </select>
             </div>
             )}

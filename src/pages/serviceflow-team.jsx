@@ -31,6 +31,9 @@ const ServiceFlowTeam = () => {
   const [memberToResend, setMemberToResend] = useState(null)
   const [notification, setNotification] = useState(null)
   const [deleteError, setDeleteError] = useState("")
+  const [showDeleteAllModal, setShowDeleteAllModal] = useState(false)
+  const [deleteAllLoading, setDeleteAllLoading] = useState(false)
+  const [deletableMembersCount, setDeletableMembersCount] = useState(0)
 
   // API State
   const [teamMembers, setTeamMembers] = useState([])
@@ -202,7 +205,11 @@ const ServiceFlowTeam = () => {
   const handleDeleteMember = (member) => {
     // Prevent deleting account owner
     if (member.role === 'account owner' || member.role === 'owner' || member.role === 'admin') {
-      createErrorNotification('Cannot delete account owner')
+      setNotification({
+        type: 'error',
+        message: 'Cannot delete account owner'
+      })
+      setTimeout(() => setNotification(null), 5000)
       return
     }
     setMemberToDelete(member)
@@ -225,22 +232,175 @@ const ServiceFlowTeam = () => {
 
       setShowDeleteModal(false)
       setMemberToDelete(null)
+      setDeleteError("") // Clear any previous errors
       fetchTeamMembers()
 
       setTimeout(() => setNotification(null), 3000)
     } catch (error) {
       console.error('Error deleting team member:', error)
+      console.error('Error response:', error.response?.data)
+      console.error('Error status:', error.response?.status)
 
       const errorInfo = handleTeamDeletionError(error)
-      setDeleteError(errorInfo.message)
+      const errorMessage = errorInfo.message || 
+                          error.response?.data?.userMessage || 
+                          error.response?.data?.error || 
+                          'Failed to delete team member. Please try again.'
+      
+      setDeleteError(errorMessage)
 
       console.log('Error details:', {
         type: errorInfo.type,
         status: errorInfo.status,
-        details: errorInfo.details
+        details: errorInfo.details,
+        message: errorMessage,
+        userMessage: error.response?.data?.userMessage
       })
+      
+      // Keep modal open so user can see the error
+      // Don't close the modal on error
     } finally {
       setDeleteLoading(false)
+    }
+  }
+
+  const handleDeleteAll = async () => {
+    try {
+      // Fetch all team members to get accurate count
+      const response = await teamAPI.getAll(user.id, {
+        status: "", // No status filter - get all
+        search: "", // No search filter - get all
+        sortBy: "first_name",
+        sortOrder: "ASC",
+        page: 1,
+        limit: 1000 // High limit to get all members
+      })
+      const allMembers = response.teamMembers || response || []
+      
+      // Check if there are any deletable members (exclude account owners)
+      const deletableMembers = allMembers.filter(member => 
+        !(member.role === 'account owner' || member.role === 'owner' || member.role === 'admin')
+      )
+      
+      if (deletableMembers.length === 0) {
+        setNotification({
+          type: 'error',
+          message: 'No team members can be deleted. Account owners cannot be deleted.'
+        })
+        setTimeout(() => setNotification(null), 5000)
+        return
+      }
+      
+      setDeletableMembersCount(deletableMembers.length)
+      setShowDeleteAllModal(true)
+    } catch (error) {
+      console.error('Error fetching team members for delete all:', error)
+      setNotification({
+        type: 'error',
+        message: 'Failed to load team members. Please try again.'
+      })
+      setTimeout(() => setNotification(null), 5000)
+    }
+  }
+
+  const confirmDeleteAll = async () => {
+    try {
+      setDeleteAllLoading(true)
+      
+      // Fetch ALL team members (without filters) to ensure we delete everything
+      let allMembers = []
+      try {
+        const response = await teamAPI.getAll(user.id, {
+          status: "", // No status filter - get all
+          search: "", // No search filter - get all
+          sortBy: "first_name",
+          sortOrder: "ASC",
+          page: 1,
+          limit: 1000 // High limit to get all members
+        })
+        allMembers = response.teamMembers || response || []
+      } catch (error) {
+        console.error('Error fetching all team members:', error)
+        setNotification({
+          type: 'error',
+          message: 'Failed to fetch team members. Please try again.'
+        })
+        setShowDeleteAllModal(false)
+        setTimeout(() => setNotification(null), 5000)
+        return
+      }
+      
+      // Get all deletable members (exclude account owners)
+      const deletableMembers = allMembers.filter(member => 
+        !(member.role === 'account owner' || member.role === 'owner' || member.role === 'admin')
+      )
+      
+      if (deletableMembers.length === 0) {
+        setNotification({
+          type: 'error',
+          message: 'No team members can be deleted. Account owners cannot be deleted.'
+        })
+        setShowDeleteAllModal(false)
+        setTimeout(() => setNotification(null), 5000)
+        return
+      }
+
+      // Delete all members one by one
+      let successCount = 0
+      let errorCount = 0
+      const errorMessages = []
+      
+      for (const member of deletableMembers) {
+        try {
+          await teamAPI.delete(member.id)
+          successCount++
+        } catch (error) {
+          console.error(`Error deleting team member ${member.id}:`, error)
+          errorCount++
+          
+          // Extract error message for this specific member
+          const errorInfo = handleTeamDeletionError(error)
+          const memberName = `${member.first_name} ${member.last_name}`
+          errorMessages.push(`${memberName}: ${errorInfo.message}`)
+        }
+      }
+
+      setShowDeleteAllModal(false)
+      
+      if (successCount > 0 && errorCount === 0) {
+        setNotification(createSuccessNotification(
+          `${successCount} team member(s) have been deleted successfully.`
+        ))
+      } else if (successCount > 0 && errorCount > 0) {
+        // Some succeeded, some failed
+        const errorSummary = errorMessages.slice(0, 3).join('; ')
+        const moreErrors = errorCount > 3 ? ` and ${errorCount - 3} more` : ''
+        setNotification({
+          type: 'error',
+          message: `${successCount} deleted, ${errorCount} failed: ${errorSummary}${moreErrors}`
+        })
+      } else {
+        // All failed
+        const errorSummary = errorMessages.slice(0, 3).join('; ')
+        const moreErrors = errorCount > 3 ? ` and ${errorCount - 3} more` : ''
+        setNotification({
+          type: 'error',
+          message: `Failed to delete team members: ${errorSummary}${moreErrors}`
+        })
+      }
+
+      fetchTeamMembers()
+      setTimeout(() => setNotification(null), errorCount > 0 ? 8000 : 3000)
+    } catch (error) {
+      console.error('Error deleting all team members:', error)
+      const errorInfo = handleTeamDeletionError(error)
+      setNotification({
+        type: 'error',
+        message: errorInfo.message || 'An error occurred while deleting team members. Please try again.'
+      })
+      setTimeout(() => setNotification(null), 5000)
+    } finally {
+      setDeleteAllLoading(false)
     }
   }
 
@@ -283,7 +443,11 @@ const ServiceFlowTeam = () => {
   const handleToggleActivation = async (member) => {
     // Prevent deactivating account owner
     if (member.role === 'account owner' || member.role === 'owner' || member.role === 'admin') {
-      createErrorNotification('Cannot deactivate account owner')
+      setNotification({
+        type: 'error',
+        message: 'Cannot deactivate account owner'
+      })
+      setTimeout(() => setNotification(null), 5000)
       return
     }
     setMemberToToggle(member)
@@ -432,6 +596,17 @@ const ServiceFlowTeam = () => {
                                 <span className="sm:hidden">Show</span>
                               </>
                             )}
+                          </button>
+                        )}
+                        {teamMembers.filter(member => 
+                          !(member.role === 'account owner' || member.role === 'owner' || member.role === 'admin')
+                        ).length > 0 && (
+                          <button
+                            onClick={handleDeleteAll}
+                            className="w-full sm:w-auto inline-flex items-center justify-center px-4 sm:px-5 py-2 sm:py-2.5 text-sm font-medium rounded-lg text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete All
                           </button>
                         )}
                       <button
@@ -851,6 +1026,47 @@ const ServiceFlowTeam = () => {
                 className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-50"
               >
                 {deleteLoading ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete All Confirmation Modal */}
+      {showDeleteAllModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-4 sm:p-6 max-w-lg w-full mx-4">
+            <div className="flex items-center mb-4">
+              <AlertCircle className="h-5 w-5 sm:h-6 sm:w-6 text-red-600 mr-3 flex-shrink-0" />
+              <h3 className="text-base sm:text-lg font-medium text-gray-900">Delete All Team Members</h3>
+            </div>
+
+            <p className="text-xs sm:text-sm text-gray-500 mb-2">
+              Are you sure you want to delete all team members? This will delete{' '}
+              <strong>{deletableMembersCount}</strong>{' '}
+              team member(s). Account owners will not be deleted.
+            </p>
+            <p className="text-xs sm:text-sm text-red-600 font-medium mb-6">
+              This action cannot be undone.
+            </p>
+
+            <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3">
+              <button
+                onClick={() => {
+                  setShowDeleteAllModal(false)
+                  setDeletableMembersCount(0)
+                }}
+                disabled={deleteAllLoading}
+                className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeleteAll}
+                disabled={deleteAllLoading}
+                className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-50"
+              >
+                {deleteAllLoading ? "Deleting..." : "Delete All"}
               </button>
             </div>
           </div>
