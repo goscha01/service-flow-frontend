@@ -349,13 +349,19 @@ const ImportJobsPage = () => {
         job.serviceAddressZip = addressParts.zipCode;
         job.serviceAddressCountry = addressParts.country;
         
-        // Team member/crew - store IDs (will need to be matched on backend)
+        // Team member/crew - store external IDs (will be used to create/find team members on backend)
         const assignedCrew = rawData['assigned_crew_list_list_custom_crew'];
         if (assignedCrew) {
-          // Crew IDs are comma-separated, take first one for teamMemberName
+          // Crew IDs are comma-separated, take first one for teamMemberId
           const crewIds = assignedCrew.split(',').map(id => id.trim()).filter(id => id);
-          job.teamMemberId = crewIds[0] || '';
-          job.assignedCrewIds = crewIds;
+          job.assignedCrewExternalId = crewIds[0] || ''; // Store external ID (e.g., "1733683020919x797049254337314800")
+          job.assignedCrewIds = crewIds; // Store all IDs if multiple
+        }
+        
+        // Service region/territory - store external ID (will be used to create/find territory on backend)
+        const serviceRegion = rawData['service_region_custom_service_region'];
+        if (serviceRegion) {
+          job.serviceRegionExternalId = serviceRegion.trim(); // Store external ID (e.g., "1733415451364x525754777237780000")
         }
         
         // Additional fields

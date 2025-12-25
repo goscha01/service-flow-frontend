@@ -163,8 +163,8 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
           }
         }
         
-        // Default availability if nothing found
-        if (!dayAvailability || !dayAvailability.enabled) {
+        // Default availability if nothing found (but don't override if explicitly disabled)
+        if (!dayAvailability) {
           dayAvailability = {
             enabled: true,
             timeSlots: [{ start: '09:00', end: '18:00', enabled: true }]
@@ -286,6 +286,18 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
           })
         }
         
+        // If the day is explicitly marked as unavailable, member is not available
+        if (dayAvailability.enabled === false) {
+          return {
+            available: false,
+            availableFrom: '',
+            availableTo: '',
+            availableHours: [],
+            hasConflict: false,
+            freeTimeSlots: []
+          }
+        }
+        
         // Format free time slots for display
         const availableHours = freeTimeSlots.map(slot => ({
           start: slot.start,
@@ -331,9 +343,10 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
         }
         
         // Member is available if:
-        // 1. No conflicts with their own jobs
-        // 2. Job time fits within their available hours
-        const isAvailable = !hasConflict && jobFitsInAvailableHours
+        // 1. Day is enabled (not explicitly unavailable)
+        // 2. No conflicts with their own jobs
+        // 3. Job time fits within their available hours
+        const isAvailable = dayAvailability.enabled && !hasConflict && jobFitsInAvailableHours
         
         return {
           available: isAvailable,
@@ -451,10 +464,12 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
       })
     }
 
-    // Filter to only available members
+    // Filter to only available members (must be explicitly available: true)
     filtered = filtered.filter(member => {
       const availability = memberAvailability[member.id]
-      return availability?.available !== false
+      // Only show members who are explicitly available (available === true)
+      // Don't show if available === false, undefined, or null
+      return availability && availability.available === true
     })
 
     return filtered
@@ -544,7 +559,7 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
   if (!isOpen || !job) return null
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-[100] flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-[10000] flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-gray-50 rounded-lg w-full max-w-2xl max-h-[90vh] flex flex-col shadow-xl" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-gray-200 rounded-t-lg">

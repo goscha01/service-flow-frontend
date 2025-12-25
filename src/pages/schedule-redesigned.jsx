@@ -3084,12 +3084,14 @@ const ServiceFlowSchedule = () => {
                       : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                   }`}
                 >
-                  <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${
                     territoryFilter === territory.id ? 'bg-blue-100' : 'bg-gray-100'
                   }`}>
                     <MapPin className={`w-3 h-3 ${territoryFilter === territory.id ? 'text-blue-600' : 'text-gray-600'}`} />
                   </div>
-                  <span>{territory.name}</span>
+                  <span className="truncate flex-1 min-w-0" title={territory.name}>
+                    {territory.name.length > 25 ? `${territory.name.substring(0, 25)}...` : territory.name}
+                  </span>
                 </button>
               ))}
             </div>
@@ -3199,12 +3201,14 @@ const ServiceFlowSchedule = () => {
 
               {/* Right - Territory Name and Calendar Button */}
               <div className="flex items-center space-x-4">
-                {getSelectedTerritoryName() && (
-                  <div className="flex items-center space-x-2 text-gray-700">
-                    <MapPin className="w-4 h-4" />
-                    <span className="text-sm font-medium">{getSelectedTerritoryName()} Hours</span>
-                  </div>
-                )}
+              {getSelectedTerritoryName() && (
+                <div className="flex items-center space-x-2 text-gray-700">
+                  <MapPin className="w-4 h-4 flex-shrink-0" />
+                  <span className="text-sm font-medium truncate max-w-[200px]" title={getSelectedTerritoryName()}>
+                    {getSelectedTerritoryName().length > 20 ? `${getSelectedTerritoryName().substring(0, 20)}...` : getSelectedTerritoryName()} Hours
+                  </span>
+                </div>
+              )}
                 <button
                   onClick={() => navigate('/calendar')}
                   className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
@@ -3443,8 +3447,8 @@ const ServiceFlowSchedule = () => {
               >
                 <option value="all">All Areas</option>
                 {territories.map((territory) => (
-                  <option key={territory.id} value={territory.id}>
-                    {territory.name}
+                  <option key={territory.id} value={territory.id} title={territory.name}>
+                    {territory.name.length > 30 ? `${territory.name.substring(0, 30)}...` : territory.name}
                   </option>
                 ))}
               </select>
@@ -3927,7 +3931,9 @@ const ServiceFlowSchedule = () => {
                       {/* Territory */}
                       <div className="flex items-center space-x-1 text-xs sm:text-xs">
                         {territoryName ? (
-                          <span className="text-gray-700 font-medium">{territoryName}</span>
+                          <span className="text-gray-700 font-medium truncate max-w-[150px]" title={territoryName}>
+                            {territoryName.length > 20 ? `${territoryName.substring(0, 20)}...` : territoryName}
+                          </span>
                         ) : (
                           <span className="text-gray-400">No territory</span>
                         )}
@@ -4208,9 +4214,9 @@ const ServiceFlowSchedule = () => {
                         buttonLabel = 'Mark as Complete'
                         buttonColor = 'bg-green-600 hover:bg-green-700'
                       } else if (normalizedStatus === 'completed' || normalizedStatus === 'complete' || normalizedStatus === 'done' || normalizedStatus === 'finished') {
-                        isDisabled = true
+                        isDisabled = false
                         buttonLabel = 'Job Complete'
-                        buttonColor = 'bg-gray-400 cursor-not-allowed'
+                        buttonColor = 'bg-green-600 hover:bg-green-700'
                       } else if (normalizedStatus === 'cancelled' || normalizedStatus === 'canceled') {
                         isDisabled = true
                         buttonLabel = 'Job Cancelled'
@@ -5003,8 +5009,8 @@ const ServiceFlowSchedule = () => {
                         >
                           <MapPin className="w-3 h-3 text-gray-600 flex-shrink-0" />
                           <span className="text-xs text-gray-600 flex-shrink-0" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Territory</span>
-                          <span className="text-xs font-bold text-gray-900 flex-1 text-left" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
-                                  {territoryName}
+                          <span className="text-xs font-bold text-gray-900 flex-1 text-left truncate min-w-0" style={{ fontFamily: 'Montserrat', fontWeight: 700 }} title={territoryName}>
+                                  {territoryName.length > 20 ? `${territoryName.substring(0, 20)}...` : territoryName}
                                 </span>
                           <ChevronDown className="w-3 h-3 text-gray-600 flex-shrink-0" />
                             </button>
@@ -5087,11 +5093,11 @@ const ServiceFlowSchedule = () => {
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="font-medium text-gray-900 text-sm" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                            <p className="font-medium text-gray-900 text-sm truncate" style={{ fontFamily: 'Montserrat', fontWeight: 500 }} title={`${assignedMember.first_name} ${assignedMember.last_name}`}>
                               {assignedMember.first_name} {assignedMember.last_name}
                             </p>
                             {assignedMember.email && (
-                              <p className="text-xs text-gray-500 truncate" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                              <p className="text-xs text-gray-500 truncate" style={{ fontFamily: 'Montserrat', fontWeight: 400 }} title={assignedMember.email}>
                                 {assignedMember.email}
                               </p>
                             )}
@@ -5920,8 +5926,8 @@ const ServiceFlowSchedule = () => {
                   return (
                     <div className="flex items-center gap-3 px-3 py-2.5 bg-white border border-gray-300 rounded-lg">
                       <MapPin className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                      <span className="text-sm font-bold text-gray-900 flex-1" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
-                        {territoryName}
+                      <span className="text-sm font-bold text-gray-900 flex-1 truncate min-w-0" style={{ fontFamily: 'Montserrat', fontWeight: 700 }} title={territoryName}>
+                        {territoryName.length > 25 ? `${territoryName.substring(0, 25)}...` : territoryName}
                       </span>
                       {currentTerritory && (
                         <div className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
@@ -6018,12 +6024,16 @@ const ServiceFlowSchedule = () => {
                                     isSelected ? 'text-blue-600' : 'text-gray-400'
                                   }`} />
                                   <div className="flex-1 min-w-0">
-                                    <span className={`text-sm block ${
-                                      isSelected 
-                                        ? 'font-bold text-gray-900' 
-                                        : 'font-medium text-gray-700'
-                                    }`} style={{ fontFamily: 'Montserrat' }}>
-                                      {territory.name}
+                                    <span 
+                                      className={`text-sm block truncate ${
+                                        isSelected 
+                                          ? 'font-bold text-gray-900' 
+                                          : 'font-medium text-gray-700'
+                                      }`} 
+                                      style={{ fontFamily: 'Montserrat' }}
+                                      title={territory.name}
+                                    >
+                                      {territory.name.length > 30 ? `${territory.name.substring(0, 30)}...` : territory.name}
                                     </span>
                                     {hasTimezoneDiff && (
                                       <span className="text-xs text-gray-500 mt-1 block" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>

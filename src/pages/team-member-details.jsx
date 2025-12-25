@@ -746,8 +746,34 @@ const TeamMemberDetails = () => {
     }
   }
 
-  const handleRemoveCustomAvailability = (id) => {
-    setCustomAvailability(prev => prev.filter(item => item.id !== id))
+  const handleRemoveCustomAvailability = async (id) => {
+    try {
+      setSavingCustomAvailability(true)
+      
+      // Remove from local state
+      const updatedCustomAvailability = customAvailability.filter(item => item.id !== id)
+      setCustomAvailability(updatedCustomAvailability)
+      
+      // Save to backend
+      const updateData = {
+        availability: JSON.stringify({
+          workingHours,
+          customAvailability: updatedCustomAvailability
+        })
+      }
+      
+      await teamAPI.update(memberId, updateData)
+      
+      // Refresh team member data
+      await fetchTeamMemberDetails()
+    } catch (error) {
+      console.error('Error removing custom availability:', error)
+      alert('Failed to remove date override. Please try again.')
+      // Revert local state on error
+      await fetchTeamMemberDetails()
+    } finally {
+      setSavingCustomAvailability(false)
+    }
   }
 
   const handleAddTimeSlot = (day) => {
