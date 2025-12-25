@@ -1164,10 +1164,7 @@ const ServiceFlowJobs = () => {
                               <div className="flex items-center gap-2">
                                 <Users className="w-4 h-4 text-gray-400" />
                                 <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-xs text-gray-600">
-                                  {job.team_assignments && job.team_assignments.length > 0
-                                    ? `${job.team_assignments.length} / ${job.team_assignments.length} assigned`
-                                    : '0 / 1 assigned'
-                                  }
+                                  {getAssignedCount(job)} assigned
                                 </span>
                               </div>
                             </td>

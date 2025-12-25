@@ -125,7 +125,7 @@ const LeadsPipeline = () => {
     }
   };
   
-  // Check property data when address is selected (using ATTOM Data API)
+  // Check property data when address is selected (using RentCast API)
   const checkZillowProperty = async (addressData) => {
     if (!addressData || !addressData.formattedAddress) return;
     
@@ -976,7 +976,7 @@ const LeadsPipeline = () => {
                 {zillowLoading && (
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
-                    <span className="ml-2 text-gray-600">Checking Zillow...</span>
+                    <span className="ml-2 text-gray-600">Checking property data...</span>
                   </div>
                 )}
                 

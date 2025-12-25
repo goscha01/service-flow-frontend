@@ -2448,13 +2448,18 @@ const JobDetails = () => {
                 
                 return assignedMember ? (
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-2 flex-1 min-w-0">
                       <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
                         <span className="text-blue-600 font-semibold text-xs">
                           {getTeamMemberInitials(assignedMember)}
                         </span>
                       </div>
-                      <p className="text-sm text-gray-900">{getTeamMemberName(assignedMember)}</p>
+                      <p className="text-sm text-gray-900 truncate flex-1 min-w-0" title={getTeamMemberName(assignedMember)}>
+                        {(() => {
+                          const name = getTeamMemberName(assignedMember);
+                          return name.length > 25 ? `${name.substring(0, 25)}...` : name;
+                        })()}
+                      </p>
                     </div>
                     {canEditJobDetails(user) && (
                       <div className="flex items-center space-x-2">
@@ -2610,18 +2615,22 @@ const JobDetails = () => {
               {/* Territory Assignment */}
               <div className="hidden sm:flex items-center space-x-2 relative" ref={territoryRef}>
                 <span className="text-sm text-gray-600">Territory</span>
-                <div className="flex items-center bg-gray-100 px-3 py-2 rounded-lg cursor-pointer hover:bg-gray-200 transition-colors relative"
+                <div 
+                  className="flex items-center bg-gray-100 px-3 py-2 rounded-lg cursor-pointer hover:bg-gray-200 transition-colors relative min-w-0"
                   onClick={() => setEditingField(editingField === 'territory' ? null : 'territory')}
                 >
                   {job?.territory_id ? (
-                    <Target className="w-4 h-4 text-blue-500 mr-2" />
+                    <Target className="w-4 h-4 text-blue-500 mr-2 flex-shrink-0" />
                   ) : (
-                    <Target className="w-4 h-4 text-gray-400 mr-2" />
+                    <Target className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" />
                   )}
-                  <span className="text-sm font-medium mr-2">
-                    {territories.find(t => t.id === job?.territory_id)?.name || 'Unassigned'}
+                  <span className="text-sm font-medium mr-2 truncate flex-1 min-w-0" title={territories.find(t => t.id === job?.territory_id)?.name || 'Unassigned'}>
+                    {(() => {
+                      const territoryName = territories.find(t => t.id === job?.territory_id)?.name || 'Unassigned';
+                      return territoryName.length > 20 ? `${territoryName.substring(0, 20)}...` : territoryName;
+                    })()}
                   </span>
-                  <ChevronDown className="w-4 h-4 text-gray-500" />
+                  <ChevronDown className="w-4 h-4 text-gray-500 flex-shrink-0" />
                 </div>
                 {editingField === 'territory' && (
                   <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-64 overflow-y-auto">
@@ -2692,9 +2701,9 @@ const JobDetails = () => {
             buttonLabel = 'Mark as Complete'
             buttonColor = 'bg-green-600 hover:bg-green-700'
           } else if (normalizedStatus === 'completed' || normalizedStatus === 'complete' || normalizedStatus === 'done' || normalizedStatus === 'finished') {
-            isDisabled = true
+            isDisabled = false
             buttonLabel = 'Job Complete'
-            buttonColor = 'bg-gray-400 cursor-not-allowed'
+            buttonColor = 'bg-green-600 hover:bg-green-700'
           } else if (normalizedStatus === 'cancelled' || normalizedStatus === 'canceled') {
             isDisabled = true
             buttonLabel = 'Job Cancelled'
@@ -3899,11 +3908,13 @@ const JobDetails = () => {
                               {job.assigned_team_member.first_name?.[0]}{job.assigned_team_member.last_name?.[0]}
                             </span>
                           </div>
-                          <div>
-                            <p className="font-semibold text-gray-900">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-gray-900 truncate" title={`${job.assigned_team_member.first_name} ${job.assigned_team_member.last_name}`}>
                               {job.assigned_team_member.first_name} {job.assigned_team_member.last_name}
                             </p>
-                            <p className="text-sm text-gray-600">{job.assigned_team_member.email}</p>
+                            <p className="text-sm text-gray-600 truncate" title={job.assigned_team_member.email}>
+                              {job.assigned_team_member.email}
+                            </p>
                           </div>
                         </div>
                       ) : (

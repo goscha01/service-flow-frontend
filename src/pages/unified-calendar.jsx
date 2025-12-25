@@ -529,7 +529,7 @@ const UnifiedCalendar = () => {
       newDate.setDate(newDate.getDate() - 7)
       setCurrentDate(newDate)
     } else {
-      setCurrentDate(new Date(currentYear, currentMonth - 1, 1))
+    setCurrentDate(new Date(currentYear, currentMonth - 1, 1))
     }
   }
 
@@ -543,7 +543,7 @@ const UnifiedCalendar = () => {
       newDate.setDate(newDate.getDate() + 7)
       setCurrentDate(newDate)
     } else {
-      setCurrentDate(new Date(currentYear, currentMonth + 1, 1))
+    setCurrentDate(new Date(currentYear, currentMonth + 1, 1))
     }
   }
 
@@ -808,7 +808,7 @@ const UnifiedCalendar = () => {
                   const memberColor = member.color || '#3B82F6'
                   
                   return (
-                    <button
+                  <button
                       key={member.id}
                       onClick={() => handleSelectTeamMember(member.id)}
                       className={`w-full flex items-center space-x-2 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors mb-2 ${
@@ -822,94 +822,94 @@ const UnifiedCalendar = () => {
                         style={{ backgroundColor: memberColor }}
                       >
                         {getMemberInitials(member)}
-                      </div>
+                </div>
                       <span className="truncate">{member.first_name} {member.last_name}</span>
-                    </button>
+                </button>
                   )
                 })}
-              </div>
+                </div>
             </div>
           </div>
         )}
 
         {/* Calendar Content */}
         <div className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto scrollbar-hide bg-gray-50">
-          {/* Message */}
-          {message.text && (
-            <div className={`px-4 py-3 ${message.type === 'success' ? 'bg-green-50 border-l-4 border-green-400' : 'bg-red-50 border-l-4 border-red-400'}`}>
-              <span className={`text-sm ${message.type === 'success' ? 'text-green-700' : 'text-red-700'}`}>
-                {message.text}
-              </span>
-            </div>
-          )}
+      {/* Message */}
+      {message.text && (
+        <div className={`px-4 py-3 ${message.type === 'success' ? 'bg-green-50 border-l-4 border-green-400' : 'bg-red-50 border-l-4 border-red-400'}`}>
+          <span className={`text-sm ${message.type === 'success' ? 'text-green-700' : 'text-red-700'}`}>
+            {message.text}
+          </span>
+        </div>
+      )}
 
-          {/* Tasks List View */}
-          {viewMode === 'tasks-list' && (
-            <div className="px-4 py-6 lg:px-6">
-              <div className="bg-white rounded-lg shadow-sm">
-                <div className="px-6 py-4 border-b border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-lg font-semibold text-gray-900">Tasks</h2>
-                    <div className="flex items-center space-x-2">
-                      <select
-                        value={taskFilter}
-                        onChange={(e) => setTaskFilter(e.target.value)}
-                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="all">All Tasks</option>
-                        <option value="pending">Pending</option>
-                        <option value="in_progress">In Progress</option>
-                        <option value="completed">Completed</option>
-                        <option value="overdue">Overdue</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="p-6">
-                  {getFilteredTasks().length === 0 ? (
-                    <div className="text-center py-12 text-gray-500">
-                      <Calendar className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                      <p className="text-lg font-medium mb-2">No tasks found</p>
-                      <p className="text-sm mb-4">
-                        {taskFilter !== 'all' ? `No ${taskFilter} tasks` : 'Get started by creating your first task'}
-                      </p>
-                      {taskFilter === 'all' && (
-                        <button
-                          onClick={() => {
-                            setEditingTask(null)
-                            setShowCreateTaskModal(true)
-                          }}
-                          className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
-                        >
-                          Create Task
-                        </button>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {getFilteredTasks().map((task) => (
-                        <TaskCard
-                          key={task.id}
-                          task={task}
-                          onEdit={handleEditTask}
-                          onDelete={handleDeleteTask}
-                          onStatusChange={handleTaskStatusChange}
-                          showLeadInfo={true}
-                        />
-                      ))}
-                    </div>
-                  )}
+      {/* Tasks List View */}
+      {viewMode === 'tasks-list' && (
+        <div className="px-4 py-6 lg:px-6">
+          <div className="bg-white rounded-lg shadow-sm">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-gray-900">Tasks</h2>
+                <div className="flex items-center space-x-2">
+                  <select
+                    value={taskFilter}
+                    onChange={(e) => setTaskFilter(e.target.value)}
+                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="all">All Tasks</option>
+                    <option value="pending">Pending</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="completed">Completed</option>
+                    <option value="overdue">Overdue</option>
+                  </select>
                 </div>
               </div>
             </div>
-          )}
-          {/* Tasks Calendar View or Availability Calendar */}
+            
+            <div className="p-6">
+              {getFilteredTasks().length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  <Calendar className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                  <p className="text-lg font-medium mb-2">No tasks found</p>
+                  <p className="text-sm mb-4">
+                    {taskFilter !== 'all' ? `No ${taskFilter} tasks` : 'Get started by creating your first task'}
+                  </p>
+                  {taskFilter === 'all' && (
+                    <button
+                      onClick={() => {
+                        setEditingTask(null)
+                        setShowCreateTaskModal(true)
+                      }}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                    >
+                      Create Task
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {getFilteredTasks().map((task) => (
+                    <TaskCard
+                      key={task.id}
+                      task={task}
+                      onEdit={handleEditTask}
+                      onDelete={handleDeleteTask}
+                      onStatusChange={handleTaskStatusChange}
+                      showLeadInfo={true}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Tasks Calendar View or Availability Calendar */}
           {(viewMode === 'tasks-calendar' || viewMode === 'worker-availability') && (
-            <>
+        <>
               {/* Top Header Bar */}
               <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4">
-                <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between">
                   {/* Left - View Switcher and Date Navigation */}
                   <div className="flex items-center space-x-4">
                     {/* View Switcher */}
@@ -949,12 +949,12 @@ const UnifiedCalendar = () => {
                     {/* Date Navigation (Pill Shape) */}
                     <div className="flex items-center space-x-2 relative">
                       <div className="flex items-center bg-gray-200 rounded-full px-3 py-1.5">
-                        <button
-                          onClick={handlePreviousMonth}
+              <button
+                onClick={handlePreviousMonth}
                           className="p-1 hover:bg-gray-300 rounded-full transition-colors"
-                        >
+              >
                           <ChevronLeft className="w-4 h-4 text-gray-700" />
-                        </button>
+              </button>
                         <button
                           onClick={() => setShowCalendarPicker(!showCalendarPicker)}
                           className="text-sm font-semibold text-gray-900 mx-3 hover:text-blue-600 transition-colors cursor-pointer min-w-[140px] text-center"
@@ -1019,7 +1019,7 @@ const UnifiedCalendar = () => {
                               const isToday = day.toDateString() === new Date().toDateString()
                               
                               return (
-                                <button
+              <button
                                   key={index}
                                   onClick={() => handleCalendarDateChange(day)}
                                   className={`text-xs p-2 rounded hover:bg-gray-100 transition-colors ${
@@ -1031,15 +1031,15 @@ const UnifiedCalendar = () => {
                                   }`}
                                 >
                                   {day.getDate()}
-                                </button>
+              </button>
                               )
                             })}
                           </div>
                         </div>
                       )}
-                    </div>
-                  </div>
-                  
+            </div>
+          </div>
+
                   {/* Right - Navigate to Schedule */}
                   <button
                     onClick={() => navigate('/schedule')}
@@ -1199,19 +1199,19 @@ const UnifiedCalendar = () => {
 
           {/* Month View */}
           {calendarView === 'month' && (
-            <div className="px-4 py-4 lg:px-6 overflow-x-auto">
-              <div className="min-w-max">
-                {/* Day Headers */}
-                <div className="grid grid-cols-7 gap-2 mb-2">
-                  {dayNames.map(day => (
-                    <div key={day} className="p-2 text-center text-sm font-medium text-gray-500 w-32">
-                      {day}
-                    </div>
-                  ))}
-                </div>
-                
-                {/* Calendar Days */}
-                <div className="grid grid-cols-7 gap-2">
+          <div className="px-4 py-4 lg:px-6 overflow-x-auto">
+            <div className="min-w-max">
+              {/* Day Headers */}
+              <div className="grid grid-cols-7 gap-2 mb-2">
+                {dayNames.map(day => (
+                  <div key={day} className="p-2 text-center text-sm font-medium text-gray-500 w-32">
+                    {day}
+                  </div>
+                ))}
+              </div>
+              
+              {/* Calendar Days */}
+              <div className="grid grid-cols-7 gap-2">
                 {calendarDays.map((day, index) => {
                   const dateStr = day.date.toISOString().split('T')[0]
                   
@@ -1279,7 +1279,7 @@ const UnifiedCalendar = () => {
                             
                             if (!day.isCurrentMonth || isUnavailable) {
                               if (isUnavailable && day.isCurrentMonth) {
-                                return (
+                            return (
                                   <div className="px-2 py-1 rounded text-xs bg-gray-100 text-gray-500 border border-gray-200 text-center">
                                     Unavailable
                                   </div>
@@ -1293,28 +1293,28 @@ const UnifiedCalendar = () => {
                               return availabilityHours.slice(0, 2).map((slot, idx) => {
                                 const startTime = formatTime(slot.start)
                                 const endTime = formatTime(slot.end)
-                                return (
-                                  <div
+                                    return (
+                                      <div
                                     key={idx}
                                     className="px-2 py-1 rounded text-xs bg-blue-50 text-blue-700 border border-blue-200 text-center mb-1"
                                     title={`Available: ${startTime} - ${endTime}`}
                                   >
                                     <div className="font-medium text-xs">{startTime} - {endTime}</div>
-                                  </div>
-                                )
+                                      </div>
+                                    )
                               }).concat(
                                 availabilityHours.length > 2 ? (
                                   <div key="more" className="text-xs text-blue-600 text-center py-0.5">
                                     +{availabilityHours.length - 2}
-                                  </div>
+                                    </div>
                                 ) : null
-                              )
+                                  )
                             } else if (memberAvailability?.available) {
                               return (
                                 <div className="text-xs text-blue-600 text-center py-1">
                                   Available
-                                </div>
-                              )
+                              </div>
+                            )
                             }
                             return null
                           })()}
