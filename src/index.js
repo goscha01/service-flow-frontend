@@ -57,6 +57,7 @@ import ReschedulingCancellation from "./pages/settings/rescheduling-cancellation
 import Developers from "./pages/settings/developers"
 import CalendarSyncing from "./pages/settings/calendar-syncing"
 import GoogleSheetsSettings from "./pages/settings/google-sheets"
+import BookingKoalaIntegration from "./pages/settings/booking-koala"
 import TaxesFees from "./pages/settings/taxes-fees"
 import PaymentsSettings from "./pages/settings/payments"
 import ServiceAreas from "./pages/settings/service-areas"
@@ -192,6 +193,7 @@ root.render(
       <Route path="/settings/developers" element={<Developers />} />
       <Route path="/settings/calendar-syncing" element={<CalendarSyncing />} />
       <Route path="/settings/google-sheets" element={<GoogleSheetsSettings />} />
+      <Route path="/settings/booking-koala" element={<BookingKoalaIntegration />} />
       <Route path="/settings/taxes-fees" element={<TaxesFees />} />
       <Route path="/settings/payments" element={<PaymentsSettings />} />
       <Route path="/settings/service-areas" element={<ServiceAreas />} />
