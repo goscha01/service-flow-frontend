@@ -57,12 +57,20 @@ export default function LandingPageSimple() {
                   </button>
                 </>
               ) : (
+                <>
                 <button
                   onClick={() => navigate("/signin")}
                   className="text-gray-700 hover:text-gray-900 text-sm font-medium"
                 >
                   Sign In
                 </button>
+                 <button
+                 onClick={() => navigate("/signup")}
+                 className="text-gray-700 hover:text-gray-900 text-sm font-medium"
+               >
+                 Sign Up
+               </button>
+               </>
               )}
             </nav>
           </div>
@@ -120,7 +128,7 @@ export default function LandingPageSimple() {
       </section>
 
       {/* Trusted By Section */}
-      <section className="py-16 bg-gray-50">
+      {/* <section className="py-16 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <p className="text-lg font-medium text-gray-600">
@@ -143,7 +151,7 @@ export default function LandingPageSimple() {
             ))}
           </div>
         </div>
-      </section>
+      </section> */}
     </div>
   )
 }
