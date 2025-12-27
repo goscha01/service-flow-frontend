@@ -578,15 +578,23 @@ const BookingKoalaIntegration = () => {
 
       // Use fetch API for streaming response with progress updates
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      // Get base URL - api.defaults.baseURL already includes '/api', so we need to remove it
+      // Get base URL - api.defaults.baseURL already includes '/api'
       let apiBaseUrl = process.env.REACT_APP_API_URL;
       if (!apiBaseUrl && api.defaults?.baseURL) {
-        apiBaseUrl = api.defaults.baseURL.replace('/api', '');
+        apiBaseUrl = api.defaults.baseURL;
       }
       if (!apiBaseUrl) {
-        apiBaseUrl = 'http://localhost:3000';
+        apiBaseUrl = 'http://localhost:3000/api';
       }
-      const response = await fetch(`${apiBaseUrl}/api/booking-koala/import`, {
+      
+      // Remove trailing '/api' if present since we'll add the full path
+      apiBaseUrl = apiBaseUrl.replace(/\/api$/, '');
+      
+      // Construct the full endpoint URL
+      const endpointUrl = `${apiBaseUrl}/api/booking-koala/import`;
+      console.log('📤 Booking Koala import URL:', endpointUrl);
+      
+      const response = await fetch(endpointUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
