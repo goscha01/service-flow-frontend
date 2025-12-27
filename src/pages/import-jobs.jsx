@@ -372,6 +372,26 @@ const ImportJobsPage = () => {
         job.inStoreJob = rawData['in_store_job_boolean'] === 'true';
         job.smsMessages = rawData['sms_messages_boolean'] === 'true';
         
+        // Payment/Invoice status fields - CRITICAL for payment status detection
+        // Extract invoice_fully_paid_boolean (handles TRUE/FALSE strings, boolean values, etc.)
+        // IMPORTANT: Always extract if it exists, even if it's 'FALSE' - backend needs to know
+        if (rawData.hasOwnProperty('invoice_fully_paid_boolean')) {
+          const invoiceFullyPaidValue = rawData['invoice_fully_paid_boolean'];
+          // Preserve the value as-is (could be 'TRUE', 'FALSE', true, false, '1', '0', '', etc.)
+          job.invoice_fully_paid_boolean = invoiceFullyPaidValue;
+          console.log(`Row ${i + 1}: ✅ Extracted invoice_fully_paid_boolean = "${invoiceFullyPaidValue}" (type: ${typeof invoiceFullyPaidValue})`);
+        } else {
+          console.log(`Row ${i + 1}: ⚠️ invoice_fully_paid_boolean field NOT found in CSV. Available keys:`, Object.keys(rawData).filter(k => k.toLowerCase().includes('invoice') || k.toLowerCase().includes('paid')));
+        }
+        
+        // Also extract explicit payment/invoice status fields if present
+        if (rawData['payment_status'] || rawData['Payment Status']) {
+          job.paymentStatus = rawData['payment_status'] || rawData['Payment Status'];
+        }
+        if (rawData['invoice_status'] || rawData['Invoice Status']) {
+          job.invoiceStatus = rawData['invoice_status'] || rawData['Invoice Status'];
+        }
+        
         // Timestamps
         job.dateTimeArrived = rawData['date_time_arrived_date'] || '';
         job.dateTimeCompleted = rawData['date_time_completed_date'] || '';
@@ -637,10 +657,12 @@ const ImportJobsPage = () => {
           job.duration = parseInt(job.duration).toString();
         }
         
-        // Clean up empty strings, but preserve required fields
+        // Clean up empty strings, but preserve required fields and payment status fields
+        // Note: invoice_fully_paid_boolean is already extracted above (line 377-381)
         const requiredFields = ['customerName', 'customerEmail', 'customerPhone', 'serviceName', 'scheduledDate', 'scheduledTime'];
+        const paymentStatusFields = ['invoice_fully_paid_boolean', 'paymentStatus', 'invoiceStatus', 'paymentMethod']; // Don't delete these even if empty
         Object.keys(job).forEach(key => {
-          if (job[key] === '' && !requiredFields.includes(key)) {
+          if (job[key] === '' && !requiredFields.includes(key) && !paymentStatusFields.includes(key)) {
             delete job[key];
           }
         });
@@ -651,9 +673,14 @@ const ImportJobsPage = () => {
           continue;
         }
         
-        // Log first job for debugging
+        // Log first job for debugging - show invoice_fully_paid_boolean if present
         if (i === 1) {
           console.log('📋 Sample parsed job:', JSON.stringify(job, null, 2));
+          if (job.invoice_fully_paid_boolean !== undefined) {
+            console.log(`✅ Row ${i + 1}: invoice_fully_paid_boolean will be sent to backend:`, job.invoice_fully_paid_boolean);
+          } else {
+            console.log(`❌ Row ${i + 1}: invoice_fully_paid_boolean is MISSING from job object!`);
+          }
         }
         
         jobs.push(job);
