@@ -26,6 +26,7 @@ import {
   Target,
   Receipt,
   FileSpreadsheet,
+  Download,
 } from "lucide-react"
 
 const Sidebar = ({ isOpen, onClose, forceCollapsed = false }) => {
@@ -68,6 +69,7 @@ const Sidebar = ({ isOpen, onClose, forceCollapsed = false }) => {
       { icon: FileSpreadsheet, label: "Google Sheets", path: "/settings/google-sheets" },
       { icon: Phone, label: "SMS Settings", path: "/settings/sms-settings" },
       { icon: Zap, label: "Stripe Connect", path: "/settings/stripe-connect" },
+      { icon: Download, label: "Booking Koala", path: "/settings/booking-koala" },
     ]
     
     // Hide integration items for workers
