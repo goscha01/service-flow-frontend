@@ -18,6 +18,10 @@ const BookingKoalaIntegration = () => {
   const [isImporting, setIsImporting] = useState(false);
   const [error, setError] = useState('');
   const [importResult, setImportResult] = useState(null);
+  const [importProgress, setImportProgress] = useState({
+    customers: { current: 0, total: 0, imported: 0, skipped: 0, errors: 0 },
+    jobs: { current: 0, total: 0, imported: 0, skipped: 0, errors: 0 }
+  });
 
   // Booking Koala customer field mappings - based on actual customer export structure
   const customerFieldMappings = {
@@ -99,54 +103,83 @@ const BookingKoalaIntegration = () => {
         
         if (file.name.endsWith('.csv')) {
           const text = data;
-          // Better CSV parsing that handles quoted fields with commas
-          const parseCSVLine = (line) => {
-            const result = [];
-            let current = '';
+          // Proper CSV parsing that handles multi-line quoted fields
+          // This is critical because Booking Koala exports have JSON in Provider details field that spans multiple lines
+          const parseCSV = (csvText) => {
+            const rows = [];
+            let currentRow = [];
+            let currentField = '';
             let inQuotes = false;
+            let i = 0;
             
-            for (let i = 0; i < line.length; i++) {
-              const char = line[i];
-              const nextChar = line[i + 1];
+            while (i < csvText.length) {
+              const char = csvText[i];
+              const nextChar = i < csvText.length - 1 ? csvText[i + 1] : null;
               
               if (char === '"') {
                 if (inQuotes && nextChar === '"') {
-                  // Escaped quote
-                  current += '"';
-                  i++; // Skip next quote
+                  // Escaped quote (double quote inside quoted field) - add single quote to field
+                  currentField += '"';
+                  i += 2;
                 } else {
-                  // Toggle quote state
+                  // Toggle quote state (start or end of quoted field)
                   inQuotes = !inQuotes;
+                  i++;
                 }
               } else if (char === ',' && !inQuotes) {
-                // Field separator
-                result.push(current.trim());
-                current = '';
+                // Field separator (outside quotes)
+                currentRow.push(currentField);
+                currentField = '';
+                i++;
+              } else if ((char === '\n' || (char === '\r' && nextChar === '\n')) && !inQuotes) {
+                // End of row (outside quotes)
+                currentRow.push(currentField);
+                if (currentRow.length > 0 && currentRow.some(f => f.trim() !== '')) {
+                  rows.push(currentRow);
+                }
+                currentRow = [];
+                currentField = '';
+                if (char === '\r' && nextChar === '\n') {
+                  i += 2; // Skip both \r and \n
+                } else {
+                  i++;
+                }
               } else {
-                current += char;
+                // Regular character - add to current field
+                currentField += char;
+                i++;
               }
             }
-            // Add last field
-            result.push(current.trim());
-            return result;
+            
+            // Handle last field and row (if file doesn't end with newline)
+            if (currentField !== '' || currentRow.length > 0) {
+              currentRow.push(currentField);
+            }
+            if (currentRow.length > 0 && currentRow.some(f => f.trim() !== '')) {
+              rows.push(currentRow);
+            }
+            
+            return rows;
           };
           
-          const lines = text.split('\n').filter(line => line.trim());
-          if (lines.length === 0) {
+          const parsedRows = parseCSV(text);
+          if (parsedRows.length === 0) {
             setError('CSV file appears to be empty');
             return;
           }
           
-          const headers = parseCSVLine(lines[0]).map(h => h.replace(/^"|"$/g, '').trim());
-          const rows = lines.slice(1).filter(line => line.trim()).map(line => {
-            const values = parseCSVLine(line).map(v => v.replace(/^"|"$/g, '').trim());
+          const headers = parsedRows[0].map(h => h.replace(/^"|"$/g, '').trim());
+          const rows = parsedRows.slice(1).map(row => {
             const obj = {};
             headers.forEach((header, i) => {
-              obj[header] = values[i] || '';
+              const value = (row[i] || '').replace(/^"|"$/g, '').trim();
+              obj[header] = value;
             });
             return obj;
           });
+          
           setFileData(rows);
+          // Set preview data as raw for now, will be mapped in the preview step
           setPreviewData(rows.slice(0, 10));
         } else {
           workbook = XLSX.read(data, { type: 'binary' });
@@ -154,6 +187,7 @@ const BookingKoalaIntegration = () => {
           const worksheet = workbook.Sheets[sheetName];
           const jsonData = XLSX.utils.sheet_to_json(worksheet);
           setFileData(jsonData);
+          // Set preview data as raw for now, will be mapped in the preview step
           setPreviewData(jsonData.slice(0, 10));
         }
         setStep(3); // Go to preview step
@@ -383,38 +417,48 @@ const BookingKoalaIntegration = () => {
       }
       
       // For jobs, also extract customer fields from the row (Booking Koala jobs CSV includes customer data)
+      // This is critical - the jobs CSV has customer data embedded in each row
+      // IMPORTANT: Always extract these fields to ensure backend can create customers on-the-fly
       if (type === 'jobs') {
-        // Extract customer fields directly from CSV columns
-        if (row['First name'] || row['First Name']) {
-          mapped['customerFirstName'] = row['First name'] || row['First Name'] || mapped.customerFirstName;
-        }
-        if (row['Last name'] || row['Last Name']) {
-          mapped['customerLastName'] = row['Last name'] || row['Last Name'] || mapped.customerLastName;
-        }
-        if (row['Email'] || row['Email Address']) {
-          mapped['customerEmail'] = row['Email'] || row['Email Address'] || mapped.customerEmail;
-        }
-        if (row['Phone'] || row['Phone Number']) {
-          mapped['phone'] = row['Phone'] || row['Phone Number'] || mapped.phone;
-        }
-        if (row['Address']) {
-          mapped['address'] = row['Address'] || mapped.address;
-        }
-        if (row['Apt'] || row['Apt. No.']) {
-          mapped['apt'] = row['Apt'] || row['Apt. No.'] || mapped.apt;
-        }
-        if (row['City']) {
-          mapped['city'] = row['City'] || mapped.city;
-        }
-        if (row['State']) {
-          mapped['state'] = row['State'] || mapped.state;
-        }
-        if (row['Zip/Postal code'] || row['Zip/Postal Code'] || row['Zip Code']) {
-          mapped['zipCode'] = row['Zip/Postal code'] || row['Zip/Postal Code'] || row['Zip Code'] || mapped.zipCode;
-        }
-        if (row['Company name'] || row['Company Name']) {
-          mapped['companyName'] = row['Company name'] || row['Company Name'] || mapped.companyName;
-        }
+        // Extract customer fields directly from CSV columns (try all possible variations)
+        // CSV has: "First name", "Last name", "Email", "Phone", "Address", "Apt", "City", "State", "Zip/Postal code"
+        // We MUST extract these even if empty, so backend knows they were attempted
+        const firstName = row['First name'] || row['First Name'] || row['first name'] || row['firstName'] || row['first_name'] || '';
+        const lastName = row['Last name'] || row['Last Name'] || row['last name'] || row['lastName'] || row['last_name'] || '';
+        const email = row['Email'] || row['email'] || row['Email Address'] || row['email address'] || '';
+        const phone = row['Phone'] || row['phone'] || row['Phone Number'] || row['phone number'] || '';
+        const address = row['Address'] || row['address'] || '';
+        const apt = row['Apt'] || row['apt'] || row['Apt. No.'] || row['Apt. No'] || row['apartment'] || '';
+        const city = row['City'] || row['city'] || '';
+        const state = row['State'] || row['state'] || '';
+        const zipCode = row['Zip/Postal code'] || row['Zip/Postal Code'] || row['zip/postal code'] || row['Zip Code'] || row['zip code'] || '';
+        const companyName = row['Company name'] || row['Company Name'] || row['company name'] || row['companyName'] || '';
+        
+        // ALWAYS set customer fields (even if empty) so backend receives them
+        // Backend will validate and show appropriate errors if required fields are missing
+        mapped['customerFirstName'] = firstName;
+        mapped['customerLastName'] = lastName;
+        mapped['customerEmail'] = email;
+        if (phone) mapped['phone'] = phone;
+        if (address) mapped['address'] = address;
+        if (apt) mapped['apt'] = apt;
+        if (city) mapped['city'] = city;
+        if (state) mapped['state'] = state;
+        if (zipCode) mapped['zipCode'] = zipCode;
+        
+        // ALSO preserve raw CSV column names as fallback (backend can use these directly)
+        // This ensures backend can find fields even if mapped names don't work
+        if (row['First name'] !== undefined) mapped['First name'] = row['First name'];
+        if (row['Last name'] !== undefined) mapped['Last name'] = row['Last name'];
+        if (row['Email'] !== undefined) mapped['Email'] = row['Email'];
+        if (row['Phone'] !== undefined) mapped['Phone'] = row['Phone'];
+        if (row['Address'] !== undefined) mapped['Address'] = row['Address'];
+        if (row['Apt'] !== undefined) mapped['Apt'] = row['Apt'];
+        if (row['City'] !== undefined) mapped['City'] = row['City'];
+        if (row['State'] !== undefined) mapped['State'] = row['State'];
+        if (row['Zip/Postal code'] !== undefined) mapped['Zip/Postal code'] = row['Zip/Postal code'];
+        
+        // Note: companyName not stored in customers table, but we extract it for completeness
       }
       
       return mapped;
@@ -526,24 +570,88 @@ const BookingKoalaIntegration = () => {
         throw new Error(`Unable to determine file type. Please ensure you've selected the correct import type and uploaded a valid ${importType || 'Booking Koala'} export file.`);
       }
 
-      const response = await api.post('/booking-koala/import', {
-        customers: customers.length > 0 ? customers : undefined,
-        jobs: jobs.length > 0 ? jobs : undefined,
-        importSettings
+      // Initialize progress
+      setImportProgress({
+        customers: { current: 0, total: customers.length, imported: 0, skipped: 0, errors: 0 },
+        jobs: { current: 0, total: jobs.length, imported: 0, skipped: 0, errors: 0 }
       });
 
-      if (response.data.success) {
-        setImportResult({
-          imported: (response.data.results.customers.imported || 0) + (response.data.results.jobs.imported || 0),
-          skipped: (response.data.results.customers.skipped || 0) + (response.data.results.jobs.skipped || 0),
-          errors: [
-            ...(response.data.results.customers.errors || []),
-            ...(response.data.results.jobs.errors || [])
-          ]
-        });
-        setStep(6); // Results step
-      } else {
-        throw new Error('Import failed');
+      // Use fetch API for streaming response with progress updates
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      // Get base URL - api.defaults.baseURL already includes '/api', so we need to remove it
+      let apiBaseUrl = process.env.REACT_APP_API_URL;
+      if (!apiBaseUrl && api.defaults?.baseURL) {
+        apiBaseUrl = api.defaults.baseURL.replace('/api', '');
+      }
+      if (!apiBaseUrl) {
+        apiBaseUrl = 'http://localhost:3000';
+      }
+      const response = await fetch(`${apiBaseUrl}/api/booking-koala/import`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          customers: customers.length > 0 ? customers : undefined,
+          jobs: jobs.length > 0 ? jobs : undefined,
+          importSettings
+        })
+      });
+
+      if (!response.ok) {
+        // Try to read error message
+        try {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Import failed');
+        } catch (e) {
+          throw new Error('Import failed');
+        }
+      }
+
+      // Read streaming response
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || ''; // Keep incomplete line in buffer
+
+        for (const line of lines) {
+          if (line.trim()) {
+            try {
+              const progress = JSON.parse(line);
+              if (progress.type === 'progress') {
+                setImportProgress({
+                  customers: progress.customers || { current: 0, total: customers.length, imported: 0, skipped: 0, errors: 0 },
+                  jobs: progress.jobs || { current: 0, total: jobs.length, imported: 0, skipped: 0, errors: 0 }
+                });
+              } else if (progress.type === 'complete') {
+                setImportResult({
+                  imported: (progress.results.customers.imported || 0) + (progress.results.jobs.imported || 0),
+                  skipped: (progress.results.customers.skipped || 0) + (progress.results.jobs.skipped || 0),
+                  errors: [
+                    ...(progress.results.customers.errors || []),
+                    ...(progress.results.jobs.errors || [])
+                  ]
+                });
+                setStep(6); // Results step
+              } else if (progress.type === 'error') {
+                throw new Error(progress.error || progress.message || 'Import failed');
+              }
+            } catch (e) {
+              // Ignore JSON parse errors for incomplete chunks
+              if (e.message && e.message !== 'Unexpected end of JSON input') {
+                console.error('Error parsing progress:', e);
+              }
+            }
+          }
+        }
       }
     } catch (err) {
       console.error('Import error:', err);
@@ -782,37 +890,64 @@ const BookingKoalaIntegration = () => {
           <p className="text-gray-600">Review the first 10 rows of your {importType === 'customers' ? 'customer' : 'job'} data</p>
         </div>
 
-        {previewData && previewData.length > 0 && (
-          <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden mb-6">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    {Object.keys(previewData[0]).map((key) => (
-                      <th
-                        key={key}
-                        className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                      >
-                        {key}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {previewData.map((row, idx) => (
-                    <tr key={idx}>
-                      {Object.keys(previewData[0]).map((key) => (
-                        <td key={key} className="px-4 py-3 text-sm text-gray-900">
-                          {row[key] || '-'}
-                        </td>
+        {previewData && previewData.length > 0 && (() => {
+          // Map the preview data to show the actual fields that will be imported
+          const mappedPreview = mapFields(previewData, importType || 'jobs');
+          const displayData = mappedPreview.slice(0, 10);
+          
+          if (displayData.length === 0 || !displayData[0]) {
+            return (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+                <p className="text-yellow-800">No data could be mapped. Please check your file format.</p>
+              </div>
+            );
+          }
+          
+          return (
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden mb-6">
+              <div className="p-4 bg-blue-50 border-b border-blue-200">
+                <p className="text-sm text-blue-800">
+                  <strong>Preview of mapped data:</strong> This shows how your data will be imported. 
+                  Only the first 10 rows are shown.
+                </p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      {Object.keys(displayData[0]).map((key) => (
+                        <th
+                          key={key}
+                          className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                        >
+                          {key}
+                        </th>
                       ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {displayData.map((row, idx) => (
+                      <tr key={idx}>
+                        {Object.keys(displayData[0]).map((key) => {
+                          const value = row[key];
+                          // Handle objects/arrays by stringifying them for display
+                          const displayValue = typeof value === 'object' && value !== null 
+                            ? JSON.stringify(value) 
+                            : (value || '-');
+                          return (
+                            <td key={key} className="px-4 py-3 text-sm text-gray-900 max-w-xs truncate" title={typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value)}>
+                              {String(displayValue).substring(0, 100)}{String(displayValue).length > 100 ? '...' : ''}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         <div className="flex justify-end space-x-4">
           <button
@@ -912,12 +1047,87 @@ const BookingKoalaIntegration = () => {
 
   // Step 5: Importing
   if (step === 5) {
+    const customersProgress = importProgress.customers.total > 0 
+      ? (importProgress.customers.current / importProgress.customers.total) * 100 
+      : 0;
+    const jobsProgress = importProgress.jobs.total > 0 
+      ? (importProgress.jobs.current / importProgress.jobs.total) * 100 
+      : 0;
+    const overallProgress = importProgress.customers.total + importProgress.jobs.total > 0
+      ? ((importProgress.customers.current + importProgress.jobs.current) / (importProgress.customers.total + importProgress.jobs.total)) * 100
+      : 0;
+
     return (
       <div className="max-w-4xl mx-auto p-6">
-        <div className="text-center py-12">
+        <div className="text-center py-8">
           <Loader2 className="w-16 h-16 text-orange-600 mx-auto mb-4 animate-spin" />
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Importing Data...</h1>
-          <p className="text-gray-600">Please wait while we import your Booking Koala data</p>
+          <p className="text-gray-600 mb-6">Please wait while we import your Booking Koala data</p>
+          
+          {/* Overall Progress */}
+          <div className="mb-8">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm font-medium text-gray-700">Overall Progress</span>
+              <span className="text-sm font-medium text-gray-700">{Math.round(overallProgress)}%</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+              <div 
+                className="bg-orange-600 h-3 rounded-full transition-all duration-300 ease-out"
+                style={{ width: `${overallProgress}%` }}
+              />
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              {importProgress.customers.current + importProgress.jobs.current} of {importProgress.customers.total + importProgress.jobs.total} records processed
+            </p>
+          </div>
+
+          {/* Customers Progress */}
+          {importProgress.customers.total > 0 && (
+            <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm font-medium text-blue-900">Customers</span>
+                <span className="text-sm font-medium text-blue-900">{Math.round(customersProgress)}%</span>
+              </div>
+              <div className="w-full bg-blue-200 rounded-full h-2.5 overflow-hidden mb-2">
+                <div 
+                  className="bg-blue-600 h-2.5 rounded-full transition-all duration-300 ease-out"
+                  style={{ width: `${customersProgress}%` }}
+                />
+              </div>
+              <div className="flex justify-between text-xs text-blue-700">
+                <span>Processed: {importProgress.customers.current} / {importProgress.customers.total}</span>
+                <span className="flex gap-4">
+                  <span>✓ {importProgress.customers.imported}</span>
+                  <span>⊘ {importProgress.customers.skipped}</span>
+                  {importProgress.customers.errors > 0 && <span className="text-red-600">✗ {importProgress.customers.errors}</span>}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Jobs Progress */}
+          {importProgress.jobs.total > 0 && (
+            <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm font-medium text-green-900">Jobs</span>
+                <span className="text-sm font-medium text-green-900">{Math.round(jobsProgress)}%</span>
+              </div>
+              <div className="w-full bg-green-200 rounded-full h-2.5 overflow-hidden mb-2">
+                <div 
+                  className="bg-green-600 h-2.5 rounded-full transition-all duration-300 ease-out"
+                  style={{ width: `${jobsProgress}%` }}
+                />
+              </div>
+              <div className="flex justify-between text-xs text-green-700">
+                <span>Processed: {importProgress.jobs.current} / {importProgress.jobs.total}</span>
+                <span className="flex gap-4">
+                  <span>✓ {importProgress.jobs.imported}</span>
+                  <span>⊘ {importProgress.jobs.skipped}</span>
+                  {importProgress.jobs.errors > 0 && <span className="text-red-600">✗ {importProgress.jobs.errors}</span>}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -985,4 +1195,5 @@ const BookingKoalaIntegration = () => {
 };
 
 export default BookingKoalaIntegration;
+
 

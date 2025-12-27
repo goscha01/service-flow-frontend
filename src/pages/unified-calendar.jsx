@@ -1199,131 +1199,125 @@ const UnifiedCalendar = () => {
 
           {/* Month View */}
           {calendarView === 'month' && (
-          <div className="px-4 py-4 lg:px-6 overflow-x-auto">
-            <div className="min-w-max">
-              {/* Day Headers */}
-              <div className="grid grid-cols-7 gap-2 mb-2">
-                {dayNames.map(day => (
-                  <div key={day} className="p-2 text-center text-sm font-medium text-gray-500 w-32">
-                    {day}
-                  </div>
-                ))}
-              </div>
-              
-              {/* Calendar Days */}
-              <div className="grid grid-cols-7 gap-2">
-                {calendarDays.map((day, index) => {
-                  const dateStr = day.date.toISOString().split('T')[0]
-                  
-                  return (
-                    <div
-                      key={index}
-                      className={`w-32 border rounded-lg p-2 min-h-[120px] ${
-                        (() => {
-                          if (!day.isCurrentMonth) return 'bg-gray-50 border-gray-200'
-                          // Check if selected member is unavailable
-                          if (selectedTeamMemberId) {
-                            const memberAvailability = availabilityData[selectedTeamMemberId]?.[dateStr]
-                            if (memberAvailability && !memberAvailability.available) {
-                              return 'bg-gray-100 border-gray-300 opacity-60'
-                            }
-                          }
-                          if (day.isToday) return 'bg-white border-blue-500 ring-2 ring-blue-500'
-                          return 'bg-white border-gray-200'
-                        })()
-                      }`}
-                    >
-                      <div className={`text-sm font-semibold mb-2 ${
-                        day.isCurrentMonth ? 'text-gray-900' : 'text-gray-400'
-                      } ${day.isToday ? 'text-blue-600' : ''}`}>
-                        {day.date.getDate()}
-                      </div>
+          <div className=" ">
+            <div className="grid grid-cols-7">
+              {/* Month header */}
+              {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map(day => (
+                <div key={day} className="text-center text-xs border-[0.5px] border-gray-200 font-medium text-gray-600 py-3">
+                  {day}
+                </div>
+              ))}
+              {/* Month days */}
+              {calendarDays.map((day, index) => {
+                const dateStr = day.date.toISOString().split('T')[0]
+                const isToday = day.date.toDateString() === new Date().toDateString()
+                const isCurrentMonth = day.isCurrentMonth
+                const isSelected = selectedDate && day.date.toDateString() === selectedDate.toDateString()
+                
+                return (
+                  <div
+                    key={index}
+                    className={`border p-1 min-h-[100px] cursor-pointer transition-colors ${
+                      !isCurrentMonth 
+                        ? 'bg-gray-50 text-gray-400 border-gray-100' 
+                        : isSelected 
+                          ? 'border-blue-500 bg-blue-50' 
+                          : isToday 
+                            ? 'border-blue-300 bg-blue-50/50' 
+                            : 'border-gray-200 bg-white hover:bg-gray-50'
+                    }`}
+                    onClick={() => setSelectedDate(day.date)}
+                  >
+                    <div className={`text-md text-right right-3 font-medium mb-1 ${
+                      isSelected && isCurrentMonth ? 'text-blue-900 font-semibold' : ''
+                    }`}>
+                      {day.date.getDate()}
+                    </div>
                       
-                      {/* Tasks Calendar View */}
-                      {viewMode === 'tasks-calendar' && (
-                        <div className="space-y-1">
-                          {getTasksForDate(day.date).map((task) => (
-                            <div
-                              key={task.id}
-                              className={`px-2 py-1 rounded text-xs border ${
-                                task.status === 'completed'
-                                  ? 'bg-green-100 text-green-800 border-green-200'
-                                  : task.priority === 'urgent'
-                                  ? 'bg-red-100 text-red-800 border-red-200'
-                                  : task.priority === 'high'
-                                  ? 'bg-orange-100 text-orange-800 border-orange-200'
-                                  : 'bg-blue-100 text-blue-800 border-blue-200'
-                              }`}
-                            >
-                              <div className="truncate font-medium">{task.title}</div>
-                              {task.leads && (
-                                <div className="text-xs opacity-75 truncate">
-                                  {task.leads.first_name} {task.leads.last_name}
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      
-                      {/* Calendar View - Show availability for selected team member */}
-                      {viewMode === 'worker-availability' && selectedTeamMemberId && (
-                        <>
-                          {(() => {
-                            const member = teamMembers.find(m => m.id === selectedTeamMemberId)
-                            if (!member) return null
-                            
-                            const memberAvailability = availabilityData[selectedTeamMemberId]?.[dateStr]
-                            const isUnavailable = memberAvailability && !memberAvailability.available
-                            const availabilityHours = memberAvailability?.hours || []
-                            
-                            if (!day.isCurrentMonth || isUnavailable) {
-                              if (isUnavailable && day.isCurrentMonth) {
-                            return (
-                                  <div className="px-2 py-1 rounded text-xs bg-gray-100 text-gray-500 border border-gray-200 text-center">
-                                    Unavailable
-                                  </div>
-                                )
-                              }
-                              return null
-                            }
-                            
-                            if (availabilityHours.length > 0) {
-                              // Show availability time slots
-                              return availabilityHours.slice(0, 2).map((slot, idx) => {
-                                const startTime = formatTime(slot.start)
-                                const endTime = formatTime(slot.end)
-                                    return (
-                                      <div
-                                    key={idx}
-                                    className="px-2 py-1 rounded text-xs bg-blue-50 text-blue-700 border border-blue-200 text-center mb-1"
-                                    title={`Available: ${startTime} - ${endTime}`}
-                                  >
-                                    <div className="font-medium text-xs">{startTime} - {endTime}</div>
-                                      </div>
-                                    )
-                              }).concat(
-                                availabilityHours.length > 2 ? (
-                                  <div key="more" className="text-xs text-blue-600 text-center py-0.5">
-                                    +{availabilityHours.length - 2}
-                                    </div>
-                                ) : null
-                                  )
-                            } else if (memberAvailability?.available) {
-                              return (
-                                <div className="text-xs text-blue-600 text-center py-1">
-                                  Available
+                    {/* Tasks Calendar View */}
+                    {viewMode === 'tasks-calendar' && (
+                      <div className="space-y-1">
+                        {getTasksForDate(day.date).map((task) => (
+                          <div
+                            key={task.id}
+                            className={`px-2 py-1 rounded text-xs border ${
+                              task.status === 'completed'
+                                ? 'bg-green-100 text-green-800 border-green-200'
+                                : task.priority === 'urgent'
+                                ? 'bg-red-100 text-red-800 border-red-200'
+                                : task.priority === 'high'
+                                ? 'bg-orange-100 text-orange-800 border-orange-200'
+                                : 'bg-blue-100 text-blue-800 border-blue-200'
+                            }`}
+                          >
+                            <div className="truncate font-medium">{task.title}</div>
+                            {task.leads && (
+                              <div className="text-xs opacity-75 truncate">
+                                {task.leads.first_name} {task.leads.last_name}
                               </div>
-                            )
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Calendar View - Show availability for selected team member */}
+                    {viewMode === 'worker-availability' && selectedTeamMemberId && (
+                      <>
+                        {(() => {
+                          const member = teamMembers.find(m => m.id === selectedTeamMemberId)
+                          if (!member) return null
+                          
+                          const memberAvailability = availabilityData[selectedTeamMemberId]?.[dateStr]
+                          const isUnavailable = memberAvailability && !memberAvailability.available
+                          const availabilityHours = memberAvailability?.hours || []
+                          
+                          if (!isCurrentMonth || isUnavailable) {
+                            if (isUnavailable && isCurrentMonth) {
+                              return (
+                                <div className="px-2 py-1 rounded text-xs bg-gray-100 text-gray-500 border border-gray-200 text-center">
+                                  Unavailable
+                                </div>
+                              )
                             }
                             return null
-                          })()}
-                        </>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
+                          }
+                          
+                          if (availabilityHours.length > 0) {
+                            // Show availability time slots
+                            return availabilityHours.slice(0, 2).map((slot, idx) => {
+                              const startTime = formatTime(slot.start)
+                              const endTime = formatTime(slot.end)
+                              return (
+                                <div
+                                  key={idx}
+                                  className="px-2 py-1 rounded text-xs bg-blue-50 text-blue-700 border border-blue-200 text-center mb-1"
+                                  title={`Available: ${startTime} - ${endTime}`}
+                                >
+                                  <div className="font-medium text-xs">{startTime} - {endTime}</div>
+                                </div>
+                              )
+                            }).concat(
+                              availabilityHours.length > 2 ? (
+                                <div key="more" className="text-xs text-blue-600 text-center py-0.5">
+                                  +{availabilityHours.length - 2}
+                                </div>
+                              ) : null
+                            )
+                          } else if (memberAvailability?.available) {
+                            return (
+                              <div className="text-xs text-blue-600 text-center py-1">
+                                Available
+                              </div>
+                            )
+                          }
+                          return null
+                        })()}
+                      </>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           </div>
         )}
