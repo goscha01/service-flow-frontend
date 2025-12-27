@@ -799,6 +799,20 @@ const JobDetails = () => {
   const fetchInvoiceStatus = async (jobId) => {
     try {
       console.log('💳 Checking payment status for job:', jobId)
+      
+      // IMPORTANT: Check if job already has paid status from import before overwriting
+      setJob(prev => {
+        const currentInvoiceStatus = prev?.invoice_status;
+        const currentPaymentStatus = prev?.payment_status;
+        
+        // If job is already marked as paid (from import), preserve it
+        if (currentInvoiceStatus === 'paid' || currentPaymentStatus === 'paid') {
+          console.log('💳 Job already marked as paid (invoice_status:', currentInvoiceStatus, ', payment_status:', currentPaymentStatus, ') - preserving status');
+          return prev; // Don't overwrite paid status
+        }
+        return prev;
+      });
+      
       console.log('💳 API URL:', `${process.env.REACT_APP_API_URL || 'https://service-flow-backend-production-4568.up.railway.app/api'}/transactions/job/${jobId}`)
       
       // Check transactions for this job
@@ -819,10 +833,16 @@ const JobDetails = () => {
           console.log('💳 Job is PAID - found', transactionCount, 'transactions totaling $', totalPaid)
           
           setJob(prev => {
+            // Only update if not already paid (preserve import status)
+            if (prev?.invoice_status === 'paid' || prev?.payment_status === 'paid') {
+              console.log('💳 Job already marked as paid - preserving status');
+              return prev;
+            }
             console.log('💳 Updating job status to PAID')
             return {
               ...prev,
               invoice_status: 'paid',
+              payment_status: 'paid',
               total_paid_amount: totalPaid,
               total_invoice_amount: totalPaid, // For paid jobs, invoice amount = paid amount
               transaction_count: transactionCount
@@ -831,6 +851,15 @@ const JobDetails = () => {
         } else {
           // No payment found - check if there are invoices
           console.log('💳 No payment found, checking for invoices...')
+          
+          setJob(prev => {
+            // IMPORTANT: Don't overwrite if already marked as paid from import
+            if (prev?.invoice_status === 'paid' || prev?.payment_status === 'paid') {
+              console.log('💳 Job already marked as paid - preserving status, not checking invoices');
+              return prev;
+            }
+            return prev;
+          });
           
           try {
             const invoiceResponse = await api.get(`/invoices?job_id=${jobId}`)
@@ -858,45 +887,67 @@ const JobDetails = () => {
                 }
               })
               
-              setJob(prev => ({
-                ...prev,
-                invoice_status: overallStatus,
-                invoice_id: latestInvoice?.id,
-                total_invoice_amount: totalAmount,
-                total_paid_amount: 0
-              }))
+              setJob(prev => {
+                // Don't overwrite if already paid
+                if (prev?.invoice_status === 'paid' || prev?.payment_status === 'paid') {
+                  return prev;
+                }
+                return {
+                  ...prev,
+                  invoice_status: overallStatus,
+                  invoice_id: latestInvoice?.id,
+                  total_invoice_amount: totalAmount,
+                  total_paid_amount: 0
+                }
+              })
             } else {
-              // No invoices or payments
-              setJob(prev => ({
+              // No invoices or payments - but don't overwrite if already paid
+              setJob(prev => {
+                if (prev?.invoice_status === 'paid' || prev?.payment_status === 'paid') {
+                  console.log('💳 Job already marked as paid - preserving status');
+                  return prev;
+                }
+                return {
+                  ...prev,
+                  invoice_status: 'none',
+                  invoice_id: null,
+                  total_invoice_amount: 0,
+                  total_paid_amount: 0
+                }
+              })
+            }
+          } catch (invoiceError) {
+            console.error('💳 Error checking invoices:', invoiceError)
+            // Don't overwrite if already paid
+            setJob(prev => {
+              if (prev?.invoice_status === 'paid' || prev?.payment_status === 'paid') {
+                return prev;
+              }
+              return {
                 ...prev,
                 invoice_status: 'none',
                 invoice_id: null,
                 total_invoice_amount: 0,
                 total_paid_amount: 0
-              }))
-            }
-          } catch (invoiceError) {
-            console.error('💳 Error checking invoices:', invoiceError)
-            // Set to no invoice if we can't check
-            setJob(prev => ({
-              ...prev,
-              invoice_status: 'none',
-              invoice_id: null,
-              total_invoice_amount: 0,
-              total_paid_amount: 0
-            }))
+              }
+            })
           }
         }
       } else {
         console.error('💳 Transaction API error:', response.status)
-        // Fallback to no payment status
-        setJob(prev => ({
-          ...prev,
-          invoice_status: 'none',
-          invoice_id: null,
-          total_invoice_amount: 0,
-          total_paid_amount: 0
-        }))
+        // Don't overwrite if already paid
+        setJob(prev => {
+          if (prev?.invoice_status === 'paid' || prev?.payment_status === 'paid') {
+            return prev;
+          }
+          return {
+            ...prev,
+            invoice_status: 'none',
+            invoice_id: null,
+            total_invoice_amount: 0,
+            total_paid_amount: 0
+          }
+        })
       }
     } catch (error) {
       console.error('💳 Error checking payment status:', error)

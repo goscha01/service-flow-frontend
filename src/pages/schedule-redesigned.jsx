@@ -1324,7 +1324,9 @@ const ServiceFlowSchedule = () => {
     const subtotal = calculateTotalPrice()
     const totalPaid = selectedJobDetails.invoice_paid_amount || selectedJobDetails.amount_paid || 0
     const totalDue = subtotal - totalPaid
-    const status = selectedJobDetails.invoice_status === 'paid' ? 'Paid' : 
+    // Check both invoice_status and payment_status for 'paid'
+    const isPaid = selectedJobDetails.invoice_status === 'paid' || selectedJobDetails.payment_status === 'paid'
+    const status = isPaid ? 'Paid' : 
                    selectedJobDetails.invoice_status === 'sent' ? 'Sent' : 
                    selectedJobDetails.invoice_status === 'draft' ? 'Draft' : 
                    'Draft'
@@ -4569,11 +4571,12 @@ const ServiceFlowSchedule = () => {
                   };
 
                   return statuses.map((status, index) => {
-                    // For "Paid" status, only mark as active if invoice_status is actually 'paid'
+                    // For "Paid" status, check both invoice_status and payment_status
                     let isActive;
                     if (status.key === 'paid') {
-                      // Paid status is only active if invoice_status is 'paid'
-                      isActive = selectedJobDetails?.invoice_status === 'paid';
+                      // Paid status is active if invoice_status OR payment_status is 'paid'
+                      isActive = selectedJobDetails?.invoice_status === 'paid' || 
+                                 selectedJobDetails?.payment_status === 'paid';
                     } else {
                       // For other statuses, use the normal logic
                       isActive = index <= currentIndex;
