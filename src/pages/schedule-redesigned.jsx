@@ -332,29 +332,55 @@ const ServiceFlowSchedule = () => {
     try {
       setIsLoading(true)
       // Calculate date range based on view mode
+      // Normalize selectedDate first to avoid timezone issues
+      const normalizedSelectedDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate())
+      
       let startDate, endDate
       if (viewMode === 'day') {
-        startDate = new Date(selectedDate)
-        endDate = new Date(selectedDate)
+        // For day view, use the selected date (same day for start and end)
+        startDate = new Date(normalizedSelectedDate)
+        endDate = new Date(normalizedSelectedDate)
       } else if (viewMode === 'week') {
-        const startOfWeek = new Date(selectedDate)
-        startOfWeek.setDate(selectedDate.getDate() - selectedDate.getDay())
+        const startOfWeek = new Date(normalizedSelectedDate)
+        startOfWeek.setDate(normalizedSelectedDate.getDate() - normalizedSelectedDate.getDay())
         startDate = startOfWeek
         endDate = new Date(startOfWeek)
         endDate.setDate(startOfWeek.getDate() + 6)
       } else if (viewMode === 'month') {
-        startDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1)
-        endDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0)
+        // Get first day of month
+        startDate = new Date(normalizedSelectedDate.getFullYear(), normalizedSelectedDate.getMonth(), 1)
+        // Get last day of month
+        endDate = new Date(normalizedSelectedDate.getFullYear(), normalizedSelectedDate.getMonth() + 1, 0)
       }
+      
+      // Format dates as YYYY-MM-DD strings for API (avoid timezone conversion)
+      // Use local date formatting to prevent timezone shifts
+      const formatDateLocal = (date) => {
+        const year = date.getFullYear()
+        const month = String(date.getMonth() + 1).padStart(2, '0')
+        const day = String(date.getDate()).padStart(2, '0')
+        return `${year}-${month}-${day}`
+      }
+      
+      const startDateString = formatDateLocal(startDate)
+      const endDateString = formatDateLocal(endDate)
+      const dateRange = `${startDateString} to ${endDateString}`
+      
+      console.log(`📅 Fetching jobs for ${viewMode} view: ${dateRange}`)
+      console.log(`📅 Selected date: ${formatDateLocal(normalizedSelectedDate)}, Date range: ${dateRange}`)
+      
+      // For month view, we need a higher limit or fetch all jobs in the date range
+      // Use a very high limit to ensure we get all jobs for the month
+      const limit = viewMode === 'month' ? 10000 : 1000
       
       const jobsResponse = await jobsAPI.getAll(
         user.id, 
         "", // status
         "", // search
         1, // page
-        1000, // limit
+        limit, // limit - increased for month view
         null, // dateFilter
-        null, // dateRange
+        dateRange, // dateRange - pass the calculated date range to backend
         null, // sortBy
         null, // sortOrder
         null, // teamMember
@@ -379,27 +405,46 @@ const ServiceFlowSchedule = () => {
         return job;
       });
       
-        // Filter jobs by date range without timezone conversion
-        const filteredJobs = jobsWithParsedHistory.filter(job => {
-          if (!job.scheduled_date) return false
-          
-          // Extract date part without timezone conversion
-          let jobDateString = ''
-          if (job.scheduled_date.includes('T')) {
-            jobDateString = job.scheduled_date.split('T')[0] // YYYY-MM-DD
-          } else if (job.scheduled_date.includes(' ')) {
-            jobDateString = job.scheduled_date.split(' ')[0] // YYYY-MM-DD
-          } else {
-            jobDateString = job.scheduled_date // Already YYYY-MM-DD
-          }
-          
-          // Format start and end dates as YYYY-MM-DD strings
-          const startDateString = startDate.toISOString().split('T')[0]
-          const endDateString = endDate.toISOString().split('T')[0]
-          
-          return jobDateString >= startDateString && jobDateString <= endDateString
-        })
+      // Since we're passing dateRange to the backend, it should already be filtered
+      // But we'll do a light client-side check as backup
+      // For day view, trust the backend more since the date range is very specific
+      const filteredJobs = jobsWithParsedHistory.filter(job => {
+        if (!job.scheduled_date) return false
+        
+        // Extract date part without timezone conversion
+        let jobDateString = ''
+        if (job.scheduled_date.includes('T')) {
+          jobDateString = job.scheduled_date.split('T')[0] // YYYY-MM-DD
+        } else if (job.scheduled_date.includes(' ')) {
+          jobDateString = job.scheduled_date.split(' ')[0] // YYYY-MM-DD
+        } else {
+          jobDateString = job.scheduled_date // Already YYYY-MM-DD
+        }
+        
+        // For day view, exact match is required
+        if (viewMode === 'day') {
+          return jobDateString === startDateString
+        }
+        
+        // For week/month view, check range
+        return jobDateString >= startDateString && jobDateString <= endDateString
+      })
       
+      console.log(`📅 Loaded ${allJobs.length} total jobs from API, ${filteredJobs.length} after client-side filter for ${viewMode} view (${startDateString} to ${endDateString})`)
+      if (viewMode === 'day') {
+        console.log(`📅 Day view - Looking for date: ${startDateString}`)
+        if (filteredJobs.length === 0 && allJobs.length > 0) {
+          console.log(`⚠️ Day view: No jobs found for ${startDateString}. Sample job dates from API:`, 
+            allJobs.slice(0, 5).map(j => {
+              const dateStr = j.scheduled_date?.includes('T') ? j.scheduled_date.split('T')[0] : 
+                             j.scheduled_date?.includes(' ') ? j.scheduled_date.split(' ')[0] : 
+                             j.scheduled_date || 'no date'
+              return `${j.id}: ${dateStr}`
+            }))
+        } else if (filteredJobs.length > 0) {
+          console.log(`✅ Day view: Found ${filteredJobs.length} jobs for ${startDateString}`)
+        }
+      }
       setJobs(filteredJobs)
     } catch (error) {
       console.error('❌ Error fetching jobs:', error)
@@ -2351,7 +2396,7 @@ const ServiceFlowSchedule = () => {
     const selectedDay = selectedDate.getDate()
     const selectedDateString = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`
     
-    return filteredJobs.filter(job => {
+    const matchingJobs = filteredJobs.filter(job => {
       if (!job.scheduled_date) return false
       let jobDateString = ''
       if (job.scheduled_date.includes('T')) {
@@ -2363,7 +2408,24 @@ const ServiceFlowSchedule = () => {
       }
       return jobDateString === selectedDateString
     })
-  }, [selectedDate, filteredJobs, dateUpdateKey])
+    
+    // Debug logging for day view
+    if (viewMode === 'day') {
+      console.log(`📅 Day view - Selected date: ${selectedDateString}`)
+      console.log(`📅 Day view - Total filteredJobs: ${filteredJobs.length}`)
+      console.log(`📅 Day view - Matching jobs: ${matchingJobs.length}`)
+      if (matchingJobs.length === 0 && filteredJobs.length > 0) {
+        console.log(`📅 Day view - Sample job dates:`, filteredJobs.slice(0, 5).map(j => {
+          const dateStr = j.scheduled_date?.includes('T') ? j.scheduled_date.split('T')[0] : 
+                         j.scheduled_date?.includes(' ') ? j.scheduled_date.split(' ')[0] : 
+                         j.scheduled_date
+          return `${j.id}: ${dateStr}`
+        }))
+      }
+    }
+    
+    return matchingJobs
+  }, [selectedDate, filteredJobs, dateUpdateKey, viewMode])
 
   // Get job count for a specific date
   const getJobCountForDate = (date) => {

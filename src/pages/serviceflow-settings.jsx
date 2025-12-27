@@ -26,6 +26,7 @@ import {
   ChevronRight,
   Settings,
   FileSpreadsheet,
+  Upload,
 } from "lucide-react"
 
 const ServiceFlowSettings = () => {
@@ -88,6 +89,9 @@ const ServiceFlowSettings = () => {
         break
       case "google-sheets":
         navigate("/settings/google-sheets")
+        break
+      case "booking-koala":
+        navigate("/settings/booking-koala")
         break
       case "developers":
         navigate("/settings/developers")
@@ -222,6 +226,12 @@ const ServiceFlowSettings = () => {
           icon: FileSpreadsheet,
           title: "Google Sheets",
           description: "Export data to Google Sheets and import from spreadsheets",
+        },
+        {
+          id: "booking-koala",
+          icon: Upload,
+          title: "Booking Koala",
+          description: "Import customers and jobs from Booking Koala",
         },
         {
           id: "developers",
