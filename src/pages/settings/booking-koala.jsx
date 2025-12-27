@@ -77,7 +77,11 @@ const BookingKoalaIntegration = () => {
     'excludes': ['Excludes', 'excludes'],
     'assignedCrewExternalId': ['Provider details', 'Provider/team', 'assignedCrewExternalId'],
     'assignedCrewIds': ['Provider details', 'Provider/team', 'assignedCrewIds'],
-    'serviceRegionExternalId': ['Location', 'Location id', 'serviceRegionExternalId']
+    'serviceRegionExternalId': ['Location', 'Location id', 'serviceRegionExternalId'],
+    'amountPaidByCustomer': ['Amount paid by customer (USD)', 'Amount paid by customer (USD)', 'amountPaidByCustomer'],
+    'amountOwed': ['Amount owed by customer (USD)', 'Amount owed by customer (USD)', 'amountOwed'],
+    'finalAmount': ['Final amount (USD)', 'Final amount (USD)', 'finalAmount'],
+    'paymentMethod': ['Payment method', 'Payment method', 'paymentMethod', 'payment_method']
   };
 
   const handleFileChange = (e) => {
@@ -378,13 +382,28 @@ const BookingKoalaIntegration = () => {
                     }
                   } catch (e) {
                     console.warn('Failed to parse Provider details:', e, 'Raw value:', providerDetails);
-                    // Fallback: try to extract ID from Provider/team field which has format like "16: Andrii Polovyi"
+                    // Fallback: try to extract IDs from Provider/team field which has format like "16: Andrii Polovyi" or "16: Andrii Polovyi, 22: Natalya Pankevich"
                     const providerTeam = row['Provider/team'] || row['Provider/team (without ids)'];
                     if (providerTeam) {
-                      const match = providerTeam.match(/^(\d+):/);
-                      if (match) {
-                        mapped['assignedCrewExternalId'] = match[1];
-                        mapped['assignedCrewIds'] = [match[1]];
+                      // Handle comma-separated providers: "16: Name1, 22: Name2"
+                      const providerMatches = providerTeam.matchAll(/(\d+):/g);
+                      const providerIds = [];
+                      for (const match of providerMatches) {
+                        if (match[1]) {
+                          providerIds.push(match[1]);
+                        }
+                      }
+                      
+                      if (providerIds.length > 0) {
+                        mapped['assignedCrewExternalId'] = providerIds[0].toString(); // First provider as primary
+                        mapped['assignedCrewIds'] = providerIds.map(id => id.toString()); // All providers
+                      } else {
+                        // Fallback to single provider format
+                        const singleMatch = providerTeam.match(/^(\d+):/);
+                        if (singleMatch) {
+                          mapped['assignedCrewExternalId'] = singleMatch[1];
+                          mapped['assignedCrewIds'] = [singleMatch[1]];
+                        }
                       }
                     }
                   }

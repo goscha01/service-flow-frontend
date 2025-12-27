@@ -42,6 +42,7 @@ import {
   Eye,
   Printer,
   Edit,
+  Star,
 } from "lucide-react"
 import { useAuth } from "../context/AuthContext"
 import { jobsAPI } from "../services/api"
@@ -3712,26 +3713,77 @@ const ServiceFlowSchedule = () => {
                                 {customerName}
                               </div>
                               <div className="flex items-center justify-between">
-                                {assignedTeamMember ? (
-                                  <div 
-                                    className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-white text-[10px] font-medium flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
-                                    onClick={(e) => handleTeamMemberClick(e, assignedTeamMember.id)}
-                                  >
-                                    {assignedTeamMember.profile_picture ? (
-                                      <img 
-                                        src={getImageUrl(assignedTeamMember.profile_picture)} 
-                                        alt={teamMemberName}
-                                        className="w-full h-full rounded-full object-cover"
-                                      />
-                                    ) : (
-                                      getInitials(teamMemberName)
-                                    )}
-                                  </div>
-                                ) : (
-                                  <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-gray-400 flex-shrink-0">
-                                    <UserX className="w-3 h-3" />
-                                  </div>
-                                )}
+                                {(() => {
+                                  // Get all assigned team members from team_assignments array
+                                  const teamAssignments = job.team_assignments || [];
+                                  let assignedTeamMembers = [];
+                                  
+                                  if (teamAssignments.length > 0) {
+                                    // Use team_assignments array
+                                    assignedTeamMembers = teamAssignments.map(assignment => {
+                                      const member = teamMembers.find(m => m.id === assignment.team_member_id);
+                                      return member || {
+                                        id: assignment.team_member_id,
+                                        first_name: assignment.first_name,
+                                        last_name: assignment.last_name,
+                                        profile_picture: null
+                                      };
+                                    });
+                                  } else {
+                                    // Fallback: use single team member (backward compatibility)
+                                    const assignedTeamMember = teamMembers.find(m => m.id === job.assigned_team_member_id || m.id === job.team_member_id);
+                                    if (assignedTeamMember) {
+                                      assignedTeamMembers = [assignedTeamMember];
+                                    }
+                                  }
+                                  
+                                  if (assignedTeamMembers.length > 0) {
+                                    return (
+                                      <div className="flex items-center space-x-0.5">
+                                        {assignedTeamMembers.slice(0, 3).map((member, idx) => {
+                                          const memberName = member.name || `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'Member';
+                                          return (
+                                            <div 
+                                              key={member.id || idx}
+                                              className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-white text-[10px] font-medium flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity border border-white"
+                                              style={{ marginLeft: idx > 0 ? '-4px' : '0' }}
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleTeamMemberClick(e, member.id);
+                                              }}
+                                              title={memberName}
+                                            >
+                                              {member.profile_picture ? (
+                                                <img 
+                                                  src={getImageUrl(member.profile_picture)} 
+                                                  alt={memberName}
+                                                  className="w-full h-full rounded-full object-cover"
+                                                />
+                                              ) : (
+                                                getInitials(memberName)
+                                              )}
+                                            </div>
+                                          );
+                                        })}
+                                        {assignedTeamMembers.length > 3 && (
+                                          <div 
+                                            className="w-5 h-5 rounded-full bg-gray-400 flex items-center justify-center text-white text-[8px] font-medium flex-shrink-0 border border-white"
+                                            style={{ marginLeft: '-4px' }}
+                                            title={`+${assignedTeamMembers.length - 3} more`}
+                                          >
+                                            +{assignedTeamMembers.length - 3}
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  } else {
+                                    return (
+                                      <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-gray-400 flex-shrink-0">
+                                        <UserX className="w-3 h-3" />
+                                      </div>
+                                    );
+                                  }
+                                })()}
                               </div>
                             </div>
                           )
@@ -3815,8 +3867,30 @@ const ServiceFlowSchedule = () => {
                           const timeString = jobTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
                           const endTimeString = endTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
                           const durationFormatted = formatDuration(duration)
-                          const assignedTeamMember = teamMembers.find(m => m.id === job.assigned_team_member_id || m.id === job.team_member_id)
-                          const teamMemberName = assignedTeamMember ? (assignedTeamMember.name || `${assignedTeamMember.first_name || ''} ${assignedTeamMember.last_name || ''}`.trim()) : null
+                          
+                          // Get all assigned team members from team_assignments array
+                          const teamAssignments = job.team_assignments || [];
+                          let assignedTeamMembers = [];
+                          
+                          if (teamAssignments.length > 0) {
+                            // Use team_assignments array
+                            assignedTeamMembers = teamAssignments.map(assignment => {
+                              const member = teamMembers.find(m => m.id === assignment.team_member_id);
+                              return member || {
+                                id: assignment.team_member_id,
+                                first_name: assignment.first_name,
+                                last_name: assignment.last_name,
+                                profile_picture: null
+                              };
+                            });
+                          } else {
+                            // Fallback: use single team member (backward compatibility)
+                            const assignedTeamMember = teamMembers.find(m => m.id === job.assigned_team_member_id || m.id === job.team_member_id);
+                            if (assignedTeamMember) {
+                              assignedTeamMembers = [assignedTeamMember];
+                            }
+                          }
+                          
                           const customerName = getCustomerName(job) || 'Customer'
                           const territory = territories.find(t => t.id === job.territory_id)
                           const territoryName = territory?.name || null
@@ -3835,21 +3909,43 @@ const ServiceFlowSchedule = () => {
                                   {timeString} - {endTimeString}{durationFormatted && ` ${durationFormatted}`}
                                 </div>
                                 <div className="flex items-center space-x-0.5">
-                                  {assignedTeamMember ? (
-                                    <div 
-                                      className="w-4 h-4 rounded-full bg-blue-500 flex items-center justify-center text-white text-[8px] font-medium flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
-                                      onClick={(e) => handleTeamMemberClick(e, assignedTeamMember.id)}
-                                    >
-                                      {assignedTeamMember.profile_picture ? (
-                                        <img 
-                                          src={getImageUrl(assignedTeamMember.profile_picture)} 
-                                          alt={teamMemberName}
-                                          className="w-full h-full rounded-full object-cover"
-                                        />
-                                      ) : (
-                                        getInitials(teamMemberName)
+                                  {assignedTeamMembers.length > 0 ? (
+                                    <>
+                                      {assignedTeamMembers.slice(0, 3).map((member, idx) => {
+                                        const memberName = member.name || `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'Member';
+                                        return (
+                                          <div 
+                                            key={member.id || idx}
+                                            className="w-4 h-4 rounded-full bg-blue-500 flex items-center justify-center text-white text-[8px] font-medium flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity border border-white"
+                                            style={{ marginLeft: idx > 0 ? '-4px' : '0' }}
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleTeamMemberClick(e, member.id);
+                                            }}
+                                            title={memberName}
+                                          >
+                                            {member.profile_picture ? (
+                                              <img 
+                                                src={getImageUrl(member.profile_picture)} 
+                                                alt={memberName}
+                                                className="w-full h-full rounded-full object-cover"
+                                              />
+                                            ) : (
+                                              getInitials(memberName)
+                                            )}
+                                          </div>
+                                        );
+                                      })}
+                                      {assignedTeamMembers.length > 3 && (
+                                        <div 
+                                          className="w-4 h-4 rounded-full bg-gray-400 flex items-center justify-center text-white text-[7px] font-medium flex-shrink-0 border border-white"
+                                          style={{ marginLeft: '-4px' }}
+                                          title={`+${assignedTeamMembers.length - 3} more`}
+                                        >
+                                          +{assignedTeamMembers.length - 3}
+                                        </div>
                                       )}
-                                    </div>
+                                    </>
                                   ) : (
                                     <div className="w-4 h-4 rounded-full bg-gray-200 flex items-center justify-center text-gray-400 flex-shrink-0">
                                       <UserX className="w-2.5 h-2.5" />
@@ -5142,46 +5238,101 @@ const ServiceFlowSchedule = () => {
                       </button>
                     </div>
                     {(() => {
-                      const assignedMemberId = selectedJobDetails.assigned_team_member_id || selectedJobDetails.team_member_id
-                      const assignedMember = assignedMemberId ? teamMembers.find(m => m.id === assignedMemberId) : null
+                      // Get all team members from team_assignments array
+                      const teamAssignments = selectedJobDetails.team_assignments || [];
+                      let assignedTeamMembers = [];
                       
-                      return assignedMember ? (
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-semibold flex-shrink-0"
-                            style={{ backgroundColor: assignedMember.color || '#2563EB' }}
-                          >
-                            {assignedMember.profile_picture ? (
-                              <img 
-                                src={getImageUrl(assignedMember.profile_picture)} 
-                                alt={`${assignedMember.first_name} ${assignedMember.last_name}`}
-                                className="w-full h-full rounded-full object-cover"
-                              />
-                            ) : (
-                              getInitials(assignedMember.first_name && assignedMember.last_name 
-                                ? `${assignedMember.first_name} ${assignedMember.last_name}` 
-                                : assignedMember.email || 'AA')
-                            )}
+                      if (teamAssignments.length > 0) {
+                        // Use team_assignments array
+                        assignedTeamMembers = teamAssignments.map(assignment => {
+                          const member = teamMembers.find(m => m.id === assignment.team_member_id);
+                          return {
+                            ...assignment,
+                            member: member || {
+                              id: assignment.team_member_id,
+                              first_name: assignment.first_name,
+                              last_name: assignment.last_name,
+                              email: assignment.email,
+                              profile_picture: null,
+                              color: '#2563EB'
+                            }
+                          };
+                        });
+                      } else {
+                        // Fallback: use single team member (backward compatibility)
+                        const assignedMemberId = selectedJobDetails.assigned_team_member_id || selectedJobDetails.team_member_id;
+                        const assignedMember = assignedMemberId ? teamMembers.find(m => m.id === assignedMemberId) : null;
+                        if (assignedMember) {
+                          assignedTeamMembers = [{
+                            team_member_id: assignedMember.id,
+                            is_primary: true,
+                            member: assignedMember
+                          }];
+                        }
+                      }
+                      
+                      if (assignedTeamMembers.length > 0) {
+                        return (
+                          <div className="space-y-3">
+                            {assignedTeamMembers.map((assignment, index) => {
+                              const member = assignment.member;
+                              const memberName = `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'Unknown Member';
+                              
+                              return (
+                                <div key={assignment.team_member_id || index} className="flex items-center gap-3">
+                                  <div className="relative">
+                                    <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-semibold flex-shrink-0"
+                                      style={{ backgroundColor: member.color || '#2563EB' }}
+                                    >
+                                      {member.profile_picture ? (
+                                        <img 
+                                          src={getImageUrl(member.profile_picture)} 
+                                          alt={memberName}
+                                          className="w-full h-full rounded-full object-cover"
+                                        />
+                                      ) : (
+                                        getInitials(memberName || member.email || 'AA')
+                                      )}
+                                    </div>
+                                    {assignment.is_primary && (
+                                      <div className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-400 rounded-full flex items-center justify-center border-2 border-white">
+                                        <Star className="w-2 h-2 text-white" fill="white" />
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center space-x-2">
+                                      <p className="font-medium text-gray-900 text-sm truncate" style={{ fontFamily: 'Montserrat', fontWeight: 500 }} title={memberName}>
+                                        {memberName}
+                                      </p>
+                                      {assignment.is_primary && (
+                                        <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">
+                                          Primary
+                                        </span>
+                                      )}
+                                    </div>
+                                    {member.email && (
+                                      <p className="text-xs text-gray-500 truncate" style={{ fontFamily: 'Montserrat', fontWeight: 400 }} title={member.email}>
+                                        {member.email}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-gray-900 text-sm truncate" style={{ fontFamily: 'Montserrat', fontWeight: 500 }} title={`${assignedMember.first_name} ${assignedMember.last_name}`}>
-                              {assignedMember.first_name} {assignedMember.last_name}
+                        );
+                      } else {
+                        return (
+                          <div className="text-center py-2">
+                            <UserX className="w-8 h-8 text-gray-400 mx-auto mb-3" />
+                            <p className="text-sm font-medium text-gray-700 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>Unassigned</p>
+                            <p className="text-xs text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                              No service providers are assigned to this job
                             </p>
-                            {assignedMember.email && (
-                              <p className="text-xs text-gray-500 truncate" style={{ fontFamily: 'Montserrat', fontWeight: 400 }} title={assignedMember.email}>
-                                {assignedMember.email}
-                              </p>
-                            )}
                           </div>
-                        </div>
-                      ) : (
-                        <div className="text-center py-2">
-                          <UserX className="w-8 h-8 text-gray-400 mx-auto mb-3" />
-                          <p className="text-sm font-medium text-gray-700 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>Unassigned</p>
-                          <p className="text-xs text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
-                            No service providers are assigned to this job
-                          </p>
-                        </div>
-                      )
+                        );
+                      }
                     })()}
                   </div>
                   

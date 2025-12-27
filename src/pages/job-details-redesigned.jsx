@@ -3901,31 +3901,95 @@ const JobDetails = () => {
                         )}
                       </div>
                       
-                      {job.assigned_team_member ? (
-                        <div className="flex items-center space-x-2">
-                          <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
-                            <span className="text-white font-semibold text-sm">
-                              {job.assigned_team_member.first_name?.[0]}{job.assigned_team_member.last_name?.[0]}
-                            </span>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-semibold text-gray-900 truncate" title={`${job.assigned_team_member.first_name} ${job.assigned_team_member.last_name}`}>
-                              {job.assigned_team_member.first_name} {job.assigned_team_member.last_name}
-                            </p>
-                            <p className="text-sm text-gray-600 truncate" title={job.assigned_team_member.email}>
-                              {job.assigned_team_member.email}
-                            </p>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="text-center py-2">
-                          <div className="w-16 h-16 mx-auto mb-3 flex items-center justify-center">
-                            <UserX className="w-8 h-8 text-gray-400" />
-                          </div>
-                          <p style={{fontFamily: 'Montserrat', fontWeight: 500}} className="font-semibold text-sm text-gray-700 mb-1">Unassigned</p>
-                          <p style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-xs text-gray-400">No service providers are assigned to this job</p>
-                        </div>
-                      )}
+                      {(() => {
+                        // Get all team members from team_assignments array
+                        const teamAssignments = job.team_assignments || [];
+                        const hasTeamMembers = teamAssignments.length > 0 || job.assigned_team_member;
+                        
+                        if (hasTeamMembers && teamAssignments.length > 0) {
+                          // Display multiple team members
+                          return (
+                            <div className="space-y-3">
+                              {teamAssignments.map((assignment, index) => {
+                                const member = assignment.team_member_id 
+                                  ? teamMembers.find(m => m.id === assignment.team_member_id)
+                                  : null;
+                                const memberName = member 
+                                  ? `${member.first_name || ''} ${member.last_name || ''}`.trim()
+                                  : (assignment.first_name && assignment.last_name 
+                                    ? `${assignment.first_name} ${assignment.last_name}`.trim()
+                                    : 'Unknown Member');
+                                const memberEmail = member?.email || assignment.email || '';
+                                
+                                return (
+                                  <div key={assignment.team_member_id || index} className="flex items-center space-x-2">
+                                    <div className="relative">
+                                      <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
+                                        <span className="text-white font-semibold text-sm">
+                                          {member?.first_name?.[0] || assignment.first_name?.[0] || '?'}
+                                          {member?.last_name?.[0] || assignment.last_name?.[0] || ''}
+                                        </span>
+                                      </div>
+                                      {assignment.is_primary && (
+                                        <div className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-400 rounded-full flex items-center justify-center border-2 border-white">
+                                          <Star className="w-2 h-2 text-white" fill="white" />
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center space-x-2">
+                                        <p className="font-semibold text-gray-900 truncate" title={memberName}>
+                                          {memberName}
+                                        </p>
+                                        {assignment.is_primary && (
+                                          <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">
+                                            Primary
+                                          </span>
+                                        )}
+                                      </div>
+                                      {memberEmail && (
+                                        <p className="text-sm text-gray-600 truncate" title={memberEmail}>
+                                          {memberEmail}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        } else if (job.assigned_team_member) {
+                          // Fallback: single team member (backward compatibility)
+                          return (
+                            <div className="flex items-center space-x-2">
+                              <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
+                                <span className="text-white font-semibold text-sm">
+                                  {job.assigned_team_member.first_name?.[0]}{job.assigned_team_member.last_name?.[0]}
+                                </span>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-semibold text-gray-900 truncate" title={`${job.assigned_team_member.first_name} ${job.assigned_team_member.last_name}`}>
+                                  {job.assigned_team_member.first_name} {job.assigned_team_member.last_name}
+                                </p>
+                                <p className="text-sm text-gray-600 truncate" title={job.assigned_team_member.email}>
+                                  {job.assigned_team_member.email}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        } else {
+                          // No team members assigned
+                          return (
+                            <div className="text-center py-2">
+                              <div className="w-16 h-16 mx-auto mb-3 flex items-center justify-center">
+                                <UserX className="w-8 h-8 text-gray-400" />
+                              </div>
+                              <p style={{fontFamily: 'Montserrat', fontWeight: 500}} className="font-semibold text-sm text-gray-700 mb-1">Unassigned</p>
+                              <p style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-xs text-gray-400">No service providers are assigned to this job</p>
+                            </div>
+                          );
+                        }
+                      })()}
                     </div>
                   );
                 })()}
