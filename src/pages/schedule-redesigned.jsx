@@ -480,6 +480,7 @@ const ServiceFlowSchedule = () => {
     let filtered = [...jobs]
     
     // Helper function to check if a job is assigned to a team member ID
+    // IMPORTANT: Checks ALL assignments, not just primary assignee
     const isJobAssignedTo = (job, teamMemberId) => {
       const targetId = Number(teamMemberId)
       
@@ -491,14 +492,23 @@ const ServiceFlowSchedule = () => {
         return true
       }
       
-      // Check team_assignments array for primary assignment
+      // Check ALL assignments in team_assignments array (not just primary)
+      // A team member should see jobs where they appear in ANY assignment
       if (job.team_assignments && Array.isArray(job.team_assignments)) {
-        const primaryAssignment = job.team_assignments.find(ta => ta.is_primary) || job.team_assignments[0]
-        if (primaryAssignment && primaryAssignment.team_member_id) {
-          const assignmentId = Number(primaryAssignment.team_member_id)
-          if (assignmentId === targetId) {
-            return true
+        const found = job.team_assignments.some(ta => {
+          if (ta.team_member_id) {
+            const assignmentId = Number(ta.team_member_id)
+            return assignmentId === targetId
           }
+          // Also check nested team_members object if present
+          if (ta.team_members && ta.team_members.id) {
+            const nestedId = Number(ta.team_members.id)
+            return nestedId === targetId
+          }
+          return false
+        })
+        if (found) {
+          return true
         }
       }
       
