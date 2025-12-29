@@ -116,6 +116,8 @@ const ServiceFlowSchedule = () => {
   const [isSendingNotification, setIsSendingNotification] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
+  const [editingMemberId, setEditingMemberId] = useState(null)
+  const [editingMemberName, setEditingMemberName] = useState('')
   const [showEditCustomerModal, setShowEditCustomerModal] = useState(false)
   const [showEditAddressModal, setShowEditAddressModal] = useState(false)
   const [showRescheduleModal, setShowRescheduleModal] = useState(false)
@@ -2955,25 +2957,115 @@ const ServiceFlowSchedule = () => {
               {/* Team Members */}
               {teamMembers.map((member) => {
                 const fullName = `${member.first_name || ''} ${member.last_name || ''}`.trim()
+                const isEditing = editingMemberId === member.id
+                // Use editingMemberName if we're editing this member, otherwise use fullName
+                // Important: Allow empty string when editing (don't use || fallback)
+                const displayName = isEditing 
+                  ? (editingMemberName !== null && editingMemberName !== undefined ? editingMemberName : fullName)
+                  : fullName
+                
                 return (
-                  <button
+                  <div
                     key={member.id}
-                    onClick={() => setSelectedFilter(member.id)}
-                    className={`w-full flex items-center space-x-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors mb-2 ${
+                    className={`w-full flex items-center space-x-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors mb-2 group ${
                       selectedFilter === member.id 
                         ? 'bg-white text-blue-700' 
                       : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                     }`}
                   >
-                    <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center flex-shrink-0">
-                      <span className="text-white text-[8px] font-semibold">
-                        {member.first_name?.charAt(0)}{member.last_name?.charAt(0)}
-                      </span>
-                    </div>
-                    <span className="truncate flex-1 min-w-0" title={fullName}>
-                      {fullName.length > 25 ? `${fullName.substring(0, 25)}...` : fullName}
-                    </span>
-                  </button>
+                    <button
+                      onClick={() => !isEditing && setSelectedFilter(member.id)}
+                      className="flex items-center space-x-1 flex-1 min-w-0"
+                      disabled={isEditing}
+                    >
+                      <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center flex-shrink-0">
+                        <span className="text-white text-[8px] font-semibold">
+                          {member.first_name?.charAt(0)}{member.last_name?.charAt(0)}
+                        </span>
+                      </div>
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          value={displayName}
+                          onChange={(e) => {
+                            // Allow empty string - don't reset to fullName
+                            setEditingMemberName(e.target.value)
+                          }}
+                          onBlur={async () => {
+                            const trimmedName = displayName.trim()
+                            if (trimmedName && trimmedName !== fullName) {
+                              // Parse the name (assume first word is first name, rest is last name)
+                              const nameParts = trimmedName.split(' ')
+                              const newFirstName = nameParts[0] || ''
+                              const newLastName = nameParts.slice(1).join(' ') || ''
+                              
+                              try {
+                                await teamAPI.update(member.id, {
+                                  first_name: newFirstName,
+                                  last_name: newLastName
+                                })
+                                // Update local state
+                                setTeamMembers(prev => prev.map(m => 
+                                  m.id === member.id 
+                                    ? { ...m, first_name: newFirstName, last_name: newLastName }
+                                    : m
+                                ))
+                                setSuccessMessage('Team member name updated successfully')
+                                setTimeout(() => setSuccessMessage(''), 3000)
+                              } catch (error) {
+                                console.error('Error updating team member name:', error)
+                                setErrorMessage('Failed to update team member name')
+                                setTimeout(() => setErrorMessage(''), 3000)
+                              }
+                            } else if (!trimmedName) {
+                              // If name is empty, don't save - just cancel editing
+                              setErrorMessage('Name cannot be empty')
+                              setTimeout(() => setErrorMessage(''), 3000)
+                            }
+                            setEditingMemberId(null)
+                            setEditingMemberName('')
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.target.blur()
+                            } else if (e.key === 'Escape') {
+                              setEditingMemberId(null)
+                              setEditingMemberName('')
+                            }
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          className="flex-1 min-w-0 px-1 py-0.5 border border-blue-300 rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          autoFocus
+                        />
+                      ) : (
+                        <span 
+                          className="truncate flex-1 min-w-0" 
+                          title={fullName}
+                          onDoubleClick={(e) => {
+                            e.stopPropagation()
+                            setEditingMemberId(member.id)
+                            setEditingMemberName(fullName)
+                          }}
+                        >
+                          {fullName.length > 25 ? `${fullName.substring(0, 25)}...` : fullName}
+                        </span>
+                      )}
+                    </button>
+                    {!isEditing && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setEditingMemberId(member.id)
+                          setEditingMemberName(fullName)
+                        }}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 p-0.5 hover:bg-gray-200 rounded"
+                        title="Edit name"
+                      >
+                        <Edit className="w-3 h-3 text-gray-500" />
+                      </button>
+                    )}
+                  </div>
                 )
               })}
             </div>
