@@ -249,7 +249,8 @@ const ImportJobsPage = () => {
         });
         
         // Map ZenBooker-specific fields
-        job.jobId = rawData['job_random_id_text'] || rawData['_id'] || '';
+        // IMPORTANT: Use service_order_custom_service_order for duplicate detection (primary identifier)
+        job.jobId = rawData['service_order_custom_service_order'] || rawData['job_random_id_text'] || rawData['_id'] || '';
         job.customerName = rawData['customer_name_text'] || '';
         job.customerEmail = rawData['customer_email_text'] || '';
         job.customerPhone = rawData['customer_phone_text'] || '';
@@ -407,6 +408,7 @@ const ImportJobsPage = () => {
           switch (h) {
             case 'job id':
             case 'jobid':
+            case 'service_order_custom_service_order':
               if (!job.jobId) job.jobId = value;
               break;
             case 'customer name':
