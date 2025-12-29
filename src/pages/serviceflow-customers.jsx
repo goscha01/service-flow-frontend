@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import Sidebar from "../components/sidebar"
 import CustomerModal from "../components/customer-modal"
 import ExportCustomersModal from "../components/export-customers-modal"
@@ -261,20 +261,69 @@ const ServiceFlowCustomers = () => {
     }
   }
 
-  const filteredCustomers = customers.filter(customer => {
-    if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase()
-      return (
-        customer.first_name?.toLowerCase().includes(searchLower) ||
-        customer.last_name?.toLowerCase().includes(searchLower) ||
-        customer.email?.toLowerCase().includes(searchLower) ||
-        customer.phone?.includes(searchTerm) ||
-        customer.city?.toLowerCase().includes(searchLower) ||
-        customer.state?.toLowerCase().includes(searchLower)
-      )
+  // Normalize field helper function (handles whitespace, null, undefined, and special characters)
+  const normalizeField = (field) => {
+    if (!field) return ''
+    // Convert to string, decode HTML entities, trim, normalize whitespace, lowercase
+    return String(field)
+      .trim()
+      .replace(/\s+/g, ' ') // Collapse multiple spaces to single space
+      .toLowerCase()
+  }
+
+  // Memoized filtered customers for better performance
+  const filteredCustomers = useMemo(() => {
+    if (!searchTerm || searchTerm.trim() === '') {
+      return customers
     }
-    return true
-  })
+    
+    // Normalize search term: trim and collapse whitespace
+    const normalizedSearch = searchTerm.trim().replace(/\s+/g, ' ').toLowerCase()
+    
+    console.log('🔍 Searching with term:', searchTerm, '-> normalized:', normalizedSearch)
+    console.log('🔍 Total customers to search:', customers.length)
+    
+    const filtered = customers.filter(customer => {
+      // Normalize customer fields for comparison (handle whitespace differences)
+      const firstName = normalizeField(customer.first_name)
+      const lastName = normalizeField(customer.last_name)
+      const fullName = `${firstName} ${lastName}`.trim()
+      const email = normalizeField(customer.email)
+      const phone = customer.phone ? customer.phone.replace(/\D/g, '') : '' // Remove non-digits for phone
+      const searchPhone = searchTerm.replace(/\D/g, '') // Remove non-digits from search
+      const city = normalizeField(customer.city)
+      const state = normalizeField(customer.state)
+      
+      const matches = (
+        firstName.includes(normalizedSearch) ||
+        lastName.includes(normalizedSearch) ||
+        fullName.includes(normalizedSearch) ||
+        email.includes(normalizedSearch) ||
+        (phone && searchPhone && phone.includes(searchPhone)) ||
+        city.includes(normalizedSearch) ||
+        state.includes(normalizedSearch)
+      )
+      
+      // Debug logging for first few matches
+      if (matches && normalizedSearch === 'kat') {
+        console.log('✅ Match found:', {
+          original: `${customer.first_name} ${customer.last_name}`,
+          normalized: fullName,
+          searchTerm: normalizedSearch,
+          matchedField: {
+            firstName: firstName.includes(normalizedSearch),
+            lastName: lastName.includes(normalizedSearch),
+            fullName: fullName.includes(normalizedSearch)
+          }
+        })
+      }
+      
+      return matches
+    })
+    
+    console.log('🔍 Filtered results:', filtered.length, 'out of', customers.length)
+    return filtered
+  }, [customers, searchTerm])
 
   // Show loading spinner while auth is loading
   if (authLoading) {
