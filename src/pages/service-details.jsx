@@ -2243,8 +2243,8 @@ const ServiceDetails = () => {
                       }}
                       placeholder="Base Price"
                       className="flex-1 border-0 focus:ring-0 p-0 min-w-0 outline-none bg-transparent w-full"
-                      disabled={serviceData.isFree}
-                      readOnly={serviceData.isFree}
+                      disabled={false}
+                      readOnly={false}
                       step="0.01"
                       min="0"
                     />
