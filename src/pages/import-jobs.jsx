@@ -224,6 +224,20 @@ const ImportJobsPage = () => {
     return 'pending';
   };
 
+  // Helper function to extract first service name from patterns like "Service Name, + 1 more" or "Service Name, + 1 other"
+  const extractFirstServiceName = (serviceName) => {
+    if (!serviceName || typeof serviceName !== 'string') return serviceName;
+    
+    // Remove patterns like ", + 1 more", ", + 1 other", ", + -1 more", etc.
+    // Pattern: comma, optional space, plus sign, optional space, optional minus, number, space, "more" or "other"
+    const cleaned = serviceName.replace(/,\s*\+\s*-?\d+\s*(more|other)/gi, '').trim();
+    
+    // Also handle patterns like "* , + -1 more" - remove leading asterisk and comma
+    const cleaned2 = cleaned.replace(/^\*\s*,\s*/, '').trim();
+    
+    return cleaned2 || serviceName; // Return original if cleaning results in empty string
+  };
+
   const parseCSV = (csvText) => {
     const lines = csvText.split('\n').filter(line => line.trim());
     if (lines.length < 2) return [];
@@ -255,11 +269,13 @@ const ImportJobsPage = () => {
         job.customerEmail = rawData['customer_email_text'] || '';
         job.customerPhone = rawData['customer_phone_text'] || '';
         // Map service name - check multiple possible field names
-        job.serviceName = rawData['service_selected_text'] || 
+        // Extract first service name from patterns like "Service Name, + 1 more"
+        const rawServiceName = rawData['service_selected_text'] || 
                           rawData['services_list_custom_service'] || 
                           rawData['service_name'] || 
                           rawData['service'] || 
                           '';
+        job.serviceName = extractFirstServiceName(rawServiceName);
         job.price = rawData['price_number'] || rawData['pretax_total_number'] || '';
         job.total = rawData['pretax_total_number'] || rawData['price_number'] || '';
         job.subTotal = rawData['sub_total_number'] || '';
@@ -425,11 +441,11 @@ const ImportJobsPage = () => {
               break;
             case 'service name':
             case 'servicename':
-              if (!job.serviceName) job.serviceName = value;
+              if (!job.serviceName) job.serviceName = extractFirstServiceName(value);
               break;
             case 'service_selected_text':
             case 'services_list_custom_service':
-              if (!job.serviceName) job.serviceName = value;
+              if (!job.serviceName) job.serviceName = extractFirstServiceName(value);
               break;
             case 'service price':
             case 'serviceprice':
