@@ -411,27 +411,27 @@ const ServiceFlowSchedule = () => {
       // Since we're passing dateRange to the backend, it should already be filtered
       // But we'll do a light client-side check as backup
       // For day view, trust the backend more since the date range is very specific
-      const filteredJobs = jobsWithParsedHistory.filter(job => {
-        if (!job.scheduled_date) return false
-        
-        // Extract date part without timezone conversion
-        let jobDateString = ''
-        if (job.scheduled_date.includes('T')) {
-          jobDateString = job.scheduled_date.split('T')[0] // YYYY-MM-DD
-        } else if (job.scheduled_date.includes(' ')) {
-          jobDateString = job.scheduled_date.split(' ')[0] // YYYY-MM-DD
-        } else {
-          jobDateString = job.scheduled_date // Already YYYY-MM-DD
-        }
-        
+        const filteredJobs = jobsWithParsedHistory.filter(job => {
+          if (!job.scheduled_date) return false
+          
+          // Extract date part without timezone conversion
+          let jobDateString = ''
+          if (job.scheduled_date.includes('T')) {
+            jobDateString = job.scheduled_date.split('T')[0] // YYYY-MM-DD
+          } else if (job.scheduled_date.includes(' ')) {
+            jobDateString = job.scheduled_date.split(' ')[0] // YYYY-MM-DD
+          } else {
+            jobDateString = job.scheduled_date // Already YYYY-MM-DD
+          }
+          
         // For day view, exact match is required
         if (viewMode === 'day') {
           return jobDateString === startDateString
         }
         
         // For week/month view, check range
-        return jobDateString >= startDateString && jobDateString <= endDateString
-      })
+          return jobDateString >= startDateString && jobDateString <= endDateString
+        })
       
       console.log(`📅 Loaded ${allJobs.length} total jobs from API, ${filteredJobs.length} after client-side filter for ${viewMode} view (${startDateString} to ${endDateString})`)
       if (viewMode === 'day') {
@@ -510,7 +510,7 @@ const ServiceFlowSchedule = () => {
           return false
         })
         if (found) {
-          return true
+            return true
         }
       }
       
@@ -2966,23 +2966,23 @@ const ServiceFlowSchedule = () => {
                 
                 return (
                   <div
-                    key={member.id}
+                  key={member.id}
                     className={`w-full flex items-center space-x-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors mb-2 group ${
-                      selectedFilter === member.id 
-                        ? 'bg-white text-blue-700' 
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                    }`}
-                  >
+                    selectedFilter === member.id 
+                      ? 'bg-white text-blue-700' 
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  }`}
+                >
                     <button
                       onClick={() => !isEditing && setSelectedFilter(member.id)}
                       className="flex items-center space-x-1 flex-1 min-w-0"
                       disabled={isEditing}
                     >
                       <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center flex-shrink-0">
-                        <span className="text-white text-[8px] font-semibold">
-                          {member.first_name?.charAt(0)}{member.last_name?.charAt(0)}
-                        </span>
-                      </div>
+                    <span className="text-white text-[8px] font-semibold">
+                      {member.first_name?.charAt(0)}{member.last_name?.charAt(0)}
+                    </span>
+                  </div>
                       {isEditing ? (
                         <input
                           type="text"
@@ -3051,7 +3051,7 @@ const ServiceFlowSchedule = () => {
                           {fullName.length > 25 ? `${fullName.substring(0, 25)}...` : fullName}
                         </span>
                       )}
-                    </button>
+                </button>
                     {!isEditing && (
                       <button
                         onClick={(e) => {
@@ -3560,7 +3560,7 @@ const ServiceFlowSchedule = () => {
                   return (
                     <option key={member.id} value={member.id} title={fullName}>
                       {fullName.length > 30 ? `${fullName.substring(0, 30)}...` : fullName}
-                    </option>
+                  </option>
                   )
                 })}
               </select>
@@ -3858,15 +3858,15 @@ const ServiceFlowSchedule = () => {
                                               title={memberName}
                                             >
                                               {member.profile_picture ? (
-                                                <img 
+                                      <img 
                                                   src={getImageUrl(member.profile_picture)} 
                                                   alt={memberName}
-                                                  className="w-full h-full rounded-full object-cover"
-                                                />
-                                              ) : (
+                                        className="w-full h-full rounded-full object-cover"
+                                      />
+                                    ) : (
                                                 getInitials(memberName)
-                                              )}
-                                            </div>
+                                    )}
+                                  </div>
                                           );
                                         })}
                                         {assignedTeamMembers.length > 3 && (
@@ -3882,9 +3882,9 @@ const ServiceFlowSchedule = () => {
                                     );
                                   } else {
                                     return (
-                                      <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-gray-400 flex-shrink-0">
-                                        <UserX className="w-3 h-3" />
-                                      </div>
+                                  <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-gray-400 flex-shrink-0">
+                                    <UserX className="w-3 h-3" />
+                                  </div>
                                     );
                                   }
                                 })()}
@@ -4018,7 +4018,7 @@ const ServiceFlowSchedule = () => {
                                       {assignedTeamMembers.slice(0, 3).map((member, idx) => {
                                         const memberName = member.name || `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'Member';
                                         return (
-                                          <div 
+                                    <div 
                                             key={member.id || idx}
                                             className="w-4 h-4 rounded-full bg-blue-500 flex items-center justify-center text-white text-[8px] font-medium flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity border border-white"
                                             style={{ marginLeft: idx > 0 ? '-4px' : '0' }}
@@ -4029,15 +4029,15 @@ const ServiceFlowSchedule = () => {
                                             title={memberName}
                                           >
                                             {member.profile_picture ? (
-                                              <img 
+                                        <img 
                                                 src={getImageUrl(member.profile_picture)} 
                                                 alt={memberName}
-                                                className="w-full h-full rounded-full object-cover"
-                                              />
-                                            ) : (
+                                          className="w-full h-full rounded-full object-cover"
+                                        />
+                                      ) : (
                                               getInitials(memberName)
-                                            )}
-                                          </div>
+                                      )}
+                                    </div>
                                         );
                                       })}
                                       {assignedTeamMembers.length > 3 && (
@@ -4190,15 +4190,15 @@ const ServiceFlowSchedule = () => {
                                 title={memberName}
                               >
                                 {member.profile_picture ? (
-                                  <img 
+                              <img 
                                     src={getImageUrl(member.profile_picture)} 
                                     alt={memberName}
-                                    className="w-full h-full rounded-full object-cover"
-                                  />
-                                ) : (
+                                className="w-full h-full rounded-full object-cover"
+                              />
+                            ) : (
                                   getInitials(memberName)
-                                )}
-                              </div>
+                            )}
+                          </div>
                             );
                           })}
                           {assignedTeamMembers.length > 3 && (
@@ -5427,16 +5427,16 @@ const ServiceFlowSchedule = () => {
                               return (
                                 <div key={assignment.team_member_id || index} className="flex items-center gap-3">
                                   <div className="relative">
-                                    <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-semibold flex-shrink-0"
+                          <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-semibold flex-shrink-0"
                                       style={{ backgroundColor: member.color || '#2563EB' }}
-                                    >
+                          >
                                       {member.profile_picture ? (
-                                        <img 
+                              <img 
                                           src={getImageUrl(member.profile_picture)} 
                                           alt={memberName}
-                                          className="w-full h-full rounded-full object-cover"
-                                        />
-                                      ) : (
+                                className="w-full h-full rounded-full object-cover"
+                              />
+                            ) : (
                                         getInitials(memberName || member.email || 'AA')
                                       )}
                                     </div>
@@ -5444,9 +5444,9 @@ const ServiceFlowSchedule = () => {
                                       <div className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-400 rounded-full flex items-center justify-center border-2 border-white">
                                         <Star className="w-2 h-2 text-white" fill="white" />
                                       </div>
-                                    )}
-                                  </div>
-                                  <div className="flex-1 min-w-0">
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
                                     <div className="flex items-center space-x-2">
                                       <p className="font-medium text-gray-900 text-sm truncate" style={{ fontFamily: 'Montserrat', fontWeight: 500 }} title={memberName}>
                                         {memberName}
@@ -5460,23 +5460,23 @@ const ServiceFlowSchedule = () => {
                                     {member.email && (
                                       <p className="text-xs text-gray-500 truncate" style={{ fontFamily: 'Montserrat', fontWeight: 400 }} title={member.email}>
                                         {member.email}
-                                      </p>
-                                    )}
-                                  </div>
-                                </div>
+                              </p>
+                            )}
+                          </div>
+                        </div>
                               );
                             })}
                           </div>
                         );
                       } else {
                         return (
-                          <div className="text-center py-2">
-                            <UserX className="w-8 h-8 text-gray-400 mx-auto mb-3" />
-                            <p className="text-sm font-medium text-gray-700 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>Unassigned</p>
-                            <p className="text-xs text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
-                              No service providers are assigned to this job
-                            </p>
-                          </div>
+                        <div className="text-center py-2">
+                          <UserX className="w-8 h-8 text-gray-400 mx-auto mb-3" />
+                          <p className="text-sm font-medium text-gray-700 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>Unassigned</p>
+                          <p className="text-xs text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                            No service providers are assigned to this job
+                          </p>
+                        </div>
                         );
                       }
                     })()}
