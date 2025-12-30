@@ -462,7 +462,15 @@ const ServiceFlowSchedule = () => {
     } finally {
       setIsLoading(false)
     }
-  }, [user, selectedDate, viewMode, selectedFilter])
+  }, [user, selectedDate, viewMode, selectedFilter]) // Include selectedFilter so jobs refetch when filter changes
+  
+  // Refetch jobs when selectedFilter changes (if it's a team member filter)
+  useEffect(() => {
+    if (selectedFilter && selectedFilter !== 'all' && selectedFilter !== 'unassigned') {
+      console.log(`🔍 Schedule: Team member filter changed to ${selectedFilter}, refetching jobs...`);
+      fetchJobs();
+    }
+  }, [selectedFilter, fetchJobs])
 
   const fetchTeamMembers = useCallback(async () => {
     try {
@@ -604,6 +612,11 @@ const ServiceFlowSchedule = () => {
     
     setFilteredJobs(filtered)
   }, [jobs, selectedFilter, statusFilter, timeRangeFilter, territoryFilter, recurringFilter, user])
+  
+  // Apply filters whenever jobs or filter values change
+  useEffect(() => {
+    applyFilters()
+  }, [applyFilters])
 
   // Fetch user availability/business hours
   const fetchUserAvailability = useCallback(async () => {
