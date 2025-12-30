@@ -332,6 +332,8 @@ const ServiceFlowSchedule = () => {
   }
 
   const fetchJobs = useCallback(async () => {
+    // Get current selectedFilter value (need to access it from state)
+    const currentFilter = selectedFilter;
     try {
       setIsLoading(true)
       // Calculate date range based on view mode
@@ -376,6 +378,10 @@ const ServiceFlowSchedule = () => {
       // Use a very high limit to ensure we get all jobs for the month
       const limit = viewMode === 'month' ? 10000 : 1000
       
+      // Pass teamMember filter to backend if selectedFilter is a team member ID (not 'all' or 'unassigned')
+      // This improves performance by filtering at the database level
+      const teamMemberFilter = currentFilter && currentFilter !== 'all' && currentFilter !== 'unassigned' ? currentFilter : null;
+      
       const jobsResponse = await jobsAPI.getAll(
         user.id, 
         "", // status
@@ -386,7 +392,7 @@ const ServiceFlowSchedule = () => {
         dateRange, // dateRange - pass the calculated date range to backend
         null, // sortBy
         null, // sortOrder
-        null, // teamMember
+        teamMemberFilter, // teamMember - pass filter to backend for better performance
         null, // invoiceStatus
         null, // customerId
         null, // territoryId
@@ -454,7 +460,7 @@ const ServiceFlowSchedule = () => {
     } finally {
       setIsLoading(false)
     }
-  }, [user, selectedDate, viewMode])
+  }, [user, selectedDate, viewMode, selectedFilter])
 
   const fetchTeamMembers = useCallback(async () => {
     try {
