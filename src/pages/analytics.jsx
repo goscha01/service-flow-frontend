@@ -154,15 +154,56 @@ const Analytics = () => {
     }) || []
     
     console.log('Filtered invoices:', filteredInvoices)
-    const totalRevenue = filteredInvoices.reduce((sum, invoice) => {
+    // Calculate revenue from invoices first
+    let totalRevenue = filteredInvoices.reduce((sum, invoice) => {
       const amount = parseFloat(invoice.total_amount) || parseFloat(invoice.amount) || 0
       console.log('Invoice amount:', invoice.total_amount, invoice.amount, amount)
       return sum + amount
     }, 0)
+    
+    // If no revenue from invoices, calculate from jobs
+    // Prioritize completed/paid jobs, but include all jobs with prices
+    if (totalRevenue === 0) {
+      totalRevenue = filteredJobs.reduce((sum, job) => {
+        // Try multiple price fields in order of preference
+        const jobRevenue = parseFloat(job.total_amount) || 
+                          parseFloat(job.total) || 
+                          parseFloat(job.service_price) || 
+                          parseFloat(job.price) || 
+                          parseFloat(job.invoice_amount) || 
+                          0
+        return sum + jobRevenue
+      }, 0)
+      console.log('Revenue calculated from jobs:', totalRevenue)
+    }
+    
     const completedJobs = filteredJobs.filter(job => job.status === 'completed').length
     const totalJobs = filteredJobs.length
     const completionRate = totalJobs > 0 ? (completedJobs / totalJobs * 100).toFixed(1) : 0
-    const avgJobValue = completedJobs > 0 ? Math.round((totalRevenue / completedJobs) * 100) / 100 : 0
+    
+    // Calculate avg job value from completed jobs with prices
+    const completedJobsWithPrices = filteredJobs.filter(job => {
+      if (job.status !== 'completed') return false
+      const jobPrice = parseFloat(job.total_amount) || 
+                      parseFloat(job.total) || 
+                      parseFloat(job.service_price) || 
+                      parseFloat(job.price) || 
+                      parseFloat(job.invoice_amount) || 
+                      0
+      return jobPrice > 0
+    })
+    
+    const avgJobValue = completedJobsWithPrices.length > 0 
+      ? Math.round((completedJobsWithPrices.reduce((sum, job) => {
+          const jobPrice = parseFloat(job.total_amount) || 
+                          parseFloat(job.total) || 
+                          parseFloat(job.service_price) || 
+                          parseFloat(job.price) || 
+                          parseFloat(job.invoice_amount) || 
+                          0
+          return sum + jobPrice
+        }, 0) / completedJobsWithPrices.length) * 100) / 100 
+      : 0
     
     return {
       totalRevenue,
@@ -181,13 +222,25 @@ const Analytics = () => {
     startDate.setDate(startDate.getDate() - parseInt(dateRange))
     
     const invoices = await invoicesAPI.getAll(user.id, { page: 1, limit: 1000 })
+    const jobs = await jobsAPI.getAll(user.id, "", "", 1, 1000)
+    
     const filteredInvoices = invoices.invoices?.filter(invoice => {
       const invoiceDate = new Date(invoice.created_at)
       return invoiceDate >= startDate && invoiceDate <= endDate
     }) || []
     
+    const filteredJobs = jobs.jobs?.filter(job => {
+      // Extract date part from scheduled_date string (format: "2024-01-15 10:00:00")
+      const jobDateString = job.scheduled_date ? job.scheduled_date.split(' ')[0] : ''
+      const startDateString = startDate.toISOString().split('T')[0]
+      const endDateString = endDate.toISOString().split('T')[0]
+      return jobDateString >= startDateString && jobDateString <= endDateString
+    }) || []
+    
     // Group by date/week/month based on trendView
     const revenueByPeriod = {}
+    
+    // First, add revenue from invoices
     filteredInvoices.forEach(invoice => {
       const invoiceDate = new Date(invoice.created_at)
       let periodKey
@@ -208,6 +261,43 @@ const Analytics = () => {
       const amount = parseFloat(invoice.total_amount) || parseFloat(invoice.amount) || 0
       revenueByPeriod[periodKey] = (revenueByPeriod[periodKey] || 0) + amount
     })
+    
+    // If no revenue from invoices, add revenue from jobs
+    if (Object.keys(revenueByPeriod).length === 0 || Object.values(revenueByPeriod).every(v => v === 0)) {
+      filteredJobs.forEach(job => {
+        // Extract date part from scheduled_date string
+        const jobDateString = job.scheduled_date ? job.scheduled_date.split(' ')[0] : ''
+        if (!jobDateString) return
+        
+        const jobDate = new Date(jobDateString)
+        let periodKey
+        
+        if (trendView === 'weekly') {
+          // Get week start (Monday)
+          const weekStart = new Date(jobDate)
+          weekStart.setDate(jobDate.getDate() - jobDate.getDay() + 1)
+          periodKey = weekStart.toISOString().split('T')[0]
+        } else if (trendView === 'monthly') {
+          // Get month start
+          periodKey = `${jobDate.getFullYear()}-${String(jobDate.getMonth() + 1).padStart(2, '0')}-01`
+        } else {
+          // Daily
+          periodKey = jobDateString
+        }
+        
+        // Try multiple price fields in order of preference
+        const jobRevenue = parseFloat(job.total_amount) || 
+                          parseFloat(job.total) || 
+                          parseFloat(job.service_price) || 
+                          parseFloat(job.price) || 
+                          parseFloat(job.invoice_amount) || 
+                          0
+        
+        if (jobRevenue > 0) {
+          revenueByPeriod[periodKey] = (revenueByPeriod[periodKey] || 0) + jobRevenue
+        }
+      })
+    }
     
     return Object.entries(revenueByPeriod).map(([date, revenue]) => ({
       date,

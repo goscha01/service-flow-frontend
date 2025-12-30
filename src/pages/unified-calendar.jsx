@@ -163,6 +163,9 @@ const UnifiedCalendar = () => {
       // Process availability data - even if null, we still want to show jobs
       const processedData = {}
       
+      // Check if team member has any availability configured
+      const hasAvailabilityConfigured = availability?.availability !== null && availability?.availability !== undefined
+      
       // Always create day data structure, even if availability is null
       const firstDay = new Date(currentYear, currentMonth, 1)
       const lastDay = new Date(currentYear, currentMonth + 1, 0)
@@ -174,8 +177,9 @@ const UnifiedCalendar = () => {
         if (currentDate.getMonth() === currentMonth) {
           const dateStr = currentDate.toISOString().split('T')[0]
           processedData[dateStr] = {
-            available: true, // Default to available if no data
-            hours: null
+            available: hasAvailabilityConfigured ? true : false, // Mark as unavailable if no availability configured
+            hours: null,
+            hasAvailabilityConfigured: hasAvailabilityConfigured // Track if availability is configured at all
           }
         }
         currentDate.setDate(currentDate.getDate() + 1)
@@ -239,7 +243,8 @@ const UnifiedCalendar = () => {
           
           let dayData = {
             available: false,
-            hours: null
+            hours: null,
+            hasAvailabilityConfigured: hasAvailabilityConfigured
           }
           
           if (dateOverride) {
@@ -1080,9 +1085,13 @@ const UnifiedCalendar = () => {
                     }
                     
                     if (availabilityHours.length === 0) {
+                      // Check if availability is configured at all
+                      const hasAvailabilityConfigured = memberAvailability?.hasAvailabilityConfigured !== false
                       return (
                         <div className="text-center py-8">
-                          <div className="text-gray-500 text-lg font-medium">No availability set</div>
+                          <div className="text-gray-500 text-lg font-medium">
+                            {hasAvailabilityConfigured ? 'No availability set' : 'Availability not set'}
+                          </div>
                         </div>
                       )
                     }
@@ -1181,8 +1190,19 @@ const UnifiedCalendar = () => {
                             })}
                           </div>
                         ) : memberAvailability?.available ? (
+                          // Check if availability is configured at all
+                          !memberAvailability.hasAvailabilityConfigured ? (
+                            <div className="text-center py-4">
+                              <div className="text-xs text-gray-500 font-medium">Availability not set</div>
+                            </div>
+                          ) : (
+                            <div className="text-center py-4">
+                              <div className="text-xs text-blue-600 font-medium">Available</div>
+                            </div>
+                          )
+                        ) : !memberAvailability?.hasAvailabilityConfigured ? (
                           <div className="text-center py-4">
-                            <div className="text-xs text-blue-600 font-medium">Available</div>
+                            <div className="text-xs text-gray-500 font-medium">Availability not set</div>
                           </div>
                         ) : (
                           <div className="text-center py-4">
@@ -1305,9 +1325,24 @@ const UnifiedCalendar = () => {
                               ) : null
                             )
                           } else if (memberAvailability?.available) {
+                            // Check if availability is configured at all
+                            if (!memberAvailability.hasAvailabilityConfigured) {
+                              return (
+                                <div className="px-2 py-1 rounded text-xs bg-gray-100 text-gray-500 border border-gray-200 text-center">
+                                  Availability not set
+                                </div>
+                              )
+                            }
                             return (
                               <div className="text-xs text-blue-600 text-center py-1">
                                 Available
+                              </div>
+                            )
+                          } else if (!memberAvailability?.hasAvailabilityConfigured) {
+                            // No availability configured at all
+                            return (
+                              <div className="px-2 py-1 rounded text-xs bg-gray-100 text-gray-500 border border-gray-200 text-center">
+                                Availability not set
                               </div>
                             )
                           }
