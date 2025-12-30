@@ -475,6 +475,16 @@ const ImportJobsPage = () => {
             case 'teammember':
               if (!job.teamMemberName) job.teamMemberName = value;
               break;
+            case 'team member id':
+            case 'teammemberid':
+            case 'team_member_id':
+            case 'assigned_team_member_id':
+              // If value is a number, treat it as internal team member ID
+              const parsedTeamMemberId = parseInt(value);
+              if (!isNaN(parsedTeamMemberId) && !value.toString().includes('x') && !value.toString().includes('X')) {
+                job.teamMemberId = parsedTeamMemberId;
+              }
+              break;
             case 'priority':
               job.priority = value;
               break;
