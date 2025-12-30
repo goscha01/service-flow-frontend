@@ -382,6 +382,8 @@ const ServiceFlowSchedule = () => {
       // This improves performance by filtering at the database level
       const teamMemberFilter = currentFilter && currentFilter !== 'all' && currentFilter !== 'unassigned' ? currentFilter : null;
       
+      console.log(`🔍 Schedule: Fetching jobs with teamMember filter: ${teamMemberFilter || 'none'} (selectedFilter: ${currentFilter})`);
+      
       const jobsResponse = await jobsAPI.getAll(
         user.id, 
         "", // status
