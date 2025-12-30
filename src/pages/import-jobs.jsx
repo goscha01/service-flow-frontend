@@ -225,10 +225,18 @@ const ImportJobsPage = () => {
   };
 
   // Helper function to extract first service name from patterns like "Service Name, + 1 more" or "Service Name, + 1 other"
+  // Returns null if the service name is invalid (only contains the suffix pattern)
   const extractFirstServiceName = (serviceName) => {
     if (!serviceName || typeof serviceName !== 'string') return serviceName;
     
     let cleaned = serviceName.trim();
+    
+    // Check if the entire string is just the pattern (like ", + -1 more" or "* , + -1 more")
+    // If so, this is an invalid service name and should be skipped
+    const isOnlyPattern = /^[\*\s]*,\s*\+\s*-?\d+\s*(more|other)\s*$/gi.test(cleaned);
+    if (isOnlyPattern) {
+      return null; // Return null to indicate invalid service name
+    }
     
     // Remove patterns like ", + 1 more", ", + 1 other", ", + -1 more", etc.
     // Handle various spacing: ", + 1 more", ",+1 more", ", +-1 more", ", + 1more"
@@ -248,9 +256,12 @@ const ImportJobsPage = () => {
     // Remove leading commas
     cleaned = cleaned.replace(/^,\s*/g, '').trim();
     
-    // If result is empty or just special characters, return original
-    if (!cleaned || cleaned === ',' || cleaned === '+' || cleaned === ', +' || cleaned === '*') {
-      return serviceName;
+    // Remove leading asterisks
+    cleaned = cleaned.replace(/^\*\s*/g, '').trim();
+    
+    // If result is empty or just special characters, this is invalid
+    if (!cleaned || cleaned === ',' || cleaned === '+' || cleaned === ', +' || cleaned === '*' || cleaned === ', + -1' || cleaned === ', + 1') {
+      return null; // Return null to indicate invalid service name
     }
     
     return cleaned;
@@ -293,7 +304,9 @@ const ImportJobsPage = () => {
                           rawData['service_name'] || 
                           rawData['service'] || 
                           '';
-        job.serviceName = extractFirstServiceName(rawServiceName);
+        const cleanedServiceName = extractFirstServiceName(rawServiceName);
+        // If service name is invalid (only contains pattern), set to empty string
+        job.serviceName = cleanedServiceName === null ? '' : cleanedServiceName;
         job.price = rawData['price_number'] || rawData['pretax_total_number'] || '';
         job.total = rawData['pretax_total_number'] || rawData['price_number'] || '';
         job.subTotal = rawData['sub_total_number'] || '';
@@ -459,11 +472,17 @@ const ImportJobsPage = () => {
               break;
             case 'service name':
             case 'servicename':
-              if (!job.serviceName) job.serviceName = extractFirstServiceName(value);
+              if (!job.serviceName) {
+                const cleaned = extractFirstServiceName(value);
+                if (cleaned !== null) job.serviceName = cleaned;
+              }
               break;
             case 'service_selected_text':
             case 'services_list_custom_service':
-              if (!job.serviceName) job.serviceName = extractFirstServiceName(value);
+              if (!job.serviceName) {
+                const cleaned = extractFirstServiceName(value);
+                if (cleaned !== null) job.serviceName = cleaned;
+              }
               break;
             case 'service price':
             case 'serviceprice':
