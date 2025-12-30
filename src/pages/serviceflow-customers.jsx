@@ -4,8 +4,8 @@ import { useState, useEffect, useMemo } from "react"
 import Sidebar from "../components/sidebar"
 import CustomerModal from "../components/customer-modal"
 import ExportCustomersModal from "../components/export-customers-modal"
-import { Search, User, Plus, AlertCircle, Loader2, X } from "lucide-react"
-import { customersAPI } from "../services/api"
+import { Search, User, Plus, AlertCircle, Loader2, X, RotateCw, Filter } from "lucide-react"
+import { customersAPI, jobsAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
 import { useNavigate, Link } from "react-router-dom"
 import he from 'he';
@@ -30,6 +30,8 @@ const ServiceFlowCustomers = () => {
   const [successMessage, setSuccessMessage] = useState("")
   const [searchTerm, setSearchTerm] = useState("")
   const [deleteLoading, setDeleteLoading] = useState(null)
+  const [recurringFilter, setRecurringFilter] = useState("all") // "all", "recurring", "non-recurring"
+  const [customersWithRecurring, setCustomersWithRecurring] = useState(new Set()) // Set of customer IDs with recurring jobs
 
   // Fetch customers when user is available
   useEffect(() => {
@@ -78,20 +80,48 @@ const ServiceFlowCustomers = () => {
       console.log('Customers response:', response)
       
       // Handle different response formats
+      let customersList = [];
       if (response && response.customers) {
-        setCustomers(response.customers)
+        customersList = response.customers
       } else if (Array.isArray(response)) {
-        setCustomers(response)
+        customersList = response
       } else if (response && Array.isArray(response.data)) {
-        setCustomers(response.data)
-      } else {
-        setCustomers([])
+        customersList = response.data
+      }
+      
+      setCustomers(customersList)
+      
+      // Fetch jobs to determine which customers have recurring jobs
+      if (customersList.length > 0) {
+        await fetchRecurringCustomers(user.id)
       }
     } catch (error) {
       console.error('Error fetching customers:', error)
       setError("Failed to load customers. Please try again.")
     } finally {
       setLoading(false)
+    }
+  }
+  
+  const fetchRecurringCustomers = async (userId) => {
+    try {
+      // Fetch all jobs to check for recurring ones
+      const jobsResponse = await jobsAPI.getAll(userId, "", "", 1, 10000)
+      const allJobs = jobsResponse.jobs || []
+      
+      // Find all customer IDs that have at least one recurring job
+      const recurringCustomerIds = new Set()
+      allJobs.forEach(job => {
+        if (job.is_recurring && job.customer_id) {
+          recurringCustomerIds.add(job.customer_id)
+        }
+      })
+      
+      console.log(`📊 Found ${recurringCustomerIds.size} customers with recurring jobs`)
+      setCustomersWithRecurring(recurringCustomerIds)
+    } catch (error) {
+      console.error('Error fetching recurring customers:', error)
+      // Don't fail the whole page if this fails
     }
   }
 
@@ -273,57 +303,67 @@ const ServiceFlowCustomers = () => {
 
   // Memoized filtered customers for better performance
   const filteredCustomers = useMemo(() => {
-    if (!searchTerm || searchTerm.trim() === '') {
-      return customers
+    let filtered = [...customers]
+    
+    // Apply recurring filter first
+    if (recurringFilter === 'recurring') {
+      filtered = filtered.filter(customer => customersWithRecurring.has(customer.id))
+    } else if (recurringFilter === 'non-recurring') {
+      filtered = filtered.filter(customer => !customersWithRecurring.has(customer.id))
+    }
+    // If recurringFilter === 'all', no filtering by recurring status
+    
+    // Apply search filter
+    if (searchTerm && searchTerm.trim() !== '') {
+      // Normalize search term: trim and collapse whitespace
+      const normalizedSearch = searchTerm.trim().replace(/\s+/g, ' ').toLowerCase()
+      
+      console.log('🔍 Searching with term:', searchTerm, '-> normalized:', normalizedSearch)
+      console.log('🔍 Total customers to search:', filtered.length)
+      
+      filtered = filtered.filter(customer => {
+        // Normalize customer fields for comparison (handle whitespace differences)
+        const firstName = normalizeField(customer.first_name)
+        const lastName = normalizeField(customer.last_name)
+        const fullName = `${firstName} ${lastName}`.trim()
+        const email = normalizeField(customer.email)
+        const phone = customer.phone ? customer.phone.replace(/\D/g, '') : '' // Remove non-digits for phone
+        const searchPhone = searchTerm.replace(/\D/g, '') // Remove non-digits from search
+        const city = normalizeField(customer.city)
+        const state = normalizeField(customer.state)
+        
+        const matches = (
+          firstName.includes(normalizedSearch) ||
+          lastName.includes(normalizedSearch) ||
+          fullName.includes(normalizedSearch) ||
+          email.includes(normalizedSearch) ||
+          (phone && searchPhone && phone.includes(searchPhone)) ||
+          city.includes(normalizedSearch) ||
+          state.includes(normalizedSearch)
+        )
+        
+        // Debug logging for first few matches
+        if (matches && normalizedSearch === 'kat') {
+          console.log('✅ Match found:', {
+            original: `${customer.first_name} ${customer.last_name}`,
+            normalized: fullName,
+            searchTerm: normalizedSearch,
+            matchedField: {
+              firstName: firstName.includes(normalizedSearch),
+              lastName: lastName.includes(normalizedSearch),
+              fullName: fullName.includes(normalizedSearch)
+            }
+          })
+        }
+        
+        return matches
+      })
+      
+      console.log('🔍 Filtered results:', filtered.length, 'out of', customers.length)
     }
     
-    // Normalize search term: trim and collapse whitespace
-    const normalizedSearch = searchTerm.trim().replace(/\s+/g, ' ').toLowerCase()
-    
-    console.log('🔍 Searching with term:', searchTerm, '-> normalized:', normalizedSearch)
-    console.log('🔍 Total customers to search:', customers.length)
-    
-    const filtered = customers.filter(customer => {
-      // Normalize customer fields for comparison (handle whitespace differences)
-      const firstName = normalizeField(customer.first_name)
-      const lastName = normalizeField(customer.last_name)
-      const fullName = `${firstName} ${lastName}`.trim()
-      const email = normalizeField(customer.email)
-      const phone = customer.phone ? customer.phone.replace(/\D/g, '') : '' // Remove non-digits for phone
-      const searchPhone = searchTerm.replace(/\D/g, '') // Remove non-digits from search
-      const city = normalizeField(customer.city)
-      const state = normalizeField(customer.state)
-      
-      const matches = (
-        firstName.includes(normalizedSearch) ||
-        lastName.includes(normalizedSearch) ||
-        fullName.includes(normalizedSearch) ||
-        email.includes(normalizedSearch) ||
-        (phone && searchPhone && phone.includes(searchPhone)) ||
-        city.includes(normalizedSearch) ||
-        state.includes(normalizedSearch)
-      )
-      
-      // Debug logging for first few matches
-      if (matches && normalizedSearch === 'kat') {
-        console.log('✅ Match found:', {
-          original: `${customer.first_name} ${customer.last_name}`,
-          normalized: fullName,
-          searchTerm: normalizedSearch,
-          matchedField: {
-            firstName: firstName.includes(normalizedSearch),
-            lastName: lastName.includes(normalizedSearch),
-            fullName: fullName.includes(normalizedSearch)
-          }
-        })
-    }
-      
-      return matches
-    })
-    
-    console.log('🔍 Filtered results:', filtered.length, 'out of', customers.length)
     return filtered
-  }, [customers, searchTerm])
+  }, [customers, searchTerm, recurringFilter, customersWithRecurring])
 
   // Show loading spinner while auth is loading
   if (authLoading) {
@@ -352,8 +392,8 @@ const ServiceFlowCustomers = () => {
                 </p>
               </div>
 
-              {/* Search Bar - Full Width on Mobile */}
-              <div className="mb-3">
+              {/* Search Bar and Filters - Full Width on Mobile */}
+              <div className="mb-3 space-y-2">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                   <input
@@ -363,6 +403,20 @@ const ServiceFlowCustomers = () => {
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="w-full pl-10 pr-4 py-2 bg-gray-50 border-0 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:bg-white"
                   />
+                </div>
+                
+                {/* Recurring Filter */}
+                <div className="flex items-center gap-2">
+                  <Filter className="w-4 h-4 text-gray-400" />
+                  <select
+                    value={recurringFilter}
+                    onChange={(e) => setRecurringFilter(e.target.value)}
+                    className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  >
+                    <option value="all">All Customers</option>
+                    <option value="recurring">Recurring Customers</option>
+                    <option value="non-recurring">Non-Recurring Customers</option>
+                  </select>
                 </div>
               </div>
 
@@ -502,10 +556,17 @@ const ServiceFlowCustomers = () => {
                           {/* Customer Info */}
                           <div className="flex-1 min-w-0">
                             {/* Name and Location */}
-                            <div className="flex items-center gap-2 mb-0.5">
+                            <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                               <span className="font-semibold text-sm text-gray-900 truncate">
                                 {customer.first_name} {customer.last_name}
                               </span>
+                              {/* Recurring Indicator */}
+                              {customersWithRecurring.has(customer.id) && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700 flex-shrink-0" title="Recurring Customer">
+                                  <RotateCw className="w-3 h-3" />
+                                  Recurring
+                                </span>
+                              )}
                               {customer.city && (
                                 <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700 flex-shrink-0">
                                   {he.decode(customer.city)}
