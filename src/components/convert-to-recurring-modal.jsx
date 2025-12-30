@@ -22,9 +22,12 @@ const ConvertToRecurringModal = ({
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   
+  // Track if modal was just opened to prevent resetting during editing
+  const [wasJustOpened, setWasJustOpened] = useState(false);
+  
   useEffect(() => {
-    if (isOpen && job) {
-      // Reset form when modal opens
+    if (isOpen && job && !wasJustOpened) {
+      // Only reset form when modal FIRST opens (not on every render)
       setFrequency('weekly');
       setCustomFrequency({
         type: 'weekly',
@@ -48,8 +51,13 @@ const ConvertToRecurringModal = ({
         // Pre-fill day of month
         setCustomFrequency(prev => ({ ...prev, dayOfMonth: scheduledDate.getDate().toString() }));
       }
+      
+      setWasJustOpened(true);
+    } else if (!isOpen) {
+      // Reset flag when modal closes
+      setWasJustOpened(false);
     }
-  }, [isOpen, job]);
+  }, [isOpen, job, wasJustOpened]);
   
   const buildFrequencyString = () => {
     if (frequency === 'daily') {

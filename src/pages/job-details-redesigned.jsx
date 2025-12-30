@@ -6982,7 +6982,10 @@ const JobDetails = () => {
           onConvert={async (data) => {
             try {
               setLoading(true);
+              setError(""); // Clear any previous errors
+              console.log('🔄 Converting job to recurring with data:', data);
               const result = await jobsAPI.convertToRecurring(jobId, data);
+              console.log('✅ Convert to recurring result:', result);
               setSuccessMessage('Job converted to recurring successfully!');
               setTimeout(() => setSuccessMessage(""), 3000);
               // Reload job data
@@ -6990,8 +6993,11 @@ const JobDetails = () => {
               setJob(updatedJob.job || updatedJob);
               setShowConvertToRecurringModal(false);
             } catch (error) {
-              console.error('Error converting job to recurring:', error);
-              setError(`Failed to convert job: ${error.response?.data?.error || error.message}`);
+              console.error('❌ Error converting job to recurring:', error);
+              console.error('❌ Error response:', error.response?.data);
+              const errorMessage = error.response?.data?.error || error.response?.data?.details || error.message || 'Failed to convert job to recurring';
+              setError(`Failed to convert job: ${errorMessage}`);
+              setTimeout(() => setError(""), 5000);
             } finally {
               setLoading(false);
             }
