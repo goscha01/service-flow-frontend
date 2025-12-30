@@ -893,11 +893,11 @@ const JobDetails = () => {
                   return prev;
                 }
                 return {
-                  ...prev,
-                  invoice_status: overallStatus,
-                  invoice_id: latestInvoice?.id,
-                  total_invoice_amount: totalAmount,
-                  total_paid_amount: 0
+                ...prev,
+                invoice_status: overallStatus,
+                invoice_id: latestInvoice?.id,
+                total_invoice_amount: totalAmount,
+                total_paid_amount: 0
                 }
               })
             } else {
@@ -908,11 +908,11 @@ const JobDetails = () => {
                   return prev;
                 }
                 return {
-                  ...prev,
-                  invoice_status: 'none',
-                  invoice_id: null,
-                  total_invoice_amount: 0,
-                  total_paid_amount: 0
+                ...prev,
+                invoice_status: 'none',
+                invoice_id: null,
+                total_invoice_amount: 0,
+                total_paid_amount: 0
                 }
               })
             }
@@ -924,11 +924,11 @@ const JobDetails = () => {
                 return prev;
               }
               return {
-                ...prev,
-                invoice_status: 'none',
-                invoice_id: null,
-                total_invoice_amount: 0,
-                total_paid_amount: 0
+              ...prev,
+              invoice_status: 'none',
+              invoice_id: null,
+              total_invoice_amount: 0,
+              total_paid_amount: 0
               }
             })
           }
@@ -941,11 +941,11 @@ const JobDetails = () => {
             return prev;
           }
           return {
-            ...prev,
-            invoice_status: 'none',
-            invoice_id: null,
-            total_invoice_amount: 0,
-            total_paid_amount: 0
+          ...prev,
+          invoice_status: 'none',
+          invoice_id: null,
+          total_invoice_amount: 0,
+          total_paid_amount: 0
           }
         })
       }
@@ -2474,11 +2474,34 @@ const JobDetails = () => {
             <div>
               <p className="text-xs text-gray-600 mb-2">ASSIGNED</p>
               {(() => {
-                const assignedMember = teamMembers.find(m => 
-                  m.id === job?.assigned_team_member_id || 
-                  m.id === job?.team_member_id ||
-                  (job?.assigned_team_member && m.id === job.assigned_team_member.id)
-                )
+                // First, try to get from team_assignments array (multiple team members support)
+                let assignedMember = null;
+                if (job?.team_assignments && Array.isArray(job.team_assignments) && job.team_assignments.length > 0) {
+                  // Get the primary team member (first one or one marked as primary)
+                  const primaryAssignment = job.team_assignments.find(ta => ta.is_primary) || job.team_assignments[0];
+                  if (primaryAssignment) {
+                    // Try nested team_members object first (from backend relation)
+                    assignedMember = primaryAssignment.team_members || null;
+                    // If not found, find in teamMembers array
+                    if (!assignedMember && primaryAssignment.team_member_id) {
+                      assignedMember = teamMembers.find(m => Number(m.id) === Number(primaryAssignment.team_member_id)) || null;
+                    }
+                  }
+                }
+                
+                // Fallback: try direct assignment fields
+                if (!assignedMember) {
+                  assignedMember = teamMembers.find(m => 
+                    Number(m.id) === Number(job?.assigned_team_member_id) || 
+                    Number(m.id) === Number(job?.team_member_id) ||
+                    (job?.assigned_team_member && Number(m.id) === Number(job.assigned_team_member.id))
+                  ) || null;
+                }
+                
+                // Also check if job has team_members relation directly
+                if (!assignedMember && job?.team_members) {
+                  assignedMember = job.team_members;
+                }
                 const getTeamMemberInitials = (member) => {
                   if (!member) return '?'
                   const firstName = member.first_name || member.name || ''
@@ -3962,14 +3985,22 @@ const JobDetails = () => {
                           return (
                             <div className="space-y-3">
                               {teamAssignments.map((assignment, index) => {
-                                const member = assignment.team_member_id 
-                                  ? teamMembers.find(m => m.id === assignment.team_member_id)
-                                  : null;
+                                // First try to get member from nested team_members object (from backend relation)
+                                let member = assignment.team_members || null;
+                                
+                                // If not found, try to find in teamMembers array by team_member_id
+                                if (!member && assignment.team_member_id) {
+                                  member = teamMembers.find(m => Number(m.id) === Number(assignment.team_member_id)) || null;
+                                }
+                                
+                                // Build member name from available data
                                 const memberName = member 
                                   ? `${member.first_name || ''} ${member.last_name || ''}`.trim()
-                                  : (assignment.first_name && assignment.last_name 
-                                    ? `${assignment.first_name} ${assignment.last_name}`.trim()
-                                    : 'Unknown Member');
+                                  : (assignment.team_members?.first_name && assignment.team_members?.last_name
+                                    ? `${assignment.team_members.first_name} ${assignment.team_members.last_name}`.trim()
+                                    : (assignment.first_name && assignment.last_name 
+                                      ? `${assignment.first_name} ${assignment.last_name}`.trim()
+                                      : 'Unknown Team Member'));
                                 const memberEmail = member?.email || assignment.email || '';
                                 
                                 return (
@@ -4012,32 +4043,32 @@ const JobDetails = () => {
                         } else if (job.assigned_team_member) {
                           // Fallback: single team member (backward compatibility)
                           return (
-                            <div className="flex items-center space-x-2">
-                              <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
-                                <span className="text-white font-semibold text-sm">
-                                  {job.assigned_team_member.first_name?.[0]}{job.assigned_team_member.last_name?.[0]}
-                                </span>
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="font-semibold text-gray-900 truncate" title={`${job.assigned_team_member.first_name} ${job.assigned_team_member.last_name}`}>
-                                  {job.assigned_team_member.first_name} {job.assigned_team_member.last_name}
-                                </p>
-                                <p className="text-sm text-gray-600 truncate" title={job.assigned_team_member.email}>
-                                  {job.assigned_team_member.email}
-                                </p>
-                              </div>
-                            </div>
+                        <div className="flex items-center space-x-2">
+                          <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
+                            <span className="text-white font-semibold text-sm">
+                              {job.assigned_team_member.first_name?.[0]}{job.assigned_team_member.last_name?.[0]}
+                            </span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-gray-900 truncate" title={`${job.assigned_team_member.first_name} ${job.assigned_team_member.last_name}`}>
+                              {job.assigned_team_member.first_name} {job.assigned_team_member.last_name}
+                            </p>
+                            <p className="text-sm text-gray-600 truncate" title={job.assigned_team_member.email}>
+                              {job.assigned_team_member.email}
+                            </p>
+                          </div>
+                        </div>
                           );
                         } else {
                           // No team members assigned
                           return (
-                            <div className="text-center py-2">
-                              <div className="w-16 h-16 mx-auto mb-3 flex items-center justify-center">
-                                <UserX className="w-8 h-8 text-gray-400" />
-                              </div>
-                              <p style={{fontFamily: 'Montserrat', fontWeight: 500}} className="font-semibold text-sm text-gray-700 mb-1">Unassigned</p>
-                              <p style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-xs text-gray-400">No service providers are assigned to this job</p>
-                            </div>
+                        <div className="text-center py-2">
+                          <div className="w-16 h-16 mx-auto mb-3 flex items-center justify-center">
+                            <UserX className="w-8 h-8 text-gray-400" />
+                          </div>
+                          <p style={{fontFamily: 'Montserrat', fontWeight: 500}} className="font-semibold text-sm text-gray-700 mb-1">Unassigned</p>
+                          <p style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-xs text-gray-400">No service providers are assigned to this job</p>
+                        </div>
                           );
                         }
                       })()}
