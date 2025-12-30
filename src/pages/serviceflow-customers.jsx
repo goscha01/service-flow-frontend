@@ -316,7 +316,7 @@ const ServiceFlowCustomers = () => {
             fullName: fullName.includes(normalizedSearch)
           }
         })
-      }
+    }
       
       return matches
     })
