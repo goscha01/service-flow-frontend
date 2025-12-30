@@ -228,14 +228,32 @@ const ImportJobsPage = () => {
   const extractFirstServiceName = (serviceName) => {
     if (!serviceName || typeof serviceName !== 'string') return serviceName;
     
+    let cleaned = serviceName.trim();
+    
     // Remove patterns like ", + 1 more", ", + 1 other", ", + -1 more", etc.
-    // Pattern: comma, optional space, plus sign, optional space, optional minus, number, space, "more" or "other"
-    const cleaned = serviceName.replace(/,\s*\+\s*-?\d+\s*(more|other)/gi, '').trim();
+    // Handle various spacing: ", + 1 more", ",+1 more", ", +-1 more", ", + 1more"
+    // Pattern: comma, optional spaces, plus sign, optional spaces, optional minus, number, optional spaces, "more" or "other"
+    cleaned = cleaned.replace(/,\s*\+\s*-?\d+\s*(more|other)/gi, '').trim();
     
-    // Also handle patterns like "* , + -1 more" - remove leading asterisk and comma
-    const cleaned2 = cleaned.replace(/^\*\s*,\s*/, '').trim();
+    // Handle patterns that start with comma and plus (like ", + -1 more" or ", + 1 more")
+    cleaned = cleaned.replace(/^,\s*\+\s*-?\d+\s*(more|other)/gi, '').trim();
     
-    return cleaned2 || serviceName; // Return original if cleaning results in empty string
+    // Handle patterns like "* , + -1 more" - remove leading asterisk, comma, and plus
+    cleaned = cleaned.replace(/^\*\s*,\s*\+\s*-?\d+\s*(more|other)/gi, '').trim();
+    
+    // Remove trailing commas and plus signs
+    cleaned = cleaned.replace(/,\s*\+\s*$/gi, '').trim();
+    cleaned = cleaned.replace(/,\s*$/g, '').trim(); // Remove trailing comma
+    
+    // Remove leading commas
+    cleaned = cleaned.replace(/^,\s*/g, '').trim();
+    
+    // If result is empty or just special characters, return original
+    if (!cleaned || cleaned === ',' || cleaned === '+' || cleaned === ', +' || cleaned === '*') {
+      return serviceName;
+    }
+    
+    return cleaned;
   };
 
   const parseCSV = (csvText) => {
