@@ -356,8 +356,8 @@ const ServiceFlowTerritories = () => {
                                 {territory.name}
                               </h3>
                               <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(territory.status)}`} style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
-                                {getStatusLabel(territory.status)}
-                              </span>
+                              {getStatusLabel(territory.status)}
+                            </span>
                             </div>
                           </div>
                           <p className="text-xs text-gray-600 mb-4" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{territory.location || `${territory.name}`}</p>
@@ -387,32 +387,32 @@ const ServiceFlowTerritories = () => {
                                 <div className="flex items-center gap-1.5">
                                   <span className="inline-block w-1.5 h-1.5 bg-green-500 rounded-full"></span>
                                   <span className="text-sm text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>On</span>
-                                </div>
+                              </div>
                               </div>
                             </div>
 
-                            <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2">
                               <Users className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
                               <div className="min-w-0">
                                 <div className="text-xs text-gray-500 uppercase" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Providers</div>
                                 <div className="flex items-center gap-1.5">
-                                  {territory.team_members && territory.team_members.length > 0 ? (
-                                    <>
+                                {territory.team_members && territory.team_members.length > 0 ? (
+                                  <>
                                       <div className="flex -space-x-1.5">
-                                        {territory.team_members.slice(0, 3).map((member, idx) => (
+                                      {territory.team_members.slice(0, 3).map((member, idx) => (
                                           <div key={idx} className="w-5 h-5 rounded-full bg-green-300 border-2 border-white flex items-center justify-center text-xs font-medium text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
-                                            {member.initials || member.first_name?.[0] || 'A'}
-                                          </div>
-                                        ))}
-                                      </div>
-                                      {territory.team_members.length > 3 && (
+                                          {member.initials || member.first_name?.[0] || 'A'}
+                                        </div>
+                                      ))}
+                                    </div>
+                                    {territory.team_members.length > 3 && (
                                         <span className="text-xs text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>+{territory.team_members.length - 3}</span>
-                                      )}
-                                    </>
-                                  ) : (
+                                    )}
+                                  </>
+                                ) : (
                                     <span className="text-sm text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>0</span>
-                                  )}
-                                </div>
+                                )}
+                              </div>
                               </div>
                             </div>
                           </div>
