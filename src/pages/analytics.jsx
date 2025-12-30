@@ -331,46 +331,135 @@ const Analytics = () => {
     const team = await teamAPI.getAll(user.id)
     const teamMembers = team.teamMembers || []
     
-    const jobs = await jobsAPI.getAll(user.id, "", "", 1, 1000)
+    const jobs = await jobsAPI.getAll(user.id, "", "", 1, 10000) // Increased limit to get all jobs
     const allJobs = jobs.jobs || []
     
+    console.log('📊 Analytics: Total jobs fetched:', allJobs.length)
+    if (allJobs.length > 0) {
+      console.log('📊 Analytics: Sample job structure:', {
+        id: allJobs[0].id,
+        team_member_id: allJobs[0].team_member_id,
+        assigned_team_member_id: allJobs[0].assigned_team_member_id,
+        team_assignments: allJobs[0].team_assignments,
+        job_team_assignments: allJobs[0].job_team_assignments,
+        has_team_assignments: !!allJobs[0].team_assignments,
+        team_assignments_length: allJobs[0].team_assignments?.length || 0
+      })
+      
+      // Count jobs with team assignments
+      const jobsWithAssignments = allJobs.filter(j => 
+        j.team_member_id || 
+        j.assigned_team_member_id || 
+        (j.team_assignments && j.team_assignments.length > 0) ||
+        (j.job_team_assignments && j.job_team_assignments.length > 0)
+      )
+      console.log(`📊 Analytics: Jobs with team assignments: ${jobsWithAssignments.length} out of ${allJobs.length}`)
+    }
+    
     return teamMembers.map(member => {
+      const memberId = Number(member.id)
       // Check for jobs assigned to this team member
       // Support both single assignment (team_member_id) and multiple assignments (team_assignments array)
       const memberJobs = allJobs.filter(job => {
-        // Check primary assignment (backward compatibility)
-        if (job.team_member_id === member.id) {
+        // Check primary assignment (team_member_id)
+        if (job.team_member_id && Number(job.team_member_id) === memberId) {
+          return true
+        }
+        
+        // Check assigned_team_member_id (alternative field name)
+        if (job.assigned_team_member_id && Number(job.assigned_team_member_id) === memberId) {
           return true
         }
         
         // Check team_assignments array (multiple team members per job)
         if (job.team_assignments && Array.isArray(job.team_assignments)) {
-          return job.team_assignments.some(assignment => {
+          const found = job.team_assignments.some(assignment => {
             // Handle both object format { team_member_id: X } and direct ID
             const assignmentId = assignment.team_member_id || assignment.teamMemberId || assignment
-            return Number(assignmentId) === Number(member.id)
+            if (assignmentId && Number(assignmentId) === memberId) {
+              return true
+            }
+            // Also check nested team_members object if present
+            if (assignment.team_members && assignment.team_members.id) {
+              return Number(assignment.team_members.id) === memberId
+            }
+            return false
           })
+          if (found) return true
         }
         
         // Also check if team_assignments is a single object (not array)
         if (job.team_assignments && typeof job.team_assignments === 'object' && !Array.isArray(job.team_assignments)) {
           const assignmentId = job.team_assignments.team_member_id || job.team_assignments.teamMemberId
-          return Number(assignmentId) === Number(member.id)
+          if (assignmentId && Number(assignmentId) === memberId) {
+            return true
+          }
+          // Check nested team_members
+          if (job.team_assignments.team_members && job.team_assignments.team_members.id) {
+            return Number(job.team_assignments.team_members.id) === memberId
+          }
+        }
+        
+        // Check job_team_assignments (raw relation data)
+        if (job.job_team_assignments && Array.isArray(job.job_team_assignments)) {
+          const found = job.job_team_assignments.some(ta => {
+            const taId = ta.team_member_id || ta.teamMemberId
+            if (taId && Number(taId) === memberId) {
+              return true
+            }
+            // Check nested team_members
+            if (ta.team_members && ta.team_members.id) {
+              return Number(ta.team_members.id) === memberId
+            }
+            return false
+          })
+          if (found) return true
         }
         
         return false
       })
       
+      if (memberJobs.length > 0) {
+        console.log(`📊 Analytics: Team member ${member.id} (${member.first_name} ${member.last_name}) has ${memberJobs.length} jobs`)
+        console.log(`📊 Analytics: Sample job IDs for member ${member.id}:`, memberJobs.slice(0, 3).map(j => ({
+          id: j.id,
+          team_member_id: j.team_member_id,
+          team_assignments: j.team_assignments?.map(ta => ta.team_member_id) || []
+        })))
+      }
+      
       const completedJobs = memberJobs.filter(job => job.status === 'completed')
       const completionRate = memberJobs.length > 0 ? (completedJobs.length / memberJobs.length * 100).toFixed(1) : 0
+      
+      // Calculate average job value from completed jobs with prices
+      const completedJobsWithPrices = completedJobs.filter(job => {
+        const jobPrice = parseFloat(job.total_amount) || 
+                        parseFloat(job.total) || 
+                        parseFloat(job.service_price) || 
+                        parseFloat(job.price) || 
+                        parseFloat(job.invoice_amount) || 
+                        0
+        return jobPrice > 0
+      })
+      
+      const avgJobValue = completedJobsWithPrices.length > 0 
+        ? Math.round((completedJobsWithPrices.reduce((sum, job) => {
+            const jobPrice = parseFloat(job.total_amount) || 
+                            parseFloat(job.total) || 
+                            parseFloat(job.service_price) || 
+                            parseFloat(job.price) || 
+                            parseFloat(job.invoice_amount) || 
+                            0
+            return sum + jobPrice
+          }, 0) / completedJobsWithPrices.length) * 100) / 100 
+        : 0
       
       return {
         ...member,
         totalJobs: memberJobs.length,
         completedJobs: completedJobs.length,
         completionRate: parseFloat(completionRate),
-        avgJobValue: completedJobs.length > 0 ? 
-          Math.round((completedJobs.reduce((sum, job) => sum + (parseFloat(job.service_price) || 0), 0) / completedJobs.length) * 100) / 100 : 0
+        avgJobValue: avgJobValue
       }
     })
   }
