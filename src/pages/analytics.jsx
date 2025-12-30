@@ -245,7 +245,32 @@ const Analytics = () => {
     const allJobs = jobs.jobs || []
     
     return teamMembers.map(member => {
-      const memberJobs = allJobs.filter(job => job.team_member_id === member.id)
+      // Check for jobs assigned to this team member
+      // Support both single assignment (team_member_id) and multiple assignments (team_assignments array)
+      const memberJobs = allJobs.filter(job => {
+        // Check primary assignment (backward compatibility)
+        if (job.team_member_id === member.id) {
+          return true
+        }
+        
+        // Check team_assignments array (multiple team members per job)
+        if (job.team_assignments && Array.isArray(job.team_assignments)) {
+          return job.team_assignments.some(assignment => {
+            // Handle both object format { team_member_id: X } and direct ID
+            const assignmentId = assignment.team_member_id || assignment.teamMemberId || assignment
+            return Number(assignmentId) === Number(member.id)
+          })
+        }
+        
+        // Also check if team_assignments is a single object (not array)
+        if (job.team_assignments && typeof job.team_assignments === 'object' && !Array.isArray(job.team_assignments)) {
+          const assignmentId = job.team_assignments.team_member_id || job.team_assignments.teamMemberId
+          return Number(assignmentId) === Number(member.id)
+        }
+        
+        return false
+      })
+      
       const completedJobs = memberJobs.filter(job => job.status === 'completed')
       const completionRate = memberJobs.length > 0 ? (completedJobs.length / memberJobs.length * 100).toFixed(1) : 0
       
