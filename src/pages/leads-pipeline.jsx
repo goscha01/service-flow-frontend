@@ -205,17 +205,27 @@ const LeadsPipeline = () => {
   
   // Auto-calculate value when service is selected (only if value is empty)
   useEffect(() => {
-    if (leadFormData.serviceId) {
+    if (leadFormData.serviceId && services.length > 0) {
       const selectedService = services.find(s => s.id === parseInt(leadFormData.serviceId));
       if (selectedService && selectedService.price) {
-        // Only auto-fill if the value field is empty or was previously auto-filled from a service
+        // Only auto-fill if the value field is empty, null, undefined, or 0
         // Don't overwrite if user has manually entered a price
         const currentValue = leadFormData.value?.toString().trim();
-        if (!currentValue || currentValue === '') {
-          setLeadFormData(prev => ({
-            ...prev,
-            value: selectedService.price.toString()
-          }));
+        const numericValue = parseFloat(currentValue);
+        // Check if value is empty, null, undefined, 0, or NaN
+        if (!currentValue || currentValue === '' || isNaN(numericValue) || numericValue === 0) {
+          setLeadFormData(prev => {
+            // Double-check the previous value to avoid unnecessary updates
+            const prevValue = prev.value?.toString().trim();
+            const prevNumeric = parseFloat(prevValue);
+            if (!prevValue || prevValue === '' || isNaN(prevNumeric) || prevNumeric === 0) {
+              return {
+                ...prev,
+                value: selectedService.price.toString()
+              };
+            }
+            return prev; // Keep existing value if it's a real number > 0
+          });
         }
         // If user has entered a value, keep it - service and price can coexist
       }
@@ -433,6 +443,16 @@ const LeadsPipeline = () => {
   // Open edit lead modal
   const handleOpenEditLead = (lead) => {
     setEditingLead(lead);
+    
+    // If lead has a service but no value, try to get the price from the service
+    let initialValue = lead.value;
+    if (lead.service_id && (!lead.value || lead.value === null || lead.value === '')) {
+      const service = services.find(s => s.id === parseInt(lead.service_id));
+      if (service && service.price) {
+        initialValue = service.price.toString();
+      }
+    }
+    
     setLeadFormData({
       firstName: lead.first_name || '',
       lastName: lead.last_name || '',
@@ -441,7 +461,7 @@ const LeadsPipeline = () => {
       company: lead.company || '',
       source: lead.source || '',
       notes: lead.notes || '',
-      value: lead.value || '',
+      value: initialValue || '',
       address: lead.address || '',
       serviceId: lead.service_id || ''
     });
