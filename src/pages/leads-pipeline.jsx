@@ -203,26 +203,25 @@ const LeadsPipeline = () => {
     }
   };
   
-  // Auto-calculate value when service is selected
+  // Auto-calculate value when service is selected (only if value is empty)
   useEffect(() => {
     if (leadFormData.serviceId) {
       const selectedService = services.find(s => s.id === parseInt(leadFormData.serviceId));
       if (selectedService && selectedService.price) {
-        setLeadFormData(prev => ({
-          ...prev,
-          value: selectedService.price.toString()
-        }));
-      } else if (selectedService && !selectedService.price) {
-        // Service has no price, clear the value
-        setLeadFormData(prev => ({
-          ...prev,
-          value: ''
-        }));
+        // Only auto-fill if the value field is empty or was previously auto-filled from a service
+        // Don't overwrite if user has manually entered a price
+        const currentValue = leadFormData.value?.toString().trim();
+        if (!currentValue || currentValue === '') {
+          setLeadFormData(prev => ({
+            ...prev,
+            value: selectedService.price.toString()
+          }));
+        }
+        // If user has entered a value, keep it - service and price can coexist
       }
-    } else {
-      // Service deselected - don't clear value, let user keep it if they want
-      // Only clear if it was auto-filled from a service
+      // Don't clear value if service has no price - let user keep their manually entered price
     }
+    // Don't clear value when service is deselected - let user keep it if they want
   }, [leadFormData.serviceId, services]);
   
   // Load tasks when a lead is selected
@@ -1102,7 +1101,7 @@ const LeadsPipeline = () => {
                     ))}
                   </select>
                   <p className="text-xs text-gray-500 mt-1">
-                    Selecting a service will automatically set the estimated value
+                    Selecting a service will auto-fill the estimated value if empty. You can manually enter a different value.
                   </p>
                 </div>
                 
@@ -1125,17 +1124,16 @@ const LeadsPipeline = () => {
                     onBlur={(e) => {
                       // On blur, if empty or invalid, set to empty string
                       const inputValue = e.target.value;
-                      if (inputValue === '' || isNaN(parseFloat(inputValue)) || parseFloat(inputValue) < 0) {
+                      if (inputValue !== '' && (isNaN(parseFloat(inputValue)) || parseFloat(inputValue) < 0)) {
                         setLeadFormData({ ...leadFormData, value: '' });
                       }
                     }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    readOnly={!!leadFormData.serviceId}
                     placeholder="0.00"
                   />
-                  {leadFormData.serviceId && (
+                  {leadFormData.serviceId && leadFormData.value && (
                     <p className="text-xs text-gray-500 mt-1">
-                      Value calculated from selected service (you can edit this)
+                      Service and estimated value can both be saved
                     </p>
                   )}
                 </div>
@@ -1615,7 +1613,7 @@ const LeadsPipeline = () => {
                     ))}
                   </select>
                   <p className="text-xs text-gray-500 mt-1">
-                    Selecting a service will automatically set the estimated value
+                    Selecting a service will auto-fill the estimated value if empty. You can manually enter a different value.
                   </p>
                 </div>
                 
@@ -1638,13 +1636,18 @@ const LeadsPipeline = () => {
                     onBlur={(e) => {
                       // On blur, if empty or invalid, set to empty string
                       const inputValue = e.target.value;
-                      if (inputValue === '' || isNaN(parseFloat(inputValue)) || parseFloat(inputValue) < 0) {
+                      if (inputValue !== '' && (isNaN(parseFloat(inputValue)) || parseFloat(inputValue) < 0)) {
                         setLeadFormData({ ...leadFormData, value: '' });
                       }
                     }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     placeholder="0.00"
                   />
+                  {leadFormData.serviceId && leadFormData.value && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Service and estimated value can both be saved
+                    </p>
+                  )}
                 </div>
                 
                 <div>
