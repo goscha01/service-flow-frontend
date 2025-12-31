@@ -6,12 +6,17 @@ const CalendarPicker = ({
   selectedDate, 
   selectedTime = "09:00",
   onDateTimeSelect, 
+  onDateSelect, // Simple date-only selection callback
   isOpen, 
   onClose, 
   duration = 120, // Default 2 hours in minutes
   workerId = null,
-  serviceId = null
+  serviceId = null,
+  position = "center" // Position for popup: "center", "bottom-left", etc.
 }) => {
+  // If onDateSelect is provided, use simple date picker mode (no time selection)
+  const isSimpleDatePicker = !!onDateSelect
+  
   const [currentDate, setCurrentDate] = useState(selectedDate || new Date())
   const [activeTab, setActiveTab] = useState('available') // 'available' or 'custom'
   const [customTime, setCustomTime] = useState(selectedTime || "09:00")
@@ -127,7 +132,16 @@ const CalendarPicker = ({
   }
 
   const isDateDisabled = (date) => {
-    // Check if it's a past date
+    // For simple date picker, allow past dates
+    if (isSimpleDatePicker) {
+      // Only disable closed days and holidays
+      if (closedDays.includes(date.getDay())) return true
+      const dateStr = date.toISOString().split('T')[0]
+      if (holidays.includes(dateStr)) return true
+      return false
+    }
+    
+    // For scheduling mode, check if it's a past date
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     if (date < today) return true
@@ -145,6 +159,14 @@ const CalendarPicker = ({
   const handleDateClick = (date) => {
     if (isDateDisabled(date)) return
 
+    // Simple date picker mode - directly select and close
+    if (isSimpleDatePicker && onDateSelect) {
+      onDateSelect(date)
+      onClose()
+      return
+    }
+
+    // Scheduling mode - show time selection
     if (activeTab === 'available') {
       setSelectedDateForSlots(date)
     } else {
@@ -203,47 +225,61 @@ const CalendarPicker = ({
 
   if (!isOpen) return null
 
+  // Determine popup position
+  const positionClasses = {
+    'center': 'flex items-center justify-center',
+    'bottom-left': 'flex items-end justify-start',
+    'bottom-right': 'flex items-end justify-end',
+    'top-left': 'flex items-start justify-start',
+    'top-right': 'flex items-start justify-end'
+  }
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+    <div className={`fixed inset-0 z-50 ${positionClasses[position] || positionClasses.center} bg-black bg-opacity-50 p-4`}>
       <div 
         ref={calendarRef}
-        className="bg-white rounded-lg shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden"
+        className={`bg-white rounded-lg shadow-2xl ${isSimpleDatePicker ? 'w-full max-w-sm' : 'w-full max-w-4xl'} max-h-[90vh] overflow-hidden`}
         style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
       >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
-          <div className="flex gap-6">
-            <button
-              onClick={() => setActiveTab('available')}
-              className={`text-sm font-medium pb-2 border-b-2 transition-colors ${
-                activeTab === 'available' 
-                  ? 'text-blue-600 border-blue-600' 
-                  : 'text-gray-500 border-transparent hover:text-gray-700'
-              }`}
-              style={{ fontFamily: 'Montserrat', fontWeight: activeTab === 'available' ? 600 : 400 }}
-            >
-              Available Times
-            </button>
-            <button
-              onClick={() => setActiveTab('custom')}
-              className={`text-sm font-medium pb-2 border-b-2 transition-colors ${
-                activeTab === 'custom' 
-                  ? 'text-blue-600 border-blue-600' 
-                  : 'text-gray-500 border-transparent hover:text-gray-700'
-              }`}
-              style={{ fontFamily: 'Montserrat', fontWeight: activeTab === 'custom' ? 600 : 400 }}
-            >
-              Custom Time
-            </button>
-          </div>
+          {!isSimpleDatePicker && (
+            <div className="flex gap-6">
+              <button
+                onClick={() => setActiveTab('available')}
+                className={`text-sm font-medium pb-2 border-b-2 transition-colors ${
+                  activeTab === 'available' 
+                    ? 'text-blue-600 border-blue-600' 
+                    : 'text-gray-500 border-transparent hover:text-gray-700'
+                }`}
+                style={{ fontFamily: 'Montserrat', fontWeight: activeTab === 'available' ? 600 : 400 }}
+              >
+                Available Times
+              </button>
+              <button
+                onClick={() => setActiveTab('custom')}
+                className={`text-sm font-medium pb-2 border-b-2 transition-colors ${
+                  activeTab === 'custom' 
+                    ? 'text-blue-600 border-blue-600' 
+                    : 'text-gray-500 border-transparent hover:text-gray-700'
+                }`}
+                style={{ fontFamily: 'Montserrat', fontWeight: activeTab === 'custom' ? 600 : 400 }}
+              >
+                Custom Time
+              </button>
+            </div>
+          )}
+          {isSimpleDatePicker && (
+            <h3 className="text-lg font-semibold text-gray-900">Select Date</h3>
+          )}
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="flex h-[500px]">
+        <div className={isSimpleDatePicker ? "p-6" : "flex h-[500px]"}>
           {/* Calendar Section */}
-          <div className="flex-1 p-6 border-r border-gray-200">
+          <div className={`flex-1 p-6 ${!isSimpleDatePicker ? 'border-r border-gray-200' : ''}`}>
             {/* Month Navigation */}
             <div className="flex items-center justify-between mb-6">
               <button
@@ -279,7 +315,10 @@ const CalendarPicker = ({
                 {generateCalendarDays().map((date, index) => {
                   const isCurrentMonth = date.getMonth() === currentDate.getMonth()
                   const isToday = date.toDateString() === new Date().toDateString()
-                  const isSelected = selectedDateForSlots && date.toDateString() === selectedDateForSlots.toDateString()
+                  // For simple date picker, check against selectedDate prop
+                  const isSelected = isSimpleDatePicker 
+                    ? selectedDate && date.toDateString() === new Date(selectedDate).toDateString()
+                    : selectedDateForSlots && date.toDateString() === selectedDateForSlots.toDateString()
                   const isDisabled = isDateDisabled(date)
                   
                   return (
@@ -307,7 +346,8 @@ const CalendarPicker = ({
             </div>
           </div>
 
-          {/* Right Side - Time Selection */}
+          {/* Right Side - Time Selection (only for scheduling mode) */}
+          {!isSimpleDatePicker && (
           <div className="flex-1 p-6">
             {activeTab === 'available' ? (
               <div className="h-full">
@@ -416,6 +456,7 @@ const CalendarPicker = ({
               </div>
             )}
           </div>
+          )}
         </div>
       </div>
     </div>
