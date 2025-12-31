@@ -154,12 +154,26 @@ const LeadsPipeline = () => {
     loadServices();
   }, []);
   
+  // Helper function to decode HTML entities
+  const decodeHtmlEntities = (text) => {
+    if (!text || typeof text !== 'string') return text;
+    const textarea = document.createElement('textarea');
+    textarea.innerHTML = text;
+    return textarea.value;
+  };
+
   const loadServices = async () => {
     try {
       if (user?.id) {
         const response = await servicesAPI.getAll(user.id);
         const servicesArray = response.services || response || [];
-        setServices(servicesArray);
+        // Decode HTML entities in service names and ensure price is properly formatted
+        const processedServices = servicesArray.map(service => ({
+          ...service,
+          name: decodeHtmlEntities(service.name || ''),
+          price: parseFloat(service.price) || parseFloat(service.service_price) || 0
+        }));
+        setServices(processedServices);
       }
     } catch (err) {
       console.error('Error loading services:', err);
@@ -1114,11 +1128,15 @@ const LeadsPipeline = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
                     <option value="">Select a service...</option>
-                    {services.map((service) => (
-                      <option key={service.id} value={service.id}>
-                        {service.name} - ${service.price || 0}
-                      </option>
-                    ))}
+                    {services.map((service) => {
+                      const serviceName = decodeHtmlEntities(service.name || '');
+                      const servicePrice = parseFloat(service.price) || parseFloat(service.service_price) || 0;
+                      return (
+                        <option key={service.id} value={service.id}>
+                          {serviceName} - ${servicePrice.toFixed(2)}
+                        </option>
+                      );
+                    })}
                   </select>
                   <p className="text-xs text-gray-500 mt-1">
                     Selecting a service will auto-fill the estimated value if empty. You can manually enter a different value.
@@ -1633,11 +1651,15 @@ const LeadsPipeline = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
                     <option value="">Select a service...</option>
-                    {services.map((service) => (
-                      <option key={service.id} value={service.id}>
-                        {service.name} - ${service.price || 0}
-                      </option>
-                    ))}
+                    {services.map((service) => {
+                      const serviceName = decodeHtmlEntities(service.name || '');
+                      const servicePrice = parseFloat(service.price) || parseFloat(service.service_price) || 0;
+                      return (
+                        <option key={service.id} value={service.id}>
+                          {serviceName} - ${servicePrice.toFixed(2)}
+                        </option>
+                      );
+                    })}
                   </select>
                   <p className="text-xs text-gray-500 mt-1">
                     Selecting a service will auto-fill the estimated value if empty. You can manually enter a different value.

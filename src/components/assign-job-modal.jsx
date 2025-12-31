@@ -8,7 +8,7 @@ import { normalizeAPIResponse } from '../utils/dataHandler'
 const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
   const { user } = useAuth()
   const [teamMembers, setTeamMembers] = useState([])
-  const [selectedMemberId, setSelectedMemberId] = useState(null)
+  const [selectedMemberIds, setSelectedMemberIds] = useState(new Set())
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedSkill, setSelectedSkill] = useState('none')
   const [showDriveTime, setShowDriveTime] = useState(true)
@@ -23,12 +23,29 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
   useEffect(() => {
     if (isOpen && job) {
       fetchTeamMembers()
-      setSelectedMemberId(null)
+      // Get all currently assigned team members from team_assignments array
+      const assignedIds = new Set()
+      if (job?.team_assignments && Array.isArray(job.team_assignments) && job.team_assignments.length > 0) {
+        job.team_assignments.forEach(assignment => {
+          if (assignment.team_member_id) {
+            assignedIds.add(Number(assignment.team_member_id))
+          }
+        })
+      }
+      // Fallback to single assignment fields
+      if (assignedIds.size === 0) {
+        const currentAssignedId = job?.assigned_team_member_id || job?.team_member_id
+        if (currentAssignedId) {
+          assignedIds.add(Number(currentAssignedId))
+        }
+      }
+      setSelectedMemberIds(assignedIds)
+      console.log('Assign modal opened - pre-selected member IDs:', Array.from(assignedIds))
       setSearchQuery('')
       setSelectedSkill('none')
       setExpandedSchedules({})
     } else {
-      setSelectedMemberId(null)
+      setSelectedMemberIds(new Set())
       setSearchQuery('')
       setSelectedSkill('none')
       setAssigning(false)
@@ -55,11 +72,22 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
         limit: 100
       })
       
+      // Normalize the response
+      const teamMembersData = normalizeAPIResponse(response, 'teamMembers') || []
+      
       // Filter to only service providers (workers, schedulers, managers, account owner)
-      const providers = (response.teamMembers || response || []).filter(member => 
+      const providers = teamMembersData.filter(member => 
         (member.is_service_provider || member.role === 'owner' || member.role === 'account owner') && 
         member.status === 'active'
       )
+      
+      // Log for debugging
+      console.log('Fetched team members:', providers.map(m => ({
+        id: m.id,
+        first_name: m.first_name,
+        last_name: m.last_name,
+        business_name: m.business_name
+      })))
       
       setTeamMembers(providers)
       
@@ -427,6 +455,26 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
     setDriveTimes(driveTimeMap)
   }
 
+  // Get currently assigned member IDs to ensure they're always shown
+  const currentlyAssignedIds = useMemo(() => {
+    const assignedIds = new Set()
+    if (job?.team_assignments && Array.isArray(job.team_assignments)) {
+      job.team_assignments.forEach(assignment => {
+        if (assignment.team_member_id) {
+          assignedIds.add(Number(assignment.team_member_id))
+        }
+      })
+    }
+    // Fallback to single assignment fields
+    if (assignedIds.size === 0) {
+      const currentAssignedId = job?.assigned_team_member_id || job?.team_member_id
+      if (currentAssignedId) {
+        assignedIds.add(Number(currentAssignedId))
+      }
+    }
+    return assignedIds
+  }, [job])
+
   // Filter and search team members
   const filteredMembers = useMemo(() => {
     let filtered = teamMembers
@@ -464,30 +512,59 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
       })
     }
 
+    // Always include currently assigned members, even if they don't match filters
+    const assignedMembers = teamMembers.filter(member => currentlyAssignedIds.has(Number(member.id)))
+    const assignedMemberIds = new Set(assignedMembers.map(m => m.id))
+
     // Filter to only available members (must be explicitly available: true)
+    // BUT always include currently assigned members
     filtered = filtered.filter(member => {
+      const isAssigned = assignedMemberIds.has(member.id)
+      if (isAssigned) return true // Always show assigned members
+      
       const availability = memberAvailability[member.id]
       // Only show members who are explicitly available (available === true)
       // Don't show if available === false, undefined, or null
       return availability && availability.available === true
     })
 
+    // Merge assigned members that might not be in filtered list
+    const filteredIds = new Set(filtered.map(m => m.id))
+    assignedMembers.forEach(member => {
+      if (!filteredIds.has(member.id)) {
+        filtered.push(member)
+      }
+    })
+
     return filtered
-  }, [teamMembers, searchQuery, selectedSkill, memberAvailability])
+  }, [teamMembers, searchQuery, selectedSkill, memberAvailability, currentlyAssignedIds])
 
   const handleAssign = async () => {
-    if (!selectedMemberId) return
-
     try {
       setAssigning(true)
       if (onAssign) {
-        await onAssign(selectedMemberId)
+        // Convert Set to Array for the handler
+        const memberIdsArray = Array.from(selectedMemberIds)
+        await onAssign(memberIdsArray)
       }
       onClose()
     } catch (error) {
       console.error('Error assigning job:', error)
       setAssigning(false)
     }
+  }
+
+  const toggleMemberSelection = (memberId) => {
+    setSelectedMemberIds(prev => {
+      const newSet = new Set(prev)
+      const id = Number(memberId) // Ensure consistent number type
+      if (newSet.has(id)) {
+        newSet.delete(id)
+      } else {
+        newSet.add(id)
+      }
+      return newSet
+    })
   }
 
   const toggleScheduleExpansion = (memberId, e) => {
@@ -551,10 +628,24 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
   }
 
   // Get currently assigned members
-  const assignedMemberId = job?.assigned_team_member_id || job?.team_member_id
-  const assignedCount = assignedMemberId ? 1 : 0
+  const assignedMemberIds = new Set()
+  if (job?.team_assignments && Array.isArray(job.team_assignments)) {
+    job.team_assignments.forEach(assignment => {
+      if (assignment.team_member_id) {
+        assignedMemberIds.add(Number(assignment.team_member_id))
+      }
+    })
+  }
+  // Fallback to single assignment fields
+  if (assignedMemberIds.size === 0) {
+    const currentAssignedId = job?.assigned_team_member_id || job?.team_member_id
+    if (currentAssignedId) {
+      assignedMemberIds.add(Number(currentAssignedId))
+    }
+  }
+  const assignedCount = assignedMemberIds.size
   const workersNeeded = job?.workers_needed || 1
-  const assignedMember = assignedMemberId ? teamMembers.find(m => m.id === assignedMemberId) : null
+  const assignedMembers = teamMembers.filter(m => assignedMemberIds.has(Number(m.id)))
 
   if (!isOpen || !job) return null
 
@@ -572,15 +663,15 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
           <h2 className="text-lg font-bold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Assign Job</h2>
           <button
             onClick={handleAssign}
-            disabled={!selectedMemberId || assigning}
+            disabled={assigning}
             className={`px-5 py-2 text-sm font-semibold rounded-lg transition-all ${
-              selectedMemberId && !assigning
+              !assigning
                 ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm'
                 : 'bg-gray-200 text-gray-400 cursor-not-allowed'
             }`}
             style={{ fontFamily: 'Montserrat', fontWeight: 600 }}
           >
-            {assigning ? 'Assigning...' : 'Assign'}
+            {assigning ? 'Updating...' : 'Update Assignment'}
           </button>
         </div>
 
@@ -603,26 +694,51 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
                 <span className="text-xs font-medium text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                   {assignedCount}/{workersNeeded} assigned
                 </span>
-                {assignedMember && (
+                {assignedMembers.length > 0 && (
+                  <div className="flex items-center gap-1">
+                    {assignedMembers.slice(0, 3).map((member, idx) => (
                   <div 
+                        key={member.id}
                     className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-semibold"
-                    style={{ backgroundColor: assignedMember.color || '#DC2626' }}
+                        style={{ backgroundColor: member.color || '#DC2626' }}
+                        title={`${member.first_name || ''} ${member.last_name || ''}`.trim() || member.business_name}
                   >
-                    {getInitials(assignedMember)}
+                        {getInitials(member)}
+                  </div>
+                    ))}
+                    {assignedMembers.length > 3 && (
+                      <span className="text-xs text-gray-600">+{assignedMembers.length - 3}</span>
+                    )}
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Worker Name */}
-            {assignedMember && (
-              <div className="flex items-center gap-2 mb-3">
+            {/* Assigned Members List */}
+            {assignedMembers.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2 mb-3">
                 <User className="w-4 h-4 text-gray-500" />
-                <span className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
-                  {assignedMember.first_name && assignedMember.last_name
-                    ? `${assignedMember.first_name} ${assignedMember.last_name}`
-                    : assignedMember.business_name || 'Assigned'}
+                <div className="flex flex-wrap gap-2">
+                  {assignedMembers.map((member) => (
+                    <span 
+                      key={member.id}
+                      className="text-sm font-medium text-gray-900" 
+                      style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
+                    >
+                      {(() => {
+                        const firstName = (member.first_name || '').trim()
+                        const lastName = (member.last_name || '').trim()
+                        const businessName = (member.business_name || '').trim()
+                        
+                        if (firstName || lastName) {
+                          return `${firstName} ${lastName}`.trim() || businessName || 'Assigned'
+                        }
+                        return businessName || 'Assigned'
+                      })()}
+                      {assignedMembers.length > 1 && assignedMembers.indexOf(member) < assignedMembers.length - 1 && ','}
                 </span>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -719,7 +835,8 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
             ) : (
               <div className="space-y-3">
                 {filteredMembers.map((member) => {
-                  const isSelected = selectedMemberId === member.id
+                  const memberId = Number(member.id) // Ensure consistent number type
+                  const isSelected = selectedMemberIds.has(memberId)
                   const availability = memberAvailability[member.id] || {}
                   const driveTime = driveTimes[member.id]
                   const isExpanded = expandedSchedules[member.id]
@@ -727,7 +844,7 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
                   return (
                     <div
                       key={member.id}
-                      onClick={() => setSelectedMemberId(member.id)}
+                      onClick={() => toggleMemberSelection(memberId)}
                       className={`bg-white border rounded-lg p-4 cursor-pointer transition-all ${
                         isSelected
                           ? 'border-blue-600 bg-blue-50'
@@ -757,7 +874,15 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
                             {member.profile_picture ? (
                               <img
                                 src={getImageUrl(member.profile_picture)}
-                                alt={`${member.first_name} ${member.last_name}`}
+                                alt={(() => {
+                                  const firstName = (member.first_name || '').trim()
+                                  const lastName = (member.last_name || '').trim()
+                                  const businessName = (member.business_name || '').trim()
+                                  if (firstName || lastName) {
+                                    return `${firstName} ${lastName}`.trim() || businessName || 'Provider'
+                                  }
+                                  return businessName || 'Provider'
+                                })()}
                                 className="w-full h-full rounded-full object-cover"
                               />
                             ) : (
@@ -771,9 +896,16 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between mb-1.5">
                             <h3 className="text-sm font-bold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
-                              {member.first_name && member.last_name
-                                ? `${member.first_name} ${member.last_name}`
-                                : member.business_name || 'Provider'}
+                              {(() => {
+                                const firstName = (member.first_name || '').trim()
+                                const lastName = (member.last_name || '').trim()
+                                const businessName = (member.business_name || '').trim()
+                                
+                                if (firstName || lastName) {
+                                  return `${firstName} ${lastName}`.trim() || businessName || 'Provider'
+                                }
+                                return businessName || 'Provider'
+                              })()}
                             </h3>
                             {showDriveTime && driveTime && (
                               <span className="text-xs text-gray-500 ml-2" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>

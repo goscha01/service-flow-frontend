@@ -66,6 +66,7 @@ import {
   canResetJobStatuses 
 } from "../utils/permissionUtils"
 import { formatPhoneNumber } from "../utils/phoneFormatter"
+import AddressAutocomplete from "../components/address-autocomplete"
 
 const ServiceFlowSchedule = () => {
   const { user } = useAuth()
@@ -166,6 +167,7 @@ const ServiceFlowSchedule = () => {
     notes: '',
     internal_notes: ''
   })
+  const [selectedAddressData, setSelectedAddressData] = useState(null)
 
 
   // No click-outside handler - using backdrop overlay approach instead
@@ -1797,39 +1799,43 @@ const ServiceFlowSchedule = () => {
   const handleEditAddress = () => {
     if (!selectedJobDetails) return
     
-    // Parse the current scheduled date and time without timezone conversion
-    let currentDate = ''
-    let currentTime = ''
+    // Get the current address
+    const currentAddress = selectedJobDetails.service_address_street || 
+                          selectedJobDetails.customer_address || 
+                          selectedJobDetails.address || ''
     
-    if (selectedJobDetails.scheduled_date) {
-      // Handle different date formats without timezone conversion
-      if (selectedJobDetails.scheduled_date.includes('T')) {
-        // ISO format: 2025-10-23T09:00:00
-        const [datePart, timePart] = selectedJobDetails.scheduled_date.split('T')
-        currentDate = datePart // YYYY-MM-DD
-        currentTime = timePart.substring(0, 5) // HH:MM
-      } else if (selectedJobDetails.scheduled_date.includes(' ')) {
-        // Space format: 2025-10-23 09:00:00
-        const [datePart, timePart] = selectedJobDetails.scheduled_date.split(' ')
-        currentDate = datePart // YYYY-MM-DD
-        currentTime = timePart.substring(0, 5) // HH:MM
-      } else {
-        // Just date: 2025-10-23
-        currentDate = selectedJobDetails.scheduled_date
-        currentTime = '09:00' // Default time
-      }
+    // Build full address string if we have components
+    let fullAddress = currentAddress
+    if (selectedJobDetails.service_address_city || selectedJobDetails.service_address_state) {
+      const parts = [currentAddress]
+      if (selectedJobDetails.service_address_city) parts.push(selectedJobDetails.service_address_city)
+      if (selectedJobDetails.service_address_state) parts.push(selectedJobDetails.service_address_state)
+      if (selectedJobDetails.service_address_zip) parts.push(selectedJobDetails.service_address_zip)
+      fullAddress = parts.filter(Boolean).join(', ')
     }
     
-    setEditFormData({
-      customer_name: selectedJobDetails.customer_name || selectedJobDetails.customer?.name || '',
-      customer_email: selectedJobDetails.customer_email || selectedJobDetails.customer?.email || '',
-      customer_phone: selectedJobDetails.customer_phone || selectedJobDetails.customer?.phone || '',
-      service_address: selectedJobDetails.customer_address || selectedJobDetails.address || '',
-      scheduled_date: currentDate,
-      scheduled_time: currentTime,
-      notes: selectedJobDetails.notes || '',
-      internal_notes: selectedJobDetails.internal_notes || ''
-    })
+    setEditFormData(prev => ({
+      ...prev,
+      service_address: fullAddress
+    }))
+    
+    // Set address data if we have components
+    if (selectedJobDetails.service_address_street || selectedJobDetails.service_address_city) {
+      setSelectedAddressData({
+        formattedAddress: fullAddress,
+        components: {
+          streetNumber: selectedJobDetails.service_address_street?.split(' ')[0] || null,
+          route: selectedJobDetails.service_address_street?.split(' ').slice(1).join(' ') || null,
+          city: selectedJobDetails.service_address_city || null,
+          state: selectedJobDetails.service_address_state || null,
+          zipCode: selectedJobDetails.service_address_zip || null,
+          country: 'USA'
+        }
+      })
+    } else {
+      setSelectedAddressData(null)
+    }
+    
     setShowEditAddressModal(true)
   }
 
@@ -1947,45 +1953,57 @@ const ServiceFlowSchedule = () => {
       setIsUpdatingJob(true)
       setErrorMessage('')
       
-      const updateData = {
-        service_address: editFormData.service_address,
-        customer_address: editFormData.service_address
+      // Build update data from address components if available, otherwise use the text input
+      const updateData = {}
+      
+      if (selectedAddressData && selectedAddressData.components) {
+        const components = selectedAddressData.components
+        const streetAddress = [components.streetNumber, components.route].filter(Boolean).join(' ') || selectedAddressData.formattedAddress
+        
+        updateData.service_address_street = streetAddress
+        updateData.service_address_city = components.city || null
+        updateData.service_address_state = components.state || null
+        updateData.service_address_zip = components.zipCode || null
+        updateData.customer_address = selectedAddressData.formattedAddress
+        updateData.service_address = selectedAddressData.formattedAddress
+      } else {
+        // Fallback to plain text if no address data
+        updateData.service_address = editFormData.service_address
+        updateData.customer_address = editFormData.service_address
+        updateData.service_address_street = editFormData.service_address
       }
       
       await jobsAPI.update(selectedJobDetails.id, updateData)
       
-      // Update local state
+      // Reload job data from API to get the latest state
+      const jobData = await jobsAPI.getById(selectedJobDetails.id)
+      const normalizedJob = normalizeCustomerData(jobData)
+      
+      // Update selected job details with fresh data, preserving payment amounts
       setSelectedJobDetails(prev => ({
-        ...prev,
-        service_address: editFormData.service_address,
-        customer_address: editFormData.service_address
+        ...normalizedJob,
+        total_paid_amount: prev.total_paid_amount || normalizedJob.total_paid_amount || 0,
+        invoice_paid_amount: prev.invoice_paid_amount || normalizedJob.invoice_paid_amount || 0
       }))
       
       // Update the job in the main jobs list
       setJobs(prevJobs => prevJobs.map(job => 
-        job.id === selectedJobDetails.id ? { 
-          ...job, 
-          service_address: editFormData.service_address,
-          customer_address: editFormData.service_address
-        } : job
+        job.id === selectedJobDetails.id ? normalizedJob : job
       ))
       
       // Update filtered jobs as well
       setFilteredJobs(prevFilteredJobs => prevFilteredJobs.map(job => 
-        job.id === selectedJobDetails.id ? { 
-          ...job, 
-          service_address: editFormData.service_address,
-          customer_address: editFormData.service_address
-        } : job
+        job.id === selectedJobDetails.id ? normalizedJob : job
       ))
       
-      setSuccessMessage('Service address updated successfully!')
+      setSuccessMessage('Address updated successfully!')
       setTimeout(() => setSuccessMessage(''), 3000)
       setShowEditAddressModal(false)
+      setSelectedAddressData(null)
       
     } catch (error) {
       console.error('Error updating address:', error)
-      setErrorMessage('Failed to update service address')
+      setErrorMessage('Failed to update address')
       setTimeout(() => setErrorMessage(''), 3000)
     } finally {
       setIsUpdatingJob(false)
@@ -2146,59 +2164,94 @@ const ServiceFlowSchedule = () => {
     }
   }
 
-  const handleAssignTeamMember = async (teamMemberId) => {
+  const handleAssignTeamMember = async (teamMemberIds) => {
     if (!selectedJobDetails) return
     
     try {
       setIsUpdatingJob(true)
       setErrorMessage('')
       
-      await jobsAPI.assignToTeamMember(selectedJobDetails.id, teamMemberId)
+      // teamMemberIds is now an array of selected member IDs
+      const memberIdsArray = Array.isArray(teamMemberIds) ? teamMemberIds : (teamMemberIds ? [teamMemberIds] : [])
       
-      // Get the assigned member details
-      const assignedMember = teamMembers.find(m => m.id === teamMemberId)
+      // Convert all IDs to numbers for consistency
+      const normalizedMemberIds = memberIdsArray.map(id => Number(id)).filter(id => id && !isNaN(id))
       
-      // Update local state with member details
+      // Get current assignments to remove if needed
+      const currentAssignments = selectedJobDetails.team_assignments || []
+      const currentMemberIds = new Set(
+        currentAssignments.map(ta => Number(ta.team_member_id)).filter(id => id)
+      )
+      // Fallback to single assignment fields
+      if (currentMemberIds.size === 0) {
+        const singleId = selectedJobDetails.assigned_team_member_id || selectedJobDetails.team_member_id
+        if (singleId) {
+          currentMemberIds.add(Number(singleId))
+        }
+      }
+      
+      if (normalizedMemberIds.length > 0) {
+        // Assign multiple members (or single member) - this replaces all existing assignments
+        const primaryMemberId = normalizedMemberIds[0]
+        await jobsAPI.assignMultipleTeamMembers(selectedJobDetails.id, normalizedMemberIds, primaryMemberId)
+      } else {
+        // If no members selected, remove all assignments one by one
+        // The backend assign-multiple endpoint doesn't accept empty arrays
+        const removePromises = Array.from(currentMemberIds).map(memberId => 
+          jobsAPI.removeTeamMember(selectedJobDetails.id, memberId)
+        )
+        await Promise.all(removePromises)
+      }
+      
+      // Reload job data from API to get the latest state
+      const jobData = await jobsAPI.getById(selectedJobDetails.id)
+      // Normalize customer data to ensure flat fields are preserved
+      const normalizedJob = normalizeCustomerData(jobData)
+      
+      // Ensure team_assignments is properly structured
+      if (!normalizedJob.team_assignments || !Array.isArray(normalizedJob.team_assignments)) {
+        // If team_assignments is missing, try to construct it from other fields
+        const assignments = []
+        if (normalizedJob.assigned_team_member_id || normalizedJob.team_member_id) {
+          const memberId = normalizedJob.assigned_team_member_id || normalizedJob.team_member_id
+          assignments.push({
+            team_member_id: Number(memberId),
+            is_primary: true
+          })
+        }
+        normalizedJob.team_assignments = assignments
+      }
+      
+      // Update selected job details with fresh data, preserving payment amounts
       setSelectedJobDetails(prev => ({
-        ...prev,
-        assigned_team_member_id: teamMemberId,
-        team_member_id: teamMemberId,
-        team_member_first_name: assignedMember?.first_name || null,
-        team_member_last_name: assignedMember?.last_name || null
-      }))
-      
-      // Update local state
-      setSelectedJobDetails(prev => ({
-        ...prev,
-        assigned_team_member_id: teamMemberId,
-        team_member_id: teamMemberId
+        ...normalizedJob,
+        total_paid_amount: prev.total_paid_amount || normalizedJob.total_paid_amount || 0,
+        invoice_paid_amount: prev.invoice_paid_amount || normalizedJob.invoice_paid_amount || 0
       }))
       
       // Update the job in the main jobs list
       setJobs(prevJobs => prevJobs.map(job => 
-        job.id === selectedJobDetails.id ? { 
-          ...job, 
-          assigned_team_member_id: teamMemberId,
-          team_member_id: teamMemberId
-        } : job
+        job.id === selectedJobDetails.id ? normalizedJob : job
       ))
       
       // Update filtered jobs as well
       setFilteredJobs(prevFilteredJobs => prevFilteredJobs.map(job => 
-        job.id === selectedJobDetails.id ? { 
-          ...job, 
-          assigned_team_member_id: teamMemberId,
-          team_member_id: teamMemberId
-        } : job
+        job.id === selectedJobDetails.id ? normalizedJob : job
       ))
       
-      setSuccessMessage('Team member assigned successfully!')
+      const actionText = memberIdsArray.length === 0 
+        ? 'All team members unassigned successfully!' 
+        : memberIdsArray.length === 1 
+        ? 'Team member assigned successfully!' 
+        : `${memberIdsArray.length} team members assigned successfully!`
+      
+      setSuccessMessage(actionText)
       setTimeout(() => setSuccessMessage(''), 3000)
       setShowAssignModal(false)
       
     } catch (error) {
       console.error('Error assigning team member:', error)
-      setErrorMessage('Failed to assign team member')
+      setErrorMessage('Failed to update team member assignments')
       setTimeout(() => setErrorMessage(''), 3000)
     } finally {
       setIsUpdatingJob(false)
@@ -5972,11 +6025,21 @@ const ServiceFlowSchedule = () => {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Service Address</label>
-                <textarea
+                <AddressAutocomplete
                   value={editFormData.service_address}
-                  onChange={(e) => setEditFormData(prev => ({ ...prev, service_address: e.target.value }))}
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  onChange={(value) => {
+                    setEditFormData(prev => ({ ...prev, service_address: value }))
+                  }}
+                  onAddressSelect={(addressData) => {
+                    setSelectedAddressData(addressData)
+                    setEditFormData(prev => ({
+                      ...prev,
+                      service_address: addressData.formattedAddress
+                    }))
+                  }}
+                  placeholder="Enter service address"
+                  className="w-full"
+                  showValidationResults={false}
                 />
               </div>
 
