@@ -978,7 +978,7 @@ const LeadsPipeline = () => {
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Address
+                    Location
                   </label>
                   <AddressAutocompleteLeads
                     value={leadFormData.address}
@@ -994,7 +994,7 @@ const LeadsPipeline = () => {
                       // Check property data when address is selected
                       checkZillowProperty(addressData);
                     }}
-                    placeholder="Enter property address"
+                    placeholder="Search location"
                     className="w-full"
                   />
                 </div>
@@ -1495,7 +1495,7 @@ const LeadsPipeline = () => {
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Address
+                    Location
                   </label>
                   <AddressAutocompleteLeads
                     value={leadFormData.address}
@@ -1513,7 +1513,7 @@ const LeadsPipeline = () => {
                         checkZillowProperty(addressData);
                       }
                     }}
-                    placeholder="Enter property address"
+                    placeholder="Search location"
                     className="w-full"
                   />
                 </div>

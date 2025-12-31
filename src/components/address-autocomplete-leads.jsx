@@ -6,7 +6,7 @@ const AddressAutocompleteLeads = ({
   value, 
   onChange, 
   onAddressSelect, 
-  placeholder = "Enter address",
+  placeholder = "Search location",
   className = "",
   showValidationResults = true,
   apiKey = "AIzaSyC_CrJWTsTHOTBd7TSzTuXOfutywZ2AyOQ"
@@ -17,8 +17,14 @@ const AddressAutocompleteLeads = ({
   const [selectedAddress, setSelectedAddress] = useState(null);
   const [googleMapsReady, setGoogleMapsReady] = useState(false);
   const [isProgrammaticUpdate, setIsProgrammaticUpdate] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const inputRef = useRef(null);
   const autocompleteRef = useRef(null);
+
+  // Delay rendering to bypass Safari autofill
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Load Google Maps script on component mount
   useEffect(() => {
@@ -49,8 +55,8 @@ const AddressAutocompleteLeads = ({
           inputRef.current.setAttribute('autocorrect', 'off');
           inputRef.current.setAttribute('autocapitalize', 'off');
           inputRef.current.setAttribute('spellcheck', 'false');
-          inputRef.current.setAttribute('name', 'addr_input_xyz');
-          inputRef.current.setAttribute('id', 'addr_input_xyz');
+          inputRef.current.setAttribute('name', 'loc_input_9f3k');
+          inputRef.current.setAttribute('id', 'loc_input_9f3k');
           // Remove any datalist that might be attached
           inputRef.current.removeAttribute('list');
         }
@@ -133,6 +139,8 @@ const AddressAutocompleteLeads = ({
     // Prevent browser autocomplete from interfering
     if (inputRef.current) {
       inputRef.current.setAttribute('autocomplete', 'one-time-code');
+      inputRef.current.setAttribute('name', 'loc_input_9f3k');
+      inputRef.current.setAttribute('id', 'loc_input_9f3k');
       inputRef.current.removeAttribute('list');
     }
     
@@ -168,8 +176,8 @@ const AddressAutocompleteLeads = ({
         inputRef.current.setAttribute('autocorrect', 'off');
         inputRef.current.setAttribute('autocapitalize', 'off');
         inputRef.current.setAttribute('spellcheck', 'false');
-        inputRef.current.setAttribute('name', 'addr_input_xyz');
-        inputRef.current.setAttribute('id', 'addr_input_xyz');
+        inputRef.current.setAttribute('name', 'loc_input_9f3k');
+        inputRef.current.setAttribute('id', 'loc_input_9f3k');
         inputRef.current.removeAttribute('list');
       }
 
@@ -235,36 +243,38 @@ const AddressAutocompleteLeads = ({
 
   return (
     <div className={`relative ${className}`}>
-      {/* Hidden dummy input to trick browser autofill */}
+      {/* Hidden dummy input to trick browser autofill - browser fills this instead */}
       <input
         type="text"
-        name="fake-address"
+        name="address"
         autoComplete="address-line1"
-        style={{ position: 'absolute', left: '-9999px', opacity: 0, pointerEvents: 'none', height: 0, width: 0 }}
+        style={{ position: 'absolute', opacity: 0, height: 0, width: 0, pointerEvents: 'none' }}
         tabIndex={-1}
         readOnly
         aria-hidden="true"
       />
-      <div className="relative">
-        <input
-          ref={inputRef}
-          type="text"
-          value={input}
-          onChange={handleInputChange}
-          placeholder={placeholder}
-          className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          disabled={!googleMapsReady}
-          autoComplete="one-time-code"
-          autoCorrect="off"
-          autoCapitalize="off"
-          spellCheck="false"
-          name="addr_input_xyz"
-          id="addr_input_xyz"
-        />
-        <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-          {getStatusIcon()}
+      {mounted && (
+        <div className="relative">
+          <input
+            ref={inputRef}
+            type="text"
+            value={input}
+            onChange={handleInputChange}
+            placeholder={placeholder}
+            className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            disabled={!googleMapsReady}
+            autoComplete="one-time-code"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck="false"
+            name="loc_input_9f3k"
+            id="loc_input_9f3k"
+          />
+          <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+            {getStatusIcon()}
+          </div>
         </div>
-      </div>
+      )}
       
       {/* Loading State */}
       {!googleMapsReady && (
