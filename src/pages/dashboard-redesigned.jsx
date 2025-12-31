@@ -222,14 +222,22 @@ const DashboardRedesigned = () => {
     return () => clearInterval(keepaliveInterval);
   }, []);
 
-  // Check if backend is ready
+  // Check if backend is ready (don't block dashboard loading)
   useEffect(() => {
     const checkBackend = async () => {
       try {
         const backendUrl = process.env.REACT_APP_API_URL || 'https://service-flow-backend-production-4568.up.railway.app/api';
+        console.log('🔄 Dashboard: Checking backend health...', backendUrl)
         await fetch(`${backendUrl}/health`, { method: 'HEAD' });
         setIsWakingUp(false);
+        console.log('✅ Dashboard: Backend is ready')
       } catch (error) {
+        console.warn('⚠️ Dashboard: Backend health check failed, will retry:', error.message)
+        // Don't block forever - set isWakingUp to false after a timeout
+        setTimeout(() => {
+          setIsWakingUp(false);
+          console.log('⚠️ Dashboard: Setting isWakingUp to false after timeout')
+        }, 5000); // Give it 5 seconds max
         setTimeout(checkBackend, 2000);
       }
     };
@@ -305,25 +313,88 @@ const DashboardRedesigned = () => {
 
   const fetchDashboardData = useCallback(async () => {
     if (!user?.id) {
+      console.warn('⚠️ Dashboard: fetchDashboardData called but no user ID')
+      setIsLoading(false)
       return
     }
-
+    
+    console.log('🔄 Dashboard: fetchDashboardData called', {
+      userId: user.id,
+      selectedDate,
+      dateRange
+    })
 
     try {
       setIsLoading(true)
       setError("")
+      
+      console.log('🔄 Dashboard: Starting to fetch data for user:', user.id)
+      console.log('🔄 Dashboard: Selected date:', selectedDate)
+      console.log('🔄 Dashboard: Date range:', dateRange)
 
-      // Fetch jobs data
-      const jobsResponse = await jobsAPI.getAll(user.id, "", "", 1, 1000)
-      const jobs = normalizeAPIResponse(jobsResponse, 'jobs')
+      // Fetch jobs data with individual error handling
+      let jobs = []
+      try {
+        console.log('📋 Dashboard: Fetching jobs...')
+        const jobsResponse = await jobsAPI.getAll(user.id, "", "", 1, 1000)
+        jobs = normalizeAPIResponse(jobsResponse, 'jobs')
+        console.log('✅ Dashboard: Jobs fetched successfully:', jobs.length)
+        
+        // Debug: Check job date formats and scheduled_date presence
+        if (jobs.length > 0) {
+          const jobsWithDates = jobs.filter(j => j.scheduled_date).length
+          const jobsWithoutDates = jobs.length - jobsWithDates
+          console.log('📊 Dashboard: Jobs breakdown:', {
+            total: jobs.length,
+            withScheduledDate: jobsWithDates,
+            withoutScheduledDate: jobsWithoutDates
+          })
+          
+          if (jobsWithDates > 0) {
+            const sampleJobs = jobs.filter(j => j.scheduled_date).slice(0, 5)
+            console.log('📊 Dashboard: Sample jobs with dates:', sampleJobs.map(j => ({
+              id: j.id,
+              scheduled_date: j.scheduled_date,
+              status: j.status
+            })))
+          }
+        }
+      } catch (jobsError) {
+        console.error('❌ Dashboard: Error fetching jobs:', jobsError)
+        console.error('❌ Dashboard: Jobs error details:', {
+          message: jobsError.message,
+          response: jobsError.response?.data,
+          status: jobsError.response?.status
+        })
+        // Continue with empty jobs array instead of failing completely
+        jobs = []
+      }
 
-      // Fetch invoices data
-      const invoicesResponse = await invoicesAPI.getAll(user.id, { page: 1, limit: 1000 })
-      const invoices = normalizeAPIResponse(invoicesResponse, 'invoices')
+      // Fetch invoices data with individual error handling
+      let invoices = []
+      try {
+        console.log('💰 Dashboard: Fetching invoices...')
+        const invoicesResponse = await invoicesAPI.getAll(user.id, { page: 1, limit: 1000 })
+        invoices = normalizeAPIResponse(invoicesResponse, 'invoices')
+        console.log('✅ Dashboard: Invoices fetched successfully:', invoices.length)
+      } catch (invoicesError) {
+        console.error('❌ Dashboard: Error fetching invoices:', invoicesError)
+        // Continue with empty invoices array
+        invoices = []
+      }
 
-      // Fetch services data
-      const servicesResponse = await servicesAPI.getAll(user.id)
-      const services = normalizeAPIResponse(servicesResponse, 'services')
+      // Fetch services data with individual error handling
+      let services = []
+      try {
+        console.log('🔧 Dashboard: Fetching services...')
+        const servicesResponse = await servicesAPI.getAll(user.id)
+        services = normalizeAPIResponse(servicesResponse, 'services')
+        console.log('✅ Dashboard: Services fetched successfully:', services.length)
+      } catch (servicesError) {
+        console.error('❌ Dashboard: Error fetching services:', servicesError)
+        // Continue with empty services array
+        services = []
+      }
 
       // Fetch team members data
       let teamMembers = []
@@ -348,8 +419,8 @@ const DashboardRedesigned = () => {
       }
 
       // Calculate data for the selected date
-      const selectedDateObj = new Date(selectedDate + 'T00:00:00')
-      const selectedDayString = selectedDateObj.toLocaleDateString('en-CA')
+      // selectedDate is already in YYYY-MM-DD format, use it directly
+      const selectedDayString = selectedDate
 
       // Get today's date string in YYYY-MM-DD format
       const today = new Date()
@@ -357,16 +428,31 @@ const DashboardRedesigned = () => {
 
       // Filter jobs for the selected date
       const selectedDateJobs = jobs.filter(job => {
+        if (!job.scheduled_date) return false
+        
         let jobDateString = ''
-        if (job.scheduled_date) {
-          if (job.scheduled_date.includes('T')) {
-            jobDateString = job.scheduled_date.split('T')[0]
-          } else {
-            jobDateString = job.scheduled_date.split(' ')[0]
-          }
+        if (job.scheduled_date.includes('T')) {
+          jobDateString = job.scheduled_date.split('T')[0]
+        } else if (job.scheduled_date.includes(' ')) {
+          jobDateString = job.scheduled_date.split(' ')[0]
+        } else {
+          jobDateString = job.scheduled_date
         }
+        
+        // Compare date strings directly (both should be in YYYY-MM-DD format)
         return jobDateString === selectedDayString
       })
+      
+      console.log('📊 Dashboard: Selected date:', selectedDayString)
+      console.log('📊 Dashboard: Total jobs fetched:', jobs.length)
+      console.log('📊 Dashboard: Jobs for selected date:', selectedDateJobs.length)
+      if (selectedDateJobs.length > 0) {
+        console.log('📊 Dashboard: Sample job dates:', selectedDateJobs.slice(0, 3).map(j => ({
+          id: j.id,
+          scheduled_date: j.scheduled_date,
+          parsed: j.scheduled_date?.includes('T') ? j.scheduled_date.split('T')[0] : j.scheduled_date?.split(' ')[0]
+        })))
+      }
 
       // Calculate incomplete jobs from the past (scheduled before today, not completed or cancelled)
       const pastIncompleteJobs = jobs.filter(job => {
@@ -415,19 +501,80 @@ const DashboardRedesigned = () => {
       // Calculate date range data
       const startDate = new Date()
       startDate.setDate(startDate.getDate() - (parseInt(dateRange) - 1))
-      const startDateString = startDate.toISOString().split('T')[0]
+      startDate.setHours(0, 0, 0, 0) // Reset to start of day
+      const startDateString = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`
+      
+      const endDate = new Date()
+      endDate.setHours(23, 59, 59, 999) // End of today
+      const endDateString = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`
+
+      console.log('📊 Dashboard: Date range filter:', { startDateString, endDateString, dateRangeDays: dateRange })
 
       const rangeJobs = jobs.filter(job => {
-        let jobDateString = ''
-        if (job.scheduled_date) {
-          if (job.scheduled_date.includes('T')) {
-            jobDateString = job.scheduled_date.split('T')[0]
+        // If job has no scheduled_date, include it if it was created within the date range
+        if (!job.scheduled_date) {
+          if (!job.created_at) return false
+          
+          let createdDateString = ''
+          if (job.created_at.includes('T')) {
+            createdDateString = job.created_at.split('T')[0]
+          } else if (job.created_at.includes(' ')) {
+            createdDateString = job.created_at.split(' ')[0]
           } else {
-            jobDateString = job.scheduled_date.split(' ')[0]
+            createdDateString = job.created_at
           }
+          
+          // Include jobs created within the date range
+          return createdDateString >= startDateString && createdDateString <= endDateString
         }
-        return jobDateString >= startDateString
+        
+        let jobDateString = ''
+        if (job.scheduled_date.includes('T')) {
+          jobDateString = job.scheduled_date.split('T')[0]
+        } else if (job.scheduled_date.includes(' ')) {
+          jobDateString = job.scheduled_date.split(' ')[0]
+        } else {
+          jobDateString = job.scheduled_date
+        }
+        
+        // Include jobs within the date range (from startDate to today)
+        // Also include future jobs if they're within a reasonable range (e.g., next 30 days)
+        const isInRange = jobDateString >= startDateString && jobDateString <= endDateString
+        
+        // Also include jobs scheduled in the near future (up to 30 days ahead)
+        const futureLimit = new Date()
+        futureLimit.setDate(futureLimit.getDate() + 30)
+        const futureLimitString = `${futureLimit.getFullYear()}-${String(futureLimit.getMonth() + 1).padStart(2, '0')}-${String(futureLimit.getDate()).padStart(2, '0')}`
+        const isNearFuture = jobDateString > endDateString && jobDateString <= futureLimitString
+        
+        return isInRange || isNearFuture
       })
+      
+      console.log('📊 Dashboard: Range jobs count:', rangeJobs.length, 'out of', jobs.length, 'total jobs')
+      
+      // Debug: Show why jobs are being filtered out
+      if (rangeJobs.length === 0 && jobs.length > 0) {
+        const sampleFiltered = jobs.slice(0, 3).map(job => {
+          let jobDateString = job.scheduled_date || job.created_at || 'N/A'
+          if (jobDateString !== 'N/A' && jobDateString.includes('T')) {
+            jobDateString = jobDateString.split('T')[0]
+          } else if (jobDateString !== 'N/A' && jobDateString.includes(' ')) {
+            jobDateString = jobDateString.split(' ')[0]
+          }
+          return {
+            id: job.id,
+            scheduled_date: job.scheduled_date || 'none',
+            created_at: job.created_at || 'none',
+            parsedDate: jobDateString,
+            inRange: jobDateString >= startDateString && jobDateString <= endDateString
+          }
+        })
+        console.log('📊 Dashboard: Why jobs filtered out:', {
+          startDateString,
+          endDateString,
+          sampleJobs: sampleFiltered
+        })
+      }
 
       const newJobs = rangeJobs.filter(job => {
         let jobDateString = ''
@@ -643,20 +790,52 @@ const DashboardRedesigned = () => {
       await checkSetupTaskCompletion(services, jobs, teamMembers)
 
       setRetryCount(0)
+      console.log('✅ Dashboard: All data fetched successfully')
+      console.log('✅ Dashboard: Final stats:', {
+        todayJobs: selectedDateJobs.length,
+        totalJobs: rangeJobs.length,
+        services: services.length,
+        teamMembers: teamMembers.length
+      })
 
     } catch (error) {
+      console.error('❌ Dashboard: Fatal error in fetchDashboardData:', error)
+      console.error('❌ Dashboard: Error stack:', error.stack)
+      console.error('❌ Dashboard: Error details:', {
+        message: error.message,
+        name: error.name,
+        response: error.response?.data,
+        status: error.response?.status,
+        config: error.config?.url,
+        method: error.config?.method
+      })
       setError(`Failed to load dashboard data: ${error.message || 'Unknown error'}`)
+      setRetryCount(prev => prev + 1)
     } finally {
       setIsLoading(false)
+      console.log('🔄 Dashboard: Finished loading, isLoading set to false')
     }
   }, [user, selectedDate, dateRange, checkSetupTaskCompletion])
 
   // Fetch dashboard data
   useEffect(() => {
+    console.log('🔄 Dashboard: useEffect triggered', { 
+      userId: user?.id, 
+      dateRange, 
+      selectedDate,
+      hasFetchFunction: !!fetchDashboardData 
+    })
     if (user?.id) {
-      fetchDashboardData()
+      console.log('🔄 Dashboard: Calling fetchDashboardData...')
+      fetchDashboardData().catch(err => {
+        console.error('❌ Dashboard: Unhandled error in fetchDashboardData:', err)
+        setError(`Failed to load dashboard: ${err.message || 'Unknown error'}`)
+      })
+    } else {
+      console.warn('⚠️ Dashboard: No user ID, skipping fetch')
+      setIsLoading(false)
     }
-  }, [user, dateRange, fetchDashboardData])
+  }, [user, dateRange, fetchDashboardData, selectedDate])
 
   const handleNewOptionClick = (option) => {
     setShowNewMenu(false)
@@ -886,6 +1065,8 @@ const DashboardRedesigned = () => {
                             const dateString = date.toISOString().split('T')[0];
                             setSelectedDate(dateString);
                             setShowDatePicker(false);
+                            // Refresh dashboard data with new date
+                            fetchDashboardData();
                           }}
                           isOpen={showDatePicker}
                           onClose={() => setShowDatePicker(false)}
