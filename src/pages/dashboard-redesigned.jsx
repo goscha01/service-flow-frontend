@@ -35,7 +35,12 @@ const DashboardRedesigned = () => {
   const [dateRange, setDateRange] = useState('7')
   const [selectedDate, setSelectedDate] = useState(() => {
     const today = new Date()
-    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+    const year = today.getFullYear()
+    const month = String(today.getMonth() + 1).padStart(2, '0')
+    const day = String(today.getDate()).padStart(2, '0')
+    const dateString = `${year}-${month}-${day}`
+    console.log('📅 Dashboard: Initializing selectedDate to:', dateString, 'from Date:', today)
+    return dateString
   })
   const [showDatePicker, setShowDatePicker] = useState(false)
   const [showNewMenu, setShowNewMenu] = useState(false)
@@ -333,12 +338,83 @@ const DashboardRedesigned = () => {
       console.log('🔄 Dashboard: Date range:', dateRange)
 
       // Fetch jobs data with individual error handling
+      // Use the same approach as schedule page - pass dateRange to API for efficient filtering
       let jobs = []
+      let todayJobs = [] // Declare outside try block for scope
       try {
-        console.log('📋 Dashboard: Fetching jobs...')
-        const jobsResponse = await jobsAPI.getAll(user.id, "", "", 1, 1000)
-        jobs = normalizeAPIResponse(jobsResponse, 'jobs')
-        console.log('✅ Dashboard: Jobs fetched successfully:', jobs.length)
+        console.log('📋 Dashboard: Fetching jobs for user:', user.id)
+        
+        // Format selected date for API (same approach as schedule page)
+        const formatDateLocal = (dateString) => {
+          // If it's already a date string, parse it
+          const date = new Date(dateString + 'T00:00:00')
+          const year = date.getFullYear()
+          const month = String(date.getMonth() + 1).padStart(2, '0')
+          const day = String(date.getDate()).padStart(2, '0')
+          return `${year}-${month}-${day}`
+        }
+        
+        // For "Today" section: use selected date (same day for start and end)
+        const selectedDateString = formatDateLocal(selectedDate)
+        const todayDateRange = `${selectedDateString} to ${selectedDateString}`
+        
+        // For "Overview" section: calculate date range from today backwards
+        const today = new Date()
+        const overviewEndDate = formatDateLocal(today.toISOString().split('T')[0])
+        const overviewStartDateObj = new Date(today)
+        overviewStartDateObj.setDate(today.getDate() - (parseInt(dateRange) - 1))
+        const overviewStartDate = formatDateLocal(overviewStartDateObj.toISOString().split('T')[0])
+        const overviewDateRange = `${overviewStartDate} to ${overviewEndDate}`
+        
+        console.log('📋 Dashboard: Fetching jobs for Today section:', todayDateRange)
+        console.log('📋 Dashboard: Fetching jobs for Overview section:', overviewDateRange)
+        
+        // Fetch jobs for Overview (this is what we need for the metrics)
+        const overviewJobsResponse = await jobsAPI.getAll(
+          user.id, 
+          "", // status
+          "", // search
+          1, // page
+          1000, // limit
+          null, // dateFilter
+          overviewDateRange, // dateRange - pass to backend for efficient filtering
+          null, // sortBy
+          null, // sortOrder
+          null, // teamMember
+          null, // invoiceStatus
+          null, // customerId
+          null, // territoryId
+          null // recurring
+        )
+        
+        // Also fetch jobs for Today section
+        const todayJobsResponse = await jobsAPI.getAll(
+          user.id, 
+          "", // status
+          "", // search
+          1, // page
+          1000, // limit
+          null, // dateFilter
+          todayDateRange, // dateRange - pass to backend for efficient filtering
+          null, // sortBy
+          null, // sortOrder
+          null, // teamMember
+          null, // invoiceStatus
+          null, // customerId
+          null, // territoryId
+          null // recurring
+        )
+        
+        // Use overview jobs for metrics, today jobs for "Today" section
+        const overviewJobs = normalizeAPIResponse(overviewJobsResponse, 'jobs')
+        todayJobs = normalizeAPIResponse(todayJobsResponse, 'jobs')
+        
+        console.log('✅ Dashboard: Overview jobs normalized:', overviewJobs.length, 'jobs')
+        console.log('✅ Dashboard: Today jobs normalized:', todayJobs.length, 'jobs')
+        console.log('✅ Dashboard: First overview job sample:', overviewJobs[0] || 'No jobs')
+        
+        // Use overview jobs for all calculations
+        jobs = overviewJobs
         
         // Debug: Check job date formats and scheduled_date presence
         if (jobs.length > 0) {
@@ -373,10 +449,12 @@ const DashboardRedesigned = () => {
       // Fetch invoices data with individual error handling
       let invoices = []
       try {
-        console.log('💰 Dashboard: Fetching invoices...')
+        console.log('💰 Dashboard: Fetching invoices for user:', user.id)
         const invoicesResponse = await invoicesAPI.getAll(user.id, { page: 1, limit: 1000 })
+        console.log('💰 Dashboard: Raw invoices response:', invoicesResponse)
         invoices = normalizeAPIResponse(invoicesResponse, 'invoices')
-        console.log('✅ Dashboard: Invoices fetched successfully:', invoices.length)
+        console.log('✅ Dashboard: Invoices normalized:', invoices.length, 'invoices')
+        console.log('✅ Dashboard: First invoice sample:', invoices[0] || 'No invoices')
       } catch (invoicesError) {
         console.error('❌ Dashboard: Error fetching invoices:', invoicesError)
         // Continue with empty invoices array
@@ -386,10 +464,12 @@ const DashboardRedesigned = () => {
       // Fetch services data with individual error handling
       let services = []
       try {
-        console.log('🔧 Dashboard: Fetching services...')
+        console.log('🔧 Dashboard: Fetching services for user:', user.id)
         const servicesResponse = await servicesAPI.getAll(user.id)
+        console.log('🔧 Dashboard: Raw services response:', servicesResponse)
         services = normalizeAPIResponse(servicesResponse, 'services')
-        console.log('✅ Dashboard: Services fetched successfully:', services.length)
+        console.log('✅ Dashboard: Services normalized:', services.length, 'services')
+        console.log('✅ Dashboard: First service sample:', services[0] || 'No services')
       } catch (servicesError) {
         console.error('❌ Dashboard: Error fetching services:', servicesError)
         // Continue with empty services array
@@ -418,30 +498,15 @@ const DashboardRedesigned = () => {
         setTerritories([])
       }
 
-      // Calculate data for the selected date
-      // selectedDate is already in YYYY-MM-DD format, use it directly
-      const selectedDayString = selectedDate
-
-      // Get today's date string in YYYY-MM-DD format
+      // Use the todayJobs we fetched separately for the "Today" section
+      // No need to filter again - the API already filtered them
+      const selectedDateJobs = todayJobs
+      
+      // Get today's date string in YYYY-MM-DD format (for incomplete jobs calculation)
       const today = new Date()
       const todayString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
-
-      // Filter jobs for the selected date
-      const selectedDateJobs = jobs.filter(job => {
-        if (!job.scheduled_date) return false
-        
-        let jobDateString = ''
-        if (job.scheduled_date.includes('T')) {
-          jobDateString = job.scheduled_date.split('T')[0]
-        } else if (job.scheduled_date.includes(' ')) {
-          jobDateString = job.scheduled_date.split(' ')[0]
-        } else {
-          jobDateString = job.scheduled_date
-        }
-        
-        // Compare date strings directly (both should be in YYYY-MM-DD format)
-        return jobDateString === selectedDayString
-      })
+      
+      const selectedDayString = selectedDate
       
       console.log('📊 Dashboard: Selected date:', selectedDayString)
       console.log('📊 Dashboard: Total jobs fetched:', jobs.length)
@@ -498,83 +563,19 @@ const DashboardRedesigned = () => {
         return sum + (parseInt(job.service_duration || 0))
       }, 0)
 
-      // Calculate date range data
-      const startDate = new Date()
-      startDate.setDate(startDate.getDate() - (parseInt(dateRange) - 1))
-      startDate.setHours(0, 0, 0, 0) // Reset to start of day
-      const startDateString = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`
+      // Jobs are already filtered by the API using dateRange parameter
+      // No need to filter again - use the jobs we fetched directly
+      const rangeJobs = jobs
       
-      const endDate = new Date()
-      endDate.setHours(23, 59, 59, 999) // End of today
-      const endDateString = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`
-
-      console.log('📊 Dashboard: Date range filter:', { startDateString, endDateString, dateRangeDays: dateRange })
-
-      const rangeJobs = jobs.filter(job => {
-        // If job has no scheduled_date, include it if it was created within the date range
-        if (!job.scheduled_date) {
-          if (!job.created_at) return false
-          
-          let createdDateString = ''
-          if (job.created_at.includes('T')) {
-            createdDateString = job.created_at.split('T')[0]
-          } else if (job.created_at.includes(' ')) {
-            createdDateString = job.created_at.split(' ')[0]
-          } else {
-            createdDateString = job.created_at
-          }
-          
-          // Include jobs created within the date range
-          return createdDateString >= startDateString && createdDateString <= endDateString
-        }
-        
-        let jobDateString = ''
-        if (job.scheduled_date.includes('T')) {
-          jobDateString = job.scheduled_date.split('T')[0]
-        } else if (job.scheduled_date.includes(' ')) {
-          jobDateString = job.scheduled_date.split(' ')[0]
-        } else {
-          jobDateString = job.scheduled_date
-        }
-        
-        // Include jobs within the date range (from startDate to today)
-        // Also include future jobs if they're within a reasonable range (e.g., next 30 days)
-        const isInRange = jobDateString >= startDateString && jobDateString <= endDateString
-        
-        // Also include jobs scheduled in the near future (up to 30 days ahead)
-        const futureLimit = new Date()
-        futureLimit.setDate(futureLimit.getDate() + 30)
-        const futureLimitString = `${futureLimit.getFullYear()}-${String(futureLimit.getMonth() + 1).padStart(2, '0')}-${String(futureLimit.getDate()).padStart(2, '0')}`
-        const isNearFuture = jobDateString > endDateString && jobDateString <= futureLimitString
-        
-        return isInRange || isNearFuture
-      })
+      // Calculate startDateString for filtering new jobs (jobs created in the date range)
+      // Reuse the 'today' variable that's already declared above
+      const overviewStartDateObj = new Date(today)
+      overviewStartDateObj.setDate(today.getDate() - (parseInt(dateRange) - 1))
+      overviewStartDateObj.setHours(0, 0, 0, 0)
+      const startDateString = `${overviewStartDateObj.getFullYear()}-${String(overviewStartDateObj.getMonth() + 1).padStart(2, '0')}-${String(overviewStartDateObj.getDate()).padStart(2, '0')}`
       
-      console.log('📊 Dashboard: Range jobs count:', rangeJobs.length, 'out of', jobs.length, 'total jobs')
-      
-      // Debug: Show why jobs are being filtered out
-      if (rangeJobs.length === 0 && jobs.length > 0) {
-        const sampleFiltered = jobs.slice(0, 3).map(job => {
-          let jobDateString = job.scheduled_date || job.created_at || 'N/A'
-          if (jobDateString !== 'N/A' && jobDateString.includes('T')) {
-            jobDateString = jobDateString.split('T')[0]
-          } else if (jobDateString !== 'N/A' && jobDateString.includes(' ')) {
-            jobDateString = jobDateString.split(' ')[0]
-          }
-          return {
-            id: job.id,
-            scheduled_date: job.scheduled_date || 'none',
-            created_at: job.created_at || 'none',
-            parsedDate: jobDateString,
-            inRange: jobDateString >= startDateString && jobDateString <= endDateString
-          }
-        })
-        console.log('📊 Dashboard: Why jobs filtered out:', {
-          startDateString,
-          endDateString,
-          sampleJobs: sampleFiltered
-        })
-      }
+      console.log('📊 Dashboard: Range jobs count:', rangeJobs.length, 'jobs (already filtered by API)')
+      console.log('📊 Dashboard: Start date for new jobs filter:', startDateString)
 
       const newJobs = rangeJobs.filter(job => {
         let jobDateString = ''

@@ -1,33 +1,46 @@
 // Standardized data handler for consistent API response processing
 export const normalizeAPIResponse = (response, dataKey = null) => {
   try {
+    console.log('🔄 normalizeAPIResponse called with:', { 
+      dataKey, 
+      responseType: typeof response, 
+      isArray: Array.isArray(response),
+      responseKeys: response && typeof response === 'object' ? Object.keys(response) : null
+    });
+    
     // Handle different response formats
     if (Array.isArray(response)) {
+      console.log('✅ normalizeAPIResponse: Response is already an array, returning as-is');
       return response;
     }
     
     if (response && typeof response === 'object') {
       // If dataKey is specified, look for that key first
       if (dataKey && response[dataKey]) {
-        return Array.isArray(response[dataKey]) ? response[dataKey] : [response[dataKey]];
+        const result = Array.isArray(response[dataKey]) ? response[dataKey] : [response[dataKey]];
+        console.log(`✅ normalizeAPIResponse: Found ${dataKey} key with ${result.length} items`);
+        return result;
       }
       
       // Common data keys to check
-      const commonKeys = ['data', 'items', 'results', 'services', 'jobs', 'customers', 'invoices', 'estimates'];
+      const commonKeys = ['data', 'items', 'results', 'services', 'jobs', 'customers', 'invoices', 'estimates', 'territories'];
       
       for (const key of commonKeys) {
         if (response[key] && Array.isArray(response[key])) {
+          console.log(`✅ normalizeAPIResponse: Found ${key} key with ${response[key].length} items`);
           return response[key];
         }
       }
       
-      // If no array found, return the response as is
+      // If no array found, return the response as is (might be a single object)
+      console.log('⚠️ normalizeAPIResponse: No array found, returning response as-is');
       return response;
     }
     
+    console.log('⚠️ normalizeAPIResponse: Invalid response format, returning empty array');
     return [];
   } catch (error) {
-    console.error('Error normalizing API response:', error);
+    console.error('❌ Error normalizing API response:', error);
     return [];
   }
 };
