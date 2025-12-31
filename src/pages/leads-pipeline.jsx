@@ -212,7 +212,16 @@ const LeadsPipeline = () => {
           ...prev,
           value: selectedService.price.toString()
         }));
+      } else if (selectedService && !selectedService.price) {
+        // Service has no price, clear the value
+        setLeadFormData(prev => ({
+          ...prev,
+          value: ''
+        }));
       }
+    } else {
+      // Service deselected - don't clear value, let user keep it if they want
+      // Only clear if it was auto-filled from a service
     }
   }, [leadFormData.serviceId, services]);
   
@@ -274,13 +283,40 @@ const LeadsPipeline = () => {
   // Handle create lead
   const handleCreateLead = async (e) => {
     e.preventDefault();
+    
+    // Basic validation - at least name or email should be provided
+    if (!leadFormData.firstName?.trim() && !leadFormData.lastName?.trim() && !leadFormData.email?.trim()) {
+      showNotification('Please provide at least a name or email address', 'error', 5000);
+      return;
+    }
+    
+    // Check if pipeline has stages
+    if (!pipeline?.stages || pipeline.stages.length === 0) {
+      showNotification('Pipeline has no stages. Please set up your pipeline first.', 'error', 5000);
+      return;
+    }
+    
     try {
+      // Prepare submit data with proper formatting
+      // Convert value to number or null (not empty string)
+      const value = leadFormData.value && leadFormData.value.toString().trim() !== '' 
+        ? (parseFloat(leadFormData.value) || null)
+        : null;
+      
       // Ensure source is not '__custom__' before submitting
       const submitData = {
-        ...leadFormData,
-        source: leadFormData.source === '__custom__' ? '' : leadFormData.source,
+        firstName: (leadFormData.firstName || '').trim(),
+        lastName: (leadFormData.lastName || '').trim(),
+        email: (leadFormData.email || '').trim(),
+        phone: (leadFormData.phone || '').trim(),
+        company: (leadFormData.company || '').trim(),
+        source: leadFormData.source === '__custom__' ? '' : (leadFormData.source || ''),
+        notes: (leadFormData.notes || '').trim(),
+        value: value, // Send as number or null, never empty string
         stageId: pipeline?.stages?.[0]?.id // Add to first stage
       };
+      
+      console.log('📝 Creating lead with data:', submitData);
       await leadsAPI.create(submitData);
       showNotification('Lead created successfully!', 'success', 3000);
       setShowCreateLeadModal(false);
@@ -302,9 +338,19 @@ const LeadsPipeline = () => {
       setSelectedAddress(null);
       loadLeads();
     } catch (err) {
-      const errorMessage = err.response?.data?.error || err.message || 'Failed to create lead';
+      console.error('❌ Error creating lead:', err);
+      console.error('❌ Error response:', err.response?.data);
+      console.error('❌ Error details:', {
+        message: err.message,
+        status: err.response?.status,
+        data: err.response?.data
+      });
+      
+      const errorMessage = err.response?.data?.error || 
+                          err.response?.data?.details || 
+                          err.message || 
+                          'Failed to create lead. Please check your input and try again.';
       showNotification(errorMessage, 'error', 5000);
-      console.error('Error creating lead:', err);
     }
   };
 
@@ -314,11 +360,25 @@ const LeadsPipeline = () => {
     if (!editingLead) return;
     
     try {
+      // Prepare submit data with proper formatting
+      // Convert value to number or null (not empty string)
+      const value = leadFormData.value && leadFormData.value.toString().trim() !== '' 
+        ? (parseFloat(leadFormData.value) || null)
+        : null;
+      
       // Ensure source is not '__custom__' before submitting
       const submitData = {
-        ...leadFormData,
-        source: leadFormData.source === '__custom__' ? '' : leadFormData.source
+        firstName: (leadFormData.firstName || '').trim(),
+        lastName: (leadFormData.lastName || '').trim(),
+        email: (leadFormData.email || '').trim(),
+        phone: (leadFormData.phone || '').trim(),
+        company: (leadFormData.company || '').trim(),
+        source: leadFormData.source === '__custom__' ? '' : (leadFormData.source || ''),
+        notes: (leadFormData.notes || '').trim(),
+        value: value // Send as number or null, never empty string
       };
+      
+      console.log('📝 Updating lead with data:', submitData);
       await leadsAPI.update(editingLead.id, submitData);
       showNotification('Lead updated successfully!', 'success', 3000);
       setShowEditLeadModal(false);
@@ -351,7 +411,19 @@ const LeadsPipeline = () => {
     } catch (err) {
       const errorMessage = err.response?.data?.error || err.message || 'Failed to update lead';
       showNotification(errorMessage, 'error', 5000);
-      console.error('Error updating lead:', err);
+      console.error('❌ Error updating lead:', err);
+      console.error('❌ Error response:', err.response?.data);
+      console.error('❌ Error details:', {
+        message: err.message,
+        status: err.response?.status,
+        data: err.response?.data
+      });
+      
+      const errorMessage = err.response?.data?.error || 
+                          err.response?.data?.details || 
+                          err.message || 
+                          'Failed to update lead. Please check your input and try again.';
+      showNotification(errorMessage, 'error', 5000);
     }
   };
 
@@ -1037,14 +1109,21 @@ const LeadsPipeline = () => {
                   <input
                     type="number"
                     step="0.01"
+                    min="0"
                     value={leadFormData.value}
-                    onChange={(e) => setLeadFormData({ ...leadFormData, value: e.target.value })}
+                    onChange={(e) => {
+                      const inputValue = e.target.value;
+                      // Allow empty string for user to clear, but prevent negative numbers
+                      if (inputValue === '' || (!isNaN(parseFloat(inputValue)) && parseFloat(inputValue) >= 0)) {
+                        setLeadFormData({ ...leadFormData, value: inputValue });
+                      }
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    readOnly={!!leadFormData.serviceId}
+                    placeholder="0.00"
                   />
                   {leadFormData.serviceId && (
                     <p className="text-xs text-gray-500 mt-1">
-                      Value calculated from selected service
+                      Value calculated from selected service (you can edit this)
                     </p>
                   )}
                 </div>
@@ -1535,9 +1614,17 @@ const LeadsPipeline = () => {
                   <input
                     type="number"
                     step="0.01"
+                    min="0"
                     value={leadFormData.value}
-                    onChange={(e) => setLeadFormData({ ...leadFormData, value: e.target.value })}
+                    onChange={(e) => {
+                      const inputValue = e.target.value;
+                      // Allow empty string for user to clear, but prevent negative numbers
+                      if (inputValue === '' || (!isNaN(parseFloat(inputValue)) && parseFloat(inputValue) >= 0)) {
+                        setLeadFormData({ ...leadFormData, value: inputValue });
+                      }
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="0.00"
                   />
                 </div>
                 
