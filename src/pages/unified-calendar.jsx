@@ -151,13 +151,34 @@ const UnifiedCalendar = () => {
       }
       
       // Fetch availability for this team member
+      // First check if availability is already in the team member object
       let availability = null
+      const member = teamMembers.find(m => m.id === memberId)
+      
+      if (member?.availability) {
+        // Use availability from team member object (from team_members.availability column)
+        console.log('📅 Using availability from team member object for member:', memberId, member.availability)
+        let availData = member.availability
+        if (typeof availData === 'string') {
+          try {
+            availData = JSON.parse(availData)
+            console.log('📅 Parsed availability JSON:', availData)
+          } catch (e) {
+            console.error('Error parsing availability from member object:', e)
+            availData = null
+          }
+        }
+        availability = { availability: availData }
+      } else {
+        console.log('📅 No availability in member object, fetching from API for member:', memberId)
+        // If not in member object, fetch from API
       try {
         availability = await teamAPI.getAvailability(memberId, startDate, endDate)
       } catch (availError) {
         console.error('Error fetching availability:', availError)
         // Continue with empty availability
         availability = { availability: null }
+        }
       }
       
       // Process availability data - even if null, we still want to show jobs
@@ -195,8 +216,16 @@ const UnifiedCalendar = () => {
           }
         }
         
-        const workingHours = availData.workingHours || availData || {}
-        const customAvailability = availData.customAvailability || []
+        // Extract workingHours and customAvailability from the parsed data
+        // Structure: { workingHours: {...}, customAvailability: [...] }
+        const workingHours = availData?.workingHours || {}
+        const customAvailability = Array.isArray(availData?.customAvailability) ? availData.customAvailability : []
+        
+        console.log('📅 Extracted availability:', {
+          workingHoursKeys: Object.keys(workingHours),
+          customAvailabilityCount: customAvailability.length,
+          sampleWorkingHours: workingHours.monday
+        })
         
         // Helper to parse hours string like "9:00 AM - 5:00 PM" to time slots
         const parseHoursString = (hoursStr) => {
@@ -240,6 +269,15 @@ const UnifiedCalendar = () => {
           const dayName = dayNamesFull[dayOfWeek].toLowerCase()
           
           const dateOverride = customAvailability.find(item => item.date === dateStr)
+          const dayWorkingHours = workingHours[dayName]
+          
+          console.log(`📅 Processing ${dateStr} (${dayName}):`, {
+            hasDateOverride: !!dateOverride,
+            hasWorkingHours: !!dayWorkingHours,
+            dayWorkingHoursAvailable: dayWorkingHours?.available,
+            dayWorkingHoursHours: dayWorkingHours?.hours,
+            dayWorkingHoursTimeSlots: dayWorkingHours?.timeSlots?.length
+          })
           
           let dayData = {
             available: false,
@@ -248,46 +286,99 @@ const UnifiedCalendar = () => {
           }
           
           if (dateOverride) {
-            dayData.available = dateOverride.available !== false
+            // Handle custom availability override
+            if (dateOverride.available === false) {
+              dayData.available = false
+              dayData.hours = null
+            } else if (dateOverride.available === true) {
+              dayData.available = true
             if (dateOverride.hours) {
-              if (Array.isArray(dateOverride.hours)) {
+                if (typeof dateOverride.hours === 'string') {
+                  // Handle formats like "09:00-19:00" or "Unavailable"
+                  if (dateOverride.hours.toLowerCase() === 'unavailable' || dateOverride.hours.trim() === '') {
+                    dayData.available = false
+                    dayData.hours = null
+                  } else {
+                    // Parse time range like "09:00-19:00"
+                    const timeRangeMatch = dateOverride.hours.match(/(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})/)
+                    if (timeRangeMatch) {
+                      dayData.hours = [{
+                        start: `${timeRangeMatch[1].padStart(2, '0')}:${timeRangeMatch[2]}`,
+                        end: `${timeRangeMatch[3].padStart(2, '0')}:${timeRangeMatch[4]}`
+                      }]
+                    } else {
+                      // Try parsing as "9:00 AM - 6:00 PM" format
+                      dayData.hours = parseHoursString(dateOverride.hours)
+                    }
+                  }
+                } else if (Array.isArray(dateOverride.hours)) {
                 dayData.hours = dateOverride.hours.map(slot => {
                   if (typeof slot === 'string') {
-                    // If it's a string, try to parse it
                     const parsed = parseHoursString(slot)
                     return parsed.length > 0 ? parsed[0] : null
                   }
                   return slot
                 }).filter(Boolean)
-              } else if (typeof dateOverride.hours === 'string') {
-                dayData.hours = parseHoursString(dateOverride.hours)
               } else {
                 dayData.hours = [dateOverride.hours]
+                }
               }
             }
           } else {
-            const dayWorkingHours = workingHours[dayName]
-            // Only set as available if explicitly set to true AND has hours configured
+            // No date override, use working hours for the day
+            // Only set as available if explicitly set to true
             if (dayWorkingHours && dayWorkingHours.available === true) {
               dayData.available = true
-              if (dayWorkingHours.timeSlots && dayWorkingHours.timeSlots.length > 0) {
-                // Already in time slot format
-                dayData.hours = dayWorkingHours.timeSlots.map(slot => ({
+              if (dayWorkingHours.timeSlots && Array.isArray(dayWorkingHours.timeSlots) && dayWorkingHours.timeSlots.length > 0) {
+                // Already in time slot format - filter enabled slots
+                const enabledSlots = dayWorkingHours.timeSlots.filter(slot => slot.enabled !== false)
+                if (enabledSlots.length > 0) {
+                  dayData.hours = enabledSlots.map(slot => ({
                   start: slot.start,
                   end: slot.end
                 }))
-              } else if (dayWorkingHours.hours) {
-                // Parse hours string format
+                } else {
+                  // All slots disabled, but day is marked available - show as available without hours
+                  dayData.hours = []
+                }
+              } else if (dayWorkingHours.hours && typeof dayWorkingHours.hours === 'string' && dayWorkingHours.hours.trim() !== '') {
+                // Parse hours string format like "9:00 AM - 6:00 PM"
                 dayData.hours = parseHoursString(dayWorkingHours.hours)
+              } else {
+                // Available but no hours specified - show as available without hours
+                dayData.available = true
+                dayData.hours = []
               }
+              
+              console.log(`📅 ${dateStr} set to available:`, {
+                available: dayData.available,
+                hoursCount: dayData.hours?.length || 0,
+                hours: dayData.hours
+              })
             } else {
               // Day is explicitly unavailable or not configured
               dayData.available = false
               dayData.hours = null
+              console.log(`📅 ${dateStr} set to unavailable:`, {
+                hasDayWorkingHours: !!dayWorkingHours,
+                availableValue: dayWorkingHours?.available
+              })
             }
           }
           
           processedData[dateStr] = dayData
+        })
+      } else if (!hasAvailabilityConfigured) {
+        // No availability configured - apply default: Monday-Friday 8:00 AM - 6:00 PM
+        // All days get the default availability (no unavailable days)
+        Object.keys(processedData).forEach(dateStr => {
+          // Default: All days are available 8:00 AM - 6:00 PM
+          // (Monday-Friday are the primary work days, but weekends also get default hours)
+          processedData[dateStr] = {
+            available: true,
+            hours: [{ start: '08:00', end: '18:00' }],
+            hasAvailabilityConfigured: false // Still marked as not configured (using defaults)
+          }
         })
       }
       
@@ -305,7 +396,7 @@ const UnifiedCalendar = () => {
       // Still set empty data so UI doesn't break - jobs might still load
       // Jobs are already set above, so we don't need to reset them here
       // Set default availability so calendar still renders
-      // If availability fetch failed or returned null, mark as not configured
+      // If availability fetch failed or returned null, apply default availability
       const defaultData = {}
       const firstDay = new Date(currentYear, currentMonth, 1)
       const startDateObj = new Date(firstDay)
@@ -314,10 +405,11 @@ const UnifiedCalendar = () => {
       for (let i = 0; i < 42; i++) {
         if (currentDate.getMonth() === currentMonth) {
           const dateStr = currentDate.toISOString().split('T')[0]
+          // Apply default availability: All days 8:00 AM - 6:00 PM
           defaultData[dateStr] = { 
-            available: false, 
-            hours: null,
-            hasAvailabilityConfigured: false // Mark as not configured
+            available: true, 
+            hours: [{ start: '08:00', end: '18:00' }],
+            hasAvailabilityConfigured: false // Mark as not configured (using defaults)
           }
         }
         currentDate.setDate(currentDate.getDate() + 1)
@@ -326,7 +418,7 @@ const UnifiedCalendar = () => {
     } finally {
       setLoading(false)
     }
-  }, [user?.id, currentYear, currentMonth])
+  }, [user?.id, currentYear, currentMonth, teamMembers])
 
   // Fetch tasks
   const fetchTasks = useCallback(async () => {
@@ -357,7 +449,26 @@ const UnifiedCalendar = () => {
     
     const availabilityPromises = members.map(async (member) => {
       try {
-        const availability = await teamAPI.getAvailability(member.id, startDate, endDate)
+        // Use availability from team member object if available, otherwise fetch it
+        let availability = null
+        if (member.availability) {
+          // Parse if it's a string
+          if (typeof member.availability === 'string') {
+            try {
+              availability = JSON.parse(member.availability)
+            } catch (e) {
+              console.error(`Error parsing availability for member ${member.id}:`, e)
+              availability = member.availability
+            }
+          } else {
+            availability = member.availability
+          }
+          // Return in the same format as the API endpoint
+          availability = { availability: availability }
+        } else {
+          // If not in member object, fetch from API
+          availability = await teamAPI.getAvailability(member.id, startDate, endDate)
+        }
         
         return { memberId: member.id, availability, assignedJobs: [] }
       } catch (error) {
@@ -385,8 +496,16 @@ const UnifiedCalendar = () => {
           }
         }
         
-        const workingHours = availData.workingHours || availData || {}
-        const customAvailability = availData.customAvailability || []
+        // Extract workingHours and customAvailability from the parsed data
+        // Structure: { workingHours: {...}, customAvailability: [...] }
+        const workingHours = availData?.workingHours || {}
+        const customAvailability = Array.isArray(availData?.customAvailability) ? availData.customAvailability : []
+        
+        console.log('📅 Extracted availability:', {
+          workingHoursKeys: Object.keys(workingHours),
+          customAvailabilityCount: customAvailability.length,
+          sampleWorkingHours: workingHours.monday
+        })
         
         // Helper to parse hours string like "9:00 AM - 5:00 PM" to time slots
         const parseHoursString = (hoursStr) => {
@@ -432,6 +551,7 @@ const UnifiedCalendar = () => {
           const dayName = dayNamesFull[dayOfWeek].toLowerCase()
           
           const dateOverride = customAvailability.find(item => item.date === dateStr)
+          const dayWorkingHours = workingHours[dayName]
           
           let dayData = {
             available: false,
@@ -442,11 +562,30 @@ const UnifiedCalendar = () => {
           
           let baseHours = []
           if (dateOverride) {
+            // Handle custom availability override
             if (dateOverride.available === false) {
               dayData.available = false
-            } else if (dateOverride.hours) {
+            } else if (dateOverride.available === true) {
               dayData.available = true
-              if (Array.isArray(dateOverride.hours)) {
+              if (dateOverride.hours) {
+                if (typeof dateOverride.hours === 'string') {
+                  // Handle formats like "09:00-19:00" or "Unavailable"
+                  if (dateOverride.hours.toLowerCase() === 'unavailable' || dateOverride.hours.trim() === '') {
+                    dayData.available = false
+                  } else {
+                    // Parse time range like "09:00-19:00"
+                    const timeRangeMatch = dateOverride.hours.match(/(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})/)
+                    if (timeRangeMatch) {
+                      baseHours = [{
+                        start: `${timeRangeMatch[1].padStart(2, '0')}:${timeRangeMatch[2]}`,
+                        end: `${timeRangeMatch[3].padStart(2, '0')}:${timeRangeMatch[4]}`
+                      }]
+                    } else {
+                      // Try parsing as "9:00 AM - 6:00 PM" format
+                      baseHours = parseHoursString(dateOverride.hours)
+                    }
+                  }
+                } else if (Array.isArray(dateOverride.hours)) {
                 baseHours = dateOverride.hours.map(slot => {
                   if (typeof slot === 'string') {
                     const parsed = parseHoursString(slot)
@@ -454,25 +593,29 @@ const UnifiedCalendar = () => {
                   }
                   return slot
                 }).filter(Boolean)
-              } else if (typeof dateOverride.hours === 'string') {
-                baseHours = parseHoursString(dateOverride.hours)
               } else {
                 baseHours = [dateOverride.hours]
+                }
               }
             }
           } else {
-            const dayWorkingHours = workingHours[dayName]
-            // Only set as available if explicitly set to true AND has hours configured
+            // No date override, use working hours for the day
+            // Only set as available if explicitly set to true
             if (dayWorkingHours && dayWorkingHours.available === true) {
-              dayData.available = true
-              if (dayWorkingHours.timeSlots && dayWorkingHours.timeSlots.length > 0) {
-                baseHours = dayWorkingHours.timeSlots.map(slot => ({
-                  start: slot.start,
-                  end: slot.end
-                }))
-              } else if (dayWorkingHours.hours) {
-                baseHours = parseHoursString(dayWorkingHours.hours)
-              }
+                dayData.available = true
+              if (dayWorkingHours.timeSlots && Array.isArray(dayWorkingHours.timeSlots) && dayWorkingHours.timeSlots.length > 0) {
+                // Already in time slot format - filter enabled slots
+                const enabledSlots = dayWorkingHours.timeSlots.filter(slot => slot.enabled !== false)
+                if (enabledSlots.length > 0) {
+                  baseHours = enabledSlots.map(slot => ({
+                    start: slot.start,
+                    end: slot.end
+                  }))
+                }
+              } else if (dayWorkingHours.hours && typeof dayWorkingHours.hours === 'string' && dayWorkingHours.hours.trim() !== '') {
+                // Parse hours string format like "9:00 AM - 6:00 PM"
+                  baseHours = parseHoursString(dayWorkingHours.hours)
+                }
             } else {
               // Day is explicitly unavailable or not configured
               dayData.available = false
@@ -499,6 +642,35 @@ const UnifiedCalendar = () => {
           dayData.assignedJobs = dayJobs
           
           processedData[memberId][dateStr] = dayData
+        })
+      } else if (!hasAvailabilityConfigured) {
+        // No availability configured - apply default: Monday-Friday 8:00 AM - 6:00 PM
+        // All days get the default availability (no unavailable days)
+        calendarDays.forEach(({ date }) => {
+          if (!date.isCurrentMonth) return
+          
+          const dateStr = date.date.toISOString().split('T')[0]
+          
+          const dayJobs = assignedJobs.filter(job => {
+            if (!job.scheduled_date && !job.scheduledDate) return false
+            let jobDate
+            if (typeof job.scheduled_date === 'string' && job.scheduled_date.includes(' ')) {
+              const [datePart] = job.scheduled_date.split(' ')
+              jobDate = new Date(datePart)
+            } else {
+              jobDate = new Date(job.scheduled_date || job.scheduledDate)
+            }
+            return jobDate.toISOString().split('T')[0] === dateStr
+          })
+          
+          // Default: All days are available 8:00 AM - 6:00 PM
+          // (Monday-Friday are the primary work days, but weekends also get default hours)
+          processedData[memberId][dateStr] = {
+            available: true,
+            hours: [{ start: '08:00', end: '18:00' }],
+            assignedJobs: dayJobs,
+            hasAvailabilityConfigured: false // Still marked as not configured (using defaults)
+          }
         })
       }
     })
@@ -720,7 +892,9 @@ const UnifiedCalendar = () => {
     const memberData = availabilityData[memberId]?.[dateStr]
     if (!memberData) return { status: 'unknown', text: 'No data' }
     
-    if (!memberData.available) {
+    // Only show unavailable if explicitly set to false AND availability is configured
+    // If using defaults (hasAvailabilityConfigured: false), show the default hours
+    if (!memberData.available && memberData.hasAvailabilityConfigured) {
       return { status: 'unavailable', text: 'Unavailable' }
     }
     
@@ -1092,7 +1266,11 @@ const UnifiedCalendar = () => {
                     if (!member) return null
                     
                     const memberAvailability = availabilityData[selectedTeamMemberId]?.[dateStr]
-                    const isUnavailable = memberAvailability && !memberAvailability.available
+                    // Only show unavailable if explicitly set to false AND availability is configured
+                    // If using defaults (hasAvailabilityConfigured: false), show the default hours
+                    const isUnavailable = memberAvailability && 
+                                         !memberAvailability.available && 
+                                         memberAvailability.hasAvailabilityConfigured
                     const availabilityHours = memberAvailability?.hours || []
                     
                     if (isUnavailable) {
@@ -1105,6 +1283,7 @@ const UnifiedCalendar = () => {
                     
                     if (availabilityHours.length === 0) {
                       // Check if availability is configured at all
+                      // If using defaults (hasAvailabilityConfigured: false), we should have hours, so this shouldn't happen
                       const hasAvailabilityConfigured = memberAvailability?.hasAvailabilityConfigured !== false
                       return (
                         <div className="text-center py-8">
@@ -1174,7 +1353,11 @@ const UnifiedCalendar = () => {
                     if (!member) return null
                     
                     const memberAvailability = availabilityData[selectedTeamMemberId]?.[dateStr]
-                    const isUnavailable = memberAvailability && !memberAvailability.available
+                    // Only show unavailable if explicitly set to false AND availability is configured
+                    // If using defaults (hasAvailabilityConfigured: false), show the default hours
+                    const isUnavailable = memberAvailability && 
+                                         !memberAvailability.available && 
+                                         memberAvailability.hasAvailabilityConfigured
                     const availabilityHours = memberAvailability?.hours || []
                     const isToday = date.toDateString() === new Date().toDateString()
                     
@@ -1210,13 +1393,13 @@ const UnifiedCalendar = () => {
                           </div>
                         ) : !memberAvailability || !memberAvailability.hasAvailabilityConfigured ? (
                           // No availability configured at all
-                          <div className="text-center py-4">
-                            <div className="text-xs text-gray-500 font-medium">Availability not set</div>
-                          </div>
+                            <div className="text-center py-4">
+                              <div className="text-xs text-gray-500 font-medium">Availability not set</div>
+                            </div>
                         ) : memberAvailability?.available ? (
                           // Availability is configured and day is available
-                          <div className="text-center py-4">
-                            <div className="text-xs text-blue-600 font-medium">Available</div>
+                            <div className="text-center py-4">
+                              <div className="text-xs text-blue-600 font-medium">Available</div>
                           </div>
                         ) : (
                           // Availability is configured but day is unavailable
@@ -1303,19 +1486,44 @@ const UnifiedCalendar = () => {
                           const member = teamMembers.find(m => m.id === selectedTeamMemberId)
                           if (!member) return null
                           
+                          // Only show availability for current month
+                          if (!isCurrentMonth) {
+                            return null
+                          }
+                          
                           const memberAvailability = availabilityData[selectedTeamMemberId]?.[dateStr]
-                          const isUnavailable = memberAvailability && !memberAvailability.available
+                          
+                          // If no availability data, apply default (8am-6pm)
+                          if (!memberAvailability) {
+                            return (
+                              <div className="px-2 py-1 rounded text-xs bg-blue-50 text-blue-700 border border-blue-200 text-center">
+                                8:00 AM - 6:00 PM
+                              </div>
+                            )
+                          }
+                          
+                          // Only show unavailable if explicitly set to false AND availability is configured
+                          // If using defaults (hasAvailabilityConfigured: false), show the default hours
+                          const isUnavailable = memberAvailability && 
+                                               !memberAvailability.available && 
+                                               memberAvailability.hasAvailabilityConfigured
                           const availabilityHours = memberAvailability?.hours || []
                           
-                          if (!isCurrentMonth || isUnavailable) {
-                            if (isUnavailable && isCurrentMonth) {
+                          // If using defaults (hasAvailabilityConfigured: false) but no hours, show default
+                          if (!memberAvailability.hasAvailabilityConfigured && availabilityHours.length === 0) {
+                            return (
+                              <div className="px-2 py-1 rounded text-xs bg-blue-50 text-blue-700 border border-blue-200 text-center">
+                                8:00 AM - 6:00 PM
+                              </div>
+                            )
+                          }
+                          
+                          if (isUnavailable) {
                               return (
                                 <div className="px-2 py-1 rounded text-xs bg-gray-100 text-gray-500 border border-gray-200 text-center">
                                   Unavailable
                                 </div>
                               )
-                            }
-                            return null
                           }
                           
                           if (availabilityHours.length > 0) {
@@ -1340,12 +1548,12 @@ const UnifiedCalendar = () => {
                               ) : null
                             )
                           } else if (!memberAvailability || !memberAvailability.hasAvailabilityConfigured) {
-                            // No availability configured at all - show "Availability not set"
-                            return (
-                              <div className="px-2 py-1 rounded text-xs bg-gray-100 text-gray-500 border border-gray-200 text-center">
-                                Availability not set
-                              </div>
-                            )
+                            // No availability configured at all - show default availability
+                              return (
+                              <div className="px-2 py-1 rounded text-xs bg-blue-50 text-blue-700 border border-blue-200 text-center">
+                                8:00 AM - 6:00 PM
+                                </div>
+                              )
                           } else if (memberAvailability?.available) {
                             // Availability is configured and day is available
                             return (
