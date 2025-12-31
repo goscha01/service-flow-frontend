@@ -285,7 +285,11 @@ const LeadsPipeline = () => {
     e.preventDefault();
     
     // Basic validation - at least name or email should be provided
-    if (!leadFormData.firstName?.trim() && !leadFormData.lastName?.trim() && !leadFormData.email?.trim()) {
+    const firstName = (leadFormData.firstName || '').trim();
+    const lastName = (leadFormData.lastName || '').trim();
+    const email = (leadFormData.email || '').trim();
+    
+    if (!firstName && !lastName && !email) {
       showNotification('Please provide at least a name or email address', 'error', 5000);
       return;
     }
@@ -297,7 +301,6 @@ const LeadsPipeline = () => {
     }
     
     try {
-      // Prepare submit data with proper formatting
       // Convert value to number or null (not empty string)
       const value = leadFormData.value && leadFormData.value.toString().trim() !== '' 
         ? (parseFloat(leadFormData.value) || null)
@@ -305,14 +308,16 @@ const LeadsPipeline = () => {
       
       // Ensure source is not '__custom__' before submitting
       const submitData = {
-        firstName: (leadFormData.firstName || '').trim(),
-        lastName: (leadFormData.lastName || '').trim(),
-        email: (leadFormData.email || '').trim(),
+        firstName: firstName,
+        lastName: lastName,
+        email: email,
         phone: (leadFormData.phone || '').trim(),
         company: (leadFormData.company || '').trim(),
         source: leadFormData.source === '__custom__' ? '' : (leadFormData.source || ''),
         notes: (leadFormData.notes || '').trim(),
         value: value, // Send as number or null, never empty string
+        address: (leadFormData.address || '').trim(),
+        serviceId: leadFormData.serviceId || null,
         stageId: pipeline?.stages?.[0]?.id // Add to first stage
       };
       
@@ -360,7 +365,6 @@ const LeadsPipeline = () => {
     if (!editingLead) return;
     
     try {
-      // Prepare submit data with proper formatting
       // Convert value to number or null (not empty string)
       const value = leadFormData.value && leadFormData.value.toString().trim() !== '' 
         ? (parseFloat(leadFormData.value) || null)
@@ -375,7 +379,9 @@ const LeadsPipeline = () => {
         company: (leadFormData.company || '').trim(),
         source: leadFormData.source === '__custom__' ? '' : (leadFormData.source || ''),
         notes: (leadFormData.notes || '').trim(),
-        value: value // Send as number or null, never empty string
+        value: value, // Send as number or null, never empty string
+        address: (leadFormData.address || '').trim(),
+        serviceId: leadFormData.serviceId || null
       };
       
       console.log('📝 Updating lead with data:', submitData);
@@ -409,8 +415,6 @@ const LeadsPipeline = () => {
         }
       }
     } catch (err) {
-      const errorMessage = err.response?.data?.error || err.message || 'Failed to update lead';
-      showNotification(errorMessage, 'error', 5000);
       console.error('❌ Error updating lead:', err);
       console.error('❌ Error response:', err.response?.data);
       console.error('❌ Error details:', {
@@ -1110,7 +1114,7 @@ const LeadsPipeline = () => {
                     type="number"
                     step="0.01"
                     min="0"
-                    value={leadFormData.value}
+                    value={leadFormData.value || ''}
                     onChange={(e) => {
                       const inputValue = e.target.value;
                       // Allow empty string for user to clear, but prevent negative numbers
@@ -1118,7 +1122,15 @@ const LeadsPipeline = () => {
                         setLeadFormData({ ...leadFormData, value: inputValue });
                       }
                     }}
+                    onBlur={(e) => {
+                      // On blur, if empty or invalid, set to empty string
+                      const inputValue = e.target.value;
+                      if (inputValue === '' || isNaN(parseFloat(inputValue)) || parseFloat(inputValue) < 0) {
+                        setLeadFormData({ ...leadFormData, value: '' });
+                      }
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    readOnly={!!leadFormData.serviceId}
                     placeholder="0.00"
                   />
                   {leadFormData.serviceId && (
@@ -1615,12 +1627,19 @@ const LeadsPipeline = () => {
                     type="number"
                     step="0.01"
                     min="0"
-                    value={leadFormData.value}
+                    value={leadFormData.value || ''}
                     onChange={(e) => {
                       const inputValue = e.target.value;
                       // Allow empty string for user to clear, but prevent negative numbers
                       if (inputValue === '' || (!isNaN(parseFloat(inputValue)) && parseFloat(inputValue) >= 0)) {
                         setLeadFormData({ ...leadFormData, value: inputValue });
+                      }
+                    }}
+                    onBlur={(e) => {
+                      // On blur, if empty or invalid, set to empty string
+                      const inputValue = e.target.value;
+                      if (inputValue === '' || isNaN(parseFloat(inputValue)) || parseFloat(inputValue) < 0) {
+                        setLeadFormData({ ...leadFormData, value: '' });
                       }
                     }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
