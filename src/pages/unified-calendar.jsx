@@ -177,7 +177,7 @@ const UnifiedCalendar = () => {
         if (currentDate.getMonth() === currentMonth) {
           const dateStr = currentDate.toISOString().split('T')[0]
           processedData[dateStr] = {
-            available: hasAvailabilityConfigured ? true : false, // Mark as unavailable if no availability configured
+            available: false, // Default to false, will be set to true only if availability is configured and day is available
             hours: null,
             hasAvailabilityConfigured: hasAvailabilityConfigured // Track if availability is configured at all
           }
@@ -267,7 +267,8 @@ const UnifiedCalendar = () => {
             }
           } else {
             const dayWorkingHours = workingHours[dayName]
-            if (dayWorkingHours && dayWorkingHours.available !== false) {
+            // Only set as available if explicitly set to true AND has hours configured
+            if (dayWorkingHours && dayWorkingHours.available === true) {
               dayData.available = true
               if (dayWorkingHours.timeSlots && dayWorkingHours.timeSlots.length > 0) {
                 // Already in time slot format
@@ -279,6 +280,10 @@ const UnifiedCalendar = () => {
                 // Parse hours string format
                 dayData.hours = parseHoursString(dayWorkingHours.hours)
               }
+            } else {
+              // Day is explicitly unavailable or not configured
+              dayData.available = false
+              dayData.hours = null
             }
           }
           
@@ -300,6 +305,7 @@ const UnifiedCalendar = () => {
       // Still set empty data so UI doesn't break - jobs might still load
       // Jobs are already set above, so we don't need to reset them here
       // Set default availability so calendar still renders
+      // If availability fetch failed or returned null, mark as not configured
       const defaultData = {}
       const firstDay = new Date(currentYear, currentMonth, 1)
       const startDateObj = new Date(firstDay)
@@ -308,7 +314,11 @@ const UnifiedCalendar = () => {
       for (let i = 0; i < 42; i++) {
         if (currentDate.getMonth() === currentMonth) {
           const dateStr = currentDate.toISOString().split('T')[0]
-          defaultData[dateStr] = { available: true, hours: null }
+          defaultData[dateStr] = { 
+            available: false, 
+            hours: null,
+            hasAvailabilityConfigured: false // Mark as not configured
+          }
         }
         currentDate.setDate(currentDate.getDate() + 1)
       }
@@ -361,6 +371,9 @@ const UnifiedCalendar = () => {
     const processedData = {}
     results.forEach(({ memberId, availability, assignedJobs }) => {
       processedData[memberId] = {}
+      
+      // Check if team member has any availability configured
+      const hasAvailabilityConfigured = availability?.availability !== null && availability?.availability !== undefined
       
       if (availability?.availability) {
         let availData = availability.availability
@@ -423,7 +436,8 @@ const UnifiedCalendar = () => {
           let dayData = {
             available: false,
             hours: null,
-            assignedJobs: []
+            assignedJobs: [],
+            hasAvailabilityConfigured: hasAvailabilityConfigured
           }
           
           let baseHours = []
@@ -448,20 +462,25 @@ const UnifiedCalendar = () => {
             }
           } else {
             const dayWorkingHours = workingHours[dayName]
-            if (dayWorkingHours) {
-              if (dayWorkingHours.available !== false) {
-                dayData.available = true
-                if (dayWorkingHours.timeSlots && dayWorkingHours.timeSlots.length > 0) {
-                  baseHours = dayWorkingHours.timeSlots.map(slot => ({
-                    start: slot.start,
-                    end: slot.end
-                  }))
-                } else if (dayWorkingHours.hours) {
-                  baseHours = parseHoursString(dayWorkingHours.hours)
-                }
+            // Only set as available if explicitly set to true AND has hours configured
+            if (dayWorkingHours && dayWorkingHours.available === true) {
+              dayData.available = true
+              if (dayWorkingHours.timeSlots && dayWorkingHours.timeSlots.length > 0) {
+                baseHours = dayWorkingHours.timeSlots.map(slot => ({
+                  start: slot.start,
+                  end: slot.end
+                }))
+              } else if (dayWorkingHours.hours) {
+                baseHours = parseHoursString(dayWorkingHours.hours)
               }
+            } else {
+              // Day is explicitly unavailable or not configured
+              dayData.available = false
             }
           }
+          
+          // Set hasAvailabilityConfigured flag
+          dayData.hasAvailabilityConfigured = hasAvailabilityConfigured
           
           dayData.hours = baseHours
           
@@ -1189,22 +1208,18 @@ const UnifiedCalendar = () => {
                               )
                             })}
                           </div>
-                        ) : memberAvailability?.available ? (
-                          // Check if availability is configured at all
-                          !memberAvailability.hasAvailabilityConfigured ? (
-                            <div className="text-center py-4">
-                              <div className="text-xs text-gray-500 font-medium">Availability not set</div>
-                            </div>
-                          ) : (
-                            <div className="text-center py-4">
-                              <div className="text-xs text-blue-600 font-medium">Available</div>
-                            </div>
-                          )
-                        ) : !memberAvailability?.hasAvailabilityConfigured ? (
+                        ) : !memberAvailability || !memberAvailability.hasAvailabilityConfigured ? (
+                          // No availability configured at all
                           <div className="text-center py-4">
                             <div className="text-xs text-gray-500 font-medium">Availability not set</div>
                           </div>
+                        ) : memberAvailability?.available ? (
+                          // Availability is configured and day is available
+                          <div className="text-center py-4">
+                            <div className="text-xs text-blue-600 font-medium">Available</div>
+                          </div>
                         ) : (
+                          // Availability is configured but day is unavailable
                           <div className="text-center py-4">
                             <div className="text-xs text-gray-400">No data</div>
                           </div>
@@ -1324,25 +1339,18 @@ const UnifiedCalendar = () => {
                                 </div>
                               ) : null
                             )
-                          } else if (memberAvailability?.available) {
-                            // Check if availability is configured at all
-                            if (!memberAvailability.hasAvailabilityConfigured) {
-                              return (
-                                <div className="px-2 py-1 rounded text-xs bg-gray-100 text-gray-500 border border-gray-200 text-center">
-                                  Availability not set
-                                </div>
-                              )
-                            }
-                            return (
-                              <div className="text-xs text-blue-600 text-center py-1">
-                                Available
-                              </div>
-                            )
-                          } else if (!memberAvailability?.hasAvailabilityConfigured) {
-                            // No availability configured at all
+                          } else if (!memberAvailability || !memberAvailability.hasAvailabilityConfigured) {
+                            // No availability configured at all - show "Availability not set"
                             return (
                               <div className="px-2 py-1 rounded text-xs bg-gray-100 text-gray-500 border border-gray-200 text-center">
                                 Availability not set
+                              </div>
+                            )
+                          } else if (memberAvailability?.available) {
+                            // Availability is configured and day is available
+                            return (
+                              <div className="text-xs text-blue-600 text-center py-1">
+                                Available
                               </div>
                             )
                           }
