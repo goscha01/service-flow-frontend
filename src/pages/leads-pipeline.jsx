@@ -29,7 +29,7 @@ import TaskCard from '../components/task-card';
 import CreateTaskModal from '../components/create-task-modal';
 import ConvertLeadModal from '../components/convert-lead-modal';
 import MobileBottomNav from '../components/mobile-bottom-nav';
-import AddressAutocomplete from '../components/address-autocomplete';
+import AddressAutocompleteLeads from '../components/address-autocomplete-leads';
 
 const LeadsPipeline = () => {
   const navigate = useNavigate();
@@ -220,13 +220,13 @@ const LeadsPipeline = () => {
             const prevNumeric = parseFloat(prevValue);
             if (!prevValue || prevValue === '' || isNaN(prevNumeric) || prevNumeric === 0) {
               return {
-                ...prev,
-                value: selectedService.price.toString()
+          ...prev,
+          value: selectedService.price.toString()
               };
-            }
+      }
             return prev; // Keep existing value if it's a real number > 0
           });
-        }
+    }
         // If user has entered a value, keep it - service and price can coexist
       }
       // Don't clear value if service has no price - let user keep their manually entered price
@@ -835,7 +835,7 @@ const LeadsPipeline = () => {
             <div className="overflow-y-auto flex-1 p-4 sm:p-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Left Column - Form */}
-                <form onSubmit={handleCreateLead} className="space-y-4">
+                <form onSubmit={handleCreateLead} className="space-y-4" autoComplete="off">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -980,7 +980,7 @@ const LeadsPipeline = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Address
                   </label>
-                  <AddressAutocomplete
+                  <AddressAutocompleteLeads
                     value={leadFormData.address}
                     onChange={(value) => {
                       setLeadFormData({ ...leadFormData, address: value });
@@ -1429,7 +1429,7 @@ const LeadsPipeline = () => {
             <div className="overflow-y-auto flex-1 p-4 sm:p-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Left Column - Form */}
-                <form onSubmit={handleEditLead} className="space-y-4">
+                <form onSubmit={handleEditLead} className="space-y-4" autoComplete="off">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1497,13 +1497,20 @@ const LeadsPipeline = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Address
                   </label>
-                  <AddressAutocomplete
+                  <AddressAutocompleteLeads
                     value={leadFormData.address}
-                    onChange={(address) => {
-                      setLeadFormData({ ...leadFormData, address: address.formattedAddress || address });
-                      setSelectedAddress(address);
-                      if (address.components) {
-                        checkZillowProperty(address);
+                    onChange={(value) => {
+                      setLeadFormData({ ...leadFormData, address: value });
+                    }}
+                    onAddressSelect={(addressData) => {
+                      setSelectedAddress(addressData);
+                      setLeadFormData(prev => ({
+                        ...prev,
+                        address: addressData.formattedAddress
+                      }));
+                      // Check property data when address is selected
+                      if (addressData.components) {
+                        checkZillowProperty(addressData);
                       }
                     }}
                     placeholder="Enter property address"
