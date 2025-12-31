@@ -45,14 +45,12 @@ const AddressAutocompleteLeads = ({
       try {
         // Aggressively disable browser autocomplete
         if (inputRef.current) {
-          inputRef.current.setAttribute('autocomplete', 'new-password');
+          inputRef.current.setAttribute('autocomplete', 'one-time-code');
           inputRef.current.setAttribute('autocorrect', 'off');
           inputRef.current.setAttribute('autocapitalize', 'off');
           inputRef.current.setAttribute('spellcheck', 'false');
-          inputRef.current.setAttribute('list', '');
-          // Prevent browser from showing saved addresses
-          inputRef.current.setAttribute('data-1p-ignore', 'true');
-          inputRef.current.setAttribute('data-lpignore', 'true');
+          inputRef.current.setAttribute('name', 'addr_input_xyz');
+          inputRef.current.setAttribute('id', 'addr_input_xyz');
           // Remove any datalist that might be attached
           inputRef.current.removeAttribute('list');
         }
@@ -67,7 +65,50 @@ const AddressAutocompleteLeads = ({
         autocomplete.addListener('place_changed', () => {
           const place = autocomplete.getPlace();
           if (place && place.place_id) {
-            handlePlaceSelection(place);
+            // Handle place selection inline to avoid dependency warning
+            (async () => {
+              try {
+                setIsLoading(true);
+                setError(null);
+
+                // Get detailed place information
+                const placeDetails = await getPlaceDetails(place.place_id);
+                
+                if (placeDetails) {
+                  const addressData = {
+                    formattedAddress: placeDetails.formatted_address,
+                    placeId: placeDetails.place_id,
+                    components: {
+                      streetNumber: placeDetails.address_components?.find(c => c.types.includes('street_number'))?.long_name,
+                      route: placeDetails.address_components?.find(c => c.types.includes('route'))?.long_name,
+                      city: placeDetails.address_components?.find(c => c.types.includes('locality'))?.long_name,
+                      state: placeDetails.address_components?.find(c => c.types.includes('administrative_area_level_1'))?.short_name,
+                      zipCode: placeDetails.address_components?.find(c => c.types.includes('postal_code'))?.long_name,
+                      country: placeDetails.address_components?.find(c => c.types.includes('country'))?.long_name,
+                    },
+                    geometry: placeDetails.geometry?.location,
+                  };
+
+                  setSelectedAddress(addressData);
+                  setIsProgrammaticUpdate(true);
+                  
+                  // Use setTimeout to ensure the flag is set before input change
+                  setTimeout(() => {
+                    setInput(placeDetails.formatted_address);
+                  }, 0);
+                  
+                  // Only call onAddressSelect when a place is selected, not onChange
+                  if (onAddressSelect) {
+                    onAddressSelect(addressData);
+                  }
+                }
+              } catch (err) {
+                console.error('Error getting place details:', err);
+                setError('Failed to get address details');
+              } finally {
+                setIsLoading(false);
+              }
+            })();
           }
         });
 
@@ -77,56 +118,13 @@ const AddressAutocompleteLeads = ({
         setError('Failed to initialize address autocomplete');
       }
     }
-  }, [googleMapsReady]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [googleMapsReady, onAddressSelect]);
 
   // Update input when value prop changes
   useEffect(() => {
     setInput(value || '');
   }, [value]);
-
-  const handlePlaceSelection = async (place) => {
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      // Get detailed place information
-      const placeDetails = await getPlaceDetails(place.place_id);
-      
-      if (placeDetails) {
-        const addressData = {
-          formattedAddress: placeDetails.formatted_address,
-          placeId: placeDetails.place_id,
-          components: {
-            streetNumber: placeDetails.address_components?.find(c => c.types.includes('street_number'))?.long_name,
-            route: placeDetails.address_components?.find(c => c.types.includes('route'))?.long_name,
-            city: placeDetails.address_components?.find(c => c.types.includes('locality'))?.long_name,
-            state: placeDetails.address_components?.find(c => c.types.includes('administrative_area_level_1'))?.short_name,
-            zipCode: placeDetails.address_components?.find(c => c.types.includes('postal_code'))?.long_name,
-            country: placeDetails.address_components?.find(c => c.types.includes('country'))?.long_name,
-          },
-          geometry: placeDetails.geometry?.location,
-        };
-
-        setSelectedAddress(addressData);
-        setIsProgrammaticUpdate(true);
-        
-        // Use setTimeout to ensure the flag is set before input change
-        setTimeout(() => {
-          setInput(placeDetails.formatted_address);
-        }, 0);
-        
-        // Only call onAddressSelect when a place is selected, not onChange
-        if (onAddressSelect) {
-          onAddressSelect(addressData);
-        }
-      }
-    } catch (err) {
-      console.error('Error getting place details:', err);
-      setError('Failed to get address details');
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleInputChange = (e) => {
     const newValue = e.target.value;
@@ -134,7 +132,7 @@ const AddressAutocompleteLeads = ({
     
     // Prevent browser autocomplete from interfering
     if (inputRef.current) {
-      inputRef.current.setAttribute('autocomplete', 'new-password');
+      inputRef.current.setAttribute('autocomplete', 'one-time-code');
       inputRef.current.removeAttribute('list');
     }
     
@@ -166,10 +164,12 @@ const AddressAutocompleteLeads = ({
     if (googleMapsReady && inputRef.current) {
       // Aggressively disable browser autocomplete
       if (inputRef.current) {
-        inputRef.current.setAttribute('autocomplete', 'new-password');
+        inputRef.current.setAttribute('autocomplete', 'one-time-code');
         inputRef.current.setAttribute('autocorrect', 'off');
         inputRef.current.setAttribute('autocapitalize', 'off');
         inputRef.current.setAttribute('spellcheck', 'false');
+        inputRef.current.setAttribute('name', 'addr_input_xyz');
+        inputRef.current.setAttribute('id', 'addr_input_xyz');
         inputRef.current.removeAttribute('list');
       }
 
@@ -178,8 +178,8 @@ const AddressAutocompleteLeads = ({
       style.id = 'address-autocomplete-leads-styles';
       style.textContent = `
         /* Hide browser autocomplete dropdown completely */
-        input[autocomplete="new-password"]::-webkit-contacts-auto-fill-button,
-        input[autocomplete="new-password"]::-webkit-credentials-auto-fill-button {
+        input[autocomplete="one-time-code"]::-webkit-contacts-auto-fill-button,
+        input[autocomplete="one-time-code"]::-webkit-credentials-auto-fill-button {
           display: none !important;
           visibility: hidden !important;
           opacity: 0 !important;
@@ -235,6 +235,16 @@ const AddressAutocompleteLeads = ({
 
   return (
     <div className={`relative ${className}`}>
+      {/* Hidden dummy input to trick browser autofill */}
+      <input
+        type="text"
+        name="fake-address"
+        autoComplete="address-line1"
+        style={{ position: 'absolute', left: '-9999px', opacity: 0, pointerEvents: 'none', height: 0, width: 0 }}
+        tabIndex={-1}
+        readOnly
+        aria-hidden="true"
+      />
       <div className="relative">
         <input
           ref={inputRef}
@@ -244,14 +254,12 @@ const AddressAutocompleteLeads = ({
           placeholder={placeholder}
           className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           disabled={!googleMapsReady}
-          autoComplete="new-password"
+          autoComplete="one-time-code"
           autoCorrect="off"
           autoCapitalize="off"
           spellCheck="false"
-          data-lpignore="true"
-          data-form-type="other"
-          name="address-leads-autocomplete"
-          id="address-leads-autocomplete"
+          name="addr_input_xyz"
+          id="addr_input_xyz"
         />
         <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
           {getStatusIcon()}
