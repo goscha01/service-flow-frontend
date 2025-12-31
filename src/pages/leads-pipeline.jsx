@@ -915,11 +915,14 @@ const LeadsPipeline = () => {
                         onChange={(e) => {
                           const value = e.target.value;
                           if (value === '__custom__') {
+                            // Set the source to '__custom__' first, then show the input
+                            setLeadFormData({ ...leadFormData, source: '__custom__' });
                             setCustomSource('');
                             setShowSourceDropdown(true);
                           } else {
                             setLeadFormData({ ...leadFormData, source: value });
                             setShowSourceDropdown(false);
+                            setCustomSource(''); // Clear custom source when selecting a regular source
                           }
                         }}
                         className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -946,10 +949,15 @@ const LeadsPipeline = () => {
                             onChange={(e) => setCustomSource(e.target.value)}
                             placeholder="Enter custom source name"
                             className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                            autoFocus
                             onKeyDown={(e) => {
                               if (e.key === 'Enter' && customSource.trim()) {
                                 e.preventDefault();
                                 addCustomSource(customSource, false);
+                              } else if (e.key === 'Escape') {
+                                setCustomSource('');
+                                setShowSourceDropdown(false);
+                                setLeadFormData({ ...leadFormData, source: '' });
                               }
                             }}
                           />
@@ -1405,11 +1413,14 @@ const LeadsPipeline = () => {
                         onChange={(e) => {
                           const value = e.target.value;
                           if (value === '__custom__') {
+                            // Set the source to '__custom__' first, then show the input
+                            setLeadFormData({ ...leadFormData, source: '__custom__' });
                             setEditCustomSource('');
                             setShowEditSourceDropdown(true);
                           } else {
                             setLeadFormData({ ...leadFormData, source: value });
                             setShowEditSourceDropdown(false);
+                            setEditCustomSource(''); // Clear custom source when selecting a regular source
                           }
                         }}
                         className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -1436,10 +1447,15 @@ const LeadsPipeline = () => {
                             onChange={(e) => setEditCustomSource(e.target.value)}
                             placeholder="Enter custom source name"
                             className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                            autoFocus
                             onKeyDown={(e) => {
                               if (e.key === 'Enter' && editCustomSource.trim()) {
                                 e.preventDefault();
                                 addCustomSource(editCustomSource, true);
+                              } else if (e.key === 'Escape') {
+                                setEditCustomSource('');
+                                setShowEditSourceDropdown(false);
+                                setLeadFormData({ ...leadFormData, source: '' });
                               }
                             }}
                           />
