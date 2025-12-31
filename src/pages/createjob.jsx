@@ -205,6 +205,8 @@ export default function CreateJobPage() {
   const [intakeQuestionAnswers, setIntakeQuestionAnswers] = useState({}); // { questionId: answer }
   const [calculationTrigger, setCalculationTrigger] = useState(0); // Trigger for recalculations
   const [editedModifierPrices, setEditedModifierPrices] = useState({}); // { modifierId_optionId: price }
+  const [editingServicePriceId, setEditingServicePriceId] = useState(null); // Track which service price is being edited
+  const [editingServicePriceValue, setEditingServicePriceValue] = useState(''); // Temporary price value while editing
 
   // Expandable sections
   const [expandedSections, setExpandedSections] = useState({
@@ -2288,9 +2290,81 @@ setIntakeQuestionAnswers(answers);
                                 </button>
                               </div>
                               <div className="flex items-center gap-3">
-                                <span className="text-base font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
-                                  ${parseFloat(service.price || 0).toFixed(2)}
-                                </span>
+                                {editingServicePriceId === service.id ? (
+                                  // Price editing mode
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm text-gray-500">$</span>
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      min="0"
+                                      value={editingServicePriceValue}
+                                      onChange={(e) => setEditingServicePriceValue(e.target.value)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                          // Save on Enter
+                                          const newPrice = parseFloat(editingServicePriceValue) || 0;
+                                          setSelectedServices(prev => prev.map(s => 
+                                            s.id === service.id ? { ...s, price: newPrice, originalPrice: s.originalPrice || s.price } : s
+                                          ));
+                                          setEditingServicePriceId(null);
+                                          setEditingServicePriceValue('');
+                                        } else if (e.key === 'Escape') {
+                                          // Cancel on Escape
+                                          setEditingServicePriceId(null);
+                                          setEditingServicePriceValue('');
+                                        }
+                                      }}
+                                      autoFocus
+                                      className="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                      style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const newPrice = parseFloat(editingServicePriceValue) || 0;
+                                        setSelectedServices(prev => prev.map(s => 
+                                          s.id === service.id ? { ...s, price: newPrice, originalPrice: s.originalPrice || s.price } : s
+                                        ));
+                                        setEditingServicePriceId(null);
+                                        setEditingServicePriceValue('');
+                                      }}
+                                      className="text-xs px-2 py-1 text-blue-600 hover:text-blue-700 font-medium"
+                                      style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
+                                    >
+                                      Save
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setEditingServicePriceId(null);
+                                        setEditingServicePriceValue('');
+                                      }}
+                                      className="text-xs px-2 py-1 text-gray-600 hover:text-gray-700 font-medium"
+                                      style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                ) : (
+                                  // Display mode
+                                  <>
+                                    <span className="text-base font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                                      ${parseFloat(service.price || 0).toFixed(2)}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setEditingServicePriceId(service.id);
+                                        setEditingServicePriceValue(parseFloat(service.price || 0).toFixed(2));
+                                      }}
+                                      className="text-gray-400 hover:text-blue-600 transition-colors"
+                                      title="Edit price"
+                                    >
+                                      <Edit3 className="w-4 h-4" />
+                                    </button>
+                                  </>
+                                )}
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -2322,6 +2396,7 @@ setIntakeQuestionAnswers(answers);
                                     setShowServiceCustomizationPopup(true);
                                   }}
                                   className="text-gray-400 hover:text-gray-600 transition-colors"
+                                  title="Edit service details"
                                 >
                                   <Edit className="w-4 h-4" />
                                 </button>
@@ -2329,6 +2404,7 @@ setIntakeQuestionAnswers(answers);
                                   type="button"
                                   onClick={() => removeService(service.id)}
                                   className="text-gray-400 hover:text-red-600 transition-colors"
+                                  title="Remove service"
                                 >
                                   <Trash2 className="w-5 h-5" />
                                 </button>
@@ -2338,6 +2414,52 @@ setIntakeQuestionAnswers(answers);
                             {/* Expanded Details */}
                             {isExpanded && (
                               <div className="mt-4 space-y-4 bg-gray-50 -mx-6 px-6 py-4 rounded-lg">
+                                {/* Customize Price Section */}
+                                <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                                  <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                                    Customize price
+                                  </label>
+                                  <div className="flex items-center space-x-2">
+                                    <span className="text-sm text-gray-500">$</span>
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      min="0"
+                                      value={service.price === 0 ? "" : service.price}
+                                      onChange={(e) => {
+                                        const newPrice = e.target.value === "" ? 0 : parseFloat(e.target.value) || 0;
+                                        setSelectedServices(prev => prev.map(s => 
+                                          s.id === service.id ? { ...s, price: newPrice, originalPrice: s.originalPrice || s.price } : s
+                                        ));
+                                      }}
+                                      onFocus={(e) => {
+                                        if (e.target.value === "0" || e.target.value === "0.00") {
+                                          e.target.value = "";
+                                        }
+                                      }}
+                                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                      placeholder="0.00"
+                                      style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
+                                    />
+                                  </div>
+                                  <div className="flex space-x-2 mt-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        // Reset to original price
+                                        const originalPrice = service.originalPrice || service.price || 0;
+                                        setSelectedServices(prev => prev.map(s => 
+                                          s.id === service.id ? { ...s, price: originalPrice } : s
+                                        ));
+                                      }}
+                                      className="text-sm text-red-600 hover:text-red-800 font-medium"
+                                      style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
+                                    >
+                                      Reset
+                                    </button>
+                                  </div>
+                                </div>
+                                
                                 {/* Service Modifiers */}
                                 {hasModifiers && (
                                   <div>

@@ -132,28 +132,56 @@ const Analytics = () => {
     }
   }
 
+  // Helper function to format date in local time (avoid timezone issues)
+  const formatDateLocal = (date) => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
   const fetchOverviewData = async () => {
     const endDate = new Date()
+    endDate.setHours(23, 59, 59, 999) // End of day
     const startDate = new Date()
-    startDate.setDate(startDate.getDate() - parseInt(dateRange))
+    // For "last N days", we want to include today, so subtract (N-1) days
+    // Example: "last 7 days" = today + 6 days ago = 7 days total
+    const daysToSubtract = parseInt(dateRange) - 1
+    startDate.setDate(startDate.getDate() - daysToSubtract)
+    startDate.setHours(0, 0, 0, 0) // Start of day
     
     const jobs = await jobsAPI.getAll(user.id, "", "", 1, 1000)
     const invoices = await invoicesAPI.getAll(user.id, { page: 1, limit: 1000 })
     
+    const startDateString = formatDateLocal(startDate)
+    const endDateString = formatDateLocal(endDate)
+    
+    console.log(`📊 Analytics: Date range filter - ${dateRange} days`)
+    console.log(`📊 Analytics: Start date: ${startDateString}, End date: ${endDateString}`)
+    console.log(`📊 Analytics: Total jobs fetched: ${jobs.jobs?.length || 0}`)
+    console.log(`📊 Analytics: Total invoices fetched: ${invoices.invoices?.length || 0}`)
+    
     const filteredJobs = jobs.jobs?.filter(job => {
       // Extract date part from scheduled_date string (format: "2024-01-15 10:00:00")
       const jobDateString = job.scheduled_date ? job.scheduled_date.split(' ')[0] : ''
-      const startDateString = startDate.toISOString().split('T')[0]
-      const endDateString = endDate.toISOString().split('T')[0]
-      return jobDateString >= startDateString && jobDateString <= endDateString
+      const isInRange = jobDateString >= startDateString && jobDateString <= endDateString
+      if (isInRange) {
+        console.log(`📊 Analytics: Job ${job.id} matches - date: ${jobDateString}`)
+      }
+      return isInRange
     }) || []
     
     const filteredInvoices = invoices.invoices?.filter(invoice => {
       const invoiceDate = new Date(invoice.created_at)
-      return invoiceDate >= startDate && invoiceDate <= endDate
+      const isInRange = invoiceDate >= startDate && invoiceDate <= endDate
+      if (isInRange) {
+        console.log(`📊 Analytics: Invoice ${invoice.id} matches - date: ${invoice.created_at}`)
+      }
+      return isInRange
     }) || []
     
-    console.log('Filtered invoices:', filteredInvoices)
+    console.log(`📊 Analytics: Filtered jobs: ${filteredJobs.length}`)
+    console.log(`📊 Analytics: Filtered invoices: ${filteredInvoices.length}`)
     // Calculate revenue from invoices first
     let totalRevenue = filteredInvoices.reduce((sum, invoice) => {
       const amount = parseFloat(invoice.total_amount) || parseFloat(invoice.amount) || 0
@@ -218,11 +246,18 @@ const Analytics = () => {
 
   const fetchRevenueData = async () => {
     const endDate = new Date()
+    endDate.setHours(23, 59, 59, 999) // End of day
     const startDate = new Date()
-    startDate.setDate(startDate.getDate() - parseInt(dateRange))
+    // For "last N days", we want to include today, so subtract (N-1) days
+    const daysToSubtract = parseInt(dateRange) - 1
+    startDate.setDate(startDate.getDate() - daysToSubtract)
+    startDate.setHours(0, 0, 0, 0) // Start of day
     
     const invoices = await invoicesAPI.getAll(user.id, { page: 1, limit: 1000 })
     const jobs = await jobsAPI.getAll(user.id, "", "", 1, 1000)
+    
+    const startDateString = formatDateLocal(startDate)
+    const endDateString = formatDateLocal(endDate)
     
     const filteredInvoices = invoices.invoices?.filter(invoice => {
       const invoiceDate = new Date(invoice.created_at)
@@ -232,8 +267,6 @@ const Analytics = () => {
     const filteredJobs = jobs.jobs?.filter(job => {
       // Extract date part from scheduled_date string (format: "2024-01-15 10:00:00")
       const jobDateString = job.scheduled_date ? job.scheduled_date.split(' ')[0] : ''
-      const startDateString = startDate.toISOString().split('T')[0]
-      const endDateString = endDate.toISOString().split('T')[0]
       return jobDateString >= startDateString && jobDateString <= endDateString
     }) || []
     
@@ -531,13 +564,18 @@ const Analytics = () => {
 
   const fetchSalaryAnalytics = async () => {
     try {
-      const endDate = new Date().toISOString().split('T')[0]
+      const endDate = new Date()
+      endDate.setHours(23, 59, 59, 999)
       const startDate = new Date()
-      startDate.setDate(startDate.getDate() - parseInt(dateRange))
-      const startDateStr = startDate.toISOString().split('T')[0]
+      // For "last N days", we want to include today, so subtract (N-1) days
+      const daysToSubtract = parseInt(dateRange) - 1
+      startDate.setDate(startDate.getDate() - daysToSubtract)
+      startDate.setHours(0, 0, 0, 0)
+      const endDateStr = formatDateLocal(endDate)
+      const startDateStr = formatDateLocal(startDate)
       
       const groupBy = trendView === 'daily' ? 'day' : trendView === 'weekly' ? 'week' : 'month'
-      const data = await payrollAPI.getSalaryAnalytics(startDateStr, endDate, groupBy)
+      const data = await payrollAPI.getSalaryAnalytics(startDateStr, endDateStr, groupBy)
       return data || { timeSeries: [], memberBreakdown: [], summary: {} }
     } catch (error) {
       console.error('Error fetching salary analytics:', error)
@@ -547,13 +585,18 @@ const Analytics = () => {
 
   const fetchConversionAnalytics = async () => {
     try {
-      const endDate = new Date().toISOString().split('T')[0]
+      const endDate = new Date()
+      endDate.setHours(23, 59, 59, 999)
       const startDate = new Date()
-      startDate.setDate(startDate.getDate() - parseInt(dateRange))
-      const startDateStr = startDate.toISOString().split('T')[0]
+      // For "last N days", we want to include today, so subtract (N-1) days
+      const daysToSubtract = parseInt(dateRange) - 1
+      startDate.setDate(startDate.getDate() - daysToSubtract)
+      startDate.setHours(0, 0, 0, 0)
+      const endDateStr = formatDateLocal(endDate)
+      const startDateStr = formatDateLocal(startDate)
       
       const groupBy = trendView === 'daily' ? 'day' : trendView === 'weekly' ? 'week' : 'month'
-      const data = await analyticsAPI.getConversionMetrics(startDateStr, endDate, groupBy)
+      const data = await analyticsAPI.getConversionMetrics(startDateStr, endDateStr, groupBy)
       return data || { summary: {}, bySource: {}, byStage: {}, timeSeries: [] }
     } catch (error) {
       console.error('Error fetching conversion analytics:', error)
@@ -563,13 +606,18 @@ const Analytics = () => {
 
   const fetchRecurringConversionAnalytics = async () => {
     try {
-      const endDate = new Date().toISOString().split('T')[0]
+      const endDate = new Date()
+      endDate.setHours(23, 59, 59, 999)
       const startDate = new Date()
-      startDate.setDate(startDate.getDate() - parseInt(dateRange))
-      const startDateStr = startDate.toISOString().split('T')[0]
+      // For "last N days", we want to include today, so subtract (N-1) days
+      const daysToSubtract = parseInt(dateRange) - 1
+      startDate.setDate(startDate.getDate() - daysToSubtract)
+      startDate.setHours(0, 0, 0, 0)
+      const endDateStr = formatDateLocal(endDate)
+      const startDateStr = formatDateLocal(startDate)
       
       const groupBy = trendView === 'daily' ? 'day' : trendView === 'weekly' ? 'week' : 'month'
-      const data = await analyticsAPI.getRecurringConversionMetrics(startDateStr, endDate, groupBy)
+      const data = await analyticsAPI.getRecurringConversionMetrics(startDateStr, endDateStr, groupBy)
       return data || { summary: {}, byFrequency: {}, timeSeries: [], customerBreakdown: [] }
     } catch (error) {
       console.error('Error fetching recurring conversion analytics:', error)
@@ -579,13 +627,18 @@ const Analytics = () => {
 
   const fetchLostCustomersAnalytics = async () => {
     try {
-      const endDate = new Date().toISOString().split('T')[0]
+      const endDate = new Date()
+      endDate.setHours(23, 59, 59, 999)
       const startDate = new Date()
-      startDate.setDate(startDate.getDate() - parseInt(dateRange))
-      const startDateStr = startDate.toISOString().split('T')[0]
+      // For "last N days", we want to include today, so subtract (N-1) days
+      const daysToSubtract = parseInt(dateRange) - 1
+      startDate.setDate(startDate.getDate() - daysToSubtract)
+      startDate.setHours(0, 0, 0, 0)
+      const endDateStr = formatDateLocal(endDate)
+      const startDateStr = formatDateLocal(startDate)
       
       const groupBy = trendView === 'daily' ? 'day' : trendView === 'weekly' ? 'week' : 'month'
-      const data = await analyticsAPI.getLostCustomersMetrics(startDateStr, endDate, groupBy, inactiveDaysThreshold)
+      const data = await analyticsAPI.getLostCustomersMetrics(startDateStr, endDateStr, groupBy, inactiveDaysThreshold)
       return data || { summary: {}, timeSeries: [], lostCustomersList: [] }
     } catch (error) {
       console.error('Error fetching lost customers analytics:', error)

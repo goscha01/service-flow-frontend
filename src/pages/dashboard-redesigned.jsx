@@ -194,18 +194,29 @@ const DashboardRedesigned = () => {
       return `https://www.google.com/maps/embed/v1/view?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&center=40.7128,-74.0060&zoom=11&maptype=${mapType}`
     }
 
-    const jobsWithAddresses = jobs.filter(job => job.customer_address && job.customer_address.trim() !== '')
+    // Get address from multiple possible fields - prioritize service address, then customer address
+    const jobsWithAddresses = jobs
+      .map(job => {
+        const address = job.service_address || 
+                       job.service_address_street || 
+                       job.customer_address || 
+                       job.address || 
+                       ''
+        return address.trim() !== '' ? { ...job, address } : null
+      })
+      .filter(job => job !== null)
 
     if (jobsWithAddresses.length === 0) {
       return `https://www.google.com/maps/embed/v1/view?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&center=40.7128,-74.0060&zoom=11&maptype=${mapType}`
     }
 
     if (jobsWithAddresses.length === 1) {
-      const address = encodeURIComponent(jobsWithAddresses[0].customer_address)
+      const address = encodeURIComponent(jobsWithAddresses[0].address)
       return `https://www.google.com/maps/embed/v1/place?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&q=${address}&zoom=14&maptype=${mapType}`
     }
 
-    const addresses = jobsWithAddresses.map(job => job.customer_address).join('|')
+    // For multiple addresses, use the search API with all addresses
+    const addresses = jobsWithAddresses.map(job => job.address).join('|')
     const encodedAddresses = encodeURIComponent(addresses)
 
     return `https://www.google.com/maps/embed/v1/search?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&q=${encodedAddresses}&zoom=10&maptype=${mapType}`
@@ -560,7 +571,12 @@ const DashboardRedesigned = () => {
       }, 0)
 
       const todayDuration = selectedDateJobs.reduce((sum, job) => {
-        return sum + (parseInt(job.service_duration || 0))
+        // Check multiple duration fields - duration is stored in minutes
+        const duration = parseInt(job.duration) || 
+                        parseInt(job.service_duration) || 
+                        parseInt(job.estimated_duration) || 
+                        0
+        return sum + duration
       }, 0)
 
       // Jobs are already filtered by the API using dateRange parameter
@@ -909,15 +925,6 @@ const DashboardRedesigned = () => {
         <div className="flex-1 flex flex-col min-w-0">
           {/* Mobile Header */}
 
-        {/* Trial Banner */}
-        <div className="bg-amber-50 border m-2 sm:m-4 rounded-lg border-amber-500 px-5 lg:px-40 xl:px-44 2xl:px-48 py-3">
-          <div className="max-w-7xl mx-auto flex items-center justify-center">
-            <p className="text-sm text-gray-700">
-              12 days left in free trial
-            </p>
-          </div>
-        </div>
-
           {/* Desktop Header */}
           <div className="hidden lg:block px-5 lg:px-40 xl:px-44 2xl:px-48 py-5">
             <div className="max-w-7xl mx-auto flex items-center justify-between">
@@ -1161,8 +1168,10 @@ const DashboardRedesigned = () => {
                                   </p>
                                   <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 mt-1 text-xs text-gray-500">
                                     <span>{formatTime(job.scheduled_date)}</span>
-                                    {job.customer_address && (
-                                      <span className="truncate max-w-full sm:max-w-[150px]">{job.customer_address}</span>
+                                    {(job.service_address || job.service_address_street || job.customer_address || job.address) && (
+                                      <span className="truncate max-w-full sm:max-w-[150px]">
+                                        {job.service_address || job.service_address_street || job.customer_address || job.address}
+                                      </span>
                                     )}
                                   </div>
                                 </div>
