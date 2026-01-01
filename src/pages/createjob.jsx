@@ -376,6 +376,7 @@ export default function CreateJobPage() {
   // Define handleCustomerSelect before useEffect that uses it
   const handleCustomerSelect = useCallback(async (customer) => {
     setSelectedCustomer(customer);
+    setCustomerSelected(true); // Mark customer as selected
     setJobselected(true); // Show the form when customer is selected
     
     console.log('Customer selected:', customer);
@@ -517,14 +518,58 @@ export default function CreateJobPage() {
   // Handle customerId from URL params
   useEffect(() => {
     const customerIdFromUrl = searchParams.get('customerId');
-    if (customerIdFromUrl && customers.length > 0 && !location.state?.duplicateJob) {
-      const customer = customers.find(c => c.id === parseInt(customerIdFromUrl) || c.id === customerIdFromUrl);
-      if (customer) {
-        // Use handleCustomerSelect to properly populate address and all customer data
-        handleCustomerSelect(customer);
+    if (customerIdFromUrl && !location.state?.duplicateJob) {
+      // If customers list is empty, wait for it to load
+      if (customers.length === 0 && !dataLoading) {
+        // Customers list might not be loaded yet, try to fetch the specific customer
+        const fetchCustomerById = async () => {
+          try {
+            const customerData = await customersAPI.getAll(user.id);
+            const allCustomers = customerData.customers || customerData || [];
+            setCustomers(allCustomers);
+            setFilteredCustomers(allCustomers);
+            
+            const customer = allCustomers.find(c => 
+              c.id === parseInt(customerIdFromUrl) || 
+              c.id === customerIdFromUrl ||
+              String(c.id) === String(customerIdFromUrl)
+            );
+            
+            if (customer) {
+              console.log('✅ Found customer from API:', customer);
+              handleCustomerSelect(customer);
+            } else {
+              console.warn('⚠️ Customer not found in list:', customerIdFromUrl);
+            }
+          } catch (error) {
+            console.error('Error fetching customer:', error);
+          }
+        };
+        
+        if (user?.id) {
+          fetchCustomerById();
+        }
+        return;
+      }
+      
+      // If customers list is loaded, find the customer
+      if (customers.length > 0) {
+        const customer = customers.find(c => 
+          c.id === parseInt(customerIdFromUrl) || 
+          c.id === customerIdFromUrl ||
+          String(c.id) === String(customerIdFromUrl)
+        );
+        
+        if (customer) {
+          console.log('✅ Found customer in list:', customer);
+          // Use handleCustomerSelect to properly populate address and all customer data
+          handleCustomerSelect(customer);
+        } else {
+          console.warn('⚠️ Customer not found in list:', customerIdFromUrl, 'Available customers:', customers.map(c => c.id));
+        }
       }
     }
-  }, [searchParams, customers, location.state, handleCustomerSelect]);
+  }, [searchParams, customers, location.state, handleCustomerSelect, dataLoading, user?.id]);
 
   useEffect(() => {
     // Filter customers based on search
