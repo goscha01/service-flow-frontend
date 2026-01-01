@@ -161,7 +161,7 @@ const LeadsPipeline = () => {
     textarea.innerHTML = text;
     return textarea.value;
   };
-
+  
   const loadServices = async () => {
     try {
       if (user?.id) {
@@ -1132,9 +1132,9 @@ const LeadsPipeline = () => {
                       const serviceName = decodeHtmlEntities(service.name || '');
                       const servicePrice = parseFloat(service.price) || parseFloat(service.service_price) || 0;
                       return (
-                        <option key={service.id} value={service.id}>
+                      <option key={service.id} value={service.id}>
                           {serviceName} - ${servicePrice.toFixed(2)}
-                        </option>
+                      </option>
                       );
                     })}
                   </select>
@@ -1655,9 +1655,9 @@ const LeadsPipeline = () => {
                       const serviceName = decodeHtmlEntities(service.name || '');
                       const servicePrice = parseFloat(service.price) || parseFloat(service.service_price) || 0;
                       return (
-                        <option key={service.id} value={service.id}>
+                      <option key={service.id} value={service.id}>
                           {serviceName} - ${servicePrice.toFixed(2)}
-                        </option>
+                      </option>
                       );
                     })}
                   </select>

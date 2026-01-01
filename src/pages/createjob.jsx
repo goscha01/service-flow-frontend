@@ -373,18 +373,158 @@ export default function CreateJobPage() {
     }
   }, [location.state, customers, services, teamMembers]);
 
+  // Define handleCustomerSelect before useEffect that uses it
+  const handleCustomerSelect = useCallback(async (customer) => {
+    setSelectedCustomer(customer);
+    setJobselected(true); // Show the form when customer is selected
+    
+    console.log('Customer selected:', customer);
+    console.log('Customer address fields:', {
+      address: customer.address,
+      city: customer.city,
+      state: customer.state,
+      zip_code: customer.zip_code
+    });
+    
+    // Helper function to validate that a string is not an email
+    const isNotEmail = (str) => {
+      if (!str) return true;
+      // Email regex pattern
+      const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      return !emailPattern.test(str.trim());
+    };
+    
+    // Helper function to validate that a string is not a phone number
+    const isNotPhone = (str) => {
+      if (!str) return true;
+      // Phone regex pattern (matches various phone formats)
+      const phonePattern = /^[\d\s()\-+]+$/;
+      const digitsOnly = str.replace(/\D/g, '');
+      // If it's all digits and has 10+ digits, it's likely a phone
+      if (digitsOnly.length >= 10 && phonePattern.test(str)) {
+        return false;
+      }
+      return true;
+    };
+    
+    // Use separate address fields if available, otherwise parse the address string
+    let parsedAddress = {
+      street: "",
+      city: "",
+      state: "",
+      zipCode: "",
+      country: "USA"
+    };
+    
+    let hasAddress = false;
+    
+    // Only use address fields - NEVER use email or phone
+    // Check if we have valid address data (not email/phone)
+    const validAddress = customer.address && isNotEmail(customer.address) && isNotPhone(customer.address);
+    const validCity = customer.city && isNotEmail(customer.city) && isNotPhone(customer.city);
+    const validState = customer.state && isNotEmail(customer.state) && isNotPhone(customer.state);
+    const validZip = customer.zip_code && isNotEmail(customer.zip_code) && isNotPhone(customer.zip_code);
+    
+    if (validAddress || validCity || validState || validZip) {
+      hasAddress = true;
+      console.log('Valid address data found, parsing...');
+      
+      // Use separate fields if available
+      if (validCity && validState && validZip) {
+        console.log('Using separate address fields');
+        parsedAddress.street = validAddress ? customer.address : "";
+        parsedAddress.city = customer.city;
+        parsedAddress.state = customer.state;
+        parsedAddress.zipCode = customer.zip_code;
+      } else if (validAddress) {
+        console.log('Parsing address string:', customer.address);
+        // Fallback to parsing address string if separate fields aren't available
+        const addressParts = customer.address.split(',').map(part => part.trim());
+        
+        // Filter out any parts that look like emails or phone numbers
+        const validAddressParts = addressParts.filter(part => 
+          isNotEmail(part) && isNotPhone(part)
+        );
+        
+        console.log('Valid address parts (filtered):', validAddressParts);
+        
+        if (validAddressParts.length >= 1) {
+          parsedAddress.street = validAddressParts[0];
+        }
+        
+        if (validAddressParts.length >= 2) {
+          parsedAddress.city = validAddressParts[1];
+        }
+        
+        if (validAddressParts.length >= 3) {
+          // Handle state and zip code which might be together like "State 12345"
+          const stateZipPart = validAddressParts[2];
+          const stateZipMatch = stateZipPart.match(/^([A-Za-z\s]+)\s+(\d{5}(?:-\d{4})?)$/);
+          
+          if (stateZipMatch) {
+            parsedAddress.state = stateZipMatch[1].trim();
+            parsedAddress.zipCode = stateZipMatch[2];
+          } else {
+            // Check if it's just a zip code (all digits)
+            if (/^\d{5}(-\d{4})?$/.test(stateZipPart)) {
+              parsedAddress.zipCode = stateZipPart;
+            } else if (isNotEmail(stateZipPart) && isNotPhone(stateZipPart)) {
+              // If no zip code pattern, assume it's just state (only if not email/phone)
+            parsedAddress.state = stateZipPart;
+            }
+          }
+        }
+      }
+      
+      // Only set address if we have at least a street or city
+      if (!parsedAddress.street && !parsedAddress.city) {
+        hasAddress = false;
+        console.log('No valid address components found, skipping address auto-population');
+      }
+      
+      console.log('Parsed address:', parsedAddress);
+    }
+    
+    console.log('Final hasAddress:', hasAddress);
+    console.log('Final parsedAddress:', parsedAddress);
+    console.log('Setting service address to:', hasAddress ? parsedAddress : 'keeping previous');
+    
+    setFormData(prev => ({
+      ...prev,
+      customerId: customer.id,
+      contactInfo: {
+        phone: customer.phone || "",
+        email: customer.email || "",
+        emailNotifications: true,
+        textNotifications: false
+      },
+      // Autopopulate service address from customer address if available (ONLY valid address fields)
+      serviceAddress: hasAddress ? parsedAddress : prev.serviceAddress
+    }));
+    
+    // Set flag to show address was auto-populated
+    setAddressAutoPopulated(hasAddress);
+    
+    // Clear the flag after 3 seconds
+    if (hasAddress) {
+      setTimeout(() => setAddressAutoPopulated(false), 3000);
+    }
+    
+    setShowCustomerDropdown(false);
+    setCustomerSearch("");
+  }, []);
+
   // Handle customerId from URL params
   useEffect(() => {
     const customerIdFromUrl = searchParams.get('customerId');
     if (customerIdFromUrl && customers.length > 0 && !location.state?.duplicateJob) {
       const customer = customers.find(c => c.id === parseInt(customerIdFromUrl) || c.id === customerIdFromUrl);
       if (customer) {
-        setSelectedCustomer(customer);
-        setCustomerSelected(true);
-        setFormData(prev => ({ ...prev, customerId: customer.id }));
+        // Use handleCustomerSelect to properly populate address and all customer data
+        handleCustomerSelect(customer);
       }
     }
-  }, [searchParams, customers, location.state]);
+  }, [searchParams, customers, location.state, handleCustomerSelect]);
 
   useEffect(() => {
     // Filter customers based on search
@@ -706,146 +846,6 @@ export default function CreateJobPage() {
     } finally {
       setDataLoading(false);
     }
-  };
-
-  const handleCustomerSelect = async (customer) => {
-    setSelectedCustomer(customer);
-    setJobselected(true); // Show the form when customer is selected
-    
-    console.log('Customer selected:', customer);
-    console.log('Customer address fields:', {
-      address: customer.address,
-      city: customer.city,
-      state: customer.state,
-      zip_code: customer.zip_code
-    });
-    
-    // Helper function to validate that a string is not an email
-    const isNotEmail = (str) => {
-      if (!str) return true;
-      // Email regex pattern
-      const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      return !emailPattern.test(str.trim());
-    };
-    
-    // Helper function to validate that a string is not a phone number
-    const isNotPhone = (str) => {
-      if (!str) return true;
-      // Phone regex pattern (matches various phone formats)
-      const phonePattern = /^[\d\s()\-+]+$/;
-      const digitsOnly = str.replace(/\D/g, '');
-      // If it's all digits and has 10+ digits, it's likely a phone
-      if (digitsOnly.length >= 10 && phonePattern.test(str)) {
-        return false;
-      }
-      return true;
-    };
-    
-    // Use separate address fields if available, otherwise parse the address string
-    let parsedAddress = {
-      street: "",
-      city: "",
-      state: "",
-      zipCode: "",
-      country: "USA"
-    };
-    
-    let hasAddress = false;
-    
-    // Only use address fields - NEVER use email or phone
-    // Check if we have valid address data (not email/phone)
-    const validAddress = customer.address && isNotEmail(customer.address) && isNotPhone(customer.address);
-    const validCity = customer.city && isNotEmail(customer.city) && isNotPhone(customer.city);
-    const validState = customer.state && isNotEmail(customer.state) && isNotPhone(customer.state);
-    const validZip = customer.zip_code && isNotEmail(customer.zip_code) && isNotPhone(customer.zip_code);
-    
-    if (validAddress || validCity || validState || validZip) {
-      hasAddress = true;
-      console.log('Valid address data found, parsing...');
-      
-      // Use separate fields if available
-      if (validCity && validState && validZip) {
-        console.log('Using separate address fields');
-        parsedAddress.street = validAddress ? customer.address : "";
-        parsedAddress.city = customer.city;
-        parsedAddress.state = customer.state;
-        parsedAddress.zipCode = customer.zip_code;
-      } else if (validAddress) {
-        console.log('Parsing address string:', customer.address);
-        // Fallback to parsing address string if separate fields aren't available
-        const addressParts = customer.address.split(',').map(part => part.trim());
-        
-        // Filter out any parts that look like emails or phone numbers
-        const validAddressParts = addressParts.filter(part => 
-          isNotEmail(part) && isNotPhone(part)
-        );
-        
-        console.log('Valid address parts (filtered):', validAddressParts);
-        
-        if (validAddressParts.length >= 1) {
-          parsedAddress.street = validAddressParts[0];
-        }
-        
-        if (validAddressParts.length >= 2) {
-          parsedAddress.city = validAddressParts[1];
-        }
-        
-        if (validAddressParts.length >= 3) {
-          // Handle state and zip code which might be together like "State 12345"
-          const stateZipPart = validAddressParts[2];
-          const stateZipMatch = stateZipPart.match(/^([A-Za-z\s]+)\s+(\d{5}(?:-\d{4})?)$/);
-          
-          if (stateZipMatch) {
-            parsedAddress.state = stateZipMatch[1].trim();
-            parsedAddress.zipCode = stateZipMatch[2];
-          } else {
-            // Check if it's just a zip code (all digits)
-            if (/^\d{5}(-\d{4})?$/.test(stateZipPart)) {
-              parsedAddress.zipCode = stateZipPart;
-            } else if (isNotEmail(stateZipPart) && isNotPhone(stateZipPart)) {
-              // If no zip code pattern, assume it's just state (only if not email/phone)
-            parsedAddress.state = stateZipPart;
-            }
-          }
-        }
-      }
-      
-      // Only set address if we have at least a street or city
-      if (!parsedAddress.street && !parsedAddress.city) {
-        hasAddress = false;
-        console.log('No valid address components found, skipping address auto-population');
-      }
-      
-      console.log('Parsed address:', parsedAddress);
-    }
-    
-    console.log('Final hasAddress:', hasAddress);
-    console.log('Final parsedAddress:', parsedAddress);
-    console.log('Setting service address to:', hasAddress ? parsedAddress : 'keeping previous');
-    
-    setFormData(prev => ({
-      ...prev,
-      customerId: customer.id,
-      contactInfo: {
-        phone: customer.phone || "",
-        email: customer.email || "",
-        emailNotifications: true,
-        textNotifications: false
-      },
-      // Autopopulate service address from customer address if available (ONLY valid address fields)
-      serviceAddress: hasAddress ? parsedAddress : prev.serviceAddress
-    }));
-    
-    // Set flag to show address was auto-populated
-    setAddressAutoPopulated(hasAddress);
-    
-    // Clear the flag after 3 seconds
-    if (hasAddress) {
-      setTimeout(() => setAddressAutoPopulated(false), 3000);
-    }
-    
-    setShowCustomerDropdown(false);
-    setCustomerSearch("");
   };
 
   const handleServiceSelect = (service) => {
@@ -2349,9 +2349,9 @@ setIntakeQuestionAnswers(answers);
                                 ) : (
                                   // Display mode
                                   <>
-                                    <span className="text-base font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
-                                      ${parseFloat(service.price || 0).toFixed(2)}
-                                    </span>
+                                <span className="text-base font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                                  ${parseFloat(service.price || 0).toFixed(2)}
+                                </span>
                                     <button
                                       type="button"
                                       onClick={() => {
