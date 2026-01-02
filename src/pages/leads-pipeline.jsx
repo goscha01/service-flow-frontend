@@ -30,6 +30,7 @@ import CreateTaskModal from '../components/create-task-modal';
 import ConvertLeadModal from '../components/convert-lead-modal';
 import MobileBottomNav from '../components/mobile-bottom-nav';
 import AddressAutocompleteLeads from '../components/address-autocomplete-leads';
+import MobileHeader from '../components/mobile-header';
 
 const LeadsPipeline = () => {
   const navigate = useNavigate();
@@ -691,6 +692,9 @@ const LeadsPipeline = () => {
   
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
+      {/* Mobile Header */}
+      <MobileHeader pageTitle="Leads" />
+      
       {/* Toast Notification */}
       <Notification
         show={notification.show}

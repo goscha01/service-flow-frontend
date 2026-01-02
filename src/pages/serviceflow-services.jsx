@@ -12,6 +12,7 @@ import { getImageUrl, handleImageError } from "../utils/imageUtils"
 import { normalizeAPIResponse, handleAPIError } from "../utils/dataHandler"
 import { safeDecodeText } from "../utils/htmlUtils"
 import useServiceSettings from "../components/use-service-settings"
+import MobileHeader from "../components/mobile-header"
 
 const ServiceFlowServices = () => {
   const navigate = useNavigate()
@@ -593,6 +594,7 @@ const ServiceFlowServices = () => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         {/* Mobile Header */}
+        <MobileHeader pageTitle="Services" />
 
         {/* Desktop Header */}
         <div className="hidden lg:flex bg-white border-b border-gray-200 px-5 lg:px-40 xl:px-44 2xl:px-48 py-4 items-center justify-between">

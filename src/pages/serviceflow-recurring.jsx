@@ -7,6 +7,7 @@ import { Plus, RotateCcw, ChevronLeft, ChevronRight, RotateCw } from "lucide-rea
 import { recurringBookingsAPI } from "../services/api"
 import { formatDateLocal } from "../utils/dateUtils"
 import { formatRecurringFrequency } from "../utils/recurringUtils"
+import MobileHeader from "../components/mobile-header"
 
 const ServiceFlowRecurring = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -118,6 +119,8 @@ const ServiceFlowRecurring = () => {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0 lg:mx-44 xl:mx-48">
+        {/* Mobile Header */}
+        <MobileHeader pageTitle="Recurring" />
 
         {/* Desktop Header */}
         <div className="hidden lg:flex bg-white border-b border-gray-200 px-6 py-4 items-center justify-between">

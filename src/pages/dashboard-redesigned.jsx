@@ -26,6 +26,7 @@ import { useAuth } from "../context/AuthContext"
 import { jobsAPI, customersAPI, servicesAPI, invoicesAPI, teamAPI, territoriesAPI } from "../services/api"
 import { normalizeAPIResponse } from "../utils/dataHandler"
 import MiniChart from "../components/mini-chart"
+import MobileHeader from "../components/mobile-header"
 
 const DashboardRedesigned = () => {
   const { user } = useAuth()
@@ -924,6 +925,7 @@ const DashboardRedesigned = () => {
         {/* Main Content */}
         <div className="flex-1 flex flex-col min-w-0">
           {/* Mobile Header */}
+          <MobileHeader />
 
           {/* Desktop Header */}
           <div className="hidden lg:block px-5 lg:px-40 xl:px-44 2xl:px-48 py-5">

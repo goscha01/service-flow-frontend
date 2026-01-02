@@ -10,6 +10,7 @@ import { useAuth } from "../context/AuthContext"
 import { useNavigate, Link } from "react-router-dom"
 import he from 'he';
 import { formatPhoneNumber } from "../utils/phoneFormatter"
+import MobileHeader from "../components/mobile-header"
 
 const ServiceFlowCustomers = () => {
   const { user, loading: authLoading } = useAuth()
@@ -376,9 +377,8 @@ const ServiceFlowCustomers = () => {
 
   return (
     <div style={{fontFamily: 'Montserrat', fontWeight: 500}} className="flex-1 h-screen bg-gray-50">
-
-      
-     
+      {/* Mobile Header */}
+      <MobileHeader pageTitle="Customers" />
 
         <div className="flex-1 w-full lg:px-40 xl:px-44 2xl:px-48">
           <div className="p-4 sm:p-6">

@@ -6,6 +6,7 @@ import { ChevronLeft, Calendar, DollarSign, Clock, Users, Download, Filter, Aler
 import { payrollAPI, teamAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
 import Sidebar from "../components/sidebar"
+import MobileHeader from "../components/mobile-header"
 
 const Payroll = () => {
   const { user } = useAuth()
@@ -113,7 +114,9 @@ const Payroll = () => {
     <div className="flex h-screen bg-gray-50 overflow-hidden">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 flex flex-col overflow-auto">
+        {/* Mobile Header */}
+        <MobileHeader pageTitle="Payroll" />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           {/* Header */}
           <div className="mb-6">
