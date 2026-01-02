@@ -53,6 +53,7 @@ import RecurringIndicator from "../components/recurring-indicator"
 import AssignJobModal from "../components/assign-job-modal"
 import StatusHistoryTooltip from "../components/status-history-tooltip"
 import MobileBottomNav from "../components/mobile-bottom-nav"
+import MobileHeader from "../components/mobile-header"
 import { canCreateJobs, isWorker } from "../utils/roleUtils"
 import { 
   canMarkJobStatus, 
@@ -2575,8 +2576,13 @@ const ServiceFlowSchedule = () => {
         
         {/* Mobile view - shown on mobile, hidden on desktop */}
         <div className="lg:hidden min-h-screen bg-gray-50 pb-20 w-full max-w-full overflow-x-hidden">
+        {/* Mobile Header */}
+        <div className="sticky top-0 z-30">
+          <MobileHeader pageTitle="Schedule" />
+        </div>
+        
         {/* Mobile Header - Date Selector and Tabs */}
-        <div className="lg:hidden bg-white border-b border-gray-200 sticky top-0 z-20">
+        <div className="lg:hidden bg-white border-b border-gray-200 sticky top-[73px] z-20">
           {/* Tabs - Jobs and Availability */}
           <div className="px-4 pt-3 pb-2">
             <div className="relative bg-gray-50 rounded-2xl p-1 inline-flex gap-1 w-full">

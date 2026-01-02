@@ -26,6 +26,7 @@ import { useAuth } from "../context/AuthContext"
 import { useNavigate } from "react-router-dom"
 import { territoriesAPI } from "../services/api"
 import CreateTerritoryModal from "../components/create-territory-modal"
+import MobileHeader from "../components/mobile-header"
 
 const ServiceFlowTerritories = () => {
   const { user, authLoading } = useAuth()
@@ -177,6 +178,8 @@ const ServiceFlowTerritories = () => {
   return (
     <div className="flex h-screen bg-gray-50">
       <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Mobile Header */}
+        <MobileHeader pageTitle="Territories" />
 
         <main className="flex-1 overflow-y-auto">
           <div className="px-5 lg:px-40 xl:px-44 2xl:px-48 py-4 sm:py-6 lg:py-8">

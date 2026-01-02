@@ -10,6 +10,7 @@ import AddTeamMemberModal from "../components/add-team-member-modal"
 import { useNavigate } from "react-router-dom"
 import { handleTeamDeletionError, createErrorNotification, createSuccessNotification } from "../utils/errorHandler"
 import { getImageUrl } from "../utils/imageUtils"
+import MobileHeader from "../components/mobile-header"
 
 const ServiceFlowTeam = () => {
   const { user, loading: authLoading } = useAuth()
@@ -555,6 +556,8 @@ const ServiceFlowTeam = () => {
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
         <div className="flex-1 flex flex-col overflow-hidden min-w-0 lg:px-40 xl:px-44 2xl:px-48">
+          {/* Mobile Header */}
+          <MobileHeader pageTitle="Team" />
 
           <main className="flex-1 overflow-y-auto">
             <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 w-full max-w-full">

@@ -10,6 +10,7 @@ import { useAuth } from "../context/AuthContext"
 import { canCreateJobs } from "../utils/roleUtils"
 import { getImageUrl } from "../utils/imageUtils"
 import MobileBottomNav from "../components/mobile-bottom-nav"
+import MobileHeader from "../components/mobile-header"
 
 const ServiceFlowJobs = () => {
   const { user, loading: authLoading } = useAuth()
@@ -564,6 +565,7 @@ const ServiceFlowJobs = () => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0" style={{ maxWidth: '100%', overflowX: 'hidden' }}>
         {/* Mobile Header */}
+        <MobileHeader pageTitle="Jobs" />
 
         {/* Desktop Header */}
         <div className="hidden lg:flex bg-white border-b border-gray-200 px-4 pt-4 pb-2 items-center justify-between">

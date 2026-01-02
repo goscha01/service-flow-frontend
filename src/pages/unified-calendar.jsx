@@ -8,6 +8,7 @@ import { useAuth } from "../context/AuthContext"
 import { getImageUrl } from "../utils/imageUtils"
 import TaskCard from "../components/task-card"
 import CreateTaskModal from "../components/create-task-modal"
+import MobileHeader from "../components/mobile-header"
 
 const UnifiedCalendar = () => {
   const { user } = useAuth()
@@ -157,17 +158,29 @@ const UnifiedCalendar = () => {
       
       if (member?.availability) {
         // Use availability from team member object (from team_members.availability column)
-        console.log('📅 Using availability from team member object for member:', memberId, member.availability)
+        console.log('📅 Using availability from team member object for member:', memberId)
+        console.log('📅 Raw availability type:', typeof member.availability)
+        console.log('📅 Raw availability value:', member.availability)
+        
         let availData = member.availability
+        
+        // Handle different formats from database JSONB column
+        // It might be: string (JSON), object (already parsed), or null
         if (typeof availData === 'string') {
           try {
             availData = JSON.parse(availData)
-            console.log('📅 Parsed availability JSON:', availData)
+            console.log('📅 Parsed availability JSON string:', availData)
           } catch (e) {
-            console.error('Error parsing availability from member object:', e)
+            console.error('Error parsing availability from member object:', e, 'Raw value:', availData)
             availData = null
           }
+        } else if (availData && typeof availData === 'object') {
+          // Already an object (JSONB is parsed by Supabase/PostgreSQL)
+          console.log('📅 Availability is already an object:', availData)
+          // No need to parse, use as-is
         }
+        
+        // Wrap in the expected format: { availability: {...} }
         availability = { availability: availData }
       } else {
         console.log('📅 No availability in member object, fetching from API for member:', memberId)
@@ -208,23 +221,36 @@ const UnifiedCalendar = () => {
       
       if (availability?.availability) {
         let availData = availability.availability
+        
+        // Handle different formats from database JSONB column
+        // Supabase/PostgreSQL returns JSONB as objects, but might be string in some cases
         if (typeof availData === 'string') {
           try {
             availData = JSON.parse(availData)
+            console.log('📅 Parsed availability string to object:', availData)
           } catch (e) {
-            console.error('Error parsing availability:', e)
+            console.error('Error parsing availability string:', e, 'Raw value:', availData)
+            availData = null
           }
+        }
+        
+        // If availData is null or invalid, skip processing
+        if (!availData || typeof availData !== 'object') {
+          console.warn('📅 Invalid availability data:', availData)
+          availData = null
         }
         
         // Extract workingHours and customAvailability from the parsed data
         // Structure: { workingHours: {...}, customAvailability: [...] }
-        const workingHours = availData?.workingHours || {}
+        // Note: workingHours might be at root level or nested
+        const workingHours = availData?.workingHours || (availData && !availData.customAvailability ? availData : {})
         const customAvailability = Array.isArray(availData?.customAvailability) ? availData.customAvailability : []
         
-        console.log('📅 Extracted availability:', {
-          workingHoursKeys: Object.keys(workingHours),
+        console.log('📅 Extracted availability structure:', {
+          hasWorkingHours: !!workingHours,
+          workingHoursKeys: workingHours ? Object.keys(workingHours) : [],
           customAvailabilityCount: customAvailability.length,
-          sampleWorkingHours: workingHours.monday
+          sampleWorkingHours: workingHours?.monday || workingHours?.Monday
         })
         
         // Helper to parse hours string like "9:00 AM - 5:00 PM" to time slots
@@ -267,9 +293,11 @@ const UnifiedCalendar = () => {
           const dayOfWeek = date.getDay() // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
           // Map to lowercase day name matching availability format: 'sunday', 'monday', etc.
           const dayName = dayNamesFull[dayOfWeek].toLowerCase()
+          const dayNameCapitalized = dayNamesFull[dayOfWeek] // "Monday", "Tuesday", etc.
           
           const dateOverride = customAvailability.find(item => item.date === dateStr)
-          const dayWorkingHours = workingHours[dayName]
+          // Try both lowercase and capitalized day names (database might use either)
+          const dayWorkingHours = workingHours[dayName] || workingHours[dayNameCapitalized] || workingHours[dayName.charAt(0).toUpperCase() + dayName.slice(1)]
           
           console.log(`📅 Processing ${dateStr} (${dayName}):`, {
             hasDateOverride: !!dateOverride,
@@ -282,6 +310,7 @@ const UnifiedCalendar = () => {
           let dayData = {
             available: false,
             hours: null,
+            assignedJobs: [],
             hasAvailabilityConfigured: hasAvailabilityConfigured
           }
           
@@ -326,26 +355,28 @@ const UnifiedCalendar = () => {
             }
           } else {
             // No date override, use working hours for the day
-            // Only set as available if explicitly set to true
-            if (dayWorkingHours && dayWorkingHours.available === true) {
+            // Check both 'enabled' and 'available' properties (database uses 'enabled')
+            const isDayEnabled = dayWorkingHours?.enabled === true || dayWorkingHours?.available === true
+            
+            if (dayWorkingHours && isDayEnabled) {
               dayData.available = true
               if (dayWorkingHours.timeSlots && Array.isArray(dayWorkingHours.timeSlots) && dayWorkingHours.timeSlots.length > 0) {
                 // Already in time slot format - filter enabled slots
                 const enabledSlots = dayWorkingHours.timeSlots.filter(slot => slot.enabled !== false)
                 if (enabledSlots.length > 0) {
                   dayData.hours = enabledSlots.map(slot => ({
-                  start: slot.start,
-                  end: slot.end
-                }))
+                    start: slot.start,
+                    end: slot.end
+                  }))
                 } else {
-                  // All slots disabled, but day is marked available - show as available without hours
+                  // All slots disabled, but day is marked enabled - show as available without hours
                   dayData.hours = []
                 }
               } else if (dayWorkingHours.hours && typeof dayWorkingHours.hours === 'string' && dayWorkingHours.hours.trim() !== '') {
                 // Parse hours string format like "9:00 AM - 6:00 PM"
                 dayData.hours = parseHoursString(dayWorkingHours.hours)
               } else {
-                // Available but no hours specified - show as available without hours
+                // Enabled but no hours specified - show as available without hours
                 dayData.available = true
                 dayData.hours = []
               }
@@ -353,16 +384,115 @@ const UnifiedCalendar = () => {
               console.log(`📅 ${dateStr} set to available:`, {
                 available: dayData.available,
                 hoursCount: dayData.hours?.length || 0,
-                hours: dayData.hours
+                hours: dayData.hours,
+                dayEnabled: isDayEnabled
               })
             } else {
-              // Day is explicitly unavailable or not configured
+              // Day is explicitly disabled (enabled: false) or not configured
               dayData.available = false
               dayData.hours = null
               console.log(`📅 ${dateStr} set to unavailable:`, {
                 hasDayWorkingHours: !!dayWorkingHours,
+                enabledValue: dayWorkingHours?.enabled,
                 availableValue: dayWorkingHours?.available
               })
+            }
+          }
+          
+          // Add jobs for this date
+          const dayJobs = jobs.filter(job => {
+            if (!job.scheduled_date && !job.scheduledDate) return false
+            let jobDate
+            if (typeof job.scheduled_date === 'string' && job.scheduled_date.includes(' ')) {
+              const [datePart] = job.scheduled_date.split(' ')
+              jobDate = new Date(datePart)
+            } else {
+              jobDate = new Date(job.scheduled_date || job.scheduledDate)
+            }
+            return jobDate.toISOString().split('T')[0] === dateStr
+          })
+          
+          dayData.assignedJobs = dayJobs
+          
+          // Subtract job times from availability hours
+          // If they have jobs, they're not available during those times
+          if (dayJobs.length > 0 && dayData.hours && dayData.hours.length > 0) {
+            // Get job time ranges in minutes
+            const jobTimeRanges = dayJobs.map(job => {
+              let jobStartTime = null
+              let jobDuration = 0
+              
+              // Parse job scheduled time
+              if (job.scheduled_date && typeof job.scheduled_date === 'string') {
+                if (job.scheduled_date.includes(' ')) {
+                  const [datePart, timePart] = job.scheduled_date.split(' ')
+                  const [hours, minutes] = timePart.split(':').map(Number)
+                  jobStartTime = hours * 60 + minutes
+                } else {
+                  const jobDate = new Date(job.scheduled_date)
+                  jobStartTime = jobDate.getHours() * 60 + jobDate.getMinutes()
+                }
+              }
+              
+              // Get job duration in minutes
+              jobDuration = job.duration || job.service_duration || job.estimated_duration || 60 // default 1 hour
+              if (typeof jobDuration === 'string') {
+                jobDuration = parseInt(jobDuration) || 60
+              }
+              
+              if (jobStartTime !== null) {
+                return {
+                  start: jobStartTime,
+                  end: jobStartTime + jobDuration
+                }
+              }
+              return null
+            }).filter(Boolean)
+            
+            // Subtract job times from availability hours
+            let remainingHours = []
+            dayData.hours.forEach(availSlot => {
+              const availStart = timeToMinutes(availSlot.start)
+              const availEnd = timeToMinutes(availSlot.end)
+              
+              // Find gaps between jobs within this availability slot
+              let currentStart = availStart
+              
+              // Sort job time ranges by start time
+              const sortedJobRanges = jobTimeRanges
+                .filter(jobRange => 
+                  jobRange.start < availEnd && jobRange.end > availStart
+                )
+                .sort((a, b) => a.start - b.start)
+              
+              sortedJobRanges.forEach(jobRange => {
+                // If there's a gap before this job, add it
+                if (currentStart < jobRange.start) {
+                  remainingHours.push({
+                    start: minutesToTime(currentStart),
+                    end: minutesToTime(jobRange.start)
+                  })
+                }
+                // Move current start to after this job
+                currentStart = Math.max(currentStart, jobRange.end)
+              })
+              
+              // If there's remaining time after all jobs, add it
+              if (currentStart < availEnd) {
+                remainingHours.push({
+                  start: minutesToTime(currentStart),
+                  end: minutesToTime(availEnd)
+                })
+              }
+            })
+            
+            // Update availability hours to show only remaining time
+            if (remainingHours.length > 0) {
+              dayData.hours = remainingHours
+            } else {
+              // All availability is covered by jobs - mark as unavailable
+              dayData.available = false
+              dayData.hours = null
             }
           }
           
@@ -372,11 +502,109 @@ const UnifiedCalendar = () => {
         // No availability configured - apply default: Monday-Friday 8:00 AM - 6:00 PM
         // All days get the default availability (no unavailable days)
         Object.keys(processedData).forEach(dateStr => {
+          // Get jobs for this date
+          const dayJobs = jobs.filter(job => {
+            if (!job.scheduled_date && !job.scheduledDate) return false
+            let jobDate
+            if (typeof job.scheduled_date === 'string' && job.scheduled_date.includes(' ')) {
+              const [datePart] = job.scheduled_date.split(' ')
+              jobDate = new Date(datePart)
+            } else {
+              jobDate = new Date(job.scheduled_date || job.scheduledDate)
+            }
+            return jobDate.toISOString().split('T')[0] === dateStr
+          })
+          
           // Default: All days are available 8:00 AM - 6:00 PM
           // (Monday-Friday are the primary work days, but weekends also get default hours)
+          let defaultHours = [{ start: '08:00', end: '18:00' }]
+          let isAvailable = true
+          
+          // Subtract job times from default availability
+          if (dayJobs.length > 0) {
+            // Get job time ranges in minutes
+            const jobTimeRanges = dayJobs.map(job => {
+              let jobStartTime = null
+              let jobDuration = 0
+              
+              // Parse job scheduled time
+              if (job.scheduled_date && typeof job.scheduled_date === 'string') {
+                if (job.scheduled_date.includes(' ')) {
+                  const [datePart, timePart] = job.scheduled_date.split(' ')
+                  const [hours, minutes] = timePart.split(':').map(Number)
+                  jobStartTime = hours * 60 + minutes
+                } else {
+                  const jobDate = new Date(job.scheduled_date)
+                  jobStartTime = jobDate.getHours() * 60 + jobDate.getMinutes()
+                }
+              }
+              
+              // Get job duration in minutes
+              jobDuration = job.duration || job.service_duration || job.estimated_duration || 60 // default 1 hour
+              if (typeof jobDuration === 'string') {
+                jobDuration = parseInt(jobDuration) || 60
+              }
+              
+              if (jobStartTime !== null) {
+                return {
+                  start: jobStartTime,
+                  end: jobStartTime + jobDuration
+                }
+              }
+              return null
+            }).filter(Boolean)
+            
+            // Subtract job times from default availability hours
+            let remainingHours = []
+            defaultHours.forEach(availSlot => {
+              const availStart = timeToMinutes(availSlot.start)
+              const availEnd = timeToMinutes(availSlot.end)
+              
+              // Find gaps between jobs within this availability slot
+              let currentStart = availStart
+              
+              // Sort job time ranges by start time
+              const sortedJobRanges = jobTimeRanges
+                .filter(jobRange => 
+                  jobRange.start < availEnd && jobRange.end > availStart
+                )
+                .sort((a, b) => a.start - b.start)
+              
+              sortedJobRanges.forEach(jobRange => {
+                // If there's a gap before this job, add it as available time
+                if (currentStart < jobRange.start) {
+                  remainingHours.push({
+                    start: minutesToTime(currentStart),
+                    end: minutesToTime(jobRange.start)
+                  })
+                }
+                // Move current start to after this job
+                currentStart = Math.max(currentStart, jobRange.end)
+              })
+              
+              // If there's remaining time after all jobs, add it
+              if (currentStart < availEnd) {
+                remainingHours.push({
+                  start: minutesToTime(currentStart),
+                  end: minutesToTime(availEnd)
+                })
+              }
+            })
+            
+            // Update availability hours to show only remaining time (when not working)
+            if (remainingHours.length > 0) {
+              defaultHours = remainingHours
+            } else {
+              // All availability is covered by jobs - they're fully booked, mark as unavailable
+              isAvailable = false
+              defaultHours = null
+            }
+          }
+          
           processedData[dateStr] = {
-            available: true,
-            hours: [{ start: '08:00', end: '18:00' }],
+            available: isAvailable,
+            hours: defaultHours,
+            assignedJobs: dayJobs,
             hasAvailabilityConfigured: false // Still marked as not configured (using defaults)
           }
         })
@@ -452,25 +680,47 @@ const UnifiedCalendar = () => {
         // Use availability from team member object if available, otherwise fetch it
         let availability = null
         if (member.availability) {
-          // Parse if it's a string
-          if (typeof member.availability === 'string') {
+          console.log(`📅 Processing availability for member ${member.id}, type:`, typeof member.availability)
+          let availData = member.availability
+          
+          // Handle different formats from database JSONB column
+          // It might be: string (JSON), object (already parsed), or null
+          if (typeof availData === 'string') {
             try {
-              availability = JSON.parse(member.availability)
+              availData = JSON.parse(availData)
+              console.log(`📅 Parsed availability JSON string for member ${member.id}:`, availData)
             } catch (e) {
-              console.error(`Error parsing availability for member ${member.id}:`, e)
-              availability = member.availability
+              console.error(`Error parsing availability for member ${member.id}:`, e, 'Raw value:', availData)
+              availData = null
             }
-          } else {
-            availability = member.availability
+          } else if (availData && typeof availData === 'object') {
+            // Already an object (JSONB is parsed by Supabase/PostgreSQL)
+            console.log(`📅 Availability is already an object for member ${member.id}:`, availData)
+            // No need to parse, use as-is
           }
+          
           // Return in the same format as the API endpoint
-          availability = { availability: availability }
+          availability = { availability: availData }
         } else {
           // If not in member object, fetch from API
           availability = await teamAPI.getAvailability(member.id, startDate, endDate)
         }
         
-        return { memberId: member.id, availability, assignedJobs: [] }
+        // Fetch jobs assigned to this team member for the month
+        let assignedJobs = []
+        try {
+          const jobsResponse = await jobsAPI.getAll(
+            user.id, '', '', 1, 1000, '', `${startDate},${endDate}`, 'scheduled_date', 'ASC',
+            member.id.toString(), '', '', '', '', null
+          )
+          assignedJobs = jobsResponse.jobs || jobsResponse || []
+          console.log(`📅 Fetched ${assignedJobs.length} jobs for member ${member.id}`)
+        } catch (jobError) {
+          console.error(`Error fetching jobs for member ${member.id}:`, jobError)
+          assignedJobs = []
+        }
+        
+        return { memberId: member.id, availability, assignedJobs }
       } catch (error) {
         console.error(`Error fetching availability for member ${member.id}:`, error)
         return { memberId: member.id, availability: null, assignedJobs: [] }
@@ -498,13 +748,15 @@ const UnifiedCalendar = () => {
         
         // Extract workingHours and customAvailability from the parsed data
         // Structure: { workingHours: {...}, customAvailability: [...] }
-        const workingHours = availData?.workingHours || {}
+        // Note: workingHours might be at root level or nested
+        const workingHours = availData?.workingHours || (availData && !availData.customAvailability ? availData : {})
         const customAvailability = Array.isArray(availData?.customAvailability) ? availData.customAvailability : []
         
-        console.log('📅 Extracted availability:', {
-          workingHoursKeys: Object.keys(workingHours),
+        console.log('📅 Extracted availability structure (all members):', {
+          hasWorkingHours: !!workingHours,
+          workingHoursKeys: workingHours ? Object.keys(workingHours) : [],
           customAvailabilityCount: customAvailability.length,
-          sampleWorkingHours: workingHours.monday
+          sampleWorkingHours: workingHours?.monday || workingHours?.Monday
         })
         
         // Helper to parse hours string like "9:00 AM - 5:00 PM" to time slots
@@ -549,9 +801,11 @@ const UnifiedCalendar = () => {
           const dayOfWeek = dateObj.getDay() // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
           // Map to lowercase day name matching availability format: 'sunday', 'monday', etc.
           const dayName = dayNamesFull[dayOfWeek].toLowerCase()
+          const dayNameCapitalized = dayNamesFull[dayOfWeek] // "Monday", "Tuesday", etc.
           
           const dateOverride = customAvailability.find(item => item.date === dateStr)
-          const dayWorkingHours = workingHours[dayName]
+          // Try both lowercase and capitalized day names (database might use either)
+          const dayWorkingHours = workingHours[dayName] || workingHours[dayNameCapitalized] || workingHours[dayName.charAt(0).toUpperCase() + dayName.slice(1)]
           
           let dayData = {
             available: false,
@@ -600,9 +854,11 @@ const UnifiedCalendar = () => {
             }
           } else {
             // No date override, use working hours for the day
-            // Only set as available if explicitly set to true
-            if (dayWorkingHours && dayWorkingHours.available === true) {
-                dayData.available = true
+            // Check both 'enabled' and 'available' properties (database uses 'enabled')
+            const isDayEnabled = dayWorkingHours?.enabled === true || dayWorkingHours?.available === true
+            
+            if (dayWorkingHours && isDayEnabled) {
+              dayData.available = true
               if (dayWorkingHours.timeSlots && Array.isArray(dayWorkingHours.timeSlots) && dayWorkingHours.timeSlots.length > 0) {
                 // Already in time slot format - filter enabled slots
                 const enabledSlots = dayWorkingHours.timeSlots.filter(slot => slot.enabled !== false)
@@ -611,14 +867,21 @@ const UnifiedCalendar = () => {
                     start: slot.start,
                     end: slot.end
                   }))
+                } else {
+                  // All slots disabled, but day is marked enabled - show as available without hours
+                  baseHours = []
                 }
               } else if (dayWorkingHours.hours && typeof dayWorkingHours.hours === 'string' && dayWorkingHours.hours.trim() !== '') {
                 // Parse hours string format like "9:00 AM - 6:00 PM"
-                  baseHours = parseHoursString(dayWorkingHours.hours)
-                }
+                baseHours = parseHoursString(dayWorkingHours.hours)
+              } else {
+                // Enabled but no hours specified - show as available without hours
+                baseHours = []
+              }
             } else {
-              // Day is explicitly unavailable or not configured
+              // Day is explicitly disabled (enabled: false) or not configured
               dayData.available = false
+              baseHours = []
             }
           }
           
@@ -627,6 +890,7 @@ const UnifiedCalendar = () => {
           
           dayData.hours = baseHours
           
+          // Add jobs for this date
           const dayJobs = assignedJobs.filter(job => {
             if (!job.scheduled_date && !job.scheduledDate) return false
             let jobDate
@@ -640,6 +904,88 @@ const UnifiedCalendar = () => {
           })
           
           dayData.assignedJobs = dayJobs
+          
+          // Subtract job times from availability hours
+          // Days with jobs should show only the times they're NOT working
+          if (dayJobs.length > 0 && dayData.hours && dayData.hours.length > 0) {
+            // Get job time ranges in minutes
+            const jobTimeRanges = dayJobs.map(job => {
+              let jobStartTime = null
+              let jobDuration = 0
+              
+              // Parse job scheduled time
+              if (job.scheduled_date && typeof job.scheduled_date === 'string') {
+                if (job.scheduled_date.includes(' ')) {
+                  const [datePart, timePart] = job.scheduled_date.split(' ')
+                  const [hours, minutes] = timePart.split(':').map(Number)
+                  jobStartTime = hours * 60 + minutes
+                } else {
+                  const jobDate = new Date(job.scheduled_date)
+                  jobStartTime = jobDate.getHours() * 60 + jobDate.getMinutes()
+                }
+              }
+              
+              // Get job duration in minutes
+              jobDuration = job.duration || job.service_duration || job.estimated_duration || 60 // default 1 hour
+              if (typeof jobDuration === 'string') {
+                jobDuration = parseInt(jobDuration) || 60
+              }
+              
+              if (jobStartTime !== null) {
+                return {
+                  start: jobStartTime,
+                  end: jobStartTime + jobDuration
+                }
+              }
+              return null
+            }).filter(Boolean)
+            
+            // Subtract job times from availability hours
+            let remainingHours = []
+            dayData.hours.forEach(availSlot => {
+              const availStart = timeToMinutes(availSlot.start)
+              const availEnd = timeToMinutes(availSlot.end)
+              
+              // Find gaps between jobs within this availability slot
+              let currentStart = availStart
+              
+              // Sort job time ranges by start time
+              const sortedJobRanges = jobTimeRanges
+                .filter(jobRange => 
+                  jobRange.start < availEnd && jobRange.end > availStart
+                )
+                .sort((a, b) => a.start - b.start)
+              
+              sortedJobRanges.forEach(jobRange => {
+                // If there's a gap before this job, add it as available time
+                if (currentStart < jobRange.start) {
+                  remainingHours.push({
+                    start: minutesToTime(currentStart),
+                    end: minutesToTime(jobRange.start)
+                  })
+                }
+                // Move current start to after this job
+                currentStart = Math.max(currentStart, jobRange.end)
+              })
+              
+              // If there's remaining time after all jobs, add it
+              if (currentStart < availEnd) {
+                remainingHours.push({
+                  start: minutesToTime(currentStart),
+                  end: minutesToTime(availEnd)
+                })
+              }
+            })
+            
+            // Update availability hours to show only remaining time (when not working)
+            if (remainingHours.length > 0) {
+              dayData.hours = remainingHours
+            } else {
+              // All availability is covered by jobs - they're fully booked, mark as unavailable
+              dayData.available = false
+              dayData.hours = null
+            }
+          }
           
           processedData[memberId][dateStr] = dayData
         })
@@ -665,9 +1011,93 @@ const UnifiedCalendar = () => {
           
           // Default: All days are available 8:00 AM - 6:00 PM
           // (Monday-Friday are the primary work days, but weekends also get default hours)
+          let defaultHours = [{ start: '08:00', end: '18:00' }]
+          let isAvailable = true
+          
+          // Subtract job times from default availability
+          if (dayJobs.length > 0) {
+            // Get job time ranges in minutes
+            const jobTimeRanges = dayJobs.map(job => {
+              let jobStartTime = null
+              let jobDuration = 0
+              
+              // Parse job scheduled time
+              if (job.scheduled_date && typeof job.scheduled_date === 'string') {
+                if (job.scheduled_date.includes(' ')) {
+                  const [datePart, timePart] = job.scheduled_date.split(' ')
+                  const [hours, minutes] = timePart.split(':').map(Number)
+                  jobStartTime = hours * 60 + minutes
+                } else {
+                  const jobDate = new Date(job.scheduled_date)
+                  jobStartTime = jobDate.getHours() * 60 + jobDate.getMinutes()
+                }
+              }
+              
+              // Get job duration in minutes
+              jobDuration = job.duration || job.service_duration || job.estimated_duration || 60 // default 1 hour
+              if (typeof jobDuration === 'string') {
+                jobDuration = parseInt(jobDuration) || 60
+              }
+              
+              if (jobStartTime !== null) {
+                return {
+                  start: jobStartTime,
+                  end: jobStartTime + jobDuration
+                }
+              }
+              return null
+            }).filter(Boolean)
+            
+            // Subtract job times from default availability hours
+            let remainingHours = []
+            defaultHours.forEach(availSlot => {
+              const availStart = timeToMinutes(availSlot.start)
+              const availEnd = timeToMinutes(availSlot.end)
+              
+              // Find gaps between jobs within this availability slot
+              let currentStart = availStart
+              
+              // Sort job time ranges by start time
+              const sortedJobRanges = jobTimeRanges
+                .filter(jobRange => 
+                  jobRange.start < availEnd && jobRange.end > availStart
+                )
+                .sort((a, b) => a.start - b.start)
+              
+              sortedJobRanges.forEach(jobRange => {
+                // If there's a gap before this job, add it as available time
+                if (currentStart < jobRange.start) {
+                  remainingHours.push({
+                    start: minutesToTime(currentStart),
+                    end: minutesToTime(jobRange.start)
+                  })
+                }
+                // Move current start to after this job
+                currentStart = Math.max(currentStart, jobRange.end)
+              })
+              
+              // If there's remaining time after all jobs, add it
+              if (currentStart < availEnd) {
+                remainingHours.push({
+                  start: minutesToTime(currentStart),
+                  end: minutesToTime(availEnd)
+                })
+              }
+            })
+            
+            // Update availability hours to show only remaining time (when not working)
+            if (remainingHours.length > 0) {
+              defaultHours = remainingHours
+            } else {
+              // All availability is covered by jobs - they're fully booked, mark as unavailable
+              isAvailable = false
+              defaultHours = null
+            }
+          }
+          
           processedData[memberId][dateStr] = {
-            available: true,
-            hours: [{ start: '08:00', end: '18:00' }],
+            available: isAvailable,
+            hours: defaultHours,
             assignedJobs: dayJobs,
             hasAvailabilityConfigured: false // Still marked as not configured (using defaults)
           }
@@ -984,7 +1414,11 @@ const UnifiedCalendar = () => {
       {/* Sidebar - Always Collapsed */}
       
       {/* Main Content */}
-      <div className="flex-1 flex min-w-0">
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Mobile Header */}
+        <MobileHeader pageTitle="My Availability" />
+        
+        <div className="flex-1 flex min-w-0">
         {/* Filter Sidebar - Hidden on mobile */}
         {viewMode === 'worker-availability' && (
           <div className="hidden lg:flex w-56 bg-white border-r border-gray-200 flex-shrink-0 flex-col h-screen">
@@ -1575,8 +2009,9 @@ const UnifiedCalendar = () => {
         </>
       )}
         </div>
+        </div>
       </div>
-
+      
       {/* Edit Availability Modal */}
       {showEditModal && selectedMember && editingAvailability && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-[9999] flex items-end justify-center lg:items-center">
