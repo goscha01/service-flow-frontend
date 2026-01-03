@@ -3274,7 +3274,11 @@ setIntakeQuestionAnswers(answers);
                         Edit
                       </button>
                     </div>
-                    <p className="text-sm text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{detectedTerritory?.name || formData.territory || 'Chemnitz'}</p>
+                    <p className="text-sm text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                      {detectedTerritory?.name || formData.territory || (
+                        <span className="text-gray-400 italic">Unassigned</span>
+                      )}
+                    </p>
                   </div>
 
                   {/* Payment Method */}

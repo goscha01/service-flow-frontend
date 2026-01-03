@@ -42,13 +42,23 @@ const MobileBottomNav = ({ teamMembers = [] }) => {
   const isWorkerUser = isWorker(user)
 
   // Bottom nav items - always visible
-  const bottomNavItems = [
-    { icon: Home, label: "Home", path: "/dashboard" },
-    { icon: Briefcase, label: "Jobs", path: "/jobs" },
-    { icon: Calendar, label: "Schedule", path: "/schedule" },
-    { icon: Megaphone, label: "Offers", path: "/offers" },
-    { icon: Bell, label: "Notifications", path: "/notifications" },
-  ]
+  // For workers, include Availability before Offers
+  const bottomNavItems = isWorkerUser
+    ? [
+        { icon: Home, label: "Home", path: "/dashboard" },
+        { icon: Briefcase, label: "Jobs", path: "/jobs" },
+        { icon: Calendar, label: "Schedule", path: "/schedule" },
+        { icon: Clock, label: "Availability", path: "/availability" },
+        { icon: Megaphone, label: "Offers", path: "/offers" },
+        { icon: Bell, label: "Notifications", path: "/notifications" },
+      ]
+    : [
+        { icon: Home, label: "Home", path: "/dashboard" },
+        { icon: Briefcase, label: "Jobs", path: "/jobs" },
+        { icon: Calendar, label: "Schedule", path: "/schedule" },
+        { icon: Megaphone, label: "Offers", path: "/offers" },
+        { icon: Bell, label: "Notifications", path: "/notifications" },
+      ]
 
   // All sidebar items
   const allSidebarItems = [
@@ -177,8 +187,8 @@ const MobileBottomNav = ({ teamMembers = [] }) => {
             )
           })}
           
-          {/* More button - show for all users */}
-          {showMoreButton && (
+          {/* More button - show only for non-workers */}
+          {showMoreButton && !isWorkerUser && (
             <button
               onClick={() => setShowMoreOverlay(true)}
               className={`flex flex-col items-center space-y-1 px-2 py-2 flex-1 transition-colors ${

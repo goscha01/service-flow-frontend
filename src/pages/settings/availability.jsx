@@ -4,8 +4,9 @@ import { useState, useEffect, useMemo, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import { ChevronLeft, MapPin, ChevronRight, Check, X } from "lucide-react"
 import TimeslotTemplateModal from "../../components/timeslot-template-modal"
-import { availabilityAPI } from "../../services/api"
+import { availabilityAPI, teamAPI } from "../../services/api"
 import { useAuth } from "../../context/AuthContext"
+import { isWorker } from "../../utils/roleUtils"
 
 const Availability = () => {
   const [isTimeslotTemplateModalOpen, setIsTimeslotTemplateModalOpen] = useState(false)
@@ -50,25 +51,82 @@ const Availability = () => {
       setLoading(true)
       setMessage({ type: '', text: '' })
       
-      console.log('🔄 Loading availability data for user:', user.id)
-      const availability = await availabilityAPI.getAvailability(user.id)
-      console.log('✅ Availability data loaded:', availability)
+      console.log('🔄 Loading availability data for user:', user.id, 'isWorker:', isWorker(user), 'teamMemberId:', user?.teamMemberId)
       
-      if (!availability) {
-        console.warn('⚠️ No availability data returned, using defaults')
-        throw new Error('No availability data returned')
-      }
+      let availability
+      let businessHours = null
       
-      // Parse business hours - handle different response formats
-      let businessHours = availability?.businessHours || availability?.business_hours
-      
-      // If businessHours is a string, parse it
-      if (typeof businessHours === 'string') {
-        try {
-          businessHours = JSON.parse(businessHours)
-        } catch (e) {
-          console.error('Error parsing businessHours string:', e)
-          businessHours = null
+      // Workers should load their own team member availability
+      if (isWorker(user) && user?.teamMemberId) {
+        availability = await teamAPI.getAvailability(user.teamMemberId)
+        console.log('✅ Worker availability data loaded:', availability)
+        
+        // Parse worker availability - convert workingHours to businessHours format
+        let availData = availability?.availability
+        if (typeof availData === 'string') {
+          try {
+            availData = JSON.parse(availData)
+          } catch (e) {
+            console.error('Error parsing availability string:', e)
+            availData = {}
+          }
+        }
+        
+        // Convert workingHours to businessHours format
+        if (availData?.workingHours) {
+          const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+          businessHours = {}
+          
+          days.forEach(day => {
+            const dayWorkingHours = availData.workingHours[day]
+            if (dayWorkingHours) {
+              const isAvailable = dayWorkingHours.available !== false
+              let start = '09:00'
+              let end = '17:00'
+              
+              if (isAvailable) {
+                // Get time slots
+                if (dayWorkingHours.timeSlots && Array.isArray(dayWorkingHours.timeSlots) && dayWorkingHours.timeSlots.length > 0) {
+                  const firstSlot = dayWorkingHours.timeSlots[0]
+                  start = firstSlot.start || '09:00'
+                  end = firstSlot.end || '17:00'
+                } else if (dayWorkingHours.start && dayWorkingHours.end) {
+                  start = dayWorkingHours.start
+                  end = dayWorkingHours.end
+                }
+              }
+              
+              businessHours[day] = {
+                start: start,
+                end: end,
+                enabled: isAvailable
+              }
+            } else {
+              // Default for days not set
+              businessHours[day] = {
+                start: '09:00',
+                end: '17:00',
+                enabled: day !== 'saturday' && day !== 'sunday'
+              }
+            }
+          })
+        }
+      } else {
+        // Account owners/managers load their own availability
+        availability = await availabilityAPI.getAvailability(user.id)
+        console.log('✅ Availability data loaded:', availability)
+        
+        // Parse business hours - handle different response formats
+        businessHours = availability?.businessHours || availability?.business_hours
+        
+        // If businessHours is a string, parse it
+        if (typeof businessHours === 'string') {
+          try {
+            businessHours = JSON.parse(businessHours)
+          } catch (e) {
+            console.error('Error parsing businessHours string:', e)
+            businessHours = null
+          }
         }
       }
       
@@ -195,19 +253,73 @@ const Availability = () => {
       
       console.log('💾 Saving business hours:', {
         userId: user.id,
+        isWorker: isWorker(user),
+        teamMemberId: user?.teamMemberId,
         businessHours: availabilityData.businessHours,
         timeslotTemplates: availabilityData.timeslotTemplates
       })
       
-      const response = await availabilityAPI.updateAvailability({
-        userId: user.id,
-        businessHours: availabilityData.businessHours,
-        timeslotTemplates: availabilityData.timeslotTemplates
-      })
+      // Workers should save to their team member availability
+      if (isWorker(user) && user?.teamMemberId) {
+        // Get current availability
+        const currentAvailability = await teamAPI.getAvailability(user.teamMemberId)
+        let availData = currentAvailability?.availability
+        
+        if (typeof availData === 'string') {
+          try {
+            availData = JSON.parse(availData)
+          } catch (e) {
+            console.error('Error parsing availability:', e)
+            availData = { workingHours: {}, customAvailability: [] }
+          }
+        }
+        
+        if (!availData) {
+          availData = { workingHours: {}, customAvailability: [] }
+        }
+        
+        // Convert businessHours format to workingHours format
+        const workingHours = {}
+        const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+        
+        days.forEach(day => {
+          const dayBusinessHours = availabilityData.businessHours[day]
+          if (dayBusinessHours.enabled) {
+            workingHours[day] = {
+              available: true,
+              timeSlots: [{
+                start: dayBusinessHours.start,
+                end: dayBusinessHours.end
+              }]
+            }
+          } else {
+            workingHours[day] = {
+              available: false,
+              timeSlots: []
+            }
+          }
+        })
+        
+        // Update availability with new workingHours
+        availData.workingHours = workingHours
+        
+        // Save to team member availability
+        await teamAPI.updateAvailability(user.teamMemberId, JSON.stringify(availData))
+        
+        console.log('✅ Worker availability saved successfully')
+        setMessage({ type: 'success', text: 'Availability hours saved successfully!' })
+      } else {
+        // Account owners/managers save to their own availability
+        const response = await availabilityAPI.updateAvailability({
+          userId: user.id,
+          businessHours: availabilityData.businessHours,
+          timeslotTemplates: availabilityData.timeslotTemplates
+        })
+        
+        console.log('✅ Save response:', response)
+        setMessage({ type: 'success', text: 'Business hours saved successfully!' })
+      }
       
-      console.log('✅ Save response:', response)
-      
-      setMessage({ type: 'success', text: 'Business hours saved successfully!' })
       setTimeout(() => setMessage({ type: '', text: '' }), 3000)
       setShowBusinessHoursEditor(false)
       
@@ -252,11 +364,18 @@ const Availability = () => {
         <div className="bg-white border-b border-gray-200 px-6 py-4">
           <div className="flex items-center space-x-4">
             <button
-              onClick={() => navigate("/settings")}
+              onClick={() => {
+                // For workers, go to availability page instead of settings
+                if (isWorker(user) && user?.teamMemberId) {
+                  navigate("/availability")
+                } else {
+                  navigate("/settings")
+                }
+              }}
               className="flex items-center space-x-2 text-gray-600 hover:text-gray-900"
             >
               <ChevronLeft className="w-5 h-5" />
-              <span className="text-sm">Settings</span>
+              <span className="text-sm">{isWorker(user) && user?.teamMemberId ? "Availability" : "Settings"}</span>
             </button>
             <h1 className="text-2xl font-semibold text-gray-900">Availability</h1>
           </div>
