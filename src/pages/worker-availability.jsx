@@ -6,6 +6,8 @@ import { ChevronLeft, ChevronRight, Settings, RefreshCw, Clock, User, X, Plus, T
 import { availabilityAPI, teamAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
 import { getImageUrl } from "../utils/imageUtils"
+import { isWorker } from "../utils/roleUtils"
+import MobileHeader from "../components/mobile-header"
 
 const WorkerAvailability = () => {
   const { user } = useAuth()
@@ -23,10 +25,8 @@ const WorkerAvailability = () => {
   // Availability data - store per day
   const [availabilityData, setAvailabilityData] = useState({})
   
-  // Selected day and popup menu state
+  // Selected day state
   const [selectedDay, setSelectedDay] = useState(null)
-  const [popupPosition, setPopupPosition] = useState({ top: 0, left: 0 })
-  const popupRef = useRef(null)
   
   // Weekly hours editing modal state
   const [showEditWeeklyHoursModal, setShowEditWeeklyHoursModal] = useState(false)
@@ -206,30 +206,162 @@ const WorkerAvailability = () => {
       const startDate = new Date(currentYear, currentMonth, 1).toISOString().split('T')[0]
       const endDate = new Date(currentYear, currentMonth + 1, 0).toISOString().split('T')[0]
       
-      // For now, we'll use the existing API - may need worker-specific endpoint later
-      const availability = await availabilityAPI.getAvailability(user.id)
+      // Use appropriate API based on user type
+      let availability
+      let accountOwnerAvailability = null
+      if (user?.teamMemberId) {
+        // Workers: use team member availability endpoint - MUST use the logged-in worker's teamMemberId
+        console.log('Loading worker availability for teamMemberId:', user.teamMemberId)
+        availability = await teamAPI.getAvailability(user.teamMemberId, startDate, endDate)
+        console.log('Worker availability loaded:', availability)
+        // Also try to get account owner's business hours as fallback
+        try {
+          accountOwnerAvailability = await availabilityAPI.getAvailability(user.id)
+        } catch (e) {
+          // Ignore errors - this is just a fallback
+          console.log('Could not load account owner availability as fallback')
+        }
+      } else {
+        // Account owners/managers: use user availability endpoint
+        availability = await availabilityAPI.getAvailability(user.id)
+      }
       
       // Parse availability data - this might need adjustment based on API response
       // For now, we'll create a structure that matches the UI
       const data = {}
       
-      // Initialize all days with default availability
+      // Initialize all days with default availability (weekdays available, weekends unavailable)
       daysInMonth.forEach(day => {
         const dayOfWeek = day.dayOfWeek
-        // Default: weekdays available 9 AM - 6 PM, weekends unavailable
         const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
         data[day.fullDate] = {
           available: !isWeekend,
-          timeRange: isWeekend ? null : { start: '09:00', end: '18:00' },
+          timeRange: !isWeekend ? { start: '09:00', end: '18:00' } : null,
           allDay: isWeekend
         }
       })
       
       // If API returns specific availability data, merge it
-      if (availability?.dailyAvailability) {
+      if (user?.teamMemberId && availability?.availability) {
+        // Team member format - parse availability string
+        let availData = availability.availability
+        if (typeof availData === 'string') {
+          try {
+            availData = JSON.parse(availData)
+          } catch (e) {
+            console.error('Error parsing availability:', e)
+            availData = {}
+          }
+        }
+        
+        // Parse business hours for fallback
+        let businessHours = null
+        if (accountOwnerAvailability?.businessHours) {
+          businessHours = accountOwnerAvailability.businessHours
+          if (typeof businessHours === 'string') {
+            try {
+              businessHours = JSON.parse(businessHours)
+            } catch (e) {
+              console.error('Error parsing businessHours:', e)
+              businessHours = null
+            }
+          }
+        }
+        
+        // Apply working hours to all days of that day of week
+        // If a day doesn't have workingHours, fall back to businessHours
+        daysInMonth.forEach(day => {
+          const dayOfWeek = day.dayOfWeek
+          const dayName = dayNamesLower[dayOfWeek]
+          const dayWorkingHours = availData?.workingHours?.[dayName]
+          
+          if (dayWorkingHours) {
+            // Day has working hours defined - use them
+            const isAvailable = dayWorkingHours.available !== false
+            let timeRange = null
+            
+            if (isAvailable) {
+              // Get time slots
+              if (dayWorkingHours.timeSlots && Array.isArray(dayWorkingHours.timeSlots) && dayWorkingHours.timeSlots.length > 0) {
+                // Use first time slot
+                const firstSlot = dayWorkingHours.timeSlots[0]
+                timeRange = { start: firstSlot.start, end: firstSlot.end }
+              } else if (dayWorkingHours.start && dayWorkingHours.end) {
+                // Legacy format with start/end
+                timeRange = { start: dayWorkingHours.start, end: dayWorkingHours.end }
+              } else if (dayWorkingHours.hours) {
+                // Legacy format with hours string - need to convert AM/PM to 24-hour
+                const parts = dayWorkingHours.hours.split(' - ')
+                const convertTo24Hour = (timeStr) => {
+                  const trimmed = timeStr.trim()
+                  const isPM = trimmed.includes('PM')
+                  const isAM = trimmed.includes('AM')
+                  let time = trimmed.replace(/[AP]M/i, '').trim()
+                  const [hours, minutes] = time.split(':')
+                  let hour24 = parseInt(hours, 10)
+                  if (isPM && hour24 !== 12) hour24 += 12
+                  if (isAM && hour24 === 12) hour24 = 0
+                  return `${hour24.toString().padStart(2, '0')}:${minutes || '00'}`
+                }
+                timeRange = { 
+                  start: convertTo24Hour(parts[0] || '09:00 AM'), 
+                  end: convertTo24Hour(parts[1] || '06:00 PM') 
+                }
+              }
+            }
+            
+            data[day.fullDate] = {
+              available: isAvailable,
+              timeRange: timeRange,
+              allDay: !timeRange
+            }
+          } else if (businessHours?.[dayName]) {
+            // No workingHours for this day, fall back to businessHours
+            const dayBusinessHours = businessHours[dayName]
+            const isEnabled = dayBusinessHours.enabled !== false
+            data[day.fullDate] = {
+              available: isEnabled,
+              timeRange: isEnabled && dayBusinessHours.start && dayBusinessHours.end
+                ? { start: dayBusinessHours.start, end: dayBusinessHours.end }
+                : null,
+              allDay: !isEnabled || !dayBusinessHours.start || !dayBusinessHours.end
+            }
+          }
+          // If neither workingHours nor businessHours exist for this day, keep the default
+        })
+        
+        // Apply custom availability overrides (these override working hours for specific dates)
+        // Custom availability always takes precedence - it's an explicit date override
+        if (availData?.customAvailability) {
+          availData.customAvailability.forEach(customItem => {
+            const itemDate = customItem.date
+            if (itemDate && data[itemDate] !== undefined) {
+              if (customItem.available && customItem.hours && customItem.hours.length > 0) {
+                // Custom availability makes this date available
+                const firstHour = customItem.hours[0]
+                data[itemDate] = {
+                  available: true,
+                  timeRange: firstHour.start && firstHour.end 
+                    ? { start: firstHour.start, end: firstHour.end }
+                    : null,
+                  allDay: !firstHour.start || !firstHour.end
+                }
+              } else {
+                // Custom availability makes this date unavailable
+                data[itemDate] = {
+                  available: false,
+                  timeRange: null,
+                  allDay: true
+                }
+              }
+            }
+          })
+        }
+      } else if (!user?.teamMemberId && availability?.dailyAvailability) {
+        // User availability format
         Object.keys(availability.dailyAvailability).forEach(date => {
           const dayData = availability.dailyAvailability[date]
-          if (dayData) {
+          if (dayData && data[date] !== undefined) {
             data[date] = {
               available: dayData.available !== false,
               timeRange: dayData.timeRange || (dayData.start && dayData.end ? { start: dayData.start, end: dayData.end } : null),
@@ -259,7 +391,7 @@ const WorkerAvailability = () => {
     } finally {
       setLoading(false)
     }
-  }, [user?.id, currentYear, currentMonth, daysInMonth])
+  }, [user?.id, user?.teamMemberId, currentYear, currentMonth, daysInMonth])
   
   useEffect(() => {
     if (user?.id) {
@@ -267,21 +399,12 @@ const WorkerAvailability = () => {
     }
   }, [user?.id, currentYear, currentMonth, loadAvailabilityData])
   
-  // Click outside handler for popup
+  // Redirect if not a worker - must be after all hooks
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (popupRef.current && !popupRef.current.contains(event.target)) {
-        setSelectedDay(null)
-      }
+    if (user && !isWorker(user)) {
+      navigate('/dashboard')
     }
-    
-    if (selectedDay) {
-      document.addEventListener('mousedown', handleClickOutside)
-      return () => {
-        document.removeEventListener('mousedown', handleClickOutside)
-      }
-    }
-  }, [selectedDay])
+  }, [user, navigate])
   
   const handlePreviousMonth = () => {
     setCurrentDate(new Date(currentYear, currentMonth - 1, 1))
@@ -293,38 +416,22 @@ const WorkerAvailability = () => {
     setSelectedDay(null)
   }
   
-  // Handle day click to show popup
+  // Handle day click to show bottom modal
   const handleDayClick = (day, event) => {
     event.stopPropagation()
-    const rect = event.currentTarget.getBoundingClientRect()
     setSelectedDay(day)
-    setPopupPosition({
-      top: rect.bottom + window.scrollY,
-      left: rect.right + window.scrollX - 200 // Position to the right
-    })
   }
   
-  // Handle "Edit [Day]" - e.g., "Edit Wednesdays"
+  // Handle "Edit [Day]" - e.g., "Edit Wednesdays" - navigate to settings/availability
   const handleEditDayOfWeek = (day) => {
-    const dayName = dayNamesLower[day.dayOfWeek]
-    setEditingDayOfWeek(dayName)
-    setShowEditWeeklyHoursModal(true)
     setSelectedDay(null)
+    navigate('/settings/availability')
   }
   
-  // Handle "Edit 1 Date"
+  // Handle "Edit 1 Date" - navigate to single date edit page
   const handleEditSingleDate = (day) => {
-    setEditingDate(day.fullDate)
-    const dayData = availabilityData[day.fullDate] || { available: false, timeRange: null }
-    
-    if (dayData.timeRange) {
-      setSingleDateHours([{ id: 1, start: dayData.timeRange.start, end: dayData.timeRange.end }])
-    } else {
-      setSingleDateHours([])
-    }
-    
-    setShowEditSingleDateModal(true)
     setSelectedDay(null)
+    navigate(`/availability/edit/${day.fullDate}`)
   }
   
   // Save weekly hours
@@ -455,10 +562,36 @@ const WorkerAvailability = () => {
     try {
       setSaving(true)
       const current = availabilityData[date] || { available: false, timeRange: null, allDay: true }
+      
+      // Determine new state - toggle availability
+      const willBeAvailable = !current.available
+      
+      // If toggling to available and no timeRange exists, get default from working hours
+      let timeRange = current.timeRange
+      if (willBeAvailable && !timeRange) {
+        // Get day of week for this date (parse YYYY-MM-DD format manually to avoid timezone issues)
+        const [year, month, day] = date.split('-').map(Number)
+        const dateObj = new Date(year, month - 1, day) // month is 0-indexed
+        const dayOfWeek = dateObj.getDay()
+        const dayName = dayNamesLower[dayOfWeek]
+        
+        // Try to get from workingHours state first
+        const dayWorkingHours = workingHours[dayName]
+        
+        // Use working hours if available, otherwise default to 9 AM - 6 PM
+        if (dayWorkingHours?.available && dayWorkingHours.timeSlots?.length > 0) {
+          const firstSlot = dayWorkingHours.timeSlots[0]
+          timeRange = { start: firstSlot.start, end: firstSlot.end }
+        } else {
+          // Default time range when toggling to available
+          timeRange = { start: '09:00', end: '18:00' }
+        }
+      }
+      
       const newState = {
-        available: !current.available,
-        timeRange: current.timeRange,
-        allDay: current.allDay || !current.available
+        available: willBeAvailable,
+        timeRange: willBeAvailable ? timeRange : null,
+        allDay: !willBeAvailable || !timeRange
       }
       
       setAvailabilityData(prev => ({
@@ -466,20 +599,66 @@ const WorkerAvailability = () => {
         [date]: newState
       }))
       
-      // Save to API - for workers, we'll use team member availability endpoint if available
+      // Save to API - for workers, use team member availability endpoint
       // Otherwise, use the user availability endpoint
       try {
-        // Try team member availability endpoint first (if user has teamMemberId)
-        if (user.teamMemberId) {
-          // This would use teamAPI.updateAvailability if available
-          // For now, we'll use the user availability endpoint
-          await availabilityAPI.updateAvailability({
-            userId: user.id,
-            dailyAvailability: {
-              [date]: newState
+        if (user?.teamMemberId) {
+          // Workers: get current availability, update customAvailability, then save
+          const currentAvailability = await teamAPI.getAvailability(user.teamMemberId)
+          let availData = currentAvailability?.availability
+          
+          if (typeof availData === 'string') {
+            try {
+              availData = JSON.parse(availData)
+            } catch (e) {
+              availData = { workingHours: {}, customAvailability: [] }
             }
-          })
+          }
+          
+          if (!availData) {
+            availData = { workingHours: {}, customAvailability: [] }
+          }
+          
+          if (!availData.customAvailability) {
+            availData.customAvailability = []
+          }
+          
+          // Update or add custom availability for the date
+          const existingIndex = availData.customAvailability.findIndex(item => item.date === date)
+          
+          if (newState.available && newState.timeRange) {
+            const customItem = {
+              date: date,
+              available: true,
+              hours: [{
+                start: newState.timeRange.start,
+                end: newState.timeRange.end
+              }]
+            }
+            
+            if (existingIndex >= 0) {
+              availData.customAvailability[existingIndex] = customItem
+            } else {
+              availData.customAvailability.push(customItem)
+            }
+          } else {
+            // Mark as unavailable
+            const customItem = {
+              date: date,
+              available: false
+            }
+            
+            if (existingIndex >= 0) {
+              availData.customAvailability[existingIndex] = customItem
+            } else {
+              availData.customAvailability.push(customItem)
+            }
+          }
+          
+          // Save using teamAPI
+          await teamAPI.updateAvailability(user.teamMemberId, JSON.stringify(availData))
         } else {
+          // Account owners/managers: use user availability endpoint
           await availabilityAPI.updateAvailability({
             userId: user.id,
             dailyAvailability: {
@@ -536,6 +715,18 @@ const WorkerAvailability = () => {
     return user?.email || 'User'
   }
   
+  // Check if user is worker - after all hooks
+  if (!user || !isWorker(user)) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+  
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -550,8 +741,11 @@ const WorkerAvailability = () => {
   return (
     <>
       <div className="min-h-screen bg-gray-50 pb-24 lg:pb-0">
-        {/* Header */}
-        <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
+        {/* Mobile Header */}
+        <MobileHeader pageTitle="My Availability" />
+        
+        {/* Desktop Header */}
+        <div className="hidden lg:block bg-white border-b border-gray-200 sticky top-0 z-10">
           <div className="px-4 py-4">
             <div className="flex items-center justify-between">
               {/* Profile Icon */}
@@ -678,40 +872,54 @@ const WorkerAvailability = () => {
           })}
         </div>
         
-        {/* Popup Menu */}
+        {/* Bottom Modal - shown when date is selected */}
         {selectedDay && (
-          <div
-            ref={popupRef}
-            className="fixed bg-white rounded-lg shadow-lg border border-gray-200 z-50 p-3"
-            style={{
-              top: `${popupPosition.top}px`,
-              left: `${popupPosition.left}px`,
-              transform: 'translateY(-100%)'
-            }}
+          <div className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-[9999] flex items-end justify-center"
+            onClick={() => setSelectedDay(null)}
           >
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={() => handleEditDayOfWeek(selectedDay)}
-                className="flex flex-col items-center p-2 hover:bg-gray-50 rounded transition-colors"
-              >
-                <RotateCw className="w-5 h-5 text-gray-600 mb-1" />
-                <span className="text-xs text-gray-700">Edit {dayNamesFull[selectedDay.dayOfWeek]}s</span>
-              </button>
+            <div 
+              className="bg-white rounded-t-2xl w-full max-w-full"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  {dayNamesFull[selectedDay.dayOfWeek]}, {monthNames[currentMonth]} {selectedDay.date}
+                </h3>
+                <button
+                  onClick={() => setSelectedDay(null)}
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-600" />
+                </button>
+              </div>
               
-              <button
-                onClick={() => handleEditSingleDate(selectedDay)}
-                className="flex flex-col items-center p-2 hover:bg-gray-50 rounded transition-colors"
-              >
-                <Calendar className="w-5 h-5 text-gray-600 mb-1" />
-                <span className="text-xs text-gray-700">Edit 1 Date</span>
-              </button>
-              
-              <button
-                onClick={() => setSelectedDay(null)}
-                className="p-2 hover:bg-gray-50 rounded transition-colors"
-              >
-                <X className="w-5 h-5 text-gray-600" />
-              </button>
+              {/* Modal Actions */}
+              <div className="px-6 py-4 space-y-3">
+                <button
+                  onClick={() => handleEditDayOfWeek(selectedDay)}
+                  className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <div className="flex items-center space-x-3">
+                    <RotateCw className="w-5 h-5 text-gray-600" />
+                    <span className="text-base font-medium text-gray-900">
+                      Edit {dayNamesFull[selectedDay.dayOfWeek]}s
+                    </span>
+                  </div>
+                </button>
+                
+                <button
+                  onClick={() => handleEditSingleDate(selectedDay)}
+                  className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <div className="flex items-center space-x-3">
+                    <Calendar className="w-5 h-5 text-gray-600" />
+                    <span className="text-base font-medium text-gray-900">
+                      Edit 1 Date
+                    </span>
+                  </div>
+                </button>
+              </div>
             </div>
           </div>
         )}

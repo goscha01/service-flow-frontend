@@ -10,6 +10,7 @@ import { Camera, Eye, EyeOff, Check, X } from "lucide-react"
 import { userProfileAPI, authAPI, teamAPI } from "../../services/api"
 import { useAuth } from "../../context/AuthContext"
 import Sidebar from "../../components/sidebar"
+import { isWorker } from "../../utils/roleUtils"
 
 const AccountDetails = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -424,12 +425,24 @@ const AccountDetails = () => {
     )
   }
 
+  // Determine back navigation based on user type
+  const handleBack = () => {
+    const user = authAPI.getCurrentUser()
+    if (isWorker(user) && user?.teamMemberId) {
+      // Workers should go to availability page
+      navigate("/availability")
+    } else {
+      // Account owners/managers go to settings
+      navigate("/settings")
+    }
+  }
+
   return (
     <PageLayout
       title="Account Details"
       subtitle="Manage your account settings and preferences"
       showBackButton={true}
-      backLabel="Settings"
+      onBack={handleBack}
       sidebarOpen={sidebarOpen}
       setSidebarOpen={setSidebarOpen}
       maxWidth="max-w-4xl"
