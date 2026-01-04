@@ -38,3 +38,38 @@ code {
     font-size: 14px; /* ALL text scales down */
   }
 }
+
+/* Safe area insets for iOS devices */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.h-safe-area-inset-bottom {
+  height: env(safe-area-inset-bottom, 0px);
+  min-height: env(safe-area-inset-bottom, 0px);
+}
+
+/* Ensure bottom navigation stays fixed on iOS */
+.fixed-bottom-nav {
+  position: fixed !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  will-change: transform;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  /* Prevent disappearing on scroll */
+  -webkit-overflow-scrolling: touch;
+}
+
+/* iOS Safari specific fixes */
+@supports (-webkit-touch-callout: none) {
+  .fixed-bottom-nav {
+    /* Force hardware acceleration and prevent disappearing */
+    position: fixed !important;
+    transform: translate3d(0, 0, 0);
+    -webkit-transform: translate3d(0, 0, 0);
+  }
+}

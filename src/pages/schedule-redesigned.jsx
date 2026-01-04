@@ -2575,7 +2575,7 @@ const ServiceFlowSchedule = () => {
         `}</style>
         
         {/* Mobile view - shown on mobile, hidden on desktop */}
-        <div className="lg:hidden min-h-screen bg-gray-50 pb-20 w-full max-w-full overflow-x-hidden">
+        <div className="lg:hidden min-h-screen bg-gray-50 pb-28 w-full max-w-full overflow-x-hidden">
         {/* Mobile Header */}
         <div className="sticky top-0 z-30">
           <MobileHeader pageTitle="Schedule" />
@@ -2777,8 +2777,8 @@ const ServiceFlowSchedule = () => {
         </div>
 
         {/* Horizontal Calendar Strip - Mobile Only */}
-        <div className="lg:hidden bg-white border-b border-gray-200 w-full overflow-x-auto scrollbar-hide" style={{ maxWidth: '100vw', overflowX: 'auto' }} key={`week-strip-${dateUpdateKey}`}>
-          <div className="flex items-center space-x-4 px-4 py-3 min-w-max">
+        <div className="lg:hidden bg-white border-b border-gray-200 w-full max-w-full overflow-x-auto scrollbar-hide touch-manipulation" key={`week-strip-${dateUpdateKey}`}>
+          <div className="flex items-center space-x-4 mt-5 px-4 py-4">
             {weekDays.map((day, index) => {
               // Normalize dates for comparison
               const normalizedDay = new Date(day.getFullYear(), day.getMonth(), day.getDate())
@@ -2807,9 +2807,9 @@ const ServiceFlowSchedule = () => {
                     setSelectedDate(newSelectedDate)
                     setDateUpdateKey(prev => prev + 1)
                   }}
-                  className="flex flex-col items-center space-y-1 flex-shrink-0 touch-manipulation min-w-[50px]"
+                  className="flex flex-col items-center space-y-1.5 flex-shrink-0 touch-manipulation min-w-[50px]"
                 >
-                  <span className="text-xs font-medium text-gray-500 uppercase">
+                  <span className="text-xs sm:text-sm font-semibold text-gray-700 uppercase whitespace-nowrap">
                     {dayName}
                   </span>
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0 transition-colors ${
@@ -2833,7 +2833,7 @@ const ServiceFlowSchedule = () => {
         </div>
 
         {/* Jobs List */}
-        <div className="px-3 sm:px-4 py-3 sm:py-4 space-y-3 pb-24 w-full max-w-full overflow-x-hidden" key={`jobs-${dateUpdateKey}`}>
+        <div className="px-3 sm:px-4 py-3 sm:py-4 space-y-3 pb-28 w-full max-w-full overflow-x-hidden" key={`jobs-${dateUpdateKey}`}>
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
