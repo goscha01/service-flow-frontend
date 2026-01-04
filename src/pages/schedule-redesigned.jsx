@@ -2777,8 +2777,28 @@ const ServiceFlowSchedule = () => {
         </div>
 
         {/* Horizontal Calendar Strip - Mobile Only */}
-        <div className="lg:hidden bg-white border-b border-gray-200 w-full max-w-full overflow-x-auto scrollbar-hide touch-manipulation" key={`week-strip-${dateUpdateKey}`}>
-          <div className="flex items-center space-x-4 mt-5 px-4 py-4">
+        <div 
+          className="lg:hidden bg-white border-b border-gray-200 touch-manipulation" 
+          key={`week-strip-${dateUpdateKey}`} 
+          style={{ 
+            WebkitOverflowScrolling: 'touch',
+            overflowX: 'scroll',
+            overflowY: 'hidden',
+            scrollBehavior: 'smooth',
+            width: '100%',
+            maxWidth: '100vw',
+            msOverflowStyle: 'none',
+            scrollbarWidth: 'none'
+          }}
+        >
+          <div 
+            className="flex items-center space-x-4 mt-5 pl-4 pr-8 py-4" 
+            style={{ 
+              display: 'flex',
+              width: 'max-content',
+              flexShrink: 0
+            }}
+          >
             {weekDays.map((day, index) => {
               // Normalize dates for comparison
               const normalizedDay = new Date(day.getFullYear(), day.getMonth(), day.getDate())
@@ -2807,7 +2827,8 @@ const ServiceFlowSchedule = () => {
                     setSelectedDate(newSelectedDate)
                     setDateUpdateKey(prev => prev + 1)
                   }}
-                  className="flex flex-col items-center space-y-1.5 flex-shrink-0 touch-manipulation min-w-[50px]"
+                  className="flex flex-col items-center space-y-1.5 flex-shrink-0 touch-manipulation"
+                  style={{ minWidth: '60px', flexShrink: 0 }}
                 >
                   <span className="text-xs sm:text-sm font-semibold text-gray-700 uppercase whitespace-nowrap">
                     {dayName}
