@@ -132,6 +132,7 @@ export const canAccessRoute = (user, path) => {
       '/job', // Job details pages (matches /job/:jobId)
       '/availability', // Availability page (mobile view)
       '/offers', // Available jobs page
+      '/notifications', // Notifications page
       '/settings', // Settings page (will redirect to team profile)
       '/settings/account', // Only their profile settings
       '/settings/profile', // Profile settings alias

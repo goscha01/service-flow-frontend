@@ -103,6 +103,7 @@ import ImportCustomersPage from "./pages/import-customers"
 import ImportJobsPage from "./pages/import-jobs"
 import LeadsPipeline from "./pages/leads-pipeline"
 import LandingPageLegacy from "./pages/LandingPage"
+import Notifications from "./pages/notifications"
 import { TeamMemberAuthProvider } from "./context/TeamMemberAuthContext"
 import { CategoryProvider } from "./context/CategoryContext"
 import AppLayout from "./components/app-layout"
@@ -126,6 +127,7 @@ root.render(
       <Route path="/availability" element={<ProtectedRoute><WorkerAvailability /></ProtectedRoute>} />
       <Route path="/availability/edit/:date" element={<ProtectedRoute><EditSingleDateAvailability /></ProtectedRoute>} />
       <Route path="/offers" element={<ProtectedRoute><AvailableJobs /></ProtectedRoute>} />
+      <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
       <Route path="/job/:jobId" element={<ProtectedRoute><JobDetails /></ProtectedRoute>} />
       <Route path="/estimates" element={<ProtectedRoute><ServiceFlowEstimates /></ProtectedRoute>} />
       <Route path="/recurring" element={<ProtectedRoute><ServiceFlowRecurring /></ProtectedRoute>} />

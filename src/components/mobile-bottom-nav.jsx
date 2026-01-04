@@ -121,11 +121,6 @@ const MobileBottomNav = ({ teamMembers = [] }) => {
 
   // Handle navigation
   const handleNavigation = (path) => {
-    if (path === "/notifications") {
-      // TODO: Create notifications route or show a coming soon message
-      console.log(`Route ${path} not yet implemented`)
-      return
-    }
     navigate(path)
     setShowMoreOverlay(false)
   }
@@ -163,8 +158,8 @@ const MobileBottomNav = ({ teamMembers = [] }) => {
 
   return (
     <>
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 safe-area-bottom">
-        <div className="flex items-center justify-around py-2 px-2">
+      <div className="lg:hidden fixed-bottom-nav bg-white border-t border-gray-200 z-[100] shadow-lg">
+        <div className="flex items-center justify-around py-3.5 px-2 safe-area-bottom">
           {bottomNavItems.map((item) => {
             const Icon = item.icon
             const active = isActive(item.path)
@@ -173,13 +168,13 @@ const MobileBottomNav = ({ teamMembers = [] }) => {
               <button
                 key={item.path}
                 onClick={() => handleNavigation(item.path)}
-                className={`flex flex-col items-center space-y-1 px-2 py-2 flex-1 transition-colors ${
+                className={`flex flex-col items-center space-y-1.5 px-2 py-1.5 flex-1 transition-colors ${
                   active 
                     ? 'text-blue-600' 
                     : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
-                <Icon className={`w-5 h-5 ${active ? 'text-blue-600' : ''}`} />
+                <Icon className={`w-6 h-6 ${active ? 'text-blue-600' : ''}`} />
                 <span className={`text-xs font-medium ${active ? 'text-blue-600' : 'text-gray-600'}`}>
                   {item.label}
                 </span>
@@ -191,21 +186,26 @@ const MobileBottomNav = ({ teamMembers = [] }) => {
           {showMoreButton && !isWorkerUser && (
             <button
               onClick={() => setShowMoreOverlay(true)}
-              className={`flex flex-col items-center space-y-1 px-2 py-2 flex-1 transition-colors ${
+              className={`flex flex-col items-center space-y-1.5 px-2 py-1.5 flex-1 transition-colors ${
                 showMoreOverlay
                   ? 'text-blue-600' 
                   : 'text-gray-600 hover:text-gray-900'
               }`}
             >
-              <Menu className={`w-5 h-5 ${showMoreOverlay ? 'text-blue-600' : ''}`} />
+              <Menu className={`w-6 h-6 ${showMoreOverlay ? 'text-blue-600' : ''}`} />
               <span className={`text-xs font-medium ${showMoreOverlay ? 'text-blue-600' : 'text-gray-600'}`}>
                 More
               </span>
             </button>
           )}
         </div>
-        {/* iOS home indicator spacer */}
-        <div className="h-safe-area-inset-bottom bg-white" />
+        {/* iOS home indicator spacer - ensures proper spacing on devices with home indicator */}
+        <div 
+          className="bg-white h-safe-area-inset-bottom" 
+          style={{ 
+            minHeight: 'max(8px, env(safe-area-inset-bottom, 8px))' // Minimum 8px padding even without safe area
+          }} 
+        />
       </div>
 
       {/* More Overlay - Mobile Only */}

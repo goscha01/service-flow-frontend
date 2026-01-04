@@ -64,6 +64,7 @@ const MobileHeader = ({ pageTitle }) => {
       if (path.includes('/calendar')) return 'My Availability'
       if (path.includes('/createjob')) return 'Create Job'
       if (path.includes('/customer')) return 'Customer'
+      if (path.includes('/notifications')) return 'Notifications'
       
       return 'Zenbooker'
     }
