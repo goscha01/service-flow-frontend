@@ -2577,12 +2577,12 @@ const ServiceFlowSchedule = () => {
         {/* Mobile view - shown on mobile, hidden on desktop */}
         <div className="lg:hidden min-h-screen bg-gray-50 pb-28 w-full max-w-full overflow-x-hidden">
         {/* Mobile Header */}
-        <div className="sticky top-0 z-30">
+        <div className="fixed top-0 left-0 right-0 z-30 bg-white">
           <MobileHeader pageTitle="Schedule" />
         </div>
         
         {/* Mobile Header - Date Selector and Tabs */}
-        <div className="lg:hidden bg-white border-b border-gray-200 sticky top-[73px] z-20">
+        <div className="lg:hidden bg-white border-b border-gray-200 fixed top-[73px] left-0 right-0 z-20">
           {/* Tabs - Jobs and Availability */}
           <div className="px-4 pt-3 pb-2">
             <div className="relative bg-gray-50 rounded-2xl p-1 inline-flex gap-1 w-full">
@@ -2778,9 +2778,10 @@ const ServiceFlowSchedule = () => {
 
         {/* Horizontal Calendar Strip - Mobile Only */}
         <div 
-          className="lg:hidden bg-white border-b border-gray-200 touch-manipulation" 
+          className="lg:hidden bg-white border-b border-gray-200 touch-manipulation fixed left-0 right-0 z-10" 
           key={`week-strip-${dateUpdateKey}`} 
           style={{ 
+            top: activeTab === 'jobs' ? '145px' : '113px',
             WebkitOverflowScrolling: 'touch',
             overflowX: 'scroll',
             overflowY: 'hidden',
@@ -2854,7 +2855,7 @@ const ServiceFlowSchedule = () => {
         </div>
 
         {/* Jobs List */}
-        <div className="px-3 sm:px-4 py-3 sm:py-4 space-y-3 pb-28 w-full max-w-full overflow-x-hidden" key={`jobs-${dateUpdateKey}`}>
+        <div className="px-3 sm:px-4 py-3 sm:py-4 space-y-3 pb-28 w-full max-w-full overflow-x-hidden" key={`jobs-${dateUpdateKey}`} style={{ paddingTop: activeTab === 'jobs' ? '220px' : '188px' }}>
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>

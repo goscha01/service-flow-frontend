@@ -565,7 +565,9 @@ const ServiceFlowJobs = () => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0" style={{ maxWidth: '100%', overflowX: 'hidden' }}>
         {/* Mobile Header */}
-        <MobileHeader pageTitle="Jobs" />
+        <div className="lg:hidden fixed top-0 left-0 right-0 z-30 bg-white">
+          <MobileHeader pageTitle="Jobs" />
+        </div>
 
         {/* Desktop Header */}
         <div className="hidden lg:flex bg-white border-b border-gray-200 px-4 pt-4 pb-2 items-center justify-between">
@@ -604,7 +606,7 @@ const ServiceFlowJobs = () => {
         </div>
 
         {/* Mobile Header Content */}
-        <div className="lg:hidden bg-white border-b border-gray-200 sticky top-0 z-20">
+        <div className="lg:hidden bg-white border-b border-gray-200 fixed top-[73px] left-0 right-0 z-20">
           <div className="flex items-center justify-between px-4 py-3">
             {/* Title - Centered */}
             <h1 className="text-xl font-bold text-gray-900 flex-1 text-center" style={{fontFamily: 'Montserrat', fontWeight: 700}}>Jobs</h1>
@@ -1078,7 +1080,7 @@ const ServiceFlowJobs = () => {
         </div>
 
         {/* Jobs List */}
-        <div className="flex-1 overflow-auto bg-white lg:bg-gray-50 jobs-scroll-container pb-28 lg:pb-0" style={{ maxWidth: '100%', width: '100%' }}>
+        <div className="flex-1 overflow-auto bg-white lg:bg-gray-50 jobs-scroll-container pb-28 lg:pb-0" style={{ maxWidth: '100%', width: '100%', paddingTop: '140px' }}>
           <div className="" style={{ maxWidth: '100%' }}>
             {loading ? (
               <div className="flex items-center justify-center py-12">

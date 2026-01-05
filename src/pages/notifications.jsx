@@ -28,14 +28,14 @@ const Notifications = () => {
   }
 
   return (
-    <div className="lg:hidden min-h-screen bg-gray-50 pb-20 w-full max-w-full overflow-x-hidden">
+    <div className="lg:hidden min-h-screen bg-gray-50 pb-28 w-full max-w-full overflow-x-hidden">
       {/* Mobile Header */}
-      <div className="sticky top-0 z-30">
+      <div className="fixed top-0 left-0 right-0 z-30 bg-white">
         <MobileHeader pageTitle="Notifications" />
       </div>
 
       {/* Main Content */}
-      <div className="px-4 py-6 space-y-6">
+      <div className="px-4 py-6 space-y-6" style={{ paddingTop: '100px' }}>
         {/* Push Notifications Prompt */}
         {!pushNotificationsEnabled && (
           <div className="bg-gray-50 rounded-lg p-6">

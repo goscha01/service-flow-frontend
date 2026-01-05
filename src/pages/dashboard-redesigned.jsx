@@ -925,7 +925,9 @@ const DashboardRedesigned = () => {
         {/* Main Content */}
         <div className="flex-1 flex flex-col min-w-0">
           {/* Mobile Header */}
-          <MobileHeader />
+          <div className="lg:hidden fixed top-0 left-0 right-0 z-30 bg-white">
+            <MobileHeader />
+          </div>
 
           {/* Desktop Header */}
           <div className="hidden lg:block px-5 lg:px-40 xl:px-44 2xl:px-48 py-5">
@@ -967,7 +969,7 @@ const DashboardRedesigned = () => {
 
           {/* Main Content Area */}
           <div className="flex-1 bg-gray-50">
-            <div className="px-5 lg:px-40 xl:px-44 2xl:px-48 py-4 sm:py-6 lg:py-8 pb-28 lg:pb-8">
+            <div className="px-5 lg:px-40 xl:px-44 2xl:px-48 py-4 sm:py-6 lg:py-8 pb-28 lg:pb-8" style={{ paddingTop: 'calc(73px + 1rem)' }}>
               <div className="max-w-7xl mx-auto space-y-4 min-w-0">
 
                 {/* Error Display */}
