@@ -158,7 +158,7 @@ const MobileBottomNav = ({ teamMembers = [] }) => {
 
   return (
     <>
-      <div className="lg:hidden fixed-bottom-nav bg-white border-t border-gray-200 z-[100] shadow-lg" style={{ bottom: `calc(env(safe-area-inset-bottom, 0px) + 8px)` }}>
+      <div className="lg:hidden fixed-bottom-nav bg-white border-t pb-4 border-gray-200 z-[100] shadow-lg" style={{ bottom: `calc(env(safe-area-inset-bottom, 0px) + 8px)` }}>
         <div className="flex items-center justify-around py-3.5 px-2 safe-area-bottom">
           {bottomNavItems.map((item) => {
             const Icon = item.icon
