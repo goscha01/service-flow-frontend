@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MapPin, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
-import { loadGoogleMapsScript, initializePlacesAutocomplete, getPlaceDetails, isGoogleMapsLoaded } from '../utils/googleMaps';
-import { getGoogleMapsApiKey } from '../config/maps';
+import { placesAPI } from '../services/api';
 
 const AddressAutocompleteLeads = ({ 
   value, 
@@ -9,126 +8,111 @@ const AddressAutocompleteLeads = ({
   onAddressSelect, 
   placeholder = "Search location",
   className = "",
-  showValidationResults = true,
-  apiKey = null // Will use default from config if not provided
+  showValidationResults = true
 }) => {
-  // Use provided API key or get from config
-  const mapsApiKey = apiKey || getGoogleMapsApiKey()
   const [input, setInput] = useState(value || '');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [selectedAddress, setSelectedAddress] = useState(null);
-  const [googleMapsReady, setGoogleMapsReady] = useState(false);
-  const [isProgrammaticUpdate, setIsProgrammaticUpdate] = useState(false);
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [mounted, setMounted] = useState(false);
   const inputRef = useRef(null);
-  const autocompleteRef = useRef(null);
+  const suggestionsRef = useRef(null);
 
   // Delay rendering to bypass Safari autofill
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Load Google Maps script on component mount
+  // Fetch suggestions from backend API
   useEffect(() => {
-    const loadMaps = async () => {
+    const fetchSuggestions = async () => {
+      if (input.length < 3) {
+        setSuggestions([]);
+        setShowSuggestions(false);
+        return;
+      }
+
       try {
-        await loadGoogleMapsScript(mapsApiKey);
-        setGoogleMapsReady(true);
+        setIsLoading(true);
+        setError(null);
+        const data = await placesAPI.autocomplete(input);
+        
+        if (data.predictions) {
+          setSuggestions(data.predictions);
+          setShowSuggestions(true);
+        } else {
+          setSuggestions([]);
+          setShowSuggestions(false);
+        }
       } catch (err) {
-        console.error('Failed to load Google Maps:', err);
-        setError('Failed to load Google Maps API');
+        console.error('Error fetching address suggestions:', err);
+        setError('Failed to load address suggestions');
+        setSuggestions([]);
+        setShowSuggestions(false);
+      } finally {
+        setIsLoading(false);
       }
     };
 
-    if (!isGoogleMapsLoaded()) {
-      loadMaps();
-    } else {
-      setGoogleMapsReady(true);
-    }
-  }, [mapsApiKey]);
+    const debounceTimer = setTimeout(() => {
+      fetchSuggestions();
+    }, 300);
 
-  // Initialize autocomplete when Google Maps is ready
-  useEffect(() => {
-    if (googleMapsReady && inputRef.current && !autocompleteRef.current) {
-      try {
-        // Aggressively disable browser autocomplete
-        if (inputRef.current) {
-          inputRef.current.setAttribute('autocomplete', 'one-time-code');
-          inputRef.current.setAttribute('autocorrect', 'off');
-          inputRef.current.setAttribute('autocapitalize', 'off');
-          inputRef.current.setAttribute('spellcheck', 'false');
-          inputRef.current.setAttribute('name', 'loc_input_9f3k');
-          inputRef.current.setAttribute('id', 'loc_input_9f3k');
-          // Remove any datalist that might be attached
-          inputRef.current.removeAttribute('list');
+    return () => clearTimeout(debounceTimer);
+  }, [input]);
+
+  // Handle address selection
+  const handleAddressSelect = async (suggestion) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      // Get detailed place information from backend
+      const data = await placesAPI.getDetails(suggestion.place_id);
+      
+      if (data.result) {
+        const place = data.result;
+        const addressData = {
+          formattedAddress: place.formatted_address || suggestion.description,
+          placeId: place.place_id || suggestion.place_id,
+          components: {
+            streetNumber: place.address_components?.find(c => c.types.includes('street_number'))?.long_name,
+            route: place.address_components?.find(c => c.types.includes('route'))?.long_name,
+            city: place.address_components?.find(c => c.types.includes('locality'))?.long_name,
+            state: place.address_components?.find(c => c.types.includes('administrative_area_level_1'))?.short_name,
+            zipCode: place.address_components?.find(c => c.types.includes('postal_code'))?.long_name,
+            country: place.address_components?.find(c => c.types.includes('country'))?.long_name,
+          },
+          geometry: place.geometry?.location ? {
+            lat: typeof place.geometry.location.lat === 'function' 
+              ? place.geometry.location.lat() 
+              : place.geometry.location.lat,
+            lng: typeof place.geometry.location.lng === 'function' 
+              ? place.geometry.location.lng() 
+              : place.geometry.location.lng,
+          } : null,
+        };
+
+        setSelectedAddress(addressData);
+        setInput(addressData.formattedAddress);
+        setShowSuggestions(false);
+        setSuggestions([]);
+        
+        // Call onChange and onAddressSelect
+        onChange(addressData.formattedAddress);
+        if (onAddressSelect) {
+          onAddressSelect(addressData);
         }
-
-        const autocomplete = initializePlacesAutocomplete(inputRef.current, {
-          types: ['address'],
-          componentRestrictions: { country: 'us' },
-          fields: ['place_id', 'formatted_address', 'address_components', 'geometry']
-        });
-
-        // Listen for place selection
-        autocomplete.addListener('place_changed', () => {
-          const place = autocomplete.getPlace();
-          if (place && place.place_id) {
-            // Handle place selection inline to avoid dependency warning
-            (async () => {
-              try {
-                setIsLoading(true);
-                setError(null);
-
-                // Get detailed place information
-                const placeDetails = await getPlaceDetails(place.place_id);
-                
-                if (placeDetails) {
-                  const addressData = {
-                    formattedAddress: placeDetails.formatted_address,
-                    placeId: placeDetails.place_id,
-                    components: {
-                      streetNumber: placeDetails.address_components?.find(c => c.types.includes('street_number'))?.long_name,
-                      route: placeDetails.address_components?.find(c => c.types.includes('route'))?.long_name,
-                      city: placeDetails.address_components?.find(c => c.types.includes('locality'))?.long_name,
-                      state: placeDetails.address_components?.find(c => c.types.includes('administrative_area_level_1'))?.short_name,
-                      zipCode: placeDetails.address_components?.find(c => c.types.includes('postal_code'))?.long_name,
-                      country: placeDetails.address_components?.find(c => c.types.includes('country'))?.long_name,
-                    },
-                    geometry: placeDetails.geometry?.location,
-                  };
-
-                  setSelectedAddress(addressData);
-                  setIsProgrammaticUpdate(true);
-                  
-                  // Use setTimeout to ensure the flag is set before input change
-                  setTimeout(() => {
-                    setInput(placeDetails.formatted_address);
-                  }, 0);
-                  
-                  // Only call onAddressSelect when a place is selected, not onChange
-                  if (onAddressSelect) {
-                    onAddressSelect(addressData);
-                  }
-                }
-              } catch (err) {
-                console.error('Error getting place details:', err);
-                setError('Failed to get address details');
-              } finally {
-                setIsLoading(false);
-              }
-            })();
-          }
-        });
-
-        autocompleteRef.current = autocomplete;
-      } catch (err) {
-        console.error('Failed to initialize autocomplete:', err);
-        setError('Failed to initialize address autocomplete');
       }
+    } catch (err) {
+      console.error('Error getting place details:', err);
+      setError('Failed to get address details');
+    } finally {
+      setIsLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [googleMapsReady, onAddressSelect]);
+  };
 
   // Update input when value prop changes
   useEffect(() => {
@@ -138,6 +122,8 @@ const AddressAutocompleteLeads = ({
   const handleInputChange = (e) => {
     const newValue = e.target.value;
     setInput(newValue);
+    setSelectedAddress(null);
+    setError(null);
     
     // Prevent browser autocomplete from interfering
     if (inputRef.current) {
@@ -147,16 +133,24 @@ const AddressAutocompleteLeads = ({
       inputRef.current.removeAttribute('list');
     }
     
-    // Only call onChange if this is manual typing, not programmatic setting
-    if (!isProgrammaticUpdate) {
-      onChange(newValue);
-    }
-    
-    // Reset flags
-    setIsProgrammaticUpdate(false);
-    setSelectedAddress(null);
-    setError(null);
+    // Call onChange for manual typing
+    onChange(newValue);
   };
+
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (suggestionsRef.current && !suggestionsRef.current.contains(event.target) &&
+          inputRef.current && !inputRef.current.contains(event.target)) {
+        setShowSuggestions(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const getStatusIcon = () => {
     if (isLoading) {
@@ -170,21 +164,19 @@ const AddressAutocompleteLeads = ({
     return <MapPin className="w-4 h-4 text-gray-400" />;
   };
 
-  // Add styles for Google Places Autocomplete dropdown and hide browser autocomplete
+  // Add styles to hide browser autocomplete
   useEffect(() => {
-    if (googleMapsReady && inputRef.current) {
+    if (inputRef.current) {
       // Aggressively disable browser autocomplete
-      if (inputRef.current) {
-        inputRef.current.setAttribute('autocomplete', 'one-time-code');
-        inputRef.current.setAttribute('autocorrect', 'off');
-        inputRef.current.setAttribute('autocapitalize', 'off');
-        inputRef.current.setAttribute('spellcheck', 'false');
-        inputRef.current.setAttribute('name', 'loc_input_9f3k');
-        inputRef.current.setAttribute('id', 'loc_input_9f3k');
-        inputRef.current.removeAttribute('list');
-      }
+      inputRef.current.setAttribute('autocomplete', 'one-time-code');
+      inputRef.current.setAttribute('autocorrect', 'off');
+      inputRef.current.setAttribute('autocapitalize', 'off');
+      inputRef.current.setAttribute('spellcheck', 'false');
+      inputRef.current.setAttribute('name', 'loc_input_9f3k');
+      inputRef.current.setAttribute('id', 'loc_input_9f3k');
+      inputRef.current.removeAttribute('list');
 
-      // Ensure Google Places Autocomplete dropdown is visible and hide browser autocomplete
+      // Add styles to hide browser autocomplete
       const style = document.createElement('style');
       style.id = 'address-autocomplete-leads-styles';
       style.textContent = `
@@ -206,28 +198,6 @@ const AddressAutocompleteLeads = ({
         input:-webkit-autofill {
           -webkit-box-shadow: 0 0 0 1000px white inset !important;
         }
-        
-        .pac-container {
-          z-index: 9999 !important;
-          border-radius: 8px !important;
-          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
-          border: 1px solid #e5e7eb !important;
-          margin-top: 4px !important;
-        }
-        .pac-item {
-          padding: 12px !important;
-          cursor: pointer !important;
-          border-bottom: 1px solid #f3f4f6 !important;
-        }
-        .pac-item:hover {
-          background-color: #f9fafb !important;
-        }
-        .pac-item-selected {
-          background-color: #eff6ff !important;
-        }
-        .pac-icon {
-          margin-right: 8px !important;
-        }
       `;
       
       // Only add style if it doesn't exist
@@ -242,7 +212,7 @@ const AddressAutocompleteLeads = ({
         }
       };
     }
-  }, [googleMapsReady]);
+  }, []);
 
   return (
     <div className={`relative ${className}`}>
@@ -263,9 +233,13 @@ const AddressAutocompleteLeads = ({
             type="text"
             value={input}
             onChange={handleInputChange}
+            onFocus={() => {
+              if (suggestions.length > 0) {
+                setShowSuggestions(true);
+              }
+            }}
             placeholder={placeholder}
             className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            disabled={!googleMapsReady}
             autoComplete="one-time-code"
             autoCorrect="off"
             autoCapitalize="off"
@@ -276,14 +250,34 @@ const AddressAutocompleteLeads = ({
           <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
             {getStatusIcon()}
           </div>
-        </div>
-      )}
-      
-      {/* Loading State */}
-      {!googleMapsReady && (
-        <div className="mt-2 text-sm text-gray-500 flex items-center gap-1">
-          <Loader2 className="w-4 h-4 animate-spin" />
-          Loading Google Maps...
+          
+          {/* Suggestions Dropdown */}
+          {showSuggestions && suggestions.length > 0 && (
+            <div
+              ref={suggestionsRef}
+              className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto"
+            >
+              {suggestions.map((suggestion, index) => (
+                <div
+                  key={suggestion.place_id || index}
+                  onClick={() => handleAddressSelect(suggestion)}
+                  className="px-4 py-3 cursor-pointer hover:bg-gray-50 border-b border-gray-100 last:border-b-0 flex items-start gap-2"
+                >
+                  <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <div className="text-sm font-medium text-gray-900">
+                      {suggestion.structured_formatting?.main_text || suggestion.description}
+                    </div>
+                    {suggestion.structured_formatting?.secondary_text && (
+                      <div className="text-xs text-gray-500 mt-0.5">
+                        {suggestion.structured_formatting.secondary_text}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
