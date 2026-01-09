@@ -168,6 +168,14 @@ export const authAPI = {
       console.error('❌ Error getting Google auth URL:', error.response?.data || error.message);
       throw error;
     }
+  },
+  deleteAccount: async (userId) => {
+    try {
+      const response = await api.delete(`/auth/delete-account/${userId}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
   }
 };
 

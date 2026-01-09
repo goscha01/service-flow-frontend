@@ -36,6 +36,8 @@ const UnifiedCalendar = () => {
   const [taskFilter, setTaskFilter] = useState('all')
   const [showCreateTaskModal, setShowCreateTaskModal] = useState(false)
   const [editingTask, setEditingTask] = useState(null)
+  const [selectedTask, setSelectedTask] = useState(null)
+  const [showTaskDetails, setShowTaskDetails] = useState(false)
   const [message, setMessage] = useState({ type: '', text: '' })
 
   const currentMonth = currentDate.getMonth()
@@ -650,9 +652,16 @@ const UnifiedCalendar = () => {
 
   // Fetch tasks
   const fetchTasks = useCallback(async () => {
-    if (!user?.id) return
+    if (!user?.id) {
+      setLoading(false)
+      return
+    }
     
     try {
+      // Only set loading to true if we're in tasks view
+      if (viewMode === 'tasks-list' || viewMode === 'tasks-calendar') {
+        setLoading(true)
+      }
       const params = {}
       if (taskFilter === 'overdue') {
         params.overdue = 'true'
@@ -662,11 +671,50 @@ const UnifiedCalendar = () => {
       
       const data = await leadsAPI.getAllTasks(params)
       setTasks(data || [])
+      setMessage({ type: '', text: '' }) // Clear any previous errors
     } catch (error) {
       console.error('Error fetching tasks:', error)
-      setMessage({ type: 'error', text: 'Failed to load tasks' })
+      
+      // Check for specific backend routing error
+      const errorDetails = error.response?.data
+      if (errorDetails?.message?.includes('invalid input syntax for type integer')) {
+        // Backend routing issue - the /leads/tasks endpoint is being matched by /leads/:id
+        console.error('Backend routing error: /leads/tasks endpoint not properly configured')
+        setMessage({ 
+          type: 'error', 
+          text: 'Tasks endpoint configuration error. Please contact support.' 
+        })
+      } else {
+        // Provide a more user-friendly error message
+        let errorMessage = 'Failed to load tasks'
+        if (error.response?.data?.error) {
+          const apiError = error.response.data.error
+          // If the API returns a generic "Failed to fetch lead" error, make it task-specific
+          if (apiError.includes('Failed to fetch') || apiError.includes('lead')) {
+            errorMessage = 'Failed to load tasks. Please try again.'
+          } else {
+            errorMessage = apiError
+          }
+        } else if (error.response?.status === 500) {
+          errorMessage = 'Server error loading tasks. Please try again later.'
+        } else if (error.message) {
+          // Handle network errors
+          if (error.message.includes('Network') || error.message.includes('fetch')) {
+            errorMessage = 'Network error. Please check your connection and try again.'
+          } else {
+            errorMessage = error.message
+          }
+        }
+        setMessage({ type: 'error', text: errorMessage })
+      }
+      setTasks([]) // Set empty array on error
+    } finally {
+      // Only set loading to false if we're in tasks view
+      if (viewMode === 'tasks-list' || viewMode === 'tasks-calendar') {
+        setLoading(false)
+      }
     }
-  }, [user?.id, taskFilter])
+  }, [user?.id, taskFilter, viewMode])
 
   // OLD - Not used anymore, keeping for reference
   const _fetchAllAvailability_OLD = async (members) => {
@@ -1108,13 +1156,23 @@ const UnifiedCalendar = () => {
     setAvailabilityData(processedData)
   }
 
+  // Fetch team members and tasks when switching views
   useEffect(() => {
     if (viewMode === 'worker-availability') {
       fetchTeamMembers()
     } else if (viewMode === 'tasks-list' || viewMode === 'tasks-calendar') {
+      // Fetch team members first so we can filter tasks
+      fetchTeamMembers()
       fetchTasks()
     }
-  }, [viewMode, fetchTeamMembers, fetchTasks, currentMonth, currentYear])
+  }, [viewMode, fetchTeamMembers, fetchTasks])
+
+  // Refetch tasks when team member filter or task filter changes
+  useEffect(() => {
+    if (viewMode === 'tasks-list' || viewMode === 'tasks-calendar') {
+      fetchTasks()
+    }
+  }, [selectedTeamMemberId, taskFilter, viewMode, fetchTasks])
 
   // Fetch member data when selected member or month changes
   useEffect(() => {
@@ -1342,25 +1400,71 @@ const UnifiedCalendar = () => {
   // Get tasks for a specific date
   const getTasksForDate = (date) => {
     const dateStr = date.toISOString().split('T')[0]
-    return tasks.filter(task => {
+    // Use filtered tasks (already filtered by team member and status)
+    const filtered = getFilteredTasks()
+    return filtered.filter(task => {
       if (!task.due_date) return false
       const taskDate = new Date(task.due_date).toISOString().split('T')[0]
       return taskDate === dateStr
     })
   }
 
+  // Helper to check if a task is assigned to a team member
+  const isTaskAssignedTo = useCallback((task, teamMemberId) => {
+    if (!teamMemberId || teamMemberId === 'all') return true
+    
+    const targetId = Number(teamMemberId)
+    
+    // Check assigned_to field
+    if (task.assigned_to) {
+      const assignedId = typeof task.assigned_to === 'object' && task.assigned_to.id 
+        ? Number(task.assigned_to.id)
+        : Number(task.assigned_to)
+      if (assignedId === targetId) {
+        return true
+      }
+    }
+    
+    // Check team_members relation (nested object)
+    if (task.team_members) {
+      let memberId = null
+      if (typeof task.team_members === 'object' && task.team_members.id) {
+        memberId = Number(task.team_members.id)
+      } else if (typeof task.team_members === 'number') {
+        memberId = task.team_members
+      } else if (typeof task.team_members === 'string') {
+        memberId = Number(task.team_members)
+      }
+      if (memberId === targetId) {
+        return true
+      }
+    }
+    
+    return false
+  }, [])
+
   // Filter tasks
   const getFilteredTasks = () => {
-    if (taskFilter === 'all') return tasks
+    let filtered = tasks
+    
+    // Apply team member filter if one is selected
+    if (selectedTeamMemberId && selectedTeamMemberId !== 'all') {
+      filtered = filtered.filter(task => isTaskAssignedTo(task, selectedTeamMemberId))
+    }
+    
+    // Apply status filter
     if (taskFilter === 'overdue') {
       const now = new Date()
-      return tasks.filter(task => 
+      filtered = filtered.filter(task => 
         task.due_date && 
         new Date(task.due_date) < now && 
         task.status !== 'completed'
       )
+    } else if (taskFilter !== 'all') {
+      filtered = filtered.filter(task => task.status === taskFilter)
     }
-    return tasks.filter(task => task.status === taskFilter)
+    
+    return filtered
   }
 
   const handleEditTask = (task) => {
@@ -1394,7 +1498,8 @@ const UnifiedCalendar = () => {
     }
   }
 
-  if (loading && teamMembers.length === 0 && tasks.length === 0) {
+  // Only show loading spinner on initial load for availability view
+  if (loading && viewMode === 'worker-availability' && teamMembers.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -1417,6 +1522,54 @@ const UnifiedCalendar = () => {
       <div className="flex-1 flex flex-col min-w-0">
         {/* Mobile Header */}
         <MobileHeader pageTitle="My Availability" />
+        
+        {/* View Mode Switcher - Availability / Tasks */}
+        <div className="bg-white border-b border-gray-200 px-4 py-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setViewMode('worker-availability')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  viewMode === 'worker-availability'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Availability
+              </button>
+              <button
+                onClick={() => {
+                  setViewMode('tasks-calendar')
+                  setCalendarView('month')
+                }}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  viewMode === 'tasks-calendar' || viewMode === 'tasks-list'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Tasks
+              </button>
+            </div>
+            {/* Team Member Filter for Tasks */}
+            {(viewMode === 'tasks-calendar' || viewMode === 'tasks-list') && (
+              <div className="flex items-center space-x-2">
+                <select
+                  value={selectedTeamMemberId || 'all'}
+                  onChange={(e) => setSelectedTeamMemberId(e.target.value === 'all' ? null : e.target.value)}
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="all">All Team Members</option>
+                  {teamMembers.map((member) => (
+                    <option key={member.id} value={member.id}>
+                      {member.first_name} {member.last_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+        </div>
         
         <div className="flex-1 flex min-w-0">
         {/* Filter Sidebar - Hidden on mobile */}
@@ -1483,6 +1636,16 @@ const UnifiedCalendar = () => {
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-gray-900">Tasks</h2>
                 <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => {
+                      setViewMode('tasks-calendar')
+                      setCalendarView('month')
+                    }}
+                    className="px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors flex items-center space-x-2"
+                  >
+                    <Calendar className="w-4 h-4" />
+                    <span>Calendar View</span>
+                  </button>
                   <select
                     value={taskFilter}
                     onChange={(e) => setTaskFilter(e.target.value)}
@@ -1494,6 +1657,15 @@ const UnifiedCalendar = () => {
                     <option value="completed">Completed</option>
                     <option value="overdue">Overdue</option>
                   </select>
+                  <button
+                    onClick={() => {
+                      setEditingTask(null)
+                      setShowCreateTaskModal(true)
+                    }}
+                    className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                  >
+                    + Add Task
+                  </button>
                 </div>
               </div>
             </div>
@@ -1521,14 +1693,22 @@ const UnifiedCalendar = () => {
               ) : (
                 <div className="space-y-4">
                   {getFilteredTasks().map((task) => (
-                    <TaskCard
+                    <div
                       key={task.id}
-                      task={task}
-                      onEdit={handleEditTask}
-                      onDelete={handleDeleteTask}
-                      onStatusChange={handleTaskStatusChange}
-                      showLeadInfo={true}
-                    />
+                      onClick={() => {
+                        setSelectedTask(task)
+                        setShowTaskDetails(true)
+                      }}
+                      className="cursor-pointer"
+                    >
+                      <TaskCard
+                        task={task}
+                        onEdit={handleEditTask}
+                        onDelete={handleDeleteTask}
+                        onStatusChange={handleTaskStatusChange}
+                        showLeadInfo={true}
+                      />
+                    </div>
                   ))}
                 </div>
               )}
@@ -1544,7 +1724,37 @@ const UnifiedCalendar = () => {
             <div className="flex items-center justify-between">
                   {/* Left - View Switcher and Date Navigation */}
                   <div className="flex items-center space-x-4">
-                    {/* View Switcher */}
+                    {/* Tasks View Switcher (List/Calendar) - Only show in tasks mode */}
+                    {viewMode === 'tasks-calendar' && (
+                      <div className="flex items-center bg-gray-100 rounded-lg p-1">
+                        <button
+                          onClick={() => setViewMode('tasks-list')}
+                          className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                            viewMode === 'tasks-list'
+                              ? 'bg-white text-blue-600 shadow-sm'
+                              : 'text-gray-600 hover:text-gray-900'
+                          }`}
+                        >
+                          <List className="w-4 h-4 inline mr-1" />
+                          List
+                        </button>
+                        <button
+                          onClick={() => {
+                            setViewMode('tasks-calendar')
+                            setCalendarView('month')
+                          }}
+                          className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                            viewMode === 'tasks-calendar'
+                              ? 'bg-white text-blue-600 shadow-sm'
+                              : 'text-gray-600 hover:text-gray-900'
+                          }`}
+                        >
+                          <Calendar className="w-4 h-4 inline mr-1" />
+                          Calendar
+                        </button>
+                      </div>
+                    )}
+                    {/* Calendar View Switcher (Day/Week/Month) */}
                     <div className="flex items-center bg-gray-100 rounded-lg p-1">
                       <button
                         onClick={() => setCalendarView('day')}
@@ -1672,15 +1882,29 @@ const UnifiedCalendar = () => {
             </div>
           </div>
 
-                  {/* Right - Navigate to Schedule */}
-                  <button
-                    onClick={() => navigate('/schedule')}
-                    className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
-                    title="Open Schedule"
-                  >
-                    <Calendar className="w-4 h-4" />
-                    <span>Schedule</span>
-                  </button>
+                  {/* Right - Actions */}
+                  <div className="flex items-center space-x-2">
+                    {viewMode === 'tasks-calendar' || viewMode === 'tasks-list' ? (
+                      <button
+                        onClick={() => {
+                          setEditingTask(null)
+                          setShowCreateTaskModal(true)
+                        }}
+                        className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                      >
+                        <span>+ Add Task</span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => navigate('/schedule')}
+                        className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                        title="Open Schedule"
+                      >
+                        <Calendar className="w-4 h-4" />
+                        <span>Schedule</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -1892,7 +2116,12 @@ const UnifiedCalendar = () => {
                         {getTasksForDate(day.date).map((task) => (
                           <div
                             key={task.id}
-                            className={`px-2 py-1 rounded text-xs border ${
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setSelectedTask(task)
+                              setShowTaskDetails(true)
+                            }}
+                            className={`px-2 py-1 rounded text-xs border cursor-pointer hover:opacity-80 transition-opacity ${
                               task.status === 'completed'
                                 ? 'bg-green-100 text-green-800 border-green-200'
                                 : task.priority === 'urgent'
@@ -2152,6 +2381,108 @@ const UnifiedCalendar = () => {
               >
                 {saving ? 'Saving...' : 'Save'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Task Details Modal */}
+      {showTaskDetails && selectedTask && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">{selectedTask.title}</h3>
+                <button
+                  onClick={() => {
+                    setShowTaskDetails(false)
+                    setSelectedTask(null)
+                  }}
+                  className="text-gray-400 hover:text-gray-600 p-1"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="space-y-4">
+                {selectedTask.description && (
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">Description</h4>
+                    <p className="text-sm text-gray-900">{selectedTask.description}</p>
+                  </div>
+                )}
+                {selectedTask.due_date && (
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">Due Date</h4>
+                    <p className="text-sm text-gray-900">
+                      {new Date(selectedTask.due_date).toLocaleDateString('en-US', {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                      })}
+                    </p>
+                  </div>
+                )}
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">Status</h4>
+                  <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
+                    selectedTask.status === 'completed'
+                      ? 'bg-green-100 text-green-800'
+                      : selectedTask.status === 'in_progress'
+                      ? 'bg-blue-100 text-blue-800'
+                      : 'bg-yellow-100 text-yellow-800'
+                  }`}>
+                    {selectedTask.status === 'completed' ? 'Completed' :
+                     selectedTask.status === 'in_progress' ? 'In Progress' :
+                     'Pending'}
+                  </span>
+                </div>
+                {selectedTask.priority && (
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">Priority</h4>
+                    <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
+                      selectedTask.priority === 'urgent'
+                        ? 'bg-red-100 text-red-800'
+                        : selectedTask.priority === 'high'
+                        ? 'bg-orange-100 text-orange-800'
+                        : selectedTask.priority === 'medium'
+                        ? 'bg-yellow-100 text-yellow-800'
+                        : 'bg-blue-100 text-blue-800'
+                    }`}>
+                      {selectedTask.priority.charAt(0).toUpperCase() + selectedTask.priority.slice(1)}
+                    </span>
+                  </div>
+                )}
+                {selectedTask.leads && (
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">Related Lead</h4>
+                    <p className="text-sm text-gray-900">
+                      {selectedTask.leads.first_name} {selectedTask.leads.last_name}
+                    </p>
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
+                <button
+                  onClick={() => {
+                    setShowTaskDetails(false)
+                    setEditingTask(selectedTask)
+                    setShowCreateTaskModal(true)
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                >
+                  Edit Task
+                </button>
+                <button
+                  onClick={() => {
+                    setShowTaskDetails(false)
+                    setSelectedTask(null)
+                  }}
+                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-300 transition-colors"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>

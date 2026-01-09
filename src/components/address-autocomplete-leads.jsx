@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MapPin, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { loadGoogleMapsScript, initializePlacesAutocomplete, getPlaceDetails, isGoogleMapsLoaded } from '../utils/googleMaps';
+import { getGoogleMapsApiKey } from '../config/maps';
 
 const AddressAutocompleteLeads = ({ 
   value, 
@@ -9,8 +10,10 @@ const AddressAutocompleteLeads = ({
   placeholder = "Search location",
   className = "",
   showValidationResults = true,
-  apiKey = "AIzaSyC_CrJWTsTHOTBd7TSzTuXOfutywZ2AyOQ"
+  apiKey = null // Will use default from config if not provided
 }) => {
+  // Use provided API key or get from config
+  const mapsApiKey = apiKey || getGoogleMapsApiKey()
   const [input, setInput] = useState(value || '');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -30,7 +33,7 @@ const AddressAutocompleteLeads = ({
   useEffect(() => {
     const loadMaps = async () => {
       try {
-        await loadGoogleMapsScript(apiKey);
+        await loadGoogleMapsScript(mapsApiKey);
         setGoogleMapsReady(true);
       } catch (err) {
         console.error('Failed to load Google Maps:', err);
@@ -43,7 +46,7 @@ const AddressAutocompleteLeads = ({
     } else {
       setGoogleMapsReady(true);
     }
-  }, [apiKey]);
+  }, [mapsApiKey]);
 
   // Initialize autocomplete when Google Maps is ready
   useEffect(() => {
