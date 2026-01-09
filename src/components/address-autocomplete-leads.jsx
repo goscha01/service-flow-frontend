@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MapPin, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { placesAPI } from '../services/api';
+import { loadGoogleMapsScript, initializePlacesAutocomplete, getPlaceDetails, isGoogleMapsLoaded } from '../utils/googleMaps';
+import { getGoogleMapsApiKey } from '../config/maps';
 
 const AddressAutocompleteLeads = ({ 
   value, 
@@ -17,16 +19,118 @@ const AddressAutocompleteLeads = ({
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [useFrontendAPI, setUseFrontendAPI] = useState(false);
+  const [googleMapsReady, setGoogleMapsReady] = useState(false);
   const inputRef = useRef(null);
   const suggestionsRef = useRef(null);
+  const autocompleteRef = useRef(null);
 
   // Delay rendering to bypass Safari autofill
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Fetch suggestions from backend API
+  // Load Google Maps script for fallback if backend fails
   useEffect(() => {
+    const loadMaps = async () => {
+      try {
+        const mapsApiKey = getGoogleMapsApiKey();
+        await loadGoogleMapsScript(mapsApiKey);
+        setGoogleMapsReady(true);
+      } catch (err) {
+        console.error('Failed to load Google Maps for fallback:', err);
+      }
+    };
+
+    if (!isGoogleMapsLoaded()) {
+      loadMaps();
+    } else {
+      setGoogleMapsReady(true);
+    }
+  }, []);
+
+  // Initialize Google Places Autocomplete if using frontend API
+  useEffect(() => {
+    if (useFrontendAPI && googleMapsReady && inputRef.current && !autocompleteRef.current) {
+      try {
+        if (inputRef.current) {
+          inputRef.current.setAttribute('autocomplete', 'one-time-code');
+          inputRef.current.setAttribute('autocorrect', 'off');
+          inputRef.current.setAttribute('autocapitalize', 'off');
+          inputRef.current.setAttribute('spellcheck', 'false');
+          inputRef.current.setAttribute('name', 'loc_input_9f3k');
+          inputRef.current.setAttribute('id', 'loc_input_9f3k');
+          inputRef.current.removeAttribute('list');
+        }
+
+        const autocomplete = initializePlacesAutocomplete(inputRef.current, {
+          types: ['address'],
+          componentRestrictions: { country: 'us' },
+          fields: ['place_id', 'formatted_address', 'address_components', 'geometry']
+        });
+
+        autocomplete.addListener('place_changed', () => {
+          const place = autocomplete.getPlace();
+          if (place && place.place_id) {
+            handlePlaceSelection(place);
+          }
+        });
+
+        autocompleteRef.current = autocomplete;
+      } catch (err) {
+        console.error('Failed to initialize autocomplete:', err);
+        setError('Failed to initialize address autocomplete');
+      }
+    }
+  }, [useFrontendAPI, googleMapsReady]);
+
+  // Handle place selection from Google Places API
+  const handlePlaceSelection = async (place) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const placeDetails = await getPlaceDetails(place.place_id);
+      
+      if (placeDetails) {
+        const addressData = {
+          formattedAddress: placeDetails.formatted_address,
+          placeId: placeDetails.place_id,
+          components: {
+            streetNumber: placeDetails.address_components?.find(c => c.types.includes('street_number'))?.long_name,
+            route: placeDetails.address_components?.find(c => c.types.includes('route'))?.long_name,
+            city: placeDetails.address_components?.find(c => c.types.includes('locality'))?.long_name,
+            state: placeDetails.address_components?.find(c => c.types.includes('administrative_area_level_1'))?.short_name,
+            zipCode: placeDetails.address_components?.find(c => c.types.includes('postal_code'))?.long_name,
+            country: placeDetails.address_components?.find(c => c.types.includes('country'))?.long_name,
+          },
+          geometry: placeDetails.geometry?.location,
+        };
+
+        setSelectedAddress(addressData);
+        setInput(addressData.formattedAddress);
+        setShowSuggestions(false);
+        
+        onChange(addressData.formattedAddress);
+        if (onAddressSelect) {
+          onAddressSelect(addressData);
+        }
+      }
+    } catch (err) {
+      console.error('Error getting place details:', err);
+      setError('Failed to get address details');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Fetch suggestions from backend API (with fallback to frontend)
+  useEffect(() => {
+    // If using frontend API, don't fetch from backend
+    if (useFrontendAPI) {
+      return;
+    }
+
     const fetchSuggestions = async () => {
       if (input.length < 3) {
         setSuggestions([]);
@@ -47,10 +151,19 @@ const AddressAutocompleteLeads = ({
           setShowSuggestions(false);
         }
       } catch (err) {
-        console.error('Error fetching address suggestions:', err);
-        setError('Failed to load address suggestions');
-        setSuggestions([]);
-        setShowSuggestions(false);
+        console.error('Error fetching address suggestions from backend:', err);
+        
+        // If backend fails with REQUEST_DENIED or similar, fall back to frontend API
+        const errorMessage = err.response?.data?.error || err.message || '';
+        if (errorMessage.includes('REQUEST_DENIED') || errorMessage.includes('REQUEST_DENIED')) {
+          console.warn('Backend Places API failed, falling back to frontend API');
+          setUseFrontendAPI(true);
+          setError(null); // Clear error since we're switching to fallback
+        } else {
+          setError('Failed to load address suggestions. Please try again.');
+          setSuggestions([]);
+          setShowSuggestions(false);
+        }
       } finally {
         setIsLoading(false);
       }
@@ -61,7 +174,7 @@ const AddressAutocompleteLeads = ({
     }, 300);
 
     return () => clearTimeout(debounceTimer);
-  }, [input]);
+  }, [input, useFrontendAPI]);
 
   // Handle address selection
   const handleAddressSelect = async (suggestion) => {
@@ -246,13 +359,14 @@ const AddressAutocompleteLeads = ({
             spellCheck="false"
             name="loc_input_9f3k"
             id="loc_input_9f3k"
+            disabled={useFrontendAPI && !googleMapsReady}
           />
           <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
             {getStatusIcon()}
           </div>
           
-          {/* Suggestions Dropdown */}
-          {showSuggestions && suggestions.length > 0 && (
+          {/* Suggestions Dropdown (only show if using backend API) */}
+          {!useFrontendAPI && showSuggestions && suggestions.length > 0 && (
             <div
               ref={suggestionsRef}
               className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto"
