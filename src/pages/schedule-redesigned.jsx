@@ -98,7 +98,7 @@ const ServiceFlowSchedule = () => {
     }
     return 'all'; // all, unassigned, or team member ID
   })
-  const [statusFilter, setStatusFilter] = useState('all') // all, pending, in_progress, completed, cancelled
+  const [statusFilter, setStatusFilter] = useState('all') // all, scheduled, confirmed, in_progress, completed, cancelled
   const [timeRangeFilter, setTimeRangeFilter] = useState('all') // all, today, tomorrow, this_week, this_month
   const [territoryFilter, setTerritoryFilter] = useState('all') // all or territory ID
   const [recurringFilter, setRecurringFilter] = useState('all') // all, recurring, one-time
@@ -173,7 +173,7 @@ const ServiceFlowSchedule = () => {
 
   // No click-outside handler - using backdrop overlay approach instead
 
-  // Click outside to close territory dropdown and notification menus
+  // Click outside to close territory dropdown, notification menus, and calendar popup
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (territoryDropdownRef.current && !territoryDropdownRef.current.contains(event.target)) {
@@ -185,16 +185,19 @@ const ServiceFlowSchedule = () => {
       if (reminderMenuRef.current && !reminderMenuRef.current.contains(event.target)) {
         setOpenNotificationMenu(null)
       }
+      if (calendarRef.current && !calendarRef.current.contains(event.target)) {
+        setShowCalendar(false)
+      }
     }
 
-    if (showTerritoryDropdown || openNotificationMenu) {
+    if (showTerritoryDropdown || openNotificationMenu || showCalendar) {
       document.addEventListener('mousedown', handleClickOutside)
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [showTerritoryDropdown, openNotificationMenu])
+  }, [showTerritoryDropdown, openNotificationMenu, showCalendar])
 
   // Check Stripe connection when send invoice modal opens
   useEffect(() => {
@@ -381,11 +384,17 @@ const ServiceFlowSchedule = () => {
       // Use a very high limit to ensure we get all jobs for the month
       const limit = viewMode === 'month' ? 10000 : 1000
       
-      // Pass teamMember filter to backend if selectedFilter is a team member ID (not 'all' or 'unassigned')
-      // This improves performance by filtering at the database level
-      const teamMemberFilter = currentFilter && currentFilter !== 'all' && currentFilter !== 'unassigned' ? currentFilter : null;
+      // Use backend filter for team member (same as unified-calendar.jsx)
+      // For availability tab, we need to filter by team member to get their jobs
+      // For jobs tab, we also filter by team member if one is selected
+      // This matches how unified-calendar.jsx fetches jobs per team member
+      let teamMemberFilter = null
+      if (currentFilter && currentFilter !== 'all' && currentFilter !== 'unassigned') {
+        // Convert to string like unified-calendar does
+        teamMemberFilter = currentFilter.toString()
+      }
       
-      console.log(`🔍 Schedule: Fetching jobs with teamMember filter: ${teamMemberFilter || 'none'} (selectedFilter: ${currentFilter})`);
+      console.log(`🔍 Schedule: Fetching jobs with teamMember filter: ${teamMemberFilter || 'none'} (selectedFilter: ${currentFilter}, activeTab: ${activeTab})`);
       
       const jobsResponse = await jobsAPI.getAll(
         user.id, 
@@ -397,7 +406,7 @@ const ServiceFlowSchedule = () => {
         dateRange, // dateRange - pass the calculated date range to backend
         null, // sortBy
         null, // sortOrder
-        teamMemberFilter, // teamMember - pass filter to backend for better performance
+        teamMemberFilter, // teamMember - only filter at backend for jobs tab, not availability
         null, // invoiceStatus
         null, // customerId
         null, // territoryId
@@ -419,10 +428,8 @@ const ServiceFlowSchedule = () => {
         return job;
       });
       
-      // Since we're passing dateRange to the backend, it should already be filtered
-      // But we'll do a light client-side check as backup
-      // For day view, trust the backend more since the date range is very specific
-        const filteredJobs = jobsWithParsedHistory.filter(job => {
+      // Filter by date range (client-side backup)
+      let filteredJobs = jobsWithParsedHistory.filter(job => {
           if (!job.scheduled_date) return false
           
           // Extract date part without timezone conversion
@@ -443,6 +450,17 @@ const ServiceFlowSchedule = () => {
         // For week/month view, check range
           return jobDateString >= startDateString && jobDateString <= endDateString
         })
+      
+      // In availability tab, backend should have already filtered by team member
+      // But we also do client-side filtering to catch any jobs with team_assignments that backend might miss
+      // This is a safety net - backend filter should handle most cases (like unified-calendar)
+      if (activeTab === 'availability' && currentFilter && currentFilter !== 'all' && currentFilter !== 'unassigned') {
+        const beforeTeamFilter = filteredJobs.length
+        filteredJobs = filteredJobs.filter(job => isJobAssignedTo(job, currentFilter))
+        if (beforeTeamFilter !== filteredJobs.length) {
+          console.log(`  ⚠️ Availability: Client-side filter found ${filteredJobs.length} jobs (backend returned ${beforeTeamFilter}) - some jobs with team_assignments may have been missed by backend`)
+        }
+      }
       
       console.log(`📅 Loaded ${allJobs.length} total jobs from API, ${filteredJobs.length} after client-side filter for ${viewMode} view (${startDateString} to ${endDateString})`)
       if (viewMode === 'day') {
@@ -465,7 +483,7 @@ const ServiceFlowSchedule = () => {
     } finally {
       setIsLoading(false)
     }
-  }, [user, selectedDate, viewMode, selectedFilter]) // Include selectedFilter so jobs refetch when filter changes
+  }, [user, selectedDate, viewMode, selectedFilter, activeTab]) // Include activeTab so jobs refetch when switching tabs
   
   // Refetch jobs when selectedFilter changes (if it's a team member filter)
   useEffect(() => {
@@ -496,13 +514,11 @@ const ServiceFlowSchedule = () => {
       setTerritories([])
     }
   }, [user])
-
-  const applyFilters = useCallback(() => {
-    let filtered = [...jobs]
     
     // Helper function to check if a job is assigned to a team member ID
     // IMPORTANT: Checks ALL assignments, not just primary assignee
-    const isJobAssignedTo = (job, teamMemberId) => {
+  // This handles jobs with multiple team members (team_assignments array)
+  const isJobAssignedTo = useCallback((job, teamMemberId) => {
       const targetId = Number(teamMemberId)
       
       // Check direct assignment fields (handle both string and number types)
@@ -517,14 +533,26 @@ const ServiceFlowSchedule = () => {
       // A team member should see jobs where they appear in ANY assignment
       if (job.team_assignments && Array.isArray(job.team_assignments)) {
         const found = job.team_assignments.some(ta => {
+        // Check direct team_member_id field
           if (ta.team_member_id) {
-            const assignmentId = Number(ta.team_member_id)
-            return assignmentId === targetId
+          const assignmentId = typeof ta.team_member_id === 'string' ? Number(ta.team_member_id) : Number(ta.team_member_id)
+          if (assignmentId === targetId) {
+            return true
           }
-          // Also check nested team_members object if present
-          if (ta.team_members && ta.team_members.id) {
-            const nestedId = Number(ta.team_members.id)
-            return nestedId === targetId
+          }
+        // Check nested team_members object (from backend relation)
+        if (ta.team_members) {
+          let memberId = null
+          if (typeof ta.team_members === 'object' && ta.team_members.id) {
+            memberId = Number(ta.team_members.id)
+          } else if (typeof ta.team_members === 'number') {
+            memberId = ta.team_members
+          } else if (typeof ta.team_members === 'string') {
+            memberId = Number(ta.team_members)
+          }
+          if (memberId === targetId) {
+            return true
+          }
           }
           return false
         })
@@ -533,8 +561,26 @@ const ServiceFlowSchedule = () => {
         }
       }
       
-      return false
+    // Also check if job has a nested team_members relation (backward compatibility)
+    if (job.team_members) {
+      let memberId = null
+      if (typeof job.team_members === 'object' && job.team_members.id) {
+        memberId = Number(job.team_members.id)
+      } else if (typeof job.team_members === 'number') {
+        memberId = job.team_members
+      } else if (typeof job.team_members === 'string') {
+        memberId = Number(job.team_members)
+      }
+      if (memberId === targetId) {
+        return true
+      }
     }
+    
+    return false
+  }, [])
+
+  const applyFilters = useCallback(() => {
+    let filtered = [...jobs]
     
     // 🔒 WORKER RESTRICTION: Workers can only see jobs assigned to them
     // Schedulers, Managers, and Account Owners can see ALL jobs (no filtering by assignment)
@@ -553,6 +599,7 @@ const ServiceFlowSchedule = () => {
         })
       } else if (selectedFilter !== 'all') {
         // Optional filter: show only jobs assigned to a specific team member
+        // Use isJobAssignedTo to handle jobs with multiple team members
         filtered = filtered.filter(job => isJobAssignedTo(job, selectedFilter))
       }
       // If selectedFilter === 'all', no filtering is applied - show all jobs
@@ -614,7 +661,7 @@ const ServiceFlowSchedule = () => {
     // If recurringFilter === 'all', show all jobs
     
     setFilteredJobs(filtered)
-  }, [jobs, selectedFilter, statusFilter, timeRangeFilter, territoryFilter, recurringFilter, user])
+  }, [jobs, selectedFilter, statusFilter, timeRangeFilter, territoryFilter, recurringFilter, user, isJobAssignedTo])
   
   // Apply filters whenever jobs or filter values change
   useEffect(() => {
@@ -673,12 +720,40 @@ const ServiceFlowSchedule = () => {
     }
   }, [user, selectedDate, viewMode, fetchJobs, fetchTeamMembers, fetchTerritories])
 
+  // Ensure jobs are fetched when switching to availability tab
+  useEffect(() => {
+    if (activeTab === 'availability' && user?.id && selectedFilter && selectedFilter !== 'all' && selectedFilter !== 'unassigned') {
+      console.log(`🔄 Availability tab active with team member ${selectedFilter}, ensuring jobs are fetched...`)
+      fetchJobs()
+    }
+  }, [activeTab, selectedFilter, user, fetchJobs])
+
   // Fetch availability when switching to availability tab
   useEffect(() => {
     if (activeTab === 'availability' && user?.id && !userBusinessHours) {
       fetchUserAvailability()
     }
   }, [activeTab, user, userBusinessHours, fetchUserAvailability])
+
+  // Set first team member as default when switching to availability tab
+  useEffect(() => {
+    if (activeTab === 'availability' && teamMembers.length > 0) {
+      // Use functional update to access current selectedFilter value
+      setSelectedFilter(prevFilter => {
+        // Only set if current filter is 'all', 'unassigned', or not a valid team member ID
+        if (!prevFilter || prevFilter === 'all' || prevFilter === 'unassigned') {
+          return teamMembers[0].id.toString()
+        }
+        // Check if the current filter is a valid team member
+        const isValidTeamMember = teamMembers.find(m => m.id.toString() === prevFilter)
+        if (!isValidTeamMember) {
+          return teamMembers[0].id.toString()
+        }
+        // Keep the current filter if it's a valid team member
+        return prevFilter
+      })
+    }
+  }, [activeTab, teamMembers]) // Only run when tab or team members change
 
   useEffect(() => {
     applyFilters()
@@ -751,7 +826,7 @@ const ServiceFlowSchedule = () => {
     if (normalized === 'cancelled' || normalized === 'canceled') {
       return 'cancelled'
     }
-    if (normalized === 'pending' || normalized === 'confirmed' || normalized === 'scheduled') {
+    if (normalized === 'confirmed' || normalized === 'scheduled') {
       return normalized
     }
     return normalized
@@ -774,7 +849,6 @@ const ServiceFlowSchedule = () => {
     const normalized = normalizeStatus(status)
     const statusMap = {
       'scheduled': 'Scheduled',
-      'pending': 'Pending',
       'confirmed': 'Confirmed',
       'in_progress': 'In Progress',
       'completed': 'Completed',
@@ -793,7 +867,7 @@ const ServiceFlowSchedule = () => {
     const normalized = normalizeStatus(status)
     const colorMap = {
       'scheduled': 'bg-blue-100 text-blue-800 border-blue-200',
-      'pending': 'bg-yellow-100 text-yellow-800 border-yellow-200',
+      'scheduled': 'bg-yellow-100 text-yellow-800 border-yellow-200',
       'confirmed': 'bg-green-100 text-green-800 border-green-200',
       'in_progress': 'bg-purple-100 text-purple-800 border-purple-200',
       'completed': 'bg-gray-100 text-gray-800 border-gray-200',
@@ -893,6 +967,10 @@ const ServiceFlowSchedule = () => {
   const handleDateChange = (newDate) => {
     setSelectedDate(newDate)
     setShowCalendar(false)
+    // Sync availabilityMonth when in availability tab
+    if (activeTab === 'availability' && (newDate.getMonth() !== availabilityMonth.getMonth() || newDate.getFullYear() !== availabilityMonth.getFullYear())) {
+      setAvailabilityMonth(new Date(newDate.getFullYear(), newDate.getMonth(), 1))
+    }
   }
 
   const generateCalendarDays = () => {
@@ -985,39 +1063,136 @@ const ServiceFlowSchedule = () => {
     }
   }
 
+  // Helper to convert time string to minutes since midnight
+  const timeToMinutes = (timeStr) => {
+    if (!timeStr) return 0
+    const [hours, minutes] = timeStr.split(':').map(Number)
+    return hours * 60 + minutes
+  }
+
+  // Helper to convert minutes since midnight to time string
+  const minutesToTime = (minutes) => {
+    const hours = Math.floor(minutes / 60)
+    const mins = minutes % 60
+    return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`
+  }
+
   // Check if a day has jobs scheduled
+  // This function is used in both Jobs and Availability tabs
+  // It should respect the selectedFilter for consistency
+  // Matches the exact logic from unified-calendar.jsx
   const getDayJobs = (date) => {
-    const dateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+    // Format date as YYYY-MM-DD (same as unified-calendar)
+    const dateString = date.toISOString().split('T')[0]
     
-    return jobs.filter(job => {
-      if (!job.scheduled_date) return false
+    if (activeTab === 'availability') {
+      console.log(`\n🔍 getDayJobs(${dateString}) - Availability tab:`)
+      console.log(`  - Total jobs in state: ${jobs.length}`)
+      console.log(`  - Selected filter: ${selectedFilter}`)
+    }
+    
+    // Filter jobs by date - match unified-calendar logic exactly
+    let filteredJobs = jobs.filter(job => {
+      if (!job.scheduled_date && !job.scheduledDate) return false
       
-      let jobDateString = ''
-      if (job.scheduled_date.includes('T')) {
-        jobDateString = job.scheduled_date.split('T')[0]
-      } else if (job.scheduled_date.includes(' ')) {
-        jobDateString = job.scheduled_date.split(' ')[0]
+      // Parse date exactly like unified-calendar does
+      let jobDate
+      if (typeof job.scheduled_date === 'string' && job.scheduled_date.includes(' ')) {
+        const [datePart] = job.scheduled_date.split(' ')
+        jobDate = new Date(datePart)
       } else {
-        jobDateString = job.scheduled_date
+        jobDate = new Date(job.scheduled_date || job.scheduledDate)
       }
       
-      return jobDateString === dateString && 
-             job.status !== 'cancelled' && 
-             job.status !== 'completed'
+      const jobDateString = jobDate.toISOString().split('T')[0]
+      return jobDateString === dateString
     })
+
+    if (activeTab === 'availability') {
+      console.log(`  - Jobs matching date ${dateString}: ${filteredJobs.length}`)
+      if (filteredJobs.length > 0) {
+        console.log(`  - Sample jobs:`, filteredJobs.slice(0, 3).map(j => ({
+          id: j.id,
+          scheduled_date: j.scheduled_date,
+          status: j.status,
+          assigned_team_member_id: j.assigned_team_member_id,
+          team_member_id: j.team_member_id,
+          team_assignments: j.team_assignments
+        })))
+      }
+    }
+
+    // Apply team member filter if one is selected (works for both Jobs and Availability tabs)
+    // This ensures consistency: same team member shows same jobs in both tabs
+    if (selectedFilter && selectedFilter !== 'all' && selectedFilter !== 'unassigned') {
+      const beforeFilter = filteredJobs.length
+      const targetId = Number(selectedFilter)
+      filteredJobs = filteredJobs.filter(job => {
+        const isAssigned = isJobAssignedTo(job, selectedFilter)
+        if (activeTab === 'availability') {
+          if (isAssigned) {
+            console.log(`  ✅ Job ${job.id} IS assigned to team member ${selectedFilter}`)
+          } else if (beforeFilter <= 5) {
+            // Only log first few to avoid spam
+            console.log(`  ❌ Job ${job.id} NOT assigned to team member ${selectedFilter}:`, {
+              job_assigned_id: job.assigned_team_member_id,
+              job_team_member_id: job.team_member_id,
+              target_id: targetId,
+              team_assignments: job.team_assignments?.map(ta => ({
+                team_member_id: ta.team_member_id,
+                team_members_id: ta.team_members?.id
+              }))
+            })
+          }
+        }
+        return isAssigned
+      })
+      if (activeTab === 'availability') {
+        console.log(`  📋 Filtered ${beforeFilter} jobs to ${filteredJobs.length} for team member ${selectedFilter}`)
+        if (filteredJobs.length > 0) {
+          console.log(`  ✅ Final jobs for availability calculation:`, filteredJobs.map(j => ({
+            id: j.id,
+            scheduled_date: j.scheduled_date,
+            duration: getJobDuration(j)
+          })))
+        }
+      }
+    } else if (selectedFilter === 'unassigned') {
+      // Filter for unassigned jobs
+      filteredJobs = filteredJobs.filter(job => {
+        const hasDirectAssignment = !!(job.assigned_team_member_id || job.team_member_id)
+        const hasTeamAssignments = job.team_assignments && Array.isArray(job.team_assignments) && job.team_assignments.length > 0
+        return !hasDirectAssignment && !hasTeamAssignments
+      })
+    }
+    // If selectedFilter === 'all', show all jobs (no additional filtering)
+
+    return filteredJobs
   }
 
   // Check if a day is open and get hours, considering jobs
+  // Matches unified-calendar.jsx logic: uses team member availability or defaults to 8 AM - 6 PM
   const getDayAvailability = (date) => {
     const dayOfWeek = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][date.getDay()]
-    const hours = getBusinessHours()
-    const dayHours = hours[dayOfWeek] || { enabled: false, start: '09:00', end: '18:00' }
     
-    // Check for jobs on this day
+    // Check for jobs on this day (already filtered by team member if in availability tab)
     const dayJobs = getDayJobs(date)
     
+    // For availability tab, use default hours (8 AM - 6 PM) like unified-calendar does
+    // This matches unified-calendar's default when availability is not configured
+    // In unified-calendar, it uses team member's configured availability, but falls back to 08:00-18:00
+    let dayHours
+    if (activeTab === 'availability') {
+      // Use default hours like unified-calendar (lines 520, 639)
+      dayHours = { enabled: true, start: '08:00', end: '18:00' }
+    } else {
+      // For jobs tab, use business hours
+      const hours = getBusinessHours()
+      dayHours = hours[dayOfWeek] || { enabled: false, start: '09:00', end: '18:00' }
+    }
+    
     if (!dayHours.enabled) {
-      return { isOpen: false, hours: null, jobCount: dayJobs.length }
+      return { isOpen: false, hours: null, jobCount: dayJobs.length, availableSlots: [] }
     }
 
     // Format hours (e.g., "09:00" -> "9 AM", "18:00" -> "6 PM")
@@ -1029,11 +1204,167 @@ const ServiceFlowSchedule = () => {
       return `${hour12} ${ampm}`
     }
 
+    // In availability tab, ALWAYS calculate available time slots by subtracting jobs
+    // This matches the logic from unified-calendar.jsx
+    if (activeTab === 'availability') {
+      // Create availability slot from business hours
+      const availabilitySlots = [{
+        start: dayHours.start,
+        end: dayHours.end
+      }]
+      
+      console.log(`📅 Availability calculation for ${date.toDateString()}:`)
+      console.log(`  - Business hours: ${dayHours.start} - ${dayHours.end}`)
+      console.log(`  - Jobs found: ${dayJobs.length}`)
+      if (selectedFilter && selectedFilter !== 'all' && selectedFilter !== 'unassigned') {
+        console.log(`  - Filtered by team member: ${selectedFilter}`)
+      }
+      
+      // Get job time ranges for this day (already filtered by selected team member)
+      // Match unified-calendar.jsx logic exactly
+      const jobTimeRanges = dayJobs.map(job => {
+        let jobStartTime = null
+        let jobDuration = 0
+        
+        // Parse job scheduled time - EXACT match to unified-calendar.jsx lines 426-434
+        if (job.scheduled_date && typeof job.scheduled_date === 'string') {
+          if (job.scheduled_date.includes(' ')) {
+            const [datePart, timePart] = job.scheduled_date.split(' ')
+            const [hours, minutes] = timePart.split(':').map(Number)
+            jobStartTime = hours * 60 + minutes
+          } else {
+            const jobDate = new Date(job.scheduled_date)
+            jobStartTime = jobDate.getHours() * 60 + jobDate.getMinutes()
+          }
+        }
+        
+        // Get job duration in minutes - EXACT match to unified-calendar.jsx lines 437-441
+        jobDuration = job.duration || job.service_duration || job.estimated_duration || 60 // default 1 hour
+        if (typeof jobDuration === 'string') {
+          jobDuration = parseInt(jobDuration) || 60
+        }
+        
+        if (jobStartTime !== null) {
+          console.log(`  ✅ Job ${job.id}: ${minutesToTime(jobStartTime)} (${jobStartTime} min) for ${jobDuration} min → ends at ${minutesToTime(jobStartTime + jobDuration)}`)
+          return {
+            start: jobStartTime,
+            end: jobStartTime + jobDuration
+          }
+        }
+        
+        console.log(`  ⚠️ Job ${job.id} has no scheduled time:`, {
+          scheduled_time: job.scheduled_time,
+          scheduled_date: job.scheduled_date
+        })
+        return null
+      }).filter(Boolean) // Remove null entries
+
+      console.log(`  - Job time ranges (${jobTimeRanges.length}):`, jobTimeRanges.map(r => `${minutesToTime(r.start)}-${minutesToTime(r.end)}`))
+
+      // Subtract job times from availability hours (match unified-calendar logic)
+      let remainingHours = []
+      
+      if (jobTimeRanges.length > 0) {
+        console.log(`  🔄 Calculating available slots by subtracting ${jobTimeRanges.length} jobs...`)
+        // For each availability slot, subtract jobs
+        availabilitySlots.forEach(availSlot => {
+          const availStart = timeToMinutes(availSlot.start)
+          const availEnd = timeToMinutes(availSlot.end)
+          
+          console.log(`    Processing availability slot: ${availSlot.start} - ${availSlot.end} (${availStart} - ${availEnd} minutes)`)
+          
+          // Find gaps between jobs within this availability slot
+          let currentStart = availStart
+          
+          // Sort job time ranges by start time and filter to those within this slot
+          const sortedJobRanges = jobTimeRanges
+            .filter(jobRange => {
+              const overlaps = jobRange.start < availEnd && jobRange.end > availStart
+              if (!overlaps) {
+                console.log(`      Job range ${minutesToTime(jobRange.start)}-${minutesToTime(jobRange.end)} doesn't overlap with slot`)
+              }
+              return overlaps
+            })
+            .sort((a, b) => a.start - b.start)
+          
+          console.log(`    Found ${sortedJobRanges.length} overlapping job ranges`)
+          
+          sortedJobRanges.forEach((jobRange, idx) => {
+            console.log(`      Job ${idx + 1}: ${minutesToTime(jobRange.start)}-${minutesToTime(jobRange.end)} (${jobRange.start}-${jobRange.end} min)`)
+            // If there's a gap before this job, add it
+            if (currentStart < jobRange.start) {
+              const gap = {
+                start: minutesToTime(currentStart),
+                end: minutesToTime(jobRange.start)
+              }
+              console.log(`        ✅ Adding gap before job: ${gap.start} - ${gap.end}`)
+              remainingHours.push(gap)
+            } else {
+              console.log(`        ⚠️ No gap before job (currentStart: ${currentStart}, jobStart: ${jobRange.start})`)
+            }
+            // Move current start to after this job
+            const oldStart = currentStart
+            currentStart = Math.max(currentStart, jobRange.end)
+            console.log(`        Moving currentStart from ${oldStart} to ${currentStart} (after job ends at ${jobRange.end})`)
+          })
+          
+          // If there's remaining time after all jobs, add it
+          if (currentStart < availEnd) {
+            const remaining = {
+              start: minutesToTime(currentStart),
+              end: minutesToTime(availEnd)
+            }
+            console.log(`        ✅ Adding remaining time after all jobs: ${remaining.start} - ${remaining.end}`)
+            remainingHours.push(remaining)
+          } else {
+            console.log(`        ⚠️ No remaining time (currentStart: ${currentStart}, availEnd: ${availEnd})`)
+          }
+        })
+      } else {
+        // No jobs - show full business hours
+        console.log(`  ℹ️ No jobs found, showing full business hours`)
+        remainingHours = availabilitySlots.map(slot => ({
+          start: slot.start,
+          end: slot.end
+        }))
+      }
+
+      // Format available slots for display
+      if (remainingHours.length > 0) {
+        const formattedSlots = remainingHours.map(slot => 
+          `${formatTime(slot.start)} - ${formatTime(slot.end)}`
+        ).join(', ')
+        console.log(`  ✅ FINAL Available slots: ${formattedSlots}`)
+        return {
+          isOpen: true,
+          hours: formattedSlots,
+          jobCount: dayJobs.length,
+          hasJobs: dayJobs.length > 0,
+          availableSlots: remainingHours
+        }
+      } else {
+        // All time is booked
+        console.log(`  ❌ All time is booked - no available slots`)
+        return {
+          isOpen: false,
+          hours: null,
+          jobCount: dayJobs.length,
+          hasJobs: true,
+          availableSlots: []
+        }
+      }
+    }
+
+    // Default (for Jobs tab): show full business hours
     return {
       isOpen: true,
       hours: `${formatTime(dayHours.start)} - ${formatTime(dayHours.end)}`,
       jobCount: dayJobs.length,
-      hasJobs: dayJobs.length > 0
+      hasJobs: dayJobs.length > 0,
+      availableSlots: [{
+        start: dayHours.start,
+        end: dayHours.end
+      }]
     }
   }
 
@@ -2453,6 +2784,10 @@ const ServiceFlowSchedule = () => {
       newDate.setMonth(newDate.getMonth() + direction)
     }
     setSelectedDate(newDate)
+    // Sync availabilityMonth when in availability tab
+    if (activeTab === 'availability' && (newDate.getMonth() !== availabilityMonth.getMonth() || newDate.getFullYear() !== availabilityMonth.getFullYear())) {
+      setAvailabilityMonth(new Date(newDate.getFullYear(), newDate.getMonth(), 1))
+    }
   }
 
   const getSummaryStats = () => {
@@ -3021,11 +3356,17 @@ const ServiceFlowSchedule = () => {
           {/* Scrollable Filter Content */}
           <div className="flex-1 bg-gray-100 overflow-y-auto p-2 scrollbar-hide">
             
-            {/* Assignment Filter - Hidden for workers */}
+            {/* Assignment Filter - Different layout for availability vs jobs */}
             {!isWorker(user) && (
             <div className="mb-6">
+              {/* Only show "JOBS ASSIGNED TO" header when in jobs tab */}
+              {activeTab === 'jobs' && (
               <h3 className="text-xs font-semibold text-gray-700 mb-3 justify-self-center items-center">JOBS ASSIGNED TO</h3>
+              )}
               
+              {/* Only show "All Jobs" and "Unassigned" when in jobs tab */}
+              {activeTab === 'jobs' && (
+                <>
               {/* All Jobs Filter */}
               <button
                 onClick={() => setSelectedFilter('all')}
@@ -3055,6 +3396,8 @@ const ServiceFlowSchedule = () => {
                 </div>
                 <span>Unassigned</span>
               </button>
+                </>
+              )}
 
               {/* Team Members */}
               {teamMembers.map((member) => {
@@ -3070,15 +3413,22 @@ const ServiceFlowSchedule = () => {
                   <div
                   key={member.id}
                     className={`w-full flex items-center space-x-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors mb-2 group ${
-                    selectedFilter === member.id 
+                    selectedFilter === member.id.toString() 
                       ? 'bg-white text-blue-700' 
                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                   }`}
                 >
                     <button
-                      onClick={() => !isEditing && setSelectedFilter(member.id)}
-                      className="flex items-center space-x-1 flex-1 min-w-0"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        if (!isEditing) {
+                          setSelectedFilter(member.id.toString())
+                        }
+                      }}
+                      className="flex items-center space-x-1 flex-1 min-w-0 cursor-pointer"
                       disabled={isEditing}
+                      type="button"
                     >
                       <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center flex-shrink-0">
                     <span className="text-white text-[8px] font-semibold">
@@ -3192,21 +3542,6 @@ const ServiceFlowSchedule = () => {
                   <Filter className={`w-3 h-3 ${statusFilter === 'all' ? 'text-blue-600' : 'text-gray-600'}`} />
                 </div>
                 <span>All Statuses</span>
-              </button>
-
-              {/* Pending */}
-              <button
-                onClick={() => setStatusFilter('pending')}
-                className={`w-full flex items-center space-x-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors mb-2 ${
-                  statusFilter === 'pending' 
-                   ? 'bg-white text-blue-700' 
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                }`}
-              >
-                <div className="w-5 h-5 bg-yellow-100 rounded-full flex items-center justify-center">
-                  <AlertTriangle className="w-3 h-3 text-yellow-600" />
-                </div>
-                <span>Pending</span>
               </button>
 
               {/* Confirmed */}
@@ -3453,23 +3788,135 @@ const ServiceFlowSchedule = () => {
         <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4">
           {activeTab === 'availability' ? (
             /* Availability View Header */
-            <div className="flex items-center justify-between">
-              {/* Left - Month Navigation (Pill Shape) */}
-              <div className="flex items-center bg-gray-200 rounded-full px-3 py-1.5">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
+              {/* Left side - Date navigation */}
+              <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
+                <div className="flex items-center space-x-2 relative bg-gray-100 rounded-full p-1">
                 <button
-                  onClick={() => navigateAvailabilityMonth(-1)}
-                  className="p-1 hover:bg-gray-300 rounded-full transition-colors"
+                    onClick={() => navigateDate(-1)}
+                    className=" hover:text-blue-600 rounded"
                 >
-                  <ChevronLeft className="w-4 h-4 text-gray-700" />
+                    <ChevronLeft className="w-6 h-6" />
                 </button>
-                <span className="text-sm font-semibold text-gray-900 mx-3">
-                  {availabilityMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                  <button 
+                    onClick={() => setShowCalendar(!showCalendar)}
+                    className="text-xs sm:text-sm font-medium hover:text-blue-600 text-gray-900 min-w-[120px] sm:min-w-[140px] text-center shadow-sm bg-white rounded-full px-3 py-2 transition-colors"
+                  >
+                    {formatDate(selectedDate)}
+                  </button>
+                  <button 
+                    onClick={() => navigateDate(1)}
+                    className=" hover:text-blue-600 rounded"
+                  >
+                    <ChevronRight className="w-6 h-6" />
+                  </button>
+
+                  {/* Calendar Popup */}
+                  {showCalendar && (
+                    <div ref={calendarRef} className="absolute top-full left-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 p-4 w-72 sm:w-80">
+                      <div className="grid grid-cols-7 gap-1">
+                        {/* Calendar Header */}
+                        <div className="col-span-7 flex items-center justify-between mb-2">
+                          <button 
+                            onClick={() => {
+                              const newDate = new Date(selectedDate)
+                              newDate.setMonth(newDate.getMonth() - 1)
+                              setSelectedDate(newDate)
+                            }}
+                            className="p-1 hover:bg-gray-100 rounded"
+                          >
+                            <ChevronLeft className="w-4 h-4" />
+                          </button>
+                          <span className="text-sm font-medium">
+                            {selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
                 </span>
                 <button
-                  onClick={() => navigateAvailabilityMonth(1)}
-                  className="p-1 hover:bg-gray-300 rounded-full transition-colors"
+                            onClick={() => {
+                              const newDate = new Date(selectedDate)
+                              newDate.setMonth(newDate.getMonth() + 1)
+                              setSelectedDate(newDate)
+                            }}
+                            className="p-1 hover:bg-gray-100 rounded"
+                          >
+                            <ChevronRight className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        {/* Day Headers */}
+                        {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(day => (
+                          <div key={day} className="text-xs font-medium text-gray-500 text-center py-1">
+                            {day}
+                          </div>
+                        ))}
+
+                        {/* Calendar Days */}
+                        {generateCalendarDays().map((day, index) => {
+                          const isCurrentMonth = day.getMonth() === selectedDate.getMonth()
+                          const isSelected = day.toDateString() === selectedDate.toDateString()
+                          const isToday = day.toDateString() === new Date().toDateString()
+                          
+                          return (
+                            <button
+                              key={index}
+                              onClick={() => handleDateChange(day)}
+                              className={`text-xs p-2 rounded hover:bg-gray-100 transition-colors ${
+                                isCurrentMonth ? 'text-gray-900' : 'text-gray-400'
+                              } ${
+                                isSelected ? 'bg-blue-600 text-white hover:bg-blue-700' : ''
+                              } ${
+                                isToday && !isSelected ? 'bg-blue-50 text-blue-600' : ''
+                              }`}
+                            >
+                              {day.getDate()}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Center - View mode selector */}
+              <div className="flex items-center space-x-1 bg-gray-100 rounded-lg p-1 w-full sm:w-auto justify-center">
+                <button
+                  onClick={() => {
+                    setViewMode('day')
+                    localStorage.setItem('scheduleViewMode', 'day')
+                  }}
+                  className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-md transition-colors flex-1 sm:flex-none ${
+                    viewMode === 'day' 
+                      ? 'bg-white text-gray-900 shadow-sm' 
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
                 >
-                  <ChevronRight className="w-4 h-4 text-gray-700" />
+                  Day
+                </button>
+                <button
+                  onClick={() => {
+                    setViewMode('week')
+                    localStorage.setItem('scheduleViewMode', 'week')
+                  }}
+                  className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-md transition-colors flex-1 sm:flex-none ${
+                    viewMode === 'week' 
+                      ? 'bg-white text-gray-900 shadow-sm' 
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Week
+                </button>
+                <button
+                  onClick={() => {
+                    setViewMode('month')
+                    localStorage.setItem('scheduleViewMode', 'month')
+                  }}
+                  className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-md transition-colors flex-1 sm:flex-none ${
+                    viewMode === 'month' 
+                      ? 'bg-white text-gray-900 shadow-sm' 
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Month
                 </button>
               </div>
 
@@ -3484,12 +3931,12 @@ const ServiceFlowSchedule = () => {
                 </div>
               )}
                 <button
-                  onClick={() => navigate('/calendar')}
+                  onClick={() => setShowCalendar(!showCalendar)}
                   className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
                   title="Open Calendar"
                 >
                   <CalendarDays className="w-4 h-4" />
-                  <span>Calendar</span>
+                  <span className="hidden sm:inline">Calendar</span>
                 </button>
               </div>
             </div>
@@ -3678,7 +4125,7 @@ const ServiceFlowSchedule = () => {
                 className="text-xs border border-gray-300 rounded px-2 py-1 bg-white"
               >
                 <option value="all">All Statuses</option>
-                <option value="pending">Pending</option>
+                <option value="scheduled">Scheduled</option>
                 <option value="in_progress">In Progress</option>
                 <option value="completed">Completed</option>
                 <option value="cancelled">Cancelled</option>
@@ -3738,67 +4185,181 @@ const ServiceFlowSchedule = () => {
           {/* Availability View */}
           {activeTab === 'availability' ? (
             <div className="w-full h-full flex flex-col bg-gray-50">
-              {/* Calendar Grid - Full Height */}
-              <div className="flex-1 overflow-auto ">
-                <div className="bg-white  h-full">
+              {/* Day View */}
+              {viewMode === 'day' && (
+                <div className="flex-1 overflow-auto px-4 py-4 lg:px-6">
+                  <div className="bg-white rounded-lg border border-gray-200 shadow-sm h-full">
+                    <div className="border-b border-gray-200 p-4">
+                      <h3 className="text-lg font-semibold text-gray-900">
+                        {selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                      </h3>
+                    </div>
+                    <div className="p-4">
+                      {(() => {
+                        const availability = getDayAvailability(selectedDate)
+                        return (
+                          <div className="space-y-4">
+                            <div className={`p-4 rounded-lg border ${
+                              availability.isOpen 
+                                ? 'bg-green-50 border-green-200' 
+                                : 'bg-gray-50 border-gray-200'
+                            }`}>
+                              <div className="flex items-center justify-between mb-2">
+                                <span className={`text-sm font-semibold ${
+                                  availability.isOpen ? 'text-green-700' : 'text-gray-700'
+                                }`}>
+                                  {availability.isOpen ? 'Open' : 'Closed'}
+                                </span>
+                                {availability.hasJobs && (
+                                  <span className="text-xs font-medium text-orange-600">
+                                    {availability.jobCount} job{availability.jobCount !== 1 ? 's' : ''}
+                                  </span>
+                                )}
+                              </div>
+                              {availability.isOpen && availability.hours && (
+                                <div className="text-sm text-gray-700">
+                                  <span className="font-medium">Hours: </span>
+                                  {availability.hours}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Week View */}
+              {viewMode === 'week' && (
+                <div className="flex-1 overflow-auto px-4 py-4 lg:px-6">
+                  <div className="min-w-max w-full">
+                    {/* Day Headers */}
+                    <div className="grid grid-cols-7 gap-2 mb-2">
+                      {getWeekDays().map((date, idx) => (
+                        <div key={idx} className="p-2 text-center">
+                          <div className="text-xs font-medium text-gray-500">
+                            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()]}
+                          </div>
+                          <div className={`text-lg font-semibold mt-1 ${
+                            date.toDateString() === new Date().toDateString()
+                              ? 'text-blue-600'
+                              : 'text-gray-900'
+                          }`}>
+                            {date.getDate()}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {/* Week Days */}
+                    <div className="grid grid-cols-7 gap-2">
+                      {getWeekDays().map((date, idx) => {
+                        const availability = getDayAvailability(date)
+                        const isToday = date.toDateString() === new Date().toDateString()
+                        const isSelected = date.toDateString() === selectedDate.toDateString()
+                        
+                        return (
+                          <div
+                            key={idx}
+                            className={`border rounded-lg p-3 min-h-[200px] cursor-pointer transition-colors ${
+                              isSelected
+                                ? 'bg-blue-50 border-blue-500 ring-2 ring-blue-500'
+                                : isToday
+                                  ? 'bg-white border-blue-500 ring-2 ring-blue-500'
+                                  : 'bg-white border-gray-200'
+                            }`}
+                            onClick={() => handleDateChange(date)}
+                          >
+                            {availability.isOpen ? (
+                              <div className="space-y-2">
+                                <div className="text-xs font-medium text-green-600">Open</div>
+                                {availability.hours && (
+                                  <div className="text-xs text-gray-600">{availability.hours}</div>
+                                )}
+                                {availability.hasJobs && (
+                                  <div className="text-xs font-medium text-orange-600 mt-1">
+                                    {availability.jobCount} job{availability.jobCount !== 1 ? 's' : ''}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="text-center py-4">
+                                <div className="text-xs text-gray-500 font-medium">Closed</div>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Month View */}
+              {viewMode === 'month' && (
+                <div className="flex-1 overflow-auto">
                   <div className="grid grid-cols-7 divide-x divide-gray-200 h-full">
                     {/* Days of Week Header */}
-                    {['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'].map((day) => (
-                      <div key={day} className="text-center p-2 border-b border-gray-200 text-xs font-semibold text-gray-700 py-2 border-b border-gray-200">
+                    {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map((day) => (
+                      <div key={day} className="text-center text-xs border-[0.5px] border-gray-200 font-medium text-gray-600 py-3">
                         {day}
                       </div>
                     ))}
                     
                     {/* Calendar Days */}
-                    {generateAvailabilityCalendarDays(availabilityMonth).map((day, index) => {
-                      const isCurrentMonth = day.getMonth() === availabilityMonth.getMonth()
+                    {generateAvailabilityCalendarDays(selectedDate).map((day, index) => {
+                      const isCurrentMonth = day.getMonth() === selectedDate.getMonth()
                       const availability = getDayAvailability(day)
                       const isSelected = day.toDateString() === selectedDate.toDateString()
-                      
-                      if (!isCurrentMonth) {
-                        return (
-                          <div key={index} className="min-h-[120px]"></div>
-                        )
-                      }
+                      const isToday = day.toDateString() === new Date().toDateString()
 
                       return (
                         <div
                           key={index}
-                          className={`min-h-[120px] border border-gray-200 p-2 ${
-                            isSelected 
+                          className={`border p-2 min-h-[120px] cursor-pointer transition-colors ${
+                            !isCurrentMonth 
+                              ? 'bg-gray-50 text-gray-400 border-gray-100' 
+                              : isSelected 
                               ? 'border-blue-500 bg-blue-50' 
+                                : isToday 
+                                  ? 'border-blue-300 bg-blue-50/50' 
                               : availability.isOpen 
-                                ? 'bg-white' 
-                                : 'bg-gray-50'
+                                    ? 'border-gray-200 bg-white hover:bg-gray-50'
+                                    : 'border-gray-200 bg-gray-50'
                           }`}
-                          style={!availability.isOpen && !isSelected ? {
+                          onClick={() => handleDateChange(day)}
+                          style={!isCurrentMonth ? {} : !availability.isOpen && !isSelected ? {
                             backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(0,0,0,.05) 7px, rgba(0,0,0,.05) 9px)'
                           } : {}}
                         >
                           <div className={`text-sm font-semibold mb-1 ${
-                            isSelected ? 'text-blue-900' : 'text-gray-900'
+                            isSelected && isCurrentMonth ? 'text-blue-900' : ''
                           }`}>
                             {day.getDate()}
                           </div>
-                          {availability.isOpen ? (
+                          {isCurrentMonth && availability.isOpen ? (
                             <>
                               <div className="text-xs font-medium text-green-600 mb-1">Open</div>
+                              {availability.hours && (
                               <div className="text-xs text-gray-600 mb-1">{availability.hours}</div>
+                              )}
                               {availability.hasJobs && (
                                 <div className="text-xs font-medium text-orange-600 mt-1">
                                   {availability.jobCount} job{availability.jobCount !== 1 ? 's' : ''}
                                 </div>
                               )}
                             </>
-                          ) : (
+                          ) : isCurrentMonth ? (
                             <div className="text-xs font-medium text-gray-500">Closed</div>
-                          )}
+                          ) : null}
                         </div>
                       )
                     })}
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           ) : (
             /* Left Panel - Job Details or Calendar View */
@@ -4596,11 +5157,11 @@ const ServiceFlowSchedule = () => {
                 <div className="flex items-center gap-3">
                   <div className="relative flex">
                     {(() => {
-                      const currentStatus = (selectedJobDetails?.status || 'pending').toLowerCase().trim()
+                      const currentStatus = (selectedJobDetails?.status || 'scheduled').toLowerCase().trim()
                       
-                      // Normalize status: pending=scheduled, en_route=confirmed, started=in-progress, complete=completed
+                      // Normalize status: scheduled, en_route=confirmed, started=in-progress, complete=completed
                       const normalizedStatus = 
-                        currentStatus === 'scheduled' ? 'pending' :
+                        currentStatus === 'scheduled' ? 'scheduled' :
                         currentStatus === 'en_route' || currentStatus === 'enroute' ? 'confirmed' :
                         currentStatus === 'started' ? 'in-progress' :
                         currentStatus === 'complete' ? 'completed' :
@@ -4613,8 +5174,8 @@ const ServiceFlowSchedule = () => {
                       let buttonColor = 'bg-blue-600 hover:bg-blue-700'
                       let isDisabled = false
                       
-                      // Status progression: pending → confirmed → in_progress → completed
-                      if (normalizedStatus === 'pending' || normalizedStatus === 'scheduled') {
+                      // Status progression: scheduled → confirmed → in_progress → completed
+                      if (normalizedStatus === 'scheduled') {
                         nextStatus = 'confirmed' // Maps to "confirmed" in backend (En Route)
                         buttonLabel = 'Mark as En Route'
                         buttonColor = 'bg-blue-600 hover:bg-blue-700'
@@ -4664,10 +5225,10 @@ const ServiceFlowSchedule = () => {
                             { label: 'Mark as In Progress', backendStatus: 'in_progress', color: 'bg-orange-500' },
                             { label: 'Mark as Complete', backendStatus: 'completed', color: 'bg-green-500' }
                           ].map((statusOption) => {
-                            const currentStatus = (selectedJobDetails?.status || 'pending').toLowerCase().trim()
-                            // Normalize for comparison: scheduled=pending, en_route=confirmed, started=in-progress, complete=completed
+                            const currentStatus = (selectedJobDetails?.status || 'scheduled').toLowerCase().trim()
+                            // Normalize for comparison: scheduled, en_route=confirmed, started=in-progress, complete=completed
                             const normalizedCurrent = 
-                              currentStatus === 'scheduled' || currentStatus === 'pending' ? 'confirmed' :
+                              currentStatus === 'scheduled' ? 'confirmed' :
                               currentStatus === 'en_route' || currentStatus === 'enroute' ? 'confirmed' :
                               currentStatus === 'started' || currentStatus === 'in_progress' || currentStatus === 'in_prog' || currentStatus === 'in-progress' ? 'in_progress' :
                               currentStatus === 'complete' || currentStatus === 'completed' ? 'completed' :
@@ -4711,13 +5272,13 @@ const ServiceFlowSchedule = () => {
                     { key: 'paid', label: 'Paid' }
                   ];
 
-                  // Normalize status: pending=scheduled, en_route=confirmed, started=in-progress, complete=completed
+                  // Normalize status: scheduled, en_route=confirmed, started=in-progress, complete=completed
                   const normalizeStatus = (status) => {
                     if (!status) return 'scheduled'
                     const normalized = status.toLowerCase().trim()
                     
                     // Map to progress bar keys
-                    if (normalized === 'pending' || normalized === 'scheduled') {
+                    if (normalized === 'scheduled') {
                       return 'scheduled'
                     }
                     if (normalized === 'confirmed' || normalized === 'enroute') {
@@ -4747,13 +5308,13 @@ const ServiceFlowSchedule = () => {
                     'cancelled': -1
                   };
 
-                  const currentStatusNormalized = normalizeStatus(selectedJobDetails?.status || 'pending')
+                  const currentStatusNormalized = normalizeStatus(selectedJobDetails?.status || 'scheduled')
                   const currentIndex = statusMap[currentStatusNormalized] ?? 0;
 
                   // Map progress bar keys to backend status values
                   const mapProgressBarKeyToBackendStatus = (key) => {
                     const mapping = {
-                      'scheduled': 'pending', // Maps to en_route in backend
+                      'scheduled': 'scheduled', // First stage
                       'en_route': 'confirmed', // Maps to started in backend
                       'started': 'in-progress', // Maps to complete in backend
                       'completed': 'completed',
@@ -4765,7 +5326,7 @@ const ServiceFlowSchedule = () => {
                   // Map frontend status keys to backend status values for tooltip
                   const mapStatusKeyToBackendStatus = (key) => {
                     const mapping = {
-                      'scheduled': 'pending',
+                      'scheduled': 'scheduled',
                       'en_route': 'confirmed',
                       'started': 'in-progress',
                       'completed': 'completed',

@@ -169,16 +169,51 @@ const LeadsPipeline = () => {
         const response = await servicesAPI.getAll(user.id);
         const servicesArray = response.services || response || [];
         // Decode HTML entities in service names and ensure price is properly formatted
-        const processedServices = servicesArray.map(service => ({
-          ...service,
-          name: decodeHtmlEntities(service.name || ''),
-          price: parseFloat(service.price) || parseFloat(service.service_price) || 0
-        }));
+        const processedServices = servicesArray.map(service => {
+          // Parse modifiers if they exist (they might be stored as JSON string)
+          let parsedModifiers = [];
+          if (service.modifiers) {
+            try {
+              parsedModifiers = typeof service.modifiers === 'string' 
+                ? JSON.parse(service.modifiers) 
+                : service.modifiers;
+            } catch (e) {
+              console.warn('Error parsing service modifiers:', e);
+              parsedModifiers = [];
+            }
+          }
+          
+          return {
+            ...service,
+            name: decodeHtmlEntities(service.name || ''),
+            price: parseFloat(service.price) || parseFloat(service.service_price) || 0,
+            parsedModifiers: Array.isArray(parsedModifiers) ? parsedModifiers : []
+          };
+        });
         setServices(processedServices);
       }
     } catch (err) {
       console.error('Error loading services:', err);
     }
+  };
+  
+  // Calculate estimated price based on service and its modifiers
+  const calculateServiceEstimatedPrice = (service) => {
+    if (!service) return 0;
+    
+    // Start with base service price
+    let estimatedPrice = parseFloat(service.price) || parseFloat(service.service_price) || 0;
+    
+    // If service has modifiers, we could add default modifier prices here
+    // For leads, we'll use base price + any default modifiers
+    // (Full modifier selection would be done when converting lead to job)
+    if (service.parsedModifiers && Array.isArray(service.parsedModifiers) && service.parsedModifiers.length > 0) {
+      // For leads, we can optionally add default modifier prices if they have defaults
+      // For now, we'll just use the base price
+      // The full calculation with selected modifiers happens when converting to job
+    }
+    
+    return estimatedPrice;
   };
   
   // Check property data when address is selected (using RentCast API)
@@ -218,31 +253,37 @@ const LeadsPipeline = () => {
     }
   };
   
-  // Auto-calculate value when service is selected (only if value is empty)
+  // Auto-calculate estimated value when service is selected (only if value is empty)
   useEffect(() => {
     if (leadFormData.serviceId && services.length > 0) {
       const selectedService = services.find(s => s.id === parseInt(leadFormData.serviceId));
-      if (selectedService && selectedService.price) {
-        // Only auto-fill if the value field is empty, null, undefined, or 0
-        // Don't overwrite if user has manually entered a price
-        const currentValue = leadFormData.value?.toString().trim();
-        const numericValue = parseFloat(currentValue);
-        // Check if value is empty, null, undefined, 0, or NaN
-        if (!currentValue || currentValue === '' || isNaN(numericValue) || numericValue === 0) {
-          setLeadFormData(prev => {
-            // Double-check the previous value to avoid unnecessary updates
-            const prevValue = prev.value?.toString().trim();
-            const prevNumeric = parseFloat(prevValue);
-            if (!prevValue || prevValue === '' || isNaN(prevNumeric) || prevNumeric === 0) {
-              return {
-          ...prev,
-          value: selectedService.price.toString()
-              };
-      }
-            return prev; // Keep existing value if it's a real number > 0
-          });
-    }
-        // If user has entered a value, keep it - service and price can coexist
+      if (selectedService) {
+        // Calculate estimated price using service workflow
+        const estimatedPrice = calculateServiceEstimatedPrice(selectedService);
+        
+        if (estimatedPrice > 0) {
+          // Only auto-fill if the value field is empty, null, undefined, or 0
+          // Don't overwrite if user has manually entered a price
+          const currentValue = leadFormData.value?.toString().trim();
+          const numericValue = parseFloat(currentValue);
+          // Check if value is empty, null, undefined, 0, or NaN
+          if (!currentValue || currentValue === '' || isNaN(numericValue) || numericValue === 0) {
+            setLeadFormData(prev => {
+              // Double-check the previous value to avoid unnecessary updates
+              const prevValue = prev.value?.toString().trim();
+              const prevNumeric = parseFloat(prevValue);
+              if (!prevValue || prevValue === '' || isNaN(prevNumeric) || prevNumeric === 0) {
+                console.log(`💰 Auto-calculated estimated value: $${estimatedPrice.toFixed(2)} for service "${selectedService.name}"`);
+                return {
+                  ...prev,
+                  value: estimatedPrice.toFixed(2)
+                };
+              }
+              return prev; // Keep existing value if it's a real number > 0
+            });
+          }
+          // If user has entered a value, keep it - service and price can coexist
+        }
       }
       // Don't clear value if service has no price - let user keep their manually entered price
     }
@@ -1143,8 +1184,22 @@ const LeadsPipeline = () => {
                     })}
                   </select>
                   <p className="text-xs text-gray-500 mt-1">
-                    Selecting a service will auto-fill the estimated value if empty. You can manually enter a different value.
+                    Selecting a service will automatically calculate and populate the estimated value based on the service price. You can manually enter a different value.
                   </p>
+                  {leadFormData.serviceId && (() => {
+                    const selectedService = services.find(s => s.id === parseInt(leadFormData.serviceId));
+                    if (selectedService) {
+                      const estimatedPrice = calculateServiceEstimatedPrice(selectedService);
+                      if (estimatedPrice > 0 && (!leadFormData.value || parseFloat(leadFormData.value) === 0)) {
+                        return (
+                          <p className="text-xs text-blue-600 mt-1 font-medium">
+                            💰 Estimated value: ${estimatedPrice.toFixed(2)} (auto-calculated from service)
+                          </p>
+                        );
+                      }
+                    }
+                    return null;
+                  })()}
                 </div>
                 
                 <div>
@@ -1666,8 +1721,22 @@ const LeadsPipeline = () => {
                     })}
                   </select>
                   <p className="text-xs text-gray-500 mt-1">
-                    Selecting a service will auto-fill the estimated value if empty. You can manually enter a different value.
+                    Selecting a service will automatically calculate and populate the estimated value based on the service price. You can manually enter a different value.
                   </p>
+                  {leadFormData.serviceId && (() => {
+                    const selectedService = services.find(s => s.id === parseInt(leadFormData.serviceId));
+                    if (selectedService) {
+                      const estimatedPrice = calculateServiceEstimatedPrice(selectedService);
+                      if (estimatedPrice > 0 && (!leadFormData.value || parseFloat(leadFormData.value) === 0)) {
+                        return (
+                          <p className="text-xs text-blue-600 mt-1 font-medium">
+                            💰 Estimated value: ${estimatedPrice.toFixed(2)} (auto-calculated from service)
+                          </p>
+                        );
+                      }
+                    }
+                    return null;
+                  })()}
                 </div>
                 
                 <div>

@@ -11,6 +11,7 @@ export default function SignupForm() {
   const [formData, setFormData] = useState({
     email: "",
     password: "",
+    confirmPassword: "",
     firstName: "",
     lastName: "",
     businessName: ""
@@ -89,6 +90,12 @@ export default function SignupForm() {
       newErrors.password = "Password must be at least 8 characters"
     }
     
+    if (!formData.confirmPassword.trim()) {
+      newErrors.confirmPassword = "Please confirm your password"
+    } else if (formData.password !== formData.confirmPassword) {
+      newErrors.confirmPassword = "Passwords do not match"
+    }
+    
     if (!formData.firstName.trim()) {
       newErrors.firstName = "First name is required"
     }
@@ -136,6 +143,12 @@ export default function SignupForm() {
       newErrors.password = "Password is required"
     } else if (finalPassword.length < 6) {
       newErrors.password = "Password must be at least 6 characters"
+    }
+    
+    if (!formData.confirmPassword.trim()) {
+      newErrors.confirmPassword = "Please confirm your password"
+    } else if (finalPassword !== formData.confirmPassword) {
+      newErrors.confirmPassword = "Passwords do not match"
     }
     
     if (!formData.firstName.trim()) {
@@ -195,7 +208,12 @@ export default function SignupForm() {
     navigate('/signin')
   }
 
-  const isFormValid = Object.values(formData).every(value => value.trim() !== "")
+  const isFormValid = Object.entries(formData).every(([key, value]) => {
+    if (key === 'confirmPassword') {
+      return value.trim() !== "" && value === formData.password
+    }
+    return value.trim() !== ""
+  })
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#002D7A] to-[#002D7A] flex items-center justify-center p-4">
@@ -348,6 +366,30 @@ export default function SignupForm() {
                   <p className="text-red-500 text-sm mt-1">{errors.password}</p>
                 )}
                 <p className="text-sm text-gray-500 mt-2">Password must be at least 8 characters</p>
+              </div>
+
+              {/* Confirm Password */}
+              <div>
+                <label htmlFor="confirmPassword" className="block text-sm font-semibold text-gray-700 mb-2">
+                  Confirm Password
+                </label>
+                <input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type="password"
+                  autoComplete="new-password"
+                  placeholder="Confirm your password"
+                  value={formData.confirmPassword}
+                  onChange={handleInputChange}
+                  className={`w-full h-12 px-4 bg-gray-50 border rounded-lg text-base focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    errors.confirmPassword ? "border-red-500 bg-red-50" : "border-gray-200"
+                  }`}
+                  required
+                  disabled={isLoading}
+                />
+                {errors.confirmPassword && (
+                  <p className="text-red-500 text-sm mt-1">{errors.confirmPassword}</p>
+                )}
               </div>
 
               <button

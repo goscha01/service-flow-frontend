@@ -52,7 +52,7 @@ const ServiceFlowJobs = () => {
     search: "",
     invoiceStatus: "",
     sortBy: "scheduled_date",
-    sortOrder: "DESC",
+    sortOrder: "ASC", // Default to "Soonest"
     territoryId: "",
     paymentMethod: "",
     tag: "",
@@ -131,11 +131,11 @@ const ServiceFlowJobs = () => {
         }
         return 'Assigned All'
       case 'sort':
+        if (filters.sortBy === 'scheduled_date' && filters.sortOrder === 'ASC') return 'Sort by: Soonest'
         if (filters.sortBy === 'scheduled_date' && filters.sortOrder === 'DESC') return 'Sort by: Recent'
-        if (filters.sortBy === 'scheduled_date' && filters.sortOrder === 'ASC') return 'Sort by: Oldest'
         if (filters.sortBy === 'total_amount' && filters.sortOrder === 'DESC') return 'Sort by: Highest Amount'
         if (filters.sortBy === 'total_amount' && filters.sortOrder === 'ASC') return 'Sort by: Lowest Amount'
-        return 'Sort by: Recent'
+        return 'Sort by: Soonest'
       case 'recurring':
         if (filters.recurring === 'recurring') return 'Recurring Only'
         if (filters.recurring === 'one-time') return 'One-Time Only'
@@ -258,9 +258,25 @@ const ServiceFlowJobs = () => {
       let statusFilter = ""
       let dateFilter = ""
 
+      // Build date range from filters (will be overridden by tab-specific logic if needed)
+      let dateRangeForAPI = filters.dateRange
+      if (filters.dateFrom || filters.dateTo) {
+        // Use the date range picker values
+        dateRangeForAPI = filters.dateFrom && filters.dateTo 
+          ? `${filters.dateFrom} to ${filters.dateTo}`
+          : filters.dateFrom || filters.dateTo
+      }
+
+      // If "Soonest" sort is selected, filter for today's jobs
+      if (filters.sortBy === 'scheduled_date' && filters.sortOrder === 'ASC') {
+        const today = new Date()
+        const todayStr = today.toISOString().split('T')[0]
+        dateRangeForAPI = `${todayStr} to ${todayStr}` // Filter for today only
+      }
+
       switch (activeTab) {
         case "upcoming":
-          statusFilter = "pending,confirmed,in_progress"
+          statusFilter = "confirmed,in_progress"
           dateFilter = "future" // Jobs scheduled for today and future
           break
         case "past":
@@ -272,28 +288,19 @@ const ServiceFlowJobs = () => {
           statusFilter = "completed"
           break
         case "incomplete":
-          statusFilter = "pending,confirmed,in_progress"
+          statusFilter = "confirmed,in_progress"
           break
         case "canceled":
           statusFilter = "cancelled"
           break
         case "daterange":
-          // Date range will be handled by filters.dateRange
+          // Date range will be handled by filters.dateRange (already set above)
           statusFilter = ""
           break
         case "all":
         default:
           statusFilter = ""
           break
-      }
-
-      // Build date range from filters
-      let dateRangeForAPI = filters.dateRange
-      if (filters.dateFrom || filters.dateTo) {
-        // Use the date range picker values
-        dateRangeForAPI = filters.dateFrom && filters.dateTo 
-          ? `${filters.dateFrom} to ${filters.dateTo}`
-          : filters.dateFrom || filters.dateTo
       }
       
       // Call jobsAPI with individual parameters
@@ -445,7 +452,6 @@ const ServiceFlowJobs = () => {
       case 'in_progress': return 'bg-blue-50 text-blue-700 border-blue-200'
       case 'confirmed': return 'bg-purple-50 text-purple-700 border-purple-200'
       case 'cancelled': return 'bg-red-50 text-red-700 border-red-200'
-      case 'pending': return 'bg-gray-50 text-gray-700 border-gray-200'
       default: return 'bg-gray-50 text-gray-700 border-gray-200'
     }
   }
@@ -570,8 +576,8 @@ const ServiceFlowJobs = () => {
         </div>
 
         {/* Desktop Header */}
-        <div className="hidden lg:flex bg-white border-b border-gray-200 px-4 pt-4 pb-2 items-center justify-between">
-          <h1 className="text-3xl font-semibold text-gray-900 " style={{fontFamily: 'Montserrat', fontWeight: 700}}>Jobs</h1>
+        <div className="hidden lg:flex bg-white border-b border-gray-200 px-4 pt-2 pb-2 items-center justify-between">
+          <h1 className="text-3xl font-semibold text-gray-900" style={{fontFamily: 'Montserrat', fontWeight: 700}}>Jobs</h1>
           <div className="flex items-center gap-2">
             {canCreateJobs(user) && (
               <>
@@ -686,7 +692,7 @@ const ServiceFlowJobs = () => {
 
         {/* Tabs */}
         <div className={`bg-white border-b border-gray-200 lg:hidden sticky ${showSearch ? 'top-[133px]' : 'top-[73px]'} z-10 w-full transition-all`} style={{ maxWidth: '100vw', overflowX: 'auto' }}>
-          <div className="flex space-x-4 overflow-x-auto scrollbar-hide px-4" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch', maxWidth: '100%' }}>
+          <div className="flex space-x-2 overflow-x-auto scrollbar-hide px-4" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch', maxWidth: '100%' }}>
             {tabs.map((tab) => (
               <button
                 key={tab.id}
@@ -709,7 +715,7 @@ const ServiceFlowJobs = () => {
 
         {/* Desktop Tabs */}
         <div className="hidden lg:block bg-white border-b border-gray-200 px-4">
-          <div className="flex space-x-4 overflow-x-auto scrollbar-hide -mx-4 px-4">
+          <div className="flex space-x-2 overflow-x-auto scrollbar-hide -mx-4 px-4">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
@@ -1038,21 +1044,21 @@ const ServiceFlowJobs = () => {
                   <div className="absolute top-full mt-1 right-0 bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[200px] z-50">
                     <button
                       onClick={() => {
+                        setFilters(prev => ({ ...prev, sortBy: 'scheduled_date', sortOrder: 'ASC' }))
+                        setOpenDropdown(null)
+                      }}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${filters.sortBy === 'scheduled_date' && filters.sortOrder === 'ASC' ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
+                    >
+                      Sort by: Soonest
+                    </button>
+                    <button
+                      onClick={() => {
                         setFilters(prev => ({ ...prev, sortBy: 'scheduled_date', sortOrder: 'DESC' }))
                         setOpenDropdown(null)
                       }}
                       className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${filters.sortBy === 'scheduled_date' && filters.sortOrder === 'DESC' ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
                     >
                       Sort by: Recent
-                    </button>
-                    <button
-                      onClick={() => {
-                        setFilters(prev => ({ ...prev, sortBy: 'scheduled_date', sortOrder: 'ASC' }))
-                        setOpenDropdown(null)
-                      }}
-                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${filters.sortBy === 'scheduled_date' && filters.sortOrder === 'ASC' ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
-                    >
-                      Sort by: Oldest
                     </button>
                     <button
                       onClick={() => {
@@ -1080,7 +1086,7 @@ const ServiceFlowJobs = () => {
         </div>
 
         {/* Jobs List */}
-        <div className="flex-1 overflow-auto bg-white lg:bg-gray-50 jobs-scroll-container pb-28 lg:pb-0" style={{ maxWidth: '100%', width: '100%', paddingTop: '140px' }}>
+        <div className="flex-1 overflow-auto bg-white lg:bg-gray-50 jobs-scroll-container pb-28 lg:pb-0 pt-[140px] lg:pt-0" style={{ maxWidth: '100%', width: '100%' }}>
           <div className="" style={{ maxWidth: '100%' }}>
             {loading ? (
               <div className="flex items-center justify-center py-12">
@@ -1173,8 +1179,8 @@ const ServiceFlowJobs = () => {
                               </div>
                             </td>
                             <td className="px-4 py-4 whitespace-nowrap">
-                              <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className={`inline-flex items-center px-3 py-1 rounded-l-sm rounded-r-xl text-xs font-medium border ${getStatusLabel(job.status || 'pending', job) === 'Late' ? 'bg-orange-50 text-orange-700 border-orange-200' : getStatusColor(job.status)}`}>
-                                {getStatusLabel(job.status || 'pending', job)}
+                              <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className={`inline-flex items-center px-3 py-1 rounded-l-sm rounded-r-xl text-xs font-medium border ${getStatusLabel(job.status || 'scheduled', job) === 'Late' ? 'bg-orange-50 text-orange-700 border-orange-200' : getStatusColor(job.status)}`}>
+                                {getStatusLabel(job.status || 'scheduled', job)}
                               </span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
@@ -1226,7 +1232,7 @@ const ServiceFlowJobs = () => {
                           {groupedJobs[dateKey].map((job) => {
                             const assignedMember = getAssignedMemberName(job)
                             const assignedCount = getAssignedCount(job)
-                            const statusLabel = getStatusLabel(job.status || 'pending', job)
+                            const statusLabel = getStatusLabel(job.status || 'scheduled', job)
                             const isLate = statusLabel === 'Late'
                             
                             // Get time range - if we have duration, calculate end time

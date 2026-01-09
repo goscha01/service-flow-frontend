@@ -27,6 +27,8 @@ import { jobsAPI, customersAPI, servicesAPI, invoicesAPI, teamAPI, territoriesAP
 import { normalizeAPIResponse } from "../utils/dataHandler"
 import MiniChart from "../components/mini-chart"
 import MobileHeader from "../components/mobile-header"
+import JobsMap from "../components/jobs-map"
+import { getGoogleMapsApiKey } from "../config/maps"
 
 const DashboardRedesigned = () => {
   const { user } = useAuth()
@@ -191,8 +193,9 @@ const DashboardRedesigned = () => {
 
   // Generate Google Maps URL with job markers
   const generateMapUrl = (jobs, mapType = 'roadmap') => {
+    const apiKey = getGoogleMapsApiKey()
     if (!jobs || jobs.length === 0) {
-      return `https://www.google.com/maps/embed/v1/view?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&center=40.7128,-74.0060&zoom=11&maptype=${mapType}`
+      return `https://www.google.com/maps/embed/v1/view?key=${apiKey}&center=40.7128,-74.0060&zoom=11&maptype=${mapType}`
     }
 
     // Get address from multiple possible fields - prioritize service address, then customer address
@@ -208,19 +211,19 @@ const DashboardRedesigned = () => {
       .filter(job => job !== null)
 
     if (jobsWithAddresses.length === 0) {
-      return `https://www.google.com/maps/embed/v1/view?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&center=40.7128,-74.0060&zoom=11&maptype=${mapType}`
+      return `https://www.google.com/maps/embed/v1/view?key=${apiKey}&center=40.7128,-74.0060&zoom=11&maptype=${mapType}`
     }
 
     if (jobsWithAddresses.length === 1) {
       const address = encodeURIComponent(jobsWithAddresses[0].address)
-      return `https://www.google.com/maps/embed/v1/place?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&q=${address}&zoom=14&maptype=${mapType}`
+      return `https://www.google.com/maps/embed/v1/place?key=${apiKey}&q=${address}&zoom=14&maptype=${mapType}`
     }
 
     // For multiple addresses, use the search API with all addresses
     const addresses = jobsWithAddresses.map(job => job.address).join('|')
     const encodedAddresses = encodeURIComponent(addresses)
 
-    return `https://www.google.com/maps/embed/v1/search?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&q=${encodedAddresses}&zoom=10&maptype=${mapType}`
+    return `https://www.google.com/maps/embed/v1/search?key=${apiKey}&q=${encodedAddresses}&zoom=10&maptype=${mapType}`
   }
 
   // Keepalive functionality
@@ -312,18 +315,25 @@ const DashboardRedesigned = () => {
 
         return { ...task, completed }
       })
+      
+      // Show setup section for new users or if tasks are incomplete
+      const hasAnyActivity = (services?.length || 0) > 0 || (jobs?.length || 0) > 0 || (teamMembers?.length || 0) > 0
+      const isDismissed = localStorage.getItem('setupSectionDismissed') === 'true'
+      
+      // Check if all tasks are completed
+      const allTasksCompleted = updatedTasks.every(task => task.completed)
+      
+      // Show setup section if:
+      // 1. User has no activity (new user), OR
+      // 2. Not all tasks are completed AND user hasn't dismissed it
+      if ((!hasAnyActivity || !allTasksCompleted) && !isDismissed) {
+        setShowSetupSection(true)
+      } else {
+        setShowSetupSection(false)
+      }
+      
       return updatedTasks
     })
-
-    // Show setup section for new users
-    const hasAnyActivity = (services?.length || 0) > 0 || (jobs?.length || 0) > 0 || (teamMembers?.length || 0) > 0
-    const isDismissed = localStorage.getItem('setupSectionDismissed') === 'true'
-
-    if (!hasAnyActivity && !isDismissed) {
-      setShowSetupSection(true)
-    } else {
-      setShowSetupSection(false)
-    }
 
     setSetupCheckCompleted(true)
   }, [])
@@ -1218,33 +1228,17 @@ const DashboardRedesigned = () => {
                         </button>
                       </div>
                       {dashboardData.todayJobs > 0 ? (
-                        <iframe
-                          width="100%"
-                          height="100%"
-                          frameBorder="0"
-                          style={{ border: 0 }}
-                          src={generateMapUrl(todayJobsList, mapView === 'map' ? 'roadmap' : 'satellite')}
-                          allowFullScreen
-                          loading="lazy"
-                          referrerPolicy="no-referrer-when-downgrade"
-                          title="Today's Jobs Map"
+                        <JobsMap 
+                          jobs={todayJobsList} 
+                          mapType={mapView === 'map' ? 'roadmap' : 'satellite'} 
                         />
                       ) : (
-                        <>
-                          <iframe
-                            width="100%"
-                            height="100%"
-                            frameBorder="0"
-                            style={{ border: 0 }}
-                            src={generateMapUrl([], mapView === 'map' ? 'roadmap' : 'satellite')}
-                            allowFullScreen
-                            loading="lazy"
-                            referrerPolicy="no-referrer-when-downgrade"
-                            title="Map"
-                          />
-
-                          
-                        </>
+                        <div className="w-full h-full flex items-center justify-center bg-gray-50">
+                          <div className="text-center">
+                            <MapPin className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+                            <p className="text-gray-500 text-sm">No jobs to display on map</p>
+                          </div>
+                        </div>
                       )}
                     </div>
                   </div>
