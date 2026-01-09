@@ -18,42 +18,42 @@ const JobsMap = ({ jobs, mapType = 'roadmap' }) => {
     }
   }, [])
 
-  // Listen for async Google Maps API errors (ApiNotActivatedMapError, BillingNotEnabledMapError)
+  // Listen for async Google Maps API errors (ApiNotActivatedMapError, BillingNotEnabledMapError, RefererNotAllowedMapError)
   // These errors are thrown AFTER map creation, so we need to detect them globally
+  // IMPORTANT: Only handle errors from Map initialization, NOT from Places API (autocomplete)
   useEffect(() => {
     const handleGoogleMapsError = (event) => {
       const errorMsg = event.message || event.error?.message || ''
-      if (errorMsg.includes('ApiNotActivatedMapError') || 
-          errorMsg.includes('BillingNotEnabledMapError')) {
-        console.warn('🗺️ JobsMap: Detected Google Maps API/billing error, switching to Embed API')
+      const errorSource = event.filename || event.error?.stack || ''
+      
+      // Only handle errors if they're clearly from Map initialization
+      // Check if error is from map component, not from autocomplete/places components
+      const isMapError = errorMsg.includes('ApiNotActivatedMapError') || 
+                         errorMsg.includes('BillingNotEnabledMapError') ||
+                         errorMsg.includes('RefererNotAllowedMapError')
+      
+      const isFromAutocomplete = errorSource.includes('autocomplete') || 
+                                 errorSource.includes('AddressAutocomplete') ||
+                                 errorSource.includes('address-autocomplete') ||
+                                 errorSource.includes('places')
+      
+      // Only switch to Embed API if it's a Map error AND not from autocomplete
+      if (isMapError && !isFromAutocomplete) {
+        console.warn('🗺️ JobsMap: Detected Google Maps API error, switching to Embed API')
         setUseEmbedAPI(true)
         localStorage.setItem('googleMapsUseEmbedAPI', 'true')
       }
     }
 
-    // Listen for window errors
+    // Listen for window errors (but don't suppress them - let autocomplete handle its own errors)
     window.addEventListener('error', handleGoogleMapsError)
 
-    // Also intercept console.error to catch these specific errors
-    const originalConsoleError = console.error
-    console.error = (...args) => {
-      const errorMessage = args.join(' ')
-      if (errorMessage.includes('ApiNotActivatedMapError') || 
-          errorMessage.includes('BillingNotEnabledMapError')) {
-        // Suppress the error since we're handling it gracefully with Embed API fallback
-        // Only log a warning instead
-        console.warn('🗺️ JobsMap: Google Maps JavaScript API requires billing/activation. Using Embed API fallback.')
-        setUseEmbedAPI(true)
-        localStorage.setItem('googleMapsUseEmbedAPI', 'true')
-        // Don't log the original error - it's expected and handled
-        return
-      }
-      originalConsoleError.apply(console, args)
-    }
+    // DO NOT intercept console.error globally - this interferes with autocomplete
+    // Instead, handle errors directly in the map initialization code
+    // This allows autocomplete to work independently even if Maps API has restrictions
 
     return () => {
       window.removeEventListener('error', handleGoogleMapsError)
-      console.error = originalConsoleError
     }
   }, [])
 
@@ -190,16 +190,33 @@ const JobsMap = ({ jobs, mapType = 'roadmap' }) => {
       setMapLoaded(true)
 
       // Set up error detection for async Google Maps errors
-      // These errors (ApiNotActivatedMapError, BillingNotEnabledMapError) 
+      // These errors (ApiNotActivatedMapError, BillingNotEnabledMapError, RefererNotAllowedMapError) 
       // are thrown AFTER map creation, so we need to detect them
+      // But we do this WITHOUT intercepting console.error globally (which would break autocomplete)
       setTimeout(() => {
         // Check if map div shows error messages
         if (mapRef.current && mapRef.current.textContent) {
           const errorText = mapRef.current.textContent
           if (errorText.includes('ApiNotActivated') || 
               errorText.includes('BillingNotEnabled') ||
+              errorText.includes('RefererNotAllowed') ||
               errorText.includes('For development purposes only')) {
-            console.warn('🗺️ JobsMap: Detected Google Maps API/billing error in map container, switching to Embed API')
+            console.warn('🗺️ JobsMap: Detected Google Maps API error in map container, switching to Embed API')
+            setUseEmbedAPI(true)
+            localStorage.setItem('googleMapsUseEmbedAPI', 'true')
+          }
+        }
+        
+        // Also check if map actually rendered (if it didn't, there might be an API error)
+        if (mapInstanceRef.current) {
+          try {
+            // Try to get map center - if this fails, the map didn't initialize properly
+            const center = mapInstanceRef.current.getCenter()
+            if (!center) {
+              throw new Error('Map center is null')
+            }
+          } catch (err) {
+            console.warn('🗺️ JobsMap: Map initialization failed, switching to Embed API')
             setUseEmbedAPI(true)
             localStorage.setItem('googleMapsUseEmbedAPI', 'true')
           }
