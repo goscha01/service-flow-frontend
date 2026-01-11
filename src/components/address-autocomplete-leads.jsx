@@ -50,139 +50,76 @@ const AddressAutocompleteLeads = ({
 
   // Initialize autocomplete when Google Maps is ready
   useEffect(() => {
-    if (googleMapsReady && inputRef.current && !autocompleteRef.current) {
-      try {
-        // Aggressively disable browser autocomplete
-        if (inputRef.current) {
-          inputRef.current.setAttribute('autocomplete', 'one-time-code');
-          inputRef.current.setAttribute('autocorrect', 'off');
-          inputRef.current.setAttribute('autocapitalize', 'off');
-          inputRef.current.setAttribute('spellcheck', 'false');
-          inputRef.current.setAttribute('name', 'loc_input_9f3k');
-          inputRef.current.setAttribute('id', 'loc_input_9f3k');
-          // Remove any datalist that might be attached
-          inputRef.current.removeAttribute('list');
-        }
+    if (!googleMapsReady || !inputRef.current || autocompleteRef.current) return;
 
-        const autocomplete = initializePlacesAutocomplete(inputRef.current, {
-          componentRestrictions: { country: 'us' }
-        });
-        
-        // Update ref if element was replaced (PlaceAutocompleteElement)
-        if (autocomplete._isPlaceAutocompleteElement && autocomplete._wrapper) {
-          // The input was replaced, so we need to update our reference
-          // The autocomplete element itself is now the input
-        }
-
-        // Handle place selection - different for PlaceAutocompleteElement vs legacy Autocomplete
-        if (autocomplete.addEventListener) {
-          // New PlaceAutocompleteElement API - uses gmp-placeselect event
-          autocomplete.addEventListener('gmp-placeselect', async (event) => {
-            const place = event.place;
-            if (place && place.id) {
-              try {
-                setIsLoading(true);
-                setError(null);
-
-                // Get detailed place information
-                const placeDetails = await getPlaceDetails(place.id);
-                
-                if (placeDetails) {
-                  const addressData = {
-                    formattedAddress: placeDetails.formatted_address || place.formattedAddress,
-                    placeId: placeDetails.place_id || place.id,
-                    components: {
-                      streetNumber: placeDetails.address_components?.find(c => c.types.includes('street_number'))?.long_name,
-                      route: placeDetails.address_components?.find(c => c.types.includes('route'))?.long_name,
-                      city: placeDetails.address_components?.find(c => c.types.includes('locality'))?.long_name,
-                      state: placeDetails.address_components?.find(c => c.types.includes('administrative_area_level_1'))?.short_name,
-                      zipCode: placeDetails.address_components?.find(c => c.types.includes('postal_code'))?.long_name,
-                      country: placeDetails.address_components?.find(c => c.types.includes('country'))?.long_name,
-                    },
-                    geometry: placeDetails.geometry?.location || place.geometry?.location,
-                  };
-
-                  setSelectedAddress(addressData);
-                  setIsProgrammaticUpdate(true);
-                  
-                  // Use setTimeout to ensure the flag is set before input change
-                  setTimeout(() => {
-                    setInput(addressData.formattedAddress);
-                  }, 0);
-                  
-                  // Only call onAddressSelect when a place is selected, not onChange
-                  if (onAddressSelect) {
-                    onAddressSelect(addressData);
-                  }
-                }
-              } catch (err) {
-                console.error('Error getting place details:', err);
-                setError('Failed to get address details');
-              } finally {
-                setIsLoading(false);
-              }
-            }
-          });
-        } else {
-          // Legacy Autocomplete API - uses place_changed event
-          autocomplete.addListener('place_changed', () => {
-            const place = autocomplete.getPlace();
-            if (place && place.place_id) {
-              // Handle place selection inline to avoid dependency warning
-              (async () => {
-                try {
-                  setIsLoading(true);
-                  setError(null);
-
-                  // Get detailed place information
-                  const placeDetails = await getPlaceDetails(place.place_id);
-                  
-                  if (placeDetails) {
-                    const addressData = {
-                      formattedAddress: placeDetails.formatted_address,
-                      placeId: placeDetails.place_id,
-                      components: {
-                        streetNumber: placeDetails.address_components?.find(c => c.types.includes('street_number'))?.long_name,
-                        route: placeDetails.address_components?.find(c => c.types.includes('route'))?.long_name,
-                        city: placeDetails.address_components?.find(c => c.types.includes('locality'))?.long_name,
-                        state: placeDetails.address_components?.find(c => c.types.includes('administrative_area_level_1'))?.short_name,
-                        zipCode: placeDetails.address_components?.find(c => c.types.includes('postal_code'))?.long_name,
-                        country: placeDetails.address_components?.find(c => c.types.includes('country'))?.long_name,
-                      },
-                      geometry: placeDetails.geometry?.location,
-                    };
-
-                    setSelectedAddress(addressData);
-                    setIsProgrammaticUpdate(true);
-                    
-                    // Use setTimeout to ensure the flag is set before input change
-                    setTimeout(() => {
-                      setInput(placeDetails.formatted_address);
-                    }, 0);
-                    
-                    // Only call onAddressSelect when a place is selected, not onChange
-                    if (onAddressSelect) {
-                      onAddressSelect(addressData);
-                    }
-                  }
-                } catch (err) {
-                  console.error('Error getting place details:', err);
-                  setError('Failed to get address details');
-                } finally {
-                  setIsLoading(false);
-                }
-              })();
-            }
-          });
-        }
-
-        autocompleteRef.current = autocomplete;
-      } catch (err) {
-        console.error('Failed to initialize autocomplete:', err);
-        setError('Failed to initialize address autocomplete');
+    try {
+      // Verify Places API is available
+      if (!window.google?.maps?.places?.Autocomplete) {
+        throw new Error('Google Places Autocomplete API not available. Please check your API key configuration.');
       }
+
+      // Initialize Autocomplete API with correct configuration
+      const autocomplete = new window.google.maps.places.Autocomplete(inputRef.current, {
+        types: ['geocode'],
+        componentRestrictions: { country: 'us' },
+        fields: ['place_id', 'formatted_address', 'address_components', 'geometry']
+      });
+
+      autocomplete.addListener('place_changed', () => {
+        const place = autocomplete.getPlace();
+        if (place?.place_id) {
+          // Handle place selection inline to avoid dependency warning
+          (async () => {
+            try {
+              setIsLoading(true);
+              setError(null);
+
+              // Get detailed place information
+              const placeDetails = await getPlaceDetails(place.place_id);
+              
+              if (placeDetails) {
+                const addressData = {
+                  formattedAddress: placeDetails.formatted_address,
+                  placeId: placeDetails.place_id,
+                  components: {
+                    streetNumber: placeDetails.address_components?.find(c => c.types.includes('street_number'))?.long_name,
+                    route: placeDetails.address_components?.find(c => c.types.includes('route'))?.long_name,
+                    city: placeDetails.address_components?.find(c => c.types.includes('locality'))?.long_name,
+                    state: placeDetails.address_components?.find(c => c.types.includes('administrative_area_level_1'))?.short_name,
+                    zipCode: placeDetails.address_components?.find(c => c.types.includes('postal_code'))?.long_name,
+                    country: placeDetails.address_components?.find(c => c.types.includes('country'))?.long_name,
+                  },
+                  geometry: placeDetails.geometry?.location,
+                };
+
+                setSelectedAddress(addressData);
+                setIsProgrammaticUpdate(true);
+                
+                // Use setTimeout to ensure the flag is set before input change
+                setTimeout(() => {
+                  setInput(placeDetails.formatted_address);
+                }, 0);
+                
+                // Only call onAddressSelect when a place is selected, not onChange
+                if (onAddressSelect) {
+                  onAddressSelect(addressData);
+                }
+              }
+            } catch (err) {
+              console.error('Error getting place details:', err);
+              setError('Failed to get address details');
+            } finally {
+              setIsLoading(false);
+            }
+          })();
+        }
+      });
+
+      autocompleteRef.current = autocomplete;
+    } catch (err) {
+      console.error('Failed to initialize autocomplete:', err);
+      setError(err.message || 'Failed to initialize address autocomplete. Please check your Google Maps API key configuration.');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [googleMapsReady, onAddressSelect]);
 
   // Update input when value prop changes
@@ -193,14 +130,6 @@ const AddressAutocompleteLeads = ({
   const handleInputChange = (e) => {
     const newValue = e.target.value;
     setInput(newValue);
-    
-    // Prevent browser autocomplete from interfering
-    if (inputRef.current) {
-      inputRef.current.setAttribute('autocomplete', 'one-time-code');
-      inputRef.current.setAttribute('name', 'loc_input_9f3k');
-      inputRef.current.setAttribute('id', 'loc_input_9f3k');
-      inputRef.current.removeAttribute('list');
-    }
     
     // Only call onChange if this is manual typing, not programmatic setting
     if (!isProgrammaticUpdate) {
@@ -225,92 +154,51 @@ const AddressAutocompleteLeads = ({
     return <MapPin className="w-4 h-4 text-gray-400" />;
   };
 
-  // Add styles for Google Places Autocomplete dropdown and hide browser autocomplete
+  // Add styles for Google Places Autocomplete dropdown
   useEffect(() => {
-    if (googleMapsReady && inputRef.current) {
-      // Aggressively disable browser autocomplete
-      if (inputRef.current) {
-        inputRef.current.setAttribute('autocomplete', 'one-time-code');
-        inputRef.current.setAttribute('autocorrect', 'off');
-        inputRef.current.setAttribute('autocapitalize', 'off');
-        inputRef.current.setAttribute('spellcheck', 'false');
-        inputRef.current.setAttribute('name', 'loc_input_9f3k');
-        inputRef.current.setAttribute('id', 'loc_input_9f3k');
-        inputRef.current.removeAttribute('list');
-      }
+    if (!googleMapsReady) return;
 
-      // Ensure Google Places Autocomplete dropdown is visible and hide browser autocomplete
-      const style = document.createElement('style');
-      style.id = 'address-autocomplete-leads-styles';
-      style.textContent = `
-        /* Hide browser autocomplete dropdown completely */
-        input[autocomplete="one-time-code"]::-webkit-contacts-auto-fill-button,
-        input[autocomplete="one-time-code"]::-webkit-credentials-auto-fill-button {
-          display: none !important;
-          visibility: hidden !important;
-          opacity: 0 !important;
-          pointer-events: none !important;
-        }
-        
-        /* Hide any datalist suggestions */
-        input[list]::-webkit-calendar-picker-indicator {
-          display: none !important;
-        }
-        
-        /* Hide browser's autocomplete dropdown */
-        input:-webkit-autofill {
-          -webkit-box-shadow: 0 0 0 1000px white inset !important;
-        }
-        
-        .pac-container {
-          z-index: 9999 !important;
-          border-radius: 8px !important;
-          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
-          border: 1px solid #e5e7eb !important;
-          margin-top: 4px !important;
-        }
-        .pac-item {
-          padding: 12px !important;
-          cursor: pointer !important;
-          border-bottom: 1px solid #f3f4f6 !important;
-        }
-        .pac-item:hover {
-          background-color: #f9fafb !important;
-        }
-        .pac-item-selected {
-          background-color: #eff6ff !important;
-        }
-        .pac-icon {
-          margin-right: 8px !important;
-        }
-      `;
-      
-      // Only add style if it doesn't exist
-      if (!document.getElementById('address-autocomplete-leads-styles')) {
-        document.head.appendChild(style);
+    const style = document.createElement('style');
+    style.id = 'address-autocomplete-leads-styles';
+    style.textContent = `
+      .pac-container {
+        z-index: 9999 !important;
+        border-radius: 8px !important;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+        border: 1px solid #e5e7eb !important;
+        margin-top: 4px !important;
       }
-      
-      return () => {
-        const existingStyle = document.getElementById('address-autocomplete-leads-styles');
-        if (existingStyle && document.head.contains(existingStyle)) {
-          document.head.removeChild(existingStyle);
-        }
-      };
+      .pac-item {
+        padding: 12px !important;
+        cursor: pointer !important;
+        border-bottom: 1px solid #f3f4f6 !important;
+      }
+      .pac-item:hover {
+        background-color: #f9fafb !important;
+      }
+      .pac-item-selected {
+        background-color: #eff6ff !important;
+      }
+      .pac-icon {
+        margin-right: 8px !important;
+      }
+    `;
+    
+    // Only add style if it doesn't exist
+    if (!document.getElementById('address-autocomplete-leads-styles')) {
+      document.head.appendChild(style);
     }
+    
+    return () => {
+      const existingStyle = document.getElementById('address-autocomplete-leads-styles');
+      if (existingStyle && document.head.contains(existingStyle)) {
+        document.head.removeChild(existingStyle);
+      }
+    };
   }, [googleMapsReady]);
 
   return (
     <div className={`relative ${className}`}>
-      {/* Hidden dummy input to trick browser autofill - browser fills this instead */}
-      <input
-        type="text"
-        name="address"
-        autoComplete="address-line1"
-        style={{ position: 'absolute', opacity: 0, height: 0, width: 0, pointerEvents: 'none' }}
-        tabIndex={-1}
-        readOnly
-        aria-hidden="true"
-      />
       {mounted && (
         <div className="relative">
           <input
@@ -320,13 +208,9 @@ const AddressAutocompleteLeads = ({
             onChange={handleInputChange}
             placeholder={placeholder}
             className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            disabled={!googleMapsReady}
-            autoComplete="one-time-code"
-            autoCorrect="off"
-            autoCapitalize="off"
-            spellCheck="false"
-            name="loc_input_9f3k"
-            id="loc_input_9f3k"
+            readOnly={!googleMapsReady}
+            autoComplete="off"
+            spellCheck={false}
           />
           <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
             {getStatusIcon()}
