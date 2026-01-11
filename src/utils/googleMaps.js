@@ -29,9 +29,9 @@ export const loadGoogleMapsScript = (apiKey) => {
       existingScript.remove();
     }
 
-    // Create script element - using loading=importmap for PlaceAutocompleteElement support
+    // Create script element - remove loading=async as it may cause issues with legacy API
     const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&loading=async`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
     script.async = true;
     script.defer = true;
     
@@ -75,72 +75,24 @@ export const loadGoogleMapsScript = (apiKey) => {
   });
 };
 
-// Initialize Google Places Autocomplete using PlaceAutocompleteElement (new API)
+// Initialize Google Places Autocomplete
+// Using legacy Autocomplete API by default to avoid referer restriction issues with new API
+// The new PlaceAutocompleteElement requires Places API (New) and proper referer configuration
 export const initializePlacesAutocomplete = (inputElement, options = {}) => {
   if (!window.google || !window.google.maps || !window.google.maps.places) {
     throw new Error('Google Maps Places API not loaded');
   }
 
-  // Check if PlaceAutocompleteElement is available (new API)
-  if (window.google.maps.places.PlaceAutocompleteElement) {
-    // Create a wrapper div to replace the input
-    const wrapper = document.createElement('div');
-    wrapper.style.position = 'relative';
-    wrapper.style.width = '100%';
-    
-    // Get computed styles from original input
-    const computedStyle = window.getComputedStyle(inputElement);
-    const inputRect = inputElement.getBoundingClientRect();
-    
-    // Replace the input with wrapper
-    inputElement.parentNode.replaceChild(wrapper, inputElement);
-    
-    // Create the PlaceAutocompleteElement
-    const autocompleteElement = new window.google.maps.places.PlaceAutocompleteElement({
-      componentRestrictions: options.componentRestrictions || { country: 'us' }
-    });
-    
-    // Style the element to match the original input
-    autocompleteElement.style.width = '100%';
-    autocompleteElement.style.height = `${inputRect.height}px`;
-    autocompleteElement.style.padding = computedStyle.padding;
-    autocompleteElement.style.border = computedStyle.border;
-    autocompleteElement.style.borderRadius = computedStyle.borderRadius;
-    autocompleteElement.style.fontSize = computedStyle.fontSize;
-    autocompleteElement.style.fontFamily = computedStyle.fontFamily;
-    autocompleteElement.style.backgroundColor = computedStyle.backgroundColor;
-    autocompleteElement.style.color = computedStyle.color;
-    
-    // Copy placeholder
-    if (inputElement.placeholder) {
-      autocompleteElement.setAttribute('placeholder', inputElement.placeholder);
-    }
-    
-    // Copy value
-    if (inputElement.value) {
-      autocompleteElement.value = inputElement.value;
-    }
-    
-    // Append to wrapper
-    wrapper.appendChild(autocompleteElement);
-    
-    // Store references
-    autocompleteElement._wrapper = wrapper;
-    autocompleteElement._originalInput = inputElement;
-    autocompleteElement._isPlaceAutocompleteElement = true;
-    
-    return autocompleteElement;
-  } else {
-    // Fallback to legacy Autocomplete if PlaceAutocompleteElement is not available
-    console.warn('PlaceAutocompleteElement not available, using legacy Autocomplete');
-    const autocomplete = new window.google.maps.places.Autocomplete(inputElement, {
-      types: ['address'],
-      componentRestrictions: { country: 'us' },
-      ...options
-    });
-    autocomplete._isPlaceAutocompleteElement = false;
-    return autocomplete;
-  }
+  // Use legacy Autocomplete API (works with existing API keys and referer restrictions)
+  // The new PlaceAutocompleteElement API has stricter referer requirements and requires
+  // Places API (New) to be enabled, which may not be configured for all API keys
+  const autocomplete = new window.google.maps.places.Autocomplete(inputElement, {
+    types: options.types || ['geocode'],
+    componentRestrictions: options.componentRestrictions || { country: 'us' },
+    ...options
+  });
+  autocomplete._isPlaceAutocompleteElement = false;
+  return autocomplete;
 };
 
 // Get place details

@@ -44,83 +44,34 @@ const AddressAutocomplete = ({
 
   // Initialize autocomplete when Google Maps is ready
   useEffect(() => {
-    if (googleMapsReady && inputRef.current && !autocompleteRef.current) {
-      try {
-        const autocomplete = initializePlacesAutocomplete(inputRef.current, {
-          componentRestrictions: { country: 'us' }
-        });
-        
-        // Update ref if element was replaced (PlaceAutocompleteElement)
-        if (autocomplete._isPlaceAutocompleteElement && autocomplete._wrapper) {
-          // The input was replaced, so we need to update our reference
-          // The autocomplete element itself is now the input
-        }
+    if (!googleMapsReady || !inputRef.current || autocompleteRef.current) return;
 
-        // Handle place selection - different for PlaceAutocompleteElement vs legacy Autocomplete
-        if (autocomplete.addEventListener) {
-          // New PlaceAutocompleteElement API - uses gmp-placeselect event
-          autocomplete.addEventListener('gmp-placeselect', async (event) => {
-            const place = event.place;
-            if (place && place.id) {
-              try {
-                setIsLoading(true);
-                setError(null);
-
-                // Get detailed place information
-                const placeDetails = await getPlaceDetails(place.id);
-                
-                if (placeDetails) {
-                  const addressData = {
-                    formattedAddress: placeDetails.formatted_address || place.formattedAddress,
-                    placeId: placeDetails.place_id || place.id,
-                    components: {
-                      streetNumber: placeDetails.address_components?.find(c => c.types.includes('street_number'))?.long_name,
-                      route: placeDetails.address_components?.find(c => c.types.includes('route'))?.long_name,
-                      city: placeDetails.address_components?.find(c => c.types.includes('locality'))?.long_name,
-                      state: placeDetails.address_components?.find(c => c.types.includes('administrative_area_level_1'))?.short_name,
-                      zipCode: placeDetails.address_components?.find(c => c.types.includes('postal_code'))?.long_name,
-                      country: placeDetails.address_components?.find(c => c.types.includes('country'))?.long_name,
-                    },
-                    geometry: placeDetails.geometry?.location || place.geometry?.location,
-                  };
-
-                  setSelectedAddress(addressData);
-                  setIsProgrammaticUpdate(true);
-                  
-                  // Use setTimeout to ensure the flag is set before input change
-                  setTimeout(() => {
-                    setInput(addressData.formattedAddress);
-                  }, 0);
-                  
-                  // Only call onAddressSelect when a place is selected, not onChange
-                  if (onAddressSelect) {
-                    onAddressSelect(addressData);
-                  }
-                }
-              } catch (err) {
-                console.error('Error getting place details:', err);
-                setError('Failed to get address details');
-              } finally {
-                setIsLoading(false);
-              }
-            }
-          });
-        } else {
-          // Legacy Autocomplete API - uses place_changed event
-          autocomplete.addListener('place_changed', () => {
-            const place = autocomplete.getPlace();
-            if (place && place.place_id) {
-              handlePlaceSelection(place);
-            }
-          });
-        }
-
-        autocompleteRef.current = autocomplete;
-      } catch (err) {
-        console.error('Failed to initialize autocomplete:', err);
-        setError('Failed to initialize address autocomplete');
+    try {
+      // Verify Places API is available
+      if (!window.google?.maps?.places?.Autocomplete) {
+        throw new Error('Google Places Autocomplete API not available. Please check your API key configuration.');
       }
+
+      // Initialize Autocomplete API with correct configuration
+      const autocomplete = new window.google.maps.places.Autocomplete(inputRef.current, {
+        types: ['geocode'],
+        componentRestrictions: { country: 'us' }
+      });
+
+      // Legacy Autocomplete API uses 'place_changed' event
+      autocomplete.addListener('place_changed', () => {
+        const place = autocomplete.getPlace();
+        if (place && place.place_id) {
+          handlePlaceSelection(place);
+        }
+      });
+
+      autocompleteRef.current = autocomplete;
+    } catch (err) {
+      console.error('Failed to initialize autocomplete:', err);
+      setError(err.message || 'Failed to initialize address autocomplete. Please check your Google Maps API key configuration.');
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [googleMapsReady]);
 
   // Update input when value prop changes
@@ -295,7 +246,9 @@ const AddressAutocomplete = ({
           onChange={handleInputChange}
           placeholder={placeholder}
           className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          disabled={!googleMapsReady}
+          readOnly={!googleMapsReady}
+          autoComplete="off"
+          spellCheck={false}
         />
         <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
           {getStatusIcon()}
