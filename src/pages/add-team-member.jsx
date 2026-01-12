@@ -44,11 +44,6 @@ const AddTeamMember = () => {
     color: '#2563EB'
   })
 
-  // Google Places Autocomplete
-  const [addressSuggestions, setAddressSuggestions] = useState([])
-  const [showAddressSuggestions, setShowAddressSuggestions] = useState(false)
-  const [addressLoading, setAddressLoading] = useState(false)
-  const addressRef = useRef(null)
 
 
   // Territories management
@@ -118,88 +113,6 @@ const AddTeamMember = () => {
     }
   }
 
-  // Google Places Autocomplete
-  const handleLocationChange = async (e) => {
-    const value = e.target.value
-    setFormData(prev => ({ ...prev, location: value }))
-    
-    if (value.length < 3) {
-      setAddressSuggestions([])
-      setShowAddressSuggestions(false)
-      return
-    }
-
-    try {
-      setAddressLoading(true)
-      const response = await fetch(`https://service-flow-backend-production-4568.up.railway.app/api/places/autocomplete?input=${encodeURIComponent(value)}`)
-      const data = await response.json()
-      
-      if (data.predictions) {
-        setAddressSuggestions(data.predictions)
-        setShowAddressSuggestions(true)
-      }
-    } catch (error) {
-      console.error('Error fetching address suggestions:', error)
-    } finally {
-      setAddressLoading(false)
-    }
-  }
-
-  const handleAddressSelect = async (suggestion) => {
-    try {
-      const response = await fetch(`https://service-flow-backend-production-4568.up.railway.app/api/places/details?place_id=${suggestion.place_id}`)
-      const data = await response.json()
-      
-      if (data.result) {
-        const place = data.result
-        let city = ''
-        let state = ''
-        let zipCode = ''
-        
-        // Extract address components
-        if (place.address_components) {
-          place.address_components.forEach(component => {
-            if (component.types.includes('locality')) {
-              city = component.long_name
-            }
-            if (component.types.includes('administrative_area_level_1')) {
-              state = component.short_name
-            }
-            if (component.types.includes('postal_code')) {
-              zipCode = component.long_name
-            }
-          })
-        }
-        
-        setFormData(prev => ({
-          ...prev,
-          location: suggestion.description,
-          city: city,
-          state: state,
-          zip_code: zipCode
-        }))
-      }
-    } catch (error) {
-      console.error('Error fetching place details:', error)
-    } finally {
-      setShowAddressSuggestions(false)
-      setAddressSuggestions([])
-    }
-  }
-
-  // Click outside to close address suggestions
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (addressRef.current && !addressRef.current.contains(event.target)) {
-        setShowAddressSuggestions(false)
-      }
-    }
-
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [])
 
 
   // Territories management

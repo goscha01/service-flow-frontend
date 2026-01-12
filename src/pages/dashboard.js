@@ -142,7 +142,7 @@ const ServiceFlowDashboard = () => {
   const generateMapUrl = (jobs, mapType = 'roadmap') => {
     if (!jobs || jobs.length === 0) {
       // Default to New York if no jobs
-      return `https://www.google.com/maps/embed/v1/view?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&center=40.7128,-74.0060&zoom=11&maptype=${mapType}`
+      return `https://www.google.com/maps/embed/v1/view?key=AIzaSyC_CrJWTsTHOTBd7TSzTuXOfutywZ2AyOQ&center=40.7128,-74.0060&zoom=11&maptype=${mapType}`
     }
 
     // Filter jobs that have valid addresses
@@ -150,20 +150,20 @@ const ServiceFlowDashboard = () => {
     
     if (jobsWithAddresses.length === 0) {
       // No valid addresses, use default
-      return `https://www.google.com/maps/embed/v1/view?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&center=40.7128,-74.0060&zoom=11&maptype=${mapType}`
+      return `https://www.google.com/maps/embed/v1/view?key=AIzaSyC_CrJWTsTHOTBd7TSzTuXOfutywZ2AyOQ&center=40.7128,-74.0060&zoom=11&maptype=${mapType}`
     }
 
     if (jobsWithAddresses.length === 1) {
       // Single job - use place mode for better centering
       const address = encodeURIComponent(jobsWithAddresses[0].customer_address)
-      return `https://www.google.com/maps/embed/v1/place?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&q=${address}&zoom=14&maptype=${mapType}`
+      return `https://www.google.com/maps/embed/v1/place?key=AIzaSyC_CrJWTsTHOTBd7TSzTuXOfutywZ2AyOQ&q=${address}&zoom=14&maptype=${mapType}`
     }
 
     // Multiple jobs - use search mode to show all locations
     const addresses = jobsWithAddresses.map(job => job.customer_address).join('|')
     const encodedAddresses = encodeURIComponent(addresses)
     
-    return `https://www.google.com/maps/embed/v1/search?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&q=${encodedAddresses}&zoom=10&maptype=${mapType}`
+    return `https://www.google.com/maps/embed/v1/search?key=AIzaSyC_CrJWTsTHOTBd7TSzTuXOfutywZ2AyOQ&q=${encodedAddresses}&zoom=10&maptype=${mapType}`
   }
 
   // Setup section visibility state - ALWAYS starts hidden and stays hidden until proven needed

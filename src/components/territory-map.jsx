@@ -26,7 +26,7 @@ const TerritoryMap = ({
     
     // Create a custom map URL that shows the territory with boundary visualization
     // Using Google Maps embed with custom styling to show territory boundaries
-    const mapUrl = `https://www.google.com/maps/embed/v1/place?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&q=${encodedLocation}&zoom=${zoom}&maptype=roadmap`
+    const mapUrl = `https://www.google.com/maps/embed/v1/place?key=AIzaSyC_CrJWTsTHOTBd7TSzTuXOfutywZ2AyOQ&q=${encodedLocation}&zoom=${zoom}&maptype=roadmap`
     
     return mapUrl
   }
@@ -42,7 +42,7 @@ const TerritoryMap = ({
     
     // Create a custom map with territory boundary using Google Maps JavaScript API
     // This would require loading the Google Maps JavaScript API
-    return `https://www.google.com/maps/embed/v1/place?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&q=${encodedLocation}&zoom=12&maptype=roadmap`
+    return `https://www.google.com/maps/embed/v1/place?key=AIzaSyC_CrJWTsTHOTBd7TSzTuXOfutywZ2AyOQ&q=${encodedLocation}&zoom=12&maptype=roadmap`
   }
 
   const handleMapLoad = () => {

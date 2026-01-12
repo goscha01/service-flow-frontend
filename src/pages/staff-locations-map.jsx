@@ -99,7 +99,7 @@ const StaffLocationsMap = () => {
   const generateMapUrl = () => {
     if (locations.length === 0) {
       // Default to US center if no locations
-      return `https://www.google.com/maps/embed/v1/view?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&center=39.8283,-98.5795&zoom=4&maptype=roadmap`
+      return `https://www.google.com/maps/embed/v1/view?key=AIzaSyC_CrJWTsTHOTBd7TSzTuXOfutywZ2AyOQ&center=39.8283,-98.5795&zoom=4&maptype=roadmap`
     }
 
     // Calculate center point from all locations
@@ -110,7 +110,7 @@ const StaffLocationsMap = () => {
     // Note: Google Maps Embed API doesn't support custom markers directly
     // We'll use the center point and show locations in the sidebar
     const zoom = locations.length === 1 ? 15 : 12
-    return `https://www.google.com/maps/embed/v1/view?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&center=${avgLat},${avgLng}&zoom=${zoom}&maptype=roadmap`
+    return `https://www.google.com/maps/embed/v1/view?key=AIzaSyC_CrJWTsTHOTBd7TSzTuXOfutywZ2AyOQ&center=${avgLat},${avgLng}&zoom=${zoom}&maptype=roadmap`
   }
 
   const formatTime = (dateString) => {

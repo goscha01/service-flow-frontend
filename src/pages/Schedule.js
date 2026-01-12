@@ -693,7 +693,7 @@ const ServiceFlowSchedule = () => {
       if (jobsWithLocation.length === 1) {
         // Single job - use place mode
         const address = jobsWithLocation[0].customer_address || `${jobsWithLocation[0].service_address_street}, ${jobsWithLocation[0].service_address_city}`
-        return `https://www.google.com/maps/embed/v1/place?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&q=${encodeURIComponent(address)}&zoom=14`
+        return `https://www.google.com/maps/embed/v1/place?key=AIzaSyC_CrJWTsTHOTBd7TSzTuXOfutywZ2AyOQ&q=${encodeURIComponent(address)}&zoom=14`
       } else {
         // Multiple jobs - use a custom approach with search mode
         const addresses = jobsWithLocation.map(job => 
@@ -701,7 +701,7 @@ const ServiceFlowSchedule = () => {
         ).join('|')
         
         // Use search mode to show multiple locations
-        return `https://www.google.com/maps/embed/v1/search?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&q=${encodeURIComponent(addresses)}&zoom=10`
+        return `https://www.google.com/maps/embed/v1/search?key=AIzaSyC_CrJWTsTHOTBd7TSzTuXOfutywZ2AyOQ&q=${encodeURIComponent(addresses)}&zoom=10`
       }
     }
 

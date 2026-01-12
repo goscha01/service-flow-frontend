@@ -7,9 +7,6 @@ import AddressValidation from "./address-validation"
 import AddressAutocomplete from "./address-autocomplete"
 import Notification from "./notification"
 
-// API base URL for Google Places API proxy
-const API_BASE_URL = 'https://service-flow-backend-production.up.railway.app/api'
-
 const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null, isEditing = false }) => {
   const [formData, setFormData] = useState({
     firstName: "",
@@ -53,8 +50,6 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
   const [error, setError] = useState("")
   const [showErrorNotification, setShowErrorNotification] = useState(false)
   const [errorMessage, setErrorMessage] = useState("")
-  const [addressSuggestions, setAddressSuggestions] = useState([])
-  const [showAddressSuggestions, setShowAddressSuggestions] = useState(false)
   const [territories, setTerritories] = useState([])
   const [loadingTerritories, setLoadingTerritories] = useState(false)
   const [fullNameInput, setFullNameInput] = useState("") // Local state for full name input to preserve spaces
@@ -250,74 +245,6 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
     handleInputChange('phone', formatted)
   }
 
-  const handleLocationChange = async (e) => {
-    const value = e.target.value
-    setFormData({ ...formData, location: value })
-    
-    if (value.length > 3) {
-      try {
-        const response = await fetch(
-          `${API_BASE_URL}/places/autocomplete?input=${encodeURIComponent(value)}`
-        )
-        const data = await response.json()
-        
-        if (data.predictions) {
-          setAddressSuggestions(data.predictions)
-          setShowAddressSuggestions(true)
-        }
-      } catch (error) {
-        console.error('Error fetching address suggestions:', error)
-      }
-    } else {
-      setAddressSuggestions([])
-      setShowAddressSuggestions(false)
-    }
-  }
-
-  const handleLocationSelect = async (suggestion) => {
-    try {
-      // Get detailed place information
-      const response = await fetch(
-        `${API_BASE_URL}/places/details?place_id=${suggestion.place_id}`
-      )
-      const data = await response.json()
-      
-      if (data.result) {
-        const place = data.result
-        let city = ""
-        let state = ""
-        let zipCode = ""
-        
-        // Extract address components
-        place.address_components.forEach(component => {
-          if (component.types.includes('locality')) {
-            city = component.long_name
-          } else if (component.types.includes('administrative_area_level_1')) {
-            state = component.short_name
-          } else if (component.types.includes('postal_code')) {
-            zipCode = component.long_name
-          }
-        })
-        
-        setFormData({
-          ...formData,
-          location: suggestion.description,
-          city: city,
-          state: state,
-          zipCode: zipCode
-        })
-      } else {
-        // Fallback if detailed info not available
-        setFormData({ ...formData, location: suggestion.description })
-      }
-    } catch (error) {
-      console.error('Error fetching place details:', error)
-      // Fallback to just the description
-      setFormData({ ...formData, location: suggestion.description })
-    }
-    
-    setShowAddressSuggestions(false)
-  }
 
   const handleInputChange = (field, value) => {
     setFormData(prev => {

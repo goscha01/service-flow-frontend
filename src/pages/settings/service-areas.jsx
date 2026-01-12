@@ -36,7 +36,7 @@ const ServiceAreas = () => {
     const radius = territory.radius_miles || 25
     
     // Create a Google Maps embed URL with the territory location
-    return `https://www.google.com/maps/embed/v1/place?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&q=${encodedLocation}&zoom=10`
+    return `https://www.google.com/maps/embed/v1/place?key=AIzaSyC_CrJWTsTHOTBd7TSzTuXOfutywZ2AyOQ&q=${encodedLocation}&zoom=10`
   }
 
   useEffect(() => {
