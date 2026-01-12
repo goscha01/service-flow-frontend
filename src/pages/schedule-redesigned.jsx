@@ -68,6 +68,7 @@ import {
 } from "../utils/permissionUtils"
 import { formatPhoneNumber } from "../utils/phoneFormatter"
 import AddressAutocomplete from "../components/address-autocomplete"
+import JobsMap from "../components/jobs-map"
 
 const ServiceFlowSchedule = () => {
   const { user } = useAuth()
@@ -4958,140 +4959,16 @@ const ServiceFlowSchedule = () => {
             {/* Map Container - Hidden on mobile */}
             <div className="hidden lg:block h-[calc(100vh-100px)] relative">
               {filteredJobs.length > 0 ? (
-                <div className="h-full">
-                  {(() => {
-                    const firstJob = filteredJobs[0]
-                    // Parse scheduled_date correctly
-                    let jobDate;
-                    if (typeof firstJob.scheduled_date === 'string' && firstJob.scheduled_date.includes(' ')) {
-                      const [datePart, timePart] = firstJob.scheduled_date.split(' ');
-                      const [hours, minutes] = timePart.split(':').map(Number);
-                      jobDate = new Date(datePart);
-                      jobDate.setHours(hours || 0, minutes || 0, 0, 0);
-                    } else {
-                      jobDate = new Date(firstJob.scheduled_date);
-                    }
-                    
-                    const timeString = jobDate.toLocaleTimeString('en-US', { 
-                      hour: 'numeric', 
-                      minute: '2-digit',
-                      hour12: true 
-                    })
-                    
-                    // Duration is in minutes, ensure it's a number - check all possible duration fields
-                    const duration = getJobDuration(firstJob);
-                    const endTime = new Date(jobDate.getTime() + duration * 60000);
-                    const endTimeString = endTime.toLocaleTimeString('en-US', { 
-                      hour: 'numeric', 
-                      minute: '2-digit',
-                      hour12: true 
-                    });
-                    const durationFormatted = formatDuration(duration);
-                    
-                    const serviceName = firstJob.service_name || firstJob.service_type || 'Service'
-                    const customerName = getCustomerName(firstJob) || 'Customer'
-                    const address = firstJob.customer_address || firstJob.address || 'Address not provided'
-                    
-                    // Use address for map if no coordinates
-                    const mapQuery = firstJob.latitude && firstJob.longitude 
-                      ? `${firstJob.latitude},${firstJob.longitude}`
-                      : encodeURIComponent(address)
-                    
-                    return (
-                      <>
-                      <div className="flex absolute z-50 top-4 right-4 items-center space-x-1 bg-gray-100 rounded-lg p-1">
-                  <button
-                    onClick={() => setMapView('roadmap')}
-                    className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-                      mapView === 'roadmap' 
-                        ? 'bg-white text-gray-900 shadow-sm' 
-                        : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    Map
-                  </button>
-                  <button
-                    onClick={() => setMapView('satellite')}
-                    className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-                      mapView === 'satellite' 
-                        ? 'bg-white text-gray-900 shadow-sm' 
-                        : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    Satellite
-                  </button>
-                </div>
-                        <iframe
-                          src={`https://www.google.com/maps/embed/v1/place?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&q=${mapQuery}&zoom=12&maptype=${mapView === 'satellite' ? 'satellite' : 'roadmap'}`}
-                          width="100%"
-                          height="100%"
-                          style={{ border: 0 }}
-                          allowFullScreen=""
-                          loading="lazy"
-                          referrerPolicy="no-referrer-when-downgrade"
-                          title="Job Location Map"
-                        />
-                        
-                        {/* Map Marker Popup */}
-                        <div className="absolute top-4 left-4 bg-white rounded-lg shadow-lg p-3 max-w-xs">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-[11px] font-medium text-gray-900">
-                              {timeString} - {endTimeString}{durationFormatted && ` ${durationFormatted}`}
-                            </span>
-                            <button 
-                              onClick={() => setShowJobDetails(!showJobDetails)}
-                              className="text-gray-400 hover:text-gray-600"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
-                          </div>
-                          {showJobDetails && (
-                            <div className="text-xs text-gray-600">
-                              <div className="font-medium">{serviceName}</div>
-                              <div>{customerName}</div>
-                              <div>{address}</div>
-                            </div>
-                          )}
-                        </div>
-                      </>
-                    )
-                  })()}
-                </div>
+                <JobsMap 
+                  jobs={filteredJobs} 
+                  mapType={mapView === 'roadmap' ? 'roadmap' : 'satellite'} 
+                />
               ) : (
-                <div className="h-full">
-                    <div className="flex absolute z-50 top-4 right-4 items-center space-x-1 bg-gray-100 rounded-lg p-1">
-                  <button
-                    onClick={() => setMapView('roadmap')}
-                    className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-                      mapView === 'roadmap' 
-                        ? 'bg-white text-gray-900 shadow-sm' 
-                        : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    Map
-                  </button>
-                  <button
-                    onClick={() => setMapView('satellite')}
-                    className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-                      mapView === 'satellite' 
-                        ? 'bg-white text-gray-900 shadow-sm' 
-                        : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    Satellite
-                  </button>
-                </div>
-                  {/* Display US map when no jobs */}
-                  <iframe
-                    src={`https://www.google.com/maps/embed/v1/view?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&center=39.8283,-98.5795&zoom=4&maptype=${mapView === 'satellite' ? 'satellite' : 'roadmap'}`}
-                    width="100%"
-                    height="100%"
-                    style={{ border: 0 }}
-                    allowFullScreen=""
-                    loading="lazy"
-                    referrerPolicy="no-referrer-when-downgrade"
-                    title="US Map"
-                  />
+                <div className="h-full flex items-center justify-center bg-gray-50">
+                  <div className="text-center">
+                    <MapPin className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+                    <p className="text-gray-500 text-sm">No jobs to display on map</p>
+                  </div>
                 </div>
               )}
 
@@ -5408,7 +5285,7 @@ const ServiceFlowSchedule = () => {
                       loading="lazy"
                       allowFullScreen
                       referrerPolicy="no-referrer-when-downgrade"
-                      src={`https://www.google.com/maps/embed/v1/place?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&q=${encodeURIComponent(
+                      src={`https://www.google.com/maps/embed/v1/place?key=AIzaSyC_CrJWTsTHOTBd7TSzTuXOfutywZ2AyOQ&q=${encodeURIComponent(
                         `${selectedJobDetails.service_address_street || selectedJobDetails.customer_address}, ${selectedJobDetails.service_address_city || selectedJobDetails.city || ''}`
                       )}&zoom=16&maptype=roadmap`}
                     />

@@ -293,7 +293,12 @@ const ImportJobsPage = () => {
         
         // Map ZenBooker-specific fields
         // IMPORTANT: Use service_order_custom_service_order for duplicate detection (primary identifier)
+        // Also store _id separately as it's the original unique identifier
         job.jobId = rawData['service_order_custom_service_order'] || rawData['job_random_id_text'] || rawData['_id'] || '';
+        // Store _id separately if it exists (it's the original unique identifier)
+        if (rawData['_id']) {
+          job._id = rawData['_id'];
+        }
         job.customerName = rawData['customer_name_text'] || '';
         job.customerEmail = rawData['customer_email_text'] || '';
         job.customerPhone = rawData['customer_phone_text'] || '';
@@ -800,9 +805,10 @@ const ImportJobsPage = () => {
     // Aggregate results
     const aggregateResults = {
       imported: 0,
+      updated: 0,
       skipped: 0,
       errors: [],
-      warnings: [] // Track duplicate warnings separately
+      warnings: [] // Track update warnings separately
     };
     
     try {
@@ -832,6 +838,7 @@ const ImportJobsPage = () => {
           // Aggregate results
           if (result) {
             aggregateResults.imported += result.imported || 0;
+            aggregateResults.updated += result.updated || 0;
             aggregateResults.skipped += result.skipped || 0;
             if (result.errors && Array.isArray(result.errors)) {
               // Adjust error row numbers to reflect actual row numbers
@@ -884,6 +891,7 @@ const ImportJobsPage = () => {
             const responseData = error.response.data;
             if (responseData.imported !== undefined || responseData.errors) {
               aggregateResults.imported += responseData.imported || 0;
+              aggregateResults.updated += responseData.updated || 0;
               aggregateResults.skipped += responseData.skipped || 0;
               if (responseData.errors && Array.isArray(responseData.errors)) {
                 const adjustedErrors = responseData.errors.map(error => 
@@ -966,7 +974,7 @@ const ImportJobsPage = () => {
   };
 
   if (importResult) {
-    const hasImports = importResult.imported > 0;
+    const hasImports = (importResult.imported > 0) || (importResult.updated > 0);
     const hasErrors = importResult.errors && importResult.errors.length > 0;
     const hasWarnings = importResult.warnings && importResult.warnings.length > 0;
     
@@ -984,7 +992,7 @@ const ImportJobsPage = () => {
             </h1>
             <p className="text-lg text-gray-600 mb-8">
               {hasImports 
-                ? `Successfully imported ${importResult.imported} job${importResult.imported !== 1 ? 's' : ''}.`
+                ? `Successfully processed ${(importResult.imported || 0) + (importResult.updated || 0)} job${((importResult.imported || 0) + (importResult.updated || 0)) !== 1 ? 's' : ''} (${importResult.imported || 0} new, ${importResult.updated || 0} updated).`
                 : 'No jobs were imported. Please check the errors below and try again.'
               }
             </p>
@@ -993,19 +1001,19 @@ const ImportJobsPage = () => {
               <h3 className="text-lg font-semibold text-green-800 mb-4">Import Summary</h3>
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 text-sm mb-6">
                 <div className="bg-white rounded-lg p-4">
-                  <div className="text-2xl font-bold text-green-600">{importResult.imported}</div>
-                  <div className="text-green-700">Imported</div>
+                  <div className="text-2xl font-bold text-green-600">{importResult.imported || 0}</div>
+                  <div className="text-green-700">New Jobs</div>
                 </div>
+                {(importResult.updated > 0) && (
+                  <div className="bg-white rounded-lg p-4">
+                    <div className="text-2xl font-bold text-blue-600">{importResult.updated}</div>
+                    <div className="text-blue-700">Updated</div>
+                  </div>
+                )}
                 {importResult.skipped > 0 && (
                   <div className="bg-white rounded-lg p-4">
                     <div className="text-2xl font-bold text-yellow-600">{importResult.skipped}</div>
                     <div className="text-yellow-700">Skipped</div>
-                  </div>
-                )}
-                {hasWarnings && (
-                  <div className="bg-white rounded-lg p-4">
-                    <div className="text-2xl font-bold text-orange-600">{importResult.warnings.length}</div>
-                    <div className="text-orange-700">Duplicates</div>
                   </div>
                 )}
                 {hasErrors && (
@@ -1016,25 +1024,25 @@ const ImportJobsPage = () => {
                 )}
               </div>
               
-              {/* Duplicate Warnings Display */}
+              {/* Updated Jobs Display */}
               {hasWarnings && (
-                <div className="mt-6 bg-orange-50 border border-orange-200 rounded-xl p-6">
-                  <h4 className="text-lg font-semibold text-orange-800 mb-4 flex items-center">
-                    <AlertCircle className="w-5 h-5 mr-2" />
-                    Duplicate Jobs Skipped ({importResult.warnings.length})
+                <div className="mt-6 bg-blue-50 border border-blue-200 rounded-xl p-6">
+                  <h4 className="text-lg font-semibold text-blue-800 mb-4 flex items-center">
+                    <CheckCircle className="w-5 h-5 mr-2" />
+                    Jobs Updated ({importResult.warnings.length})
                   </h4>
-                  <p className="text-sm text-orange-700 mb-4">
-                    These jobs were skipped because they already exist in your account or are duplicates in the CSV file.
+                  <p className="text-sm text-blue-700 mb-4">
+                    These jobs already existed in your account and were updated with new data from the CSV file.
                   </p>
                   <div className="max-h-64 overflow-y-auto space-y-2">
                     {importResult.warnings.slice(0, 50).map((warning, index) => (
-                      <div key={index} className="bg-white rounded-lg p-2 border border-orange-100">
-                        <p className="text-xs text-orange-700 font-mono">{warning}</p>
+                      <div key={index} className="bg-white rounded-lg p-2 border border-blue-100">
+                        <p className="text-xs text-blue-700 font-mono">{warning}</p>
                       </div>
                     ))}
                     {importResult.warnings.length > 50 && (
-                      <p className="text-sm text-orange-600 italic">
-                        ... and {importResult.warnings.length - 50} more duplicates
+                      <p className="text-sm text-blue-600 italic">
+                        ... and {importResult.warnings.length - 50} more updated jobs
                       </p>
                     )}
                   </div>

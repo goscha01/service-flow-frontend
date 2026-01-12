@@ -1418,7 +1418,7 @@ const TeamMemberDetails = () => {
 
                       // Build Google Maps URL for current member's address only
                       // Use place API with higher zoom (15) for close range view
-                      const mapUrl = `https://www.google.com/maps/embed/v1/place?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&q=${encodeURIComponent(currentAddress)}&zoom=15&maptype=roadmap`
+                      const mapUrl = `https://www.google.com/maps/embed/v1/place?key=AIzaSyC_CrJWTsTHOTBd7TSzTuXOfutywZ2AyOQ&q=${encodeURIComponent(currentAddress)}&zoom=15&maptype=roadmap`
 
                       return (
                         <div className="relative">
