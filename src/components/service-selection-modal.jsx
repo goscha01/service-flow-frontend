@@ -542,7 +542,7 @@ const ServiceSelectionModal = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black bg-opacity-50 p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
         {/* Header */}
         <div className="flex items-center justify-between px-8 py-5 border-b border-gray-200">
@@ -729,40 +729,52 @@ const ServiceSelectionModal = ({
               {/* Customize View */}
               {currentView === 'customize' && selectedService && (
                 <div className="space-y-6">
-                  {/* Modifiers */}
-                  {selectedService.parsedModifiers && selectedService.parsedModifiers.length > 0 && (
-                    <div>
-                      <h4 className="text-base font-bold text-gray-900 mb-4" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Select Your Items</h4>
-                      <ServiceModifiersForm
-                        modifiers={selectedService.parsedModifiers}
-                        selectedModifiers={selectedModifiers}
-                        onModifiersChange={setSelectedModifiers}
-                        editedModifierPrices={editedModifierPrices}
-                        onModifierPriceChange={(modifierId, optionId, value) => {
-                          const priceKey = `${modifierId}_option_${optionId}`;
-                          console.log('🔧 MODIFIER PRICE CHANGE:', priceKey, '=', value);
-                          setEditedModifierPrices(prev => {
-                            const updated = {
-                              ...prev,
-                              [priceKey]: value
-                            };
-                            console.log('🔧 UPDATED MODIFIER PRICES:', updated);
-                            return updated;
-                          });
-                        }}
-                      />
+                  {/* Check if service has no modifiers and no intake questions */}
+                  {(!selectedService.parsedModifiers || selectedService.parsedModifiers.length === 0) && 
+                   (!selectedService.parsedIntakeQuestions || selectedService.parsedIntakeQuestions.length === 0) ? (
+                    <div className="text-center py-8">
+                      <p className="text-gray-500 text-base">
+                        No modifications available for this service.
+                      </p>
                     </div>
-                  )}
+                  ) : (
+                    <>
+                      {/* Modifiers */}
+                      {selectedService.parsedModifiers && selectedService.parsedModifiers.length > 0 && (
+                        <div>
+                          <h4 className="text-base font-bold text-gray-900 mb-4" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Select Your Items</h4>
+                          <ServiceModifiersForm
+                            modifiers={selectedService.parsedModifiers}
+                            selectedModifiers={selectedModifiers}
+                            onModifiersChange={setSelectedModifiers}
+                            editedModifierPrices={editedModifierPrices}
+                            onModifierPriceChange={(modifierId, optionId, value) => {
+                              const priceKey = `${modifierId}_option_${optionId}`;
+                              console.log('🔧 MODIFIER PRICE CHANGE:', priceKey, '=', value);
+                              setEditedModifierPrices(prev => {
+                                const updated = {
+                                  ...prev,
+                                  [priceKey]: value
+                                };
+                                console.log('🔧 UPDATED MODIFIER PRICES:', updated);
+                                return updated;
+                              });
+                            }}
+                          />
+                        </div>
+                      )}
 
-                  {/* Intake Questions */}
-                  {selectedService.parsedIntakeQuestions && selectedService.parsedIntakeQuestions.length > 0 && (
-                    <div>
-                      <IntakeQuestionsForm
-                        questions={selectedService.parsedIntakeQuestions}
-                        initialAnswers={intakeQuestionAnswers}
-                        onAnswersChange={setIntakeQuestionAnswers}
-                      />
-                    </div>
+                      {/* Intake Questions */}
+                      {selectedService.parsedIntakeQuestions && selectedService.parsedIntakeQuestions.length > 0 && (
+                        <div>
+                          <IntakeQuestionsForm
+                            questions={selectedService.parsedIntakeQuestions}
+                            initialAnswers={intakeQuestionAnswers}
+                            onAnswersChange={setIntakeQuestionAnswers}
+                          />
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               )}

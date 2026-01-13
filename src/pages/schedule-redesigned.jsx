@@ -83,8 +83,9 @@ const ServiceFlowSchedule = () => {
   })
   const [activeTab, setActiveTab] = useState('jobs') // jobs, availability
   const [availabilityMonth, setAvailabilityMonth] = useState(new Date()) // Current month for availability view
-  const [userBusinessHours, setUserBusinessHours] = useState(null) // User's business hours from backend
+  const [userBusinessHours, setUserBusinessHours] = useState(null) // User's business hours from backend (Company Working Time)
   const [isLoadingAvailability, setIsLoadingAvailability] = useState(false)
+  const [teamMemberAvailability, setTeamMemberAvailability] = useState({}) // Store team member personal availability
   const [jobs, setJobs] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [mapView, setMapView] = useState('roadmap') // roadmap, satellite
@@ -494,16 +495,61 @@ const ServiceFlowSchedule = () => {
     }
   }, [selectedFilter, fetchJobs])
 
+  // Helper function to fetch team member availability sequentially with delays
+  const fetchTeamMemberAvailabilitySequentially = useCallback(async (members) => {
+    const availabilityMap = {}
+    
+    // Fetch availability sequentially with a delay between requests to avoid rate limiting
+    for (let i = 0; i < members.length; i++) {
+      const member = members[i]
+      try {
+        // Add delay between requests (except for the first one)
+        if (i > 0) {
+          await new Promise(resolve => setTimeout(resolve, 300)) // 300ms delay
+        }
+        
+        const availability = await teamAPI.getAvailability(member.id)
+        availabilityMap[member.id] = availability?.availability || null
+      } catch (error) {
+        // Handle rate limiting specifically
+        if (error?.response?.status === 429) {
+          console.warn(`Rate limited for member ${member.id}, waiting longer...`)
+          // Wait longer if rate limited
+          await new Promise(resolve => setTimeout(resolve, 2000)) // 2 second delay
+          // Retry once
+          try {
+            const availability = await teamAPI.getAvailability(member.id)
+            availabilityMap[member.id] = availability?.availability || null
+          } catch (retryError) {
+            console.error(`Error fetching availability for member ${member.id} after retry:`, retryError)
+            availabilityMap[member.id] = null
+          }
+        } else {
+          console.error(`Error fetching availability for member ${member.id}:`, error)
+          availabilityMap[member.id] = null
+        }
+      }
+    }
+    
+    return availabilityMap
+  }, [])
+
   const fetchTeamMembers = useCallback(async () => {
     try {
       const teamResponse = await teamAPI.getAll(user.id, { page: 1, limit: 1000 })
       const members = teamResponse.teamMembers || teamResponse || []
       setTeamMembers(members)
+      
+      // Also fetch availability for each team member if in availability tab
+      if (activeTab === 'availability') {
+        const availabilityMap = await fetchTeamMemberAvailabilitySequentially(members)
+        setTeamMemberAvailability(availabilityMap)
+      }
     } catch (error) {
       console.error('❌ Error fetching team members:', error)
       setTeamMembers([])
     }
-  }, [user])
+  }, [user, activeTab, fetchTeamMemberAvailabilitySequentially])
 
   const fetchTerritories = useCallback(async () => {
     try {
@@ -731,26 +777,36 @@ const ServiceFlowSchedule = () => {
 
   // Fetch availability when switching to availability tab
   useEffect(() => {
-    if (activeTab === 'availability' && user?.id && !userBusinessHours) {
-      fetchUserAvailability()
+    if (activeTab === 'availability' && user?.id) {
+      if (!userBusinessHours) {
+        fetchUserAvailability()
+      }
+      // Fetch team member availability when switching to availability tab
+      if (teamMembers.length > 0 && Object.keys(teamMemberAvailability).length === 0) {
+        const fetchMemberAvailability = async () => {
+          const availabilityMap = await fetchTeamMemberAvailabilitySequentially(teamMembers)
+          setTeamMemberAvailability(availabilityMap)
+        }
+        fetchMemberAvailability()
+      }
     }
-  }, [activeTab, user, userBusinessHours, fetchUserAvailability])
+  }, [activeTab, user, userBusinessHours, fetchUserAvailability, teamMembers, teamMemberAvailability, fetchTeamMemberAvailabilitySequentially])
 
-  // Set first team member as default when switching to availability tab
+  // Default to "all" when switching to availability tab (show all team members)
   useEffect(() => {
     if (activeTab === 'availability' && teamMembers.length > 0) {
       // Use functional update to access current selectedFilter value
       setSelectedFilter(prevFilter => {
-        // Only set if current filter is 'all', 'unassigned', or not a valid team member ID
-        if (!prevFilter || prevFilter === 'all' || prevFilter === 'unassigned') {
-          return teamMembers[0].id.toString()
+        // If switching from jobs tab or filter is unassigned, default to 'all'
+        if (!prevFilter || prevFilter === 'unassigned') {
+          return 'all'
         }
         // Check if the current filter is a valid team member
         const isValidTeamMember = teamMembers.find(m => m.id.toString() === prevFilter)
-        if (!isValidTeamMember) {
-          return teamMembers[0].id.toString()
+        if (!isValidTeamMember && prevFilter !== 'all') {
+          return 'all'
         }
-        // Keep the current filter if it's a valid team member
+        // Keep the current filter if it's 'all' or a valid team member
         return prevFilter
       })
     }
@@ -1171,26 +1227,238 @@ const ServiceFlowSchedule = () => {
     return filteredJobs
   }
 
+  // Helper to get personal cleaner availability for a specific day
+  const getPersonalAvailabilityForDay = (memberId, dayOfWeek) => {
+    const member = teamMembers.find(m => m.id === memberId)
+    if (!member) return null
+    
+    // Check if we have cached availability
+    if (teamMemberAvailability[memberId]) {
+      const avail = teamMemberAvailability[memberId]
+      if (typeof avail === 'string') {
+        try {
+          const parsed = JSON.parse(avail)
+          const workingHours = parsed.workingHours || {}
+          const dayHours = workingHours[dayOfWeek]
+          if (dayHours && dayHours.available !== false) {
+            if (dayHours.timeSlots && dayHours.timeSlots.length > 0) {
+              return dayHours.timeSlots[0] // Use first time slot
+            } else if (dayHours.start && dayHours.end) {
+              return { start: dayHours.start, end: dayHours.end }
+            }
+          }
+        } catch (e) {
+          console.error('Error parsing team member availability:', e)
+        }
+      } else if (avail && avail.workingHours) {
+        const dayHours = avail.workingHours[dayOfWeek]
+        if (dayHours && dayHours.available !== false) {
+          if (dayHours.timeSlots && dayHours.timeSlots.length > 0) {
+            return dayHours.timeSlots[0]
+          } else if (dayHours.start && dayHours.end) {
+            return { start: dayHours.start, end: dayHours.end }
+          }
+        }
+      }
+    }
+    
+    // If member has availability in their object
+    if (member.availability) {
+      try {
+        const avail = typeof member.availability === 'string' ? JSON.parse(member.availability) : member.availability
+        const workingHours = avail.workingHours || {}
+        const dayHours = workingHours[dayOfWeek]
+        if (dayHours && dayHours.available !== false) {
+          if (dayHours.timeSlots && dayHours.timeSlots.length > 0) {
+            return dayHours.timeSlots[0]
+          } else if (dayHours.start && dayHours.end) {
+            return { start: dayHours.start, end: dayHours.end }
+          }
+        }
+      } catch (e) {
+        console.error('Error parsing member availability:', e)
+      }
+    }
+    
+    return null // No personal availability set
+  }
+
+  // Get availability for a specific team member on a specific date
+  // Formula: (Company Working Time ∩ Personal Cleaner Availability) - Scheduled Jobs
+  const getDayAvailabilityForMember = (date, memberId) => {
+    const dayOfWeek = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][date.getDay()]
+    const dateString = date.toISOString().split('T')[0]
+    
+    // 1. Get Company Working Time (#4)
+    const companyHours = getBusinessHours()
+    const companyDayHours = companyHours[dayOfWeek] || { enabled: false, start: '09:00', end: '18:00' }
+    
+    if (!companyDayHours.enabled) {
+      return { isOpen: false, hours: null, jobCount: 0, availableSlots: [] }
+    }
+    
+    // 2. Get Personal Cleaner Availability (#3)
+    const personalAvailability = getPersonalAvailabilityForDay(memberId, dayOfWeek)
+    
+    // 3. Intersect Company Hours with Personal Availability
+    let availableTimeSlots = []
+    if (personalAvailability) {
+      // Personal availability exists - intersect with company hours
+      const companyStart = timeToMinutes(companyDayHours.start)
+      const companyEnd = timeToMinutes(companyDayHours.end)
+      const personalStart = timeToMinutes(personalAvailability.start)
+      const personalEnd = timeToMinutes(personalAvailability.end)
+      
+      // Find intersection
+      const intersectionStart = Math.max(companyStart, personalStart)
+      const intersectionEnd = Math.min(companyEnd, personalEnd)
+      
+      if (intersectionStart < intersectionEnd) {
+        availableTimeSlots = [{
+          start: minutesToTime(intersectionStart),
+          end: minutesToTime(intersectionEnd)
+        }]
+      } else {
+        // No intersection - cleaner not available during company hours
+        return { isOpen: false, hours: null, jobCount: 0, availableSlots: [] }
+      }
+    } else {
+      // No personal availability set - use company hours only
+      availableTimeSlots = [{
+        start: companyDayHours.start,
+        end: companyDayHours.end
+      }]
+    }
+    
+    // 4. Get Scheduled Jobs for this cleaner (#2)
+    const dayJobs = jobs.filter(job => {
+      if (!job.scheduled_date && !job.scheduledDate) return false
+      let jobDate
+      if (typeof job.scheduled_date === 'string' && job.scheduled_date.includes(' ')) {
+        const [datePart] = job.scheduled_date.split(' ')
+        jobDate = new Date(datePart)
+      } else {
+        jobDate = new Date(job.scheduled_date || job.scheduledDate)
+      }
+      const jobDateString = jobDate.toISOString().split('T')[0]
+      if (jobDateString !== dateString) return false
+      
+      // Filter by team member
+      return isJobAssignedTo(job, memberId.toString())
+    })
+    
+    // 5. Subtract Scheduled Jobs from Available Time Slots
+    const formatTime = (time24) => {
+      const [hours] = time24.split(':')
+      const hour = parseInt(hours)
+      const ampm = hour >= 12 ? 'PM' : 'AM'
+      const hour12 = hour % 12 || 12
+      return `${hour12} ${ampm}`
+    }
+    
+    // Get job time ranges (#2 - Cleaner Job Schedule)
+    const jobTimeRanges = dayJobs.map(job => {
+      let jobStartTime = null
+      let jobDuration = job.duration || job.service_duration || job.estimated_duration || 60
+      if (typeof jobDuration === 'string') {
+        jobDuration = parseInt(jobDuration) || 60
+      }
+      
+      if (job.scheduled_date && typeof job.scheduled_date === 'string') {
+        if (job.scheduled_date.includes(' ')) {
+          const [datePart, timePart] = job.scheduled_date.split(' ')
+          const [hours, minutes] = timePart.split(':').map(Number)
+          jobStartTime = hours * 60 + minutes
+        } else {
+          const jobDate = new Date(job.scheduled_date)
+          jobStartTime = jobDate.getHours() * 60 + jobDate.getMinutes()
+        }
+      }
+      
+      if (jobStartTime !== null) {
+        return {
+          start: jobStartTime,
+          end: jobStartTime + jobDuration
+        }
+      }
+      return null
+    }).filter(Boolean)
+    
+    // Subtract jobs from available time slots
+    let remainingHours = []
+    
+    if (jobTimeRanges.length > 0) {
+      availableTimeSlots.forEach(availSlot => {
+        const availStart = timeToMinutes(availSlot.start)
+        const availEnd = timeToMinutes(availSlot.end)
+        let currentStart = availStart
+        
+        const sortedJobRanges = jobTimeRanges
+          .filter(jobRange => jobRange.start < availEnd && jobRange.end > availStart)
+          .sort((a, b) => a.start - b.start)
+        
+        sortedJobRanges.forEach((jobRange) => {
+          if (currentStart < jobRange.start) {
+            remainingHours.push({
+              start: minutesToTime(currentStart),
+              end: minutesToTime(jobRange.start)
+            })
+          }
+          currentStart = Math.max(currentStart, jobRange.end)
+        })
+        
+        if (currentStart < availEnd) {
+          remainingHours.push({
+            start: minutesToTime(currentStart),
+            end: minutesToTime(availEnd)
+          })
+        }
+      })
+    } else {
+      // No jobs - all available time is free
+      remainingHours = availableTimeSlots.map(slot => ({
+        start: slot.start,
+        end: slot.end
+      }))
+    }
+    
+    if (remainingHours.length > 0) {
+      const formattedSlots = remainingHours.map(slot => 
+        `${formatTime(slot.start)} - ${formatTime(slot.end)}`
+      ).join(', ')
+      return {
+        isOpen: true,
+        hours: formattedSlots,
+        jobCount: dayJobs.length,
+        hasJobs: dayJobs.length > 0,
+        availableSlots: remainingHours
+      }
+    } else {
+      return {
+        isOpen: false,
+        hours: null,
+        jobCount: dayJobs.length,
+        hasJobs: true,
+        availableSlots: []
+      }
+    }
+  }
+
   // Check if a day is open and get hours, considering jobs
-  // Matches unified-calendar.jsx logic: uses team member availability or defaults to 8 AM - 6 PM
+  // Formula for availability tab: (Company Working Time ∩ Personal Cleaner Availability) - Scheduled Jobs
   const getDayAvailability = (date) => {
     const dayOfWeek = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][date.getDay()]
     
-    // Check for jobs on this day (already filtered by team member if in availability tab)
-    const dayJobs = getDayJobs(date)
-    
-    // For availability tab, use default hours (8 AM - 6 PM) like unified-calendar does
-    // This matches unified-calendar's default when availability is not configured
-    // In unified-calendar, it uses team member's configured availability, but falls back to 08:00-18:00
-    let dayHours
-    if (activeTab === 'availability') {
-      // Use default hours like unified-calendar (lines 520, 639)
-      dayHours = { enabled: true, start: '08:00', end: '18:00' }
-    } else {
-      // For jobs tab, use business hours
-      const hours = getBusinessHours()
-      dayHours = hours[dayOfWeek] || { enabled: false, start: '09:00', end: '18:00' }
+    // If in availability tab and a specific team member is selected, use the member-specific calculation
+    if (activeTab === 'availability' && selectedFilter && selectedFilter !== 'all' && selectedFilter !== 'unassigned') {
+      const memberId = Number(selectedFilter)
+      return getDayAvailabilityForMember(date, memberId)
     }
+    
+    // For jobs tab or "all" filter, use company working hours
+    const dayJobs = getDayJobs(date)
+    const hours = getBusinessHours()
+    const dayHours = hours[dayOfWeek] || { enabled: false, start: '09:00', end: '18:00' }
     
     if (!dayHours.enabled) {
       return { isOpen: false, hours: null, jobCount: dayJobs.length, availableSlots: [] }
@@ -3360,9 +3628,27 @@ const ServiceFlowSchedule = () => {
             {/* Assignment Filter - Different layout for availability vs jobs */}
             {!isWorker(user) && (
             <div className="mb-6">
-              {/* Only show "JOBS ASSIGNED TO" header when in jobs tab */}
+              {/* Show "JOBS ASSIGNED TO" header for jobs tab, "TEAM MEMBERS" for availability tab */}
               {activeTab === 'jobs' && (
               <h3 className="text-xs font-semibold text-gray-700 mb-3 justify-self-center items-center">JOBS ASSIGNED TO</h3>
+              )}
+              {activeTab === 'availability' && (
+              <h3 className="text-xs font-semibold text-gray-700 mb-3 justify-self-center items-center">TEAM MEMBERS</h3>
+              )}
+              
+              {/* All Team Members Filter - Show for availability tab */}
+              {activeTab === 'availability' && (
+                <button
+                  onClick={() => setSelectedFilter('all')}
+                  className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors mb-2 ${
+                    selectedFilter === 'all' 
+                      ? 'bg-blue-50 text-blue-700 border border-blue-200' 
+                      : 'bg-white text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                  }`}
+                >
+                  <Users className="w-4 h-4" />
+                  <span className="truncate">All Team Members</span>
+                </button>
               )}
               
               {/* Only show "All Jobs" and "Unassigned" when in jobs tab */}
@@ -3400,8 +3686,13 @@ const ServiceFlowSchedule = () => {
                 </>
               )}
 
-              {/* Team Members */}
-              {teamMembers.map((member) => {
+              {/* Team Members - Show for both jobs and availability tabs */}
+              {teamMembers.length === 0 ? (
+                <div className="text-xs text-gray-500 text-center py-4">
+                  No team members found
+                </div>
+              ) : (
+                teamMembers.map((member) => {
                 const fullName = `${member.first_name || ''} ${member.last_name || ''}`.trim()
                 const isEditing = editingMemberId === member.id
                 // Use editingMemberName if we're editing this member, otherwise use fullName
@@ -3520,7 +3811,8 @@ const ServiceFlowSchedule = () => {
                     )}
                   </div>
                 )
-              })}
+              })
+              )}
             </div>
             )}
 
@@ -4186,6 +4478,142 @@ const ServiceFlowSchedule = () => {
           {/* Availability View */}
           {activeTab === 'availability' ? (
             <div className="w-full h-full flex flex-col bg-gray-50">
+              {/* All Team Members Table View - Show when "all" is selected */}
+              {selectedFilter === 'all' && viewMode === 'week' && (
+                <div className="flex-1 overflow-auto px-4 py-4 lg:px-6">
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-[800px]">
+                        <thead className="bg-gray-50 border-b border-gray-200">
+                          <tr>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider sticky left-0 bg-gray-50 z-10 border-r border-gray-200">
+                              Team Member
+                            </th>
+                            {getWeekDays().map((date, idx) => {
+                              const isToday = date.toDateString() === new Date().toDateString()
+                              return (
+                                <th key={idx} className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[200px]">
+                                  <div className={`${isToday ? 'text-blue-600 font-bold' : ''}`}>
+                                    {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()]}
+                                  </div>
+                                  <div className={`text-sm mt-1 ${isToday ? 'text-blue-600 font-bold' : 'text-gray-900'}`}>
+                                    {date.getDate()}/{date.getMonth() + 1}
+                                  </div>
+                                </th>
+                              )
+                            })}
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {teamMembers.map((member) => {
+                            const memberColor = member.color || '#2563EB'
+                            return (
+                              <tr key={member.id} className="hover:bg-gray-50">
+                                <td className="px-4 py-4 whitespace-nowrap sticky left-0 bg-white z-10 border-r border-gray-200">
+                                  <div className="flex items-center space-x-3">
+                                    <div 
+                                      className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm flex-shrink-0"
+                                      style={{ backgroundColor: memberColor }}
+                                    >
+                                      {member.first_name?.charAt(0) || member.last_name?.charAt(0) || 'T'}
+                                    </div>
+                                    <div>
+                                      <div className="text-sm font-medium text-gray-900">
+                                        {member.first_name} {member.last_name}
+                                      </div>
+                                      {member.territory && (
+                                        <div className="text-xs text-gray-500">{member.territory}</div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </td>
+                                {getWeekDays().map((date, dateIdx) => {
+                                  const availability = getDayAvailabilityForMember(date, member.id)
+                                  const dayJobs = jobs.filter(job => {
+                                    if (!job.scheduled_date && !job.scheduledDate) return false
+                                    let jobDate
+                                    if (typeof job.scheduled_date === 'string' && job.scheduled_date.includes(' ')) {
+                                      const [datePart] = job.scheduled_date.split(' ')
+                                      jobDate = new Date(datePart)
+                                    } else {
+                                      jobDate = new Date(job.scheduled_date || job.scheduledDate)
+                                    }
+                                    const jobDateString = jobDate.toISOString().split('T')[0]
+                                    const dateStr = date.toISOString().split('T')[0]
+                                    if (jobDateString !== dateStr) return false
+                                    return isJobAssignedTo(job, member.id.toString())
+                                  })
+                                  const isToday = date.toDateString() === new Date().toDateString()
+                                  
+                                  return (
+                                    <td 
+                                      key={dateIdx} 
+                                      className={`px-4 py-4 align-top ${isToday ? 'bg-blue-50' : ''}`}
+                                    >
+                                      <div className="space-y-2">
+                                        {/* Availability */}
+                                        <div className={`p-2 rounded text-xs ${
+                                          availability.isOpen
+                                            ? 'bg-green-50 text-green-800 border border-green-200'
+                                            : 'bg-gray-100 text-gray-600 border border-gray-200'
+                                        }`}>
+                                          <div className="font-medium mb-1">Availability</div>
+                                          <div className="text-xs">{availability.hours || 'Closed'}</div>
+                                        </div>
+                                        
+                                        {/* Jobs */}
+                                        {dayJobs.length > 0 && (
+                                          <div className="space-y-1">
+                                            <div className="text-xs font-medium text-gray-700 mb-1">
+                                              Jobs ({dayJobs.length})
+                                            </div>
+                                            {dayJobs.slice(0, 3).map((job) => (
+                                              <div
+                                                key={job.id}
+                                                onClick={() => {
+                                                  setSelectedJobDetails(job)
+                                                  setShowJobDetails(true)
+                                                }}
+                                                className="p-2 rounded text-xs bg-blue-50 text-blue-800 border border-blue-200 cursor-pointer hover:bg-blue-100 transition-colors"
+                                                style={{ borderLeftColor: memberColor, borderLeftWidth: '3px' }}
+                                              >
+                                                <div className="font-medium truncate">{job.service_name || 'Service'}</div>
+                                                {job.scheduled_date && (
+                                                  <div className="text-xs opacity-75">
+                                                    {new Date(job.scheduled_date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
+                                                  </div>
+                                                )}
+                                                {job.customer_first_name && (
+                                                  <div className="text-xs opacity-75 truncate">
+                                                    {job.customer_first_name} {job.customer_last_name}
+                                                  </div>
+                                                )}
+                                              </div>
+                                            ))}
+                                            {dayJobs.length > 3 && (
+                                              <div className="text-xs text-blue-600 text-center">
+                                                +{dayJobs.length - 3} more
+                                              </div>
+                                            )}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </td>
+                                  )
+                                })}
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Single Team Member View - Show when a specific member is selected */}
+              {selectedFilter !== 'all' && (
+              <>
               {/* Day View */}
               {viewMode === 'day' && (
                 <div className="flex-1 overflow-auto px-4 py-4 lg:px-6">
@@ -4360,6 +4788,8 @@ const ServiceFlowSchedule = () => {
                     })}
                   </div>
                 </div>
+              )}
+              </>
               )}
             </div>
           ) : (

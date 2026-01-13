@@ -7,7 +7,9 @@ const CreateTaskModal = ({
   onSubmit, 
   leadId, 
   teamMembers = [],
+  leads = [],
   initialData = null,
+  initialDate = null,
   isEditing = false
 }) => {
   const [formData, setFormData] = useState({
@@ -17,7 +19,8 @@ const CreateTaskModal = ({
     dueTime: '',
     priority: 'medium',
     assignedTo: '',
-    status: 'pending'
+    status: 'pending',
+    selectedLeadId: ''
   });
   
   const [errors, setErrors] = useState({});
@@ -41,23 +44,32 @@ const CreateTaskModal = ({
           dueTime: dueTime,
           priority: initialData.priority || 'medium',
           assignedTo: initialData.assigned_to || '',
-          status: initialData.status || 'pending'
+          status: initialData.status || 'pending',
+          selectedLeadId: initialData.lead_id || leadId || ''
         });
       } else {
         // Reset form for new task
+        // If initialDate is provided, use it for dueDate
+        let dueDate = '';
+        if (initialDate) {
+          const date = new Date(initialDate);
+          dueDate = date.toISOString().split('T')[0];
+        }
+        
         setFormData({
           title: '',
           description: '',
-          dueDate: '',
+          dueDate: dueDate,
           dueTime: '',
           priority: 'medium',
           assignedTo: '',
-          status: 'pending'
+          status: 'pending',
+          selectedLeadId: leadId || ''
         });
       }
       setErrors({});
     }
-  }, [isOpen, initialData, isEditing]);
+  }, [isOpen, initialData, isEditing, initialDate, leadId]);
   
   const validateForm = () => {
     const newErrors = {};
@@ -93,7 +105,8 @@ const CreateTaskModal = ({
       dueDate: dueDate,
       priority: formData.priority,
       assignedTo: formData.assignedTo || null,
-      status: formData.status
+      status: formData.status,
+      leadId: formData.selectedLeadId || null
     });
   };
   
@@ -211,6 +224,26 @@ const CreateTaskModal = ({
                 </div>
               )}
             </div>
+            
+            {leads.length > 0 && !isEditing && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Assign to Lead (Optional)
+                </label>
+                <select
+                  value={formData.selectedLeadId}
+                  onChange={(e) => setFormData({ ...formData, selectedLeadId: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">No Lead</option>
+                  {leads.map((lead) => (
+                    <option key={lead.id} value={lead.id}>
+                      {lead.first_name} {lead.last_name} {lead.company ? `- ${lead.company}` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             
             {teamMembers.length > 0 && (
               <div>

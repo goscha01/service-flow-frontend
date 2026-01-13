@@ -345,7 +345,7 @@ export default function SignupForm() {
               {/* Password */}
               <div>
                 <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2">
-                  Password
+                  Password <span className="text-red-500">*</span>
                 </label>
                 <input
                   id="password"
@@ -365,13 +365,15 @@ export default function SignupForm() {
                 {errors.password && (
                   <p className="text-red-500 text-sm mt-1">{errors.password}</p>
                 )}
-                <p className="text-sm text-gray-500 mt-2">Password must be at least 8 characters</p>
+                {!errors.password && (
+                  <p className="text-sm text-gray-500 mt-2">Password must be at least 8 characters</p>
+                )}
               </div>
 
               {/* Confirm Password */}
               <div>
                 <label htmlFor="confirmPassword" className="block text-sm font-semibold text-gray-700 mb-2">
-                  Confirm Password
+                  Confirm Password <span className="text-red-500">*</span>
                 </label>
                 <input
                   id="confirmPassword"

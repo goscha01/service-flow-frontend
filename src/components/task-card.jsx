@@ -68,7 +68,20 @@ const TaskCard = ({
 
   const formatDueDate = (dateString) => {
     if (!dateString) return 'No due date';
-    const date = new Date(dateString);
+    
+    // Handle both Date objects and date strings
+    let date;
+    if (dateString instanceof Date) {
+      date = dateString;
+    } else {
+      date = new Date(dateString);
+    }
+    
+    // Check if date is valid
+    if (isNaN(date.getTime())) {
+      return 'Invalid date';
+    }
+    
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const taskDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -82,7 +95,8 @@ const TaskCard = ({
     if (diffDays < 0) return `${Math.abs(diffDays)} days overdue`;
     if (diffDays <= 7) return `In ${diffDays} days`;
     
-    return formatDateLocal(dateString);
+    // formatDateLocal expects a Date object, not a string
+    return formatDateLocal(date);
   };
 
   return (

@@ -31,6 +31,7 @@ import ConvertLeadModal from '../components/convert-lead-modal';
 import MobileBottomNav from '../components/mobile-bottom-nav';
 import AddressAutocompleteLeads from '../components/address-autocomplete-leads';
 import MobileHeader from '../components/mobile-header';
+import ServiceSelectionModal from '../components/service-selection-modal';
 
 const LeadsPipeline = () => {
   const navigate = useNavigate();
@@ -51,9 +52,13 @@ const LeadsPipeline = () => {
   const [showEditLeadModal, setShowEditLeadModal] = useState(false);
   const [showEditStageModal, setShowEditStageModal] = useState(false);
   const [showLeadDetailsModal, setShowLeadDetailsModal] = useState(false);
+  const [showServiceSelectionModal, setShowServiceSelectionModal] = useState(false);
   const [selectedLead, setSelectedLead] = useState(null);
   const [editingLead, setEditingLead] = useState(null);
   const [editingStage, setEditingStage] = useState(null);
+  
+  // Selected service with modifiers for leads
+  const [selectedServiceForLead, setSelectedServiceForLead] = useState(null);
   
   // Form states
   const [leadFormData, setLeadFormData] = useState({
@@ -201,19 +206,89 @@ const LeadsPipeline = () => {
   const calculateServiceEstimatedPrice = (service) => {
     if (!service) return 0;
     
-    // Start with base service price
-    let estimatedPrice = parseFloat(service.price) || parseFloat(service.service_price) || 0;
+    // Use the selected service with modifiers if available, otherwise use the service from services list
+    const serviceToUse = selectedServiceForLead || service;
     
-    // If service has modifiers, we could add default modifier prices here
-    // For leads, we'll use base price + any default modifiers
-    // (Full modifier selection would be done when converting lead to job)
-    if (service.parsedModifiers && Array.isArray(service.parsedModifiers) && service.parsedModifiers.length > 0) {
-      // For leads, we can optionally add default modifier prices if they have defaults
-      // For now, we'll just use the base price
-      // The full calculation with selected modifiers happens when converting to job
+    // Start with base service price (use edited price if available)
+    let estimatedPrice = parseFloat(serviceToUse.editedServicePrice !== null 
+      ? serviceToUse.editedServicePrice 
+      : serviceToUse.price) || parseFloat(serviceToUse.service_price) || 0;
+    
+    // Add modifier prices if service has selected modifiers
+    if (serviceToUse.selectedModifiers && serviceToUse.parsedModifiers && Array.isArray(serviceToUse.parsedModifiers)) {
+      const selectedModifiers = serviceToUse.selectedModifiers;
+      const editedModifierPrices = serviceToUse.editedModifierPrices || {};
+      
+      serviceToUse.parsedModifiers.forEach(modifier => {
+        const modifierSelection = selectedModifiers[modifier.id];
+        if (!modifierSelection) return;
+        
+        if (modifier.selectionType === 'quantity' && modifierSelection.quantities) {
+          // Handle quantity-based modifiers
+          Object.entries(modifierSelection.quantities).forEach(([optionId, quantity]) => {
+            const option = modifier.options?.find(opt => opt.id === optionId || String(opt.id) === String(optionId));
+            if (option && quantity > 0) {
+              const priceKey = `${modifier.id}_option_${optionId}`;
+              const optionPrice = editedModifierPrices[priceKey] !== undefined
+                ? parseFloat(editedModifierPrices[priceKey])
+                : parseFloat(option.price) || 0;
+              estimatedPrice += optionPrice * quantity;
+            }
+          });
+        } else if (modifier.selectionType === 'multi' && modifierSelection.selections) {
+          // Handle multi-select modifiers
+          const selections = Array.isArray(modifierSelection.selections) 
+            ? modifierSelection.selections 
+            : [modifierSelection.selections];
+          selections.forEach(optionId => {
+            const option = modifier.options?.find(opt => opt.id === optionId || String(opt.id) === String(optionId));
+            if (option) {
+              const priceKey = `${modifier.id}_option_${optionId}`;
+              const optionPrice = editedModifierPrices[priceKey] !== undefined
+                ? parseFloat(editedModifierPrices[priceKey])
+                : parseFloat(option.price) || 0;
+              estimatedPrice += optionPrice;
+            }
+          });
+        } else if (modifier.selectionType === 'single' && modifierSelection.selection) {
+          // Handle single-select modifiers
+          const option = modifier.options?.find(opt => opt.id === modifierSelection.selection || String(opt.id) === String(modifierSelection.selection));
+          if (option) {
+            const priceKey = `${modifier.id}_option_${modifierSelection.selection}`;
+            const optionPrice = editedModifierPrices[priceKey] !== undefined
+              ? parseFloat(editedModifierPrices[priceKey])
+              : parseFloat(option.price) || 0;
+            estimatedPrice += optionPrice;
+          }
+        }
+      });
     }
     
     return estimatedPrice;
+  };
+  
+  // Handle service selection from ServiceSelectionModal
+  const handleServiceSelectForLead = (service) => {
+    console.log('🔧 Lead: Service selected with customization:', service);
+    
+    // Store the selected service with all its customization data
+    setSelectedServiceForLead(service);
+    
+    // Update form data with service ID
+    setLeadFormData(prev => ({
+      ...prev,
+      serviceId: service.id
+    }));
+    
+    // Calculate and update estimated price immediately
+    const estimatedPrice = calculateServiceEstimatedPrice(service);
+    setLeadFormData(prev => ({
+      ...prev,
+      value: estimatedPrice.toFixed(2)
+    }));
+    
+    // Close the modal
+    setShowServiceSelectionModal(false);
   };
   
   // Check property data when address is selected (using RentCast API)
@@ -253,42 +328,34 @@ const LeadsPipeline = () => {
     }
   };
   
-  // Auto-calculate estimated value when service is selected (only if value is empty)
+  // Auto-calculate estimated value when service is selected or changed
   useEffect(() => {
-    if (leadFormData.serviceId && services.length > 0) {
+    // If we have a selected service with modifiers, use that
+    if (selectedServiceForLead) {
+      const estimatedPrice = calculateServiceEstimatedPrice(selectedServiceForLead);
+      // Always update the value field when service changes (even if price is 0)
+      setLeadFormData(prev => ({
+        ...prev,
+        value: estimatedPrice.toFixed(2)
+      }));
+      console.log(`💰 Updated estimated value: $${estimatedPrice.toFixed(2)} for service "${selectedServiceForLead.name}"`);
+    } else if (leadFormData.serviceId && services.length > 0) {
+      // Fallback to simple service lookup if no selected service with modifiers
       const selectedService = services.find(s => s.id === parseInt(leadFormData.serviceId));
       if (selectedService) {
-        // Calculate estimated price using service workflow
         const estimatedPrice = calculateServiceEstimatedPrice(selectedService);
-        
-        if (estimatedPrice > 0) {
-          // Only auto-fill if the value field is empty, null, undefined, or 0
-          // Don't overwrite if user has manually entered a price
-          const currentValue = leadFormData.value?.toString().trim();
-          const numericValue = parseFloat(currentValue);
-          // Check if value is empty, null, undefined, 0, or NaN
-          if (!currentValue || currentValue === '' || isNaN(numericValue) || numericValue === 0) {
-            setLeadFormData(prev => {
-              // Double-check the previous value to avoid unnecessary updates
-              const prevValue = prev.value?.toString().trim();
-              const prevNumeric = parseFloat(prevValue);
-              if (!prevValue || prevValue === '' || isNaN(prevNumeric) || prevNumeric === 0) {
-                console.log(`💰 Auto-calculated estimated value: $${estimatedPrice.toFixed(2)} for service "${selectedService.name}"`);
-                return {
-                  ...prev,
-                  value: estimatedPrice.toFixed(2)
-                };
-              }
-              return prev; // Keep existing value if it's a real number > 0
-            });
-          }
-          // If user has entered a value, keep it - service and price can coexist
-        }
+        // Always update the value field when service changes (even if price is 0)
+        setLeadFormData(prev => ({
+          ...prev,
+          value: estimatedPrice.toFixed(2)
+        }));
+        console.log(`💰 Updated estimated value: $${estimatedPrice.toFixed(2)} for service "${selectedService.name}"`);
       }
-      // Don't clear value if service has no price - let user keep their manually entered price
+    } else if (!leadFormData.serviceId) {
+      // Clear selected service when service ID is cleared
+      setSelectedServiceForLead(null);
     }
-    // Don't clear value when service is deselected - let user keep it if they want
-  }, [leadFormData.serviceId, services]);
+  }, [selectedServiceForLead, leadFormData.serviceId, services]);
   
   // Load tasks when a lead is selected
   useEffect(() => {
@@ -390,6 +457,7 @@ const LeadsPipeline = () => {
       await leadsAPI.create(submitData);
       showNotification('Lead created successfully!', 'success', 3000);
       setShowCreateLeadModal(false);
+      setSelectedServiceForLead(null);
       setLeadFormData({
         firstName: '',
         lastName: '',
@@ -884,7 +952,10 @@ const LeadsPipeline = () => {
             <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 flex-shrink-0">
               <h2 className="text-lg sm:text-xl font-bold text-gray-900">Add New Lead</h2>
               <button
-                onClick={() => setShowCreateLeadModal(false)}
+                onClick={() => {
+                  setShowCreateLeadModal(false);
+                  setSelectedServiceForLead(null);
+                }}
                 className="text-gray-400 hover:text-gray-600"
               >
                 <X className="w-5 h-5" />
@@ -1167,38 +1238,49 @@ const LeadsPipeline = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Service
                   </label>
-                  <select
-                    value={leadFormData.serviceId}
-                    onChange={(e) => setLeadFormData({ ...leadFormData, serviceId: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="">Select a service...</option>
-                    {services.map((service) => {
-                      const serviceName = decodeHtmlEntities(service.name || '');
-                      const servicePrice = parseFloat(service.price) || parseFloat(service.service_price) || 0;
-                      return (
-                      <option key={service.id} value={service.id}>
-                          {serviceName} - ${servicePrice.toFixed(2)}
-                      </option>
-                      );
-                    })}
-                  </select>
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowServiceSelectionModal(true)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-left hover:bg-gray-50 flex items-center justify-between"
+                    >
+                      <span className={leadFormData.serviceId ? "text-gray-900" : "text-gray-500"}>
+                        {selectedServiceForLead 
+                          ? decodeHtmlEntities(selectedServiceForLead.name || '')
+                          : leadFormData.serviceId 
+                            ? (() => {
+                                const service = services.find(s => s.id === parseInt(leadFormData.serviceId));
+                                return service ? decodeHtmlEntities(service.name || '') : 'Select a service...';
+                              })()
+                            : 'Select a service...'}
+                      </span>
+                      <span className="text-gray-400">▼</span>
+                    </button>
+                    {selectedServiceForLead && (
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedServiceForLead(null);
+                            setLeadFormData(prev => ({ ...prev, serviceId: '', value: '' }));
+                          }}
+                          className="text-xs text-red-600 hover:text-red-700"
+                        >
+                          Clear service
+                        </button>
+                      </div>
+                    )}
+                  </div>
                   <p className="text-xs text-gray-500 mt-1">
-                    Selecting a service will automatically calculate and populate the estimated value based on the service price. You can manually enter a different value.
+                    Select a service to configure modifiers and calculate the estimated value. The estimate will update automatically based on your selections.
                   </p>
-                  {leadFormData.serviceId && (() => {
-                    const selectedService = services.find(s => s.id === parseInt(leadFormData.serviceId));
-                    if (selectedService) {
-                      const estimatedPrice = calculateServiceEstimatedPrice(selectedService);
-                      if (estimatedPrice > 0 && (!leadFormData.value || parseFloat(leadFormData.value) === 0)) {
-                        return (
-                          <p className="text-xs text-blue-600 mt-1 font-medium">
-                            💰 Estimated value: ${estimatedPrice.toFixed(2)} (auto-calculated from service)
-                          </p>
-                        );
-                      }
-                    }
-                    return null;
+                  {selectedServiceForLead && (() => {
+                    const estimatedPrice = calculateServiceEstimatedPrice(selectedServiceForLead);
+                    return (
+                      <p className="text-xs text-blue-600 mt-1 font-medium">
+                        💰 Estimated value: ${estimatedPrice.toFixed(2)} (includes service and modifiers)
+                      </p>
+                    );
                   })()}
                 </div>
                 
@@ -1206,7 +1288,7 @@ const LeadsPipeline = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Estimated Value ($)
                   </label>
-                  <input
+                    <input
                     type="number"
                     step="0.01"
                     min="0"
@@ -1254,6 +1336,7 @@ const LeadsPipeline = () => {
                       setShowCreateLeadModal(false);
                       setZillowData(null);
                       setSelectedAddress(null);
+                      setSelectedServiceForLead(null);
                     }}
                     className="w-full sm:w-auto px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
                   >
@@ -1704,38 +1787,49 @@ const LeadsPipeline = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Service
                   </label>
-                  <select
-                    value={leadFormData.serviceId}
-                    onChange={(e) => setLeadFormData({ ...leadFormData, serviceId: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="">Select a service...</option>
-                    {services.map((service) => {
-                      const serviceName = decodeHtmlEntities(service.name || '');
-                      const servicePrice = parseFloat(service.price) || parseFloat(service.service_price) || 0;
-                      return (
-                      <option key={service.id} value={service.id}>
-                          {serviceName} - ${servicePrice.toFixed(2)}
-                      </option>
-                      );
-                    })}
-                  </select>
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowServiceSelectionModal(true)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-left hover:bg-gray-50 flex items-center justify-between"
+                    >
+                      <span className={leadFormData.serviceId ? "text-gray-900" : "text-gray-500"}>
+                        {selectedServiceForLead 
+                          ? decodeHtmlEntities(selectedServiceForLead.name || '')
+                          : leadFormData.serviceId 
+                            ? (() => {
+                                const service = services.find(s => s.id === parseInt(leadFormData.serviceId));
+                                return service ? decodeHtmlEntities(service.name || '') : 'Select a service...';
+                              })()
+                            : 'Select a service...'}
+                      </span>
+                      <span className="text-gray-400">▼</span>
+                    </button>
+                    {selectedServiceForLead && (
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedServiceForLead(null);
+                            setLeadFormData(prev => ({ ...prev, serviceId: '', value: '' }));
+                          }}
+                          className="text-xs text-red-600 hover:text-red-700"
+                        >
+                          Clear service
+                        </button>
+                      </div>
+                    )}
+                  </div>
                   <p className="text-xs text-gray-500 mt-1">
-                    Selecting a service will automatically calculate and populate the estimated value based on the service price. You can manually enter a different value.
+                    Select a service to configure modifiers and calculate the estimated value. The estimate will update automatically based on your selections.
                   </p>
-                  {leadFormData.serviceId && (() => {
-                    const selectedService = services.find(s => s.id === parseInt(leadFormData.serviceId));
-                    if (selectedService) {
-                      const estimatedPrice = calculateServiceEstimatedPrice(selectedService);
-                      if (estimatedPrice > 0 && (!leadFormData.value || parseFloat(leadFormData.value) === 0)) {
-                        return (
-                          <p className="text-xs text-blue-600 mt-1 font-medium">
-                            💰 Estimated value: ${estimatedPrice.toFixed(2)} (auto-calculated from service)
-                          </p>
-                        );
-                      }
-                    }
-                    return null;
+                  {selectedServiceForLead && (() => {
+                    const estimatedPrice = calculateServiceEstimatedPrice(selectedServiceForLead);
+                    return (
+                      <p className="text-xs text-blue-600 mt-1 font-medium">
+                        💰 Estimated value: ${estimatedPrice.toFixed(2)} (includes service and modifiers)
+                      </p>
+                    );
                   })()}
                 </div>
                 
@@ -2102,6 +2196,15 @@ const LeadsPipeline = () => {
           onConvert={handleConvertLead}
         />
       )}
+      
+      {/* Service Selection Modal */}
+      <ServiceSelectionModal
+        isOpen={showServiceSelectionModal}
+        onClose={() => setShowServiceSelectionModal(false)}
+        onServiceSelect={handleServiceSelectForLead}
+        selectedServices={selectedServiceForLead ? [selectedServiceForLead] : []}
+        user={user}
+      />
       
       {/* Mobile Bottom Navigation */}
       <MobileBottomNav teamMembers={teamMembers} />
