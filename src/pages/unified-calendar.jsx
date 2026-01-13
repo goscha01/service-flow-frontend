@@ -15,7 +15,7 @@ const UnifiedCalendar = () => {
   const navigate = useNavigate()
   
   // View mode: 'worker-availability' | 'tasks-list' | 'tasks-calendar'
-  const [viewMode, setViewMode] = useState('worker-availability')
+  const [viewMode, setViewMode] = useState('tasks-list')
   // Calendar view: 'month' | 'week' | 'day'
   const [calendarView, setCalendarView] = useState('month')
   const [loading, setLoading] = useState(true)
@@ -24,6 +24,7 @@ const UnifiedCalendar = () => {
   const [availabilityData, setAvailabilityData] = useState({})
   const [assignedJobs, setAssignedJobs] = useState([]) // Jobs assigned to selected team member
   const [tasks, setTasks] = useState([])
+  const [leads, setLeads] = useState([])
   const [showCalendarPicker, setShowCalendarPicker] = useState(false)
   const calendarPickerRef = useRef(null)
   const [currentDate, setCurrentDate] = useState(new Date())
@@ -33,7 +34,7 @@ const UnifiedCalendar = () => {
   const [editingAvailability, setEditingAvailability] = useState(null)
   const [saving, setSaving] = useState(false)
   const [filterStatus, setFilterStatus] = useState("all")
-  const [taskFilter, setTaskFilter] = useState('all')
+  const [taskFilter, setTaskFilter] = useState('all') // Default to 'all' tasks
   const [showCreateTaskModal, setShowCreateTaskModal] = useState(false)
   const [editingTask, setEditingTask] = useState(null)
   const [selectedTask, setSelectedTask] = useState(null)
@@ -108,19 +109,7 @@ const UnifiedCalendar = () => {
       const members = response.teamMembers || response || []
       setTeamMembers(members)
       
-      // Set default: find account owner in the list, or first member
-      if (!selectedTeamMemberId && members.length > 0) {
-        // Try to find account owner (by role or user_id/email match)
-        const accountOwner = members.find(m => 
-          m.role === 'account owner' || 
-          m.role === 'owner' || 
-          m.role === 'admin' ||
-          (user?.email && m.email === user.email) ||
-          (user?.id && m.user_id === user.id)
-        )
-        const defaultMember = accountOwner || members[0]
-        setSelectedTeamMemberId(defaultMember.id)
-      }
+      // Default to showing all team members (selectedTeamMemberId stays null)
     } catch (error) {
       console.error('Error fetching team members:', error)
       setMessage({ type: 'error', text: 'Failed to load team members' })
@@ -1156,16 +1145,25 @@ const UnifiedCalendar = () => {
     setAvailabilityData(processedData)
   }
 
-  // Fetch team members and tasks when switching views
-  useEffect(() => {
-    if (viewMode === 'worker-availability') {
-      fetchTeamMembers()
-    } else if (viewMode === 'tasks-list' || viewMode === 'tasks-calendar') {
-      // Fetch team members first so we can filter tasks
-      fetchTeamMembers()
-      fetchTasks()
+  // Fetch leads
+  const fetchLeads = useCallback(async () => {
+    if (!user?.id) return
+    
+    try {
+      const data = await leadsAPI.getAll()
+      setLeads(data || [])
+    } catch (err) {
+      console.error('Error loading leads:', err)
     }
-  }, [viewMode, fetchTeamMembers, fetchTasks])
+  }, [user?.id])
+
+  // Fetch team members and tasks
+  useEffect(() => {
+    // Always fetch team members and tasks for tasks view
+    fetchTeamMembers()
+    fetchTasks()
+    fetchLeads() // Fetch leads for task creation
+  }, [viewMode, fetchTeamMembers, fetchTasks, fetchLeads])
 
   // Refetch tasks when team member filter or task filter changes
   useEffect(() => {
@@ -1174,17 +1172,7 @@ const UnifiedCalendar = () => {
     }
   }, [selectedTeamMemberId, taskFilter, viewMode, fetchTasks])
 
-  // Fetch member data when selected member or month changes
-  useEffect(() => {
-    if (selectedTeamMemberId && viewMode === 'worker-availability') {
-      // Clear previous data when switching members or months
-      setAssignedJobs([])
-      setAvailabilityData({})
-      // Fetch data for selected team member
-      fetchMemberData(selectedTeamMemberId)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedTeamMemberId, currentMonth, currentYear, viewMode])
+  // No longer needed - availability view removed
 
   // Close calendar picker when clicking outside
   useEffect(() => {
@@ -1397,15 +1385,31 @@ const UnifiedCalendar = () => {
     return { status: 'available', text: 'Available' }
   }
 
-  // Get tasks for a specific date
+  // Get tasks for a specific date (timezone-safe)
   const getTasksForDate = (date) => {
-    const dateStr = date.toISOString().split('T')[0]
+    // Get date string in local timezone (YYYY-MM-DD)
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    const dateStr = `${year}-${month}-${day}`
+    
     // Use filtered tasks (already filtered by team member and status)
     const filtered = getFilteredTasks()
     return filtered.filter(task => {
       if (!task.due_date) return false
-      const taskDate = new Date(task.due_date).toISOString().split('T')[0]
-      return taskDate === dateStr
+      
+      // Parse task due_date in local timezone to avoid timezone shifts
+      const taskDateObj = new Date(task.due_date)
+      // Check if date is valid
+      if (isNaN(taskDateObj.getTime())) return false
+      
+      // Get date string in local timezone
+      const taskYear = taskDateObj.getFullYear()
+      const taskMonth = String(taskDateObj.getMonth() + 1).padStart(2, '0')
+      const taskDay = String(taskDateObj.getDate()).padStart(2, '0')
+      const taskDateStr = `${taskYear}-${taskMonth}-${taskDay}`
+      
+      return taskDateStr === dateStr
     })
   }
 
@@ -1498,8 +1502,8 @@ const UnifiedCalendar = () => {
     }
   }
 
-  // Only show loading spinner on initial load for availability view
-  if (loading && viewMode === 'worker-availability' && teamMembers.length === 0) {
+  // Only show loading spinner on initial load
+  if (loading && teamMembers.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -1521,64 +1525,47 @@ const UnifiedCalendar = () => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Mobile Header */}
-        <MobileHeader pageTitle="My Availability" />
+        <MobileHeader pageTitle="Tasks" />
         
-        {/* View Mode Switcher - Availability / Tasks */}
+        {/* View Mode Switcher - Tasks Only */}
         <div className="bg-white border-b border-gray-200 px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <button
-                onClick={() => setViewMode('worker-availability')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  viewMode === 'worker-availability'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                Availability
-              </button>
               <button
                 onClick={() => {
                   setViewMode('tasks-calendar')
                   setCalendarView('month')
                 }}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  viewMode === 'tasks-calendar' || viewMode === 'tasks-list'
+                  viewMode === 'tasks-calendar'
                     ? 'bg-blue-600 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
-                Tasks
+                Calendar
+              </button>
+              <button
+                onClick={() => setViewMode('tasks-list')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  viewMode === 'tasks-list'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                List
               </button>
             </div>
-            {/* Team Member Filter for Tasks */}
-            {(viewMode === 'tasks-calendar' || viewMode === 'tasks-list') && (
-              <div className="flex items-center space-x-2">
-                <select
-                  value={selectedTeamMemberId || 'all'}
-                  onChange={(e) => setSelectedTeamMemberId(e.target.value === 'all' ? null : e.target.value)}
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="all">All Team Members</option>
-                  {teamMembers.map((member) => (
-                    <option key={member.id} value={member.id}>
-                      {member.first_name} {member.last_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
           </div>
         </div>
         
         <div className="flex-1 flex min-w-0">
-        {/* Filter Sidebar - Hidden on mobile */}
-        {viewMode === 'worker-availability' && (
+        {/* Filter Sidebar - Show for Tasks View */}
+        {(viewMode === 'tasks-calendar' || viewMode === 'tasks-list') && (
           <div className="hidden lg:flex w-56 bg-white border-r border-gray-200 flex-shrink-0 flex-col h-screen">
             {/* Fixed Header */}
             <div className="p-4 border-b border-gray-200 flex-shrink-0">
               <div className="flex items-center justify-between">
-                <h2 style={{fontFamily: 'Montserrat', fontWeight: 700}} className="text-2xl font-bold text-gray-900">Calendar</h2>
+                <h2 style={{fontFamily: 'Montserrat', fontWeight: 700}} className="text-2xl font-bold text-gray-900">Filters</h2>
               </div>
             </div>
             
@@ -1586,7 +1573,19 @@ const UnifiedCalendar = () => {
             <div className="flex-1 bg-gray-100 overflow-y-auto p-2 scrollbar-hide">
               {/* Team Members Filter */}
               <div className="mb-6">
-                <h3 className="text-xs font-semibold text-gray-700 mb-3 justify-self-center items-center">TEAM MEMBERS</h3>
+                <h3 className="text-xs font-semibold text-gray-700 mb-3 uppercase tracking-wider">TEAM MEMBERS</h3>
+                
+                <button
+                  onClick={() => handleSelectTeamMember(null)}
+                  className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors mb-2 ${
+                    selectedTeamMemberId === null
+                      ? 'bg-blue-50 text-blue-700 border border-blue-200' 
+                      : 'bg-white text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                  }`}
+                >
+                  <Users className="w-4 h-4" />
+                  <span className="truncate">All Team Members</span>
+                </button>
                 
                 {teamMembers.map((member) => {
                   const isSelected = selectedTeamMemberId === member.id
@@ -1596,18 +1595,16 @@ const UnifiedCalendar = () => {
                   <button
                       key={member.id}
                       onClick={() => handleSelectTeamMember(member.id)}
-                      className={`w-full flex items-center space-x-2 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors mb-2 ${
+                      className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors mb-2 ${
                         isSelected 
-                          ? 'bg-white text-blue-700' 
-                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                          ? 'bg-blue-50 text-blue-700 border border-blue-200' 
+                          : 'bg-white text-gray-700 hover:bg-gray-50 hover:text-gray-900'
                       }`}
                     >
                       <div 
-                        className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[8px] font-semibold"
+                        className="w-4 h-4 rounded-full flex-shrink-0"
                         style={{ backgroundColor: memberColor }}
-                      >
-                        {getMemberInitials(member)}
-                </div>
+                      />
                       <span className="truncate">{member.first_name} {member.last_name}</span>
                 </button>
                   )
@@ -1658,11 +1655,16 @@ const UnifiedCalendar = () => {
                     <option value="overdue">Overdue</option>
                   </select>
                   <button
-                    onClick={() => {
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      console.log('Add Task button clicked')
                       setEditingTask(null)
                       setShowCreateTaskModal(true)
+                      console.log('showCreateTaskModal set to:', true)
                     }}
-                    className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                    className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 active:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors cursor-pointer"
                   >
                     + Add Task
                   </button>
@@ -1680,11 +1682,16 @@ const UnifiedCalendar = () => {
                   </p>
                   {taskFilter === 'all' && (
                     <button
-                      onClick={() => {
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        console.log('Create Task button clicked')
                         setEditingTask(null)
                         setShowCreateTaskModal(true)
+                        console.log('showCreateTaskModal set to:', true)
                       }}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 active:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors cursor-pointer"
                     >
                       Create Task
                     </button>
@@ -1717,7 +1724,7 @@ const UnifiedCalendar = () => {
         </div>
       )}
       {/* Tasks Calendar View or Availability Calendar */}
-          {(viewMode === 'tasks-calendar' || viewMode === 'worker-availability') && (
+          {viewMode === 'tasks-calendar' && (
         <>
               {/* Top Header Bar */}
               <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4">
@@ -1886,11 +1893,16 @@ const UnifiedCalendar = () => {
                   <div className="flex items-center space-x-2">
                     {viewMode === 'tasks-calendar' || viewMode === 'tasks-list' ? (
                       <button
-                        onClick={() => {
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          console.log('Add Task button (header) clicked')
                           setEditingTask(null)
                           setShowCreateTaskModal(true)
+                          console.log('showCreateTaskModal set to:', true)
                         }}
-                        className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                        className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 active:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors cursor-pointer"
                       >
                         <span>+ Add Task</span>
                       </button>
@@ -1909,70 +1921,47 @@ const UnifiedCalendar = () => {
               </div>
 
           {/* Day View */}
-          {calendarView === 'day' && selectedTeamMemberId && (
+          {calendarView === 'day' && (
             <div className="px-4 py-4 lg:px-6">
               <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
                 <div className="border-b border-gray-200 p-4">
                   <h3 className="text-lg font-semibold text-gray-900">
-                    {currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                    {(selectedDate || currentDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
                   </h3>
                 </div>
                 <div className="p-4">
                   {(() => {
-                    const dateStr = currentDate.toISOString().split('T')[0]
-                    const member = teamMembers.find(m => m.id === selectedTeamMemberId)
-                    if (!member) return null
+                    const dateToShow = selectedDate || currentDate
+                    const tasksForDate = getTasksForDate(dateToShow)
                     
-                    const memberAvailability = availabilityData[selectedTeamMemberId]?.[dateStr]
-                    // Only show unavailable if explicitly set to false AND availability is configured
-                    // If using defaults (hasAvailabilityConfigured: false), show the default hours
-                    const isUnavailable = memberAvailability && 
-                                         !memberAvailability.available && 
-                                         memberAvailability.hasAvailabilityConfigured
-                    const availabilityHours = memberAvailability?.hours || []
-                    
-                    if (isUnavailable) {
+                    if (tasksForDate.length === 0) {
                       return (
                         <div className="text-center py-8">
-                          <div className="text-gray-500 text-lg font-medium">Unavailable</div>
-                        </div>
-                      )
-                    }
-                    
-                    if (availabilityHours.length === 0) {
-                      // Check if availability is configured at all
-                      // If using defaults (hasAvailabilityConfigured: false), we should have hours, so this shouldn't happen
-                      const hasAvailabilityConfigured = memberAvailability?.hasAvailabilityConfigured !== false
-                      return (
-                        <div className="text-center py-8">
-                          <div className="text-gray-500 text-lg font-medium">
-                            {hasAvailabilityConfigured ? 'No availability set' : 'Availability not set'}
-                          </div>
+                          <div className="text-gray-500 text-lg font-medium">No tasks for this date</div>
                         </div>
                       )
                     }
                     
                     return (
                       <div className="space-y-3">
-                        <h4 className="text-sm font-semibold text-gray-700 mb-3">Available Time Slots</h4>
-                        {availabilityHours.map((slot, idx) => {
-                          const startTime = formatTime(slot.start)
-                          const endTime = formatTime(slot.end)
-                          return (
-                            <div
-                              key={idx}
-                              className="flex items-center justify-between p-4 bg-blue-50 border border-blue-200 rounded-lg"
-                            >
-                              <div className="flex items-center space-x-3">
-                                <Clock className="w-5 h-5 text-blue-600" />
-                                <div>
-                                  <div className="text-sm font-medium text-gray-900">{startTime} - {endTime}</div>
-                                  <div className="text-xs text-gray-500">Available for scheduling</div>
-                                </div>
-                              </div>
-                            </div>
-                          )
-                        })}
+                        {tasksForDate.map((task) => (
+                          <div
+                            key={task.id}
+                            onClick={() => {
+                              setSelectedTask(task)
+                              setShowTaskDetails(true)
+                            }}
+                            className="cursor-pointer"
+                          >
+                            <TaskCard
+                              task={task}
+                              onEdit={handleEditTask}
+                              onDelete={handleDeleteTask}
+                              onStatusChange={handleTaskStatusChange}
+                              showLeadInfo={true}
+                            />
+                          </div>
+                        ))}
                       </div>
                     )
                   })()}
@@ -1982,7 +1971,7 @@ const UnifiedCalendar = () => {
           )}
 
           {/* Week View */}
-          {calendarView === 'week' && selectedTeamMemberId && (
+          {calendarView === 'week' && (
             <div className="px-4 py-4 lg:px-6 overflow-x-auto">
               <div className="min-w-max w-full">
                 {/* Day Headers */}
@@ -2006,65 +1995,59 @@ const UnifiedCalendar = () => {
                 {/* Week Days */}
                 <div className="grid grid-cols-7 gap-2">
                   {getWeekDates().map((date, idx) => {
-                    const dateStr = date.toISOString().split('T')[0]
-                    const member = teamMembers.find(m => m.id === selectedTeamMemberId)
-                    if (!member) return null
-                    
-                    const memberAvailability = availabilityData[selectedTeamMemberId]?.[dateStr]
-                    // Only show unavailable if explicitly set to false AND availability is configured
-                    // If using defaults (hasAvailabilityConfigured: false), show the default hours
-                    const isUnavailable = memberAvailability && 
-                                         !memberAvailability.available && 
-                                         memberAvailability.hasAvailabilityConfigured
-                    const availabilityHours = memberAvailability?.hours || []
+                    const tasksForDate = getTasksForDate(date)
                     const isToday = date.toDateString() === new Date().toDateString()
+                    const isSelected = selectedDate && date.toDateString() === selectedDate.toDateString()
                     
                     return (
                       <div
                         key={idx}
-                        className={`border rounded-lg p-3 min-h-[200px] ${
+                        className={`border rounded-lg p-3 min-h-[200px] cursor-pointer transition-colors ${
                           isToday
                             ? 'bg-white border-blue-500 ring-2 ring-blue-500'
-                            : 'bg-white border-gray-200'
+                            : isSelected
+                            ? 'bg-blue-50 border-blue-300'
+                            : 'bg-white border-gray-200 hover:bg-gray-50'
                         }`}
+                        onClick={() => {
+                          setSelectedDate(date)
+                          setCurrentDate(date)
+                        }}
                       >
-                        {isUnavailable ? (
-                          <div className="text-center py-4">
-                            <div className="text-xs text-gray-500 font-medium">Unavailable</div>
-                          </div>
-                        ) : availabilityHours.length > 0 ? (
-                          <div className="space-y-2">
-                            {availabilityHours.map((slot, slotIdx) => {
-                              const startTime = formatTime(slot.start)
-                              const endTime = formatTime(slot.end)
-                              return (
-                                <div
-                                  key={slotIdx}
-                                  className="px-2 py-1.5 rounded text-xs bg-blue-50 text-blue-700 border border-blue-200"
-                                  title={`${startTime} - ${endTime}`}
-                                >
-                                  <div className="font-medium">{startTime}</div>
-                                  <div className="text-blue-600">{endTime}</div>
-                                </div>
-                              )
-                            })}
-                          </div>
-                        ) : !memberAvailability || !memberAvailability.hasAvailabilityConfigured ? (
-                          // No availability configured at all
+                        <div className="space-y-1">
+                          {tasksForDate.length === 0 ? (
                             <div className="text-center py-4">
-                              <div className="text-xs text-gray-500 font-medium">Availability not set</div>
+                              <div className="text-xs text-gray-400">No tasks</div>
                             </div>
-                        ) : memberAvailability?.available ? (
-                          // Availability is configured and day is available
-                            <div className="text-center py-4">
-                              <div className="text-xs text-blue-600 font-medium">Available</div>
-                          </div>
-                        ) : (
-                          // Availability is configured but day is unavailable
-                          <div className="text-center py-4">
-                            <div className="text-xs text-gray-400">No data</div>
-                          </div>
-                        )}
+                          ) : (
+                            tasksForDate.map((task) => (
+                              <div
+                                key={task.id}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setSelectedTask(task)
+                                  setShowTaskDetails(true)
+                                }}
+                                className={`px-2 py-1 rounded text-xs border cursor-pointer hover:opacity-80 transition-opacity ${
+                                  task.status === 'completed'
+                                    ? 'bg-green-100 text-green-800 border-green-200'
+                                    : task.priority === 'urgent'
+                                    ? 'bg-red-100 text-red-800 border-red-200'
+                                    : task.priority === 'high'
+                                    ? 'bg-orange-100 text-orange-800 border-orange-200'
+                                    : 'bg-blue-100 text-blue-800 border-blue-200'
+                                }`}
+                              >
+                                <div className="truncate font-medium">{task.title}</div>
+                                {task.leads && (
+                                  <div className="text-xs opacity-75 truncate">
+                                    {task.leads.first_name} {task.leads.last_name}
+                                  </div>
+                                )}
+                              </div>
+                            ))
+                          )}
+                        </div>
                       </div>
                     )
                   })}
@@ -2102,7 +2085,13 @@ const UnifiedCalendar = () => {
                             ? 'border-blue-300 bg-blue-50/50' 
                             : 'border-gray-200 bg-white hover:bg-gray-50'
                     }`}
-                    onClick={() => setSelectedDate(day.date)}
+                    onClick={() => {
+                      setSelectedDate(day.date)
+                      // Update currentDate for day view when a date is clicked
+                      if (calendarView === 'day') {
+                        setCurrentDate(day.date)
+                      }
+                    }}
                   >
                     <div className={`text-md text-right right-3 font-medium mb-1 ${
                       isSelected && isCurrentMonth ? 'text-blue-900 font-semibold' : ''
@@ -2142,93 +2131,6 @@ const UnifiedCalendar = () => {
                       </div>
                     )}
                     
-                    {/* Calendar View - Show availability for selected team member */}
-                    {viewMode === 'worker-availability' && selectedTeamMemberId && (
-                      <>
-                        {(() => {
-                          const member = teamMembers.find(m => m.id === selectedTeamMemberId)
-                          if (!member) return null
-                          
-                          // Only show availability for current month
-                          if (!isCurrentMonth) {
-                            return null
-                          }
-                          
-                          const memberAvailability = availabilityData[selectedTeamMemberId]?.[dateStr]
-                          
-                          // If no availability data, apply default (8am-6pm)
-                          if (!memberAvailability) {
-                            return (
-                              <div className="px-2 py-1 rounded text-xs bg-blue-50 text-blue-700 border border-blue-200 text-center">
-                                8:00 AM - 6:00 PM
-                              </div>
-                            )
-                          }
-                          
-                          // Only show unavailable if explicitly set to false AND availability is configured
-                          // If using defaults (hasAvailabilityConfigured: false), show the default hours
-                          const isUnavailable = memberAvailability && 
-                                               !memberAvailability.available && 
-                                               memberAvailability.hasAvailabilityConfigured
-                          const availabilityHours = memberAvailability?.hours || []
-                          
-                          // If using defaults (hasAvailabilityConfigured: false) but no hours, show default
-                          if (!memberAvailability.hasAvailabilityConfigured && availabilityHours.length === 0) {
-                            return (
-                              <div className="px-2 py-1 rounded text-xs bg-blue-50 text-blue-700 border border-blue-200 text-center">
-                                8:00 AM - 6:00 PM
-                              </div>
-                            )
-                          }
-                          
-                          if (isUnavailable) {
-                              return (
-                                <div className="px-2 py-1 rounded text-xs bg-gray-100 text-gray-500 border border-gray-200 text-center">
-                                  Unavailable
-                                </div>
-                              )
-                          }
-                          
-                          if (availabilityHours.length > 0) {
-                            // Show availability time slots
-                            return availabilityHours.slice(0, 2).map((slot, idx) => {
-                              const startTime = formatTime(slot.start)
-                              const endTime = formatTime(slot.end)
-                              return (
-                                <div
-                                  key={idx}
-                                  className="px-2 py-1 rounded text-xs bg-blue-50 text-blue-700 border border-blue-200 text-center mb-1"
-                                  title={`Available: ${startTime} - ${endTime}`}
-                                >
-                                  <div className="font-medium text-xs">{startTime} - {endTime}</div>
-                                </div>
-                              )
-                            }).concat(
-                              availabilityHours.length > 2 ? (
-                                <div key="more" className="text-xs text-blue-600 text-center py-0.5">
-                                  +{availabilityHours.length - 2}
-                                </div>
-                              ) : null
-                            )
-                          } else if (!memberAvailability || !memberAvailability.hasAvailabilityConfigured) {
-                            // No availability configured at all - show default availability
-                              return (
-                              <div className="px-2 py-1 rounded text-xs bg-blue-50 text-blue-700 border border-blue-200 text-center">
-                                8:00 AM - 6:00 PM
-                                </div>
-                              )
-                          } else if (memberAvailability?.available) {
-                            // Availability is configured and day is available
-                            return (
-                              <div className="text-xs text-blue-600 text-center py-1">
-                                Available
-                              </div>
-                            )
-                          }
-                          return null
-                        })()}
-                      </>
-                    )}
                   </div>
                 )
               })}
@@ -2489,9 +2391,8 @@ const UnifiedCalendar = () => {
       )}
 
       {/* Create/Edit Task Modal */}
-      {showCreateTaskModal && (
-        <CreateTaskModal
-          isOpen={showCreateTaskModal}
+      <CreateTaskModal
+        isOpen={showCreateTaskModal}
           onClose={() => {
             setShowCreateTaskModal(false)
             setEditingTask(null)
@@ -2503,19 +2404,66 @@ const UnifiedCalendar = () => {
                 await leadsAPI.updateTask(editingTask.id, {
                   title: taskData.title,
                   description: taskData.description,
-                  due_date: taskData.dueDate,
+                  dueDate: taskData.dueDate,
                   priority: taskData.priority,
-                  assigned_to: taskData.assignedTo,
+                  assignedTo: taskData.assignedTo,
                   status: taskData.status
                 })
                 setMessage({ type: 'success', text: 'Task updated successfully!' })
               } else {
-                // For now, we need a lead to create a task
-                // You can modify this to create a default lead or handle differently
-                setMessage({ type: 'error', text: 'Please create tasks from the Leads page. Task creation without a lead is not yet supported.' })
-                setShowCreateTaskModal(false)
-                setEditingTask(null)
-                return
+                // Create new task - leadId is optional
+                const taskLeadId = taskData.leadId || null
+                
+                if (taskLeadId) {
+                  // Create task with selected lead
+                  await leadsAPI.createTask(taskLeadId, {
+                    title: taskData.title,
+                    description: taskData.description,
+                    dueDate: taskData.dueDate,
+                    priority: taskData.priority,
+                    assignedTo: taskData.assignedTo,
+                    status: taskData.status
+                  })
+                } else {
+                  // Create task without lead - create a placeholder lead first
+                  try {
+                    // Get pipeline to get first stage
+                    const pipeline = await leadsAPI.getPipeline()
+                    const firstStageId = pipeline?.stages?.[0]?.id
+                    
+                    if (!firstStageId) {
+                      setMessage({ type: 'error', text: 'Please set up your pipeline first or assign this task to a lead.' })
+                      return
+                    }
+                    
+                    // Create a placeholder lead for the task
+                    const placeholderLead = await leadsAPI.create({
+                      firstName: 'Task',
+                      lastName: 'Placeholder',
+                      email: `task-${Date.now()}@placeholder.local`,
+                      stageId: firstStageId
+                    })
+                    
+                    // Create task with the placeholder lead
+                    await leadsAPI.createTask(placeholderLead.id, {
+                      title: taskData.title,
+                      description: taskData.description,
+                      dueDate: taskData.dueDate,
+                      priority: taskData.priority,
+                      assignedTo: taskData.assignedTo,
+                      status: taskData.status
+                    })
+                    
+                    // Refresh leads list
+                    fetchLeads()
+                  } catch (leadError) {
+                    console.error('Error creating placeholder lead:', leadError)
+                    setMessage({ type: 'error', text: 'Failed to create task. Please assign it to a lead or set up your pipeline.' })
+                    return
+                  }
+                }
+                
+                setMessage({ type: 'success', text: 'Task created successfully!' })
               }
               setTimeout(() => setMessage({ type: '', text: '' }), 3000)
               setShowCreateTaskModal(false)
@@ -2528,10 +2476,11 @@ const UnifiedCalendar = () => {
           }}
           leadId={editingTask?.lead_id || null}
           teamMembers={teamMembers}
+          leads={leads}
           initialData={editingTask}
+          initialDate={editingTask ? null : selectedDate}
           isEditing={!!editingTask}
         />
-      )}
     </div>
   )
 }

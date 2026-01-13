@@ -32,6 +32,9 @@ const ServiceFlowSchedule = () => {
   const [isNavigating, setIsNavigating] = useState(false)
   const [showCalendarPicker, setShowCalendarPicker] = useState(false) // Calendar picker visibility
   const [scheduleSidebarOpen, setScheduleSidebarOpen] = useState(false) // Mobile filter sidebar state
+  const [availabilityData, setAvailabilityData] = useState({}) // Store availability for all team members
+  const [loadingAvailability, setLoadingAvailability] = useState(false)
+  const [selectedTeamMemberId, setSelectedTeamMemberId] = useState(null) // null = all team members
   const navigate = useNavigate()
 
   // Request cancellation and navigation timeout
@@ -132,6 +135,77 @@ const ServiceFlowSchedule = () => {
       setTeamMembers([])
     }
   }
+
+  // Load availability for all team members for the current week
+  const loadAllAvailability = async () => {
+    if (!currentUser?.id || teamMembers.length === 0) return
+    
+    setLoadingAvailability(true)
+    try {
+      // Get start and end of current week
+      const startOfWeek = new Date(currentDate)
+      startOfWeek.setDate(currentDate.getDate() - currentDate.getDay())
+      startOfWeek.setHours(0, 0, 0, 0)
+      
+      const endOfWeek = new Date(startOfWeek)
+      endOfWeek.setDate(startOfWeek.getDate() + 6)
+      endOfWeek.setHours(23, 59, 59, 999)
+      
+      const startDateStr = startOfWeek.toISOString().split('T')[0]
+      const endDateStr = endOfWeek.toISOString().split('T')[0]
+      
+      // Fetch availability for all team members in parallel
+      const availabilityPromises = teamMembers.map(async (member) => {
+        try {
+          const availability = await teamAPI.getAvailability(member.id, startDateStr, endDateStr)
+          return { memberId: member.id, availability }
+        } catch (error) {
+          console.error(`Error fetching availability for member ${member.id}:`, error)
+          return { memberId: member.id, availability: null }
+        }
+      })
+      
+      const results = await Promise.all(availabilityPromises)
+      const availabilityMap = {}
+      
+      results.forEach(({ memberId, availability }) => {
+        if (availability?.availability) {
+          // Process availability data similar to unified-calendar
+          const processedData = {}
+          const availData = typeof availability.availability === 'string' 
+            ? JSON.parse(availability.availability) 
+            : availability.availability
+          
+          if (availData && typeof availData === 'object') {
+            Object.keys(availData).forEach(dateStr => {
+              const dayData = availData[dateStr]
+              processedData[dateStr] = {
+                available: dayData.available !== false,
+                hours: dayData.hours || [],
+                hasAvailabilityConfigured: dayData.hasAvailabilityConfigured !== false
+              }
+            })
+          }
+          
+          availabilityMap[memberId] = processedData
+        }
+      })
+      
+      setAvailabilityData(availabilityMap)
+    } catch (error) {
+      console.error('Error loading availability:', error)
+    } finally {
+      setLoadingAvailability(false)
+    }
+  }
+
+  // Load availability when view changes to availability or when currentDate changes
+  useEffect(() => {
+    if (currentView === 'availability' && teamMembers.length > 0) {
+      loadAllAvailability()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentView, currentDate, teamMembers.length])
 
   // Get unique territories from team members
   const getTerritories = () => {
@@ -1167,6 +1241,190 @@ const ServiceFlowSchedule = () => {
     )
   }
 
+  // Get week dates
+  const getWeekDates = () => {
+    const startOfWeek = new Date(currentDate)
+    startOfWeek.setDate(currentDate.getDate() - currentDate.getDay())
+    startOfWeek.setHours(0, 0, 0, 0)
+    
+    const days = []
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(startOfWeek)
+      date.setDate(startOfWeek.getDate() + i)
+      days.push(date)
+    }
+    return days
+  }
+
+  // Format time from time string (HH:MM format)
+  const formatTimeString = (timeStr) => {
+    if (!timeStr) return ''
+    // If it's already a formatted time string, return as is
+    if (typeof timeStr === 'string' && timeStr.includes(':')) {
+      const [hours, minutes] = timeStr.split(':')
+      const hour = parseInt(hours, 10)
+      const ampm = hour >= 12 ? 'PM' : 'AM'
+      const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour
+      return `${displayHour}:${minutes} ${ampm}`
+    }
+    return timeStr
+  }
+
+  // Get availability display for a team member on a specific date
+  const getAvailabilityDisplay = (memberId, dateStr) => {
+    const memberData = availabilityData[memberId]?.[dateStr]
+    if (!memberData) return { status: 'unknown', text: 'No data', hours: [] }
+    
+    if (!memberData.available && memberData.hasAvailabilityConfigured) {
+      return { status: 'unavailable', text: 'Unavailable', hours: [] }
+    }
+    
+    if (memberData.hours && memberData.hours.length > 0) {
+      const hoursText = memberData.hours.map(slot => 
+        `${formatTimeString(slot.start)} - ${formatTimeString(slot.end)}`
+      ).join(', ')
+      return { status: 'available', text: hoursText, hours: memberData.hours }
+    }
+    
+    return { status: 'available', text: 'Available', hours: [] }
+  }
+
+  // Availability View Component
+  const AvailabilityView = () => {
+    const weekDates = getWeekDates()
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+    
+    return (
+      <div className="flex-1 bg-gray-50 overflow-y-auto">
+        <div className="max-w-7xl mx-auto p-4 sm:p-6 pb-8">
+          {loadingAvailability ? (
+            <div className="text-center py-16">
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 sm:p-12">
+                <RefreshCw className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mx-auto mb-4 animate-spin" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">Loading availability...</h3>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[800px]">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider sticky left-0 bg-gray-50 z-10 border-r border-gray-200">
+                        Team Member
+                      </th>
+                      {weekDates.map((date, idx) => {
+                        const isToday = date.toDateString() === new Date().toDateString()
+                        return (
+                          <th key={idx} className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[200px]">
+                            <div className={`${isToday ? 'text-blue-600 font-bold' : ''}`}>
+                              {dayNames[date.getDay()]}
+                            </div>
+                            <div className={`text-sm mt-1 ${isToday ? 'text-blue-600 font-bold' : 'text-gray-900'}`}>
+                              {date.getDate()}/{date.getMonth() + 1}
+                            </div>
+                          </th>
+                        )
+                      })}
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {teamMembers
+                      .filter(member => !selectedTeamMemberId || selectedTeamMemberId === member.id)
+                      .map((member) => {
+                      const memberColor = member.color || '#2563EB'
+                      return (
+                        <tr key={member.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-4 whitespace-nowrap sticky left-0 bg-white z-10 border-r border-gray-200">
+                            <div className="flex items-center space-x-3">
+                              <div 
+                                className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm flex-shrink-0"
+                                style={{ backgroundColor: memberColor }}
+                              >
+                                {member.first_name?.charAt(0) || member.last_name?.charAt(0) || 'T'}
+                              </div>
+                              <div>
+                                <div className="text-sm font-medium text-gray-900">
+                                  {member.first_name} {member.last_name}
+                                </div>
+                                {member.territory && (
+                                  <div className="text-xs text-gray-500">{member.territory}</div>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          {weekDates.map((date, dateIdx) => {
+                            const dateStr = date.toISOString().split('T')[0]
+                            const availability = getAvailabilityDisplay(member.id, dateStr)
+                            const dayJobs = getJobsForDate(date).filter(job => 
+                              job.team_member_id == member.id
+                            )
+                            const isToday = date.toDateString() === new Date().toDateString()
+                            
+                            return (
+                              <td 
+                                key={dateIdx} 
+                                className={`px-4 py-4 align-top ${isToday ? 'bg-blue-50' : ''}`}
+                              >
+                                <div className="space-y-2">
+                                  {/* Availability */}
+                                  <div className={`p-2 rounded text-xs ${
+                                    availability.status === 'available'
+                                      ? 'bg-green-50 text-green-800 border border-green-200'
+                                      : availability.status === 'unavailable'
+                                      ? 'bg-gray-100 text-gray-600 border border-gray-200'
+                                      : 'bg-gray-50 text-gray-500 border border-gray-200'
+                                  }`}>
+                                    <div className="font-medium mb-1">Availability</div>
+                                    <div className="text-xs">{availability.text}</div>
+                                  </div>
+                                  
+                                  {/* Jobs */}
+                                  {dayJobs.length > 0 && (
+                                    <div className="space-y-1">
+                                      <div className="text-xs font-medium text-gray-700 mb-1">
+                                        Jobs ({dayJobs.length})
+                                      </div>
+                                      {dayJobs.slice(0, 3).map((job) => (
+                                        <div
+                                          key={job.id}
+                                          onClick={() => navigate(`/job/${job.id}`)}
+                                          className="p-2 rounded text-xs bg-blue-50 text-blue-800 border border-blue-200 cursor-pointer hover:bg-blue-100 transition-colors"
+                                          style={{ borderLeftColor: memberColor, borderLeftWidth: '3px' }}
+                                        >
+                                          <div className="font-medium truncate">{job.service_name || 'Service'}</div>
+                                          <div className="text-xs opacity-75">{formatTime(job.scheduled_date)}</div>
+                                          {job.customer_first_name && (
+                                            <div className="text-xs opacity-75 truncate">
+                                              {job.customer_first_name} {job.customer_last_name}
+                                            </div>
+                                          )}
+                                        </div>
+                                      ))}
+                                      {dayJobs.length > 3 && (
+                                        <div className="text-xs text-blue-600 text-center">
+                                          +{dayJobs.length - 3} more
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                            )
+                          })}
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   const renderView = () => {
     switch (currentView) {
       case "day":
@@ -1175,9 +1433,16 @@ const ServiceFlowSchedule = () => {
         return <WeekView />
       case "month":
         return <MonthView />
+      case "availability":
+        return <AvailabilityView />
       default:
         return <DayView />
     }
+  }
+
+  // Handle team member selection for availability view
+  const handleSelectTeamMember = (memberId) => {
+    setSelectedTeamMemberId(memberId)
   }
 
   return (
@@ -1186,6 +1451,50 @@ const ServiceFlowSchedule = () => {
       <div className="flex-1 flex min-w-0 lg:ml-64 xl:ml-72 h-full">
         {/* Schedule Sidebar - Hidden on mobile, visible on desktop */}
         
+        {/* Team Member Filter Sidebar - Only show in availability view */}
+        {currentView === 'availability' && (
+          <div className="hidden lg:block w-64 bg-gray-50 border-r border-gray-200 flex-shrink-0 overflow-y-auto">
+            <div className="p-4">
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">TEAM MEMBERS</h3>
+              <div className="space-y-1">
+                <button
+                  onClick={() => handleSelectTeamMember(null)}
+                  className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors mb-2 ${
+                    selectedTeamMemberId === null
+                      ? 'bg-blue-50 text-blue-700 border border-blue-200' 
+                      : 'bg-white text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                  }`}
+                >
+                  <Users className="w-4 h-4" />
+                  <span className="truncate">All Team Members</span>
+                </button>
+                
+                {teamMembers.map((member) => {
+                  const isSelected = selectedTeamMemberId === member.id
+                  const memberColor = member.color || '#3B82F6'
+                  
+                  return (
+                    <button
+                      key={member.id}
+                      onClick={() => handleSelectTeamMember(member.id)}
+                      className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors mb-2 ${
+                        isSelected 
+                          ? 'bg-blue-50 text-blue-700 border border-blue-200' 
+                          : 'bg-white text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                      }`}
+                    >
+                      <div 
+                        className="w-4 h-4 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: memberColor }}
+                      />
+                      <span className="truncate">{member.first_name} {member.last_name}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        )}
         
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden h-full">
           
@@ -1323,34 +1632,38 @@ const ServiceFlowSchedule = () => {
                 </div>
                 
                 <div className="flex items-center space-x-2 sm:space-x-4">
-                  {/* Mobile Filter Button */}
-                  <button
-                    onClick={() => setScheduleSidebarOpen(true)}
-                    className={`lg:hidden p-2 rounded-lg transition-colors relative ${
-                      (filters.status !== 'all' || filters.teamMember !== 'all' || filters.timeRange !== 'all' || filters.territory !== 'all')
-                        ? 'text-blue-600 bg-blue-50 hover:bg-blue-100'
-                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                    }`}
-                    title="Open filters"
-                  >
-                    {/* <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.207A1 1 0 013 6.5V4z" />
-                    </svg> */}
-                    {(filters.status !== 'all' || filters.teamMember !== 'all' || filters.timeRange !== 'all' || filters.territory !== 'all') && (
-                      <span className="absolute -top-1 -right-1 w-3 h-3 bg-blue-600 rounded-full"></span>
-                    )}
-                  </button>
+                  {/* Mobile Filter Button - Show for availability view or when filters are active */}
+                  {(currentView === 'availability' || (filters.status !== 'all' || filters.teamMember !== 'all' || filters.timeRange !== 'all' || filters.territory !== 'all')) && (
+                    <button
+                      onClick={() => setScheduleSidebarOpen(true)}
+                      className={`lg:hidden p-2 rounded-lg transition-colors relative ${
+                        currentView === 'availability' || (filters.status !== 'all' || filters.teamMember !== 'all' || filters.timeRange !== 'all' || filters.territory !== 'all')
+                          ? 'text-blue-600 bg-blue-50 hover:bg-blue-100'
+                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                      }`}
+                      title="Open filters"
+                    >
+                      <Filter className="w-5 h-5" />
+                      {currentView === 'availability' && selectedTeamMemberId && (
+                        <span className="absolute -top-1 -right-1 w-3 h-3 bg-blue-600 rounded-full"></span>
+                      )}
+                      {(currentView !== 'availability' && (filters.status !== 'all' || filters.teamMember !== 'all' || filters.timeRange !== 'all' || filters.territory !== 'all')) && (
+                        <span className="absolute -top-1 -right-1 w-3 h-3 bg-blue-600 rounded-full"></span>
+                      )}
+                    </button>
+                  )}
                   
-                  {/* New Filter Button with Filter Icon */}
-                  <button
-                    onClick={() => setScheduleSidebarOpen(true)}
-                    className={`lg:hidden p-2 rounded-lg transition-colors relative ${
-                      (filters.status !== 'all' || filters.teamMember !== 'all' || filters.timeRange !== 'all' || filters.territory !== 'all')
-                        ? 'text-blue-600 bg-blue-50 hover:bg-blue-100'
-                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                    }`}
-                    title="Open filters"
-                  >
+                  {/* Desktop Filter Button - Only show for non-availability views */}
+                  {currentView !== 'availability' && (
+                    <button
+                      onClick={() => setScheduleSidebarOpen(true)}
+                      className={`lg:hidden p-2 rounded-lg transition-colors relative ${
+                        (filters.status !== 'all' || filters.teamMember !== 'all' || filters.timeRange !== 'all' || filters.territory !== 'all')
+                          ? 'text-blue-600 bg-blue-50 hover:bg-blue-100'
+                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                      }`}
+                      title="Open filters"
+                    >
                     <Filter className="w-5 h-5" />
                     {(filters.status !== 'all' || filters.teamMember !== 'all' || filters.timeRange !== 'all' || filters.territory !== 'all') && (
                       <span className="absolute -top-1 -right-1 w-3 h-3 bg-blue-600 rounded-full"></span>
@@ -1381,6 +1694,14 @@ const ServiceFlowSchedule = () => {
                       }`}
                     >
                       Month
+                    </button>
+                    <button
+                      onClick={() => setCurrentView("availability")}
+                      className={`px-2 sm:px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-colors ${
+                        currentView === "availability" ? "bg-gray-100 text-gray-900" : "text-gray-600 hover:text-gray-900"
+                      }`}
+                    >
+                      Availability
                     </button>
                   </div>
                   
@@ -1417,15 +1738,63 @@ const ServiceFlowSchedule = () => {
                 <p className="text-sm text-gray-500">Filter your schedule view</p>
               </div>
               <div className="flex-1 overflow-y-auto">
-                <ScheduleSidebar 
-                  filters={filters}
-                  onFilterChange={(filterType, value) => {
-                    handleFilterChange(filterType, value)
-                    // Auto-close sidebar on mobile after filter change
-                    setTimeout(() => setScheduleSidebarOpen(false), 300)
-                  }}
-                  teamMembers={teamMembers}
-                />
+                {currentView === 'availability' ? (
+                  <div className="p-4">
+                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">TEAM MEMBERS</h3>
+                    <div className="space-y-1">
+                      <button
+                        onClick={() => {
+                          handleSelectTeamMember(null)
+                          setTimeout(() => setScheduleSidebarOpen(false), 300)
+                        }}
+                        className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors mb-2 ${
+                          selectedTeamMemberId === null
+                            ? 'bg-blue-50 text-blue-700 border border-blue-200' 
+                            : 'bg-white text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                        }`}
+                      >
+                        <Users className="w-4 h-4" />
+                        <span className="truncate">All Team Members</span>
+                      </button>
+                      
+                      {teamMembers.map((member) => {
+                        const isSelected = selectedTeamMemberId === member.id
+                        const memberColor = member.color || '#3B82F6'
+                        
+                        return (
+                          <button
+                            key={member.id}
+                            onClick={() => {
+                              handleSelectTeamMember(member.id)
+                              setTimeout(() => setScheduleSidebarOpen(false), 300)
+                            }}
+                            className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors mb-2 ${
+                              isSelected 
+                                ? 'bg-blue-50 text-blue-700 border border-blue-200' 
+                                : 'bg-white text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                            }`}
+                          >
+                            <div 
+                              className="w-4 h-4 rounded-full flex-shrink-0"
+                              style={{ backgroundColor: memberColor }}
+                            />
+                            <span className="truncate">{member.first_name} {member.last_name}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <ScheduleSidebar 
+                    filters={filters}
+                    onFilterChange={(filterType, value) => {
+                      handleFilterChange(filterType, value)
+                      // Auto-close sidebar on mobile after filter change
+                      setTimeout(() => setScheduleSidebarOpen(false), 300)
+                    }}
+                    teamMembers={teamMembers}
+                  />
+                )}
               </div>
               <div className="flex-shrink-0 p-4 border-t border-gray-200">
                 <button
