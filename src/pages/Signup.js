@@ -61,12 +61,40 @@ export default function SignupForm() {
       [name]: value
     }))
     
-    // Clear field-specific error when user starts typing
-    if (errors[name]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: ""
-      }))
+    // Real-time validation for confirm password
+    if (name === 'confirmPassword') {
+      if (value.trim() && value !== formData.password) {
+        setErrors(prev => ({
+          ...prev,
+          confirmPassword: 'Passwords do not match'
+        }))
+      } else {
+        setErrors(prev => ({
+          ...prev,
+          confirmPassword: ""
+        }))
+      }
+    } else if (name === 'password') {
+      // Also check confirmPassword when password changes
+      if (formData.confirmPassword.trim() && formData.confirmPassword !== value) {
+        setErrors(prev => ({
+          ...prev,
+          confirmPassword: 'Passwords do not match'
+        }))
+      } else if (formData.confirmPassword.trim() && formData.confirmPassword === value) {
+        setErrors(prev => ({
+          ...prev,
+          confirmPassword: ""
+        }))
+      }
+    } else {
+      // Clear field-specific error when user starts typing
+      if (errors[name]) {
+        setErrors(prev => ({
+          ...prev,
+          [name]: ""
+        }))
+      }
     }
     
     // Clear API error when user starts typing
@@ -209,9 +237,8 @@ export default function SignupForm() {
   }
 
   const isFormValid = Object.entries(formData).every(([key, value]) => {
-    if (key === 'confirmPassword') {
-      return value.trim() !== "" && value === formData.password
-    }
+    // Don't check password match here - just check if confirmPassword is filled
+    // Password match validation will show error but won't disable button
     return value.trim() !== ""
   })
 
