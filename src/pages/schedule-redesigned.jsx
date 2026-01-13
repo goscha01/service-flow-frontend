@@ -340,8 +340,9 @@ const ServiceFlowSchedule = () => {
   }
 
   const fetchJobs = useCallback(async () => {
-    // Get current selectedFilter value (need to access it from state)
+    // Get current selectedFilter and territoryFilter values (need to access them from state)
     const currentFilter = selectedFilter;
+    const currentTerritoryFilter = territoryFilter;
     try {
       setIsLoading(true)
       // Calculate date range based on view mode
@@ -387,16 +388,21 @@ const ServiceFlowSchedule = () => {
       const limit = viewMode === 'month' ? 10000 : 1000
       
       // Use backend filter for team member (same as unified-calendar.jsx)
-      // For availability tab, we need to filter by team member to get their jobs
-      // For jobs tab, we also filter by team member if one is selected
-      // This matches how unified-calendar.jsx fetches jobs per team member
+      // For availability tab with territory filter, fetch ALL jobs (no team member filter)
+      // because we need jobs for all team members in that territory
+      // For availability tab with team member filter, filter by that team member
+      // For jobs tab, also filter by team member if one is selected
       let teamMemberFilter = null
-      if (currentFilter && currentFilter !== 'all' && currentFilter !== 'unassigned') {
-        // Convert to string like unified-calendar does
+      if (activeTab === 'availability' && currentTerritoryFilter && currentTerritoryFilter !== 'all') {
+        // Territory selected in availability tab - fetch ALL jobs (no team member filter)
+        // getDayAvailabilityForMember will filter jobs for each team member in the territory
+        teamMemberFilter = null
+      } else if (currentFilter && currentFilter !== 'all' && currentFilter !== 'unassigned') {
+        // Team member selected - filter by that team member
         teamMemberFilter = currentFilter.toString()
       }
       
-      console.log(`🔍 Schedule: Fetching jobs with teamMember filter: ${teamMemberFilter || 'none'} (selectedFilter: ${currentFilter}, activeTab: ${activeTab})`);
+      console.log(`🔍 Schedule: Fetching jobs with teamMember filter: ${teamMemberFilter || 'none'} (selectedFilter: ${currentFilter}, territoryFilter: ${currentTerritoryFilter}, activeTab: ${activeTab})`);
       
       const jobsResponse = await jobsAPI.getAll(
         user.id, 
@@ -408,7 +414,7 @@ const ServiceFlowSchedule = () => {
         dateRange, // dateRange - pass the calculated date range to backend
         null, // sortBy
         null, // sortOrder
-        teamMemberFilter, // teamMember - only filter at backend for jobs tab, not availability
+        teamMemberFilter, // teamMember - null for territory filter in availability tab, otherwise filter by team member
         null, // invoiceStatus
         null, // customerId
         null, // territoryId
@@ -456,7 +462,8 @@ const ServiceFlowSchedule = () => {
       // In availability tab, backend should have already filtered by team member
       // But we also do client-side filtering to catch any jobs with team_assignments that backend might miss
       // This is a safety net - backend filter should handle most cases (like unified-calendar)
-      if (activeTab === 'availability' && currentFilter && currentFilter !== 'all' && currentFilter !== 'unassigned') {
+      // However, if territory is selected, DON'T filter by team member - we need ALL jobs
+      if (activeTab === 'availability' && !(currentTerritoryFilter && currentTerritoryFilter !== 'all') && currentFilter && currentFilter !== 'all' && currentFilter !== 'unassigned') {
         const beforeTeamFilter = filteredJobs.length
         filteredJobs = filteredJobs.filter(job => isJobAssignedTo(job, currentFilter))
         if (beforeTeamFilter !== filteredJobs.length) {
@@ -485,7 +492,7 @@ const ServiceFlowSchedule = () => {
     } finally {
       setIsLoading(false)
     }
-  }, [user, selectedDate, viewMode, selectedFilter, activeTab]) // Include activeTab so jobs refetch when switching tabs
+  }, [user, selectedDate, viewMode, selectedFilter, territoryFilter, activeTab]) // Include territoryFilter so jobs refetch when territory filter changes
   
   // Refetch jobs when selectedFilter changes (if it's a team member filter)
   useEffect(() => {
@@ -495,61 +502,16 @@ const ServiceFlowSchedule = () => {
     }
   }, [selectedFilter, fetchJobs])
 
-  // Helper function to fetch team member availability sequentially with delays
-  const fetchTeamMemberAvailabilitySequentially = useCallback(async (members) => {
-    const availabilityMap = {}
-    
-    // Fetch availability sequentially with a delay between requests to avoid rate limiting
-    for (let i = 0; i < members.length; i++) {
-      const member = members[i]
-      try {
-        // Add delay between requests (except for the first one)
-        if (i > 0) {
-          await new Promise(resolve => setTimeout(resolve, 300)) // 300ms delay
-        }
-        
-        const availability = await teamAPI.getAvailability(member.id)
-        availabilityMap[member.id] = availability?.availability || null
-      } catch (error) {
-        // Handle rate limiting specifically
-        if (error?.response?.status === 429) {
-          console.warn(`Rate limited for member ${member.id}, waiting longer...`)
-          // Wait longer if rate limited
-          await new Promise(resolve => setTimeout(resolve, 2000)) // 2 second delay
-          // Retry once
-          try {
-            const availability = await teamAPI.getAvailability(member.id)
-            availabilityMap[member.id] = availability?.availability || null
-          } catch (retryError) {
-            console.error(`Error fetching availability for member ${member.id} after retry:`, retryError)
-            availabilityMap[member.id] = null
-          }
-        } else {
-          console.error(`Error fetching availability for member ${member.id}:`, error)
-          availabilityMap[member.id] = null
-        }
-      }
-    }
-    
-    return availabilityMap
-  }, [])
-
   const fetchTeamMembers = useCallback(async () => {
     try {
       const teamResponse = await teamAPI.getAll(user.id, { page: 1, limit: 1000 })
       const members = teamResponse.teamMembers || teamResponse || []
       setTeamMembers(members)
-      
-      // Also fetch availability for each team member if in availability tab
-      if (activeTab === 'availability') {
-        const availabilityMap = await fetchTeamMemberAvailabilitySequentially(members)
-        setTeamMemberAvailability(availabilityMap)
-      }
     } catch (error) {
       console.error('❌ Error fetching team members:', error)
       setTeamMembers([])
     }
-  }, [user, activeTab, fetchTeamMemberAvailabilitySequentially])
+  }, [user])
 
   const fetchTerritories = useCallback(async () => {
     try {
@@ -781,32 +743,25 @@ const ServiceFlowSchedule = () => {
       if (!userBusinessHours) {
         fetchUserAvailability()
       }
-      // Fetch team member availability when switching to availability tab
-      if (teamMembers.length > 0 && Object.keys(teamMemberAvailability).length === 0) {
-        const fetchMemberAvailability = async () => {
-          const availabilityMap = await fetchTeamMemberAvailabilitySequentially(teamMembers)
-          setTeamMemberAvailability(availabilityMap)
-        }
-        fetchMemberAvailability()
-      }
+      // Team member availability is no longer fetched - will use availability from team member object if available
     }
-  }, [activeTab, user, userBusinessHours, fetchUserAvailability, teamMembers, teamMemberAvailability, fetchTeamMemberAvailabilitySequentially])
+  }, [activeTab, user, userBusinessHours, fetchUserAvailability])
 
-  // Default to "all" when switching to availability tab (show all team members)
+  // Default to first team member when switching to availability tab (no "all" option)
   useEffect(() => {
     if (activeTab === 'availability' && teamMembers.length > 0) {
       // Use functional update to access current selectedFilter value
       setSelectedFilter(prevFilter => {
-        // If switching from jobs tab or filter is unassigned, default to 'all'
-        if (!prevFilter || prevFilter === 'unassigned') {
-          return 'all'
+        // If switching from jobs tab or filter is unassigned or 'all', default to first team member
+        if (!prevFilter || prevFilter === 'unassigned' || prevFilter === 'all') {
+          return teamMembers[0].id.toString()
         }
         // Check if the current filter is a valid team member
         const isValidTeamMember = teamMembers.find(m => m.id.toString() === prevFilter)
-        if (!isValidTeamMember && prevFilter !== 'all') {
-          return 'all'
+        if (!isValidTeamMember) {
+          return teamMembers[0].id.toString()
         }
-        // Keep the current filter if it's 'all' or a valid team member
+        // Keep the current filter if it's a valid team member
         return prevFilter
       })
     }
@@ -1227,7 +1182,9 @@ const ServiceFlowSchedule = () => {
     return filteredJobs
   }
 
-  // Helper to get personal cleaner availability for a specific day
+  // Helper to get Personal Cleaner Availability (#3) for a specific day
+  // Personal Cleaner Availability: When a cleaner is willing to work (set in app/settings)
+  // This is independent of booked jobs - it's when the cleaner is available at all
   const getPersonalAvailabilityForDay = (memberId, dayOfWeek) => {
     const member = teamMembers.find(m => m.id === memberId)
     if (!member) return null
@@ -1284,37 +1241,56 @@ const ServiceFlowSchedule = () => {
   }
 
   // Get availability for a specific team member on a specific date
-  // Formula: (Company Working Time ∩ Personal Cleaner Availability) - Scheduled Jobs
+  // 
+  // IMPORTANT: This implements the exact formula:
+  // Cleaner Job Availability (#5) = (Company Working Time (#4) ∩ Personal Cleaner Availability (#3)) - Cleaner Job Schedule (#2)
+  //
+  // The five distinct concepts:
+  // 1. Job Schedule: The actual start and end time of a booked job
+  // 2. Cleaner Job Schedule: All job schedules assigned to a specific cleaner
+  // 3. Personal Cleaner Availability: When a cleaner is willing to work (set in app/settings)
+  // 4. Company Working Time: When the company operates (set in settings)
+  // 5. Cleaner Job Availability: Calculated time slots where a new job can be assigned (THIS RESULT)
+  //
+  // Rules:
+  // - Personal cleaner availability alone is NOT bookable time
+  // - Company working time is a hard limit
+  // - Scheduled jobs always block time, even if the cleaner is "available"
+  // - Both company working time AND personal cleaner availability are REQUIRED
   const getDayAvailabilityForMember = (date, memberId) => {
     const dayOfWeek = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][date.getDay()]
     const dateString = date.toISOString().split('T')[0]
     
-    // 1. Get Company Working Time (#4)
+    // STEP 1: Get Company Working Time (#4)
+    // This is a hard limit - defines when the company operates at all
     const companyHours = getBusinessHours()
     const companyDayHours = companyHours[dayOfWeek] || { enabled: false, start: '09:00', end: '18:00' }
     
+    // If company is not open on this day, no availability
     if (!companyDayHours.enabled) {
       return { isOpen: false, hours: null, jobCount: 0, availableSlots: [] }
     }
     
-    // 2. Get Personal Cleaner Availability (#3)
+    // STEP 2: Get Personal Cleaner Availability (#3)
+    // This defines when the cleaner is willing to work (independent of booked jobs)
     const personalAvailability = getPersonalAvailabilityForDay(memberId, dayOfWeek)
     
-    // 3. Intersect Company Hours with Personal Availability
-    let availableTimeSlots = []
+    // STEP 3: Intersect Company Working Time (#4) with Personal Cleaner Availability (#3)
+    // BOTH are required - if personal availability is not set, intersection is empty (no bookable time)
+    let intersectionTimeSlots = []
     if (personalAvailability) {
-      // Personal availability exists - intersect with company hours
+      // Both exist - calculate intersection
       const companyStart = timeToMinutes(companyDayHours.start)
       const companyEnd = timeToMinutes(companyDayHours.end)
       const personalStart = timeToMinutes(personalAvailability.start)
       const personalEnd = timeToMinutes(personalAvailability.end)
       
-      // Find intersection
+      // Find intersection: max(start times) to min(end times)
       const intersectionStart = Math.max(companyStart, personalStart)
       const intersectionEnd = Math.min(companyEnd, personalEnd)
       
       if (intersectionStart < intersectionEnd) {
-        availableTimeSlots = [{
+        intersectionTimeSlots = [{
           start: minutesToTime(intersectionStart),
           end: minutesToTime(intersectionEnd)
         }]
@@ -1323,14 +1299,13 @@ const ServiceFlowSchedule = () => {
         return { isOpen: false, hours: null, jobCount: 0, availableSlots: [] }
       }
     } else {
-      // No personal availability set - use company hours only
-      availableTimeSlots = [{
-        start: companyDayHours.start,
-        end: companyDayHours.end
-      }]
+      // No personal availability set - intersection is empty
+      // Personal cleaner availability alone is NOT bookable time - BOTH are required
+      return { isOpen: false, hours: null, jobCount: 0, availableSlots: [] }
     }
     
-    // 4. Get Scheduled Jobs for this cleaner (#2)
+    // STEP 4: Get Cleaner Job Schedule (#2)
+    // This is the list of all job schedules already assigned to this specific cleaner
     const dayJobs = jobs.filter(job => {
       if (!job.scheduled_date && !job.scheduledDate) return false
       let jobDate
@@ -1343,11 +1318,12 @@ const ServiceFlowSchedule = () => {
       const jobDateString = jobDate.toISOString().split('T')[0]
       if (jobDateString !== dateString) return false
       
-      // Filter by team member
+      // Filter by team member - only jobs assigned to this cleaner
       return isJobAssignedTo(job, memberId.toString())
     })
     
-    // 5. Subtract Scheduled Jobs from Available Time Slots
+    // STEP 5: Subtract Cleaner Job Schedule (#2) from the intersection
+    // Scheduled jobs always block time, even if the cleaner is "available"
     const formatTime = (time24) => {
       const [hours] = time24.split(':')
       const hour = parseInt(hours)
@@ -1356,7 +1332,7 @@ const ServiceFlowSchedule = () => {
       return `${hour12} ${ampm}`
     }
     
-    // Get job time ranges (#2 - Cleaner Job Schedule)
+    // Extract job time ranges (Job Schedule #1 for each job in Cleaner Job Schedule #2)
     const jobTimeRanges = dayJobs.map(job => {
       let jobStartTime = null
       let jobDuration = job.duration || job.service_duration || job.estimated_duration || 60
@@ -1365,12 +1341,28 @@ const ServiceFlowSchedule = () => {
       }
       
       if (job.scheduled_date && typeof job.scheduled_date === 'string') {
+        // Handle different date formats: "YYYY-MM-DD HH:MM:SS", "YYYY-MM-DDTHH:MM:SS", or Date object
         if (job.scheduled_date.includes(' ')) {
+          // Format: "YYYY-MM-DD HH:MM:SS"
           const [datePart, timePart] = job.scheduled_date.split(' ')
           const [hours, minutes] = timePart.split(':').map(Number)
-          jobStartTime = hours * 60 + minutes
+          jobStartTime = (hours || 0) * 60 + (minutes || 0)
+        } else if (job.scheduled_date.includes('T')) {
+          // Format: "YYYY-MM-DDTHH:MM:SS" (ISO format)
+          const [datePart, timePart] = job.scheduled_date.split('T')
+          const [hours, minutes] = (timePart || '').split(':').map(Number)
+          jobStartTime = (hours || 0) * 60 + (minutes || 0)
         } else {
+          // Try parsing as Date object
           const jobDate = new Date(job.scheduled_date)
+          if (!isNaN(jobDate.getTime())) {
+            jobStartTime = jobDate.getHours() * 60 + jobDate.getMinutes()
+          }
+        }
+      } else if (job.scheduledDate) {
+        // Handle scheduledDate as Date object
+        const jobDate = new Date(job.scheduledDate)
+        if (!isNaN(jobDate.getTime())) {
           jobStartTime = jobDate.getHours() * 60 + jobDate.getMinutes()
         }
       }
@@ -1384,11 +1376,12 @@ const ServiceFlowSchedule = () => {
       return null
     }).filter(Boolean)
     
-    // Subtract jobs from available time slots
+    // Subtract job time ranges from intersection time slots
+    // This gives us Cleaner Job Availability (#5) - the final bookable time slots
     let remainingHours = []
     
     if (jobTimeRanges.length > 0) {
-      availableTimeSlots.forEach(availSlot => {
+      intersectionTimeSlots.forEach(availSlot => {
         const availStart = timeToMinutes(availSlot.start)
         const availEnd = timeToMinutes(availSlot.end)
         let currentStart = availStart
@@ -1415,8 +1408,8 @@ const ServiceFlowSchedule = () => {
         }
       })
     } else {
-      // No jobs - all available time is free
-      remainingHours = availableTimeSlots.map(slot => ({
+      // No jobs scheduled - intersection time slots are fully available
+      remainingHours = intersectionTimeSlots.map(slot => ({
         start: slot.start,
         end: slot.end
       }))
@@ -1448,6 +1441,120 @@ const ServiceFlowSchedule = () => {
   // Formula for availability tab: (Company Working Time ∩ Personal Cleaner Availability) - Scheduled Jobs
   const getDayAvailability = (date) => {
     const dayOfWeek = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][date.getDay()]
+    
+    // If in availability tab and a territory is selected, aggregate availability for all team members in that territory
+    if (activeTab === 'availability' && territoryFilter && territoryFilter !== 'all') {
+      const territoryId = Number(territoryFilter)
+      const territory = territories.find(t => t.id === territoryId)
+      
+      if (territory) {
+        // Get team member IDs from territory's team_members field
+        let teamMemberIds = []
+        if (territory.team_members) {
+          if (typeof territory.team_members === 'string') {
+            try {
+              teamMemberIds = JSON.parse(territory.team_members)
+            } catch (e) {
+              console.error('Error parsing territory team_members:', e)
+              teamMemberIds = []
+            }
+          } else if (Array.isArray(territory.team_members)) {
+            teamMemberIds = territory.team_members
+          }
+        }
+        
+        // Normalize IDs to numbers
+        const normalizedTeamMemberIds = teamMemberIds.map(id => Number(id))
+        
+        // Get all team members in this territory
+        const territoryTeamMembers = teamMembers.filter(member => 
+          normalizedTeamMemberIds.includes(Number(member.id))
+        )
+        
+        if (territoryTeamMembers.length === 0) {
+          return { isOpen: false, hours: null, jobCount: 0, availableSlots: [] }
+        }
+        
+        // Aggregate availability for all team members in the territory
+        // Combine all available time slots from all team members
+        // Each member's availability already has their jobs subtracted by getDayAvailabilityForMember
+        const allAvailableSlots = []
+        let totalJobCount = 0
+        
+        console.log(`🌍 Territory availability calculation for ${date.toDateString()}:`)
+        console.log(`  - Territory: ${territory.name} (ID: ${territoryId})`)
+        console.log(`  - Team members in territory: ${territoryTeamMembers.length}`)
+        console.log(`  - Total jobs in state: ${jobs.length}`)
+        
+        territoryTeamMembers.forEach(member => {
+          const memberAvailability = getDayAvailabilityForMember(date, Number(member.id))
+          console.log(`  - Member ${member.first_name} ${member.last_name} (ID: ${member.id}):`)
+          console.log(`    - Job count: ${memberAvailability.jobCount || 0}`)
+          console.log(`    - Available slots: ${memberAvailability.availableSlots?.length || 0}`)
+          if (memberAvailability.availableSlots && memberAvailability.availableSlots.length > 0) {
+            allAvailableSlots.push(...memberAvailability.availableSlots)
+          }
+          totalJobCount += memberAvailability.jobCount || 0
+        })
+        
+        console.log(`  - Total jobs across all members: ${totalJobCount}`)
+        console.log(`  - Total available slots before merging: ${allAvailableSlots.length}`)
+        
+        // Merge overlapping time slots to show combined availability
+        if (allAvailableSlots.length === 0) {
+          return { isOpen: false, hours: null, jobCount: totalJobCount, availableSlots: [] }
+        }
+        
+        // Sort slots by start time
+        const sortedSlots = allAvailableSlots.sort((a, b) => 
+          timeToMinutes(a.start) - timeToMinutes(b.start)
+        )
+        
+        // Merge overlapping or adjacent slots
+        const mergedSlots = []
+        let currentSlot = { ...sortedSlots[0] }
+        
+        for (let i = 1; i < sortedSlots.length; i++) {
+          const nextSlot = sortedSlots[i]
+          const currentEnd = timeToMinutes(currentSlot.end)
+          const nextStart = timeToMinutes(nextSlot.start)
+          
+          if (nextStart <= currentEnd) {
+            // Slots overlap or are adjacent - merge them
+            const nextEnd = timeToMinutes(nextSlot.end)
+            if (nextEnd > currentEnd) {
+              currentSlot.end = nextSlot.end
+            }
+          } else {
+            // No overlap - save current slot and start a new one
+            mergedSlots.push(currentSlot)
+            currentSlot = { ...nextSlot }
+          }
+        }
+        mergedSlots.push(currentSlot)
+        
+        // Format the merged slots for display
+        const formatTime = (time24) => {
+          const [hours] = time24.split(':')
+          const hour = parseInt(hours)
+          const ampm = hour >= 12 ? 'PM' : 'AM'
+          const hour12 = hour % 12 || 12
+          return `${hour12} ${ampm}`
+        }
+        
+        const formattedSlots = mergedSlots.map(slot => 
+          `${formatTime(slot.start)} - ${formatTime(slot.end)}`
+        ).join(', ')
+        
+        return {
+          isOpen: true,
+          hours: formattedSlots,
+          jobCount: totalJobCount,
+          hasJobs: totalJobCount > 0,
+          availableSlots: mergedSlots
+        }
+      }
+    }
     
     // If in availability tab and a specific team member is selected, use the member-specific calculation
     if (activeTab === 'availability' && selectedFilter && selectedFilter !== 'all' && selectedFilter !== 'unassigned') {
@@ -3636,27 +3743,15 @@ const ServiceFlowSchedule = () => {
               <h3 className="text-xs font-semibold text-gray-700 mb-3 justify-self-center items-center">TEAM MEMBERS</h3>
               )}
               
-              {/* All Team Members Filter - Show for availability tab */}
-              {activeTab === 'availability' && (
-                <button
-                  onClick={() => setSelectedFilter('all')}
-                  className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors mb-2 ${
-                    selectedFilter === 'all' 
-                      ? 'bg-blue-50 text-blue-700 border border-blue-200' 
-                      : 'bg-white text-gray-700 hover:bg-gray-50 hover:text-gray-900'
-                  }`}
-                >
-                  <Users className="w-4 h-4" />
-                  <span className="truncate">All Team Members</span>
-                </button>
-              )}
-              
               {/* Only show "All Jobs" and "Unassigned" when in jobs tab */}
               {activeTab === 'jobs' && (
                 <>
               {/* All Jobs Filter */}
               <button
-                onClick={() => setSelectedFilter('all')}
+                onClick={() => {
+                  setSelectedFilter('all')
+                  setTerritoryFilter('all')
+                }}
                 className={`w-full flex items-center space-x-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors mb-2 ${
                   selectedFilter === 'all' 
                     ? 'bg-white text-blue-700' 
@@ -3671,7 +3766,10 @@ const ServiceFlowSchedule = () => {
 
               {/* Unassigned Filter */}
               <button
-                onClick={() => setSelectedFilter('unassigned')}
+                onClick={() => {
+                  setSelectedFilter('unassigned')
+                  setTerritoryFilter('all')
+                }}
                 className={`w-full flex items-center space-x-1 px-2 py-1 rounded-lg text-sm font-medium transition-colors mb-2 ${
                   selectedFilter === 'unassigned' 
                    ? 'bg-white text-blue-700' 
@@ -3716,6 +3814,8 @@ const ServiceFlowSchedule = () => {
                         e.stopPropagation()
                         if (!isEditing) {
                           setSelectedFilter(member.id.toString())
+                          // Clear territory selection when team member is selected
+                          setTerritoryFilter('all')
                         }
                       }}
                       className="flex items-center space-x-1 flex-1 min-w-0 cursor-pointer"
@@ -3816,7 +3916,8 @@ const ServiceFlowSchedule = () => {
             </div>
             )}
 
-            {/* Status Filter */}
+            {/* Status Filter - Only show in jobs tab */}
+            {activeTab === 'jobs' && (
             <div className="mb-6">
               <h3 className="text-xs font-semibold text-gray-700 mb-3 justify-self-center items-center">STATUS</h3>
               
@@ -3897,8 +3998,10 @@ const ServiceFlowSchedule = () => {
                 <span>Cancelled</span>
               </button>
             </div>
+            )}
 
-            {/* Recurring Filter */}
+            {/* Recurring Filter - Only show in jobs tab */}
+            {activeTab === 'jobs' && (
             <div className="mb-6">
               <h3 className="text-xs font-semibold text-gray-700 mb-3 justify-self-center items-center">RECURRING</h3>
               
@@ -3953,6 +4056,7 @@ const ServiceFlowSchedule = () => {
                 <span>One-Time Only</span>
               </button>
             </div>
+            )}
 
             {/* Territory Filter */}
             <div className="mb-6">
@@ -3960,7 +4064,9 @@ const ServiceFlowSchedule = () => {
               
               {/* All Territories */}
               <button
-                onClick={() => setTerritoryFilter('all')}
+                onClick={() => {
+                  setTerritoryFilter('all')
+                }}
                 className={`w-full flex items-center space-x-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors mb-2 ${
                   territoryFilter === 'all' 
                    ? 'bg-white text-blue-700' 
@@ -3979,7 +4085,15 @@ const ServiceFlowSchedule = () => {
               {territories.map((territory) => (
                 <button
                   key={territory.id}
-                  onClick={() => setTerritoryFilter(territory.id)}
+                  onClick={() => {
+                    setTerritoryFilter(territory.id)
+                    // Clear team member selection when territory is selected
+                    if (activeTab === 'availability' && teamMembers.length > 0) {
+                      setSelectedFilter(teamMembers[0].id.toString())
+                    } else {
+                      setSelectedFilter('all')
+                    }
+                  }}
                   className={`w-full flex items-center space-x-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors mb-2 ${
                     territoryFilter === territory.id 
                       ? 'bg-blue-50 text-blue-700 border border-blue-200' 
@@ -3998,7 +4112,8 @@ const ServiceFlowSchedule = () => {
               ))}
             </div>
 
-            {/* Time Range Filter */}
+            {/* Time Range Filter - Only show in jobs tab */}
+            {activeTab === 'jobs' && (
             <div className="mb-6">
               <h3 className="text-xs font-semibold text-gray-700 mb-3 justify-self-center items-center">TIME RANGE</h3>
               
@@ -4042,7 +4157,7 @@ const ServiceFlowSchedule = () => {
                 className={`w-full flex items-center space-x-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors mb-2 ${
                   timeRangeFilter === 'afternoon' 
                    ? 'bg-white text-blue-700' 
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                 }`}
               >
                 <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
@@ -4059,7 +4174,7 @@ const ServiceFlowSchedule = () => {
                 className={`w-full flex items-center space-x-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors mb-2 ${
                   timeRangeFilter === 'evening' 
                    ? 'bg-white text-blue-700' 
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                 }`}
               >
                 <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
@@ -4070,6 +4185,7 @@ const ServiceFlowSchedule = () => {
                 <span>Evening (After 5 PM)</span>
               </button>
             </div>
+            )}
           </div>
         </div>
 
@@ -4392,7 +4508,11 @@ const ServiceFlowSchedule = () => {
               <span className="text-xs font-medium text-gray-600">ASSIGNED:</span>
               <select
                 value={selectedFilter}
-                onChange={(e) => setSelectedFilter(e.target.value)}
+                onChange={(e) => {
+                  setSelectedFilter(e.target.value)
+                  // Clear territory selection when team member is selected
+                  setTerritoryFilter('all')
+                }}
                 className="text-xs border border-gray-300 rounded px-2 py-1 bg-white"
               >
                 <option value="all">All Jobs</option>
@@ -4409,7 +4529,8 @@ const ServiceFlowSchedule = () => {
             </div>
             )}
 
-            {/* Status Filter */}
+            {/* Status Filter - Only show in jobs tab */}
+            {activeTab === 'jobs' && (
             <div className="flex items-center space-x-2">
               <span className="text-xs font-medium text-gray-600">STATUS:</span>
               <select
@@ -4424,8 +4545,10 @@ const ServiceFlowSchedule = () => {
                 <option value="cancelled">Cancelled</option>
               </select>
             </div>
+            )}
 
-            {/* Recurring Filter */}
+            {/* Recurring Filter - Only show in jobs tab */}
+            {activeTab === 'jobs' && (
             <div className="flex items-center space-x-2">
               <span className="text-xs font-medium text-gray-600">TYPE:</span>
               <select
@@ -4438,8 +4561,10 @@ const ServiceFlowSchedule = () => {
                 <option value="one-time">One-Time Only</option>
               </select>
             </div>
+            )}
 
-            {/* Time Range Filter */}
+            {/* Time Range Filter - Only show in jobs tab */}
+            {activeTab === 'jobs' && (
             <div className="flex items-center space-x-2">
               <span className="text-xs font-medium text-gray-600">TIME:</span>
               <select
@@ -4453,13 +4578,22 @@ const ServiceFlowSchedule = () => {
                 <option value="evening">Evening</option>
               </select>
             </div>
+            )}
 
             {/* Territory Filter */}
             <div className="flex items-center space-x-2">
               <span className="text-xs font-medium text-gray-600">AREA:</span>
               <select
                 value={territoryFilter}
-                onChange={(e) => setTerritoryFilter(e.target.value)}
+                onChange={(e) => {
+                  setTerritoryFilter(e.target.value)
+                  // Clear team member selection when territory is selected
+                  if (activeTab === 'availability' && teamMembers.length > 0) {
+                    setSelectedFilter(teamMembers[0].id.toString())
+                  } else {
+                    setSelectedFilter('all')
+                  }
+                }}
                 className="text-xs border border-gray-300 rounded px-2 py-1 bg-white"
               >
                 <option value="all">All Areas</option>

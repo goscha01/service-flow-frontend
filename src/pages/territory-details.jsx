@@ -3,8 +3,10 @@ import { useParams, useNavigate } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
 import Sidebar from "../components/sidebar"
 import TerritoryMap from "../components/territory-map"
-import { territoriesAPI, servicesAPI } from "../services/api"
+import { territoriesAPI, servicesAPI, teamAPI } from "../services/api"
+import { normalizeAPIResponse } from "../utils/dataHandler"
 import CreateTerritoryModal from "../components/create-territory-modal"
+import TerritoryTeamMembersModal from "../components/territory-team-members-modal"
 import { ChevronLeft, Loader2, Building2, MapPin, Globe, Calendar, Check, X, Repeat, Clock, Navigation, FileText, Users as UsersIcon, AlertCircle, Plus, CheckCircle } from "lucide-react"
 
 const TerritoryDetails = () => {
@@ -20,6 +22,7 @@ const TerritoryDetails = () => {
   const [services, setServices] = useState([])
   const [territoryServices, setTerritoryServices] = useState([])
   const [showEditModal, setShowEditModal] = useState(false)
+  const [showTeamMembersModal, setShowTeamMembersModal] = useState(false)
   const [successMessage, setSuccessMessage] = useState("")
 
   const fetchTerritoryData = useCallback(async () => {
@@ -41,13 +44,57 @@ const TerritoryDetails = () => {
         setBusinessHours(null)
       }
 
-      // Fetch team members
+      // Fetch team members - get IDs from territory and fetch full team member objects
       try {
-        const membersData = await territoriesAPI.getTerritoryTeamMembers(territoryId)
-        const members = membersData.teamMembers || membersData || []
-        setTeamMembers(Array.isArray(members) ? members : [])
+        // Get team member IDs from territory's team_members field
+        let teamMemberIds = []
+        if (territoryObj.team_members) {
+          // Parse if it's a string
+          if (typeof territoryObj.team_members === 'string') {
+            try {
+              teamMemberIds = JSON.parse(territoryObj.team_members)
+            } catch (e) {
+              console.error('Error parsing team_members:', e)
+              teamMemberIds = []
+            }
+          } else if (Array.isArray(territoryObj.team_members)) {
+            teamMemberIds = territoryObj.team_members
+          }
+        }
+        
+        // If we have team member IDs, fetch the full team member objects
+        if (teamMemberIds.length > 0) {
+          // Fetch all team members
+          const allMembersResponse = await teamAPI.getAll(user.id, {
+            status: 'active',
+            page: 1,
+            limit: 1000
+          })
+          
+          const allMembers = normalizeAPIResponse(allMembersResponse, 'teamMembers') || []
+          
+          // Filter to only team members whose IDs are in the territory's team_members array
+          // Normalize IDs to numbers for comparison
+          const normalizedTeamMemberIds = teamMemberIds.map(id => Number(id))
+          const territoryMembers = allMembers.filter(member => {
+            const memberId = Number(member.id)
+            return normalizedTeamMemberIds.includes(memberId)
+          })
+          
+          setTeamMembers(territoryMembers)
+        } else {
+          // Try the API endpoint as fallback
+          try {
+            const membersData = await territoriesAPI.getTerritoryTeamMembers(territoryId)
+            const members = membersData.teamMembers || membersData || []
+            setTeamMembers(Array.isArray(members) ? members : [])
+          } catch (apiErr) {
+            console.log('Team members API not available:', apiErr)
+            setTeamMembers([])
+          }
+        }
       } catch (err) {
-        console.log('Team members not available:', err)
+        console.error('Error fetching team members:', err)
         setTeamMembers([])
       }
 
@@ -368,7 +415,12 @@ const TerritoryDetails = () => {
                       <h2 className="text-base font-semibold text-gray-900">Service Providers</h2>
                       <span className="text-sm text-gray-500">{teamMembers.length}</span>
                     </div>
-                    <button onClick={handleEditTerritory} className="text-sm text-blue-600 hover:text-blue-700 font-medium">Edit</button>
+                    <button 
+                      onClick={() => setShowTeamMembersModal(true)} 
+                      className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                    >
+                      Manage
+                    </button>
                   </div>
 
                   {teamMembers.length > 0 ? (
@@ -396,7 +448,10 @@ const TerritoryDetails = () => {
                     <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
                       <UsersIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                       <p className="text-sm text-gray-600">No service providers assigned to this territory</p>
-                      <button className="mt-3 text-sm text-blue-600 hover:text-blue-700 font-medium">
+                      <button 
+                        onClick={() => setShowTeamMembersModal(true)}
+                        className="mt-3 text-sm text-blue-600 hover:text-blue-700 font-medium"
+                      >
                         Add Service Provider
                       </button>
                     </div>
@@ -581,6 +636,16 @@ const TerritoryDetails = () => {
         territory={territory}
         isEditing={true}
         userId={user?.id}
+      />
+
+      {/* Team Members Management Modal */}
+      <TerritoryTeamMembersModal
+        isOpen={showTeamMembersModal}
+        onClose={() => setShowTeamMembersModal(false)}
+        onSuccess={handleTerritoryUpdate}
+        territoryId={territoryId}
+        userId={user?.id}
+        currentTeamMembers={teamMembers}
       />
     </div>
   )
