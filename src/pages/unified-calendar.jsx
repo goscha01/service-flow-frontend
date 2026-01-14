@@ -1571,9 +1571,9 @@ const UnifiedCalendar = () => {
             
             {/* Scrollable Filter Content */}
             <div className="flex-1 bg-gray-100 overflow-y-auto p-2 scrollbar-hide">
-              {/* Team Members Filter */}
+              {/* Tasks Filter - Only show team members with active tasks */}
               <div className="mb-6">
-                <h3 className="text-xs font-semibold text-gray-700 mb-3 uppercase tracking-wider">TEAM MEMBERS</h3>
+                <h3 className="text-xs font-semibold text-gray-700 mb-3 uppercase tracking-wider">TASKS</h3>
                 
                 <button
                   onClick={() => handleSelectTeamMember(null)}
@@ -1584,31 +1584,87 @@ const UnifiedCalendar = () => {
                   }`}
                 >
                   <Users className="w-4 h-4" />
-                  <span className="truncate">All Team Members</span>
+                  <span className="truncate">All Tasks</span>
                 </button>
                 
-                {teamMembers.map((member) => {
-                  const isSelected = selectedTeamMemberId === member.id
-                  const memberColor = member.color || '#3B82F6'
+                {(() => {
+                  // Get all active tasks (not completed)
+                  const activeTasks = tasks.filter(task => task.status !== 'completed')
                   
-                  return (
-                  <button
-                      key={member.id}
-                      onClick={() => handleSelectTeamMember(member.id)}
-                      className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors mb-2 ${
-                        isSelected 
-                          ? 'bg-blue-50 text-blue-700 border border-blue-200' 
-                          : 'bg-white text-gray-700 hover:bg-gray-50 hover:text-gray-900'
-                      }`}
-                    >
-                      <div 
-                        className="w-4 h-4 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: memberColor }}
-                      />
-                      <span className="truncate">{member.first_name} {member.last_name}</span>
-                </button>
-                  )
-                })}
+                  // Get unique team member IDs who have active tasks
+                  const memberIdsWithTasks = new Set()
+                  activeTasks.forEach(task => {
+                    if (task.assigned_to) {
+                      const assignedId = typeof task.assigned_to === 'object' && task.assigned_to.id 
+                        ? Number(task.assigned_to.id)
+                        : Number(task.assigned_to)
+                      if (assignedId) memberIdsWithTasks.add(assignedId)
+                    }
+                    if (task.team_members) {
+                      let memberId = null
+                      if (typeof task.team_members === 'object' && task.team_members.id) {
+                        memberId = Number(task.team_members.id)
+                      } else if (typeof task.team_members === 'number') {
+                        memberId = task.team_members
+                      } else if (typeof task.team_members === 'string') {
+                        memberId = Number(task.team_members)
+                      }
+                      if (memberId) memberIdsWithTasks.add(memberId)
+                    }
+                  })
+                  
+                  // Filter team members to only those with active tasks
+                  const membersWithTasks = teamMembers.filter(member => memberIdsWithTasks.has(member.id))
+                  
+                  return membersWithTasks.map((member) => {
+                    const isSelected = selectedTeamMemberId === member.id
+                    const memberColor = member.color || '#3B82F6'
+                    // Count active tasks for this member
+                    const memberTaskCount = activeTasks.filter(task => {
+                      if (task.assigned_to) {
+                        const assignedId = typeof task.assigned_to === 'object' && task.assigned_to.id 
+                          ? Number(task.assigned_to.id)
+                          : Number(task.assigned_to)
+                        if (assignedId === member.id) return true
+                      }
+                      if (task.team_members) {
+                        let taskMemberId = null
+                        if (typeof task.team_members === 'object' && task.team_members.id) {
+                          taskMemberId = Number(task.team_members.id)
+                        } else if (typeof task.team_members === 'number') {
+                          taskMemberId = task.team_members
+                        } else if (typeof task.team_members === 'string') {
+                          taskMemberId = Number(task.team_members)
+                        }
+                        if (taskMemberId === member.id) return true
+                      }
+                      return false
+                    }).length
+                    
+                    return (
+                      <button
+                        key={member.id}
+                        onClick={() => handleSelectTeamMember(member.id)}
+                        className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors mb-2 ${
+                          isSelected 
+                            ? 'bg-blue-50 text-blue-700 border border-blue-200' 
+                            : 'bg-white text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                        }`}
+                      >
+                        <div 
+                          className="w-4 h-4 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: memberColor }}
+                        />
+                        <span className="truncate flex-1 text-left">{member.first_name} {member.last_name}</span>
+                        {memberTaskCount > 0 && (
+                          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
+                            {memberTaskCount}
+                          </span>
+                        )}
+                      </button>
+                    )
+                  })
+                })()}
                 </div>
             </div>
           </div>
