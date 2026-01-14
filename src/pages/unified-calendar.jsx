@@ -2477,7 +2477,7 @@ const UnifiedCalendar = () => {
                     description: taskData.description,
                     dueDate: taskData.dueDate,
                     priority: taskData.priority,
-                    assignedTo: taskData.assignedTo,
+                    assignedTo: taskData.assignedTo ? Number(taskData.assignedTo) : null,
                     status: taskData.status
                   })
                 } else {
@@ -2506,7 +2506,7 @@ const UnifiedCalendar = () => {
                       description: taskData.description,
                       dueDate: taskData.dueDate,
                       priority: taskData.priority,
-                      assignedTo: taskData.assignedTo,
+                      assignedTo: taskData.assignedTo ? Number(taskData.assignedTo) : null,
                       status: taskData.status
                     })
                     

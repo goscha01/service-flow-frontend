@@ -390,6 +390,8 @@ const ServiceFlowSchedule = () => {
       // Use backend filter for team member (same as unified-calendar.jsx)
       // For availability tab with territory filter, fetch ALL jobs (no team member filter)
       // because we need jobs for all team members in that territory
+      // For availability tab with "all-team-members" filter, fetch ALL jobs (no team member filter)
+      // because we need jobs for all team members
       // For availability tab with team member filter, filter by that team member
       // For jobs tab, also filter by team member if one is selected
       let teamMemberFilter = null
@@ -397,7 +399,11 @@ const ServiceFlowSchedule = () => {
         // Territory selected in availability tab - fetch ALL jobs (no team member filter)
         // getDayAvailabilityForMember will filter jobs for each team member in the territory
         teamMemberFilter = null
-      } else if (currentFilter && currentFilter !== 'all' && currentFilter !== 'unassigned') {
+      } else if (activeTab === 'availability' && currentFilter === 'all-team-members') {
+        // "All Team Members" selected in availability tab - fetch ALL jobs (no team member filter)
+        // getDayAvailabilityForMember will filter jobs for each team member
+        teamMemberFilter = null
+      } else if (currentFilter && currentFilter !== 'all' && currentFilter !== 'unassigned' && currentFilter !== 'all-team-members') {
         // Team member selected - filter by that team member
         teamMemberFilter = currentFilter.toString()
       }
@@ -462,8 +468,8 @@ const ServiceFlowSchedule = () => {
       // In availability tab, backend should have already filtered by team member
       // But we also do client-side filtering to catch any jobs with team_assignments that backend might miss
       // This is a safety net - backend filter should handle most cases (like unified-calendar)
-      // However, if territory is selected, DON'T filter by team member - we need ALL jobs
-      if (activeTab === 'availability' && !(currentTerritoryFilter && currentTerritoryFilter !== 'all') && currentFilter && currentFilter !== 'all' && currentFilter !== 'unassigned') {
+      // However, if territory or "all-team-members" is selected, DON'T filter by team member - we need ALL jobs
+      if (activeTab === 'availability' && !(currentTerritoryFilter && currentTerritoryFilter !== 'all') && currentFilter && currentFilter !== 'all' && currentFilter !== 'unassigned' && currentFilter !== 'all-team-members') {
         const beforeTeamFilter = filteredJobs.length
         filteredJobs = filteredJobs.filter(job => isJobAssignedTo(job, currentFilter))
         if (beforeTeamFilter !== filteredJobs.length) {
@@ -494,7 +500,7 @@ const ServiceFlowSchedule = () => {
     }
   }, [user, selectedDate, viewMode, selectedFilter, territoryFilter, activeTab]) // Include territoryFilter so jobs refetch when territory filter changes
   
-  // Refetch jobs when selectedFilter changes (if it's a team member filter)
+  // Refetch jobs when selectedFilter changes (if it's a team member filter or all-team-members)
   useEffect(() => {
     if (selectedFilter && selectedFilter !== 'all' && selectedFilter !== 'unassigned') {
       console.log(`🔍 Schedule: Team member filter changed to ${selectedFilter}, refetching jobs...`);
@@ -732,10 +738,14 @@ const ServiceFlowSchedule = () => {
   // Ensure jobs are fetched when switching to availability tab
   useEffect(() => {
     if (activeTab === 'availability' && user?.id && selectedFilter && selectedFilter !== 'all' && selectedFilter !== 'unassigned') {
-      console.log(`🔄 Availability tab active with team member ${selectedFilter}, ensuring jobs are fetched...`)
+      console.log(`🔄 Availability tab active with filter ${selectedFilter}, ensuring jobs are fetched...`)
       fetchJobs()
     }
-  }, [activeTab, selectedFilter, user, fetchJobs])
+    // When switching to availability tab, default to 'all-team-members' if no specific filter is set
+    if (activeTab === 'availability' && selectedFilter === 'all' && teamMembers.length > 0) {
+      setSelectedFilter('all-team-members')
+    }
+  }, [activeTab, selectedFilter, user, fetchJobs, teamMembers.length])
 
   // Fetch availability when switching to availability tab
   useEffect(() => {
@@ -747,19 +757,23 @@ const ServiceFlowSchedule = () => {
     }
   }, [activeTab, user, userBusinessHours, fetchUserAvailability])
 
-  // Default to first team member when switching to availability tab (no "all" option)
+  // Default to 'all-team-members' when switching to availability tab
   useEffect(() => {
     if (activeTab === 'availability' && teamMembers.length > 0) {
       // Use functional update to access current selectedFilter value
       setSelectedFilter(prevFilter => {
-        // If switching from jobs tab or filter is unassigned or 'all', default to first team member
+        // If switching from jobs tab or filter is unassigned or 'all', default to 'all-team-members'
         if (!prevFilter || prevFilter === 'unassigned' || prevFilter === 'all') {
-          return teamMembers[0].id.toString()
+          return 'all-team-members'
+        }
+        // If 'all-team-members' is selected, keep it
+        if (prevFilter === 'all-team-members') {
+          return prevFilter
         }
         // Check if the current filter is a valid team member
         const isValidTeamMember = teamMembers.find(m => m.id.toString() === prevFilter)
         if (!isValidTeamMember) {
-          return teamMembers[0].id.toString()
+          return 'all-team-members'
         }
         // Keep the current filter if it's a valid team member
         return prevFilter
@@ -1442,6 +1456,91 @@ const ServiceFlowSchedule = () => {
   const getDayAvailability = (date) => {
     const dayOfWeek = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][date.getDay()]
     
+    // If in availability tab and "all-team-members" is selected, aggregate availability for ALL team members
+    if (activeTab === 'availability' && selectedFilter === 'all-team-members') {
+      if (teamMembers.length === 0) {
+        return { isOpen: false, hours: null, jobCount: 0, availableSlots: [] }
+      }
+      
+      // Aggregate availability for all team members
+      // Combine all available time slots from all team members
+      // Each member's availability already has their jobs subtracted by getDayAvailabilityForMember
+      const allAvailableSlots = []
+      let totalJobCount = 0
+      
+      console.log(`👥 All Team Members availability calculation for ${date.toDateString()}:`)
+      console.log(`  - Total team members: ${teamMembers.length}`)
+      console.log(`  - Total jobs in state: ${jobs.length}`)
+      
+      teamMembers.forEach(member => {
+        const memberAvailability = getDayAvailabilityForMember(date, Number(member.id))
+        console.log(`  - Member ${member.first_name} ${member.last_name} (ID: ${member.id}):`)
+        console.log(`    - Job count: ${memberAvailability.jobCount || 0}`)
+        console.log(`    - Available slots: ${memberAvailability.availableSlots?.length || 0}`)
+        if (memberAvailability.availableSlots && memberAvailability.availableSlots.length > 0) {
+          allAvailableSlots.push(...memberAvailability.availableSlots)
+        }
+        totalJobCount += memberAvailability.jobCount || 0
+      })
+      
+      console.log(`  - Total jobs across all members: ${totalJobCount}`)
+      console.log(`  - Total available slots before merging: ${allAvailableSlots.length}`)
+      
+      // Merge overlapping time slots to show combined availability
+      if (allAvailableSlots.length === 0) {
+        return { isOpen: false, hours: null, jobCount: totalJobCount, availableSlots: [] }
+      }
+      
+      // Sort slots by start time
+      const sortedSlots = allAvailableSlots.sort((a, b) => 
+        timeToMinutes(a.start) - timeToMinutes(b.start)
+      )
+      
+      // Merge overlapping or adjacent slots
+      const mergedSlots = []
+      let currentSlot = { ...sortedSlots[0] }
+      
+      for (let i = 1; i < sortedSlots.length; i++) {
+        const nextSlot = sortedSlots[i]
+        const currentEnd = timeToMinutes(currentSlot.end)
+        const nextStart = timeToMinutes(nextSlot.start)
+        
+        if (nextStart <= currentEnd) {
+          // Slots overlap or are adjacent - merge them
+          const nextEnd = timeToMinutes(nextSlot.end)
+          if (nextEnd > currentEnd) {
+            currentSlot.end = nextSlot.end
+          }
+        } else {
+          // No overlap - save current slot and start a new one
+          mergedSlots.push(currentSlot)
+          currentSlot = { ...nextSlot }
+        }
+      }
+      mergedSlots.push(currentSlot)
+      
+      // Format the merged slots for display
+      const formatTime = (time24) => {
+        const [hours] = time24.split(':')
+        const hour = parseInt(hours)
+        const ampm = hour >= 12 ? 'PM' : 'AM'
+        const hour12 = hour % 12 || 12
+        return `${hour12} ${ampm}`
+      }
+      
+      const formattedSlots = mergedSlots.map(slot => 
+        `${formatTime(slot.start)} - ${formatTime(slot.end)}`
+      ).join(', ')
+      
+      return {
+        isOpen: true,
+        hours: formattedSlots,
+        jobCount: totalJobCount,
+        hasJobs: totalJobCount > 0,
+        availableSlots: mergedSlots
+      }
+    }
+    
     // If in availability tab and a territory is selected, aggregate availability for all team members in that territory
     if (activeTab === 'availability' && territoryFilter && territoryFilter !== 'all') {
       const territoryId = Number(territoryFilter)
@@ -1557,7 +1656,7 @@ const ServiceFlowSchedule = () => {
     }
     
     // If in availability tab and a specific team member is selected, use the member-specific calculation
-    if (activeTab === 'availability' && selectedFilter && selectedFilter !== 'all' && selectedFilter !== 'unassigned') {
+    if (activeTab === 'availability' && selectedFilter && selectedFilter !== 'all' && selectedFilter !== 'unassigned' && selectedFilter !== 'all-team-members') {
       const memberId = Number(selectedFilter)
       return getDayAvailabilityForMember(date, memberId)
     }
@@ -3743,6 +3842,28 @@ const ServiceFlowSchedule = () => {
               <h3 className="text-xs font-semibold text-gray-700 mb-3 justify-self-center items-center">TEAM MEMBERS</h3>
               )}
               
+              {/* Show "All Team Members" button in availability tab */}
+              {activeTab === 'availability' && (
+                <button
+                  onClick={() => {
+                    setSelectedFilter('all-team-members')
+                    setTerritoryFilter('all')
+                  }}
+                  className={`w-full flex items-center space-x-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors mb-2 ${
+                    selectedFilter === 'all-team-members' 
+                      ? 'bg-white text-blue-700' 
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  }`}
+                >
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
+                    selectedFilter === 'all-team-members' ? 'bg-blue-100' : 'bg-gray-100'
+                  }`}>
+                    <Users className={`w-3 h-3 ${selectedFilter === 'all-team-members' ? 'text-blue-600' : 'text-gray-600'}`} />
+                  </div>
+                  <span>All Team Members</span>
+                </button>
+              )}
+              
               {/* Only show "All Jobs" and "Unassigned" when in jobs tab */}
               {activeTab === 'jobs' && (
                 <>
@@ -4088,8 +4209,8 @@ const ServiceFlowSchedule = () => {
                   onClick={() => {
                     setTerritoryFilter(territory.id)
                     // Clear team member selection when territory is selected
-                    if (activeTab === 'availability' && teamMembers.length > 0) {
-                      setSelectedFilter(teamMembers[0].id.toString())
+                    if (activeTab === 'availability') {
+                      setSelectedFilter('all-team-members')
                     } else {
                       setSelectedFilter('all')
                     }
@@ -4588,8 +4709,8 @@ const ServiceFlowSchedule = () => {
                 onChange={(e) => {
                   setTerritoryFilter(e.target.value)
                   // Clear team member selection when territory is selected
-                  if (activeTab === 'availability' && teamMembers.length > 0) {
-                    setSelectedFilter(teamMembers[0].id.toString())
+                  if (activeTab === 'availability') {
+                    setSelectedFilter('all-team-members')
                   } else {
                     setSelectedFilter('all')
                   }

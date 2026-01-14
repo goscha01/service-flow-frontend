@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, User, AlertCircle } from 'lucide-react';
+import { X, Calendar, User, AlertCircle, Loader2 } from 'lucide-react';
 
 const CreateTaskModal = ({ 
   isOpen, 
@@ -24,6 +24,7 @@ const CreateTaskModal = ({
   });
   
   const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(false);
   
   useEffect(() => {
     if (isOpen) {
@@ -60,7 +61,7 @@ const CreateTaskModal = ({
           title: '',
           description: '',
           dueDate: dueDate,
-          dueTime: '',
+          dueTime: '09:00', // Default to 9:00 AM
           priority: 'medium',
           assignedTo: '',
           status: 'pending',
@@ -68,6 +69,7 @@ const CreateTaskModal = ({
         });
       }
       setErrors({});
+      setLoading(false);
     }
   }, [isOpen, initialData, isEditing, initialDate, leadId]);
   
@@ -82,32 +84,41 @@ const CreateTaskModal = ({
     return Object.keys(newErrors).length === 0;
   };
   
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
     if (!validateForm()) {
       return;
     }
     
-    // Combine date and time if both are provided
-    let dueDate = null;
-    if (formData.dueDate) {
-      if (formData.dueTime) {
-        dueDate = `${formData.dueDate}T${formData.dueTime}:00`;
-      } else {
-        dueDate = `${formData.dueDate}T00:00:00`;
-      }
+    // Prevent multiple submissions
+    if (loading) {
+      return;
     }
     
-    onSubmit({
-      title: formData.title.trim(),
-      description: formData.description.trim() || null,
-      dueDate: dueDate,
-      priority: formData.priority,
-      assignedTo: formData.assignedTo || null,
-      status: formData.status,
-      leadId: formData.selectedLeadId || null
-    });
+    setLoading(true);
+    
+    try {
+      // Combine date and time if both are provided
+      let dueDate = null;
+      if (formData.dueDate) {
+        // Use provided time or default to 9:00 AM
+        const timeToUse = formData.dueTime || '09:00';
+        dueDate = `${formData.dueDate}T${timeToUse}:00`;
+      }
+      
+      await onSubmit({
+        title: formData.title.trim(),
+        description: formData.description.trim() || null,
+        dueDate: dueDate,
+        priority: formData.priority,
+        assignedTo: formData.assignedTo || null,
+        status: formData.status,
+        leadId: formData.selectedLeadId || null
+      });
+    } finally {
+      setLoading(false);
+    }
   };
   
   if (!isOpen) return null;
@@ -270,15 +281,24 @@ const CreateTaskModal = ({
             <button
               type="button"
               onClick={onClose}
-              className="w-full sm:w-auto px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+              className="w-full sm:w-auto px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={loading}
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+              disabled={loading}
             >
-              {isEditing ? 'Update Task' : 'Create Task'}
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  {isEditing ? 'Updating...' : 'Creating...'}
+                </>
+              ) : (
+                isEditing ? 'Update Task' : 'Create Task'
+              )}
             </button>
           </div>
         </form>
