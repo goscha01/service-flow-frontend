@@ -40,7 +40,7 @@ const Sidebar = ({ isOpen, onClose, forceCollapsed = false }) => {
     { icon: Home, label: "Dashboard", path: "/dashboard" },
     { icon: Target, label: "Leads", path: "/leads" },
     { icon: Calendar, label: "Schedule", path: "/schedule" },
-    { icon: CalendarDays, label: "Calendar", path: "/calendar" },
+    { icon: CalendarDays, label: "Tasks", path: "/calendar" },
     { icon: Briefcase, label: "Jobs", path: "/jobs" },
     { icon: FileText, label: "Estimates", path: "/estimates", hidden: true },
     { icon: FileText, label: "Invoices", path: "/invoices", hidden: true },
