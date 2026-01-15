@@ -54,30 +54,47 @@ const ImportJobsPage = () => {
       // Clean the string - remove quotes and trim
       let cleanDateTime = dateTimeStr.trim().replace(/^"|"$/g, '');
       
-      // Format can be: "2024-11-23, 9:00 AM" or "2024-11-23 9:00 AM" or "2025-11-06 10:00 am"
+      // Format can be: "2024-11-23, 9:00 AM" or "2024-11-23 9:00 AM" or "2025-11-06 10:00 am" or "1/14/2026 9:59"
       let datePart = '';
       let timePart = '09:00:00';
       
-      // Extract date part (YYYY-MM-DD format) - handle comma after date
-      // Match: YYYY-MM-DD (with optional comma and space after)
-      const dateMatch = cleanDateTime.match(/^(\d{4}-\d{2}-\d{2})/);
-      if (dateMatch) {
+      // First, try to extract date part - handle multiple formats
+      // Format 1: YYYY-MM-DD (with optional comma and space after)
+      let dateMatch = cleanDateTime.match(/^(\d{4}-\d{2}-\d{2})/);
+      
+      // Format 2: MM/DD/YYYY or M/D/YYYY (US format)
+      if (!dateMatch) {
+        dateMatch = cleanDateTime.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+        if (dateMatch) {
+          // Convert MM/DD/YYYY to YYYY-MM-DD
+          const month = dateMatch[1].padStart(2, '0');
+          const day = dateMatch[2].padStart(2, '0');
+          const year = dateMatch[3];
+          datePart = `${year}-${month}-${day}`;
+        }
+      } else {
         datePart = dateMatch[1];
-        
+      }
+      
+      if (datePart) {
         // Validate the date is reasonable (not in the far future like 2026+ unless it's actually 2026+)
-        const dateObj = new Date(datePart);
+        // Parse date as local date (not UTC) to avoid timezone shifts
+        const [year, month, day] = datePart.split('-').map(Number);
+        const dateObj = new Date(year, month - 1, day); // month is 0-indexed
         const currentYear = new Date().getFullYear();
         const dateYear = dateObj.getFullYear();
         
         // Check if date seems corrupted (year is way in the future, like 2026+ when it should be 2024)
         // But allow dates up to 2 years in the future (for scheduling)
-        if (dateYear > currentYear + 2) {
+        // REMOVED: This was incorrectly "correcting" valid 2026 dates
+        // Allow dates up to 3 years in the future to accommodate 2026 dates in 2025
+        if (dateYear > currentYear + 3) {
           console.warn(`Suspicious future date detected: ${datePart}, checking for date corruption`);
           // If the year seems wrong, try to extract just the month and day and use current year
           const monthDay = datePart.substring(5);
           if (monthDay) {
             const correctedDate = `${currentYear}-${monthDay}`;
-            const correctedDateObj = new Date(correctedDate);
+            const correctedDateObj = new Date(Number(currentYear), Number(monthDay.split('-')[0]) - 1, Number(monthDay.split('-')[1]));
             if (!isNaN(correctedDateObj.getTime())) {
               console.warn(`Correcting date from ${datePart} to ${correctedDate}`);
               datePart = correctedDate;
@@ -86,8 +103,9 @@ const ImportJobsPage = () => {
         }
         
         // Try to extract time from dateTimeStr first
-        // Handle formats like: "2024-11-23, 9:00 AM" or "2024-11-23 9:00 AM"
-        const timeMatch = cleanDateTime.match(/(\d{1,2}):(\d{2})\s*(am|pm|AM|PM)/i);
+        // Handle formats like: "2024-11-23, 9:00 AM" or "2024-11-23 9:00 AM" or "1/14/2026 9:59"
+        // First try with AM/PM
+        let timeMatch = cleanDateTime.match(/(\d{1,2}):(\d{2})\s*(am|pm|AM|PM)/i);
         if (timeMatch) {
           let hours = parseInt(timeMatch[1]);
           const minutes = timeMatch[2];
@@ -100,22 +118,33 @@ const ImportJobsPage = () => {
           }
           
           timePart = `${String(hours).padStart(2, '0')}:${minutes}:00`;
-        } else if (timeStr) {
-          // Use the separate time string
-          const cleanTimeStr = timeStr.trim().replace(/^"|"$/g, '');
-          const timeMatch = cleanTimeStr.match(/(\d{1,2}):(\d{2})\s*(am|pm|AM|PM)/i);
+        } else {
+          // Try 24-hour format (HH:MM without AM/PM, like "9:59" or "14:30")
+          timeMatch = cleanDateTime.match(/(\d{1,2}):(\d{2})(?:\s|$)/);
           if (timeMatch) {
             let hours = parseInt(timeMatch[1]);
             const minutes = timeMatch[2];
-            const ampm = timeMatch[3].toUpperCase();
-            
-            if (ampm === 'PM' && hours !== 12) {
-              hours += 12;
-            } else if (ampm === 'AM' && hours === 12) {
-              hours = 0;
-            }
-            
+            // If hours > 12, assume 24-hour format; otherwise assume it's already correct
+            // But if hours is 0-12, we can't be sure, so assume 24-hour format if hours < 12
+            // Actually, for import, if no AM/PM, assume 24-hour format
             timePart = `${String(hours).padStart(2, '0')}:${minutes}:00`;
+          } else if (timeStr) {
+            // Use the separate time string
+            const cleanTimeStr = timeStr.trim().replace(/^"|"$/g, '');
+            const timeMatchFromStr = cleanTimeStr.match(/(\d{1,2}):(\d{2})\s*(am|pm|AM|PM)/i);
+            if (timeMatchFromStr) {
+              let hours = parseInt(timeMatchFromStr[1]);
+              const minutes = timeMatchFromStr[2];
+              const ampm = timeMatchFromStr[3].toUpperCase();
+              
+              if (ampm === 'PM' && hours !== 12) {
+                hours += 12;
+              } else if (ampm === 'AM' && hours === 12) {
+                hours = 0;
+              }
+              
+              timePart = `${String(hours).padStart(2, '0')}:${minutes}:00`;
+            }
           }
         }
       } else {
@@ -373,6 +402,13 @@ const ImportJobsPage = () => {
         // Log the parsed date for debugging
         if (job.scheduledDate) {
           console.log(`Row ${i + 1}: Parsed date from "${startDateTime}" -> "${job.scheduledDate}" at "${job.scheduledTime}"`);
+          // Validate the parsed date matches the original for debugging
+          if (startDateTime && (startDateTime.includes('1/14/2026') || startDateTime.includes('2026-01-14'))) {
+            console.log(`⚠️ Row ${i + 1}: Original date was 1/14/2026, parsed to: ${job.scheduledDate}`);
+            if (job.scheduledDate !== '2026-01-14') {
+              console.error(`❌ Row ${i + 1}: DATE MISMATCH! Expected 2026-01-14, got ${job.scheduledDate}`);
+            }
+          }
         }
         
         // If no date, skip this job (can't create job without date)
@@ -461,6 +497,14 @@ const ImportJobsPage = () => {
             case 'job id':
             case 'jobid':
             case 'service_order_custom_service_order':
+              if (!job.jobId) job.jobId = value;
+              break;
+            case '_id':
+            case 'id':
+            case 'job_id':
+              // Store _id separately - this is the primary unique identifier for duplicate detection
+              if (!job._id) job._id = value;
+              // Also set jobId if not already set
               if (!job.jobId) job.jobId = value;
               break;
             case 'customer name':
