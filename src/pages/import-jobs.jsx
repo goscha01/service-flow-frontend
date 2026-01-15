@@ -59,8 +59,9 @@ const ImportJobsPage = () => {
       let timePart = '09:00:00';
       
       // First, try to extract date part - handle multiple formats
-      // Format 1: YYYY-MM-DD (with optional comma and space after)
-      let dateMatch = cleanDateTime.match(/^(\d{4}-\d{2}-\d{2})/);
+      // Format 1: YYYY-MM-DD (with optional comma and space after, like "2026-04-15, " or "2026-04-15 " or "2026-01-14 10:00 am")
+      // Match YYYY-MM-DD followed by optional comma/space OR space directly (for formats like "2026-01-14 10:00 am")
+      let dateMatch = cleanDateTime.match(/^(\d{4}-\d{2}-\d{2})(?:\s*,?\s*|\s+)/);
       
       // Format 2: MM/DD/YYYY or M/D/YYYY (US format)
       if (!dateMatch) {
@@ -103,13 +104,18 @@ const ImportJobsPage = () => {
         }
         
         // Try to extract time from dateTimeStr first
-        // Handle formats like: "2024-11-23, 9:00 AM" or "2024-11-23 9:00 AM" or "1/14/2026 9:59"
-        // First try with AM/PM
-        let timeMatch = cleanDateTime.match(/(\d{1,2}):(\d{2})\s*(am|pm|AM|PM)/i);
+        // Handle formats like: 
+        // - "2024-11-23, 9:00 AM" or "2024-11-23 9:00 AM" (YYYY-MM-DD with comma)
+        // - "1/14/2026 9:59" or "1/11/2026  10:00:00 AM" (MM/DD/YYYY with optional seconds)
+        // - "2026-04-15, 10:00 AM" (YYYY-MM-DD with comma and AM/PM)
+        
+        // First try with AM/PM (with optional seconds: HH:MM:SS AM/PM or HH:MM AM/PM)
+        let timeMatch = cleanDateTime.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(am|pm|AM|PM)/i);
         if (timeMatch) {
           let hours = parseInt(timeMatch[1]);
           const minutes = timeMatch[2];
-          const ampm = timeMatch[3].toUpperCase();
+          // timeMatch[3] is optional seconds, timeMatch[4] is AM/PM
+          const ampm = timeMatch[4].toUpperCase();
           
           if (ampm === 'PM' && hours !== 12) {
             hours += 12;
@@ -119,23 +125,23 @@ const ImportJobsPage = () => {
           
           timePart = `${String(hours).padStart(2, '0')}:${minutes}:00`;
         } else {
-          // Try 24-hour format (HH:MM without AM/PM, like "9:59" or "14:30")
-          timeMatch = cleanDateTime.match(/(\d{1,2}):(\d{2})(?:\s|$)/);
+          // Try 24-hour format (HH:MM:SS or HH:MM without AM/PM, like "9:59" or "14:30" or "10:00:00")
+          timeMatch = cleanDateTime.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s|$|,)/);
           if (timeMatch) {
             let hours = parseInt(timeMatch[1]);
             const minutes = timeMatch[2];
-            // If hours > 12, assume 24-hour format; otherwise assume it's already correct
-            // But if hours is 0-12, we can't be sure, so assume 24-hour format if hours < 12
-            // Actually, for import, if no AM/PM, assume 24-hour format
+            // For import, if no AM/PM, assume 24-hour format
             timePart = `${String(hours).padStart(2, '0')}:${minutes}:00`;
           } else if (timeStr) {
             // Use the separate time string
             const cleanTimeStr = timeStr.trim().replace(/^"|"$/g, '');
-            const timeMatchFromStr = cleanTimeStr.match(/(\d{1,2}):(\d{2})\s*(am|pm|AM|PM)/i);
+            // Try with AM/PM first (with optional seconds)
+            const timeMatchFromStr = cleanTimeStr.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(am|pm|AM|PM)/i);
             if (timeMatchFromStr) {
               let hours = parseInt(timeMatchFromStr[1]);
               const minutes = timeMatchFromStr[2];
-              const ampm = timeMatchFromStr[3].toUpperCase();
+              // timeMatchFromStr[3] is optional seconds, timeMatchFromStr[4] is AM/PM
+              const ampm = timeMatchFromStr[4].toUpperCase();
               
               if (ampm === 'PM' && hours !== 12) {
                 hours += 12;
@@ -144,6 +150,14 @@ const ImportJobsPage = () => {
               }
               
               timePart = `${String(hours).padStart(2, '0')}:${minutes}:00`;
+            } else {
+              // Try 24-hour format from timeStr
+              const timeMatch24 = cleanTimeStr.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+              if (timeMatch24) {
+                let hours = parseInt(timeMatch24[1]);
+                const minutes = timeMatch24[2];
+                timePart = `${String(hours).padStart(2, '0')}:${minutes}:00`;
+              }
             }
           }
         }
@@ -401,7 +415,7 @@ const ImportJobsPage = () => {
         
         // Log the parsed date for debugging
         if (job.scheduledDate) {
-          console.log(`Row ${i + 1}: Parsed date from "${startDateTime}" -> "${job.scheduledDate}" at "${job.scheduledTime}"`);
+          console.log(`Row ${i + 1}: 📅 Parsed date from "${startDateTime}" -> date: "${job.scheduledDate}", time: "${job.scheduledTime}"`);
           // Validate the parsed date matches the original for debugging
           if (startDateTime && (startDateTime.includes('1/14/2026') || startDateTime.includes('2026-01-14'))) {
             console.log(`⚠️ Row ${i + 1}: Original date was 1/14/2026, parsed to: ${job.scheduledDate}`);
@@ -409,6 +423,8 @@ const ImportJobsPage = () => {
               console.error(`❌ Row ${i + 1}: DATE MISMATCH! Expected 2026-01-14, got ${job.scheduledDate}`);
             }
           }
+        } else if (startDateTime) {
+          console.error(`Row ${i + 1}: ❌ FAILED to parse date from "${startDateTime}"`);
         }
         
         // If no date, skip this job (can't create job without date)
