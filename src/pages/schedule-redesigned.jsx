@@ -408,7 +408,12 @@ const ServiceFlowSchedule = () => {
         teamMemberFilter = currentFilter.toString()
       }
       
-      console.log(`🔍 Schedule: Fetching jobs with teamMember filter: ${teamMemberFilter || 'none'} (selectedFilter: ${currentFilter}, territoryFilter: ${currentTerritoryFilter}, activeTab: ${activeTab})`);
+      // For jobs tab, use territory filter if selected. For availability tab with territory, fetch all jobs.
+      const territoryIdForAPI = (activeTab === 'jobs' && currentTerritoryFilter && currentTerritoryFilter !== 'all') 
+        ? currentTerritoryFilter 
+        : null
+      
+      console.log(`🔍 Schedule: Fetching jobs with teamMember filter: ${teamMemberFilter || 'none'}, territoryId: ${territoryIdForAPI || 'none'} (selectedFilter: ${currentFilter}, territoryFilter: ${currentTerritoryFilter}, activeTab: ${activeTab})`);
       
       const jobsResponse = await jobsAPI.getAll(
         user.id, 
@@ -423,8 +428,8 @@ const ServiceFlowSchedule = () => {
         teamMemberFilter, // teamMember - null for territory filter in availability tab, otherwise filter by team member
         null, // invoiceStatus
         null, // customerId
-        null, // territoryId
-        null // signal
+        territoryIdForAPI, // territoryId - only for jobs tab, null for availability tab
+        null // recurring
       )
       
       const allJobs = normalizeAPIResponse(jobsResponse, 'jobs')
