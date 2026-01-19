@@ -101,6 +101,7 @@ import DropdownMultiselectDemo from "./pages/dropdown-multiselect-demo"
 import ImportDataPage from "./pages/import-data"
 import ImportCustomersPage from "./pages/import-customers"
 import ImportJobsPage from "./pages/import-jobs"
+import UnifiedImportJobsPage from "./pages/import-jobs-unified"
 import LeadsPipeline from "./pages/leads-pipeline"
 import LandingPageLegacy from "./pages/LandingPage"
 import Notifications from "./pages/notifications"
@@ -205,7 +206,8 @@ root.render(
       <Route path="/settings/field-app" element={<FieldApp />} />
       <Route path="/import-data" element={<ProtectedRoute><ImportDataPage /></ProtectedRoute>} />
       <Route path="/import-customers" element={<ProtectedRoute><ImportCustomersPage /></ProtectedRoute>} />
-      <Route path="/import-jobs" element={<ProtectedRoute><ImportJobsPage /></ProtectedRoute>} />
+      <Route path="/import-jobs" element={<ProtectedRoute><UnifiedImportJobsPage /></ProtectedRoute>} />
+      <Route path="/import-jobs-legacy" element={<ProtectedRoute><ImportJobsPage /></ProtectedRoute>} />
       </Route>
       {/* Public Booking Routes - No authentication required */}
       <Route path="/book/:userSlug" element={<PublicBooking />} />

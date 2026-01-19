@@ -11,6 +11,7 @@ import { canCreateJobs } from "../utils/roleUtils"
 import { getImageUrl } from "../utils/imageUtils"
 import MobileBottomNav from "../components/mobile-bottom-nav"
 import MobileHeader from "../components/mobile-header"
+import RecurringIndicator from "../components/recurring-indicator"
 
 const ServiceFlowJobs = () => {
   const { user, loading: authLoading } = useAuth()
@@ -374,76 +375,124 @@ const ServiceFlowJobs = () => {
   }
 
   const formatDate = (dateString) => {
-    if (!dateString) return 'Date not set'
-
-    // Extract date part only (YYYY-MM-DD) to avoid timezone issues
-    let jobDateString = ''
-    if (dateString.includes('T')) {
-      // ISO format: 2025-08-20T09:00:00
-      jobDateString = dateString.split('T')[0]
-    } else {
-      // Space format: 2025-08-20 09:00:00
-      jobDateString = dateString.split(' ')[0]
+    if (!dateString) {
+      return { weekday: undefined, monthName: undefined, day: undefined, year: undefined, isValid: false }
     }
 
-    // Use the stored date directly without creating Date objects to avoid timezone conversion
-    const [year, month, day] = jobDateString.split('-')
+    try {
+      // Extract date part only (YYYY-MM-DD) to avoid timezone issues
+      let jobDateString = ''
+      if (dateString.includes('T')) {
+        // ISO format: 2025-08-20T09:00:00
+        jobDateString = dateString.split('T')[0]
+      } else {
+        // Space format: 2025-08-20 09:00:00
+        jobDateString = dateString.split(' ')[0]
+      }
 
-    // Create weekday names array
-    const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+      // Use the stored date directly without creating Date objects to avoid timezone conversion
+      const [year, month, day] = jobDateString.split('-')
 
-    // Calculate weekday using Zeller's congruence to avoid Date object
-    const y = parseInt(year)
-    const m = parseInt(month)
-    const d = parseInt(day)
+      // Validate that we have all three parts
+      if (!year || !month || !day) {
+        return { weekday: undefined, monthName: undefined, day: undefined, year: undefined, isValid: false }
+      }
 
-    // Adjust month for Zeller's congruence (March = 1, February = 12)
-    let adjustedMonth = m
-    let adjustedYear = y
-    if (m < 3) {
-      adjustedMonth = m + 12
-      adjustedYear = y - 1
+      // Create weekday names array
+      const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+      // Calculate weekday using Zeller's congruence to avoid Date object
+      const y = parseInt(year, 10)
+      const m = parseInt(month, 10)
+      const d = parseInt(day, 10)
+
+      // Validate parsed values
+      if (isNaN(y) || isNaN(m) || isNaN(d) || m < 1 || m > 12 || d < 1 || d > 31) {
+        return { weekday: undefined, monthName: undefined, day: undefined, year: undefined, isValid: false }
+      }
+
+      // Adjust month for Zeller's congruence (March = 1, February = 12)
+      let adjustedMonth = m
+      let adjustedYear = y
+      if (m < 3) {
+        adjustedMonth = m + 12
+        adjustedYear = y - 1
+      }
+
+      const k = adjustedYear % 100
+      const j = Math.floor(adjustedYear / 100)
+      const h = (d + Math.floor((13 * (adjustedMonth + 1)) / 5) + k + Math.floor(k / 4) + Math.floor(j / 4) - 2 * j) % 7
+
+      const weekdayIndex = ((h + 5) % 7) // Adjust for Sunday = 0
+      const weekday = weekdays[weekdayIndex]
+      const monthName = months[m - 1]
+
+      // Validate that we got valid values
+      if (!weekday || !monthName || isNaN(d) || isNaN(y)) {
+        return { weekday: undefined, monthName: undefined, day: undefined, year: undefined, isValid: false }
+      }
+
+      return { weekday, monthName, day: d, year: y, isValid: true }
+    } catch (error) {
+      console.error('Error formatting date:', dateString, error)
+      return { weekday: undefined, monthName: undefined, day: undefined, year: undefined, isValid: false }
     }
-
-    const k = adjustedYear % 100
-    const j = Math.floor(adjustedYear / 100)
-    const h = (d + Math.floor((13 * (adjustedMonth + 1)) / 5) + k + Math.floor(k / 4) + Math.floor(j / 4) - 2 * j) % 7
-
-    const weekdayIndex = ((h + 5) % 7) // Adjust for Sunday = 0
-    const weekday = weekdays[weekdayIndex]
-    const monthName = months[m - 1]
-
-    return { weekday, monthName, day: d, year: y }
   }
 
   const formatTime = (dateString) => {
     if (!dateString) return 'Time not set'
 
-    // Handle both ISO format (2025-08-20T09:00:00) and space format (2025-08-20 09:00:00)
-    let timePart = ''
-    if (dateString.includes('T')) {
-      // ISO format: 2025-08-20T09:00:00
-      timePart = dateString.split('T')[1]
-    } else {
-      // Space format: 2025-08-20 09:00:00
-      timePart = dateString.split(' ')[1]
+    try {
+      // Handle both ISO format (2025-08-20T09:00:00) and space format (2025-08-20 09:00:00)
+      let timePart = ''
+      if (dateString.includes('T')) {
+        // ISO format: 2025-08-20T09:00:00
+        timePart = dateString.split('T')[1]
+      } else {
+        // Space format: 2025-08-20 09:00:00 or 12/20/2025 02:00 PM:00
+        const parts = dateString.split(' ')
+        // Find the time part (usually the second part, but could be later if date has spaces)
+        // Look for pattern like "HH:MM" or "HH:MM:SS" or "HH:MM AM/PM"
+        for (let i = 1; i < parts.length; i++) {
+          if (parts[i].match(/^\d{1,2}:\d{2}/)) {
+            timePart = parts.slice(i).join(' ')
+            break
+          }
+        }
+      }
+
+      if (!timePart) return 'Time not set'
+
+      // Check if time already has AM/PM (incorrectly stored format like "02:00 PM:00")
+      const ampmMatch = timePart.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(am|pm|AM|PM)/i)
+      if (ampmMatch) {
+        // Already has AM/PM, just clean it up and return
+        const hour = parseInt(ampmMatch[1], 10)
+        const minute = ampmMatch[2]
+        const ampm = ampmMatch[4].toUpperCase()
+        return `${hour}:${minute} ${ampm}`
+      }
+
+      // Normal format: HH:MM:SS or HH:MM
+      const timeParts = timePart.split(':')
+      if (timeParts.length < 2) return 'Time not set'
+
+      const hour = parseInt(timeParts[0], 10)
+      const minute = parseInt(timeParts[1], 10)
+
+      if (isNaN(hour) || isNaN(minute)) return 'Time not set'
+
+      // Convert to 12-hour format
+      const ampm = hour >= 12 ? 'PM' : 'AM'
+      const displayHour = hour % 12 || 12
+      const displayMinute = minute.toString().padStart(2, '0')
+
+      return `${displayHour}:${displayMinute} ${ampm}`
+    } catch (error) {
+      console.error('Error formatting time:', dateString, error)
+      return 'Time not set'
     }
-
-    if (!timePart) return 'Time not set'
-
-    const [hours, minutes] = timePart.split(':')
-    const hour = parseInt(hours, 10)
-    const minute = parseInt(minutes, 10)
-
-    if (isNaN(hour) || isNaN(minute)) return 'Time not set'
-
-    // Convert to 12-hour format
-    const ampm = hour >= 12 ? 'PM' : 'AM'
-    const displayHour = hour % 12 || 12
-    const displayMinute = minute.toString().padStart(2, '0')
-
-    return `${displayHour}:${displayMinute} ${ampm}`
   }
 
   const getStatusColor = (status) => {
@@ -493,22 +542,49 @@ const ServiceFlowJobs = () => {
         return
       }
 
-      const jobDate = new Date(job.scheduled_date)
-      jobDate.setHours(0, 0, 0, 0)
-      
-      let dateKey = ''
-      if (jobDate.getTime() === today.getTime()) {
-        dateKey = 'TODAY'
-      } else if (jobDate.getTime() === yesterday.getTime()) {
-        const dateInfo = formatDate(job.scheduled_date)
-        dateKey = `YESTERDAY, ${dateInfo.monthName.toUpperCase()} ${dateInfo.day}`
-      } else {
-        const dateInfo = formatDate(job.scheduled_date)
-        dateKey = `${dateInfo.weekday.toUpperCase()}, ${dateInfo.monthName.toUpperCase()} ${dateInfo.day}`
-      }
+      try {
+        const jobDate = new Date(job.scheduled_date)
+        if (isNaN(jobDate.getTime())) {
+          // Invalid date
+          if (!groups['No Date']) groups['No Date'] = []
+          groups['No Date'].push(job)
+          return
+        }
+        
+        jobDate.setHours(0, 0, 0, 0)
+        
+        let dateKey = ''
+        if (jobDate.getTime() === today.getTime()) {
+          dateKey = 'TODAY'
+        } else if (jobDate.getTime() === yesterday.getTime()) {
+          const dateInfo = formatDate(job.scheduled_date)
+          // Check if formatDate returned an object with the expected properties
+          if (typeof dateInfo === 'object' && dateInfo !== null && dateInfo.monthName && dateInfo.day !== undefined) {
+            dateKey = `YESTERDAY, ${dateInfo.monthName.toUpperCase()} ${dateInfo.day}`
+          } else {
+            // Fallback to formatted date string
+            dateKey = 'YESTERDAY'
+          }
+        } else {
+          const dateInfo = formatDate(job.scheduled_date)
+          // Check if formatDate returned an object with the expected properties
+          if (typeof dateInfo === 'object' && dateInfo !== null && dateInfo.weekday && dateInfo.monthName && dateInfo.day !== undefined) {
+            dateKey = `${dateInfo.weekday.toUpperCase()}, ${dateInfo.monthName.toUpperCase()} ${dateInfo.day}`
+          } else {
+            // Fallback: use a formatted date string
+            const fallbackDate = jobDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+            dateKey = fallbackDate.toUpperCase()
+          }
+        }
 
-      if (!groups[dateKey]) groups[dateKey] = []
-      groups[dateKey].push(job)
+        if (!groups[dateKey]) groups[dateKey] = []
+        groups[dateKey].push(job)
+      } catch (error) {
+        // If there's any error parsing the date, add to "No Date" group
+        console.error('Error parsing date for job:', job.id, error)
+        if (!groups['No Date']) groups['No Date'] = []
+        groups['No Date'].push(job)
+      }
     })
 
     return groups
@@ -1126,6 +1202,11 @@ const ServiceFlowJobs = () => {
                     <tbody className="bg-white divide-y divide-gray-200">
                       {jobs.map((job) => {
                         const dateInfo = formatDate(job.scheduled_date)
+                        // Format date string safely
+                        const dateDisplay = (dateInfo.isValid && dateInfo.weekday && dateInfo.monthName && dateInfo.day !== undefined && dateInfo.year !== undefined)
+                          ? `${dateInfo.weekday} - ${dateInfo.monthName} ${dateInfo.day}, ${dateInfo.year}`
+                          : (job.scheduled_date ? 'Invalid date' : 'Date not set')
+                        
                         return (
                           <tr
                             key={job.id}
@@ -1135,7 +1216,7 @@ const ServiceFlowJobs = () => {
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex flex-col">
                                 <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-sm  font-medium text-blue-500">
-                                  {job.scheduled_date ? `${dateInfo.weekday} - ${dateInfo.monthName} ${dateInfo.day}, ${dateInfo.year}` : 'Date not set'}
+                                  {dateDisplay}
                                 </span>
                                 <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-xs text-gray-600">
                                   {job.scheduled_date ? formatTime(job.scheduled_date) : 'Time not set'}
@@ -1144,9 +1225,18 @@ const ServiceFlowJobs = () => {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex flex-col">
-                                <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-sm capitalize font-medium text-gray-900">
-                                  {job.service_name || 'Service'}
-                                </span>
+                                <div className="flex items-center gap-2">
+                                  <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-sm capitalize font-medium text-gray-900">
+                                    {job.service_name || 'Service'}
+                                  </span>
+                                  <RecurringIndicator
+                                    isRecurring={job.is_recurring === true || job.is_recurring === 'true' || job.is_recurring === 1 || job.is_recurring === '1'}
+                                    frequency={job.recurring_frequency}
+                                    scheduledDate={job.scheduled_date}
+                                    size="sm"
+                                    showText={false}
+                                  />
+                                </div>
                                 <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-xs text-gray-500">
                                   Job #{job.id}
                                 </span>
@@ -1238,9 +1328,20 @@ const ServiceFlowJobs = () => {
                             // Get time range - if we have duration, calculate end time
                             let timeRange = formatTime(job.scheduled_date)
                             if (job.scheduled_date && job.service_duration) {
-                              const startTime = new Date(job.scheduled_date)
-                              const endTime = new Date(startTime.getTime() + (job.service_duration * 60000))
-                              timeRange = `${formatTime(job.scheduled_date)} - ${formatTime(endTime.toISOString())}`
+                              try {
+                                const startTime = new Date(job.scheduled_date)
+                                // Check if startTime is valid
+                                if (!isNaN(startTime.getTime())) {
+                                  const endTime = new Date(startTime.getTime() + (job.service_duration * 60000))
+                                  // Check if endTime is valid before calling toISOString
+                                  if (!isNaN(endTime.getTime())) {
+                                    timeRange = `${formatTime(job.scheduled_date)} - ${formatTime(endTime.toISOString())}`
+                                  }
+                                }
+                              } catch (error) {
+                                // If there's any error, just use the start time
+                                console.error('Error calculating end time for job:', job.id, error)
+                              }
                             }
 
                             return (
@@ -1267,9 +1368,18 @@ const ServiceFlowJobs = () => {
                                 </div>
 
                                 {/* Job Title */}
-                                <h4 className="text-base font-semibold text-gray-900 mb-3" style={{fontFamily: 'Montserrat', fontWeight: 600}}>
-                                  {job.service_name || 'Service'}
-                                </h4>
+                                <div className="flex items-center gap-2 mb-3">
+                                  <h4 className="text-base font-semibold text-gray-900" style={{fontFamily: 'Montserrat', fontWeight: 600}}>
+                                    {job.service_name || 'Service'}
+                                  </h4>
+                                  <RecurringIndicator
+                                    isRecurring={job.is_recurring === true || job.is_recurring === 'true' || job.is_recurring === 1 || job.is_recurring === '1'}
+                                    frequency={job.recurring_frequency}
+                                    scheduledDate={job.scheduled_date}
+                                    size="sm"
+                                    showText={true}
+                                  />
+                                </div>
 
                                 {/* Job Details */}
                                 <div className="space-y-2">

@@ -92,6 +92,10 @@ const ServiceFlowSchedule = () => {
   const [showJobDetails, setShowJobDetails] = useState(false)
   const [teamMembers, setTeamMembers] = useState([])
   const [territories, setTerritories] = useState([])
+  
+  // Cache for jobs to speed up loading
+  const jobsCacheRef = useRef(new Map()) // Map<cacheKey, { jobs: [], timestamp: number }>
+  const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes cache duration
   // For workers, default to their own teamMemberId; for others, default to 'all'
   const [selectedFilter, setSelectedFilter] = useState(() => {
     // If user is a worker, set filter to their teamMemberId
@@ -380,38 +384,38 @@ const ServiceFlowSchedule = () => {
       const endDateString = formatDateLocal(endDate)
       const dateRange = `${startDateString} to ${endDateString}`
       
+      // Build cache key based on query parameters
+      let teamMemberFilter = null
+      if (activeTab === 'availability' && currentTerritoryFilter && currentTerritoryFilter !== 'all') {
+        teamMemberFilter = null
+      } else if (activeTab === 'availability' && currentFilter === 'all-team-members') {
+        teamMemberFilter = null
+      } else if (currentFilter && currentFilter !== 'all' && currentFilter !== 'unassigned' && currentFilter !== 'all-team-members') {
+        teamMemberFilter = currentFilter.toString()
+      }
+      
+      const territoryIdForAPI = (activeTab === 'jobs' && currentTerritoryFilter && currentTerritoryFilter !== 'all') 
+        ? currentTerritoryFilter 
+        : null
+      
+      const cacheKey = `${user.id}_${viewMode}_${startDateString}_${endDateString}_${teamMemberFilter || 'all'}_${territoryIdForAPI || 'all'}_${activeTab}_${recurringFilter || 'all'}`
+      
+      // Check cache first
+      const cachedData = jobsCacheRef.current.get(cacheKey)
+      const now = Date.now()
+      if (cachedData && (now - cachedData.timestamp) < CACHE_DURATION) {
+        console.log(`💾 Using cached jobs for ${viewMode} view: ${dateRange} (cache key: ${cacheKey})`)
+        setJobs(cachedData.jobs)
+        setIsLoading(false)
+        return
+      }
+      
       console.log(`📅 Fetching jobs for ${viewMode} view: ${dateRange}`)
       console.log(`📅 Selected date: ${formatDateLocal(normalizedSelectedDate)}, Date range: ${dateRange}`)
       
       // For month view, we need a higher limit or fetch all jobs in the date range
       // Use a very high limit to ensure we get all jobs for the month
       const limit = viewMode === 'month' ? 10000 : 1000
-      
-      // Use backend filter for team member (same as unified-calendar.jsx)
-      // For availability tab with territory filter, fetch ALL jobs (no team member filter)
-      // because we need jobs for all team members in that territory
-      // For availability tab with "all-team-members" filter, fetch ALL jobs (no team member filter)
-      // because we need jobs for all team members
-      // For availability tab with team member filter, filter by that team member
-      // For jobs tab, also filter by team member if one is selected
-      let teamMemberFilter = null
-      if (activeTab === 'availability' && currentTerritoryFilter && currentTerritoryFilter !== 'all') {
-        // Territory selected in availability tab - fetch ALL jobs (no team member filter)
-        // getDayAvailabilityForMember will filter jobs for each team member in the territory
-        teamMemberFilter = null
-      } else if (activeTab === 'availability' && currentFilter === 'all-team-members') {
-        // "All Team Members" selected in availability tab - fetch ALL jobs (no team member filter)
-        // getDayAvailabilityForMember will filter jobs for each team member
-        teamMemberFilter = null
-      } else if (currentFilter && currentFilter !== 'all' && currentFilter !== 'unassigned' && currentFilter !== 'all-team-members') {
-        // Team member selected - filter by that team member
-        teamMemberFilter = currentFilter.toString()
-      }
-      
-      // For jobs tab, use territory filter if selected. For availability tab with territory, fetch all jobs.
-      const territoryIdForAPI = (activeTab === 'jobs' && currentTerritoryFilter && currentTerritoryFilter !== 'all') 
-        ? currentTerritoryFilter 
-        : null
       
       console.log(`🔍 Schedule: Fetching jobs with teamMember filter: ${teamMemberFilter || 'none'}, territoryId: ${territoryIdForAPI || 'none'} (selectedFilter: ${currentFilter}, territoryFilter: ${currentTerritoryFilter}, activeTab: ${activeTab})`);
       
@@ -429,7 +433,7 @@ const ServiceFlowSchedule = () => {
         null, // invoiceStatus
         null, // customerId
         territoryIdForAPI, // territoryId - only for jobs tab, null for availability tab
-        null // recurring
+        recurringFilter !== 'all' ? recurringFilter : null // recurring - pass filter to backend
       )
       
       const allJobs = normalizeAPIResponse(jobsResponse, 'jobs')
@@ -497,13 +501,36 @@ const ServiceFlowSchedule = () => {
           console.log(`✅ Day view: Found ${filteredJobs.length} jobs for ${startDateString}`)
         }
       }
+      
+      // Store in cache
+      jobsCacheRef.current.set(cacheKey, {
+        jobs: filteredJobs,
+        timestamp: now
+      })
+      
+      // Clean up old cache entries (keep only last 20 entries)
+      if (jobsCacheRef.current.size > 20) {
+        const entries = Array.from(jobsCacheRef.current.entries())
+        entries.sort((a, b) => b[1].timestamp - a[1].timestamp) // Sort by timestamp, newest first
+        jobsCacheRef.current.clear()
+        entries.slice(0, 20).forEach(([key, value]) => {
+          jobsCacheRef.current.set(key, value)
+        })
+      }
+      
       setJobs(filteredJobs)
     } catch (error) {
       console.error('❌ Error fetching jobs:', error)
     } finally {
       setIsLoading(false)
     }
-  }, [user, selectedDate, viewMode, selectedFilter, territoryFilter, activeTab]) // Include territoryFilter so jobs refetch when territory filter changes
+  }, [user, selectedDate, viewMode, selectedFilter, territoryFilter, activeTab, recurringFilter]) // Include territoryFilter and recurringFilter so jobs refetch when filters change
+  
+  // Function to invalidate cache (call this when jobs are updated/created/deleted)
+  const invalidateJobsCache = useCallback(() => {
+    console.log('🗑️ Invalidating jobs cache...')
+    jobsCacheRef.current.clear()
+  }, [])
   
   // Refetch jobs when selectedFilter changes (if it's a team member filter or all-team-members)
   useEffect(() => {
@@ -672,11 +699,30 @@ const ServiceFlowSchedule = () => {
       )
     }
     
-    // Recurring filter
+    // Recurring filter - handle boolean, string, and number types
+    // IMPORTANT: A job is recurring ONLY if is_recurring is explicitly true
+    // We should NOT use recurring_frequency alone to determine if a job is recurring
+    // because some one-time jobs might have a frequency value stored
     if (recurringFilter === 'recurring') {
-      filtered = filtered.filter(job => job.is_recurring === true)
+      filtered = filtered.filter(job => {
+        // A job is recurring if is_recurring is explicitly true/1/'true'/'1'
+        const isRecurring = job.is_recurring === true || 
+                           job.is_recurring === 'true' || 
+                           job.is_recurring === 1 || 
+                           job.is_recurring === '1'
+        return isRecurring
+      })
     } else if (recurringFilter === 'one-time') {
-      filtered = filtered.filter(job => !job.is_recurring || job.is_recurring === false)
+      filtered = filtered.filter(job => {
+        // A job is one-time if is_recurring is NOT true
+        // This includes false, null, undefined, 0, '0', '', etc.
+        const isRecurring = job.is_recurring === true || 
+                           job.is_recurring === 'true' || 
+                           job.is_recurring === 1 || 
+                           job.is_recurring === '1'
+        // One-time = NOT recurring (includes null, undefined, false, 0, empty string, etc.)
+        return !isRecurring
+      })
     }
     // If recurringFilter === 'all', show all jobs
     
@@ -2074,6 +2120,9 @@ const ServiceFlowSchedule = () => {
         return merged
       })
       
+      // Invalidate cache since job was updated
+      invalidateJobsCache()
+      
       // Update the job in the main jobs list
       setJobs(prevJobs => prevJobs.map(job => 
         job.id === selectedJobDetails.id ? { ...job, status: actualStatus, ...updatedJob } : job
@@ -2841,6 +2890,9 @@ const ServiceFlowSchedule = () => {
       }
       
       await jobsAPI.update(selectedJobDetails.id, updateData)
+      
+      // Invalidate cache since job was rescheduled
+      invalidateJobsCache()
       
       // Update local state
       setSelectedJobDetails(prev => ({
@@ -4827,16 +4879,24 @@ const ServiceFlowSchedule = () => {
                                             <div className="text-xs font-medium text-gray-700 mb-1">
                                               Jobs ({dayJobs.length})
                                             </div>
-                                            {dayJobs.slice(0, 3).map((job) => (
+                                            {dayJobs.slice(0, 3).map((job) => {
+                                              const isRecurring = job.is_recurring === true || job.is_recurring === 'true' || job.is_recurring === 1 || job.is_recurring === '1'
+                                              
+                                              return (
                                               <div
                                                 key={job.id}
                                                 onClick={() => {
                                                   setSelectedJobDetails(job)
                                                   setShowJobDetails(true)
                                                 }}
-                                                className="p-2 rounded text-xs bg-blue-50 text-blue-800 border border-blue-200 cursor-pointer hover:bg-blue-100 transition-colors"
+                                                className="p-2 rounded text-xs bg-blue-50 text-blue-800 border border-blue-200 cursor-pointer hover:bg-blue-100 transition-colors relative"
                                                 style={{ borderLeftColor: memberColor, borderLeftWidth: '3px' }}
                                               >
+                                                {isRecurring && (
+                                                  <span className="absolute bottom-1 right-1 inline-flex items-center justify-center w-3 h-3 rounded-full bg-blue-200 text-blue-800 text-[7px] font-bold flex-shrink-0 z-10" title="Recurring Job">
+                                                    R
+                                                  </span>
+                                                )}
                                                 <div className="font-medium truncate">{job.service_name || 'Service'}</div>
                                                 {job.scheduled_date && (
                                                   <div className="text-xs opacity-75">
@@ -4849,7 +4909,8 @@ const ServiceFlowSchedule = () => {
                                                   </div>
                                                 )}
                                               </div>
-                                            ))}
+                                              )
+                                            })}
                                             {dayJobs.length > 3 && (
                                               <div className="text-xs text-blue-600 text-center">
                                                 +{dayJobs.length - 3} more
@@ -5144,15 +5205,22 @@ const ServiceFlowSchedule = () => {
                           const territory = territories.find(t => t.id === job.territory_id)
                           const territoryName = territory?.name || null
                           
+                          const isRecurring = job.is_recurring === true || job.is_recurring === 'true' || job.is_recurring === 1 || job.is_recurring === '1'
+                          
                           return (
                             <div 
                               key={jobIndex} 
-                              className="bg-white rounded-md m-2 p-2 mb-1 text-xs cursor-pointer hover:shadow-md transition-all border border-gray-200"
+                              className="bg-white rounded-md m-2 p-2 mb-1 text-xs cursor-pointer hover:shadow-md transition-all border border-gray-200 relative"
                               onClick={(e) => {
                                 e.stopPropagation()
                                 handleJobClick(job)
                               }}
                             >
+                              {isRecurring && (
+                                <span className="absolute bottom-1 right-1 inline-flex items-center justify-center w-3 h-3 rounded-full bg-blue-100 text-blue-700 text-[7px] font-bold flex-shrink-0 z-10" title="Recurring Job">
+                                  R
+                                </span>
+                              )}
                               <div className="flex items-center justify-between mb-1">
                                 <div className="font-medium text-gray-900 truncate text-[9px]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                                   {timeString} - {endTimeString}{durationFormatted && ` ${durationFormatted}`}
@@ -5353,15 +5421,22 @@ const ServiceFlowSchedule = () => {
                           const territory = territories.find(t => t.id === job.territory_id)
                           const territoryName = territory?.name || null
                           
+                          const isRecurring = job.is_recurring === true || job.is_recurring === 'true' || job.is_recurring === 1 || job.is_recurring === '1'
+                          
                           return (
                             <div 
                               key={jobIndex} 
-                              className="bg-white rounded-md p-1.5 mb-1 text-xs cursor-pointer hover:shadow-md transition-all border border-gray-200"
+                              className="bg-white rounded-md p-1.5 mb-1 text-xs cursor-pointer hover:shadow-md transition-all border border-gray-200 relative"
                               onClick={(e) => {
                                 e.stopPropagation()
                                 handleJobClick(job)
                               }}
                             >
+                              {isRecurring && (
+                                <span className="absolute bottom-0.5 right-0.5 inline-flex items-center justify-center w-3 h-3 rounded-full bg-blue-100 text-blue-700 text-[7px] font-bold flex-shrink-0 z-10" title="Recurring Job">
+                                  R
+                                </span>
+                              )}
                               <div className="flex items-center justify-between mb-0.5">
                                 <div className="font-medium text-gray-900 truncate text-[9px]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                                   {timeString} - {endTimeString}{durationFormatted && ` ${durationFormatted}`}
@@ -5516,7 +5591,14 @@ const ServiceFlowSchedule = () => {
                   
 
                   <div className="space-x-1 space-y-0.5">
-                  <h3 className="text-[10px] sm:text-[10px] font-semibold text-gray-500 pl-1">JOB #{job.id}</h3>
+                  <div className="flex items-center gap-1 pl-1">
+                    <h3 className="text-[10px] sm:text-[10px] font-semibold text-gray-500">JOB #{job.id}</h3>
+                    {(job.is_recurring === true || job.is_recurring === 'true' || job.is_recurring === 1 || job.is_recurring === '1') && (
+                      <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-100 text-blue-700 text-[8px] font-bold" title="Recurring Job">
+                        R
+                      </span>
+                    )}
+                  </div>
                      
                     {/* Time and Duration */}
                     <div className="flex flex-col sm:flex-row sm:items-center space-y-1 sm:space-y-0 sm:space-x-3">
