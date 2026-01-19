@@ -114,11 +114,9 @@ const ServiceFlowRecurring = () => {
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
-      {/* Main Sidebar */}
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} activePage="recurring" />
-
+ 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0 lg:mx-44 xl:mx-48">
+      <div className="flex-1 flex flex-col min-w-0">
         {/* Mobile Header */}
         <MobileHeader pageTitle="Recurring" />
 

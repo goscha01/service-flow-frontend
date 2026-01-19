@@ -1899,9 +1899,24 @@ const JobDetails = () => {
   }
 
   const getCustomerInitials = () => {
-    const firstName = job?.customer_first_name || ''
-    const lastName = job?.customer_last_name || ''
-    return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase()
+    const firstName = (job?.customer_first_name || job?.customer?.first_name || job?.customers?.first_name || '').trim()
+    const lastName = (job?.customer_last_name || job?.customer?.last_name || job?.customers?.last_name || '').trim()
+    
+    // If we have names, return initials
+    if (firstName || lastName) {
+      const firstInitial = firstName ? firstName.charAt(0) : ''
+      const lastInitial = lastName ? lastName.charAt(0) : ''
+      return `${firstInitial}${lastInitial}`.toUpperCase() || '?'
+    }
+    
+    // Fallback: try to get initial from email
+    const email = job?.customer_email || job?.customer?.email || job?.customers?.email || ''
+    if (email) {
+      return email.charAt(0).toUpperCase()
+    }
+    
+    // Last resort: return '?'
+    return '?'
   }
 
   if (loading || !job) {
@@ -3837,10 +3852,29 @@ const JobDetails = () => {
                 </div>
                 <div>
                   <p style={{fontFamily: 'Montserrat', fontWeight: 700}} className="font-bold text-gray-900 text-lg">
-                    {job.customer_first_name && job.customer_last_name 
-                      ? `${job.customer_first_name} ${job.customer_last_name}`
-                      : job.customer_first_name || job.customer_last_name || 'Client name placeholder'
-                    }
+                    {(() => {
+                      // Try multiple sources for customer name
+                      const firstName = (job.customer_first_name || job.customer?.first_name || job.customers?.first_name || '').trim()
+                      const lastName = (job.customer_last_name || job.customer?.last_name || job.customers?.last_name || '').trim()
+                      
+                      if (firstName && lastName) {
+                        return `${firstName} ${lastName}`
+                      }
+                      if (firstName) {
+                        return firstName
+                      }
+                      if (lastName) {
+                        return lastName
+                      }
+                      
+                      // Fallback: try email
+                      const email = job.customer_email || job.customer?.email || job.customers?.email || ''
+                      if (email) {
+                        return email.split('@')[0] // Use email username as fallback
+                      }
+                      
+                      return 'Customer'
+                    })()}
                   </p>
                 </div>
               </div>

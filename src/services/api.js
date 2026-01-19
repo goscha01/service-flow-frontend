@@ -985,7 +985,8 @@ export const jobsAPI = {
 
   importJobs: async (jobs) => {
     try {
-      const response = await api.post('/jobs/import', { jobs });
+      // Use a longer timeout for import operations (2 minutes)
+      const response = await api.post('/jobs/import', { jobs }, { timeout: 120000 });
       return response.data;
     } catch (error) {
       throw error;
