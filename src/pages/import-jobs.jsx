@@ -477,6 +477,13 @@ const ImportJobsPage = () => {
         job.inStoreJob = rawData['in_store_job_boolean'] === 'true';
         job.smsMessages = rawData['sms_messages_boolean'] === 'true';
         
+        // Check cancel_boolean - if true, mark job as cancelled
+        const cancelBoolean = rawData['cancel_boolean'];
+        if (cancelBoolean === 'true' || cancelBoolean === true || cancelBoolean === 'TRUE') {
+          job.status = 'cancelled';
+          console.log(`Row ${i + 1}: ✅ Job marked as cancelled (cancel_boolean = true)`);
+        }
+        
         // Payment/Invoice status fields - CRITICAL for payment status detection
         // Extract invoice_fully_paid_boolean (handles TRUE/FALSE strings, boolean values, etc.)
         // IMPORTANT: Always extract if it exists, even if it's 'FALSE' - backend needs to know
@@ -719,6 +726,15 @@ const ImportJobsPage = () => {
             case 'recurring end date':
             case 'recurringenddate':
               job.recurringEndDate = value;
+              break;
+            case 'cancel_boolean':
+            case 'cancel boolean':
+            case 'cancelboolean':
+              // If cancel_boolean is true, mark job as cancelled
+              if (value === 'true' || value === true || value === 'TRUE') {
+                job.status = 'cancelled';
+                console.log(`Row ${i + 1}: ✅ Job marked as cancelled (cancel_boolean = true)`);
+              }
               break;
             default:
               // Unknown header, skip

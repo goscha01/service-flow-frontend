@@ -655,6 +655,12 @@ const ServiceFlowSchedule = () => {
     // Status filter
     if (statusFilter !== 'all') {
       filtered = filtered.filter(job => job.status === statusFilter)
+    } else {
+      // When status filter is 'all', exclude cancelled jobs from schedule view
+      filtered = filtered.filter(job => {
+        const status = (job.status || '').toLowerCase().trim()
+        return status !== 'cancelled' && status !== 'canceled'
+      })
     }
     
     // Time range filter
