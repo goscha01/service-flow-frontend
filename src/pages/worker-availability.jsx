@@ -93,12 +93,29 @@ const WorkerAvailability = () => {
   const timeOptions = generateTimeOptions()
   
   // Load working hours from team member availability
+  // For workers, if they don't have availability set, inherit business hours (9-6 default)
   const loadWorkingHours = useCallback(async () => {
     // For non-workers (account owners/managers), they might not have teamMemberId
     // In that case, use user availability API instead
     if (!user?.teamMemberId && !user?.id) return
     
     try {
+      // First, try to load business hours as default (for workers)
+      let businessHours = null
+      if (user?.teamMemberId) {
+        // For workers, try to get business hours from account owner
+        try {
+          const ownerAvailability = await availabilityAPI.getAvailability(user.id)
+          if (ownerAvailability?.businessHours) {
+            businessHours = typeof ownerAvailability.businessHours === 'string' 
+              ? JSON.parse(ownerAvailability.businessHours)
+              : ownerAvailability.businessHours
+          }
+        } catch (e) {
+          console.log('Could not load business hours as fallback:', e)
+        }
+      }
+      
       // Try team member availability first if user has teamMemberId
       // Otherwise fall back to user availability
       let availability
@@ -120,8 +137,8 @@ const WorkerAvailability = () => {
           }
         }
         
-        if (availData?.workingHours) {
-          // Convert to our format
+        if (availData?.workingHours && Object.keys(availData.workingHours).length > 0) {
+          // Convert to our format - worker has their own schedule
           const newWorkingHours = {}
           Object.keys(dayNamesLower).forEach((dayIdx) => {
             const dayName = dayNamesLower[dayIdx]
@@ -137,6 +154,47 @@ const WorkerAvailability = () => {
                 }] : [])
               }
             } else {
+              // Day not set - check if business hours available, otherwise use default
+              const dayBusinessHours = businessHours?.[dayName]
+              if (dayBusinessHours && dayBusinessHours.enabled) {
+                newWorkingHours[dayName] = {
+                  available: true,
+                  timeSlots: [{ 
+                    id: Date.now() + dayIdx, 
+                    start: dayBusinessHours.start || '09:00', 
+                    end: dayBusinessHours.end || '18:00' 
+                  }]
+                }
+              } else {
+                // Default: weekdays 9-6, weekends unavailable
+                newWorkingHours[dayName] = {
+                  available: dayIdx !== 0 && dayIdx !== 6, // Not Sunday or Saturday
+                  timeSlots: dayIdx !== 0 && dayIdx !== 6 ? [{ id: Date.now() + dayIdx, start: '09:00', end: '18:00' }] : []
+                }
+              }
+            }
+          })
+          
+          setWorkingHours(newWorkingHours)
+        } else {
+          // Worker has no availability set - inherit business hours (9-6 default)
+          const newWorkingHours = {}
+          Object.keys(dayNamesLower).forEach((dayIdx) => {
+            const dayName = dayNamesLower[dayIdx]
+            const dayBusinessHours = businessHours?.[dayName]
+            
+            if (dayBusinessHours && dayBusinessHours.enabled) {
+              // Use business hours
+              newWorkingHours[dayName] = {
+                available: true,
+                timeSlots: [{ 
+                  id: Date.now() + dayIdx, 
+                  start: dayBusinessHours.start || '09:00', 
+                  end: dayBusinessHours.end || '18:00' 
+                }]
+              }
+            } else {
+              // Default: weekdays 9-6, weekends unavailable
               newWorkingHours[dayName] = {
                 available: dayIdx !== 0 && dayIdx !== 6, // Not Sunday or Saturday
                 timeSlots: dayIdx !== 0 && dayIdx !== 6 ? [{ id: Date.now() + dayIdx, start: '09:00', end: '18:00' }] : []
@@ -803,7 +861,64 @@ const WorkerAvailability = () => {
             </span>
           </div>
         )}
-        
+
+        {/* Weekly Hours Section - Same as Desktop */}
+        <div className="px-4 py-4 border-b border-gray-200 bg-white">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-base font-semibold text-gray-900">Regular Schedule</h3>
+              <p className="text-sm text-gray-600 mt-1">
+                Set your weekly availability. This applies to all weeks unless overridden by a specific date.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowEditWeeklyHoursModal(true)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
+            >
+              Edit Weekly Hours
+            </button>
+          </div>
+          
+          {/* Weekly Hours Preview */}
+          <div className="space-y-2">
+            {dayNamesLower.map((day, index) => {
+              const dayData = workingHours[day] || { available: false, timeSlots: [] }
+              const dayName = dayNamesFull[index]
+              
+              return (
+                <div key={day} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center space-x-3">
+                    <div className={`w-3 h-3 rounded-full ${dayData.available ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                    <span className="text-sm font-medium text-gray-900 capitalize">{day}</span>
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    {dayData.available && dayData.timeSlots.length > 0 ? (
+                      dayData.timeSlots.map((slot, slotIndex) => (
+                        <span key={slotIndex}>
+                          {slotIndex > 0 && ', '}
+                          {formatTime(slot.start)} - {formatTime(slot.end)}
+                        </span>
+                      ))
+                    ) : (
+                      'Unavailable'
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Calendar Section */}
+        <div className="px-4 py-4">
+          <div className="mb-4">
+            <h3 className="text-base font-semibold text-gray-900">One-Time Dates</h3>
+            <p className="text-sm text-gray-600 mt-1">
+              Override your regular schedule for specific dates (vacations, birthdays, part of day, etc.)
+            </p>
+          </div>
+        </div>
+
         {/* Availability List */}
         <div className="px-4 py-4 space-y-3">
           {daysInMonth.map((day) => {

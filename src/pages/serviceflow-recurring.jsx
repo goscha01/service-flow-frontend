@@ -85,6 +85,16 @@ const ServiceFlowRecurring = () => {
     }
   }
 
+  // Check if booking is canceled based on cancel_boolean
+  const isCanceled = (booking) => {
+    // Check cancel_boolean first (primary indicator)
+    if (booking.cancel_boolean === true || booking.cancel_boolean === 'true') {
+      return true
+    }
+    // Fallback to status field if cancel_boolean is not available
+    return booking.status !== 'active'
+  }
+
   // Calculate pagination
   const totalPages = Math.ceil(recurringBookings.length / itemsPerPage)
   const startIndex = (currentPage - 1) * itemsPerPage
@@ -152,7 +162,7 @@ const ServiceFlowRecurring = () => {
           </div>
         </div>
 
-        {/* Content Area */}
+      {/* Content Area */}
         <div className="flex-1 overflow-y-auto bg-white">
           {/* Tabs */}
           <div className="border-b border-gray-200 px-6 pt-4">
@@ -277,11 +287,11 @@ const ServiceFlowRecurring = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            booking.status === 'active'
+                            !isCanceled(booking)
                               ? 'bg-green-100 text-green-800'
                               : 'bg-red-100 text-red-800'
                           }`} style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
-                            {booking.status === 'active' ? 'Active' : 'Canceled'}
+                            {!isCanceled(booking) ? 'Active' : 'Canceled'}
                           </span>
                         </td>
                       </tr>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowLeft, FileText, AlertCircle, CheckCircle, Loader2, Upload, Download, Settings, Eye, EyeOff, ChevronDown, ChevronUp } from 'lucide-react';
 import { jobsAPI } from '../services/api';
+import api from '../services/api';
 import { Link, useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 
@@ -112,6 +113,7 @@ const UnifiedImportJobsPage = () => {
       let rows = [];
       let headers = [];
 
+      // For ZenBooker CSV, use the same parsing approach as original import
       if (file.name.endsWith('.csv')) {
         const text = await file.text();
         if (!text || !text.trim()) {
@@ -119,106 +121,151 @@ const UnifiedImportJobsPage = () => {
           return;
         }
         
-        // Parse entire CSV text properly handling multi-line quoted fields
-        const parseCSV = (csvText) => {
-          const result = [];
-          let currentRow = [];
-          let currentField = '';
-          let inQuotes = false;
-          let i = 0;
+        // Check if this looks like a ZenBooker file (before parsing)
+        const headerLower = text.split('\n')[0].toLowerCase();
+        const isZenBooker = headerLower.includes('start_time_for_full_cal_date') || 
+                           headerLower.includes('job_random_id_text') ||
+                           headerLower.includes('customer_email_text');
+        
+        if (isZenBooker && sourceType === 'auto') {
+          // For ZenBooker, use the same parseCSVLine approach as original
+          const lines = text.split('\n').filter(line => line.trim());
+          if (lines.length < 2) {
+            setError('CSV file is empty');
+            return;
+          }
           
-          while (i < csvText.length) {
-            const char = csvText[i];
-            const nextChar = csvText[i + 1];
+          // Helper function to parse CSV line (same as original)
+          const parseCSVLine = (line) => {
+            const result = [];
+            let current = '';
+            let inQuotes = false;
             
-            if (char === '"') {
-              // Check for escaped quotes ("")
-              if (inQuotes && nextChar === '"') {
-                currentField += '"';
-                i += 2; // Skip both quotes
-                continue;
-              } else {
+            for (let i = 0; i < line.length; i++) {
+              const char = line[i];
+              
+              if (char === '"') {
                 inQuotes = !inQuotes;
+              } else if (char === ',' && !inQuotes) {
+                result.push(current.trim());
+                current = '';
+              } else {
+                current += char;
+              }
+            }
+            
+            result.push(current.trim());
+            return result;
+          };
+          
+          headers = parseCSVLine(lines[0]).map(h => h.trim().replace(/^"|"$/g, ''));
+          
+          // Parse data rows
+          for (let i = 1; i < lines.length; i++) {
+            if (lines[i].trim()) {
+              const values = parseCSVLine(lines[i]);
+              const row = {};
+              headers.forEach((header, index) => {
+                let value = values[index] || '';
+                if (value.startsWith('"') && value.endsWith('"')) {
+                  value = value.slice(1, -1);
+                }
+                row[header.trim()] = value.trim();
+              });
+              rows.push(row);
+            }
+          }
+        } else {
+          // For non-ZenBooker CSV, use the multi-line quoted field parser
+          const parseCSV = (csvText) => {
+            const result = [];
+            let currentRow = [];
+            let currentField = '';
+            let inQuotes = false;
+            let i = 0;
+            
+            while (i < csvText.length) {
+              const char = csvText[i];
+              const nextChar = csvText[i + 1];
+              
+              if (char === '"') {
+                if (inQuotes && nextChar === '"') {
+                  currentField += '"';
+                  i += 2;
+                  continue;
+                } else {
+                  inQuotes = !inQuotes;
+                  i++;
+                  continue;
+                }
+              }
+              
+              if (char === ',' && !inQuotes) {
+                currentRow.push(currentField.trim());
+                currentField = '';
                 i++;
                 continue;
               }
-            }
-            
-            if (char === ',' && !inQuotes) {
-              // End of field
-              currentRow.push(currentField.trim());
-              currentField = '';
-              i++;
-              continue;
-            }
-            
-            if ((char === '\n' || char === '\r') && !inQuotes) {
-              // End of row (handle both \n and \r\n)
-              if (char === '\r' && nextChar === '\n') {
-                i += 2; // Skip \r\n
-              } else {
-                i++; // Skip \n
+              
+              if ((char === '\n' || char === '\r') && !inQuotes) {
+                if (char === '\r' && nextChar === '\n') {
+                  i += 2;
+                } else {
+                  i++;
+                }
+                
+                if (currentField.length > 0 || currentRow.length > 0) {
+                  currentRow.push(currentField.trim());
+                  if (currentRow.some(field => field.length > 0)) {
+                    result.push(currentRow);
+                  }
+                  currentRow = [];
+                  currentField = '';
+                }
+                continue;
               }
               
-              // Add the last field of the row
-              if (currentField.length > 0 || currentRow.length > 0) {
-                currentRow.push(currentField.trim());
-                // Only add row if it has data
-                if (currentRow.some(field => field.length > 0)) {
-                  result.push(currentRow);
-                }
-                currentRow = [];
-                currentField = '';
-              }
-              continue;
+              currentField += char;
+              i++;
             }
             
-            // Regular character
-            currentField += char;
-            i++;
-          }
-          
-          // Add the last field and row if exists
-          if (currentField.length > 0 || currentRow.length > 0) {
-            currentRow.push(currentField.trim());
-            if (currentRow.some(field => field.length > 0)) {
-              result.push(currentRow);
+            if (currentField.length > 0 || currentRow.length > 0) {
+              currentRow.push(currentField.trim());
+              if (currentRow.some(field => field.length > 0)) {
+                result.push(currentRow);
+              }
             }
-          }
-          
-          return result;
-        };
+            
+            return result;
+          };
 
-        const parsedData = parseCSV(text);
-        
-        if (parsedData.length === 0) {
-          setError('CSV file is empty');
-          return;
-        }
-        
-        // First row is headers
-        headers = parsedData[0].map(h => h.trim().replace(/^"|"$/g, ''));
-        
-        // Parse data rows
-        for (let i = 1; i < parsedData.length; i++) {
-          const values = parsedData[i];
-          // Pad or truncate values to match header length
-          const paddedValues = [...values];
-          while (paddedValues.length < headers.length) {
-            paddedValues.push('');
-          }
-          paddedValues.length = headers.length;
+          const parsedData = parseCSV(text);
           
-          const row = {};
-          headers.forEach((header, index) => {
-            // Remove surrounding quotes if present
-            let value = paddedValues[index] || '';
-            if (typeof value === 'string') {
-              value = value.trim().replace(/^"|"$/g, '');
+          if (parsedData.length === 0) {
+            setError('CSV file is empty');
+            return;
+          }
+          
+          headers = parsedData[0].map(h => h.trim().replace(/^"|"$/g, ''));
+          
+          for (let i = 1; i < parsedData.length; i++) {
+            const values = parsedData[i];
+            const paddedValues = [...values];
+            while (paddedValues.length < headers.length) {
+              paddedValues.push('');
             }
-            row[header] = value;
-          });
-          rows.push(row);
+            paddedValues.length = headers.length;
+            
+            const row = {};
+            headers.forEach((header, index) => {
+              let value = paddedValues[index] || '';
+              if (typeof value === 'string') {
+                value = value.trim().replace(/^"|"$/g, '');
+              }
+              row[header] = value;
+            });
+            rows.push(row);
+          }
         }
       } else {
         // Excel file
@@ -473,6 +520,766 @@ const UnifiedImportJobsPage = () => {
     return mapped;
   };
 
+  // ZenBooker field mapping - same as original import
+  const mapZenBookerFields = (csvText) => {
+    // Helper functions from original ZenBooker import
+    const parseCSVLine = (line) => {
+      const result = [];
+      let current = '';
+      let inQuotes = false;
+      
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        
+        if (char === '"') {
+          inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+          result.push(current.trim());
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+      
+      result.push(current.trim());
+      return result;
+    };
+
+    const parseZenBookerDateTime = (dateTimeStr, timeStr, timezoneStr) => {
+      if (!dateTimeStr || !dateTimeStr.trim()) {
+        return { date: '', time: '09:00:00' };
+      }
+      
+      try {
+        let cleanDateTime = dateTimeStr.trim().replace(/^"|"$/g, '');
+        let datePart = '';
+        let timePart = '09:00:00';
+        
+        let dateMatch = cleanDateTime.match(/^(\d{4}-\d{2}-\d{2})(?:\s*,?\s*|\s+)/);
+        if (!dateMatch) {
+          dateMatch = cleanDateTime.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+          if (dateMatch) {
+            const month = dateMatch[1].padStart(2, '0');
+            const day = dateMatch[2].padStart(2, '0');
+            const year = dateMatch[3];
+            datePart = `${year}-${month}-${day}`;
+          }
+        } else {
+          datePart = dateMatch[1];
+        }
+        
+        if (datePart) {
+          const [year, month, day] = datePart.split('-').map(Number);
+          const dateObj = new Date(year, month - 1, day);
+          const currentYear = new Date().getFullYear();
+          const dateYear = dateObj.getFullYear();
+          
+          if (dateYear > currentYear + 3) {
+            const monthDay = datePart.substring(5);
+            if (monthDay) {
+              const correctedDate = `${currentYear}-${monthDay}`;
+              const correctedDateObj = new Date(Number(currentYear), Number(monthDay.split('-')[0]) - 1, Number(monthDay.split('-')[1]));
+              if (!isNaN(correctedDateObj.getTime())) {
+                datePart = correctedDate;
+              }
+            }
+          }
+        }
+        
+        let timeMatch = cleanDateTime.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(am|pm|AM|PM)/i);
+        if (timeMatch) {
+          let hours = parseInt(timeMatch[1]);
+          const minutes = timeMatch[2];
+          const ampm = timeMatch[4].toUpperCase();
+          
+          if (ampm === 'PM' && hours !== 12) {
+            hours += 12;
+          } else if (ampm === 'AM' && hours === 12) {
+            hours = 0;
+          }
+          
+          timePart = `${String(hours).padStart(2, '0')}:${minutes}:00`;
+        } else {
+          timeMatch = cleanDateTime.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s|$|,)/);
+          if (timeMatch) {
+            let hours = parseInt(timeMatch[1]);
+            const minutes = timeMatch[2];
+            timePart = `${String(hours).padStart(2, '0')}:${minutes}:00`;
+          } else if (timeStr) {
+            const cleanTimeStr = timeStr.trim().replace(/^"|"$/g, '');
+            const timeMatchFromStr = cleanTimeStr.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(am|pm|AM|PM)/i);
+            if (timeMatchFromStr) {
+              let hours = parseInt(timeMatchFromStr[1]);
+              const minutes = timeMatchFromStr[2];
+              const ampm = timeMatchFromStr[4].toUpperCase();
+              
+              if (ampm === 'PM' && hours !== 12) {
+                hours += 12;
+              } else if (ampm === 'AM' && hours === 12) {
+                hours = 0;
+              }
+              
+              timePart = `${String(hours).padStart(2, '0')}:${minutes}:00`;
+            } else {
+              const timeMatch24 = cleanTimeStr.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+              if (timeMatch24) {
+                let hours = parseInt(timeMatch24[1]);
+                const minutes = timeMatch24[2];
+                timePart = `${String(hours).padStart(2, '0')}:${minutes}:00`;
+              }
+            }
+          }
+        }
+        
+        return { date: datePart, time: timePart };
+      } catch (error) {
+        return { date: '', time: '09:00:00' };
+      }
+    };
+
+    const parseAddress = (addressStr) => {
+      if (!addressStr) return { street: '', city: '', state: '', zipCode: '', country: 'USA' };
+      
+      const parts = addressStr.split(',').map(p => p.trim());
+      
+      if (parts.length >= 4) {
+        return {
+          street: parts[0],
+          city: parts[1],
+          state: parts[2].split(' ')[0],
+          zipCode: parts[2].split(' ').slice(1).join(' ') || parts[3].split(' ')[0] || '',
+          country: parts[parts.length - 1] || 'USA'
+        };
+      } else if (parts.length >= 3) {
+        return {
+          street: parts[0],
+          city: parts[1],
+          state: parts[2].split(' ')[0] || '',
+          zipCode: parts[2].split(' ').slice(1).join(' ') || '',
+          country: 'USA'
+        };
+      }
+      
+      return {
+        street: addressStr,
+        city: '',
+        state: '',
+        zipCode: '',
+        country: 'USA'
+      };
+    };
+
+    const secondsToMinutes = (secondsStr) => {
+      if (!secondsStr) return '';
+      const seconds = parseInt(secondsStr);
+      if (isNaN(seconds)) return '';
+      return Math.round(seconds / 60).toString();
+    };
+
+    const mapStatus = (statusStr) => {
+      if (!statusStr) return 'pending';
+      const status = statusStr.toLowerCase().trim();
+      
+      if (status === 'complete' || status === 'completed' || status === 'done' || status === 'finished' || status === 'closed' || status.startsWith('complet')) {
+        return 'completed';
+      }
+      
+      if (status === 'in-progress' || status === 'in progress' || status === 'inprogress' || status === 'active' || status === 'working' || status === 'started' || status.startsWith('in-progress') || status.startsWith('in progress')) {
+        return 'in-progress';
+      }
+      
+      if (status === 'cancelled' || status === 'canceled' || status === 'cancel' || status.startsWith('cancel')) {
+        return 'cancelled';
+      }
+      
+      if (status === 'pending' || status === 'scheduled' || status === 'upcoming' || status === 'not started' || status === 'not-started' || status.startsWith('pending') || status.startsWith('scheduled')) {
+        return 'pending';
+      }
+      
+      return 'pending';
+    };
+
+    const extractFirstServiceName = (serviceName) => {
+      if (!serviceName || typeof serviceName !== 'string') return serviceName;
+      
+      let cleaned = serviceName.trim();
+      const isOnlyPattern = /^[\*\s]*,\s*\+\s*-?\d+\s*(more|other)\s*$/gi.test(cleaned);
+      if (isOnlyPattern) {
+        return null;
+      }
+      
+      cleaned = cleaned.replace(/,\s*\+\s*-?\d+\s*(more|other)/gi, '').trim();
+      cleaned = cleaned.replace(/^,\s*\+\s*-?\d+\s*(more|other)/gi, '').trim();
+      cleaned = cleaned.replace(/^\*\s*,\s*\+\s*-?\d+\s*(more|other)/gi, '').trim();
+      cleaned = cleaned.replace(/,\s*\+\s*$/gi, '').trim();
+      cleaned = cleaned.replace(/,\s*$/g, '').trim();
+      cleaned = cleaned.replace(/^,\s*/g, '').trim();
+      cleaned = cleaned.replace(/^\*\s*/g, '').trim();
+      
+      if (!cleaned || cleaned === ',' || cleaned === '+' || cleaned === ', +' || cleaned === '*' || cleaned === ', + -1' || cleaned === ', + 1') {
+        return null;
+      }
+      
+      return cleaned;
+    };
+
+    // Parse CSV using same approach as original
+    const lines = csvText.split('\n').filter(line => line.trim());
+    if (lines.length < 2) return [];
+    
+    const headers = parseCSVLine(lines[0]);
+    const jobs = [];
+    
+    for (let i = 1; i < lines.length; i++) {
+      if (lines[i].trim()) {
+        const values = parseCSVLine(lines[i]);
+        const job = {};
+        const rawData = {};
+        
+        headers.forEach((header, index) => {
+          let value = values[index] || '';
+          if (value.startsWith('"') && value.endsWith('"')) {
+            value = value.slice(1, -1);
+          }
+          rawData[header.trim()] = value.trim();
+        });
+        
+        // Map ZenBooker-specific fields (same as original)
+        job.jobId = rawData['service_order_custom_service_order'] || rawData['job_random_id_text'] || rawData['_id'] || '';
+        if (rawData['_id']) {
+          job._id = rawData['_id'];
+        }
+        job.customerName = rawData['customer_name_text'] || '';
+        job.customerEmail = rawData['customer_email_text'] || '';
+        job.customerPhone = rawData['customer_phone_text'] || '';
+        const rawServiceName = rawData['service_selected_text'] || 
+                          rawData['services_list_custom_service'] || 
+                          rawData['service_name'] || 
+                          rawData['service'] || 
+                          '';
+        const cleanedServiceName = extractFirstServiceName(rawServiceName);
+        job.serviceName = cleanedServiceName === null ? '' : cleanedServiceName;
+        job.price = rawData['price_number'] || rawData['pretax_total_number'] || '';
+        job.total = rawData['pretax_total_number'] || rawData['price_number'] || '';
+        job.subTotal = rawData['sub_total_number'] || '';
+        job.taxTotal = rawData['tax_total_number'] || '';
+        job.tip = rawData['tip_number'] || '';
+        
+        const durationSeconds = rawData['service_duration_inseconds_number'];
+        job.duration = durationSeconds ? secondsToMinutes(durationSeconds) : '';
+        
+        const startDateTime = rawData['start_time_for_full_cal_date'];
+        const endDateTime = rawData['end_time_for_full_cal_date'] || rawData['finish_time_for_full_cal_date'] || rawData['finish_time_date'];
+        const timeHumanReadable = rawData['time_human_readable_text'];
+        const timezone = rawData['timezone_text'];
+        const dateTimeParts = parseZenBookerDateTime(startDateTime, timeHumanReadable, timezone);
+        job.scheduledDate = dateTimeParts.date || null;
+        job.scheduledTime = dateTimeParts.time || '09:00:00';
+        
+        if (endDateTime && startDateTime) {
+          try {
+            const startParts = parseZenBookerDateTime(startDateTime, timeHumanReadable, timezone);
+            const endParts = parseZenBookerDateTime(endDateTime, null, timezone);
+            
+            if (startParts.date && endParts.date && startParts.time && endParts.time) {
+              const [startHours, startMinutes] = startParts.time.split(':').map(Number);
+              const [endHours, endMinutes] = endParts.time.split(':').map(Number);
+              
+              let durationMinutes = (endHours * 60 + endMinutes) - (startHours * 60 + startMinutes);
+              if (durationMinutes < 0) {
+                durationMinutes += 24 * 60;
+              }
+              
+              if (durationMinutes > 0 && !job.duration) {
+                job.duration = durationMinutes.toString();
+              } else if (durationMinutes > 0 && job.duration) {
+                const providedDuration = parseInt(job.duration);
+                if (Math.abs(durationMinutes - providedDuration) > 5) {
+                  job.duration = durationMinutes.toString();
+                }
+              }
+            }
+          } catch (error) {
+            console.warn(`Row ${i + 1}: Error calculating duration from start/end times:`, error);
+          }
+        }
+        
+        if (!job.scheduledDate) {
+          console.warn(`Row ${i + 1}: Skipping job - no scheduled date provided. Original value: "${startDateTime}"`);
+          continue;
+        }
+        
+        const statusFromLiveStatus = rawData['live_status_text'];
+        const statusFromStandard = rawData['status'] || rawData['Status'];
+        
+        if (statusFromLiveStatus) {
+          job.status = mapStatus(statusFromLiveStatus);
+        } else if (statusFromStandard) {
+          job.status = mapStatus(statusFromStandard);
+        }
+        
+        const addressStr = rawData['job_address_geographic_address'];
+        const apartmentUnit = rawData['appartment_unit_floor_number_text'];
+        const addressParts = parseAddress(addressStr);
+        job.serviceAddress = apartmentUnit ? `${addressParts.street}, ${apartmentUnit}` : addressParts.street;
+        job.serviceAddressCity = addressParts.city;
+        job.serviceAddressState = addressParts.state;
+        job.serviceAddressZip = addressParts.zipCode;
+        job.serviceAddressCountry = addressParts.country;
+        
+        const assignedCrew = rawData['assigned_crew_list_list_custom_crew'];
+        if (assignedCrew) {
+          const crewIds = assignedCrew.split(',').map(id => id.trim()).filter(id => id);
+          job.assignedCrewExternalId = crewIds[0] || '';
+          job.assignedCrewIds = crewIds;
+        }
+        
+        const serviceRegion = rawData['service_region_custom_service_region'];
+        if (serviceRegion) {
+          job.serviceRegionExternalId = serviceRegion.trim();
+        }
+        
+        job.paymentMethod = rawData['selected_payment_method_text'] || rawData['manual_payment_method_custom_manual_payment_method'] || '';
+        job.notes = rawData['cancel_reason_custom_cancellation_reasons'] || '';
+        job.workersNeeded = rawData['min_providers_needed_number'] || '1';
+        job.offerToProviders = rawData['offer_job_to_providers_boolean'] === 'true';
+        job.inStoreJob = rawData['in_store_job_boolean'] === 'true';
+        job.smsMessages = rawData['sms_messages_boolean'] === 'true';
+        
+        // Check cancel_boolean - if true, mark job as cancelled
+        const cancelBoolean = rawData['cancel_boolean'];
+        if (cancelBoolean === 'true' || cancelBoolean === true || cancelBoolean === 'TRUE') {
+          job.status = 'cancelled';
+          console.log(`Row ${i + 1}: ✅ Job marked as cancelled (cancel_boolean = true)`);
+        }
+        
+        if (rawData.hasOwnProperty('invoice_fully_paid_boolean')) {
+          job.invoice_fully_paid_boolean = rawData['invoice_fully_paid_boolean'];
+        }
+        
+        if (rawData['payment_status'] || rawData['Payment Status']) {
+          job.paymentStatus = rawData['payment_status'] || rawData['Payment Status'];
+        }
+        if (rawData['invoice_status'] || rawData['Invoice Status']) {
+          job.invoiceStatus = rawData['invoice_status'] || rawData['Invoice Status'];
+        }
+        
+        job.dateTimeArrived = rawData['date_time_arrived_date'] || '';
+        job.dateTimeCompleted = rawData['date_time_completed_date'] || '';
+        job.dateTimeEnroute = rawData['date_time_enroute_date'] || '';
+        
+        // Handle standard field names
+        const headerLower = (header) => header.toLowerCase().trim();
+        
+        headers.forEach((header, index) => {
+          const value = values[index] || '';
+          const h = headerLower(header);
+          
+          switch (h) {
+            case 'job id':
+            case 'jobid':
+            case 'service_order_custom_service_order':
+              if (!job.jobId) job.jobId = value;
+              break;
+            case '_id':
+            case 'id':
+            case 'job_id':
+              if (!job._id) job._id = value;
+              if (!job.jobId) job.jobId = value;
+              break;
+            case 'customer name':
+            case 'customername':
+              if (!job.customerName) job.customerName = value;
+              break;
+            case 'customer email':
+            case 'customeremail':
+              if (!job.customerEmail) job.customerEmail = value;
+              break;
+            case 'customer phone':
+            case 'customerphone':
+              if (!job.customerPhone) job.customerPhone = value;
+              break;
+            case 'service name':
+            case 'servicename':
+            case 'service_selected_text':
+            case 'services_list_custom_service':
+              if (!job.serviceName) {
+                const cleaned = extractFirstServiceName(value);
+                if (cleaned !== null) job.serviceName = cleaned;
+              }
+              break;
+            case 'status':
+              if (value && value.trim()) {
+                const mappedStatus = mapStatus(value);
+                if (!job.status || (job.status === 'pending' && mappedStatus !== 'pending')) {
+                  job.status = mappedStatus;
+                }
+              }
+              break;
+            case 'cancel_boolean':
+            case 'cancel boolean':
+            case 'cancelboolean':
+              // If cancel_boolean is true, mark job as cancelled
+              if (value === 'true' || value === true || value === 'TRUE') {
+                job.status = 'cancelled';
+                console.log(`Row ${i + 1}: ✅ Job marked as cancelled (cancel_boolean = true)`);
+              }
+              break;
+            case 'team member id':
+            case 'teammemberid':
+            case 'team_member_id':
+            case 'assigned_team_member_id':
+              const parsedTeamMemberId = parseInt(value);
+              if (!isNaN(parsedTeamMemberId) && !value.toString().includes('x') && !value.toString().includes('X')) {
+                job.teamMemberId = parsedTeamMemberId;
+              }
+              break;
+            default:
+              break;
+          }
+        });
+        
+        if (!job.customerEmail && !job.customerName) {
+          console.warn(`Row ${i + 1}: Skipping job - no customer email or name provided`);
+          continue;
+        }
+        
+        if (!job.status) {
+          job.status = 'pending';
+        }
+        
+        if (!job.priority) job.priority = 'normal';
+        if (!job.workersNeeded) job.workersNeeded = '1';
+        
+        const validStatuses = ['pending', 'in-progress', 'completed', 'cancelled'];
+        if (!validStatuses.includes(job.status)) {
+          job.status = 'pending';
+        }
+        
+        const validPriorities = ['low', 'normal', 'high', 'urgent'];
+        if (job.priority && !validPriorities.includes(job.priority.toLowerCase())) {
+          job.priority = 'normal';
+        }
+        
+        if (job.price) {
+          const priceNum = parseFloat(job.price);
+          if (isNaN(priceNum)) {
+            job.price = '0';
+          } else {
+            job.price = priceNum.toString();
+          }
+        } else {
+          job.price = '0';
+        }
+        
+        if (job.total) {
+          const totalNum = parseFloat(job.total);
+          if (isNaN(totalNum)) {
+            job.total = job.price || '0';
+          } else {
+            job.total = totalNum.toString();
+          }
+        } else {
+          job.total = job.price || '0';
+        }
+        
+        if (job.duration && !isNaN(parseInt(job.duration))) {
+          job.duration = parseInt(job.duration).toString();
+        }
+        
+        const requiredFields = ['customerName', 'customerEmail', 'customerPhone', 'serviceName', 'scheduledDate', 'scheduledTime'];
+        const paymentStatusFields = ['invoice_fully_paid_boolean', 'paymentStatus', 'invoiceStatus', 'paymentMethod'];
+        Object.keys(job).forEach(key => {
+          if (job[key] === '' && !requiredFields.includes(key) && !paymentStatusFields.includes(key)) {
+            delete job[key];
+          }
+        });
+        
+        if (!job.customerName && !job.customerEmail && !job.customerPhone) {
+          console.warn(`Row ${i + 1}: Skipping job - no customer information provided`);
+          continue;
+        }
+        
+        jobs.push(job);
+      }
+    }
+    
+    return jobs;
+  };
+
+  // Booking Koala field mapping - same as original import
+  const mapBookingKoalaFields = (data, type) => {
+    // Same field mappings as original Booking Koala import
+    const jobFieldMappings = {
+      'customerEmail': ['Email', 'email', 'Email Address'],
+      'customerFirstName': ['First name', 'First Name', 'first_name', 'First name'],
+      'customerLastName': ['Last name', 'Last Name', 'last_name', 'Last name'],
+      'phone': ['Phone', 'phone', 'Phone Number', 'phone_number'],
+      'address': ['Address', 'address', 'serviceAddress'],
+      'apt': ['Apt', 'apt', 'Apt.', 'Apt. No.', 'apartment'],
+      'city': ['City', 'city'],
+      'state': ['State', 'state'],
+      'zipCode': ['Zip/Postal code', 'Zip/Postal code', 'Zip Code', 'zip_code', 'Zip/Postal Code'],
+      'companyName': ['Company name', 'Company Name', 'company_name'],
+      'serviceName': ['Service', 'service', 'Service Name', 'service_name'],
+      'scheduledDate': ['Date', 'date', 'Booking start date time', 'Booking start date time'],
+      'scheduledTime': ['Time', 'time', 'Booking start date time', 'Booking end date time'],
+      'bookingStartDateTime': ['Booking start date time', 'Booking start date time'],
+      'bookingEndDateTime': ['Booking end date time', 'Booking end date time'],
+      'status': ['Booking status', 'Booking status', 'Status', 'status'],
+      'price': ['Final amount (USD)', 'Final amount (USD)', 'Service total (USD)', 'Service total (USD)', 'Price', 'price', 'Amount', 'amount'],
+      'serviceTotal': ['Service total (USD)', 'Service total (USD)'],
+      'finalAmount': ['Final amount (USD)', 'Final amount (USD)'],
+      'notes': ['Booking note', 'Booking note', 'Private customer note', 'Provider note', 'Special notes', 'Notes', 'notes'],
+      'bookingNote': ['Booking note', 'Booking note'],
+      'providerNote': ['Provider note', 'Provider note'],
+      'specialNotes': ['Special notes', 'Special notes'],
+      'duration': ['Estimated job length (HH:MM)', 'Estimated job length (HH:MM)', 'Duration', 'duration'],
+      'isRecurring': ['Frequency', 'frequency', 'Is Recurring', 'is_recurring'],
+      'recurringFrequency': ['Frequency', 'frequency', 'Recurring Frequency', 'recurring_frequency'],
+      'extras': ['Extras', 'extras'],
+      'excludes': ['Excludes', 'excludes'],
+      'assignedCrewExternalId': ['Provider details', 'Provider/team', 'assignedCrewExternalId'],
+      'assignedCrewIds': ['Provider details', 'Provider/team', 'assignedCrewIds'],
+      'serviceRegionExternalId': ['Location', 'Location id', 'serviceRegionExternalId'],
+      'amountPaidByCustomer': ['Amount paid by customer (USD)', 'Amount paid by customer (USD)', 'amountPaidByCustomer'],
+      'amountOwed': ['Amount owed by customer (USD)', 'Amount owed by customer (USD)', 'amountOwed'],
+      'finalAmount': ['Final amount (USD)', 'Final amount (USD)', 'finalAmount'],
+      'paymentMethod': ['Payment method', 'Payment method', 'paymentMethod', 'payment_method']
+    };
+
+    // Helper functions from original import
+    const parseDateTime = (dateTimeStr, dateStr, timeStr) => {
+      if (dateTimeStr) {
+        try {
+          const dt = new Date(dateTimeStr);
+          if (!isNaN(dt.getTime())) {
+            return {
+              date: dt.toISOString().split('T')[0],
+              time: dt.toTimeString().split(' ')[0].substring(0, 5)
+            };
+          }
+        } catch (e) {}
+      }
+      
+      if (dateStr && timeStr) {
+        try {
+          const dateParts = dateStr.split('/');
+          if (dateParts.length === 3) {
+            const month = dateParts[0].padStart(2, '0');
+            const day = dateParts[1].padStart(2, '0');
+            const year = dateParts[2];
+            const date = `${year}-${month}-${day}`;
+            
+            let time = timeStr;
+            if (timeStr.includes('AM') || timeStr.includes('PM')) {
+              const [timePart, period] = timeStr.split(' ');
+              const [hours, minutes] = timePart.split(':');
+              let hour24 = parseInt(hours);
+              if (period === 'PM' && hour24 !== 12) hour24 += 12;
+              if (period === 'AM' && hour24 === 12) hour24 = 0;
+              time = `${hour24.toString().padStart(2, '0')}:${minutes}`;
+            }
+            
+            return { date, time };
+          }
+        } catch (e) {}
+      }
+      
+      return { date: null, time: null };
+    };
+
+    const parseDuration = (durationStr) => {
+      if (durationStr && durationStr.includes(':')) {
+        const [hours, minutes] = durationStr.split(':');
+        return (parseInt(hours) || 0) * 60 + (parseInt(minutes) || 0);
+      }
+      return null;
+    };
+
+    const parseRecurring = (frequencyStr) => {
+      if (!frequencyStr) return { isRecurring: false, frequency: null };
+      
+      const freq = frequencyStr.toLowerCase();
+      if (freq === 'one-time' || freq === 'onetime') {
+        return { isRecurring: false, frequency: null };
+      }
+      
+      const frequencyMap = {
+        'weekly': 'weekly',
+        'every other week': 'bi-weekly',
+        'every 4 weeks': 'monthly',
+        'every 2 weeks': 'bi-weekly'
+      };
+      
+      for (const [key, value] of Object.entries(frequencyMap)) {
+        if (freq.includes(key)) {
+          return { isRecurring: true, frequency: value };
+        }
+      }
+      
+      return { isRecurring: true, frequency: 'custom' };
+    };
+
+    return data.map(row => {
+      const mapped = {};
+      Object.keys(jobFieldMappings).forEach(key => {
+        const possibleNames = jobFieldMappings[key];
+        for (const name of possibleNames) {
+          if (row[name] !== undefined && row[name] !== null && row[name] !== '') {
+            const value = row[name];
+            
+            // Special handling for specific fields (same as original)
+            if (key === 'scheduledDate' || key === 'scheduledTime') {
+              const dt = parseDateTime(row['Booking start date time'], row['Date'], row['Time']);
+              if (key === 'scheduledDate') mapped['scheduledDate'] = dt.date;
+              if (key === 'scheduledTime') mapped['scheduledTime'] = dt.time;
+              return;
+            }
+            
+            if (key === 'duration') {
+              const duration = parseDuration(value);
+              if (duration) mapped[key] = duration;
+              return;
+            }
+            
+            if (key === 'isRecurring' || key === 'recurringFrequency') {
+              const recurring = parseRecurring(row['Frequency'] || value);
+              if (key === 'isRecurring') mapped['isRecurring'] = recurring.isRecurring;
+              if (key === 'recurringFrequency') mapped['recurringFrequency'] = recurring.frequency;
+              return;
+            }
+            
+            if (key === 'notes') {
+              const notes = [
+                row['Booking note'],
+                row['Private customer note'],
+                row['Provider note'],
+                row['Special notes']
+              ].filter(n => n && n.trim()).join('\n\n');
+              if (notes) mapped[key] = notes;
+              return;
+            }
+            
+            if (key === 'status') {
+              const statusMap = {
+                'Completed': 'completed',
+                'Upcoming': 'pending',
+                'Unassigned': 'pending',
+                'Cancelled': 'cancelled'
+              };
+              mapped[key] = statusMap[value] || value.toLowerCase() || 'pending';
+              return;
+            }
+            
+            if (key === 'assignedCrewExternalId' || key === 'assignedCrewIds') {
+              const providerDetails = row['Provider details'];
+              if (providerDetails) {
+                try {
+                  let jsonStr = providerDetails.trim();
+                  if (jsonStr.startsWith('[') && jsonStr.endsWith(']')) {
+                    jsonStr = jsonStr.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":');
+                    jsonStr = jsonStr.replace(/'/g, '"');
+                    
+                    const providers = JSON.parse(jsonStr);
+                    if (Array.isArray(providers) && providers.length > 0) {
+                      const providerIds = providers.map(p => {
+                        return p.Id || p.id || p['Id'] || p['Email Id'] || p['EmailId'];
+                      }).filter(id => id);
+                      
+                      if (providerIds.length > 0) {
+                        mapped['assignedCrewExternalId'] = providerIds[0].toString();
+                        mapped['assignedCrewIds'] = providerIds.map(id => id.toString());
+                      }
+                    }
+                  }
+                } catch (e) {
+                  const providerTeam = row['Provider/team'] || row['Provider/team (without ids)'];
+                  if (providerTeam) {
+                    const providerMatches = providerTeam.matchAll(/(\d+):/g);
+                    const providerIds = [];
+                    for (const match of providerMatches) {
+                      if (match[1]) {
+                        providerIds.push(match[1]);
+                      }
+                    }
+                    
+                    if (providerIds.length > 0) {
+                      mapped['assignedCrewExternalId'] = providerIds[0].toString();
+                      mapped['assignedCrewIds'] = providerIds.map(id => id.toString());
+                    } else {
+                      const singleMatch = providerTeam.match(/^(\d+):/);
+                      if (singleMatch) {
+                        mapped['assignedCrewExternalId'] = singleMatch[1];
+                        mapped['assignedCrewIds'] = [singleMatch[1]];
+                      }
+                    }
+                  }
+                }
+              }
+              return;
+            }
+            
+            if (key === 'serviceRegionExternalId') {
+              const location = row['Location'] || row['Location id'];
+              if (location) {
+                mapped['serviceRegionExternalId'] = location.toString();
+              }
+              return;
+            }
+            
+            mapped[key] = value;
+            break;
+          }
+        }
+      });
+      
+      // Ensure we have date/time from Booking start date time if not already set
+      if (!mapped.scheduledDate && row['Booking start date time']) {
+        const dt = parseDateTime(row['Booking start date time'], row['Date'], row['Time']);
+        if (dt.date) mapped.scheduledDate = dt.date;
+        if (dt.time) mapped.scheduledTime = dt.time;
+      }
+      
+      // Extract customer fields directly from CSV columns (same as original)
+      const firstName = row['First name'] || row['First Name'] || row['first name'] || row['firstName'] || row['first_name'] || '';
+      const lastName = row['Last name'] || row['Last Name'] || row['last name'] || row['lastName'] || row['last_name'] || '';
+      const email = row['Email'] || row['email'] || row['Email Address'] || row['email address'] || '';
+      const phone = row['Phone'] || row['phone'] || row['Phone Number'] || row['phone number'] || '';
+      const address = row['Address'] || row['address'] || '';
+      const apt = row['Apt'] || row['apt'] || row['Apt. No.'] || row['Apt. No'] || row['apartment'] || '';
+      const city = row['City'] || row['city'] || '';
+      const state = row['State'] || row['state'] || '';
+      const zipCode = row['Zip/Postal code'] || row['Zip/Postal Code'] || row['zip/postal code'] || row['Zip Code'] || row['zip code'] || '';
+      const companyName = row['Company name'] || row['Company Name'] || row['company name'] || row['companyName'] || '';
+      
+      // ALWAYS set customer fields (even if empty) - same as original
+      mapped['customerFirstName'] = firstName;
+      mapped['customerLastName'] = lastName;
+      mapped['customerEmail'] = email;
+      if (phone) mapped['phone'] = phone;
+      if (address) mapped['address'] = address;
+      if (apt) mapped['apt'] = apt;
+      if (city) mapped['city'] = city;
+      if (state) mapped['state'] = state;
+      if (zipCode) mapped['zipCode'] = zipCode;
+      
+      // Preserve raw CSV column names as fallback
+      if (row['First name'] !== undefined) mapped['First name'] = row['First name'];
+      if (row['Last name'] !== undefined) mapped['Last name'] = row['Last name'];
+      if (row['Full name'] !== undefined) mapped['Full name'] = row['Full name'];
+      if (row['Email'] !== undefined) mapped['Email'] = row['Email'];
+      if (row['Phone'] !== undefined) mapped['Phone'] = row['Phone'];
+      if (row['Address'] !== undefined) mapped['Address'] = row['Address'];
+      if (row['Apt'] !== undefined) mapped['Apt'] = row['Apt'];
+      if (row['City'] !== undefined) mapped['City'] = row['City'];
+      if (row['State'] !== undefined) mapped['State'] = row['State'];
+      if (row['Zip/Postal code'] !== undefined) mapped['Zip/Postal code'] = row['Zip/Postal code'];
+      
+      return mapped;
+    });
+  };
+
   const handleImport = async () => {
     if (!parsedJobs || parsedJobs.length === 0) {
       setError('No jobs to import');
@@ -484,23 +1291,54 @@ const UnifiedImportJobsPage = () => {
     setImportProgress({ current: 0, total: parsedJobs.length, percentage: 0, batchInfo: null });
 
     try {
-      // Map all jobs using field mappings
-      const mappedJobs = parsedJobs.map((row, index) => {
-        const mapped = mapJobData(row);
+      let mappedJobs;
+      
+      // For ZenBooker, use the EXACT same parsing and mapping as original import
+      if (sourceType === 'zenbooker') {
+        // Need to re-read the file as CSV text for ZenBooker parsing
+        if (!selectedFile) {
+          setError('File not found. Please upload the file again.');
+          setIsImporting(false);
+          return;
+        }
         
-        // Add source type and mappings metadata
-        mapped._sourceType = sourceType;
-        mapped._fieldMappings = fieldMappings;
-        mapped._rowIndex = index + 2; // +2 because row 1 is header
-        // Store original row data for Booking Koala (so backend can access raw CSV columns)
-        mapped._originalRowData = row;
-        
-        return mapped;
-      });
+        if (selectedFile.name.endsWith('.csv')) {
+          const text = await selectedFile.text();
+          // Use the same mapZenBookerFields function as original import
+          mappedJobs = mapZenBookerFields(text);
+        } else {
+          setError('ZenBooker import only supports CSV files');
+          setIsImporting(false);
+          return;
+        }
+      }
+      // For Booking Koala, use the SAME mapFields approach as original import
+      else if (sourceType === 'booking-koala') {
+        // Use the exact same mapping logic as original Booking Koala import
+        // This ensures backend receives data in the format it expects
+        mappedJobs = mapBookingKoalaFields(parsedJobs, 'jobs');
+      } else {
+        // For other sources, use the generic field mapping
+        mappedJobs = parsedJobs.map((row, index) => {
+          const mapped = mapJobData(row);
+          
+          // Add source type and mappings metadata
+          mapped._sourceType = sourceType;
+          mapped._fieldMappings = fieldMappings;
+          mapped._rowIndex = index + 2; // +2 because row 1 is header
+          mapped._originalRowData = row;
+          
+          return mapped;
+        });
+      }
 
       // Transform mapped jobs to match expected API format
-      // The backend expects the same format as ZenBooker import
-      const transformedJobs = mappedJobs.map(mapped => {
+      // For ZenBooker, jobs are already in the correct format from mapZenBookerFields (same as original import)
+      // For Booking Koala, jobs are already in the correct format from mapBookingKoalaFields
+      // For other sources, transform as before
+      const transformedJobs = (sourceType === 'zenbooker' || sourceType === 'booking-koala')
+        ? mappedJobs  // Already in correct format - no transformation needed
+        : mappedJobs.map(mapped => {
         // Handle customer name - prefer mapped fields (already parsed in mapJobData), fallback to parsing
         let customerFirstName = mapped.customerFirstName || '';
         let customerLastName = mapped.customerLastName || '';
@@ -612,7 +1450,8 @@ const UnifiedImportJobsPage = () => {
       });
 
       // Process in batches to avoid timeout
-      const BATCH_SIZE = 50; // Process 50 jobs at a time
+      // ZenBooker uses batch size 100 (same as original import), others use 50
+      const BATCH_SIZE = sourceType === 'zenbooker' ? 100 : 50;
       const batches = [];
       for (let i = 0; i < transformedJobs.length; i += BATCH_SIZE) {
         batches.push(transformedJobs.slice(i, i + BATCH_SIZE));
@@ -635,14 +1474,57 @@ const UnifiedImportJobsPage = () => {
         });
 
         try {
-          const response = await jobsAPI.importJobs(batch);
+          let response;
           
-          totalImported += response.imported || 0;
-          totalUpdated += response.updated || 0;
-          totalSkipped += response.skipped || 0;
-          
-          if (response.errors && response.errors.length > 0) {
-            errors.push(...response.errors);
+          // For ZenBooker, use the SAME API endpoint as original import (jobsAPI.importJobs)
+          if (sourceType === 'zenbooker') {
+            // Use the exact same API as original ZenBooker import
+            // No transformation needed - mapZenBookerFields already returns jobs in the correct format
+            response = await jobsAPI.importJobs(batch);
+            
+            if (response) {
+              totalImported += (response.imported || 0);
+              totalUpdated += (response.updated || 0);
+              totalSkipped += (response.skipped || 0);
+              if (response.errors && Array.isArray(response.errors)) {
+                errors.push(...response.errors);
+              }
+            }
+          }
+          // For Booking Koala, use the dedicated endpoint with the same format as original import
+          else if (sourceType === 'booking-koala') {
+            // Use the Booking Koala import endpoint with same format as original
+            // Format: { customers: [], jobs: [], importSettings: {} }
+            // The jobs array should use the same field mapping as original Booking Koala import
+            response = await api.post('/booking-koala/import', {
+              customers: [], // Jobs-only import (customers are created from job data)
+              jobs: batch,
+              importSettings: {
+                updateExisting: true,
+                skipDuplicates: true
+              }
+            });
+            
+            // Transform Booking Koala response format to match our expected format
+            const bkResults = response.data.results || response.data;
+            totalImported += (bkResults.jobs?.imported || 0);
+            totalSkipped += (bkResults.jobs?.skipped || 0);
+            
+            if (bkResults.jobs?.errors && bkResults.jobs.errors.length > 0) {
+              errors.push(...bkResults.jobs.errors);
+            }
+          } else {
+            // For other sources, use the generic jobs import endpoint
+            response = await jobsAPI.importJobs(batch);
+            
+            if (response) {
+              totalImported += (response.imported || 0);
+              totalUpdated += (response.updated || 0);
+              totalSkipped += (response.skipped || 0);
+              if (response.errors && Array.isArray(response.errors)) {
+                errors.push(...response.errors);
+              }
+            }
           }
         } catch (error) {
           console.error(`Error importing batch ${batchIndex + 1}:`, error);
