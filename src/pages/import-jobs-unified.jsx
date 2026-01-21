@@ -684,8 +684,10 @@ const UnifiedImportJobsPage = () => {
         return 'completed';
       }
       
-      if (status === 'in-progress' || status === 'in progress' || status === 'inprogress' || status === 'active' || status === 'working' || status === 'started' || status.startsWith('in-progress') || status.startsWith('in progress')) {
-        return 'in-progress';
+      // Supabase database uses "in-progress" (with hyphen)
+      // Map all variations to "in-progress" (with hyphen) for Supabase enum
+      if (status === 'in-progress' || status === 'in progress' || status === 'inprogress' || status === 'in_progress' || status === 'active' || status === 'working' || status === 'started' || status.startsWith('in-progress') || status.startsWith('in progress') || status.startsWith('in_progress')) {
+        return 'in-progress'; // Use hyphen to match Supabase enum
       }
       
       if (status === 'cancelled' || status === 'canceled' || status === 'cancel' || status.startsWith('cancel')) {
@@ -772,9 +774,36 @@ const UnifiedImportJobsPage = () => {
         const endDateTime = rawData['end_time_for_full_cal_date'] || rawData['finish_time_for_full_cal_date'] || rawData['finish_time_date'];
         const timeHumanReadable = rawData['time_human_readable_text'];
         const timezone = rawData['timezone_text'];
+        
+        // DEBUG: Log specific rows for Stephanie and Georgina
+        const isStephaniePoupko = (rawData['customer_name_text'] || '').includes('Stephanie Poupko') && i === 1182; // Row 1183 (0-indexed is 1182)
+        const isGeorginaBaez = (rawData['customer_name_text'] || '').includes('Georgina Baez') && i === 1183; // Row 1184 (0-indexed is 1183)
+        
+        if (isStephaniePoupko || isGeorginaBaez) {
+          console.log(`🔍 DEBUG Row ${i + 1} (${isStephaniePoupko ? 'Stephanie Poupko' : 'Georgina Baez'}):`, {
+            customerName: rawData['customer_name_text'],
+            customerPhone: rawData['customer_phone_text'],
+            customerEmail: rawData['customer_email_text'],
+            startDateTime: startDateTime,
+            timeHumanReadable: timeHumanReadable,
+            timezone: timezone,
+            serviceName: rawData['service_selected_text'],
+            rawData_start_time: rawData['start_time_for_full_cal_date']
+          });
+        }
+        
         const dateTimeParts = parseZenBookerDateTime(startDateTime, timeHumanReadable, timezone);
         job.scheduledDate = dateTimeParts.date || null;
         job.scheduledTime = dateTimeParts.time || '09:00:00';
+        
+        if (isStephaniePoupko || isGeorginaBaez) {
+          console.log(`🔍 DEBUG Row ${i + 1} - After parsing:`, {
+            scheduledDate: job.scheduledDate,
+            scheduledTime: job.scheduledTime,
+            dateTimeParts: dateTimeParts,
+            willBeSkipped: !job.scheduledDate
+          });
+        }
         
         if (endDateTime && startDateTime) {
           try {
@@ -805,7 +834,25 @@ const UnifiedImportJobsPage = () => {
         }
         
         if (!job.scheduledDate) {
-          console.warn(`Row ${i + 1}: Skipping job - no scheduled date provided. Original value: "${startDateTime}"`);
+          const isStephaniePoupko = (job.customerName || '').includes('Stephanie Poupko') && i === 1182;
+          const isGeorginaBaez = (job.customerName || '').includes('Georgina Baez') && i === 1183;
+          
+          if (isStephaniePoupko || isGeorginaBaez) {
+            console.error(`❌ CRITICAL: Row ${i + 1} (${isStephaniePoupko ? 'Stephanie Poupko' : 'Georgina Baez'}) is being SKIPPED!`, {
+              customerName: job.customerName,
+              customerPhone: job.customerPhone,
+              serviceName: job.serviceName,
+              startDateTime: startDateTime,
+              timeHumanReadable: timeHumanReadable,
+              timezone: timezone,
+              dateTimeParts: dateTimeParts,
+              parsedDate: job.scheduledDate,
+              rawData_start_time: rawData['start_time_for_full_cal_date']
+            });
+          }
+          
+          console.warn(`Row ${i + 1}: ⚠️ SKIPPING JOB - no scheduled date provided. Customer: "${job.customerName || job.customerEmail}", Service: "${job.serviceName}", Original value: "${startDateTime}"`);
+          console.warn(`Row ${i + 1}: ⚠️ This row will NOT be sent to backend, but processing will CONTINUE for remaining rows`);
           continue;
         }
         
@@ -951,6 +998,7 @@ const UnifiedImportJobsPage = () => {
         if (!job.priority) job.priority = 'normal';
         if (!job.workersNeeded) job.workersNeeded = '1';
         
+        // Supabase enum accepts: pending, in-progress, completed, cancelled (with hyphen)
         const validStatuses = ['pending', 'in-progress', 'completed', 'cancelled'];
         if (!validStatuses.includes(job.status)) {
           job.status = 'pending';
@@ -1000,8 +1048,39 @@ const UnifiedImportJobsPage = () => {
           continue;
         }
         
+        // Final validation: ensure scheduledDate is valid (not null, undefined, empty string, or whitespace)
+        // This is critical because scheduledDate might have been set to empty string during field processing
+        if (!job.scheduledDate || (typeof job.scheduledDate === 'string' && !job.scheduledDate.trim())) {
+          console.warn(`Row ${i + 1}: ⚠️ SKIPPING JOB - no valid scheduled date after processing. Customer: "${job.customerName || job.customerEmail}", Service: "${job.serviceName}", Value: "${job.scheduledDate}"`);
+          console.warn(`Row ${i + 1}: ⚠️ This row will NOT be sent to backend, but processing will CONTINUE for remaining rows`);
+          continue;
+        }
+        
+        // Log jobs being added to the array for debugging (especially for Stephanie and Georgina)
+        const customerNameLower = (job.customerName || '').toLowerCase();
+        if (customerNameLower.includes('stephanie') || customerNameLower.includes('georgina')) {
+          console.log(`✅ Row ${i + 1}: ADDING JOB TO IMPORT ARRAY - Customer: "${job.customerName}", Date: "${job.scheduledDate}", Service: "${job.serviceName}"`);
+        }
+        
         jobs.push(job);
       }
+    }
+    
+    // Log summary of parsed jobs
+    console.log(`📊 CSV Parsing Summary: Parsed ${jobs.length} valid jobs from CSV`);
+    if (jobs.length < lines.length - 1) {
+      const skippedCount = (lines.length - 1) - jobs.length;
+      console.log(`⚠️ Skipped ${skippedCount} row(s) due to missing dates or invalid data`);
+    }
+    
+    // Log if we found Stephanie or Georgina
+    const stephanieJobs = jobs.filter(j => (j.customerName || '').toLowerCase().includes('stephanie'));
+    const georginaJobs = jobs.filter(j => (j.customerName || '').toLowerCase().includes('georgina'));
+    if (stephanieJobs.length > 0) {
+      console.log(`✅ Found ${stephanieJobs.length} Stephanie job(s) in parsed data:`, stephanieJobs.map(j => ({ date: j.scheduledDate, name: j.customerName })));
+    }
+    if (georginaJobs.length > 0) {
+      console.log(`✅ Found ${georginaJobs.length} Georgina job(s) in parsed data:`, georginaJobs.map(j => ({ date: j.scheduledDate, name: j.customerName })));
     }
     
     return jobs;
@@ -1464,14 +1543,66 @@ const UnifiedImportJobsPage = () => {
 
       // Process batches sequentially
       for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
-        const batch = batches[batchIndex];
+        const rawBatch = batches[batchIndex];
+        
+        // CRITICAL: Filter out any jobs without valid scheduledDate before sending to backend
+        // This ensures that jobs without dates don't cause the entire batch to fail
+        const batch = rawBatch.filter(job => {
+          const hasValidDate = job.scheduledDate && 
+                               typeof job.scheduledDate === 'string' && 
+                               job.scheduledDate.trim() !== '';
+          if (!hasValidDate) {
+            console.warn(`⚠️ Filtering out job before batch send - missing scheduledDate. Job data:`, {
+              customerName: job.customerName || job.customerFirstName,
+              customerEmail: job.customerEmail,
+              serviceName: job.serviceName
+            });
+          }
+          return hasValidDate;
+        });
+        
+        // Skip empty batches (all jobs filtered out)
+        if (batch.length === 0) {
+          console.log(`⏭️ Skipping batch ${batchIndex + 1} - all jobs filtered out due to missing dates`);
+          const skippedInBatch = rawBatch.length;
+          totalSkipped += skippedInBatch;
+          errors.push(`Batch ${batchIndex + 1}: ${skippedInBatch} job(s) skipped due to missing scheduled dates`);
+          setImportProgress({
+            current: (batchIndex + 1) * BATCH_SIZE,
+            total: transformedJobs.length,
+            percentage: Math.round(((batchIndex + 1) * BATCH_SIZE / transformedJobs.length) * 100),
+            batchInfo: `Batch ${batchIndex + 1} of ${batches.length} skipped (no valid jobs)`
+          });
+          continue;
+        }
+        
+        const skippedInBatch = rawBatch.length - batch.length;
+        if (skippedInBatch > 0) {
+          totalSkipped += skippedInBatch;
+          errors.push(`Batch ${batchIndex + 1}: ${skippedInBatch} job(s) skipped due to missing scheduled dates`);
+        }
+        if (batch.length > 0) {
+          console.log(`✅ Valid jobs in batch ${batchIndex + 1}:`, batch.map(j => ({
+            customer: j.customerName || j.customerEmail,
+            date: j.scheduledDate,
+            service: j.serviceName
+          })));
+        }
         
         setImportProgress({
           current: batchIndex * BATCH_SIZE,
           total: transformedJobs.length,
           percentage: Math.round((batchIndex * BATCH_SIZE / transformedJobs.length) * 100),
-          batchInfo: `Processing batch ${batchIndex + 1} of ${batches.length} (${batch.length} jobs)`
+          batchInfo: `Processing batch ${batchIndex + 1} of ${batches.length} (${batch.length} valid jobs, ${skippedInBatch} skipped)`
         });
+
+        // Check if batch contains Stephanie or Georgina jobs (for detailed logging)
+        const hasStephanie = batch.some(j => (j.customerName || '').toLowerCase().includes('stephanie'));
+        const hasGeorgina = batch.some(j => (j.customerName || '').toLowerCase().includes('georgina'));
+        
+        if (hasStephanie || hasGeorgina) {
+          console.log(`🎯 Batch ${batchIndex + 1} contains Stephanie or Georgina jobs - sending to backend...`);
+        }
 
         try {
           let response;
@@ -1483,6 +1614,46 @@ const UnifiedImportJobsPage = () => {
             response = await jobsAPI.importJobs(batch);
             
             if (response) {
+              // Log detailed response for batches containing Stephanie or Georgina
+              if (hasStephanie || hasGeorgina) {
+                console.log(`📥 Backend response for batch ${batchIndex + 1} (contains Stephanie/Georgina):`, {
+                  imported: response.imported || 0,
+                  updated: response.updated || 0,
+                  skipped: response.skipped || 0,
+                  errors: response.errors || [],
+                  fullResponse: response
+                });
+                
+                // Check if Stephanie/Georgina jobs were in the batch and see if they were imported/skipped
+                const stephanieInBatch = batch.filter(j => (j.customerName || '').toLowerCase().includes('stephanie'));
+                const georginaInBatch = batch.filter(j => (j.customerName || '').toLowerCase().includes('georgina'));
+                if (stephanieInBatch.length > 0) {
+                  console.log(`🔍 Stephanie jobs sent in this batch:`, stephanieInBatch.map(j => ({ name: j.customerName, date: j.scheduledDate, service: j.serviceName })));
+                }
+                if (georginaInBatch.length > 0) {
+                  console.log(`🔍 Georgina jobs sent in this batch:`, georginaInBatch.map(j => ({ name: j.customerName, date: j.scheduledDate, service: j.serviceName })));
+                }
+                
+                // IMPORTANT: Show detailed errors if any jobs were skipped
+                if (response.errors && response.errors.length > 0) {
+                  console.error(`❌ ERRORS in batch ${batchIndex + 1} (contains Stephanie/Georgina):`);
+                  response.errors.forEach((error, idx) => {
+                    console.error(`  Error ${idx + 1}:`, error);
+                    // Try to find if this error is related to Stephanie or Georgina
+                    const errorStr = JSON.stringify(error).toLowerCase();
+                    if (errorStr.includes('stephanie') || errorStr.includes('georgina')) {
+                      console.error(`  ⚠️ This error might be related to Stephanie or Georgina!`);
+                    }
+                  });
+                }
+                
+                // Check if skipped count matches Stephanie/Georgina jobs
+                if (response.skipped > 0) {
+                  console.warn(`⚠️ ${response.skipped} job(s) were SKIPPED in batch ${batchIndex + 1}. This might include Stephanie or Georgina jobs.`);
+                  console.warn(`   Batch contained ${stephanieInBatch.length} Stephanie job(s) and ${georginaInBatch.length} Georgina job(s).`);
+                }
+              }
+              
               totalImported += (response.imported || 0);
               totalUpdated += (response.updated || 0);
               totalSkipped += (response.skipped || 0);
@@ -1527,14 +1698,45 @@ const UnifiedImportJobsPage = () => {
             }
           }
         } catch (error) {
-          console.error(`Error importing batch ${batchIndex + 1}:`, error);
-          // Add errors for this batch
-          batch.forEach((job, jobIndex) => {
-            errors.push({
-              row: (batchIndex * BATCH_SIZE) + jobIndex + 2,
-              error: error.response?.data?.error || error.message || 'Failed to import job'
-            });
+          console.error(`❌ Batch ${batchIndex + 1} error:`, error);
+          console.error(`❌ Error details:`, {
+            message: error.message,
+            response: error.response?.data,
+            status: error.response?.status,
+            batchSize: batch.length,
+            batchJobs: batch.map(j => ({ 
+              customer: j.customerName || j.customerEmail, 
+              date: j.scheduledDate,
+              service: j.serviceName 
+            }))
           });
+          
+          // Handle batch errors - continue processing even on error
+          if (error.response?.data) {
+            const responseData = error.response.data;
+            if (responseData.imported !== undefined || responseData.errors) {
+              totalImported += (responseData.imported || 0);
+              totalUpdated += (responseData.updated || 0);
+              totalSkipped += (responseData.skipped || 0);
+              if (responseData.errors && Array.isArray(responseData.errors)) {
+                errors.push(...responseData.errors.map(err => `Batch ${batchIndex + 1}: ${err}`));
+              }
+            } else if (responseData.error) {
+              errors.push(`Batch ${batchIndex + 1}: ${responseData.error}`);
+            } else {
+              // Unknown error format - log the entire batch as failed but continue
+              errors.push(`Batch ${batchIndex + 1}: Import failed - ${responseData.message || error.message || 'Unknown error'}`);
+              totalSkipped += batch.length;
+            }
+          } else {
+            // Network or other errors - log but continue
+            errors.push(`Batch ${batchIndex + 1}: ${error.message || 'Network error'} - ${batch.length} jobs not imported`);
+            totalSkipped += batch.length;
+          }
+          
+          // CRITICAL: Always continue with next batch even if this one failed
+          // This ensures that subsequent batches (like Stephanie and Georgina) still get processed
+          console.log(`⏭️ Continuing to next batch despite error in batch ${batchIndex + 1}`);
         }
       }
 

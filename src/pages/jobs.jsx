@@ -268,11 +268,10 @@ const ServiceFlowJobs = () => {
           : filters.dateFrom || filters.dateTo
       }
 
-      // If "Soonest" sort is selected, filter for today's jobs
-      if (filters.sortBy === 'scheduled_date' && filters.sortOrder === 'ASC') {
-        const today = new Date()
-        const todayStr = today.toISOString().split('T')[0]
-        dateRangeForAPI = `${todayStr} to ${todayStr}` // Filter for today only
+      // If "Soonest" sort is selected on "all" tab, filter for future jobs (today, tomorrow, and so on)
+      // This ensures users see upcoming jobs sorted by soonest, not past jobs
+      if (filters.sortBy === 'scheduled_date' && filters.sortOrder === 'ASC' && activeTab === 'all' && !dateFilter) {
+        dateFilter = "future" // Show today, tomorrow, and all future jobs
       }
 
       switch (activeTab) {
