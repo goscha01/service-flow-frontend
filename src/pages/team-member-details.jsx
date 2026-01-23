@@ -428,31 +428,35 @@ const TeamMemberDetails = () => {
     }
   }
 
-  const confirmDeleteMember = async () => {
-    // Prevent deleting account owner
+  const confirmDeactivateMember = async () => {
+    // Prevent deactivating account owner
     if (teamMember?.role === 'account owner' || teamMember?.role === 'owner' || teamMember?.role === 'admin') {
-      setDeleteError('Cannot delete account owner')
+      setDeleteError('Cannot deactivate account owner')
       return
     }
     
     try {
       setDeleting(true)
       setDeleteError("") // Clear any previous errors
-      await teamAPI.delete(memberId)
+      await teamAPI.update(memberId, { status: 'inactive' })
       
-      // Show success notification before navigating
+      // Refresh team member data to reflect the status change
+      await fetchTeamMemberDetails()
+      
+      // Show success notification
       setNotification({
         type: 'success',
-        message: `Team member has been deleted successfully.`
+        message: `Team member has been deactivated successfully.`
       })
       
-      // Navigate back to team page
-      navigate('/team')
+      // Close the modal
+      setShowDeleteModal(false)
+      setTimeout(() => setNotification(null), 3000)
     } catch (error) {
-      console.error('Error deleting team member:', error)
+      console.error('Error deactivating team member:', error)
       
       // Enhanced error handling with specific error types
-      let errorMessage = 'Failed to delete team member. Please try again.'
+      let errorMessage = 'Failed to deactivate team member. Please try again.'
       
       if (error.response?.data) {
         const errorData = error.response.data
@@ -1441,46 +1445,6 @@ const TeamMemberDetails = () => {
                 </div>
               </div>
 
-              {/* Metadata Card */}
-              <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center space-x-2">
-                    <h3 className="text-base font-semibold text-gray-900">Metadata</h3>
-                    <HelpCircle className="w-4 h-4 text-gray-400" />
-                  </div>
-                  <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">
-                    Edit
-                  </button>
-                </div>
-                <p className="text-sm text-gray-500">No custom metadata added yet</p>
-              </div>
-
-              {/* Service Provider Card */}
-              <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-base font-semibold text-gray-900">Service Provider</h3>
-                    <p className="text-sm text-gray-600">This team member can be assigned to jobs</p>
-                  </div>
-                  <button
-                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 ${
-                      settings.isServiceProvider ? 'bg-green-500' : 'bg-gray-200'
-                    }`}
-                    onClick={async () => {
-                      const newSettings = { ...settings, isServiceProvider: !settings.isServiceProvider }
-                      setSettings(newSettings)
-                      await handleSaveSettings(newSettings)
-                    }}
-                  >
-                    <span
-                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                        settings.isServiceProvider ? 'translate-x-5' : 'translate-x-0'
-                      }`}
-                    />
-                  </button>
-                </div>
-              </div>
-
               {/* Availability Card */}
               <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
                 <div className="mb-4 sm:mb-6">
@@ -2060,7 +2024,7 @@ const TeamMemberDetails = () => {
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-semibold text-gray-900">
-                  Delete Team Member
+                  Deactivate Team Member
                 </h3>
                 <button
                   onClick={() => setShowDeleteModal(false)}
@@ -2083,8 +2047,8 @@ const TeamMemberDetails = () => {
 
               <div className="mb-6">
                 <p className="text-gray-600">
-                  Are you sure you want to delete <strong>{teamMember?.first_name} {teamMember?.last_name}</strong>? 
-                  This action cannot be undone and will remove all associated data.
+                  Are you sure you want to deactivate <strong>{teamMember?.first_name} {teamMember?.last_name}</strong>? 
+                  They will no longer be able to access the system, but their data will be preserved and they can be reactivated later.
                 </p>
               </div>
 
@@ -2100,11 +2064,11 @@ const TeamMemberDetails = () => {
                   Cancel
                 </button>
                 <button
-                  onClick={confirmDeleteMember}
+                  onClick={confirmDeactivateMember}
                   disabled={deleting}
                   className="flex-1 px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
                 >
-                  {deleting ? 'Deleting...' : 'Delete'}
+                  {deleting ? 'Deactivating...' : 'Deactivate'}
                 </button>
               </div>
             </div>

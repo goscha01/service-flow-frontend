@@ -24,6 +24,7 @@ api.interceptors.request.use(
   }
 );
 
+
 // Response interceptor for error handling with retry logic
 api.interceptors.response.use(
   (response) => {
@@ -33,8 +34,36 @@ api.interceptors.response.use(
   async (error) => {
     const config = error.config;
     
+    // Handle 429 (Too Many Requests) with exponential backoff
+    if (error.response?.status === 429) {
+      const retryAfter = error.response.headers['retry-after'];
+      const retryDelay = retryAfter ? parseInt(retryAfter) * 1000 : null;
+      
+      // Initialize retry count if not exists
+      if (!config.__retryCount) {
+        config.__retryCount = 0;
+      }
+      
+      // Don't retry more than 3 times for 429 errors
+      if (config.__retryCount >= 3) {
+        console.error('❌ Rate limit exceeded - too many retries. Please wait before making more requests.');
+        return Promise.reject(error);
+      }
+      
+      config.__retryCount++;
+      
+      // Calculate delay: use retry-after header if available, otherwise exponential backoff
+      const delay = retryDelay || Math.min(1000 * Math.pow(2, config.__retryCount), 30000); // Max 30 seconds
+      
+      console.warn(`⚠️ Rate limit (429) - Retrying in ${delay}ms (attempt ${config.__retryCount}/3):`, config.url);
+      
+      await new Promise(resolve => setTimeout(resolve, delay));
+      
+      return api(config);
+    }
+    
     // Don't retry if we've already retried or if it's not a network error
-    if (config.__retryCount >= 3 || error.response?.status) {
+    if (config.__retryCount >= 3 || (error.response?.status && error.response?.status !== 429)) {
       // Handle non-network errors normally
       if (error.response) {
         const { status, data } = error.response;
@@ -911,6 +940,15 @@ export const jobsAPI = {
   delete: async (id) => {
     try {
       const response = await api.delete(`/jobs/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  deleteAll: async () => {
+    try {
+      const response = await api.delete('/jobs/all');
       return response.data;
     } catch (error) {
       throw error;
