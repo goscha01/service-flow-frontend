@@ -5,22 +5,12 @@ import Sidebar from "../components/sidebar"
 import TerritoryMap from "../components/territory-map"
 import {
   Plus,
-  Search,
-  Filter,
   MapPin,
-  Clock,
   Users,
-  DollarSign,
   Edit,
-  Trash2,
-  Eye,
-  Settings,
   Calendar,
   Globe,
-  Target,
   Loader2,
-  ChevronDown,
-  ArrowUpDown
 } from "lucide-react"
 import { useAuth } from "../context/AuthContext"
 import { useNavigate } from "react-router-dom"
@@ -39,7 +29,6 @@ const ServiceFlowTerritories = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [selectedTerritory, setSelectedTerritory] = useState(null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-  const [enforceServiceArea, setEnforceServiceArea] = useState(false)
   const [filters, setFilters] = useState({
     status: "active",
     search: "",
@@ -196,87 +185,19 @@ const ServiceFlowTerritories = () => {
             </div>
 
             {/* Controls Bar */}
-            <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                {/* Active/Disabled Tabs */}
-                <button
-                  onClick={() => handleFilterChange({ status: 'active' })}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    filters.status === 'active'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
-                  }`}
-                  style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
-                >
-                  Active <span className="ml-1">{activeCount}</span>
-                </button>
-                <button
-                  onClick={() => handleFilterChange({ status: 'inactive' })}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    filters.status === 'inactive'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
-                  }`}
-                  style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
-                >
-                  Disabled
-                </button>
-
-                {/* Sort Dropdown */}
-                <div className="relative">
-                  <button className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
-                    Sort <ArrowUpDown className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <button className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
-                  Geofence Editor
-                </button>
-                <button
-                  onClick={handleCreateTerritory}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 flex items-center gap-2"
-                  style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
-                >
-                  <Plus className="w-4 h-4" />
-                  New Territory
-                </button>
-              </div>
+            <div className="mb-6 flex flex-wrap items-center justify-end gap-3">
+              <button
+                onClick={handleCreateTerritory}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 flex items-center gap-2"
+                style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
+              >
+                <Plus className="w-4 h-4" />
+                New Territory
+              </button>
             </div>
 
             {/* Main Content Layout */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Left Column - Enforce Service Area */}
-              <div className="lg:col-span-1">
-                <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <h3 className="text-base font-semibold text-gray-900 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Enforce Service Area</h3>
-                      <p className="text-sm text-gray-600 leading-relaxed" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
-                        Prevent customers from booking jobs online at locations that are outside of your territories' service areas.
-                      </p>
-                    </div>
-                    <div className="ml-4 flex-shrink-0">
-                      <button
-                        onClick={() => setEnforceServiceArea(!enforceServiceArea)}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
-                          enforceServiceArea ? 'bg-green-500' : 'bg-gray-300'
-                        }`}
-                      >
-                        <span
-                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                            enforceServiceArea ? 'translate-x-6' : 'translate-x-1'
-                          }`}
-                        />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Right Column - Map and Territory Details */}
-              <div className="lg:col-span-2">
+            <div>
 
             {/* Success Message */}
             {successMessage && (
@@ -336,13 +257,6 @@ const ServiceFlowTerritories = () => {
                               title="Edit territory"
                             >
                               <Edit className="w-4 h-4 text-gray-700" />
-                            </button>
-                            <button
-                              onClick={(e) => handleDeleteTerritory(e, territory)}
-                              className="p-2 bg-white rounded-lg shadow-md hover:bg-red-50 transition-colors"
-                              title="Delete territory"
-                            >
-                              <Trash2 className="w-4 h-4 text-red-600" />
                             </button>
                           </div>
                         </div>
@@ -424,7 +338,6 @@ const ServiceFlowTerritories = () => {
                     ))}
                   </div>
                 )}
-              </div>
             </div>
           </div>
         </main>

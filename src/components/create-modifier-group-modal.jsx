@@ -537,56 +537,6 @@ const CreateModifierGroupModal = ({ isOpen, onClose, onSave, editingModifier = n
                         </div>
                       </div>
 
-                      {/* Toggles */}
-                        <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-1">
-                              <label className="text-sm font-medium text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
-                            Allow customers to add a note
-                          </label>
-                              <HelpCircle className="w-4 h-4 text-gray-400" />
-                            </div>
-                          <button
-                            type="button"
-                            onClick={() => handleOptionChange(option.id, 'allowCustomerNotes', !option.allowCustomerNotes)}
-                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                              option.allowCustomerNotes ? 'bg-blue-600' : 'bg-gray-200'
-                            }`}
-                          >
-                            <span
-                              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                                option.allowCustomerNotes ? 'translate-x-6' : 'translate-x-1'
-                              }`}
-                            />
-                          </button>
-                        </div>
-
-                        <div className="flex items-center justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center space-x-1 mb-1">
-                                <label className="text-sm font-medium text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
-                              Convert to service request
-                            </label>
-                              </div>
-                              <p className="text-xs text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
-                              When selected, booking will require review before confirmation
-                            </p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => handleOptionChange(option.id, 'convertToServiceRequest', !option.convertToServiceRequest)}
-                              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ml-4 ${
-                              option.convertToServiceRequest ? 'bg-blue-600' : 'bg-gray-200'
-                            }`}
-                          >
-                            <span
-                              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                                option.convertToServiceRequest ? 'translate-x-6' : 'translate-x-1'
-                              }`}
-                            />
-                          </button>
-                        </div>
-                      </div>
                     </div>
                   )}
                   </div>

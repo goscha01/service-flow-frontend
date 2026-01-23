@@ -21,12 +21,8 @@ import {
   Globe,
   Settings,
   X,
-  Phone,
-  Zap,
   Target,
   Receipt,
-  FileSpreadsheet,
-  Download,
 } from "lucide-react"
 
 const Sidebar = ({ isOpen, onClose }) => {
@@ -39,19 +35,17 @@ const Sidebar = ({ isOpen, onClose }) => {
   const allSidebarItems = [
     { icon: Home, label: "Dashboard", path: "/dashboard" },
     { icon: Target, label: "Leads", path: "/leads" },
-    { icon: Calendar, label: "Schedule", path: "/schedule" },
     { icon: CalendarDays, label: "Tasks", path: "/calendar" },
+    { icon: Users, label: "Customers", path: "/customers" },
     { icon: Briefcase, label: "Jobs", path: "/jobs" },
+    { icon: Calendar, label: "Schedule", path: "/schedule" },
     { icon: FileText, label: "Estimates", path: "/estimates", hidden: true },
     { icon: FileText, label: "Invoices", path: "/invoices", hidden: true },
-    { icon: RotateCcw, label: "Recurring", path: "/recurring" },
+    { icon: RotateCcw, label: "Recurring", path: "/recurring", hidden: true },
     { icon: CreditCard, label: "Payments", path: "/payments", hidden: true },
-    { icon: Users, label: "Customers", path: "/customers" },
     { icon: UserCheck, label: "Team", path: "/team" },
     { icon: Receipt, label: "Payroll", path: "/payroll" },
-    { icon: Wrench, label: "Services", path: "/services" },
     { icon: Tag, label: "Coupons", path: "/coupons", hidden: true },
-    { icon: MapPin, label: "Territories", path: "/territories" },
     { icon: BarChart3, label: "Analytics", path: "/analytics" },
     { icon: Globe, label: "Online Booking", path: "/online-booking", hidden: true },
     { icon: Settings, label: "Settings", path: "/settings" },
@@ -62,23 +56,6 @@ const Sidebar = ({ isOpen, onClose }) => {
     return filterSidebarItems(allSidebarItems, user)
   }, [user])
 
-  // Filter integration items - hide for workers
-  const integrationItems = useMemo(() => {
-    const items = [
-      { icon: CalendarDays, label: "Calendar Syncing", path: "/settings/calendar-syncing" },
-      { icon: FileSpreadsheet, label: "Google Sheets", path: "/settings/google-sheets" },
-      { icon: Phone, label: "SMS Settings", path: "/settings/sms-settings" },
-      { icon: Zap, label: "Stripe Connect", path: "/settings/stripe-connect" },
-      { icon: Download, label: "Booking Koala", path: "/settings/booking-koala" },
-    ]
-    
-    // Hide integration items for workers
-    if (getUserRole(user) === 'worker') {
-      return []
-    }
-    
-    return items
-  }, [user])
 
   const handleNavigation = (path) => {
     navigate(path)
@@ -130,7 +107,8 @@ const Sidebar = ({ isOpen, onClose }) => {
           <ul className="space-y-1">
             {sidebarItems.map((item, index) => {
               const Icon = item.icon
-              const isActive = location.pathname === item.path
+              const isActive = location.pathname === item.path || (item.path === "/settings" && location.pathname.startsWith("/settings"))
+              
               return (
                 <li key={index} className={item.hidden ? "feature-hidden" : ""}>
                   <button
@@ -151,39 +129,6 @@ const Sidebar = ({ isOpen, onClose }) => {
               )
             })}
           </ul>
-
-          {/* Integrations Section */}
-          {integrationItems.length > 0 && (
-            <div className="mt-6">
-              <h3 className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 md:hidden lg:block">
-                Integrations
-              </h3>
-              <ul className="space-y-1">
-                {integrationItems.map((item, index) => {
-                const Icon = item.icon
-                const isActive = location.pathname === item.path
-                return (
-                  <li key={`integration-${index}`}>
-                    <button
-                      onClick={() => handleNavigation(item.path)}
-                      className={`w-full flex items-center space-x-3 md:justify-center lg:justify-start px-3 py-2 rounded-lg text-sm font-medium transition-colors text-left group relative ${
-                        isActive ? "bg-blue-50 text-blue-700" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                      }`}
-                    >
-                      <Icon className="w-5 h-5 flex-shrink-0" />
-                      <span className="md:hidden lg:inline">{item.label}</span>
-                      
-                      {/* Tooltip for collapsed state on tablets */}
-                      <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded-md opacity-0 invisible md:group-hover:opacity-100 md:group-hover:visible lg:opacity-0 lg:invisible transition-all duration-200 whitespace-nowrap z-50">
-                        {item.label}
-                      </div>
-                    </button>
-                  </li>
-                )
-              })}
-              </ul>
-            </div>
-          )}
         </nav>
 
         {/* User Profile */}

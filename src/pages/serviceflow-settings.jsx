@@ -27,6 +27,8 @@ import {
   Settings,
   FileSpreadsheet,
   Upload,
+  Phone,
+  Zap,
 } from "lucide-react"
 
 const ServiceFlowSettings = () => {
@@ -61,7 +63,7 @@ const ServiceFlowSettings = () => {
         navigate("/settings/rescheduling-cancellation")
         break
       case "service-areas":
-        navigate("/settings/service-areas")
+        navigate("/territories")
         break
       case "booking-quote-requests":
         navigate("/settings/booking-quote-requests")
@@ -89,6 +91,9 @@ const ServiceFlowSettings = () => {
         break
       case "google-sheets":
         navigate("/settings/google-sheets")
+        break
+      case "stripe-connect":
+        navigate("/settings/stripe-connect")
         break
       case "booking-koala":
         navigate("/settings/booking-koala")
@@ -129,6 +134,12 @@ const ServiceFlowSettings = () => {
           title: "Services",
           description: "Configure default service settings and manage service categories",
         },
+        {
+          id: "service-areas",
+          icon: MapPin,
+          title: "Territories",
+          description: "Customize the geographic areas you service",
+        },
       ],
     },
     {
@@ -151,12 +162,6 @@ const ServiceFlowSettings = () => {
           icon: CalendarX,
           title: "Rescheduling & Cancellation",
           description: "Allow your customers to reschedule and cancel online",
-        },
-        {
-          id: "service-areas",
-          icon: MapPin,
-          title: "Service Areas",
-          description: "Customize the geographic areas you service",
         },
         {
           id: "booking-quote-requests",
@@ -226,6 +231,18 @@ const ServiceFlowSettings = () => {
           icon: FileSpreadsheet,
           title: "Google Sheets",
           description: "Export data to Google Sheets and import from spreadsheets",
+        },
+        {
+          id: "sms-settings",
+          icon: Phone,
+          title: "SMS Settings",
+          description: "Configure SMS notifications and messaging",
+        },
+        {
+          id: "stripe-connect",
+          icon: Zap,
+          title: "Stripe Connect",
+          description: "Connect Stripe for payment processing",
         },
         {
           id: "booking-koala",

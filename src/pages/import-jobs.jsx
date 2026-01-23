@@ -176,34 +176,154 @@ const ImportJobsPage = () => {
   const parseAddress = (addressStr) => {
     if (!addressStr) return { street: '', city: '', state: '', zipCode: '', country: 'USA' };
     
-    // Format: "4710 Parkdale Ln, New Port Richey, FL 34655, USA"
-    const parts = addressStr.split(',').map(p => p.trim());
+    // Format examples:
+    // "4710 Parkdale Ln, New Port Richey, FL 34655, USA" (full address with street, ZIP, country)
+    // "Palm Harbor, FL, USA" (city, state, country - no street, no ZIP)
+    // "1461 Starboard Ct, Orange Park, FL 32003, USA" (full address)
+    // "Orange Park, FL 32003" (city, state ZIP - no country)
+    // "Orange Park, FL" (city, state - no ZIP, no country)
+    // "New Port Richey, FL" (city, state - no ZIP, no country)
     
-    if (parts.length >= 4) {
-      return {
-        street: parts[0],
-        city: parts[1],
-        state: parts[2].split(' ')[0], // State abbreviation (first part)
-        zipCode: parts[2].split(' ').slice(1).join(' ') || parts[3].split(' ')[0] || '',
-        country: parts[parts.length - 1] || 'USA'
-      };
-    } else if (parts.length >= 3) {
-      return {
-        street: parts[0],
-        city: parts[1],
-        state: parts[2].split(' ')[0] || '',
-        zipCode: parts[2].split(' ').slice(1).join(' ') || '',
-        country: 'USA'
-      };
+    const parts = addressStr.split(',').map(p => p.trim());
+    const result = { street: '', city: '', state: '', zipCode: '', country: 'USA' };
+    
+    // US State abbreviations (50 states + DC)
+    const stateAbbreviations = new Set([
+      'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
+      'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
+      'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
+      'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
+      'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY', 'DC'
+    ]);
+    
+    // Known country names
+    const countryNames = new Set(['USA', 'US', 'United States', 'United States of America']);
+    
+    // Step 1: Identify country (check from the end)
+    let countryIndex = -1;
+    for (let i = parts.length - 1; i >= 0; i--) {
+      if (countryNames.has(parts[i].toUpperCase())) {
+        result.country = parts[i];
+        countryIndex = i;
+        break;
+      }
     }
     
-    return {
-      street: addressStr,
-      city: '',
-      state: '',
-      zipCode: '',
-      country: 'USA'
-    };
+    // Step 2: Identify state and ZIP (work backwards from country or end)
+    let stateIndex = -1;
+    let zipCode = '';
+    const searchStart = countryIndex >= 0 ? countryIndex - 1 : parts.length - 1;
+    
+    for (let i = searchStart; i >= 0; i--) {
+      const part = parts[i];
+      
+      // Check if this part contains a state abbreviation
+      // Pattern: "FL" or "FL 34655" or "FL 34655-1234"
+      const stateZipMatch = part.match(/^([A-Z]{2})\s*(.*)$/);
+      if (stateZipMatch && stateAbbreviations.has(stateZipMatch[1].toUpperCase())) {
+        result.state = stateZipMatch[1].toUpperCase();
+        zipCode = stateZipMatch[2].trim();
+        stateIndex = i;
+        break;
+      }
+      
+      // Also check if the part is just a state (2 letters, no ZIP)
+      if (part.length === 2 && stateAbbreviations.has(part.toUpperCase())) {
+        result.state = part.toUpperCase();
+        stateIndex = i;
+        break;
+      }
+    }
+    
+    // Step 3: Extract ZIP code if found
+    if (zipCode) {
+      // ZIP can be "34655" or "34655-1234"
+      const zipMatch = zipCode.match(/^(\d{5}(?:-\d{4})?)$/);
+      if (zipMatch) {
+        result.zipCode = zipMatch[1];
+      }
+    }
+    
+    // Step 4: Identify city and street
+    // Everything before the state is either city (if no street) or street + city
+    if (stateIndex >= 0) {
+      const beforeState = parts.slice(0, stateIndex);
+      
+      if (beforeState.length === 0) {
+        // No city or street (unlikely but handle it)
+        result.city = '';
+        result.street = '';
+      } else if (beforeState.length === 1) {
+        // Only one part before state - it's the city (no street)
+        result.city = beforeState[0];
+        result.street = '';
+      } else {
+        // Multiple parts before state - could be "Street, City" or just "City Name" (multi-word city)
+        // Check if first part looks like a street address
+        const firstPart = beforeState[0];
+        const hasStreetIndicators = /\d/.test(firstPart) || 
+                                     /(St|Street|Ave|Avenue|Rd|Road|Dr|Drive|Ln|Lane|Ct|Court|Blvd|Boulevard|Way|Pl|Place|Terrace|Circle|Hwy|Highway|Route|Rte)/i.test(firstPart);
+        
+        if (hasStreetIndicators) {
+          // Format: "Street, City"
+          result.street = firstPart;
+          result.city = beforeState.slice(1).join(', '); // Join remaining parts as city (handles multi-word cities)
+        } else {
+          // Format: "City Name" (multi-word city, no street)
+          result.city = beforeState.join(', '); // Join all parts as city
+          result.street = '';
+        }
+      }
+    } else {
+      // No state found - try to identify by position
+      // If we have country, everything before it might be city/state
+      if (countryIndex >= 0) {
+        const beforeCountry = parts.slice(0, countryIndex);
+        if (beforeCountry.length === 2) {
+          // "City, State" format
+          result.city = beforeCountry[0];
+          // Check if second part is a state
+          const stateCheck = beforeCountry[1].match(/^([A-Z]{2})\s*(.*)$/);
+          if (stateCheck && stateAbbreviations.has(stateCheck[1].toUpperCase())) {
+            result.state = stateCheck[1].toUpperCase();
+            result.zipCode = stateCheck[2].trim();
+          }
+        } else if (beforeCountry.length === 1) {
+          result.city = beforeCountry[0];
+        }
+      } else {
+        // No country, no state - assume first part is city
+        if (parts.length > 0) {
+          result.city = parts[0];
+        }
+      }
+    }
+    
+    // Step 5: Fallback - if we still don't have a state, try to find it in any part
+    if (!result.state) {
+      for (const part of parts) {
+        const stateMatch = part.match(/^([A-Z]{2})\s*(.*)$/);
+        if (stateMatch && stateAbbreviations.has(stateMatch[1].toUpperCase())) {
+          result.state = stateMatch[1].toUpperCase();
+          const zip = stateMatch[2].trim();
+          if (zip && !result.zipCode) {
+            const zipMatch = zip.match(/^(\d{5}(?:-\d{4})?)$/);
+            if (zipMatch) {
+              result.zipCode = zipMatch[1];
+            }
+          }
+          break;
+        }
+      }
+    }
+    
+    // Step 6: Final fallback - if we have parts but couldn't parse, make educated guesses
+    if (!result.city && parts.length > 0) {
+      // If no city found, use first part
+      result.city = parts[0];
+    }
+    
+    return result;
   };
 
   // Helper function to convert seconds to minutes

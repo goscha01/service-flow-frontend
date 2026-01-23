@@ -3,8 +3,8 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import Sidebar from "../../components/sidebar"
-import { ChevronLeft, Link2, Trash2, AlertTriangle, Calendar } from "lucide-react"
-import { jobsAPI } from "../../services/api"
+import { ChevronLeft, Link2, Trash2, AlertTriangle, Calendar, Users, UserCheck, MapPin, Briefcase } from "lucide-react"
+import { jobsAPI, customersAPI, teamAPI, territoriesAPI } from "../../services/api"
 import { useAuth } from "../../context/AuthContext"
 import Notification, { useNotification } from "../../components/notification"
 
@@ -21,6 +21,16 @@ const Developers = () => {
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [useDateRange, setUseDateRange] = useState(false)
+  
+  // Delete all states
+  const [showDeleteCustomersConfirm, setShowDeleteCustomersConfirm] = useState(false)
+  const [showDeleteJobsConfirm, setShowDeleteJobsConfirm] = useState(false)
+  const [showDeleteTeamConfirm, setShowDeleteTeamConfirm] = useState(false)
+  const [showDeleteTerritoriesConfirm, setShowDeleteTerritoriesConfirm] = useState(false)
+  const [deletingCustomers, setDeletingCustomers] = useState(false)
+  const [deletingJobs, setDeletingJobs] = useState(false)
+  const [deletingTeam, setDeletingTeam] = useState(false)
+  const [deletingTerritories, setDeletingTerritories] = useState(false)
   
   useEffect(() => {
     loadImportedJobsCount()
@@ -67,6 +77,107 @@ const Developers = () => {
     setStartDate('')
     setEndDate('')
     setUseDateRange(false)
+  }
+  
+  // Delete All Handlers
+  const handleDeleteAllCustomers = async () => {
+    try {
+      setDeletingCustomers(true)
+      await customersAPI.deleteAll()
+      showNotification('All customers deleted successfully.', 'success', 5000)
+      setShowDeleteCustomersConfirm(false)
+    } catch (error) {
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to delete all customers'
+      showNotification(errorMessage, 'error', 5000)
+    } finally {
+      setDeletingCustomers(false)
+    }
+  }
+  
+  const handleDeleteAllJobs = async () => {
+    try {
+      setDeletingJobs(true)
+      console.log('🗑️ Attempting to delete all jobs...')
+      const response = await jobsAPI.deleteAll()
+      console.log('✅ Delete all jobs response:', response)
+      showNotification('All jobs deleted successfully.', 'success', 5000)
+      setShowDeleteJobsConfirm(false)
+    } catch (error) {
+      console.error('❌ Error deleting all jobs:', error)
+      console.error('❌ Error response:', error.response)
+      console.error('❌ Error data:', error.response?.data)
+      console.error('❌ Error status:', error.response?.status)
+      
+      // Provide more detailed error message
+      let errorMessage = 'Failed to delete all jobs'
+      if (error.response?.status === 500) {
+        errorMessage = 'Server error: The backend encountered an issue while deleting jobs. This may be due to database constraints. Please check the server logs or try again later.'
+      } else if (error.response?.data?.error) {
+        errorMessage = error.response.data.error
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message
+      } else if (error.message) {
+        errorMessage = error.message
+      }
+      
+      showNotification(errorMessage, 'error', 8000)
+    } finally {
+      setDeletingJobs(false)
+    }
+  }
+  
+  const handleDeleteAllTeam = async () => {
+    try {
+      setDeletingTeam(true)
+      // Get all team members first
+      const response = await teamAPI.getAll(user.id, {
+        status: "",
+        search: "",
+        sortBy: "first_name",
+        sortOrder: "ASC",
+        page: 1,
+        limit: 1000
+      })
+      const allMembers = response.teamMembers || response || []
+      const deletableMembers = allMembers.filter(member => 
+        !(member.role === 'account owner' || member.role === 'owner' || member.role === 'admin')
+      )
+      
+      // Delete all deletable members
+      for (const member of deletableMembers) {
+        await teamAPI.delete(member.id)
+      }
+      
+      showNotification(`${deletableMembers.length} team member(s) deleted successfully.`, 'success', 5000)
+      setShowDeleteTeamConfirm(false)
+    } catch (error) {
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to delete all team members'
+      showNotification(errorMessage, 'error', 5000)
+    } finally {
+      setDeletingTeam(false)
+    }
+  }
+  
+  const handleDeleteAllTerritories = async () => {
+    try {
+      setDeletingTerritories(true)
+      // Get all territories first
+      const response = await territoriesAPI.getAll(user.id)
+      const allTerritories = response.territories || response || []
+      
+      // Delete all territories
+      for (const territory of allTerritories) {
+        await territoriesAPI.delete(territory.id)
+      }
+      
+      showNotification(`${allTerritories.length} territor(ies) deleted successfully.`, 'success', 5000)
+      setShowDeleteTerritoriesConfirm(false)
+    } catch (error) {
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to delete all territories'
+      showNotification(errorMessage, 'error', 5000)
+    } finally {
+      setDeletingTerritories(false)
+    }
   }
 
   return (
@@ -245,9 +356,306 @@ const Developers = () => {
                 </div>
               </div>
             </div>
+            
+            {/* Delete All Data Section */}
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <div className="mb-4">
+                <h2 className="text-xl font-semibold text-gray-900 mb-2">Delete All Data</h2>
+                <p className="text-gray-600 text-sm">
+                  Permanently delete all records. These actions cannot be undone.
+                </p>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Delete All Customers */}
+                <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center space-x-2">
+                      <Users className="w-5 h-5 text-red-600" />
+                      <h3 className="text-sm font-semibold text-gray-900">Delete All Customers</h3>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-600 mb-3">
+                    Permanently delete all customer records and associated data.
+                  </p>
+                  <button
+                    onClick={() => setShowDeleteCustomersConfirm(true)}
+                    disabled={deletingCustomers}
+                    className="w-full px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>Delete All Customers</span>
+                  </button>
+                </div>
+                
+                {/* Delete All Jobs */}
+                <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center space-x-2">
+                      <Briefcase className="w-5 h-5 text-red-600" />
+                      <h3 className="text-sm font-semibold text-gray-900">Delete All Jobs</h3>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-600 mb-3">
+                    Permanently delete all job records and associated data.
+                  </p>
+                  <button
+                    onClick={() => setShowDeleteJobsConfirm(true)}
+                    disabled={deletingJobs}
+                    className="w-full px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>Delete All Jobs</span>
+                  </button>
+                </div>
+                
+                {/* Delete All Team */}
+                <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center space-x-2">
+                      <UserCheck className="w-5 h-5 text-red-600" />
+                      <h3 className="text-sm font-semibold text-gray-900">Delete All Team Members</h3>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-600 mb-3">
+                    Permanently delete all team members (except account owners).
+                  </p>
+                  <button
+                    onClick={() => setShowDeleteTeamConfirm(true)}
+                    disabled={deletingTeam}
+                    className="w-full px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>Delete All Team</span>
+                  </button>
+                </div>
+                
+                {/* Delete All Territories */}
+                <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center space-x-2">
+                      <MapPin className="w-5 h-5 text-red-600" />
+                      <h3 className="text-sm font-semibold text-gray-900">Delete All Territories</h3>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-600 mb-3">
+                    Permanently delete all territory records.
+                  </p>
+                  <button
+                    onClick={() => setShowDeleteTerritoriesConfirm(true)}
+                    disabled={deletingTerritories}
+                    className="w-full px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>Delete All Territories</span>
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
+      
+      {/* Delete Confirmation Modals */}
+      {/* Delete All Customers Modal */}
+      {showDeleteCustomersConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-start space-x-4">
+                <div className="flex-shrink-0">
+                  <AlertTriangle className="w-6 h-6 text-red-600" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete All Customers?</h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                    This will permanently delete all customers and all associated data. This action cannot be undone.
+                  </p>
+                  <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
+                    <button
+                      onClick={() => setShowDeleteCustomersConfirm(false)}
+                      disabled={deletingCustomers}
+                      className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleDeleteAllCustomers}
+                      disabled={deletingCustomers}
+                      className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                    >
+                      {deletingCustomers ? (
+                        <>
+                          <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          <span>Deleting...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Trash2 className="w-4 h-4" />
+                          <span>Delete All</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Delete All Jobs Modal */}
+      {showDeleteJobsConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-start space-x-4">
+                <div className="flex-shrink-0">
+                  <AlertTriangle className="w-6 h-6 text-red-600" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete All Jobs?</h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                    This will permanently delete all jobs and all associated data. This action cannot be undone.
+                  </p>
+                  <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
+                    <button
+                      onClick={() => setShowDeleteJobsConfirm(false)}
+                      disabled={deletingJobs}
+                      className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleDeleteAllJobs}
+                      disabled={deletingJobs}
+                      className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                    >
+                      {deletingJobs ? (
+                        <>
+                          <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          <span>Deleting...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Trash2 className="w-4 h-4" />
+                          <span>Delete All</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Delete All Team Modal */}
+      {showDeleteTeamConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-start space-x-4">
+                <div className="flex-shrink-0">
+                  <AlertTriangle className="w-6 h-6 text-red-600" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete All Team Members?</h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                    This will permanently delete all team members (except account owners) and all associated data. This action cannot be undone.
+                  </p>
+                  <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
+                    <button
+                      onClick={() => setShowDeleteTeamConfirm(false)}
+                      disabled={deletingTeam}
+                      className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleDeleteAllTeam}
+                      disabled={deletingTeam}
+                      className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                    >
+                      {deletingTeam ? (
+                        <>
+                          <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          <span>Deleting...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Trash2 className="w-4 h-4" />
+                          <span>Delete All</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Delete All Territories Modal */}
+      {showDeleteTerritoriesConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-start space-x-4">
+                <div className="flex-shrink-0">
+                  <AlertTriangle className="w-6 h-6 text-red-600" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete All Territories?</h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                    This will permanently delete all territories and all associated data. This action cannot be undone.
+                  </p>
+                  <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
+                    <button
+                      onClick={() => setShowDeleteTerritoriesConfirm(false)}
+                      disabled={deletingTerritories}
+                      className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleDeleteAllTerritories}
+                      disabled={deletingTerritories}
+                      className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                    >
+                      {deletingTerritories ? (
+                        <>
+                          <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          <span>Deleting...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Trash2 className="w-4 h-4" />
+                          <span>Delete All</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (

@@ -16,7 +16,6 @@ const ServiceFlowCustomers = () => {
   const { user, loading: authLoading } = useAuth()
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [matchBookings, setMatchBookings] = useState(true)
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false)
   const [isExportModalOpen, setIsExportModalOpen] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -210,7 +209,7 @@ const ServiceFlowCustomers = () => {
       setCustomerToDelete(null)
 
       // Show success message
-      setSuccessMessage(`Customer "${customerToDelete.first_name} ${customerToDelete.last_name}" deleted successfully.`)
+      setSuccessMessage(`Customer "${he.decode(customerToDelete.first_name || '')} ${he.decode(customerToDelete.last_name || '')}" deleted successfully.`)
 
       // Clear success message after 3 seconds
       setTimeout(() => setSuccessMessage(""), 3000)
@@ -296,7 +295,7 @@ const ServiceFlowCustomers = () => {
   const normalizeField = (field) => {
     if (!field) return ''
     // Convert to string, decode HTML entities, trim, normalize whitespace, lowercase
-    return String(field)
+    return he.decode(String(field))
       .trim()
       .replace(/\s+/g, ' ') // Collapse multiple spaces to single space
       .toLowerCase()
@@ -434,14 +433,6 @@ const ServiceFlowCustomers = () => {
                 >
                   Import
                 </button>
-                {customers.length > 0 && (
-                  <button
-                    onClick={handleDeleteAll}
-                    className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                  >
-                    Delete All
-                  </button>
-                )}
                 <button
                   onClick={handleAddCustomer}
                   className="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
@@ -451,33 +442,6 @@ const ServiceFlowCustomers = () => {
               </div>
             </div>
 
-            {/* Match Bookings Card */}
-            <div className="mb-4 sm:mb-6 bg-gray-100 rounded-lg p-4">
-              <div className="flex items-start gap-3">
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-sm font-semibold text-gray-900 mb-1">
-                    Match Bookings to Existing Customers
-                  </h3>
-                  <p className="text-xs text-gray-600 leading-relaxed">
-                    When enabled, Zenbooker links new online bookings to existing customers based on email. New customers are created for emails without a match.
-                  </p>
-                </div>
-                <div className="flex-shrink-0">
-                  <button
-                    onClick={() => setMatchBookings(!matchBookings)}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${
-                      matchBookings ? 'bg-green-500' : 'bg-gray-300'
-                    }`}
-                  >
-                    <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                        matchBookings ? 'translate-x-6' : 'translate-x-1'
-                      }`}
-                    />
-                  </button>
-                </div>
-              </div>
-            </div>
 
             {/* Error Message */}
             {error && (
@@ -558,7 +522,7 @@ const ServiceFlowCustomers = () => {
                             {/* Name and Location */}
                             <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                               <span className="font-semibold text-sm text-gray-900 truncate">
-                                {customer.first_name} {customer.last_name}
+                                {he.decode(customer.first_name || '')} {he.decode(customer.last_name || '')}
                               </span>
                               {/* Recurring Indicator */}
                               {customersWithRecurring.has(customer.id) && (
@@ -618,7 +582,7 @@ const ServiceFlowCustomers = () => {
               <h3 className="text-base sm:text-lg font-medium text-gray-900">Delete Customer</h3>
             </div>
             <p className="text-xs sm:text-sm text-gray-500 mb-6">
-              Are you sure you want to delete <strong>{customerToDelete.first_name} {customerToDelete.last_name}</strong>?
+              Are you sure you want to delete <strong>{he.decode(customerToDelete.first_name || '')} {he.decode(customerToDelete.last_name || '')}</strong>?
               This action cannot be undone.
               {customerToDelete.jobs_count > 0 || customerToDelete.estimates_count > 0 ? (
                 <span className="block mt-2 text-red-600">
