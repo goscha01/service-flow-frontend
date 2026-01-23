@@ -736,6 +736,25 @@ const LeadsPipeline = () => {
     }
   };
   
+  // Handle delete lead
+  const handleDeleteLead = async (leadId) => {
+    if (!window.confirm('Are you sure you want to delete this lead? This action cannot be undone.')) {
+      return;
+    }
+    
+    try {
+      await leadsAPI.delete(leadId);
+      showNotification('Lead deleted successfully!', 'success', 3000);
+      setShowLeadDetailsModal(false);
+      setSelectedLead(null);
+      loadLeads();
+    } catch (err) {
+      const errorMessage = err.response?.data?.error || err.message || 'Failed to delete lead';
+      showNotification(errorMessage, 'error', 5000);
+      console.error('Error deleting lead:', err);
+    }
+  };
+  
   // Handle task status change
   const handleTaskStatusChange = async (taskId, newStatus) => {
     try {
@@ -1988,6 +2007,13 @@ const LeadsPipeline = () => {
                 >
                   <Edit className="w-4 h-4" />
                   Edit
+                </button>
+                <button
+                  onClick={() => handleDeleteLead(selectedLead.id)}
+                  className="px-3 py-1.5 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-1"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Delete
                 </button>
                 <button
                   onClick={() => setShowLeadDetailsModal(false)}
