@@ -426,77 +426,10 @@ const TeamMemberDetailsRedesigned = () => {
               </div>
             </div>
 
-            {/* Limit jobs per day */}
-            <div className="flex items-center justify-between mt-6 pt-6 border-t border-gray-200">
-              <span className="text-sm font-medium text-gray-900">
-                Limit the number of jobs per day for this provider
-              </span>
-              <button
-                onClick={() => handleToggle('max_jobs_per_day')}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  editFormData.max_jobs_per_day ? 'bg-blue-600' : 'bg-gray-200'
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    editFormData.max_jobs_per_day ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-            </div>
+          
           </div>
 
-          {/* Assignment */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-2">Assignment</h2>
-            <p className="text-sm text-gray-600 mb-6">
-              Control whether this provider can be auto-assigned to jobs, or claim eligible jobs that you've offered.
-            </p>
-
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <Zap className="w-4 h-4 text-gray-400" />
-                  <span className="text-sm font-medium text-gray-900">
-                    Can be auto-assigned jobs
-                  </span>
-                </div>
-                <button
-                  onClick={() => handleToggle('auto_assign')}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    editFormData.auto_assign ? 'bg-blue-600' : 'bg-gray-200'
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      editFormData.auto_assign ? 'translate-x-6' : 'translate-x-1'
-                    }`}
-                  />
-                </button>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <Flag className="w-4 h-4 text-gray-400" />
-                  <span className="text-sm font-medium text-gray-900">
-                    Can claim available job offers
-                  </span>
-                </div>
-                <button
-                  onClick={() => handleToggle('can_claim_jobs')}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    editFormData.can_claim_jobs ? 'bg-blue-600' : 'bg-gray-200'
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      editFormData.can_claim_jobs ? 'translate-x-6' : 'translate-x-1'
-                    }`}
-                  />
-                </button>
-              </div>
-            </div>
-          </div>
+      
 
           {/* Notifications */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">

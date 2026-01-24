@@ -149,6 +149,31 @@ const CustomerDetails = () => {
     }).format(amount || 0)
   }
 
+  // Decode HTML entities (e.g., &#x27; -> ', O&#x27;steen -> O'steen)
+  const decodeHtmlEntities = (text) => {
+    if (!text || typeof text !== 'string') return text || ''
+    // Handle common HTML entities
+    return text
+      .replace(/&#x27;/g, "'")
+      .replace(/&#39;/g, "'")
+      .replace(/&apos;/g, "'")
+      .replace(/&quot;/g, "'")
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+  }
+
+  // Calculate total revenue from completed jobs
+  const calculateTotalRevenue = () => {
+    const completedJobs = jobs.filter(job => job.status === 'completed')
+    const total = completedJobs.reduce((sum, job) => {
+      // Use total if available, otherwise use price, otherwise 0
+      const jobTotal = parseFloat(job.total) || parseFloat(job.price) || 0
+      return sum + jobTotal
+    }, 0)
+    return total
+  }
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'completed': return 'bg-green-100 text-green-800'
@@ -351,7 +376,7 @@ const CustomerDetails = () => {
                 </div>
               </div>
               <h1 className="text-3xl font-bold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
-                {customer.first_name} {customer.last_name}
+                {decodeHtmlEntities(customer.first_name || '')} {decodeHtmlEntities(customer.last_name || '')}
               </h1>
             </div>
           </div>
@@ -431,7 +456,9 @@ const CustomerDetails = () => {
                       </h3>
                       <Info className="w-3 h-3 text-gray-400" />
                     </div>
-                    <p className="text-sm text-gray-900 mt-1" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>-</p>
+                    <p className="text-sm text-gray-900 mt-1" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                      {formatCurrency(calculateTotalRevenue())}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -532,20 +559,46 @@ const CustomerDetails = () => {
                   </div>
                 </div>
 
-                {/* Requests Section */}
+                {/* Properties Section */}
                 <div className="bg-white rounded-lg border border-gray-200">
                   <div className="px-6 py-4 border-b border-gray-200">
-                    <h2 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Requests</h2>
-                  </div>
-                  <div className="p-12">
-                    <div className="text-center">
-                      <div className="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-lg mb-3">
-                        <MessageCircle className="w-6 h-6 text-gray-400" />
-                      </div>
-                      <p className="text-sm text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
-                        This customer hasn't submitted any booking or quote requests
-                      </p>
+                    <div className="flex items-center justify-between">
+                      <h2 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Properties</h2>
+                      <button className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                        <Plus className="w-4 h-4 mr-1" />
+                        Add Property
+                      </button>
                     </div>
+                  </div>
+                  <div className="p-6">
+                    {customer.address ? (
+                      <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                        <div className="flex items-center">
+                          <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
+                            <MapPin className="w-5 h-5 text-blue-600" />
+                          </div>
+                          <div>
+                            <div className="flex items-center">
+                              <p className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                                {customer.address.split(',')[0]}
+                              </p>
+                              <span className="ml-2 px-2 py-0.5 text-xs font-medium text-blue-700 bg-blue-50 rounded" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                                Default
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{customer.address}</p>
+                          </div>
+                        </div>
+                        <button className="p-2 hover:bg-gray-100 rounded-lg">
+                          <MoreVertical className="w-5 h-5 text-gray-400" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="text-center py-12">
+                        <MapPin className="mx-auto h-12 w-12 text-gray-300" />
+                        <p className="mt-2 text-sm text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>No properties added</p>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -595,66 +648,6 @@ const CustomerDetails = () => {
                   </div>
                 </div>
 
-                {/* Properties Section */}
-                <div className="bg-white rounded-lg border border-gray-200">
-                  <div className="px-6 py-4 border-b border-gray-200">
-                    <div className="flex items-center justify-between">
-                      <h2 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Properties</h2>
-                      <button className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
-                        <Plus className="w-4 h-4 mr-1" />
-                        Add Property
-                      </button>
-                    </div>
-                  </div>
-                  <div className="p-6">
-                    {customer.address ? (
-                      <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                        <div className="flex items-center">
-                          <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
-                            <MapPin className="w-5 h-5 text-blue-600" />
-                          </div>
-                          <div>
-                            <div className="flex items-center">
-                              <p className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
-                                {customer.address.split(',')[0]}
-                              </p>
-                              <span className="ml-2 px-2 py-0.5 text-xs font-medium text-blue-700 bg-blue-50 rounded" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
-                                Default
-                              </span>
-                            </div>
-                            <p className="text-sm text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{customer.address}</p>
-                          </div>
-                        </div>
-                        <button className="p-2 hover:bg-gray-100 rounded-lg">
-                          <MoreVertical className="w-5 h-5 text-gray-400" />
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="text-center py-12">
-                        <MapPin className="mx-auto h-12 w-12 text-gray-300" />
-                        <p className="mt-2 text-sm text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>No properties added</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Recurring Bookings Section */}
-                <div className="bg-white rounded-lg border border-gray-200">
-                  <div className="px-6 py-4 border-b border-gray-200">
-                    <h2 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Recurring Bookings</h2>
-                  </div>
-                  <div className="p-12">
-                    <div className="text-center">
-                      <div className="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-lg mb-3">
-                        <RefreshCw className="w-6 h-6 text-gray-400" />
-                      </div>
-                      <p className="text-sm text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
-                        This customer doesn't have any recurring bookings
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
                 {/* Payment Methods Section */}
                 <div className="bg-white rounded-lg border border-gray-200">
                   <div className="px-6 py-4 border-b border-gray-200">
@@ -697,7 +690,7 @@ const CustomerDetails = () => {
               <h3 className="text-lg font-medium text-gray-900">Delete Customer</h3>
             </div>
             <p className="text-sm text-gray-500 mb-6">
-              Are you sure you want to delete <strong>{customer.first_name} {customer.last_name}</strong>?
+              Are you sure you want to delete <strong>{decodeHtmlEntities(customer.first_name || '')} {decodeHtmlEntities(customer.last_name || '')}</strong>?
               This action cannot be undone.
               {(jobs.length > 0 || estimates.length > 0 || invoices.length > 0) ? (
                 <span className="block mt-2 text-red-600">
