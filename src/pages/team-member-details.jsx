@@ -1590,89 +1590,10 @@ const TeamMemberDetails = () => {
                   </div>
                 </div>
 
-                {/* Limit Jobs Per Day */}
-                <div className="flex items-center justify-between pt-6 mt-6 border-t border-gray-200">
-                  <span className="text-sm text-gray-700">Limit the number of jobs per day for this provider</span>
-                  <button
-                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 ${
-                      settings.limitJobsPerDay ? 'bg-green-500' : 'bg-gray-200'
-                    }`}
-                    onClick={async () => {
-                      const newSettings = { ...settings, limitJobsPerDay: !settings.limitJobsPerDay }
-                      setSettings(newSettings)
-                      await handleSaveSettings(newSettings)
-                    }}
-                  >
-                    <span
-                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                        settings.limitJobsPerDay ? 'translate-x-5' : 'translate-x-0'
-                      }`}
-                    />
-                  </button>
-                </div>
+               
               </div>
 
-              {/* Assignment Card */}
-              <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
-                <div className="mb-4 sm:mb-6">
-                  <h3 className="text-base font-semibold text-gray-900 mb-2">Assignment</h3>
-                  <p className="text-sm text-gray-600">
-                    Control whether this provider can be auto-assigned to jobs, or claim eligible jobs that you've offered
-                  </p>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between py-3 border-b border-gray-200">
-                    <div className="flex items-center space-x-3">
-                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                      </svg>
-                      <span className="text-sm text-gray-700">Can be auto-assigned jobs</span>
-                    </div>
-                    <button
-                      className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 ${
-                        settings.canAutoAssign ? 'bg-green-500' : 'bg-gray-200'
-                      }`}
-                      onClick={async () => {
-                        const newSettings = { ...settings, canAutoAssign: !settings.canAutoAssign }
-                        setSettings(newSettings)
-                        await handleSaveSettings(newSettings)
-                      }}
-                    >
-                      <span
-                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                          settings.canAutoAssign ? 'translate-x-5' : 'translate-x-0'
-                        }`}
-                      />
-                    </button>
-                  </div>
-
-                  <div className="flex items-center justify-between py-3">
-                    <div className="flex items-center space-x-3">
-                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                      </svg>
-                      <span className="text-sm text-gray-700">Can claim available job offers</span>
-                    </div>
-                    <button
-                      className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 ${
-                        settings.canClaimJobs ? 'bg-green-500' : 'bg-gray-200'
-                      }`}
-                      onClick={async () => {
-                        const newSettings = { ...settings, canClaimJobs: !settings.canClaimJobs }
-                        setSettings(newSettings)
-                        await handleSaveSettings(newSettings)
-                      }}
-                    >
-                      <span
-                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                          settings.canClaimJobs ? 'translate-x-5' : 'translate-x-0'
-                        }`}
-                      />
-                    </button>
-                  </div>
-                </div>
-              </div>
+           
 
               {/* Notifications Card */}
               <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">

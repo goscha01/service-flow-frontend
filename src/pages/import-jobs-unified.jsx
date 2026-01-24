@@ -749,7 +749,18 @@ const UnifiedImportJobsPage = () => {
         // Map ZenBooker-specific fields (same as original)
         job.jobId = rawData['service_order_custom_service_order'] || rawData['job_random_id_text'] || rawData['_id'] || '';
         if (rawData['_id']) {
-          job._id = rawData['_id'];
+          job._id = rawData['_id'].trim();
+        }
+        
+        // CRITICAL: Log _id extraction for debugging (especially for Sheila O'steen)
+        const customerNameForDebug = rawData['customer_name_text'] || '';
+        const isSheilaOsteen = customerNameForDebug.toLowerCase().includes("sheila") && customerNameForDebug.toLowerCase().includes("o'steen");
+        if (isSheilaOsteen || i < 5) {
+          console.log(`Row ${i + 1}: 🔍 CSV Parsing - Customer: "${customerNameForDebug}", _id from rawData: "${rawData['_id'] || 'MISSING'}", job._id: "${job._id || 'MISSING'}"`);
+          if (!rawData['_id'] && !job._id) {
+            console.error(`Row ${i + 1}: ❌ CRITICAL - _id is MISSING from CSV! Available headers:`, headers.slice(-5));
+            console.error(`Row ${i + 1}: ❌ Last 5 values in row:`, values.slice(-5));
+          }
         }
         job.customerName = rawData['customer_name_text'] || '';
         job.customerEmail = rawData['customer_email_text'] || '';
@@ -1037,11 +1048,29 @@ const UnifiedImportJobsPage = () => {
         
         const requiredFields = ['customerName', 'customerEmail', 'customerPhone', 'serviceName', 'scheduledDate', 'scheduledTime'];
         const paymentStatusFields = ['invoice_fully_paid_boolean', 'paymentStatus', 'invoiceStatus', 'paymentMethod'];
+        // CRITICAL: Always preserve _id field - it's essential for duplicate detection
+        // _id is the PRIMARY identifier for jobs - without it, fallback duplicate detection may incorrectly match jobs
+        const preserveFields = ['_id', 'jobId'];
         Object.keys(job).forEach(key => {
-          if (job[key] === '' && !requiredFields.includes(key) && !paymentStatusFields.includes(key)) {
+          if (job[key] === '' && !requiredFields.includes(key) && !paymentStatusFields.includes(key) && !preserveFields.includes(key)) {
             delete job[key];
           }
         });
+        
+        // CRITICAL: Ensure _id is always included if it was extracted from CSV
+        // This prevents jobs from being incorrectly matched by fallback duplicate detection
+        if (rawData['_id'] && rawData['_id'].trim() && !job._id) {
+          job._id = rawData['_id'].trim();
+          console.warn(`Row ${i + 1}: ⚠️ _id was extracted from CSV but missing from job object - restoring it. Customer: "${job.customerName || 'N/A'}"`);
+        }
+        
+        // Log warning if _id is missing for jobs that should have it (ZenBooker exports always have _id)
+        if (!job._id && sourceType === 'zenbooker') {
+          const customerNameForWarning = job.customerName || 'N/A';
+          console.error(`Row ${i + 1}: ❌ CRITICAL ERROR - ZenBooker job missing _id field! Customer: "${customerNameForWarning}", Service: "${job.serviceName || 'N/A'}"`);
+          console.error(`Row ${i + 1}: ❌ This job will be created as NEW (cannot detect duplicates without _id)`);
+          console.error(`Row ${i + 1}: ❌ Check CSV - _id column should be the last column. Raw _id value: "${rawData['_id'] || 'NOT FOUND'}"`);
+        }
         
         if (!job.customerName && !job.customerEmail && !job.customerPhone) {
           console.warn(`Row ${i + 1}: Skipping job - no customer information provided`);

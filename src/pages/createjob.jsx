@@ -1211,7 +1211,6 @@ export default function CreateJobPage() {
         scheduledDate: formData.scheduledDate,
         scheduledTime: formData.scheduledTime,
         notes: formData.notes,
-        internalNotes: formData.internalNotes,
         status: formData.status,
         duration: parseInt(calculateTotalDuration() || 0) || 360, // Duration already in minutes
         workers: parseInt(formData.workers) || 0,
@@ -1239,7 +1238,6 @@ export default function CreateJobPage() {
         skills: formData.skills,
         specialInstructions: formData.specialInstructions,
         customerNotes: formData.customerNotes,
-        tags: formData.tags,
         recurringFrequency: formData.recurringFrequency,
         recurringEndDate: formData.recurringEndDate,
         autoInvoice: formData.autoInvoice,
@@ -2981,29 +2979,7 @@ setIntakeQuestionAnswers(answers);
                           </div>
                         </div>
                         
-                      <div className="flex items-start gap-3">
-                        <div className="flex items-center justify-center w-5 h-5 mt-0.5">
-                            <input
-                          type="radio"
-                          name="scheduling-option"
-                          checked={formData.letCustomerSchedule}
-                          onChange={() => setFormData(prev => ({ ...prev, letCustomerSchedule: true }))}
-                            className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                        />
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="font-bold text-sm text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Let Customer Schedule</span>
-                            <span className="inline-flex items-center gap-1 text-xs text-purple-700 font-medium" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
-                              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                <path d="M10 2a8 8 0 100 16 8 8 0 000-16zm1 11H9v-2h2v2zm0-4H9V5h2v4z"/>
-                              </svg>
-                              Upgrade
-                            </span>
-                          </div>
-                          <p className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Send a bookable estimate to your customer, allowing them to choose a convenient time for the service.</p>
-                          </div>
-                        </div>
+                      
                         </div>
                       
                       {/* REPEATS Section - Only show when Recurring Job is selected */}
@@ -3068,15 +3044,7 @@ setIntakeQuestionAnswers(answers);
                         </div>
                       )}
                       
-                      <label className="flex items-start gap-3 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={formData.offerToProviders}
-                          onChange={(e) => setFormData(prev => ({ ...prev, offerToProviders: e.target.checked }))}
-                          className="mt-0.5 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
-                        />
-                        <span className="text-sm text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Offer job to service providers</span>
-                      </label>
+                   
                                       </div>
                                     </div>
                             </div>
@@ -3298,47 +3266,6 @@ setIntakeQuestionAnswers(answers);
                   </button>
                 </div>
 
-                  {/* Tags */}
-                  <div className="px-5 py-3 border-b border-gray-200">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Tags</span>
-                      <Info className="w-4 h-4 text-gray-400" />
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800"
-                      style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
-                    >
-                      <Plus className="w-4 h-4" />
-                      Add Tag
-                  </button>
-            </div>
-
-                  {/* Internal Notes */}
-                  <div className="px-5 py-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <span className="text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Internal Notes</span>
-                      <Info className="w-4 h-4 text-gray-400" />
-                    </div>
-                    <textarea
-                      placeholder="Add an internal note just for employees to see..."
-                      value={formData.internalNotes}
-                      onChange={(e) => setFormData(prev => ({ ...prev, internalNotes: e.target.value }))}
-                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-                      style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
-                      rows="3"
-                    />
-                    <div className="flex gap-3 mt-2">
-                      <button type="button" className="text-gray-400 hover:text-gray-600">
-                        <Paperclip className="w-5 h-5" />
-              </button>
-                      <button type="button" className="text-gray-400 hover:text-gray-600">
-                        <Edit3 className="w-5 h-5" />
-              </button>
-            </div>
-        </div>
                 </div>
               </div>
             </div>
