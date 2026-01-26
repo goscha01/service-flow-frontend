@@ -545,7 +545,7 @@ const CustomerDetails = () => {
                                   JOB-#{job.id}
                                 </p>
                                 <p className="text-sm text-gray-700 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
-                                  {job.service_name}
+                                  {decodeHtmlEntities(job.service_name || '')}
                                 </p>
                                 <p className="text-xs text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                                   {startTime} - {endTime}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, RotateCw, Calendar, AlertCircle } from 'lucide-react';
 import { formatRecurringFrequency } from '../utils/recurringUtils';
+import { decodeHtmlEntities } from '../utils/htmlUtils';
 
 const ConvertToRecurringModal = ({ 
   isOpen, 
@@ -184,7 +185,7 @@ const ConvertToRecurringModal = ({
             <h3 className="text-sm font-semibold text-gray-700 mb-3">Job Information</h3>
             <div className="bg-gray-50 rounded-lg p-4 space-y-2">
               <div className="text-sm text-gray-900">
-                <span className="font-medium">Service:</span> {job.service_name || 'N/A'}
+                <span className="font-medium">Service:</span> {decodeHtmlEntities(job.service_name || 'N/A')}
               </div>
               {scheduledDate && (
                 <div className="text-sm text-gray-900">

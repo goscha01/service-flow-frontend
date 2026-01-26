@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { useNavigate } from "react-router-dom"
-import { ChevronLeft, ChevronRight, Calendar, CalendarDays, Clock, Users, Filter, Edit, X, Check, AlertCircle, List, Grid, Phone, Mail, DollarSign } from "lucide-react"
+import { ChevronLeft, ChevronRight, Calendar, CalendarDays, Clock, Users, Filter, Edit, X, Check, CheckCircle, AlertCircle, List, Grid, Phone, Mail, DollarSign } from "lucide-react"
 import { teamAPI, jobsAPI, leadsAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
 import { getImageUrl } from "../utils/imageUtils"
@@ -1502,6 +1502,100 @@ const UnifiedCalendar = () => {
     }
   }
 
+  // Handle finish - just completes the current task
+  const handleFinish = async (task) => {
+    try {
+      await leadsAPI.updateTask(task.id, { status: 'completed' })
+      setMessage({ type: 'success', text: 'Task completed successfully!' })
+      setTimeout(() => setMessage({ type: '', text: '' }), 3000)
+      fetchTasks()
+      setShowTaskDetails(false)
+      setSelectedTask(null)
+    } catch (err) {
+      const errorMessage = err.response?.data?.error || err.message || 'Failed to complete task'
+      setMessage({ type: 'error', text: errorMessage })
+      console.error('Error completing task:', err)
+    }
+  }
+
+  // Handle finish and follow up - completes current task and creates a new follow-up task
+  const handleFinishAndFollowUp = async (task) => {
+    try {
+      // First, complete the current task
+      await leadsAPI.updateTask(task.id, { status: 'completed' })
+      
+      // Calculate follow-up date (default to tomorrow, or 3 days from now if original task had a due date)
+      let followUpDate = new Date()
+      if (task.due_date) {
+        const originalDate = new Date(task.due_date)
+        followUpDate = new Date(originalDate)
+        followUpDate.setDate(followUpDate.getDate() + 3)
+      } else {
+        followUpDate.setDate(followUpDate.getDate() + 1)
+      }
+      
+      // Format date for API (YYYY-MM-DDTHH:mm:ss)
+      const followUpDateString = `${followUpDate.toISOString().split('T')[0]}T09:00:00`
+      
+      // Get lead ID from task
+      const taskLeadId = task.lead_id || (task.leads?.id) || null
+      
+      // Create follow-up task with similar details
+      const followUpTaskData = {
+        title: `Follow up: ${task.title}`,
+        description: task.description || null,
+        dueDate: followUpDateString,
+        priority: task.priority || 'medium',
+        assignedTo: task.assigned_to || null,
+        status: 'pending'
+      }
+      
+      if (taskLeadId) {
+        // Create task with selected lead
+        await leadsAPI.createTask(taskLeadId, followUpTaskData)
+      } else {
+        // Create task without lead - create a placeholder lead first
+        try {
+          const pipeline = await leadsAPI.getPipeline()
+          const firstStageId = pipeline?.stages?.[0]?.id
+          
+          if (!firstStageId) {
+            setMessage({ type: 'error', text: 'Please set up your pipeline first or assign this task to a lead.' })
+            return
+          }
+          
+          // Create a placeholder lead for the task
+          const placeholderLead = await leadsAPI.create({
+            firstName: 'Task',
+            lastName: 'Placeholder',
+            email: `task-${Date.now()}@placeholder.local`,
+            stageId: firstStageId
+          })
+          
+          // Create task with the placeholder lead
+          await leadsAPI.createTask(placeholderLead.id, followUpTaskData)
+          
+          // Refresh leads list
+          fetchLeads()
+        } catch (leadError) {
+          console.error('Error creating placeholder lead:', leadError)
+          setMessage({ type: 'error', text: 'Failed to create follow-up task. Please assign it to a lead or set up your pipeline.' })
+          return
+        }
+      }
+      
+      setMessage({ type: 'success', text: 'Task completed and follow-up task created!' })
+      setTimeout(() => setMessage({ type: '', text: '' }), 3000)
+      fetchTasks()
+      setShowTaskDetails(false)
+      setSelectedTask(null)
+    } catch (err) {
+      const errorMessage = err.response?.data?.error || err.message || 'Failed to finish and create follow-up task'
+      setMessage({ type: 'error', text: errorMessage })
+      console.error('Error finishing and creating follow-up task:', err)
+    }
+  }
+
   // Only show loading spinner on initial load
   if (loading && teamMembers.length === 0) {
     return (
@@ -1769,6 +1863,8 @@ const UnifiedCalendar = () => {
                         onEdit={handleEditTask}
                         onDelete={handleDeleteTask}
                         onStatusChange={handleTaskStatusChange}
+                        onFinish={handleFinish}
+                        onFinishAndFollowUp={handleFinishAndFollowUp}
                         showLeadInfo={true}
                       />
                     </div>
@@ -2014,6 +2110,8 @@ const UnifiedCalendar = () => {
                               onEdit={handleEditTask}
                               onDelete={handleDeleteTask}
                               onStatusChange={handleTaskStatusChange}
+                              onFinish={handleFinish}
+                              onFinishAndFollowUp={handleFinishAndFollowUp}
                               showLeadInfo={true}
                             />
                           </div>
@@ -2421,6 +2519,25 @@ const UnifiedCalendar = () => {
                 )}
               </div>
               <div className="flex items-center justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
+                {/* Finish and Finish & Follow Up buttons - only show for pending tasks */}
+                {selectedTask.status === 'pending' && (
+                  <>
+                    <button
+                      onClick={() => handleFinish(selectedTask)}
+                      className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors flex items-center space-x-2"
+                    >
+                      <CheckCircle className="w-4 h-4" />
+                      <span>Finish</span>
+                    </button>
+                    <button
+                      onClick={() => handleFinishAndFollowUp(selectedTask)}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors flex items-center space-x-2"
+                    >
+                      <CheckCircle className="w-4 h-4" />
+                      <span>Finish and Follow Up</span>
+                    </button>
+                  </>
+                )}
                 <button
                   onClick={() => {
                     setShowTaskDetails(false)

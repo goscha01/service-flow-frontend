@@ -83,7 +83,93 @@ const CalendarPicker = ({
       })
       
       if (response && response.slots) {
-        setAvailableSlots(response.slots)
+        // Process slots to ensure they're actual free time slots that can fit the job duration
+        const processedSlots = []
+        const requiredDuration = duration || 120 // Job duration in minutes
+        
+        // First, collect all time ranges (either from slots or availability windows)
+        const timeRanges = []
+        
+        response.slots.forEach(slot => {
+          // If slot already has time and endTime
+          if (slot.time && slot.endTime) {
+            const slotStart = timeToMinutes(slot.time)
+            const slotEnd = timeToMinutes(slot.endTime)
+            timeRanges.push({
+              start: slotStart,
+              end: slotEnd,
+              availableWorkers: slot.availableWorkers || slot.workers || 0
+            })
+          }
+          // If slot has start and end (availability window)
+          else if (slot.start && slot.end) {
+            const startMinutes = timeToMinutes(slot.start)
+            const endMinutes = timeToMinutes(slot.end)
+            timeRanges.push({
+              start: startMinutes,
+              end: endMinutes,
+              availableWorkers: slot.availableWorkers || slot.workers || 0
+            })
+          }
+        })
+        
+        // Sort time ranges by start time
+        timeRanges.sort((a, b) => a.start - b.start)
+        
+        // Merge overlapping or adjacent time ranges
+        const mergedRanges = []
+        if (timeRanges.length > 0) {
+          let currentRange = { ...timeRanges[0] }
+          
+          for (let i = 1; i < timeRanges.length; i++) {
+            const nextRange = timeRanges[i]
+            
+            // If ranges overlap or are adjacent (within 30 minutes), merge them
+            if (nextRange.start <= currentRange.end + 30) {
+              currentRange.end = Math.max(currentRange.end, nextRange.end)
+              currentRange.availableWorkers = Math.max(
+                currentRange.availableWorkers,
+                nextRange.availableWorkers
+              )
+            } else {
+              // No overlap, save current range and start a new one
+              mergedRanges.push(currentRange)
+              currentRange = { ...nextRange }
+            }
+          }
+          mergedRanges.push(currentRange)
+        }
+        
+        // Generate free time slots from merged ranges that can fit the job duration
+        mergedRanges.forEach(range => {
+          const rangeDuration = range.end - range.start
+          
+          // Only process ranges that are at least as long as the required duration
+          if (rangeDuration >= requiredDuration) {
+            // Generate slots at 30-minute intervals that can fit the job
+            let currentStart = range.start
+            
+            // Round start to nearest 30-minute interval
+            const remainder = currentStart % 30
+            if (remainder !== 0) {
+              currentStart = currentStart + (30 - remainder)
+            }
+            
+            // Generate slots until we can't fit another one
+            while (currentStart + requiredDuration <= range.end) {
+              const slotEnd = currentStart + requiredDuration
+              processedSlots.push({
+                time: minutesToTime(currentStart),
+                endTime: minutesToTime(slotEnd),
+                availableWorkers: range.availableWorkers
+              })
+              // Move to next 30-minute interval
+              currentStart += 30
+            }
+          }
+        })
+        
+        setAvailableSlots(processedSlots)
       } else {
         setAvailableSlots([])
       }
@@ -96,6 +182,47 @@ const CalendarPicker = ({
       setLoadingSlots(false)
     }
   }, [duration, workerId, serviceId])
+  
+  // Helper function to convert time string to minutes (handles both 12h and 24h format)
+  const timeToMinutes = (timeStr) => {
+    if (!timeStr) return 0
+    
+    // Handle 24-hour format (HH:MM)
+    if (timeStr.includes(':') && !timeStr.includes('AM') && !timeStr.includes('PM')) {
+      const [hours, minutes] = timeStr.split(':').map(Number)
+      return hours * 60 + minutes
+    }
+    
+    // Handle 12-hour format (HH:MM AM/PM)
+    const parts = timeStr.split(' ')
+    if (parts.length >= 2) {
+      const [time, period] = parts
+      const [hours, minutes] = time.split(':').map(Number)
+      let totalMinutes = hours * 60 + minutes
+      if (period === 'PM' && hours !== 12) totalMinutes += 12 * 60
+      if (period === 'AM' && hours === 12) totalMinutes -= 12 * 60
+      return totalMinutes
+    }
+    
+    return 0
+  }
+  
+  // Helper function to convert minutes to time string (24-hour format for API)
+  const minutesToTime = (minutes) => {
+    const hours = Math.floor(minutes / 60)
+    const mins = minutes % 60
+    return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`
+  }
+  
+  // Helper function to format time for display (12-hour format)
+  const formatTimeForDisplay = (timeStr) => {
+    const minutes = timeToMinutes(timeStr)
+    const hours = Math.floor(minutes / 60)
+    const mins = minutes % 60
+    const period = hours >= 12 ? 'PM' : 'AM'
+    const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours
+    return `${displayHours}:${mins.toString().padStart(2, '0')} ${period}`
+  }
 
   // Fetch available slots when date is selected in Available Times tab
   useEffect(() => {
@@ -197,11 +324,27 @@ const CalendarPicker = ({
 
   const formatTimeRange = (startTime, endTime) => {
     const formatTime = (time) => {
-      const [hours, minutes] = time.split(':')
+      if (!time) return ''
+      
+      // Handle 24-hour format (HH:MM)
+      let hours, minutes
+      if (time.includes(' ')) {
+        // 12-hour format with AM/PM
+        const [timePart, period] = time.split(' ')
+        const [h, m] = timePart.split(':')
+        hours = parseInt(h)
+        minutes = m || '00'
+        if (period === 'PM' && hours !== 12) hours += 12
+        if (period === 'AM' && hours === 12) hours = 0
+      } else {
+        // 24-hour format
+        [hours, minutes] = time.split(':').map(Number)
+      }
+      
       const hour = parseInt(hours)
       const ampm = hour >= 12 ? 'PM' : 'AM'
       const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour
-      return `${displayHour}:${minutes} ${ampm}`
+      return `${displayHour}:${String(minutes || 0).padStart(2, '0')} ${ampm}`
     }
 
     return `${formatTime(startTime)} - ${formatTime(endTime)}`

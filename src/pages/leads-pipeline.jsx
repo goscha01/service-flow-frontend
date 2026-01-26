@@ -19,7 +19,8 @@ import {
   ExternalLink,
   MapPin,
   Home,
-  Loader2
+  Loader2,
+  Briefcase
 } from 'lucide-react';
 import { leadsAPI, teamAPI, servicesAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -764,6 +765,58 @@ const LeadsPipeline = () => {
       const errorMessage = err.response?.data?.error || err.message || 'Failed to update task status';
       showNotification(errorMessage, 'error', 5000);
       console.error('Error updating task status:', err);
+    }
+  };
+  
+  // Handle finish - just completes the current task
+  const handleFinish = async (task) => {
+    try {
+      await leadsAPI.updateTask(task.id, { status: 'completed' });
+      showNotification('Task completed successfully!', 'success', 3000);
+      loadTasks(selectedLead.id);
+    } catch (err) {
+      const errorMessage = err.response?.data?.error || err.message || 'Failed to complete task';
+      showNotification(errorMessage, 'error', 5000);
+      console.error('Error completing task:', err);
+    }
+  };
+  
+  // Handle finish and follow up - completes current task and creates a new follow-up task
+  const handleFinishAndFollowUp = async (task) => {
+    try {
+      // First, complete the current task
+      await leadsAPI.updateTask(task.id, { status: 'completed' });
+      
+      // Calculate follow-up date (default to tomorrow, or 3 days from now if original task had a due date)
+      let followUpDate = new Date();
+      if (task.due_date) {
+        const originalDate = new Date(task.due_date);
+        followUpDate = new Date(originalDate);
+        followUpDate.setDate(followUpDate.getDate() + 3);
+      } else {
+        followUpDate.setDate(followUpDate.getDate() + 1);
+      }
+      
+      // Format date for API (YYYY-MM-DDTHH:mm:ss)
+      const followUpDateString = `${followUpDate.toISOString().split('T')[0]}T09:00:00`;
+      
+      // Create follow-up task with similar details
+      const followUpTaskData = {
+        title: `Follow up: ${task.title}`,
+        description: task.description || null,
+        dueDate: followUpDateString,
+        priority: task.priority || 'medium',
+        assignedTo: task.assigned_to || null,
+        status: 'pending'
+      };
+      
+      await leadsAPI.createTask(selectedLead.id, followUpTaskData);
+      showNotification('Task completed and follow-up task created!', 'success', 3000);
+      loadTasks(selectedLead.id);
+    } catch (err) {
+      const errorMessage = err.response?.data?.error || err.message || 'Failed to finish and create follow-up task';
+      showNotification(errorMessage, 'error', 5000);
+      console.error('Error finishing and creating follow-up task:', err);
     }
   };
   
@@ -2168,6 +2221,8 @@ const LeadsPipeline = () => {
                           onEdit={handleEditTask}
                           onDelete={handleDeleteTask}
                           onStatusChange={handleTaskStatusChange}
+                          onFinish={handleFinish}
+                          onFinishAndFollowUp={handleFinishAndFollowUp}
                           showLeadInfo={false}
                         />
                       ))}
@@ -2176,10 +2231,40 @@ const LeadsPipeline = () => {
                 </div>
                 
                 {selectedLead.converted_customer_id ? (
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                    <div className="flex items-center space-x-2 text-green-700">
-                      <CheckCircle className="w-5 h-5" />
-                      <span className="font-semibold">This lead has been converted to a customer</span>
+                  <div className="space-y-4">
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                      <div className="flex items-center space-x-2 text-green-700">
+                        <CheckCircle className="w-5 h-5" />
+                        <span className="font-semibold">This lead has been converted to a customer</span>
+                      </div>
+                    </div>
+                    <div className="flex justify-end pt-4 border-t border-gray-200">
+                      <button
+                        onClick={() => {
+                          // Get assigned team member from tasks (if any) - find the most recent assigned task
+                          const assignedTasks = tasks.filter(t => t.assigned_to);
+                          const assignedTeamMemberId = assignedTasks.length > 0 
+                            ? assignedTasks[assignedTasks.length - 1].assigned_to 
+                            : null;
+                          
+                          // Navigate with lead data in location state
+                          navigate(`/createjob?customerId=${selectedLead.converted_customer_id}`, {
+                            state: {
+                              fromLead: true,
+                              leadData: {
+                                serviceId: selectedLead.service_id || null,
+                                assignedTeamMemberId: assignedTeamMemberId,
+                                notes: selectedLead.notes || null,
+                                value: selectedLead.value || null
+                              }
+                            }
+                          });
+                        }}
+                        className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center"
+                      >
+                        <Briefcase className="w-4 h-4 mr-2" />
+                        Convert to Job
+                      </button>
                     </div>
                   </div>
                 ) : (

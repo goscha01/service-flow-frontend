@@ -408,7 +408,7 @@ const CreateModifierGroupModal = ({ isOpen, onClose, onSave, editingModifier = n
                           )}
                         </button>
                         <span className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
-                          New option
+                          {option.name || 'New option'}
                         </span>
                     </div>
                   </div>

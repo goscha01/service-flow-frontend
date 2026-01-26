@@ -9,6 +9,7 @@ import { jobsAPI, invoicesAPI, territoriesAPI, teamAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
 import { canCreateJobs } from "../utils/roleUtils"
 import { getImageUrl } from "../utils/imageUtils"
+import { decodeHtmlEntities } from "../utils/htmlUtils"
 import MobileBottomNav from "../components/mobile-bottom-nav"
 import MobileHeader from "../components/mobile-header"
 import RecurringIndicator from "../components/recurring-indicator"
@@ -1226,7 +1227,7 @@ const ServiceFlowJobs = () => {
                               <div className="flex flex-col">
                                 <div className="flex items-center gap-2">
                                   <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-sm capitalize font-medium text-gray-900">
-                                    {job.service_name || 'Service'}
+                                    {decodeHtmlEntities(job.service_name || 'Service')}
                                   </span>
                                   <RecurringIndicator
                                     isRecurring={job.is_recurring === true || job.is_recurring === 'true' || job.is_recurring === 1 || job.is_recurring === '1'}
@@ -1369,7 +1370,7 @@ const ServiceFlowJobs = () => {
                                 {/* Job Title */}
                                 <div className="flex items-center gap-2 mb-3">
                                   <h4 className="text-base font-semibold text-gray-900" style={{fontFamily: 'Montserrat', fontWeight: 600}}>
-                                    {job.service_name || 'Service'}
+                                    {decodeHtmlEntities(job.service_name || 'Service')}
                                   </h4>
                                   <RecurringIndicator
                                     isRecurring={job.is_recurring === true || job.is_recurring === 'true' || job.is_recurring === 1 || job.is_recurring === '1'}

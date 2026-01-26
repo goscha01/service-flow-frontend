@@ -818,16 +818,31 @@ const ServiceFlowTeam = () => {
                                       </button>
                                       {!(member.role === 'account owner' || member.role === 'owner' || member.role === 'admin') && (
                                         <>
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              handleToggleActivation(member);
-                                            }}
-                                            className="text-gray-400 hover:text-gray-600 transition-colors"
-                                            title={member.status === 'active' ? 'Deactivate' : 'Activate'}
-                                          >
-                                            <Zap className="w-5 h-5" />
-                                          </button>
+                                          {member.status === 'active' ? (
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleToggleActivation(member);
+                                              }}
+                                              className="text-red-600 hover:text-red-700 transition-colors flex items-center gap-1 px-2 py-1 rounded text-xs font-medium"
+                                              title="Deactivate"
+                                            >
+                                              <PowerOff className="w-4 h-4" />
+                                              <span>Deactivate</span>
+                                            </button>
+                                          ) : (
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleToggleActivation(member);
+                                              }}
+                                              className="text-green-600 hover:text-green-700 transition-colors flex items-center gap-1 px-2 py-1 rounded text-xs font-medium"
+                                              title="Activate"
+                                            >
+                                              <Power className="w-4 h-4" />
+                                              <span>Activate</span>
+                                            </button>
+                                          )}
                                           <button
                                             onClick={(e) => {
                                               e.stopPropagation();
@@ -904,17 +919,44 @@ const ServiceFlowTeam = () => {
                                   </div>
                                 </div>
 
-                                <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                                <div className="flex-shrink-0 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                                   {!(member.role === 'account owner' || member.role === 'owner' || member.role === 'admin') && (
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleEditMember(member);
-                                      }}
-                                      className="text-gray-400 hover:text-gray-600 transition-colors p-2"
-                                    >
-                                      <Settings className="w-5 h-5" />
-                                    </button>
+                                    <>
+                                      {member.status === 'active' ? (
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleToggleActivation(member);
+                                          }}
+                                          className="text-red-600 hover:text-red-700 transition-colors flex items-center gap-1 px-2 py-1 rounded text-xs font-medium"
+                                          title="Deactivate"
+                                        >
+                                          <PowerOff className="w-4 h-4" />
+                                          <span>Deactivate</span>
+                                        </button>
+                                      ) : (
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleToggleActivation(member);
+                                          }}
+                                          className="text-green-600 hover:text-green-700 transition-colors flex items-center gap-1 px-2 py-1 rounded text-xs font-medium"
+                                          title="Activate"
+                                        >
+                                          <Power className="w-4 h-4" />
+                                          <span>Activate</span>
+                                        </button>
+                                      )}
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleEditMember(member);
+                                        }}
+                                        className="text-gray-400 hover:text-gray-600 transition-colors p-2"
+                                      >
+                                        <Settings className="w-5 h-5" />
+                                      </button>
+                                    </>
                                   )}
                                 </div>
                               </div>

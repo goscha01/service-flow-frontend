@@ -63,7 +63,7 @@ import {
   Eye,
   RotateCw
 } from "lucide-react"
-import { jobsAPI, notificationAPI, territoriesAPI, teamAPI, invoicesAPI, twilioAPI, calendarAPI } from "../services/api"
+import { jobsAPI, notificationAPI, territoriesAPI, teamAPI, invoicesAPI, twilioAPI, calendarAPI, notificationSettingsAPI } from "../services/api"
 import api, { stripeAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
 import Sidebar from "../components/sidebar"
@@ -73,6 +73,7 @@ import IntakeQuestionsForm from "../components/intake-questions-form"
 import StatusProgressBar from "../components/status-progress-bar"
 import { formatPhoneNumber } from "../utils/phoneFormatter"
 import { formatDateLocal } from "../utils/dateUtils"
+import { decodeHtmlEntities } from "../utils/htmlUtils"
 import { formatRecurringFrequency } from "../utils/recurringUtils"
 import ConvertToRecurringModal from "../components/convert-to-recurring-modal"
 import DuplicateJobModal from "../components/duplicate-job-modal"
@@ -641,11 +642,13 @@ const JobDetails = () => {
       customer_city: jobData.customers?.city || jobData.customer_city,
       customer_state: jobData.customers?.state || jobData.customer_state,
       customer_zip_code: jobData.customers?.zip_code || jobData.customer_zip_code,
-      service_name: jobData.services?.name || jobData.service_name,
+      service_name: decodeHtmlEntities(jobData.services?.name || jobData.service_name || ''),
       service_price: jobData.services?.price || jobData.service_price,
       service_duration: jobData.services?.duration || jobData.service_duration,
       // Handle multiple services - check if service_name contains multiple services
-      service_names: jobData.service_name && jobData.service_name.includes(', ') ? jobData.service_name.split(', ') : null,
+      service_names: jobData.service_name && jobData.service_name.includes(', ') 
+        ? jobData.service_name.split(', ').map(name => decodeHtmlEntities(name)) 
+        : null,
       service_ids: jobData.service_ids ? (typeof jobData.service_ids === 'string' ? JSON.parse(jobData.service_ids) : jobData.service_ids) : null,
       // Map additional fields that might be missing
       duration: jobData.duration || jobData.estimated_duration,
@@ -1050,19 +1053,50 @@ const JobDetails = () => {
           setUserTwilioConnected(false)
         }
 
-        // Fetch customer notification preferences
+        // Fetch customer notification preferences and global settings
         if (jobData.customer_id) {
           try {
-            const prefs = await notificationAPI.getPreferences(jobData.customer_id)
+            // Load both customer preferences and global notification settings
+            const [prefs, globalSettings] = await Promise.all([
+              notificationAPI.getPreferences(jobData.customer_id),
+              notificationSettingsAPI.getSettings(user.id).catch(() => []) // Don't fail if global settings can't be loaded
+            ])
+            
             console.log('📧 Loaded customer notification preferences:', prefs)
+            console.log('🌐 Loaded global notification settings:', globalSettings)
     
-            // Always use the saved customer preferences
+            // Check global appointment confirmation SMS setting
+            const appointmentSetting = globalSettings.find(s => s.notification_type === 'appointment_confirmation')
+            const globalSmsEnabled = appointmentSetting && appointmentSetting.sms_enabled === 1
+            
+            // If global SMS is enabled, ensure SMS notifications are enabled for this customer
+            let smsShouldBeEnabled = !!prefs.sms_notifications
+            if (globalSmsEnabled && !prefs.sms_notifications) {
+              // Global setting overrides - enable SMS for this customer
+              smsShouldBeEnabled = true
+              console.log('🌐 Global appointment confirmation SMS is enabled - enabling SMS for this customer')
+              
+              // Update customer preferences to match global setting
+              try {
+                await notificationAPI.updatePreferences(jobData.customer_id, {
+                  email_notifications: prefs.email_notifications !== undefined ? !!prefs.email_notifications : true,
+                  sms_notifications: true
+                })
+                console.log('📱 Updated customer preferences to match global SMS setting')
+              } catch (updateError) {
+                console.error('Failed to update customer preferences:', updateError)
+                // Continue anyway - we'll still enable it in the UI
+              }
+            }
+            
+            // Set notification states
             setEmailNotifications(!!prefs.email_notifications)
-            setSmsNotifications(!!prefs.sms_notifications)
+            setSmsNotifications(smsShouldBeEnabled)
             
             console.log('📧 Setting notification states:', {
               email: !!prefs.email_notifications,
-              sms: !!prefs.sms_notifications,
+              sms: smsShouldBeEnabled,
+              globalSmsEnabled,
               userTwilioConnected,
               rawEmail: prefs.email_notifications,
               rawSms: prefs.sms_notifications
@@ -1070,7 +1104,7 @@ const JobDetails = () => {
             
             // Only auto-enable SMS for customers without email if they don't have preferences yet
             const hasEmail = jobData.customer_email && jobData.customer_email.trim() !== ''
-            if (!hasEmail && userTwilioConnected && !prefs.sms_notifications) {
+            if (!hasEmail && userTwilioConnected && !smsShouldBeEnabled && !globalSmsEnabled) {
               // Customer has no email and no SMS preference set - auto-enable SMS
               setSmsNotifications(true)
               
@@ -2655,7 +2689,7 @@ const JobDetails = () => {
               <h1 style={{fontFamily: 'Montserrat', fontWeight: 700}} className="text-xl font-bold text-gray-900 mb-1">
                 {job.service_names && job.service_names.length > 1 
                   ? `${job.service_names.length} Services` 
-                  : (job.service_name || 'Service')
+                  : decodeHtmlEntities(job.service_name || 'Service')
                 } <span style={{fontFamily: 'Montserrat', fontWeight: 400}} className="font-normal text-gray-500">for</span> {job.customer_first_name} {job.customer_last_name}
               </h1>
               <div className="flex items-center space-x-3">
@@ -3184,13 +3218,13 @@ const JobDetails = () => {
                         {job.service_names.map((serviceName, index) => (
                           <div key={index} className="flex items-center space-x-2">
                             <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                            <span className="text-sm text-gray-700">{serviceName}</span>
+                            <span className="text-sm text-gray-700">{decodeHtmlEntities(serviceName || '')}</span>
                           </div>
                         ))}
                       </div>
                     </div>
                   ) : (
-                  <p className="font-semibold text-gray-900">{job.service_name}</p>
+                  <p className="font-semibold text-gray-900">{decodeHtmlEntities(job.service_name || '')}</p>
                   )}
                   <p className="text-gray-600 text-sm mb-2">
                     {job.service_names && job.service_names.length > 1 ? `${job.service_names.length} services` : 'Default service category'}
@@ -3630,7 +3664,7 @@ const JobDetails = () => {
               {/* Service Details Section - Only show if user has permission */}
               {canViewEditJobPrice(user) ? (
               <div className="bg-gray-50 rounded-lg p-4 mb-6">
-                <h4 className="font-semibold text-gray-900 mb-4">{job.service_name}</h4>
+                <h4 className="font-semibold text-gray-900 mb-4">{decodeHtmlEntities(job.service_name || '')}</h4>
                 
                 <div className="space-y-3">
                   {/* Base Price */}
@@ -4786,7 +4820,7 @@ const JobDetails = () => {
                       <div className="p-4">
                         <div className="flex items-center justify-between py-3 border-b border-gray-100">
                   <div>
-                            <p className="font-medium text-gray-900">{job.service_name}</p>
+                            <p className="font-medium text-gray-900">{decodeHtmlEntities(job.service_name || '')}</p>
                             <button className="px-3 py-1 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 flex items-center space-x-2 text-sm font-medium">
                               <Edit className="w-4 h-4" />
                               <span>Edit</span>
@@ -5190,7 +5224,7 @@ const JobDetails = () => {
                       {job.service_names && job.service_names.length > 0 ? (
                         job.service_names.map((service, index) => (
                           <div key={index} className="flex justify-between text-sm">
-                            <span>{service}</span>
+                            <span>{decodeHtmlEntities(service || '')}</span>
                             <span>${job.service_prices && job.service_prices[index] ? job.service_prices[index].toFixed(2) : '0.00'}</span>
                           </div>
                         ))
@@ -6703,7 +6737,7 @@ const JobDetails = () => {
                   <h3 className="text-sm font-semibold text-gray-900 mb-1">
                     {job.service_names && job.service_names.length > 1 
                       ? `${job.service_names.length} Services` 
-                      : (job.service_name || 'Service')
+                      : decodeHtmlEntities(job.service_name || 'Service')
                     }
                   </h3>
                   <p className="text-xs text-gray-600">Job #{job.id || job.job_id}</p>

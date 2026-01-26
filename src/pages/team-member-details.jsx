@@ -32,6 +32,7 @@ import { teamAPI, territoriesAPI, staffLocationsAPI } from '../services/api'
 import UpdateAvailabilityModal from '../components/update-availability-modal'
 import AddTeamMemberModal from '../components/add-team-member-modal'
 import { getImageUrl } from '../utils/imageUtils'
+import { decodeHtmlEntities } from '../utils/htmlUtils'
 
 const TeamMemberDetails = () => {
   const { memberId } = useParams()
@@ -1105,7 +1106,7 @@ const TeamMemberDetails = () => {
                     {teamMember?.profile_picture ? (
                       <img 
                         src={getImageUrl(teamMember.profile_picture)} 
-                        alt={`${teamMember?.first_name || ''} ${teamMember?.last_name || ''}`}
+                        alt={`${decodeHtmlEntities(teamMember?.first_name || '')} ${decodeHtmlEntities(teamMember?.last_name || '')}`}
                         className="w-full h-full object-cover"
                         onError={(e) => {
                           console.error('Failed to load profile picture:', teamMember.profile_picture);
@@ -1114,13 +1115,13 @@ const TeamMemberDetails = () => {
                       />
                     ) : (
                       <span className="text-xl sm:text-2xl">
-                      {teamMember?.first_name?.charAt(0) || 'T'}{teamMember?.last_name?.charAt(0) || 'M'}
+                      {decodeHtmlEntities(teamMember?.first_name || 'T')?.charAt(0) || 'T'}{decodeHtmlEntities(teamMember?.last_name || 'M')?.charAt(0) || 'M'}
                       </span>
                     )}
                     </div>
                   <div className="flex-1 w-full text-center sm:text-left">
                     <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 mb-1">
-                        {teamMember?.first_name || 'First'} {teamMember?.last_name || 'Last'}
+                        {decodeHtmlEntities(teamMember?.first_name || 'First')} {decodeHtmlEntities(teamMember?.last_name || 'Last')}
                       </h1>
                     <p className="text-sm text-gray-600 mb-4 sm:mb-6">
                         {teamMember?.role === 'account owner' || teamMember?.role === 'owner' || teamMember?.role === 'admin' 
@@ -1589,12 +1590,7 @@ const TeamMemberDetails = () => {
                     )}
                   </div>
                 </div>
-
-               
               </div>
-
-           
-
               {/* Notifications Card */}
               <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
                 <div className="mb-4 sm:mb-6">
@@ -1968,7 +1964,7 @@ const TeamMemberDetails = () => {
 
               <div className="mb-6">
                 <p className="text-gray-600">
-                  Are you sure you want to deactivate <strong>{teamMember?.first_name} {teamMember?.last_name}</strong>? 
+                  Are you sure you want to deactivate <strong>{decodeHtmlEntities(teamMember?.first_name || '')} {decodeHtmlEntities(teamMember?.last_name || '')}</strong>? 
                   They will no longer be able to access the system, but their data will be preserved and they can be reactivated later.
                 </p>
               </div>
@@ -2002,7 +1998,7 @@ const TeamMemberDetails = () => {
         isOpen={showAvailabilityModal}
         onClose={() => setShowAvailabilityModal(false)}
         onSave={handleAvailabilityModalSave}
-        teamMemberName={teamMember ? `${teamMember.first_name} ${teamMember.last_name}` : ''}
+        teamMemberName={teamMember ? `${decodeHtmlEntities(teamMember.first_name || '')} ${decodeHtmlEntities(teamMember.last_name || '')}` : ''}
         selectedDates={selectedDates}
         availability={customAvailability}
       />

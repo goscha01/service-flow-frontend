@@ -9,7 +9,8 @@ import {
   MoreVertical,
   Edit,
   Trash2,
-  X
+  X,
+  ArrowRight
 } from 'lucide-react';
 import { formatDateLocal } from '../utils/dateUtils';
 
@@ -18,6 +19,8 @@ const TaskCard = ({
   onEdit, 
   onDelete, 
   onStatusChange,
+  onFinish,
+  onFinishAndFollowUp,
   showLeadInfo = false 
 }) => {
   const getPriorityColor = (priority) => {
@@ -170,6 +173,31 @@ const TaskCard = ({
           <span className="capitalize">{task.status.replace('_', ' ')}</span>
         </div>
       </div>
+      
+      {/* Finish and Finish & Follow Up buttons - only show for pending tasks */}
+      {task.status === 'pending' && (onFinish || onFinishAndFollowUp) && (
+        <div className="mt-3 pt-3 border-t border-gray-200 flex flex-col sm:flex-row gap-2">
+          {onFinish && (
+            <button
+              onClick={() => onFinish(task)}
+              className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center space-x-2 text-sm font-medium transition-colors"
+            >
+              <CheckCircle className="w-4 h-4" />
+              <span>Finish</span>
+            </button>
+          )}
+          {onFinishAndFollowUp && (
+            <button
+              onClick={() => onFinishAndFollowUp(task)}
+              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center space-x-2 text-sm font-medium transition-colors"
+            >
+              <CheckCircle className="w-4 h-4" />
+              <span>Finish and Follow Up</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      )}
       
       {isOverdue() && (
         <div className="mt-2 text-xs text-red-600 font-medium">
