@@ -13,6 +13,7 @@ import { Link, useNavigate } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
 import { jobsAPI, customersAPI, servicesAPI, invoicesAPI, teamAPI } from "../services/api"
 import { normalizeAPIResponse, handleAPIError } from "../utils/dataHandler"
+import { decodeHtmlEntities } from "../utils/htmlUtils"
 
 const ServiceFlowDashboard = () => {
   const { user } = useAuth()
@@ -1326,7 +1327,7 @@ const ServiceFlowDashboard = () => {
                                       </div>
                                       <div className="min-w-0 flex-1">
                                         <p className="font-medium text-gray-900 truncate">
-                                          {job.service_name || 'Service'}
+                                          {decodeHtmlEntities(job.service_name || 'Service')}
                                         </p>
                                         <p className="text-gray-500 truncate">
                                           {job.customer_first_name} {job.customer_last_name}
@@ -1381,7 +1382,7 @@ const ServiceFlowDashboard = () => {
                                       </div>
                                       <div className="min-w-0 flex-1">
                                         <p className="font-medium text-gray-900 truncate">
-                                          {job.service_name || 'Service'}
+                                          {decodeHtmlEntities(job.service_name || 'Service')}
                                         </p>
                                         <p className="text-gray-500 truncate">
                                           {job.customer_first_name} {job.customer_last_name}

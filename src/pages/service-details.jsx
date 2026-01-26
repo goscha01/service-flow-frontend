@@ -14,6 +14,7 @@ import ServiceModifiersForm from "../components/service-modifiers-form"
 import ExcelListboxMultiselect from "../components/excel-listbox-multiselect"
 import { servicesAPI, serviceAvailabilityAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
+import { decodeHtmlEntities } from "../utils/htmlUtils"
 import {
   ChevronLeft,
   ChevronRight,
@@ -371,7 +372,7 @@ const ServiceDetails = () => {
 
       const newServiceData = {
         id: service.id,
-        name: service.name,
+        name: decodeHtmlEntities(service.name || ""),
         description: service.description || "",
         price: service.price || 0,
         minimumPrice: service.minimum_price || service.minimumPrice || 0,
@@ -2132,7 +2133,7 @@ const ServiceDetails = () => {
                     <div className="relative">
                       <img
                         src={serviceData.image}
-                        alt={serviceData.name}
+                        alt={decodeHtmlEntities(serviceData.name || '')}
                         className="w-full h-40 object-cover rounded-lg mb-2"
                       />
                       <button
@@ -2687,7 +2688,7 @@ const ServiceDetails = () => {
               </button>
               <div className="flex items-center justify-between">
                 <h1 className="text-2xl font-bold text-gray-900">
-                  {serviceData.name}
+                  {decodeHtmlEntities(serviceData.name || '')}
                 </h1>
               </div>
             </div>

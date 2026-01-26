@@ -25,6 +25,7 @@ import { Link, useNavigate } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
 import { jobsAPI, customersAPI, servicesAPI, invoicesAPI, teamAPI, territoriesAPI } from "../services/api"
 import { normalizeAPIResponse } from "../utils/dataHandler"
+import { decodeHtmlEntities } from "../utils/htmlUtils"
 import MiniChart from "../components/mini-chart"
 import MobileHeader from "../components/mobile-header"
 import JobsMap from "../components/jobs-map"
@@ -1173,7 +1174,7 @@ const DashboardRedesigned = () => {
                                     </span>
                                   </div>
                                   <h4 className="text-xs sm:text-sm font-semibold text-gray-900 truncate">
-                                    {job.service_name || 'Service'}
+                                    {decodeHtmlEntities(job.service_name || 'Service')}
                                   </h4>
                                   <p className="text-xs text-gray-600 truncate">
                                     {job.customer_first_name && job.customer_last_name

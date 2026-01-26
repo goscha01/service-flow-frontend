@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
 import Sidebar from "../components/sidebar-collapsible"
-import { teamAPI, territoriesAPI, availabilityAPI, invoicesAPI } from "../services/api"
+import { teamAPI, territoriesAPI, availabilityAPI, invoicesAPI, notificationAPI, notificationSettingsAPI } from "../services/api"
 import api, { stripeAPI } from "../services/api"
 import { 
   Plus, 
@@ -96,6 +96,8 @@ const ServiceFlowSchedule = () => {
   // Cache for jobs to speed up loading
   const jobsCacheRef = useRef(new Map()) // Map<cacheKey, { jobs: [], timestamp: number }>
   const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes cache duration
+  const fetchingJobsRef = useRef(false) // Track if fetchJobs is currently running
+  const fetchJobsAbortControllerRef = useRef(null) // AbortController for canceling in-flight requests
   // For workers, default to their own teamMemberId; for others, default to 'all'
   const [selectedFilter, setSelectedFilter] = useState(() => {
     // If user is a worker, set filter to their teamMemberId
@@ -344,10 +346,26 @@ const ServiceFlowSchedule = () => {
   }
 
   const fetchJobs = useCallback(async () => {
+    // Prevent duplicate calls
+    if (fetchingJobsRef.current) {
+      console.log('⏸️ fetchJobs already in progress, skipping duplicate call')
+      return
+    }
+    
+    // Cancel any in-flight request
+    if (fetchJobsAbortControllerRef.current) {
+      fetchJobsAbortControllerRef.current.abort()
+    }
+    
+    // Create new AbortController for this request
+    const abortController = new AbortController()
+    fetchJobsAbortControllerRef.current = abortController
+    
     // Get current selectedFilter and territoryFilter values (need to access them from state)
     const currentFilter = selectedFilter;
     const currentTerritoryFilter = territoryFilter;
     try {
+      fetchingJobsRef.current = true
       setIsLoading(true)
       // Calculate date range based on view mode
       // Normalize selectedDate first to avoid timezone issues
@@ -518,11 +536,27 @@ const ServiceFlowSchedule = () => {
         })
       }
       
+      // Check if request was aborted
+      if (abortController.signal.aborted) {
+        console.log('⏹️ fetchJobs was aborted')
+        return
+      }
+      
       setJobs(filteredJobs)
     } catch (error) {
+      // Don't log error if it was aborted
+      if (error.name === 'AbortError' || abortController.signal.aborted) {
+        console.log('⏹️ fetchJobs was aborted')
+        return
+      }
       console.error('❌ Error fetching jobs:', error)
     } finally {
+      fetchingJobsRef.current = false
       setIsLoading(false)
+      // Clear abort controller if this was the current request
+      if (fetchJobsAbortControllerRef.current === abortController) {
+        fetchJobsAbortControllerRef.current = null
+      }
     }
   }, [user, selectedDate, viewMode, selectedFilter, territoryFilter, activeTab, recurringFilter]) // Include territoryFilter and recurringFilter so jobs refetch when filters change
   
@@ -786,17 +820,32 @@ const ServiceFlowSchedule = () => {
 
   useEffect(() => {
     if (user?.id) {
-      fetchJobs()
-      fetchTeamMembers()
-      fetchTerritories()
+      // Debounce to prevent rapid successive calls when switching tabs
+      const timeoutId = setTimeout(() => {
+        if (!fetchingJobsRef.current) {
+          fetchJobs()
+        }
+        fetchTeamMembers()
+        fetchTerritories()
+      }, 150)
+      
+      return () => clearTimeout(timeoutId)
     }
   }, [user, selectedDate, viewMode, fetchJobs, fetchTeamMembers, fetchTerritories])
 
   // Ensure jobs are fetched when switching to availability tab
   useEffect(() => {
+    // Only fetch if we're actually switching tabs (not on initial mount)
     if (activeTab === 'availability' && user?.id && selectedFilter && selectedFilter !== 'all' && selectedFilter !== 'unassigned') {
-      console.log(`🔄 Availability tab active with filter ${selectedFilter}, ensuring jobs are fetched...`)
-      fetchJobs()
+      // Use a small delay to debounce rapid tab switches
+      const timeoutId = setTimeout(() => {
+        if (!fetchingJobsRef.current) {
+          console.log(`🔄 Availability tab active with filter ${selectedFilter}, ensuring jobs are fetched...`)
+          fetchJobs()
+        }
+      }, 100)
+      
+      return () => clearTimeout(timeoutId)
     }
     // When switching to availability tab, default to 'all-team-members' if no specific filter is set
     if (activeTab === 'availability' && selectedFilter === 'all' && teamMembers.length > 0) {
@@ -2019,6 +2068,62 @@ const ServiceFlowSchedule = () => {
         } else {
           setSelectedJobDetails(jobWithParsedHistory)
         }
+        
+        // Load customer notification preferences and global settings
+        const customerId = normalizedJob.customer_id || job.customer_id
+        if (customerId && user?.id) {
+          try {
+            // Load both customer preferences and global notification settings
+            const [prefs, globalSettings] = await Promise.all([
+              notificationAPI.getPreferences(customerId),
+              notificationSettingsAPI.getSettings(user.id).catch(() => []) // Don't fail if global settings can't be loaded
+            ])
+            
+            console.log('📧 Loaded customer notification preferences:', prefs)
+            console.log('🌐 Loaded global notification settings:', globalSettings)
+    
+            // Check global appointment confirmation SMS setting
+            const appointmentSetting = globalSettings.find(s => s.notification_type === 'appointment_confirmation')
+            const globalSmsEnabled = appointmentSetting && appointmentSetting.sms_enabled === 1
+            
+            // If global SMS is enabled, ensure SMS notifications are enabled for this customer
+            let smsShouldBeEnabled = !!prefs.sms_notifications
+            if (globalSmsEnabled && !prefs.sms_notifications) {
+              // Global setting overrides - enable SMS for this customer
+              smsShouldBeEnabled = true
+              console.log('🌐 Global appointment confirmation SMS is enabled - enabling SMS for this customer')
+              
+              // Update customer preferences to match global setting
+              try {
+                await notificationAPI.updatePreferences(customerId, {
+                  email_notifications: prefs.email_notifications !== undefined ? !!prefs.email_notifications : true,
+                  sms_notifications: true
+                })
+                console.log('📱 Updated customer preferences to match global SMS setting')
+              } catch (updateError) {
+                console.error('Failed to update customer preferences:', updateError)
+                // Continue anyway - we'll still enable it in the UI
+              }
+            }
+            
+            // Set notification states
+            setEmailNotifications(!!prefs.email_notifications)
+            setSmsNotifications(smsShouldBeEnabled)
+            
+            console.log('📧 Setting notification states:', {
+              email: !!prefs.email_notifications,
+              sms: smsShouldBeEnabled,
+              globalSmsEnabled,
+              rawEmail: prefs.email_notifications,
+              rawSms: prefs.sms_notifications
+            })
+          } catch (prefError) {
+            console.error('Failed to load notification preferences:', prefError)
+            // Use defaults - don't show error to user for notification preferences
+            setEmailNotifications(true)
+            setSmsNotifications(false)
+          }
+        }
       }
     } catch (error) {
       console.error('Error fetching full job details:', error)
@@ -2047,6 +2152,50 @@ const ServiceFlowSchedule = () => {
     setShowNotificationModal(false)
     setSuccessMessage('')
     setErrorMessage('')
+    // Reset notification states when closing
+    setEmailNotifications(true)
+    setSmsNotifications(false)
+  }
+
+  const handleNotificationToggle = async (type, value) => {
+    if (!selectedJobDetails || !selectedJobDetails.customer_id) return
+    try {
+      console.log('🔄 Toggling notification:', { type, value, customerId: selectedJobDetails.customer_id })
+      
+      // Update local state first
+      if (type === 'email') {
+        setEmailNotifications(value)
+        console.log('📧 Email notification set to:', value)
+      } else if (type === 'sms') {
+        setSmsNotifications(value)
+        console.log('📱 SMS notification set to:', value)
+      }
+      
+      // Update notification preferences in backend
+      const preferences = {
+        email_notifications: type === 'email' ? value : emailNotifications,
+        sms_notifications: type === 'sms' ? value : smsNotifications
+      }
+      
+      console.log('📧 Sending preferences to server:', preferences)
+      const result = await notificationAPI.updatePreferences(selectedJobDetails.customer_id, preferences)
+      console.log('✅ Server response:', result)
+      
+      setSuccessMessage(`${type === 'email' ? 'Email' : 'SMS'} notifications ${value ? 'enabled' : 'disabled'}`)
+      setTimeout(() => setSuccessMessage(''), 3000)
+    } catch (error) {
+      console.error('Failed to update notification preferences:', error)
+      
+      // Revert the toggle if update failed
+      if (type === 'email') {
+        setEmailNotifications(!value)
+      } else if (type === 'sms') {
+        setSmsNotifications(!value)
+      }
+      
+      setErrorMessage(error.response?.data?.error || 'Failed to update notification preferences')
+      setTimeout(() => setErrorMessage(''), 3000)
+    }
   }
 
   // Close status menu when clicking outside
@@ -6896,17 +7045,34 @@ const ServiceFlowSchedule = () => {
                     </div>
                     <div className="space-y-3">
                       <div className="flex items-center gap-2">
-                        
                         <label className="relative inline-flex items-center cursor-pointer">
-                          <input type="checkbox" checked readOnly className="sr-only peer" />
-                          <div className="w-10 h-6 bg-blue-600 rounded-full peer peer-checked:bg-blue-600 after:content-[''] after:absolute after:top-[2px] after:right-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+                          <input 
+                            type="checkbox" 
+                            checked={emailNotifications} 
+                            onChange={(e) => {
+                              if (selectedJobDetails?.customer_id) {
+                                handleNotificationToggle('email', e.target.checked)
+                              }
+                            }}
+                            className="sr-only peer" 
+                          />
+                          <div className={`w-10 h-6 rounded-full peer peer-checked:bg-blue-600 after:content-[''] after:absolute after:top-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all ${emailNotifications ? 'bg-blue-600 after:right-[2px]' : 'bg-gray-200 after:left-[2px]'}`}></div>
                         </label>
                         <span className="text-sm text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Emails</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <label className="relative inline-flex items-center cursor-pointer">
-                          <input type="checkbox" readOnly className="sr-only peer" />
-                          <div className="w-10 h-6 bg-gray-200 rounded-full peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+                          <input 
+                            type="checkbox" 
+                            checked={smsNotifications}
+                            onChange={(e) => {
+                              if (selectedJobDetails?.customer_id) {
+                                handleNotificationToggle('sms', e.target.checked)
+                              }
+                            }}
+                            className="sr-only peer" 
+                          />
+                          <div className={`w-10 h-6 rounded-full peer peer-checked:bg-blue-600 after:content-[''] after:absolute after:top-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all ${smsNotifications ? 'bg-blue-600 after:right-[2px]' : 'bg-gray-200 after:left-[2px]'}`}></div>
                         </label>
                         <span className="text-sm text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Text messages</span>
                       </div>

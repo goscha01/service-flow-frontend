@@ -69,18 +69,30 @@ const AppointmentReminder = () => {
         setEnableSMS(template.is_enabled === 1);
       }
 
-      // Load notification settings
-      const settings = await notificationSettingsAPI.getSettings(user.id);
-      const reminderSetting = settings.find(s => s.notification_type === 'appointment_reminder');
-      
-      if (reminderSetting) {
-        setEnableEmail(reminderSetting.email_enabled === 1);
-        setEnableSMS(reminderSetting.sms_enabled === 1);
+      // Load notification settings - handle gracefully if API fails
+      try {
+        const settings = await notificationSettingsAPI.getSettings(user.id);
+        if (settings && Array.isArray(settings) && settings.length > 0) {
+          const reminderSetting = settings.find(s => s.notification_type === 'appointment_reminder');
+          
+          if (reminderSetting) {
+            setEnableEmail(reminderSetting.email_enabled === 1);
+            setEnableSMS(reminderSetting.sms_enabled === 1);
+          }
+        }
+      } catch (settingsError) {
+        // If notification settings API fails, log but don't show error to user
+        // The templates are more important, so we'll continue with template-based settings
+        console.warn('Could not load notification settings (using template defaults):', settingsError);
+        // Don't set error message - templates loaded successfully, settings are optional
       }
 
     } catch (error) {
       console.error('Error loading templates:', error);
-      setMessage({ type: 'error', text: 'Failed to load notification templates' });
+      // Only show error if templates failed to load
+      if (error.response?.status !== 500 || !error.config?.url?.includes('notification-settings')) {
+        setMessage({ type: 'error', text: 'Failed to load notification templates' });
+      }
     } finally {
       setLoading(false);
     }

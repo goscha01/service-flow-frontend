@@ -742,9 +742,22 @@ export const notificationSettingsAPI = {
   getSettings: async (userId) => {
     try {
       const response = await api.get(`/user/notification-settings?userId=${userId}`);
-      return response.data;
+      // Ensure we return an array even if the response structure is different
+      if (Array.isArray(response.data)) {
+        return response.data;
+      } else if (response.data?.settings && Array.isArray(response.data.settings)) {
+        return response.data.settings;
+      } else if (response.data?.data && Array.isArray(response.data.data)) {
+        return response.data.data;
+      }
+      // If response is not an array, return empty array to prevent errors
+      console.warn('Notification settings API returned unexpected format:', response.data);
+      return [];
     } catch (error) {
-      throw error;
+      // Log the error but return empty array instead of throwing
+      // This allows the app to continue functioning even if the API fails
+      console.warn('Failed to load notification settings (using defaults):', error.response?.status, error.message);
+      return []; // Return empty array so calling code can continue
     }
   },
 

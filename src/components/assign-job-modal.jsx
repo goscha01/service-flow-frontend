@@ -4,6 +4,7 @@ import { teamAPI, jobsAPI, availabilityAPI } from '../services/api'
 import { useAuth } from '../context/AuthContext'
 import { getImageUrl } from '../utils/imageUtils'
 import { normalizeAPIResponse } from '../utils/dataHandler'
+import { decodeHtmlEntities } from '../utils/htmlUtils'
 
 const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
   const { user } = useAuth()
@@ -746,7 +747,7 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
             <div className="flex items-center gap-2 mb-3">
               <Wrench className="w-4 h-4 text-gray-500" />
               <span className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
-                {job.service_name || job.service_type || 'Service'}
+                {decodeHtmlEntities(job.service_name || job.service_type || 'Service')}
               </span>
             </div>
 

@@ -72,13 +72,14 @@ import CalendarPicker from "../components/CalendarPicker";
 import DiscountModal from "../components/discount-modal";
 import RecurringFrequencyModal from "../components/recurring-frequency-modal";
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
-import { jobsAPI, customersAPI, servicesAPI, teamAPI, territoriesAPI } from '../services/api';
+import { jobsAPI, customersAPI, servicesAPI, teamAPI, territoriesAPI, leadsAPI, notificationSettingsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useCategory } from '../context/CategoryContext';
 import { getImageUrl, handleImageError } from '../utils/imageUtils';
 import { formatDateLocal, formatDateDisplay, parseLocalDate } from '../utils/dateUtils';
 import { formatPhoneNumber } from '../utils/phoneFormatter';
 import { formatRecurringFrequency } from '../utils/recurringUtils';
+import { decodeHtmlEntities } from '../utils/htmlUtils';
 
 
 export default function CreateJobPage() {
@@ -111,6 +112,7 @@ export default function CreateJobPage() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showDiscountModal, setShowDiscountModal] = useState(false);
   const [showRecurringModal, setShowRecurringModal] = useState(false);
+  const [showLeadsModal, setShowLeadsModal] = useState(false);
   const [discountType, setDiscountType] = useState('fixed'); // 'fixed' or 'percentage'
 
   // Form data
@@ -177,14 +179,17 @@ export default function CreateJobPage() {
 
   // Data lists
   const [customers, setCustomers] = useState([]);
+  const [leads, setLeads] = useState([]);
   const [services, setServices] = useState([]);
   const [teamMembers, setTeamMembers] = useState([]);
   const [filteredCustomers, setFilteredCustomers] = useState([]);
+  const [filteredLeads, setFilteredLeads] = useState([]);
   const [filteredServices, setFilteredServices] = useState([]);
 
   // UI state
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const customerDropdownRef = useRef(null);
+  const handleCustomerSelectRef = useRef(null);
   const [showTeamDropdown, setShowTeamDropdown] = useState(false);
   const [customerSearch, setCustomerSearch] = useState("");
   const [serviceSearch, setServiceSearch] = useState("");
@@ -207,6 +212,9 @@ export default function CreateJobPage() {
   const [editedModifierPrices, setEditedModifierPrices] = useState({}); // { modifierId_optionId: price }
   const [editingServicePriceId, setEditingServicePriceId] = useState(null); // Track which service price is being edited
   const [editingServicePriceValue, setEditingServicePriceValue] = useState(''); // Temporary price value while editing
+  const [editingServiceDurationId, setEditingServiceDurationId] = useState(null); // Track which service duration is being edited
+  const [editingServiceDurationHours, setEditingServiceDurationHours] = useState(''); // Temporary duration hours value
+  const [editingServiceDurationMinutes, setEditingServiceDurationMinutes] = useState(''); // Temporary duration minutes value
 
   // Expandable sections
   const [expandedSections, setExpandedSections] = useState({
@@ -255,8 +263,90 @@ export default function CreateJobPage() {
   useEffect(() => {
     if (user?.id) {
       loadData();
+      loadGlobalNotificationSettings();
     }
   }, [user?.id]);
+
+  // Load global appointment confirmation SMS setting and set default
+  const loadGlobalNotificationSettings = async () => {
+    if (!user?.id) return;
+    
+    try {
+      const settings = await notificationSettingsAPI.getSettings(user.id);
+      // getSettings now returns empty array on error, so we can safely check
+      if (Array.isArray(settings) && settings.length > 0) {
+        const appointmentSetting = settings.find(s => s.notification_type === 'appointment_confirmation');
+        
+        if (appointmentSetting && appointmentSetting.sms_enabled === 1) {
+          // Global SMS is enabled, default textNotifications to true
+          setFormData(prev => ({
+            ...prev,
+            contactInfo: {
+              ...prev.contactInfo,
+              textNotifications: true
+            }
+          }));
+        }
+      }
+    } catch (error) {
+      // This should rarely happen now since getSettings handles errors internally
+      console.warn('Error loading global notification settings:', error);
+      // Don't show error to user, just use default
+    }
+  };
+
+  // Handle lead data from location state (when converting lead to job)
+  useEffect(() => {
+    if (location.state?.fromLead && location.state?.leadData && customers.length > 0 && services.length > 0 && teamMembers.length > 0) {
+      const leadData = location.state.leadData;
+      console.log('📋 Loading lead data for job creation:', leadData);
+      
+      // Set service if lead has one
+      if (leadData.serviceId) {
+        const service = services.find(s => s.id === parseInt(leadData.serviceId));
+        if (service) {
+          setSelectedService(service);
+          setSelectedServices([service]);
+          setServiceSelected(true);
+          setJobselected(true);
+          console.log('✅ Service pre-selected from lead:', service.name);
+        }
+      }
+      
+      // Set team member if lead has assigned team member
+      if (leadData.assignedTeamMemberId && teamMembers.length > 0) {
+        const teamMember = teamMembers.find(tm => tm.id === parseInt(leadData.assignedTeamMemberId));
+        if (teamMember) {
+          setSelectedTeamMember(teamMember);
+          setSelectedTeamMembers([teamMember]);
+          setFormData(prev => ({
+            ...prev,
+            teamMemberId: teamMember.id
+          }));
+          console.log('✅ Team member pre-selected from lead:', teamMember.first_name, teamMember.last_name);
+        }
+      }
+      
+      // Set notes if lead has notes
+      if (leadData.notes) {
+        setFormData(prev => ({
+          ...prev,
+          notes: leadData.notes
+        }));
+      }
+      
+      // Set estimated value if lead has value
+      if (leadData.value) {
+        setFormData(prev => ({
+          ...prev,
+          price: parseFloat(leadData.value) || 0
+        }));
+      }
+      
+      // Clear location state to prevent re-loading on refresh
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state, customers, services, teamMembers]);
 
   // Handle duplicate job from location state
   useEffect(() => {
@@ -372,6 +462,75 @@ export default function CreateJobPage() {
       window.history.replaceState({}, document.title);
     }
   }, [location.state, customers, services, teamMembers]);
+
+  // Handle lead selection - convert to customer first
+  // This will be defined after handleCustomerSelect, but we'll use a ref to access it
+  const handleLeadSelect = useCallback(async (lead) => {
+    try {
+      // Convert lead to customer
+      const convertedCustomer = await leadsAPI.convertToCustomer(lead.id);
+      
+      // Create customer data immediately from the converted result
+      const customerData = {
+        ...lead,
+        id: convertedCustomer.customer_id || convertedCustomer.id,
+        converted_customer_id: convertedCustomer.customer_id || convertedCustomer.id
+      };
+      
+      // IMMEDIATELY set the customer as selected - don't wait for anything
+      setSelectedCustomer(customerData);
+      setCustomerSelected(true);
+      setJobselected(true);
+      
+      // Set form data immediately with customer ID
+      setFormData(prev => ({
+        ...prev,
+        customerId: customerData.id,
+        contactInfo: {
+          phone: lead.phone || "",
+          email: lead.email || "",
+          emailNotifications: true,
+          textNotifications: false
+        }
+      }));
+      
+      // Refresh customers list to include the newly converted customer
+      const customersData = await customersAPI.getAll(user.id);
+      const updatedCustomers = customersData.customers || customersData;
+      setCustomers(updatedCustomers);
+      setFilteredCustomers(updatedCustomers);
+      
+      // Find the converted customer in the updated list (might have more complete data)
+      const customer = updatedCustomers.find(c => 
+        c.id === convertedCustomer.customer_id || 
+        c.id === convertedCustomer.id ||
+        (c.email === lead.email && c.first_name === lead.first_name && c.last_name === lead.last_name)
+      );
+      
+      // If we found the customer with complete data, use handleCustomerSelect to populate all fields
+      if (customer && handleCustomerSelectRef.current) {
+        // This will update the form with address and other customer data
+        await handleCustomerSelectRef.current(customer);
+      } else if (handleCustomerSelectRef.current) {
+        // Use the converted data directly
+        await handleCustomerSelectRef.current(customerData);
+      }
+      
+      // Remove the lead from the leads list since it's now converted
+      setLeads(prevLeads => prevLeads.filter(l => l.id !== lead.id));
+      setFilteredLeads(prevLeads => prevLeads.filter(l => l.id !== lead.id));
+      
+      setShowCustomerDropdown(false);
+      setCustomerSearch("");
+    } catch (error) {
+      console.error('Error converting lead to customer:', error);
+      setError(error.response?.data?.error || 'Failed to convert lead to customer. Please try again.');
+      // Reset selection on error
+      setSelectedCustomer(null);
+      setCustomerSelected(false);
+      setJobselected(false);
+    }
+  }, [user?.id]);
 
   // Define handleCustomerSelect before useEffect that uses it
   const handleCustomerSelect = useCallback(async (customer) => {
@@ -572,22 +731,28 @@ export default function CreateJobPage() {
   }, [searchParams, customers, location.state, handleCustomerSelect, dataLoading, user?.id]);
 
   useEffect(() => {
-    // Filter customers based on search
+    // Filter customers and leads based on search
     if (customerSearch) {
-      const filtered = (customers || []).filter(customer =>
+      const filteredCustomers = (customers || []).filter(customer =>
         `${customer.first_name} ${customer.last_name}`.toLowerCase().includes(customerSearch.toLowerCase()) ||
         customer.email?.toLowerCase().includes(customerSearch.toLowerCase())
       );
-      setFilteredCustomers(filtered);
-      // Show dropdown when there's a search term
-      if (filtered.length > 0) {
+      const filteredLeads = (leads || []).filter(lead =>
+        `${lead.first_name} ${lead.last_name}`.toLowerCase().includes(customerSearch.toLowerCase()) ||
+        lead.email?.toLowerCase().includes(customerSearch.toLowerCase())
+      );
+      setFilteredCustomers(filteredCustomers);
+      setFilteredLeads(filteredLeads);
+      // Show dropdown when there's a search term and results
+      if (filteredCustomers.length > 0 || filteredLeads.length > 0) {
         setShowCustomerDropdown(true);
       }
     } else {
       setFilteredCustomers(customers || []);
+      setFilteredLeads(leads || []);
       setShowCustomerDropdown(false);
     }
-  }, [customerSearch, customers]);
+  }, [customerSearch, customers, leads]);
 
   // Handle click outside to close dropdown
   useEffect(() => {
@@ -869,22 +1034,30 @@ export default function CreateJobPage() {
     
     try {
       setDataLoading(true);
-      const [customersData, servicesData, teamData, territoriesData] = await Promise.all([
+      const [customersData, servicesData, teamData, territoriesData, leadsData] = await Promise.all([
         customersAPI.getAll(user.id),
         servicesAPI.getAll(user.id),
         teamAPI.getAll(user.id),
-        territoriesAPI.getAll(user.id)
+        territoriesAPI.getAll(user.id),
+        leadsAPI.getAll().catch(() => []) // Fetch leads, but don't fail if it errors
       ]);
       
       const services = servicesData.services || servicesData;
       
+      // Decode HTML entities in service names
+      const decodedServices = Array.isArray(services) ? services.map(service => ({
+        ...service,
+        name: decodeHtmlEntities(service.name || '')
+      })) : services;
       
       setCustomers(customersData.customers || customersData);
-      setServices(services);
+      setLeads(leadsData.leads || leadsData || []);
+      setServices(decodedServices);
       setTeamMembers(teamData.teamMembers || teamData);
       setTerritories(territoriesData.territories || territoriesData);
       setFilteredCustomers(customersData.customers || customersData);
-      setFilteredServices(services);
+      setFilteredLeads(leadsData.leads || leadsData || []);
+      setFilteredServices(decodedServices);
     } catch (error) {
       console.error('Error loading data:', error);
       setError('Failed to load data. Please refresh the page.');
@@ -906,11 +1079,29 @@ export default function CreateJobPage() {
       return;
     }
     
-    // Add service to selected services array
-    console.log('🔧 HANDLESERVICESELECT: Adding service to selectedServices with price:', service.price);
+    // Handle duration properly - services store duration in MINUTES
+    let durationInMinutes = 60; // Default 1 hour
+    if (service.duration) {
+      if (typeof service.duration === 'object' && service.duration.hours !== undefined) {
+        // New format: { hours: X, minutes: Y }
+        durationInMinutes = (service.duration.hours * 60) + service.duration.minutes;
+      } else if (typeof service.duration === 'number') {
+        // Service duration is already in minutes
+        durationInMinutes = service.duration;
+      }
+    }
+    
+    // Add service to selected services array with duration
+    console.log('🔧 HANDLESERVICESELECT: Adding service to selectedServices with price:', service.price, 'duration:', durationInMinutes);
     setSelectedServices(prev => {
-      const updated = [...prev, service];
-      console.log('🔧 HANDLESERVICESELECT: Updated selectedServices:', updated.map(s => ({ name: s.name, price: s.price, originalPrice: s.originalPrice })));
+      const serviceWithDuration = {
+        ...service,
+        name: decodeHtmlEntities(service.name || ''), // Ensure name is decoded
+        duration: durationInMinutes,
+        originalDuration: service.duration || durationInMinutes
+      };
+      const updated = [...prev, serviceWithDuration];
+      console.log('🔧 HANDLESERVICESELECT: Updated selectedServices:', updated.map(s => ({ name: s.name, price: s.price, duration: s.duration })));
       return updated;
     });
     
@@ -950,18 +1141,6 @@ export default function CreateJobPage() {
         ...prev,
         ...service.intakeQuestionAnswers
       }));
-    }
-    
-    // Handle duration properly - services store duration in MINUTES
-    let durationInMinutes = 60; // Default 1 hour
-    if (service.duration) {
-      if (typeof service.duration === 'object' && service.duration.hours !== undefined) {
-        // New format: { hours: X, minutes: Y }
-        durationInMinutes = (service.duration.hours * 60) + service.duration.minutes;
-      } else if (typeof service.duration === 'number') {
-        // Service duration is already in minutes
-        durationInMinutes = service.duration;
-      }
     }
     
     // Parse modifiers and intake questions if they exist
@@ -1064,7 +1243,7 @@ export default function CreateJobPage() {
       duration: durationInMinutes, // Store in minutes
       workers: selectedTeamMembers.length > 0 ? selectedTeamMembers.length : (service.workers || 0),
       skillsRequired: service.skills || 0,
-      serviceName: service.name,
+      serviceName: decodeHtmlEntities(service.name || ''),
       estimatedDuration: service.duration || 0,
       // Keep existing time or default to 9 AM if no time set
       scheduledTime: prev.scheduledTime && prev.scheduledTime.trim() !== "" ? prev.scheduledTime : "09:00",
@@ -1724,15 +1903,20 @@ export default function CreateJobPage() {
       // No customization needed - add service directly
       console.log('🔧 No customization needed, adding service directly');
       
-      setSelectedServices(prev => [...prev, serviceData]);
-      setSelectedService(serviceData);
+      // Ensure service name is decoded before adding
+      const decodedServiceData = {
+        ...serviceData,
+        name: decodeHtmlEntities(serviceData.name || '')
+      };
+      setSelectedServices(prev => [...prev, decodedServiceData]);
+      setSelectedService(decodedServiceData);
       setServiceSelected(true);
       
       // Update form data with proper service information
       setFormData(prev => ({
         ...prev,
         serviceId: serviceData.id,
-        serviceName: serviceData.name,
+        serviceName: decodeHtmlEntities(serviceData.name || ''),
         price: parseFloat(serviceData.price) || 0,
         total: parseFloat(serviceData.price) || 0,
         duration: parseInt(serviceData.duration) || 60
@@ -1807,7 +1991,7 @@ export default function CreateJobPage() {
       serviceModifiers: modifiersWithServiceId,
       serviceIntakeQuestions: questionsWithServiceId,
       serviceId: service.id,
-      serviceName: service.name,
+      serviceName: decodeHtmlEntities(service.name || ''),
       price: service.price || 0,
       total: service.price || 0
     }));
@@ -1990,8 +2174,19 @@ setIntakeQuestionAnswers(answers);
   // Calculate total duration including modifiers
   const calculateTotalDuration = () => {
     try {
-      // Ensure baseDuration is a number (stored in minutes)
-      let baseDuration = parseFloat(formData.duration) || 0;
+      // Calculate base duration from all selected services
+      let baseDuration = 0;
+      if (selectedServices.length > 0) {
+        // Sum up durations from all selected services
+        baseDuration = selectedServices.reduce((total, service) => {
+          const serviceDuration = service.duration || 0;
+          return total + serviceDuration;
+        }, 0);
+      } else {
+        // Fallback to formData.duration if no services selected
+        baseDuration = parseFloat(formData.duration) || 0;
+      }
+      
       let modifierDuration = 0;
       
       // Add duration from selected modifiers
@@ -2134,17 +2329,27 @@ setIntakeQuestionAnswers(answers);
               <div className="bg-white rounded-lg border border-gray-200 p-5">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Customer</h2>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditingCustomer(null);
-                      setIsCustomerModalOpen(true);
-                    }}
-                    className="text-blue-600 hover:text-blue-700 text-sm font-medium"
-                    style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
-                  >
-                    New Customer
-                  </button>
+                  <div className="flex items-center space-x-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowLeadsModal(true)}
+                      className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                      style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
+                    >
+                      Leads
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingCustomer(null);
+                        setIsCustomerModalOpen(true);
+                      }}
+                      className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                      style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
+                    >
+                      New Customer
+                    </button>
+                  </div>
                   </div>
                 <div className="relative" ref={customerDropdownRef}>
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -2166,28 +2371,61 @@ setIntakeQuestionAnswers(answers);
                     className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                     style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                   />
-                  {showCustomerDropdown && filteredCustomers.length > 0 && (
+                  {showCustomerDropdown && (filteredCustomers.length > 0 || filteredLeads.length > 0) && (
                       <>
                         <div 
                           className="fixed inset-0 z-40" 
                           onClick={() => setShowCustomerDropdown(false)}
                         />
                       <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                        {filteredCustomers.map(customer => (
+                        {/* Customers Section */}
+                        {filteredCustomers.length > 0 && (
+                          <>
+                            {filteredCustomers.map(customer => (
+                              <button
+                                key={customer.id}
+                                type="button"
+                                onClick={() => {
+                                  handleCustomerSelect(customer);
+                                  setShowCustomerDropdown(false);
+                                  setCustomerSearch('');
+                                  setCustomerSelected(true);
+                                  setJobselected(true);
+                                }}
+                                className="w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
+                              >
+                                <p className="font-medium text-gray-900">{customer.first_name} {customer.last_name}</p>
+                                <p className="text-sm text-gray-600">{customer.email || 'No email address'}</p>
+                              </button>
+                            ))}
+                            {filteredLeads.length > 0 && (
+                              <div className="px-4 py-2 bg-gray-50 border-t border-b border-gray-200">
+                                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Leads</p>
+                              </div>
+                            )}
+                          </>
+                        )}
+                        {/* Leads Section */}
+                        {filteredLeads.map(lead => (
                           <button
-                            key={customer.id}
+                            key={`lead-${lead.id}`}
                             type="button"
                             onClick={() => {
-                              handleCustomerSelect(customer);
+                              handleLeadSelect(lead);
                               setShowCustomerDropdown(false);
                               setCustomerSearch('');
-                              setCustomerSelected(true);
-                              setJobselected(true);
                             }}
-                            className="w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
+                            className="w-full text-left px-4 py-3 hover:bg-blue-50 border-b border-gray-100 last:border-b-0"
                           >
-                            <p className="font-medium text-gray-900">{customer.first_name} {customer.last_name}</p>
-                            <p className="text-sm text-gray-600">{customer.email || 'No email address'}</p>
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="font-medium text-gray-900">{lead.first_name} {lead.last_name}</p>
+                                <p className="text-sm text-gray-600">{lead.email || 'No email address'}</p>
+                              </div>
+                              <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-700 rounded-full">
+                                Lead
+                              </span>
+                            </div>
                           </button>
                         ))}
                       </div>
@@ -2325,7 +2563,7 @@ setIntakeQuestionAnswers(answers);
                                   className="text-left"
                                 >
                                   <div className="text-sm font-semibold text-blue-600 hover:text-blue-700 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
-                                    {service.name}
+                                    {decodeHtmlEntities(service.name || '')}
                                   </div>
                                   <div className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                                     Show details {isExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
@@ -2333,6 +2571,101 @@ setIntakeQuestionAnswers(answers);
                                 </button>
                               </div>
                               <div className="flex items-center gap-3">
+                                {/* Duration Display/Edit */}
+                                {editingServiceDurationId === service.id ? (
+                                  // Duration editing mode
+                                  <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-1 border border-gray-300 rounded px-2 py-1 bg-white">
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        value={editingServiceDurationHours}
+                                        onChange={(e) => setEditingServiceDurationHours(e.target.value)}
+                                        className="w-10 px-1 py-0.5 text-sm border-0 focus:ring-0 text-center"
+                                        placeholder="0"
+                                        style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
+                                      />
+                                      <span className="text-xs text-gray-500">h</span>
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        max="59"
+                                        value={editingServiceDurationMinutes}
+                                        onChange={(e) => setEditingServiceDurationMinutes(e.target.value)}
+                                        className="w-10 px-1 py-0.5 text-sm border-0 focus:ring-0 text-center"
+                                        placeholder="0"
+                                        style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
+                                      />
+                                      <span className="text-xs text-gray-500">m</span>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const hours = parseInt(editingServiceDurationHours) || 0;
+                                        const minutes = parseInt(editingServiceDurationMinutes) || 0;
+                                        const durationInMinutes = hours * 60 + minutes;
+                                        setSelectedServices(prev => prev.map(s => 
+                                          s.id === service.id ? { ...s, duration: durationInMinutes, originalDuration: s.originalDuration || s.duration } : s
+                                        ));
+                                        setEditingServiceDurationId(null);
+                                        setEditingServiceDurationHours('');
+                                        setEditingServiceDurationMinutes('');
+                                      }}
+                                      className="text-xs px-2 py-1 text-blue-600 hover:text-blue-700 font-medium"
+                                      style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
+                                    >
+                                      Save
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setEditingServiceDurationId(null);
+                                        setEditingServiceDurationHours('');
+                                        setEditingServiceDurationMinutes('');
+                                      }}
+                                      className="text-xs px-2 py-1 text-gray-600 hover:text-gray-700 font-medium"
+                                      style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                ) : (
+                                  // Duration display mode
+                                  <div className="flex items-center gap-1">
+                                    <Clock className="w-4 h-4 text-gray-400" />
+                                    <span className="text-sm font-medium text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                                      {(() => {
+                                        const duration = service.duration || 0;
+                                        const hours = Math.floor(duration / 60);
+                                        const mins = duration % 60;
+                                        if (hours > 0 && mins > 0) {
+                                          return `${hours}h ${mins}m`;
+                                        } else if (hours > 0) {
+                                          return `${hours}h`;
+                                        } else {
+                                          return `${mins}m`;
+                                        }
+                                      })()}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const duration = service.duration || 0;
+                                        const hours = Math.floor(duration / 60);
+                                        const mins = duration % 60;
+                                        setEditingServiceDurationId(service.id);
+                                        setEditingServiceDurationHours(hours.toString());
+                                        setEditingServiceDurationMinutes(mins.toString());
+                                      }}
+                                      className="text-gray-400 hover:text-blue-600 transition-colors ml-1"
+                                      title="Edit duration"
+                                    >
+                                      <Edit3 className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                )}
+                                
+                                {/* Price Display/Edit */}
                                 {editingServicePriceId === service.id ? (
                                   // Price editing mode
                                   <div className="flex items-center gap-2">
@@ -2457,8 +2790,76 @@ setIntakeQuestionAnswers(answers);
                             {/* Expanded Details */}
                             {isExpanded && (
                               <div className="mt-4 space-y-4 bg-gray-50 -mx-6 px-6 py-4 rounded-lg">
-                                {/* Customize Price Section */}
+                                {/* Customize Duration Section */}
                                 <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                                  <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                                    Customize duration
+                                  </label>
+                                  <div className="flex items-center space-x-2">
+                                    <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2 bg-white">
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        value={(() => {
+                                          const duration = service.duration || 0;
+                                          return Math.floor(duration / 60);
+                                        })()}
+                                        onChange={(e) => {
+                                          const hours = parseInt(e.target.value) || 0;
+                                          const minutes = (service.duration || 0) % 60;
+                                          const durationInMinutes = hours * 60 + minutes;
+                                          setSelectedServices(prev => prev.map(s => 
+                                            s.id === service.id ? { ...s, duration: durationInMinutes, originalDuration: s.originalDuration || s.duration } : s
+                                          ));
+                                        }}
+                                        className="w-16 px-2 py-1 text-sm border-0 focus:ring-0 text-center"
+                                        style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
+                                      />
+                                      <span className="text-sm text-gray-500">hours</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2 bg-white">
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        max="59"
+                                        value={(() => {
+                                          const duration = service.duration || 0;
+                                          return duration % 60;
+                                        })()}
+                                        onChange={(e) => {
+                                          const minutes = parseInt(e.target.value) || 0;
+                                          const hours = Math.floor((service.duration || 0) / 60);
+                                          const durationInMinutes = hours * 60 + minutes;
+                                          setSelectedServices(prev => prev.map(s => 
+                                            s.id === service.id ? { ...s, duration: durationInMinutes, originalDuration: s.originalDuration || s.duration } : s
+                                          ));
+                                        }}
+                                        className="w-16 px-2 py-1 text-sm border-0 focus:ring-0 text-center"
+                                        style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
+                                      />
+                                      <span className="text-sm text-gray-500">minutes</span>
+                                    </div>
+                                  </div>
+                                  <div className="flex space-x-2 mt-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        // Reset to original duration
+                                        const originalDuration = service.originalDuration || service.duration || 0;
+                                        setSelectedServices(prev => prev.map(s => 
+                                          s.id === service.id ? { ...s, duration: originalDuration } : s
+                                        ));
+                                      }}
+                                      className="text-sm text-red-600 hover:text-red-800 font-medium"
+                                      style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
+                                    >
+                                      Reset
+                                    </button>
+                                  </div>
+                                </div>
+                                
+                                {/* Customize Price Section */}
+                                <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
                                   <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                                     Customize price
                                   </label>
@@ -2842,7 +3243,7 @@ setIntakeQuestionAnswers(answers);
                         <div className="relative">
                       <select
                         value={(() => {
-                                const totalMinutes = calculateTotalDuration() || 90;
+                                const totalMinutes = calculateTotalDuration() || formData.duration || 30;
                             const hours = Math.floor(totalMinutes / 60);
                             const mins = totalMinutes % 60;
                           return `${hours}h ${mins}m`;
@@ -2858,12 +3259,53 @@ setIntakeQuestionAnswers(answers);
                             className="pl-8 pr-10 py-1.5 text-sm border border-gray-300 rounded-md bg-gray-50 appearance-none focus:outline-none focus:ring-1 focus:ring-blue-500"
                             style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                       >
-                            <option value="0h 30m">30 min</option>
-                            <option value="1h 0m">1 hr</option>
-                            <option value="1h 30m">1 hr 30 min</option>
-                        <option value="2h 0m">2 hrs</option>
-                        <option value="3h 0m">3 hrs</option>
-                        <option value="4h 0m">4 hrs</option>
+                            {(() => {
+                              const totalMinutes = calculateTotalDuration() || formData.duration || 30;
+                              const hours = Math.floor(totalMinutes / 60);
+                              const mins = totalMinutes % 60;
+                              const calculatedValue = `${hours}h ${mins}m`;
+                              const calculatedDisplay = hours > 0 
+                                ? `${hours} ${hours === 1 ? 'hr' : 'hrs'}${mins > 0 ? ` ${mins} min` : ''}`
+                                : `${mins} min`;
+                              
+                              // Generate options dynamically
+                              const options = [];
+                              
+                              // Always include the calculated duration as the first option
+                              options.push(
+                                <option key={calculatedValue} value={calculatedValue}>
+                                  {calculatedDisplay}
+                                </option>
+                              );
+                              
+                              // Add common preset options if they're different from calculated
+                              const presets = [
+                                { value: '0h 30m', label: '30 min' },
+                                { value: '1h 0m', label: '1 hr' },
+                                { value: '1h 30m', label: '1 hr 30 min' },
+                                { value: '2h 0m', label: '2 hrs' },
+                                { value: '2h 30m', label: '2 hrs 30 min' },
+                                { value: '3h 0m', label: '3 hrs' },
+                                { value: '3h 30m', label: '3 hrs 30 min' },
+                                { value: '4h 0m', label: '4 hrs' },
+                                { value: '4h 30m', label: '4 hrs 30 min' },
+                                { value: '5h 0m', label: '5 hrs' },
+                                { value: '6h 0m', label: '6 hrs' },
+                                { value: '8h 0m', label: '8 hrs' }
+                              ];
+                              
+                              presets.forEach(preset => {
+                                if (preset.value !== calculatedValue) {
+                                  options.push(
+                                    <option key={preset.value} value={preset.value}>
+                                      {preset.label}
+                                    </option>
+                                  );
+                                }
+                              });
+                              
+                              return options;
+                            })()}
                       </select>
                           <Clock className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
                           <ChevronDown className="absolute right-2.5 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
@@ -3286,6 +3728,76 @@ setIntakeQuestionAnswers(answers);
         isEditing={!!editingCustomer}
         user={user}
       />
+
+      {/* Leads Modal */}
+      {showLeadsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-xl font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                Select a Lead
+              </h2>
+              <button
+                onClick={() => setShowLeadsModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-6">
+              {leads.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-gray-500">No leads available</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {leads.map(lead => (
+                    <button
+                      key={lead.id}
+                      type="button"
+                      onClick={async () => {
+                        await handleLeadSelect(lead);
+                        setShowLeadsModal(false);
+                      }}
+                      className="w-full text-left px-4 py-3 bg-white border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-colors"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900">{lead.first_name} {lead.last_name}</p>
+                          <div className="flex items-center space-x-4 mt-1">
+                            {lead.email && (
+                              <p className="text-sm text-gray-600 flex items-center">
+                                <Mail className="w-4 h-4 mr-1" />
+                                {lead.email}
+                              </p>
+                            )}
+                            {lead.phone && (
+                              <p className="text-sm text-gray-600 flex items-center">
+                                <Phone className="w-4 h-4 mr-1" />
+                                {formatPhoneNumber(lead.phone)}
+                              </p>
+                            )}
+                          </div>
+                          {lead.company && (
+                            <p className="text-sm text-gray-500 mt-1 flex items-center">
+                              <Building className="w-4 h-4 mr-1" />
+                              {lead.company}
+                            </p>
+                          )}
+                        </div>
+                        <span className="px-3 py-1 text-xs font-medium bg-blue-100 text-blue-700 rounded-full ml-4">
+                          Lead
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       
       <ServiceModal
         isOpen={isServiceModalOpen}

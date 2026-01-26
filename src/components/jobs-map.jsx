@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { getGoogleMapsApiKey } from '../config/maps'
+import { decodeHtmlEntities } from '../utils/htmlUtils'
 
 const JobsMap = ({ jobs, mapType = 'roadmap' }) => {
   const mapRef = useRef(null)
@@ -554,7 +555,7 @@ const JobsMap = ({ jobs, mapType = 'roadmap' }) => {
           const marker = new window.google.maps.Marker({
         position: finalPosition,
         map: mapInstanceRef.current,
-            title: customerName || job.service_name || `Job ${job.id}`,
+            title: customerName || decodeHtmlEntities(job.service_name || '') || `Job ${job.id}`,
             icon: getPinIcon(),
             label: job.id ? {
               text: String(job.id),
@@ -569,10 +570,10 @@ const JobsMap = ({ jobs, mapType = 'roadmap' }) => {
             content: `
               <div style="padding: 8px; min-width: 200px;">
                 <h3 style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600;">
-                  ${customerName || job.service_name || `Job ${job.id}`}
+                  ${customerName || decodeHtmlEntities(job.service_name || '') || `Job ${job.id}`}
                 </h3>
             ${displayAddress ? `<p style="margin: 0 0 4px 0; font-size: 12px; color: #666;">${displayAddress}</p>` : ''}
-                ${job.service_name ? `<p style="margin: 4px 0 0 0; font-size: 12px; color: #333;">${job.service_name}</p>` : ''}
+                ${job.service_name ? `<p style="margin: 4px 0 0 0; font-size: 12px; color: #333;">${decodeHtmlEntities(job.service_name)}</p>` : ''}
               </div>
             `
           })
@@ -728,7 +729,7 @@ const JobsMap = ({ jobs, mapType = 'roadmap' }) => {
             const marker = new window.google.maps.Marker({
               position: position,
         map: mapInstanceRef.current,
-              title: customerName || job.service_name || `Job ${job.id}`,
+              title: customerName || decodeHtmlEntities(job.service_name || '') || `Job ${job.id}`,
               icon: getPinIcon(),
               label: job.id ? {
                 text: String(job.id),
@@ -743,10 +744,10 @@ const JobsMap = ({ jobs, mapType = 'roadmap' }) => {
               content: `
                 <div style="padding: 8px; min-width: 200px;">
                   <h3 style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600;">
-                    ${customerName || job.service_name || `Job ${job.id}`}
+                    ${customerName || decodeHtmlEntities(job.service_name || '') || `Job ${job.id}`}
                   </h3>
             ${displayAddress ? `<p style="margin: 0 0 4px 0; font-size: 12px; color: #666;">${displayAddress}</p>` : ''}
-                  ${job.service_name ? `<p style="margin: 4px 0 0 0; font-size: 12px; color: #333;">${job.service_name}</p>` : ''}
+                  ${job.service_name ? `<p style="margin: 4px 0 0 0; font-size: 12px; color: #333;">${decodeHtmlEntities(job.service_name)}</p>` : ''}
                 </div>
               `
             })
