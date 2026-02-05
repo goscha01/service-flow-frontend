@@ -558,7 +558,7 @@ const ServiceFlowSchedule = () => {
         fetchJobsAbortControllerRef.current = null
       }
     }
-  }, [user, selectedDate, viewMode, selectedFilter, territoryFilter, activeTab, recurringFilter]) // Include territoryFilter and recurringFilter so jobs refetch when filters change
+  }, [user?.id, selectedDate, viewMode, selectedFilter, territoryFilter, activeTab, recurringFilter]) // Include territoryFilter and recurringFilter so jobs refetch when filters change
   
   // Function to invalidate cache (call this when jobs are updated/created/deleted)
   const invalidateJobsCache = useCallback(() => {
@@ -566,13 +566,9 @@ const ServiceFlowSchedule = () => {
     jobsCacheRef.current.clear()
   }, [])
   
-  // Refetch jobs when selectedFilter changes (if it's a team member filter or all-team-members)
-  useEffect(() => {
-    if (selectedFilter && selectedFilter !== 'all' && selectedFilter !== 'unassigned') {
-      console.log(`🔍 Schedule: Team member filter changed to ${selectedFilter}, refetching jobs...`);
-      fetchJobs();
-    }
-  }, [selectedFilter, fetchJobs])
+  // NOTE: Removed redundant useEffect for selectedFilter change.
+  // fetchJobs already includes selectedFilter in its dependency array,
+  // so the main useEffect (below) already refetches when the filter changes.
 
   const fetchTeamMembers = useCallback(async () => {
     try {
@@ -583,7 +579,7 @@ const ServiceFlowSchedule = () => {
       console.error('❌ Error fetching team members:', error)
       setTeamMembers([])
     }
-  }, [user])
+  }, [user?.id])
 
   const fetchTerritories = useCallback(async () => {
     try {
@@ -594,7 +590,7 @@ const ServiceFlowSchedule = () => {
       console.error('❌ Error fetching territories:', error)
       setTerritories([])
     }
-  }, [user])
+  }, [user?.id])
     
     // Helper function to check if a job is assigned to a team member ID
     // IMPORTANT: Checks ALL assignments, not just primary assignee
@@ -816,80 +812,59 @@ const ServiceFlowSchedule = () => {
     } finally {
       setIsLoadingAvailability(false)
     }
-  }, [user])
+  }, [user?.id])
 
+  // Fetch team members and territories once when user loads (they don't change with date/view/filters)
   useEffect(() => {
     if (user?.id) {
-      // Debounce to prevent rapid successive calls when switching tabs
+      fetchTeamMembers()
+      fetchTerritories()
+    }
+  }, [user?.id, fetchTeamMembers, fetchTerritories])
+
+  // Fetch jobs when date, view, or filters change
+  useEffect(() => {
+    if (user?.id) {
       const timeoutId = setTimeout(() => {
         if (!fetchingJobsRef.current) {
           fetchJobs()
         }
-        fetchTeamMembers()
-        fetchTerritories()
       }, 150)
-      
+
       return () => clearTimeout(timeoutId)
     }
-  }, [user, selectedDate, viewMode, fetchJobs, fetchTeamMembers, fetchTerritories])
+  }, [user?.id, selectedDate, viewMode, fetchJobs])
 
-  // Ensure jobs are fetched when switching to availability tab
+  // When switching to availability tab, set default filter and fetch business hours
   useEffect(() => {
-    // Only fetch if we're actually switching tabs (not on initial mount)
-    if (activeTab === 'availability' && user?.id && selectedFilter && selectedFilter !== 'all' && selectedFilter !== 'unassigned') {
-      // Use a small delay to debounce rapid tab switches
-      const timeoutId = setTimeout(() => {
-        if (!fetchingJobsRef.current) {
-          console.log(`🔄 Availability tab active with filter ${selectedFilter}, ensuring jobs are fetched...`)
-          fetchJobs()
-        }
-      }, 100)
-      
-      return () => clearTimeout(timeoutId)
-    }
-    // When switching to availability tab, default to 'all-team-members' if no specific filter is set
-    if (activeTab === 'availability' && selectedFilter === 'all' && teamMembers.length > 0) {
-      setSelectedFilter('all-team-members')
-    }
-  }, [activeTab, selectedFilter, user, fetchJobs, teamMembers.length])
-
-  // Fetch availability when switching to availability tab
-  useEffect(() => {
-    if (activeTab === 'availability' && user?.id) {
-      if (!userBusinessHours) {
+    if (activeTab === 'availability') {
+      // Fetch business hours if not loaded yet
+      if (user?.id && !userBusinessHours) {
         fetchUserAvailability()
       }
-      // Team member availability is no longer fetched - will use availability from team member object if available
-    }
-  }, [activeTab, user, userBusinessHours, fetchUserAvailability])
-
-  // Default to 'all-team-members' when switching to availability tab
-  useEffect(() => {
-    if (activeTab === 'availability' && teamMembers.length > 0) {
-      // Use functional update to access current selectedFilter value
-      setSelectedFilter(prevFilter => {
-        // If switching from jobs tab or filter is unassigned or 'all', default to 'all-team-members'
-        if (!prevFilter || prevFilter === 'unassigned' || prevFilter === 'all') {
-          return 'all-team-members'
-        }
-        // If 'all-team-members' is selected, keep it
-        if (prevFilter === 'all-team-members') {
+      // Default filter to 'all-team-members' for availability view
+      if (teamMembers.length > 0) {
+        setSelectedFilter(prevFilter => {
+          if (!prevFilter || prevFilter === 'unassigned' || prevFilter === 'all') {
+            return 'all-team-members'
+          }
+          if (prevFilter === 'all-team-members') {
+            return prevFilter
+          }
+          const isValidTeamMember = teamMembers.find(m => m.id.toString() === prevFilter)
+          if (!isValidTeamMember) {
+            return 'all-team-members'
+          }
           return prevFilter
-        }
-        // Check if the current filter is a valid team member
-        const isValidTeamMember = teamMembers.find(m => m.id.toString() === prevFilter)
-        if (!isValidTeamMember) {
-          return 'all-team-members'
-        }
-        // Keep the current filter if it's a valid team member
-        return prevFilter
-      })
+        })
+      }
     }
-  }, [activeTab, teamMembers]) // Only run when tab or team members change
+  }, [activeTab, teamMembers, user?.id, userBusinessHours, fetchUserAvailability])
 
-  useEffect(() => {
-    applyFilters()
-  }, [jobs, selectedFilter, statusFilter, timeRangeFilter, territoryFilter, recurringFilter, applyFilters])
+  // NOTE: Removed duplicate applyFilters useEffect.
+  // The useEffect above with [applyFilters] already fires whenever any of its
+  // dependencies change (jobs, selectedFilter, statusFilter, etc.) since those
+  // are all in applyFilters' own dependency array.
 
   const formatDate = (date) => {
     return date.toLocaleDateString('en-US', { 
@@ -1578,7 +1553,7 @@ const ServiceFlowSchedule = () => {
       console.log(`  - Total team members: ${teamMembers.length}`)
       console.log(`  - Total jobs in state: ${jobs.length}`)
       
-      teamMembers.forEach(member => {
+      teamMembers.filter(m => m.status === 'active').forEach(member => {
         const memberAvailability = getDayAvailabilityForMember(date, Number(member.id))
         console.log(`  - Member ${member.first_name} ${member.last_name} (ID: ${member.id}):`)
         console.log(`    - Job count: ${memberAvailability.jobCount || 0}`)
@@ -1672,8 +1647,8 @@ const ServiceFlowSchedule = () => {
         const normalizedTeamMemberIds = teamMemberIds.map(id => Number(id))
         
         // Get all team members in this territory
-        const territoryTeamMembers = teamMembers.filter(member => 
-          normalizedTeamMemberIds.includes(Number(member.id))
+        const territoryTeamMembers = teamMembers.filter(member =>
+          member.status === 'active' && normalizedTeamMemberIds.includes(Number(member.id))
         )
         
         if (territoryTeamMembers.length === 0) {
@@ -4117,13 +4092,13 @@ const ServiceFlowSchedule = () => {
                 </>
               )}
 
-              {/* Team Members - Show for both jobs and availability tabs */}
-              {teamMembers.length === 0 ? (
+              {/* Team Members - Show for both jobs and availability tabs (only active members) */}
+              {teamMembers.filter(m => m.status === 'active').length === 0 ? (
                 <div className="text-xs text-gray-500 text-center py-4">
                   No team members found
                 </div>
               ) : (
-                teamMembers.map((member) => {
+                teamMembers.filter(m => m.status === 'active').map((member) => {
                 const fullName = `${member.first_name || ''} ${member.last_name || ''}`.trim()
                 const isEditing = editingMemberId === member.id
                 // Use editingMemberName if we're editing this member, otherwise use fullName
@@ -4850,7 +4825,7 @@ const ServiceFlowSchedule = () => {
               >
                 <option value="all">All Jobs</option>
                 <option value="unassigned">Unassigned</option>
-                {teamMembers.map((member) => {
+                {teamMembers.filter(m => m.status === 'active').map((member) => {
                   const fullName = `${member.first_name || ''} ${member.last_name || ''}`.trim()
                   return (
                     <option key={member.id} value={member.id} title={fullName}>
@@ -4972,13 +4947,13 @@ const ServiceFlowSchedule = () => {
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                          {teamMembers.map((member) => {
+                          {teamMembers.filter(m => m.status === 'active').map((member) => {
                             const memberColor = member.color || '#2563EB'
                             return (
                               <tr key={member.id} className="hover:bg-gray-50">
                                 <td className="px-4 py-4 whitespace-nowrap sticky left-0 bg-white z-10 border-r border-gray-200">
                                   <div className="flex items-center space-x-3">
-                                    <div 
+                                    <div
                                       className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm flex-shrink-0"
                                       style={{ backgroundColor: memberColor }}
                                     >
