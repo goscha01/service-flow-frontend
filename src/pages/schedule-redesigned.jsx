@@ -154,6 +154,8 @@ const ServiceFlowSchedule = () => {
   const [showAddPaymentModal, setShowAddPaymentModal] = useState(false)
   const [showSendInvoiceModal, setShowSendInvoiceModal] = useState(false)
   const [showEditServiceModal, setShowEditServiceModal] = useState(false)
+  const [showEditTeamMemberModal, setShowEditTeamMemberModal] = useState(false)
+  const [editTeamMemberData, setEditTeamMemberData] = useState({ id: null, first_name: '', last_name: '' })
   const [includePaymentLink, setIncludePaymentLink] = useState(true)
   const [stripeConnected, setStripeConnected] = useState(false)
   const [manualEmail, setManualEmail] = useState('')
@@ -2937,9 +2939,53 @@ const ServiceFlowSchedule = () => {
     }
   }
 
+  const handleSaveTeamMemberName = async () => {
+    if (!editTeamMemberData.id) return
+
+    try {
+      setIsUpdatingJob(true)
+      setErrorMessage('')
+
+      await teamAPI.update(editTeamMemberData.id, {
+        first_name: editTeamMemberData.first_name,
+        last_name: editTeamMemberData.last_name
+      })
+
+      // Update team members list
+      setTeamMembers(prev => prev.map(m =>
+        m.id === editTeamMemberData.id
+          ? { ...m, first_name: editTeamMemberData.first_name, last_name: editTeamMemberData.last_name }
+          : m
+      ))
+
+      // Update team_assignments in selectedJobDetails if applicable
+      if (selectedJobDetails) {
+        setSelectedJobDetails(prev => ({
+          ...prev,
+          team_assignments: (prev.team_assignments || []).map(a =>
+            a.team_member_id === editTeamMemberData.id
+              ? { ...a, first_name: editTeamMemberData.first_name, last_name: editTeamMemberData.last_name }
+              : a
+          )
+        }))
+      }
+
+      setSuccessMessage('Team member name updated successfully!')
+      setTimeout(() => setSuccessMessage(''), 3000)
+      setShowEditTeamMemberModal(false)
+
+    } catch (error) {
+      console.error('Error updating team member name:', error)
+      setErrorMessage('Failed to update team member name')
+      setTimeout(() => setErrorMessage(''), 3000)
+    } finally {
+      setIsUpdatingJob(false)
+    }
+  }
+
   const handleSaveAddress = async () => {
     if (!selectedJobDetails) return
-    
+
     try {
       setIsUpdatingJob(true)
       setErrorMessage('')
@@ -6890,9 +6936,23 @@ const ServiceFlowSchedule = () => {
                           </div>
                           <div className="flex-1 min-w-0">
                                     <div className="flex items-center space-x-2">
-                                      <p className="font-medium text-gray-900 text-sm truncate" style={{ fontFamily: 'Montserrat', fontWeight: 500 }} title={memberName}>
+                                      <button
+                                        onClick={() => {
+                                          const nameParts = memberName.split(' ')
+                                          setEditTeamMemberData({
+                                            id: member.id,
+                                            first_name: nameParts[0] || '',
+                                            last_name: nameParts.slice(1).join(' ') || ''
+                                          })
+                                          setShowEditTeamMemberModal(true)
+                                        }}
+                                        className="flex items-center gap-1 font-medium text-gray-900 text-sm truncate hover:text-blue-600 cursor-pointer transition-colors group/edit"
+                                        style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
+                                        title={`Click to edit ${memberName}`}
+                                      >
+                                        <Edit className="w-3 h-3 text-gray-400 group-hover/edit:text-blue-600 flex-shrink-0" />
                                         {memberName}
-                                      </p>
+                                      </button>
                                       {assignment.is_primary && (
                                         <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">
                                           Primary
@@ -7382,6 +7442,61 @@ const ServiceFlowSchedule = () => {
                 </button>
                 <button
                   onClick={handleSaveCustomer}
+                  disabled={isUpdatingJob}
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
+                >
+                  {isUpdatingJob ? 'Saving...' : 'Save'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Team Member Name Modal */}
+      {showEditTeamMemberModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[9999] flex items-center justify-center">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Edit Team Member Name</h3>
+              <button
+                onClick={() => setShowEditTeamMemberModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-full"
+              >
+                <X className="w-5 h-5 text-gray-600" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">First Name</label>
+                <input
+                  type="text"
+                  value={editTeamMemberData.first_name}
+                  onChange={(e) => setEditTeamMemberData(prev => ({ ...prev, first_name: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Last Name</label>
+                <input
+                  type="text"
+                  value={editTeamMemberData.last_name}
+                  onChange={(e) => setEditTeamMemberData(prev => ({ ...prev, last_name: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+
+              <div className="flex items-center justify-end space-x-3">
+                <button
+                  onClick={() => setShowEditTeamMemberModal(false)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveTeamMemberName}
                   disabled={isUpdatingJob}
                   className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
                 >
