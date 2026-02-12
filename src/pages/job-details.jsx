@@ -53,19 +53,24 @@ import {
   Calendar as CalendarIcon,
   Copy,
   Trash2,
-  Menu
+  Menu,
+  Search
 } from "lucide-react"
-import { jobsAPI, notificationAPI, territoriesAPI, teamAPI, invoicesAPI } from "../services/api"
+import { jobsAPI, notificationAPI, territoriesAPI, teamAPI, invoicesAPI, twilioAPI, notificationSettingsAPI } from "../services/api"
+import api, { stripeAPI } from "../services/api"
+import { useAuth } from "../context/AuthContext"
 import Sidebar from "../components/sidebar"
-import MobileHeader from "../components/mobile-header"
 import AddressAutocomplete from "../components/address-autocomplete"
 import IntakeAnswersDisplay from "../components/intake-answers-display"
 import IntakeQuestionsForm from "../components/intake-questions-form"
 import { formatPhoneNumber } from "../utils/phoneFormatter"
+import { formatDateLocal } from "../utils/dateUtils"
+import { decodeHtmlEntities } from "../utils/htmlUtils"
 
 const JobDetails = () => {
   const { jobId } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [job, setJob] = useState(null)
   const [loading, setLoading] = useState(false)
   const [successMessage, setSuccessMessage] = useState("")
@@ -105,6 +110,28 @@ const JobDetails = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [showSendInvoiceModal, setShowSendInvoiceModal] = useState(false)
   const [showAddPaymentModal, setShowAddPaymentModal] = useState(false)
+  const [showDiscountModal, setShowDiscountModal] = useState(false)
+  const [showTipModal, setShowTipModal] = useState(false)
+  const [includePaymentLink, setIncludePaymentLink] = useState(true)
+  const [stripeConnected, setStripeConnected] = useState(false)
+  const [manualEmail, setManualEmail] = useState('')
+  const [showEmailRequiredModal, setShowEmailRequiredModal] = useState(false)
+  const [showEditCustomerModal, setShowEditCustomerModal] = useState(false)
+  const [pendingAction, setPendingAction] = useState(null) // 'send' or 'resend'
+  const [showNotificationModal, setShowNotificationModal] = useState(false)
+  const [notificationType, setNotificationType] = useState(null) // 'confirmation' or 'reminder'
+  const [notificationEmail, setNotificationEmail] = useState('')
+  const [notificationPhone, setNotificationPhone] = useState('')
+  const [selectedNotificationMethod, setSelectedNotificationMethod] = useState('email') // 'email' or 'sms'
+  const [showCustomMessageModal, setShowCustomMessageModal] = useState(false)
+  const [customMessage, setCustomMessage] = useState('')
+  const [customMessageEmail, setCustomMessageEmail] = useState('')
+  const [editCustomerData, setEditCustomerData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: ''
+  })
   
   // Address autopopulation state
   const [addressAutoPopulated, setAddressAutoPopulated] = useState(false)
@@ -147,16 +174,20 @@ const JobDetails = () => {
       const modifierPrice = calculateModifierPrice();
       const calculatedTotal = servicePrice + modifierPrice + additionalFees + taxes - discount;
       
+      // Use the backend total as the default value for the input
+      const totalPrice = parseFloat(job.total) || 0;
+      
       setFormData(prev => ({
         ...prev,
         service_name: job.service_name || "",
         bathroom_count: job.bathroom_count || "",
         duration: job.duration || job.estimated_duration || 0,
-        service_price: servicePrice,
+        service_price: totalPrice, // Set backend total as default
         modifier_price: modifierPrice,
-        discount: discount,
+        discount: discount > 0 ? discount : undefined, // Only set if discount exists
         additional_fees: additionalFees,
         taxes: taxes,
+        tip: 0,
         total: calculatedTotal
       }))
     }
@@ -170,8 +201,32 @@ const JobDetails = () => {
   const [invoice, setInvoice] = useState(null)
   const [emailNotifications, setEmailNotifications] = useState(true)
   const [smsNotifications, setSmsNotifications] = useState(false)
+  const [userTwilioConnected, setUserTwilioConnected] = useState(false)
   const [intakeQuestionAnswers, setIntakeQuestionAnswers] = useState({})
   const [originalJobData, setOriginalJobData] = useState(null)
+  
+  // Keepalive functionality to prevent Railway backend from sleeping
+  useEffect(() => {
+    const keepWarm = async () => {
+      try {
+        await fetch(`${process.env.REACT_APP_API_URL || 'https://service-flow-backend-production-4568.up.railway.app/api'}/health`, {
+          method: 'HEAD',
+        });
+        console.log('✅ Backend keepalive ping');
+      } catch (error) {
+        console.log('⚠️ Keepalive ping failed (normal if backend is sleeping)');
+      }
+    };
+
+    // Initial ping on job details load
+    keepWarm();
+
+    // Set up interval to ping every 10 minutes
+    const keepaliveInterval = setInterval(keepWarm, 10 * 60 * 1000); // 10 minutes
+
+    return () => clearInterval(keepaliveInterval);
+  }, []);
+  const [isRetrying, setIsRetrying] = useState(false)
 
   // Helper function to map job data from API response
   const mapJobData = (jobData) => {
@@ -185,11 +240,13 @@ const JobDetails = () => {
       customer_city: jobData.customers?.city || jobData.customer_city,
       customer_state: jobData.customers?.state || jobData.customer_state,
       customer_zip_code: jobData.customers?.zip_code || jobData.customer_zip_code,
-      service_name: jobData.services?.name || jobData.service_name,
+      service_name: decodeHtmlEntities(jobData.services?.name || jobData.service_name || ''),
       service_price: jobData.services?.price || jobData.service_price,
       service_duration: jobData.services?.duration || jobData.service_duration,
       // Handle multiple services - check if service_name contains multiple services
-      service_names: jobData.service_name && jobData.service_name.includes(', ') ? jobData.service_name.split(', ') : null,
+      service_names: jobData.service_name && jobData.service_name.includes(', ') 
+        ? jobData.service_name.split(', ').map(name => decodeHtmlEntities(name)) 
+        : null,
       service_ids: jobData.service_ids ? (typeof jobData.service_ids === 'string' ? JSON.parse(jobData.service_ids) : jobData.service_ids) : null,
       // Map additional fields that might be missing
       duration: jobData.duration || jobData.estimated_duration,
@@ -222,7 +279,7 @@ const JobDetails = () => {
   useEffect(() => {
     if (showRescheduleModal && job) {
       // Extract date and time directly from the string (format: "2024-01-15 10:00:00")
-      const datePart = job.scheduled_date ? job.scheduled_date.split(' ')[0] : new Date().toISOString().split('T')[0]
+      const datePart = job.scheduled_date ? job.scheduled_date.split(' ')[0] : formatDateLocal(new Date())
       const timePart = job.scheduled_date ? job.scheduled_date.split(' ')[1]?.substring(0, 5) : '09:00'
       
       setFormData(prev => ({
@@ -233,16 +290,138 @@ const JobDetails = () => {
     }
   }, [showRescheduleModal, job])
 
-  // Fetch job data
+  // Fetch payment status from transactions table
+  const fetchInvoiceStatus = async (jobId) => {
+    try {
+      console.log('💳 Checking payment status for job:', jobId)
+      console.log('💳 API URL:', `${process.env.REACT_APP_API_URL || 'https://service-flow-backend-production-4568.up.railway.app/api'}/transactions/job/${jobId}`)
+      
+      // Check transactions for this job
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://service-flow-backend-production-4568.up.railway.app/api'}/transactions/job/${jobId}`)
+      
+      console.log('💳 Transaction API response status:', response.status)
+      
+      if (response.ok) {
+        const data = await response.json()
+        console.log('💳 Transaction API response data:', data)
+        
+        const { hasPayment, totalPaid, transactionCount, transactions } = data
+        
+        console.log('💳 Payment status:', { hasPayment, totalPaid, transactionCount })
+        
+        if (hasPayment && totalPaid > 0) {
+          // Payment found - job is paid
+          console.log('💳 Job is PAID - found', transactionCount, 'transactions totaling $', totalPaid)
+          
+          setJob(prev => {
+            console.log('💳 Updating job status to PAID')
+            return {
+              ...prev,
+              invoice_status: 'paid',
+              total_paid_amount: totalPaid,
+              total_invoice_amount: totalPaid, // For paid jobs, invoice amount = paid amount
+              transaction_count: transactionCount
+            }
+          })
+        } else {
+          // No payment found - check if there are invoices
+          console.log('💳 No payment found, checking for invoices...')
+          
+          try {
+            const invoiceResponse = await api.get(`/invoices?job_id=${jobId}`)
+            console.log('💳 Invoice check result:', invoiceResponse.data)
+            
+            if (invoiceResponse.data && invoiceResponse.data.length > 0) {
+              const invoices = invoiceResponse.data
+              let overallStatus = 'none'
+              let totalAmount = 0
+              let latestInvoice = null
+              
+              invoices.forEach(invoice => {
+                totalAmount += parseFloat(invoice.total_amount || 0)
+                
+                if (invoice.status === 'sent' || invoice.status === 'invoiced') {
+                  if (overallStatus === 'none') {
+                    overallStatus = 'invoiced'
+                    latestInvoice = invoice
+                  }
+                } else if (invoice.status === 'draft') {
+                  if (overallStatus === 'none') {
+                    overallStatus = 'draft'
+                    latestInvoice = invoice
+                  }
+                }
+              })
+              
+              setJob(prev => ({
+                ...prev,
+                invoice_status: overallStatus,
+                invoice_id: latestInvoice?.id,
+                total_invoice_amount: totalAmount,
+                total_paid_amount: 0
+              }))
+            } else {
+              // No invoices or payments
+              setJob(prev => ({
+                ...prev,
+                invoice_status: 'none',
+                invoice_id: null,
+                total_invoice_amount: 0,
+                total_paid_amount: 0
+              }))
+            }
+          } catch (invoiceError) {
+            console.error('💳 Error checking invoices:', invoiceError)
+            // Set to no invoice if we can't check
+            setJob(prev => ({
+              ...prev,
+              invoice_status: 'none',
+              invoice_id: null,
+              total_invoice_amount: 0,
+              total_paid_amount: 0
+            }))
+          }
+        }
+      } else {
+        console.error('💳 Transaction API error:', response.status)
+        // Fallback to no payment status
+        setJob(prev => ({
+          ...prev,
+          invoice_status: 'none',
+          invoice_id: null,
+          total_invoice_amount: 0,
+          total_paid_amount: 0
+        }))
+      }
+    } catch (error) {
+      console.error('💳 Error checking payment status:', error)
+      // Don't show error to user, just log it
+    }
+  }
+
+  // Auto-refresh invoice status every 30 seconds if there's an invoice
   useEffect(() => {
-    const fetchJob = async () => {
+    if (job?.id && job?.invoice_status && job.invoice_status !== 'paid') {
+      console.log('💳 Setting up auto-refresh for invoice status')
+      const interval = setInterval(() => {
+        console.log('💳 Auto-refreshing invoice status...')
+        fetchInvoiceStatus(job.id)
+      }, 30000) // 30 seconds
+
+      return () => clearInterval(interval)
+    }
+  }, [job?.id, job?.invoice_status])
+
+  // Fetch job data with Windows Defender/Firewall retry logic
+  useEffect(() => {
+    const fetchJob = async (retryCount = 0) => {
       // Wait a bit to ensure authentication state is ready
       await new Promise(resolve => setTimeout(resolve, 100))
       
       setLoading(true)
       setError("") // Clear any previous errors
       try {
-        console.log('🔧 Job Details: Fetching job data for ID:', jobId)
+        console.log('🔧 Job Details: Fetching job data for ID:', jobId, retryCount > 0 ? `(retry ${retryCount})` : '')
         const jobData = await jobsAPI.getById(jobId)
         
         
@@ -263,6 +442,10 @@ const JobDetails = () => {
         });
         
         setJob(mappedJobData)
+        
+        // Fetch invoice status to show payment information
+        console.log('💳 About to fetch invoice status for job ID:', mappedJobData.id)
+        await fetchInvoiceStatus(mappedJobData.id)
         
         // Initialize form data
         setFormData({
@@ -286,7 +469,8 @@ const JobDetails = () => {
           service_price: mappedJobData.service_price || 0,
           discount: mappedJobData.discount || 0,
           additional_fees: mappedJobData.additional_fees || 0,
-          taxes: mappedJobData.taxes || 0
+          taxes: mappedJobData.taxes || 0,
+          tip: 0
         })
 
         // Initialize intake question answers
@@ -300,13 +484,81 @@ const JobDetails = () => {
           setIntakeQuestionAnswers(initialAnswers)
         }
 
-        // Fetch notification preferences
+        // Check if user has Twilio configured first
+        try {
+          const twilioResponse = await twilioAPI.getPhoneNumbers()
+          console.log('📱 User Twilio status:', twilioResponse)
+          setUserTwilioConnected(twilioResponse.phoneNumbers && twilioResponse.phoneNumbers.length > 0)
+        } catch (error) {
+          console.error('❌ Error checking Twilio status:', error)
+          setUserTwilioConnected(false)
+        }
+
+        // Fetch customer notification preferences and global settings
         if (jobData.customer_id) {
           try {
-            const prefs = await notificationAPI.getPreferences(jobData.customer_id)
+            // Load both customer preferences and global notification settings
+            const [prefs, globalSettings] = await Promise.all([
+              notificationAPI.getPreferences(jobData.customer_id),
+              notificationSettingsAPI.getSettings(user.id).catch(() => []) // Don't fail if global settings can't be loaded
+            ])
+            
+            console.log('📧 Loaded customer notification preferences:', prefs)
+            console.log('🌐 Loaded global notification settings:', globalSettings)
     
+            // Check global appointment confirmation SMS setting
+            const appointmentSetting = globalSettings.find(s => s.notification_type === 'appointment_confirmation')
+            const globalSmsEnabled = appointmentSetting && appointmentSetting.sms_enabled === 1
+            
+            // If global SMS is enabled, ensure SMS notifications are enabled for this customer
+            let smsShouldBeEnabled = !!prefs.sms_notifications
+            if (globalSmsEnabled && !prefs.sms_notifications) {
+              // Global setting overrides - enable SMS for this customer
+              smsShouldBeEnabled = true
+              console.log('🌐 Global appointment confirmation SMS is enabled - enabling SMS for this customer')
+              
+              // Update customer preferences to match global setting
+              try {
+                await notificationAPI.updatePreferences(jobData.customer_id, {
+                  email_notifications: prefs.email_notifications !== undefined ? !!prefs.email_notifications : true,
+                  sms_notifications: true
+                })
+                console.log('📱 Updated customer preferences to match global SMS setting')
+              } catch (updateError) {
+                console.error('Failed to update customer preferences:', updateError)
+                // Continue anyway - we'll still enable it in the UI
+              }
+            }
+            
+            // Set notification states
             setEmailNotifications(!!prefs.email_notifications)
-            setSmsNotifications(!!prefs.sms_notifications)
+            setSmsNotifications(smsShouldBeEnabled)
+            
+            console.log('📧 Setting notification states:', {
+              email: !!prefs.email_notifications,
+              sms: smsShouldBeEnabled,
+              globalSmsEnabled,
+              userTwilioConnected,
+              rawEmail: prefs.email_notifications,
+              rawSms: prefs.sms_notifications
+            })
+            
+            // Only auto-enable SMS for customers without email if they don't have preferences yet
+            const hasEmail = jobData.customer_email && jobData.customer_email.trim() !== ''
+            if (!hasEmail && userTwilioConnected && !smsShouldBeEnabled && !globalSmsEnabled) {
+              // Customer has no email and no SMS preference set - auto-enable SMS
+              setSmsNotifications(true)
+              
+              try {
+                await notificationAPI.updatePreferences(jobData.customer_id, {
+                  email_notifications: false,
+                  sms_notifications: true
+                })
+                console.log('📱 Auto-enabled SMS for customer without email')
+              } catch (updateError) {
+                console.error('Failed to auto-update notification preferences:', updateError)
+              }
+            }
           } catch (e) {
             console.error('Failed to load notification preferences:', e)
             // Use defaults - don't show error to user for notification preferences
@@ -317,9 +569,22 @@ const JobDetails = () => {
       } catch (err) {
         console.error('Error fetching job:', err)
         
+        // Handle Windows Defender/Firewall CORS preflight issues with retry
+        if ((err.code === 'ERR_NETWORK' || err.message?.includes('CORS') || err.message?.includes('preflight') || err.message?.includes('Failed to fetch')) && retryCount < 3) {
+          console.log(`🔄 Windows Defender/Firewall CORS issue detected, retrying in ${(retryCount + 1) * 2} seconds... (attempt ${retryCount + 1}/3)`)
+          
+          setIsRetrying(true)
+          
+          // Wait longer between retries for Windows Defender/firewall issues
+          await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 2000))
+          
+          // Retry the request
+          return fetchJob(retryCount + 1)
+        }
+        
         // Handle specific error types
         if (err.code === 'ERR_NETWORK' || err.message?.includes('CORS') || err.message?.includes('preflight')) {
-          setError("Network error: Unable to load job details. Please check your connection and try again.")
+          setError("Network error: Unable to load job details. This may be due to Windows Defender/firewall blocking the request. Please check your connection and try again.")
         } else if (err.response?.status === 404) {
           setError("Job not found. It may have been deleted.")
         } else if (err.response?.status === 401) {
@@ -330,6 +595,7 @@ const JobDetails = () => {
         }
       } finally {
         setLoading(false)
+        setIsRetrying(false)
       }
     }
     if (jobId) fetchJob()
@@ -372,12 +638,35 @@ const JobDetails = () => {
     fetchInvoice()
   }, [job])
 
+  // Check Stripe connection status
+  useEffect(() => {
+    const checkStripeStatus = async () => {
+      try {
+        console.log('🔍 Checking Stripe status...')
+        const response = await stripeAPI.testConnection()
+        console.log('🔍 Stripe status response:', response)
+        setStripeConnected(response.connected)
+        // If Stripe is not connected, disable payment link
+        if (!response.connected) {
+          setIncludePaymentLink(false)
+        } else {
+          // If Stripe is connected, enable payment link by default
+          setIncludePaymentLink(true)
+        }
+      } catch (error) {
+        console.error('Error checking Stripe status:', error)
+        setStripeConnected(false)
+        setIncludePaymentLink(false)
+      }
+    }
+    
+    checkStripeStatus()
+  }, [])
+
   const statusOptions = [
-    { key: 'pending', label: 'Pending', color: 'bg-gray-400' },
-    { key: 'confirmed', label: 'Confirmed', color: 'bg-blue-500' },
-    { key: 'in_progress', label: 'In Progress', color: 'bg-orange-500' },
-    { key: 'completed', label: 'Completed', color: 'bg-purple-500' },
-    { key: 'cancelled', label: 'Cancelled', color: 'bg-red-500' }
+    { key: 'confirmed', label: 'Mark as En Route', color: 'bg-blue-500' },
+    { key: 'in_progress', label: 'Mark as In Progress', color: 'bg-orange-500' },
+    { key: 'completed', label: 'Mark as Complete', color: 'bg-green-500' }
   ]
 
   const handleStatusChange = async (newStatus) => {
@@ -592,11 +881,105 @@ const JobDetails = () => {
     }
   }
 
-  const handleSendInvoice = async (emailData) => {
+  const handleTestEmail = async () => {
+    try {
+      setLoading(true)
+      
+      // Use manual email if provided, otherwise fall back to customer email
+      const emailToUse = manualEmail || job.customer_email;
+      
+      if (!emailToUse) {
+        setError('Please enter a customer email address');
+        return;
+      }
+      
+      const response = await api.post('/test-sendgrid', {
+        testEmail: emailToUse
+      })
+      
+      console.log('Test email result:', response.data)
+      setSuccessMessage('Test email sent successfully!')
+      setTimeout(() => setSuccessMessage(""), 3000)
+    } catch (error) {
+      console.error('Error sending test email:', error)
+      setError('Failed to send test email: ' + (error.response?.data?.error || error.message))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSendInvoice = async () => {
     if (!job) return
     try {
       setLoading(true)
-      // Update invoice status to 'invoiced'
+      
+      // First, create an invoice record
+      const calculatedAmount = calculateTotalPrice();
+      console.log('💰 Creating invoice with amount:', calculatedAmount);
+      console.log('💰 Job data for calculation:', {
+        jobTotal: job.total,
+        servicePrice: job.service_price,
+        additionalFees: job.additional_fees,
+        taxes: job.taxes,
+        discount: job.discount,
+        tip: formData.tip
+      });
+      
+      // Validate amount before sending
+      if (calculatedAmount <= 0) {
+        setError('Invoice amount must be greater than $0. Please check the job pricing.');
+        return;
+      }
+      
+      const createInvoiceData = {
+        jobId: job.id,
+        customerId: job.customer_id,
+        amount: calculatedAmount,
+        taxAmount: 0, // You can calculate tax if needed
+        totalAmount: calculatedAmount,
+        dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] // 7 days from now
+      };
+      
+      console.log('💰 Sending invoice data to server:', createInvoiceData);
+      
+      const invoiceResponse = await api.post('/create-invoice', createInvoiceData)
+      
+      const invoice = invoiceResponse.data
+      console.log('📄 Invoice created:', invoice)
+      
+      // Send invoice email with the created invoice ID
+      // Use manual email if provided, otherwise fall back to customer email
+      const emailToUse = manualEmail || job.customer_email;
+      
+      if (!emailToUse) {
+        setError('Please enter a customer email address');
+        return;
+      }
+      
+      const invoiceData = {
+        invoiceId: invoice.id,
+        jobId: job.id,
+        customerEmail: emailToUse,
+        customerName: `${job.customer_first_name} ${job.customer_last_name}`,
+        amount: calculateTotalPrice(),
+        serviceName: job.service_name,
+        serviceDate: job.scheduled_date,
+        address: job.customer_address,
+        includePaymentLink: includePaymentLink
+      }
+      
+      console.log('📧 Sending invoice email with data:', invoiceData)
+      console.log('📧 Include payment link state:', includePaymentLink)
+      
+      const emailResponse = await api.post('/send-invoice-email', invoiceData)
+      console.log('Invoice email sent:', emailResponse.data)
+      
+      // Update invoice status to 'sent'
+      await api.put(`/invoices/${invoice.id}`, {
+        status: 'sent'
+      })
+      
+      // Update job invoice status to 'invoiced'
       await jobsAPI.update(job.id, {
         invoiceStatus: 'invoiced'
       })
@@ -604,7 +987,9 @@ const JobDetails = () => {
       setSuccessMessage('Invoice sent successfully!')
       setTimeout(() => setSuccessMessage(""), 3000)
       setShowSendInvoiceModal(false)
+      setManualEmail('') // Clear manual email after successful send
     } catch (error) {
+      console.error('Error sending invoice:', error)
       setError('Failed to send invoice')
     } finally {
       setLoading(false)
@@ -662,12 +1047,17 @@ const JobDetails = () => {
     if (!job || !job.customer_id) return
     try {
       setLoading(true)
+      setError("") // Clear any previous errors
 
+      console.log('🔄 Toggling notification:', { type, value, customerId: job.customer_id })
       
+      // Update local state first
       if (type === 'email') {
         setEmailNotifications(value)
+        console.log('📧 Email notification set to:', value)
       } else if (type === 'sms') {
         setSmsNotifications(value)
+        console.log('📱 SMS notification set to:', value)
       }
       
       // Update notification preferences in backend
@@ -676,14 +1066,27 @@ const JobDetails = () => {
         sms_notifications: type === 'sms' ? value : smsNotifications
       }
       
+      console.log('📧 Sending preferences to server:', preferences)
+      const result = await notificationAPI.updatePreferences(job.customer_id, preferences)
+      console.log('✅ Server response:', result)
       
-      await notificationAPI.updatePreferences(job.customer_id, preferences)
+      // Verify the save was successful by re-fetching preferences
+      try {
+        const verifyPrefs = await notificationAPI.getPreferences(job.customer_id)
+        console.log('✅ Verified saved preferences:', verifyPrefs)
+      } catch (verifyError) {
+        console.error('❌ Failed to verify saved preferences:', verifyError)
+      }
       
       setSuccessMessage(`${type === 'email' ? 'Email' : 'SMS'} notifications ${value ? 'enabled' : 'disabled'}`)
       setTimeout(() => setSuccessMessage(""), 3000)
     } catch (error) {
       console.error('Failed to update notification preferences:', error)
-      setError('Failed to update notification preferences')
+      
+      // Show more specific error message
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to update notification preferences'
+      setError(errorMessage)
+      
       // Revert the toggle if update failed
       if (type === 'email') {
         setEmailNotifications(!value)
@@ -733,6 +1136,46 @@ const JobDetails = () => {
     } catch (error) {
       console.error('Error updating intake questions:', error)
       setError(error.response?.data?.error || 'Failed to update intake questions')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSaveService = async () => {
+    if (!job) return
+    try {
+      setLoading(true)
+      setError("")
+      
+      // Send only the changed values to backend, let backend calculate total
+      const updatedJob = {
+        service_price: formData.service_price,
+        additional_fees: formData.additional_fees,
+        taxes: formData.taxes,
+        discount: formData.discount
+      }
+      
+      await jobsAPI.update(job.id, updatedJob)
+      
+      setSuccessMessage('Service details updated successfully!')
+      setTimeout(() => setSuccessMessage(""), 3000)
+      
+      // Close the modal
+      setShowEditServiceModal(false)
+      
+      // Update the job state with new data immediately
+      setJob(prev => ({
+        ...prev,
+        ...updatedJob
+      }))
+      
+      // Reload job data to get updated values
+      const jobData = await jobsAPI.getById(jobId)
+      const mappedJobData = mapJobData(jobData)
+      setJob(mappedJobData)
+    } catch (error) {
+      console.error('Error updating service details:', error)
+      setError(error.response?.data?.error || 'Failed to update service details')
     } finally {
       setLoading(false)
     }
@@ -868,24 +1311,32 @@ const JobDetails = () => {
     }
   }
 
-  // Calculate total price including modifiers for display
+  // Use backend-calculated total as source of truth
   const calculateTotalPrice = () => {
     try {
-      // Use form data if available (when editing), otherwise use job data
-      const servicePrice = formData.service_price !== undefined ? formData.service_price : (parseFloat(job.service_price) || 0);
-      const modifierPrice = formData.modifier_price !== undefined ? formData.modifier_price : calculateModifierPrice();
-      const additionalFees = formData.additional_fees !== undefined ? formData.additional_fees : (parseFloat(job.additional_fees) || 0);
-      const taxes = formData.taxes !== undefined ? formData.taxes : (parseFloat(job.taxes) || 0);
-      const discount = formData.discount !== undefined ? formData.discount : (parseFloat(job.discount) || 0);
+      // Use backend-calculated total from job data
+      const baseTotal = parseFloat(job.total) || 0;
+      const tip = formData.tip || 0;
+      const calculatedTotal = baseTotal + tip;
       
-      const total = servicePrice + modifierPrice + additionalFees + taxes - discount;
+      console.log('💰 Price calculation:', {
+        jobTotal: job.total,
+        baseTotal,
+        tip,
+        calculatedTotal,
+        jobData: {
+          service_price: job.service_price,
+          additional_fees: job.additional_fees,
+          taxes: job.taxes,
+          discount: job.discount,
+          total: job.total
+        }
+      });
       
-      console.log('🔧 calculateTotalPrice: servicePrice:', servicePrice, 'modifierPrice:', modifierPrice, 'additionalFees:', additionalFees, 'taxes:', taxes, 'discount:', discount, 'total:', total);
-      
-      return total;
+      return calculatedTotal;
     } catch (error) {
-      console.error('Error calculating total price:', error);
-      return parseFloat(job.service_price) || 0;
+      console.error('Error getting total price:', error);
+      return 0;
     }
   }
 
@@ -962,7 +1413,17 @@ const JobDetails = () => {
   if (loading || !job) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <span className="text-gray-500 text-lg">Loading job details...</span>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <span className="text-gray-500 text-lg">
+            {isRetrying ? 'Retrying connection...' : 'Loading job details...'}
+          </span>
+          {isRetrying && (
+            <p className="text-sm text-gray-400 mt-2">
+              Windows Defender/firewall may be blocking the request. Retrying...
+            </p>
+          )}
+        </div>
       </div>
     )
   }
@@ -974,7 +1435,6 @@ const JobDetails = () => {
       
       <div className="flex-1 lg:ml-64 xl:ml-72">
         {/* Mobile Header */}
-        <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
         
         {/* Header */}
         <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4">
@@ -992,7 +1452,7 @@ const JobDetails = () => {
                 <h1 className="text-lg sm:text-xl font-semibold text-gray-900 truncate">
                   {job.service_names && job.service_names.length > 1 
                     ? `${job.service_names.length} Services` 
-                    : (job.service_name || 'Service')
+                    : decodeHtmlEntities(job.service_name || 'Service')
                   } for {job.customer_first_name} {job.customer_last_name}
                 </h1>
                 <p className="text-xs sm:text-sm text-gray-600">Job #{job.id}</p>
@@ -1155,7 +1615,7 @@ const JobDetails = () => {
         {/* Main Content */}
         <div className="flex flex-col lg:flex-row">
           {/* Left Column */}
-          <div className="flex-1 p-4 sm:p-6">
+          <div className="flex-1 lg:max-w-3xl p-4 sm:p-6">
             {/* Map Section */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-4 sm:mb-6">
               <div className="relative">
@@ -1169,7 +1629,7 @@ const JobDetails = () => {
                       loading="lazy"
                       allowFullScreen
                       referrerPolicy="no-referrer-when-downgrade"
-                      src={`https://www.google.com/maps/embed/v1/place?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&q=${encodeURIComponent(
+                      src={`https://www.google.com/maps/embed/v1/place?key=AIzaSyC_CrJWTsTHOTBd7TSzTuXOfutywZ2AyOQ&q=${encodeURIComponent(
                         `${job.service_address_street}, ${job.service_address_city}, ${job.service_address_state || ''} ${job.service_address_zip || ''}`
                       )}`}
                       onError={(e) => {
@@ -1284,13 +1744,13 @@ const JobDetails = () => {
                         {job.service_names.map((serviceName, index) => (
                           <div key={index} className="flex items-center space-x-2">
                             <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                            <span className="text-sm text-gray-700">{serviceName}</span>
+                            <span className="text-sm text-gray-700">{decodeHtmlEntities(serviceName || '')}</span>
                           </div>
                         ))}
                       </div>
                     </div>
                   ) : (
-                  <p className="font-semibold text-gray-900">{job.service_name}</p>
+                  <p className="font-semibold text-gray-900">{decodeHtmlEntities(job.service_name || '')}</p>
                   )}
                   <p className="text-gray-600 text-sm mb-2">
                     {job.service_names && job.service_names.length > 1 ? `${job.service_names.length} services` : 'Default service category'}
@@ -1299,8 +1759,6 @@ const JobDetails = () => {
                 </div>
               </div>
             </div>
-
-
 
             {/* Team Assignment Section - Moved from sidebar */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-4 sm:mb-6 p-4 sm:p-6">
@@ -1500,254 +1958,289 @@ const JobDetails = () => {
 
             {/* Invoice Section */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 space-y-2 sm:space-y-0 sm:space-x-2">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 space-y-2 sm:space-y-0 sm:space-x-2">
                 <div>
-                  <div className="flex items-center space-x-2">
-                    <h3 className="text-lg font-semibold text-gray-900">Invoice</h3>
-                    <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded">
-                      {job.invoice_status || 'Draft'}
+                  <div className="flex items-center space-x-3 mb-2">
+                    <h3 className="text-2xl font-bold text-gray-900">Invoice</h3>
+                    <span className={`px-3 py-1 text-sm font-medium rounded-full ${
+                      job.invoice_status === 'paid' 
+                        ? 'bg-green-100 text-green-800' 
+                        : job.invoice_status === 'invoiced' || job.invoice_status === 'sent'
+                        ? 'bg-yellow-100 text-yellow-800'
+                        : job.invoice_status === 'draft'
+                        ? 'bg-blue-100 text-blue-800'
+                        : 'bg-gray-100 text-gray-800'
+                    }`}>
+                      {job.invoice_status === 'paid' 
+                        ? 'Paid' 
+                        : job.invoice_status === 'invoiced' || job.invoice_status === 'sent'
+                        ? 'Unpaid'
+                        : job.invoice_status === 'draft'
+                        ? 'Draft'
+                        : 'No Invoice'}
                     </span>
                   </div>
-                  <p className="text-sm text-gray-600">Due Aug 31, 2025</p>
+                  <p className="text-sm text-gray-600">Due Oct 2, 2025</p>
                 </div>
                 
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
                   <button 
                     onClick={() => setShowAddPaymentModal(true)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center justify-center space-x-2 text-sm"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center space-x-2 text-sm font-medium"
                   >
                     <Plus className="w-4 h-4" />
                     <span>Add Payment</span>
                     <ChevronDown className="w-4 h-4" />
                   </button>
                   <button 
-                    onClick={() => setShowSendInvoiceModal(true)}
-                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 text-sm"
+                    onClick={() => {
+                      if (!job.customer_email) {
+                        setPendingAction('send')
+                        setShowEmailRequiredModal(true)
+                      } else {
+                        setShowSendInvoiceModal(true)
+                      }
+                    }}
+                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium"
                   >
                     Send Invoice
                   </button>
                   <div className="flex space-x-2">
-                    <button className="p-2 text-gray-400 hover:text-gray-600 border border-gray-300 rounded">
+                    <button className="p-2 text-gray-400 hover:text-gray-600 border border-gray-300 rounded-lg">
                       <Printer className="w-4 h-4" />
                     </button>
-                    <button className="p-2 text-gray-400 hover:text-gray-600 border border-gray-300 rounded">
+                    <button className="p-2 text-gray-400 hover:text-gray-600 border border-gray-300 rounded-lg">
                       <MoreVertical className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
               </div>
 
-              <div className="space-y-4">
-                <div className="flex justify-between">
-                  <span className="text-lg font-semibold">$0.00</span>
-                  <span className="text-lg font-semibold">${calculateTotalPrice().toFixed(2)}</span>
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Amount paid</p>
+                  <p className="text-lg font-semibold text-gray-900">
+                    ${job.total_paid_amount ? job.total_paid_amount.toFixed(2) : '0.00'}
+                  </p>
                 </div>
-                <div className="flex justify-between text-sm text-gray-600">
-                  <span>Amount paid</span>
-                  <span>Amount due</span>
+                <div className="text-right">
+                  <p className="text-sm text-gray-600 mb-1">Amount due</p>
+                  <p className={`text-lg font-semibold ${job.invoice_status === 'paid' ? 'text-green-600' : 'text-red-600 underline'}`}>
+                    ${job.invoice_status === 'paid' ? '0.00' : (job.total_invoice_amount ? job.total_invoice_amount.toFixed(2) : calculateTotalPrice().toFixed(2))}
+                  </p>
+                </div>
                 </div>
 
-                <hr className="my-4" />
-
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span>{job.service_name}</span>
-                    <span>${(formData.service_price !== undefined ? formData.service_price : (parseFloat(job.service_price) || 0)).toFixed(2)}</span>
+              {/* Payment Status Section */}
+              <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className={`w-3 h-3 rounded-full ${job.invoice_status === 'paid' ? 'bg-green-500' : job.invoice_status === 'invoiced' || job.invoice_status === 'sent' ? 'bg-yellow-500' : 'bg-gray-300'}`}></div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">
+                        {job.invoice_status === 'paid' ? 'Payment Received' : 
+                         job.invoice_status === 'invoiced' || job.invoice_status === 'sent' ? 'Invoice Sent' : 
+                         'No Invoice Sent'}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {job.invoice_status === 'paid' ? 'Customer has paid the invoice' : 
+                         job.invoice_status === 'invoiced' || job.invoice_status === 'sent' ? 'Invoice sent to customer, awaiting payment' : 
+                         'Invoice not yet sent to customer'}
+                      </p>
+                    </div>
                   </div>
-                  <div className="text-sm text-gray-600">
-                    Base Service
+                  <div className="flex items-center space-x-2">
+                    {job.invoice_status === 'paid' && (
+                      <div className="flex items-center space-x-2 text-green-600">
+                        <CheckCircle className="w-5 h-5" />
+                        <span className="text-sm font-medium">Paid</span>
+                      </div>
+                    )}
+                    <button
+                      onClick={() => {
+                        console.log('💳 Manual refresh clicked for job ID:', job.id)
+                        fetchInvoiceStatus(job.id)
+                      }}
+                      className="text-gray-400 hover:text-gray-600 transition-colors"
+                      title="Refresh payment status"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Service Details Section */}
+              <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                <h4 className="font-semibold text-gray-900 mb-4">{decodeHtmlEntities(job.service_name || '')}</h4>
+                
+                <div className="space-y-3">
+                  {/* Base Price */}
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="text-sm text-gray-600">Base Price (${(parseFloat(job.services?.price) || 0).toFixed(2)})</p>
+                  </div>
+                    <span className="text-sm font-medium text-gray-900">${(parseFloat(job.services?.price) || 0).toFixed(2)}</span>
                   </div>
                   
-                  {/* Show modifier breakdown if there are any */}
+                  {/* Modifiers */}
                   {(() => {
                     const serviceModifiers = getServiceModifiers();
-                    console.log('🔧 Modifier display: serviceModifiers:', serviceModifiers);
-                    console.log('🔧 Modifier display: serviceModifiers length:', serviceModifiers.length);
                     let hasModifiers = false;
                     
                     return (
                       <>
                         {serviceModifiers.map((modifier, modifierIndex) => {
-                          console.log(`🔧 Processing modifier ${modifierIndex}:`, modifier);
-                          console.log('🔧 Modifier selectedOptions:', modifier.selectedOptions);
-                          console.log('🔧 Modifier selectedOptions length:', modifier.selectedOptions?.length);
-                          
                           if (!modifier.selectedOptions || modifier.selectedOptions.length === 0) {
-                            console.log('🔧 No selectedOptions for modifier:', modifier.title || modifier.id);
                             return null;
                           }
                           
                           hasModifiers = true;
                           return modifier.selectedOptions.map((option, index) => (
-                            <div key={`${modifier.id}-${option.id}-${index}`} className="flex justify-between items-center text-sm py-2 border-b border-gray-100 last:border-b-0">
-                              <div className="flex-1">
-                                <span className="text-gray-600">
-                                  • {modifier.title}: {option.label || option.description}
-                                </span>
-                                {option.selectedQuantity && (
-                                  <div className="mt-1">
-                                    <span className="text-sm text-gray-600">
-                                      {option.label || option.description} x {option.selectedQuantity || 1}
-                                    </span>
-                                  </div>
-                                )}
+                            <div key={`${modifier.id}-${option.id}-${index}`} className="flex justify-between items-center">
+                              <div>
+                                <p className="text-sm text-gray-600">
+                                  {option.selectedQuantity ? `${option.selectedQuantity} ${option.label || option.description}` : (option.label || option.description)}
+                                </p>
                               </div>
-                              <div className="flex items-center space-x-2">
-                                <span className="text-sm font-medium text-gray-700">
-                                  ${parseFloat(option.price || 0).toFixed(2)}
+                              <span className="text-sm font-medium text-gray-900">
+                                ${parseFloat(option.price || 0).toFixed(2)}
                                 </span>
-                              </div>
                             </div>
                           ));
                         })}
-                        {!hasModifiers && (
-                          <div className="text-sm text-gray-500 italic">
-                            No modifiers selected
-                          </div>
-                        )}
                       </>
                     );
                   })()}
                   
-                  {/* Show custom price adjustment if the price has been customized */}
+                  {/* Discount */}
                   {(() => {
-                    const originalServicePrice = parseFloat(job.service_price) || 0;
-                    const currentServicePrice = formData.service_price !== undefined ? formData.service_price : originalServicePrice;
-                    const modifierPrice = calculateModifierPrice();
-                    const originalTotal = originalServicePrice + modifierPrice;
-                    const currentTotal = calculateTotalPrice();
-                    const customAdjustment = currentTotal - originalTotal;
+                    const discount = formData.discount !== undefined ? formData.discount : (parseFloat(job.discount) || 0);
                     
-                    if (Math.abs(customAdjustment) > 0.01) { // Only show if there's a meaningful difference
+                    if (discount > 0) {
                       return (
-                        <div className="flex justify-between">
-                          <span>Custom Price Adjustment</span>
-                          <span className={customAdjustment > 0 ? 'text-green-600' : 'text-red-600'}>
-                            {customAdjustment > 0 ? '+' : ''}${customAdjustment.toFixed(2)}
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <p className="text-sm text-gray-600">Discount</p>
+                          </div>
+                          <span className="text-sm font-medium text-green-600">
+                            -${discount.toFixed(2)}
                           </span>
                         </div>
                       );
                     }
                     return null;
                   })()}
+                  
+                  {/* Service Adjustment Price */}
+                  {(() => {
+                    const basePrice = parseFloat(job.services?.price) || 0;
+                    const modifierPrice = calculateModifierPrice();
+                    const totalPrice = parseFloat(job.total) || 0;
+                    const serviceAdjustment = totalPrice - (basePrice + modifierPrice);
+                    
+                    if (Math.abs(serviceAdjustment) > 0.01) {
+                      return (
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <p className="text-sm text-gray-600">Service Adjustment Price (${Math.abs(serviceAdjustment).toFixed(2)})</p>
+                          </div>
+                          <span className="text-sm font-medium text-gray-900">
+                            ${Math.abs(serviceAdjustment).toFixed(2)}
+                          </span>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+                  
+                  {/* Total */}
+                  <div className="flex justify-between items-center pt-2 border-t border-gray-200">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">Total</p>
+                    </div>
+                    <span className="text-sm font-semibold text-gray-900">
+                      ${calculateTotalPrice().toFixed(2)}
+                    </span>
+                  </div>
                 </div>
-
-                <div className="flex items-center space-x-3">
+                
+                <div className="mt-4 pt-4 border-t border-gray-200">
                   <button 
                     onClick={() => setShowEditServiceModal(true)}
                     className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center"
                   >
-                    <Edit className="w-4 h-4 mr-1" />
+                    <Edit className="w-4 h-4 mr-2" />
                     Edit Service & Pricing
                   </button>
-                  
-                </div>
+                    </div>
+              </div>
 
-                <hr className="my-4" />
-
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span>Base Service</span>
-                    <span>${(parseFloat(job.service_price) || 0).toFixed(2)}</span>
-                  </div>
-                  
-                  {/* Show modifier breakdown if there are any */}
-                  {(() => {
-                    const serviceModifiers = getServiceModifiers();
-                    const hasModifiers = serviceModifiers.some(modifier => 
-                      modifier.selectedOptions && modifier.selectedOptions.length > 0
-                    );
-                    
-                    if (hasModifiers) {
-                      const totalModifierPrice = calculateModifierPrice();
-                      return (
-                        <div className="flex justify-between">
-                          <span>Modifiers</span>
-                          <span>+${totalModifierPrice.toFixed(2)}</span>
+              {/* Summary Section */}
+              <div className="space-y-4">
+                <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                  <span className="text-sm text-gray-600">Subtotal</span>
+                  <span className="text-sm font-medium text-gray-900">${calculateTotalPrice().toFixed(2)}</span>
+                    </div>
+                
+                <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                  <span className="text-sm text-gray-600">Total</span>
+                  <span className="text-sm font-medium text-gray-900">${calculateTotalPrice().toFixed(2)}</span>
+                    </div>
+                
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-sm text-gray-600">Amount paid</span>
+                  <span className="text-sm font-medium text-gray-900">
+                    ${job.total_paid_amount ? job.total_paid_amount.toFixed(2) : '0.00'}
+                  </span>
                         </div>
-                      );
-                    }
-                    return null;
-                  })()}
-                  
-                  {/* Show additional fees if they exist */}
-                  {(formData.additional_fees !== undefined ? formData.additional_fees : (parseFloat(job.additional_fees) || 0)) > 0 && (
-                    <div className="flex justify-between">
-                      <span>Additional Fees</span>
-                      <span>+${(formData.additional_fees !== undefined ? formData.additional_fees : (parseFloat(job.additional_fees) || 0)).toFixed(2)}</span>
-                    </div>
-                  )}
-                  
-                  {/* Show taxes if they exist */}
-                  {(formData.taxes !== undefined ? formData.taxes : (parseFloat(job.taxes) || 0)) > 0 && (
-                    <div className="flex justify-between">
-                      <span>Taxes</span>
-                      <span>+${(formData.taxes !== undefined ? formData.taxes : (parseFloat(job.taxes) || 0)).toFixed(2)}</span>
-                    </div>
-                  )}
-                  
-                  {/* Show discount if it exists */}
-                  {(formData.discount !== undefined ? formData.discount : (parseFloat(job.discount) || 0)) > 0 && (
-                    <div className="flex justify-between">
-                      <span>Discount</span>
-                      <span>-${(formData.discount !== undefined ? formData.discount : (parseFloat(job.discount) || 0)).toFixed(2)}</span>
-                    </div>
-                  )}
-                  
-                  {/* Show custom price adjustment if the price has been customized */}
-                  {(() => {
-                    const originalPrice = parseFloat(job.service_price) || 0;
-                    const currentPrice = formData.service_price !== undefined ? formData.service_price : originalPrice;
-                    const adjustment = currentPrice - originalPrice;
-                    
-                    if (Math.abs(adjustment) > 0.01) { // Only show if there's a meaningful difference
-                      return (
-                        <div className="flex justify-between">
-                          <span>Custom Price Adjustment</span>
-                          <span className={adjustment > 0 ? 'text-green-600' : 'text-red-600'}>
-                            {adjustment > 0 ? '+' : ''}${adjustment.toFixed(2)}
-                          </span>
-                        </div>
-                      );
-                    }
-                    return null;
-                  })()}
-                  
-                  <div className="flex justify-between font-semibold">
-                    <span>Total</span>
-                    <span>${calculateTotalPrice().toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Amount paid</span>
-                    <span>$0.00</span>
-                  </div>
-                  <div className="flex justify-between font-semibold text-lg">
-                    <span>Total due</span>
-                    <span>${calculateTotalPrice().toFixed(2)}</span>
+                
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-sm text-gray-600">Total due</span>
+                  <span className={`text-sm font-medium ${job.invoice_status === 'paid' ? 'text-green-600' : 'text-gray-900'}`}>
+                    ${job.invoice_status === 'paid' ? '0.00' : (job.total_invoice_amount ? job.total_invoice_amount.toFixed(2) : calculateTotalPrice().toFixed(2))}
+                  </span>
                   </div>
                 </div>
 
-                <hr className="my-4" />
-
-                <div>
-                  <h4 className="font-semibold mb-3">Payments</h4>
+              {/* Payments Section */}
+              <div className="mt-8">
+                <h4 className="font-semibold text-gray-900 mb-4">Payments</h4>
                   <div className="text-center py-8">
-                    <CreditCard className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <CreditCard className="w-6 h-6 text-gray-400" />
+                  </div>
                     <p className="text-gray-500 font-medium">No payments</p>
-                    <p className="text-sm text-gray-400">
+                  <p className="text-sm text-gray-400 mt-1">
                       When you process or record a payment for this invoice, it will appear here.
                     </p>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-
-          {/* Right Sidebar */}
-          <div className="hidden lg:block w-80 p-6 space-y-6">
+            {/* Desktop Right Sidebar */}
+          <div className="hidden lg:block w-80 xl:w-96 p-4 sm:p-6 space-y-6">
             {/* Customer Card */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-              <h3 className="font-semibold text-gray-900 mb-4">Customer</h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-gray-900">Customer</h3>
+                <button
+                  onClick={() => {
+                    setEditCustomerData({
+                      firstName: job.customer_first_name || '',
+                      lastName: job.customer_last_name || '',
+                      email: job.customer_email || '',
+                      phone: job.customer_phone || ''
+                    })
+                    setShowEditCustomerModal(true)
+                  }}
+                  className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                >
+                  Edit
+                </button>
+              </div>
               
               <div className="flex items-center space-x-3 mb-4">
                 <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center">
@@ -1766,17 +2259,18 @@ const JobDetails = () => {
               <div className="space-y-3">
                 <div className="flex items-center space-x-2 text-sm">
                   <Phone className="w-4 h-4 text-gray-400" />
-                  <a href={`tel:${job.customer_phone}`} className="text-blue-600 hover:text-blue-700">
+                  <span className="text-gray-700">
                     {job.customer_phone ? formatPhoneNumber(job.customer_phone) : 'Phone placeholder'}
-                  </a>
+                  </span>
                 </div>
                 <div className="flex items-center space-x-2 text-sm">
                   <Mail className="w-4 h-4 text-gray-400" />
-                  <a href={`mailto:${job.customer_email}`} className="text-blue-600 hover:text-blue-700 truncate">
-                    {job.customer_email || 'Email placeholder'}
-                  </a>
+                  <span className="text-gray-700 truncate">
+                    {job.customer_email || 'No email address'}
+                  </span>
                 </div>
               </div>
+
 
               <div className="mt-4 pt-4 border-t border-gray-200">
                 <div className="flex justify-between items-center text-sm">
@@ -1985,16 +2479,19 @@ const JobDetails = () => {
                     </div>
                     
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-700">Text messages</span>
-                      <label className="relative inline-flex items-center cursor-pointer">
+                      <span className={`text-sm ${!userTwilioConnected ? 'text-gray-400' : 'text-gray-700'}`}>
+                        Text messages
+                        {!userTwilioConnected && <span className="text-xs block text-red-500">(Twilio not connected)</span>}
+                      </span>
+                      <label className={`relative inline-flex items-center ${!userTwilioConnected ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
                         <input 
                           type="checkbox" 
                           checked={smsNotifications}
                           onChange={(e) => handleNotificationToggle('sms', e.target.checked)}
-                          disabled={loading}
+                          disabled={loading || !userTwilioConnected}
                           className="sr-only peer" 
                         />
-                        <div className={`w-9 h-5 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all ${smsNotifications ? 'bg-blue-600 peer-checked:after:translate-x-full peer-checked:after:border-white' : 'bg-gray-200'} ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}></div>
+                        <div className={`w-9 h-5 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all ${smsNotifications ? 'bg-blue-600 peer-checked:after:translate-x-full peer-checked:after:border-white' : 'bg-gray-200'} ${loading || !userTwilioConnected ? 'opacity-50 cursor-not-allowed' : ''}`}></div>
                       </label>
                     </div>
                   </div>
@@ -2002,48 +2499,152 @@ const JobDetails = () => {
 
                 <div className="pt-4 border-t border-gray-200">
                   <div className="flex items-start space-x-3">
-                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                      <CheckCircle className="w-4 h-4 text-blue-600" />
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                      job.confirmation_sent 
+                        ? 'bg-green-100' 
+                        : job.confirmation_failed 
+                          ? 'bg-red-100' 
+                          : 'bg-yellow-100'
+                    }`}>
+                      {job.confirmation_sent ? (
+                        <CheckCircle className="w-4 h-4 text-green-600" />
+                      ) : job.confirmation_failed ? (
+                        <AlertCircle className="w-4 h-4 text-red-600" />
+                      ) : (
+                        <Bell className="w-4 h-4 text-yellow-600" />
+                      )}
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center justify-between">
                         <h4 className="text-sm font-medium text-gray-700">Confirmation</h4>
                         <button 
                           onClick={() => {
-                            setSuccessMessage('Confirmation sent to customer!')
-                            setTimeout(() => setSuccessMessage(""), 3000)
+                            setNotificationType('confirmation')
+                            
+                            // Check if customer has email address
+                            const hasEmail = job.customer_email && job.customer_email.trim() !== ''
+                            
+                            // Auto-select the best available method and pre-fill contact info
+                            if (hasEmail && emailNotifications) {
+                              setSelectedNotificationMethod('email')
+                              setNotificationEmail(job.customer_email || '')
+                            } else if (smsNotifications) {
+                              setSelectedNotificationMethod('sms')
+                              setNotificationPhone(job.customer_phone || '')
+                            } else if (emailNotifications) {
+                              setSelectedNotificationMethod('email')
+                              setNotificationEmail(job.customer_email || '')
+                            }
+                            setShowNotificationModal(true)
                           }}
-                          className="text-blue-600 hover:text-blue-700 text-xs font-medium"
+                          className={`text-xs font-medium ${
+                            !emailNotifications && !smsNotifications 
+                              ? 'text-gray-400 cursor-not-allowed' 
+                              : 'text-blue-600 hover:text-blue-700'
+                          }`}
+                          disabled={!emailNotifications && !smsNotifications}
+                          title={
+                            !emailNotifications && !smsNotifications 
+                              ? 'Notifications are disabled for this customer' 
+                              : ''
+                          }
                         >
-                          Resend
+                          {job.confirmation_sent ? 'Resend' : 'Send Now'}
                         </button>
                       </div>
                       <p className="text-sm font-semibold text-gray-900">Appointment Confirmation</p>
-                      <p className="text-xs text-gray-500">10 minutes ago • Email • Opened</p>
+                      <p className="text-xs text-gray-500">
+                        {!emailNotifications && !smsNotifications 
+                          ? "Notifications are disabled for this customer"
+                          : job.confirmation_sent 
+                            ? `Sent on ${new Date(job.confirmation_sent_at).toLocaleString()}` 
+                            : job.confirmation_failed 
+                              ? `Failed to send: ${job.confirmation_error || 'Unknown error'}`
+                              : job.confirmation_no_email 
+                                ? "No email address - click 'Send Now' to add email and send"
+                                : job.customer_email 
+                                  ? "Sent automatically when job was created" 
+                                  : smsNotifications 
+                                    ? "No email address - SMS enabled automatically" 
+                                    : "No email address - click 'Send Now' to add email and send"
+                        }
+                      </p>
                     </div>
                   </div>
                 </div>
 
                 <div className="pt-4 border-t border-gray-200">
                   <div className="flex items-start space-x-3">
-                    <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center flex-shrink-0">
-                      <Bell className="w-4 h-4 text-orange-600" />
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                      job.reminder_sent 
+                        ? 'bg-green-100' 
+                        : job.reminder_failed 
+                          ? 'bg-red-100' 
+                          : 'bg-orange-100'
+                    }`}>
+                      {job.reminder_sent ? (
+                        <CheckCircle className="w-4 h-4 text-green-600" />
+                      ) : job.reminder_failed ? (
+                        <AlertCircle className="w-4 h-4 text-red-600" />
+                      ) : (
+                        <Bell className="w-4 h-4 text-orange-600" />
+                      )}
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center justify-between">
                         <h4 className="text-sm font-medium text-gray-700">Reminder</h4>
                         <button 
                           onClick={() => {
-                            setSuccessMessage('Reminder sent to customer!')
-                            setTimeout(() => setSuccessMessage(""), 3000)
+                            setNotificationType('reminder')
+                            
+                            // Check if customer has email address
+                            const hasEmail = job.customer_email && job.customer_email.trim() !== ''
+                            
+                            // Auto-select the best available method and pre-fill contact info
+                            if (hasEmail && emailNotifications) {
+                              setSelectedNotificationMethod('email')
+                              setNotificationEmail(job.customer_email || '')
+                            } else if (smsNotifications) {
+                              setSelectedNotificationMethod('sms')
+                              setNotificationPhone(job.customer_phone || '')
+                            } else if (emailNotifications) {
+                              setSelectedNotificationMethod('email')
+                              setNotificationEmail(job.customer_email || '')
+                            }
+                            setShowNotificationModal(true)
                           }}
-                          className="text-blue-600 hover:text-blue-700 text-xs font-medium"
+                          className={`text-xs font-medium ${
+                            !emailNotifications && !smsNotifications 
+                              ? 'text-gray-400 cursor-not-allowed' 
+                              : 'text-blue-600 hover:text-blue-700'
+                          }`}
+                          disabled={!emailNotifications && !smsNotifications}
+                          title={
+                            !emailNotifications && !smsNotifications 
+                              ? 'Notifications are disabled for this customer' 
+                              : ''
+                          }
                         >
-                          Send Now
+                          {job.reminder_sent ? 'Resend' : 'Send Now'}
                         </button>
                       </div>
                       <p className="text-sm font-semibold text-gray-900">Appointment Reminder</p>
-                      <p className="text-xs text-gray-500">Scheduled for 2 hours before appointment</p>
+                      <p className="text-xs text-gray-500">
+                        {!emailNotifications && !smsNotifications 
+                          ? "Notifications are disabled for this customer"
+                          : job.reminder_sent 
+                            ? `Sent on ${new Date(job.reminder_sent_at).toLocaleString()}` 
+                            : job.reminder_failed 
+                              ? `Failed to send: ${job.reminder_error || 'Unknown error'}`
+                              : job.reminder_no_email 
+                                ? "No email address - click 'Send Now' to add email and send"
+                                : job.customer_email 
+                                  ? "Scheduled for 2 hours before appointment" 
+                                  : smsNotifications 
+                                    ? "No email address - SMS enabled automatically" 
+                                    : "No email address - click 'Send Now' to add email and send"
+                        }
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -2056,8 +2657,9 @@ const JobDetails = () => {
                     </div>
                     <button 
                       onClick={() => {
-                        setSuccessMessage('Custom notification sent!')
-                        setTimeout(() => setSuccessMessage(""), 3000)
+                        setCustomMessageEmail(job.customer_email || '')
+                        setCustomMessage('')
+                        setShowCustomMessageModal(true)
                       }}
                       className="px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700"
                     >
@@ -2092,6 +2694,11 @@ const JobDetails = () => {
               </div>
             </div>
           </div>
+          </div>
+
+          
+
+       
 
           {/* Mobile Sidebar */}
           {showMobileSidebar && (
@@ -2131,15 +2738,15 @@ const JobDetails = () => {
                     <div className="space-y-3">
                       <div className="flex items-center space-x-2 text-sm">
                         <Phone className="w-4 h-4 text-gray-400" />
-                        <a href={`tel:${job.customer_phone}`} className="text-blue-600 hover:text-blue-700">
+                        <span className="text-gray-700">
                           {formatPhoneNumber(job.customer_phone)}
-                        </a>
+                        </span>
                       </div>
                       <div className="flex items-center space-x-2 text-sm">
                         <Mail className="w-4 h-4 text-gray-400" />
-                        <a href={`mailto:${job.customer_email}`} className="text-blue-600 hover:text-blue-700 truncate">
+                        <span className="text-gray-700 truncate">
                           {job.customer_email}
-                        </a>
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -2206,16 +2813,19 @@ const JobDetails = () => {
                           </div>
                           
                           <div className="flex items-center justify-between">
-                            <span className="text-sm text-gray-700">Text messages</span>
-                            <label className="relative inline-flex items-center cursor-pointer">
+                            <span className={`text-sm ${!userTwilioConnected ? 'text-gray-400' : 'text-gray-700'}`}>
+                              Text messages
+                              {!userTwilioConnected && <span className="text-xs block text-red-500">(Twilio not connected)</span>}
+                            </span>
+                            <label className={`relative inline-flex items-center ${!userTwilioConnected ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
                               <input 
                                 type="checkbox" 
                                 checked={smsNotifications}
                                 onChange={(e) => handleNotificationToggle('sms', e.target.checked)}
-                                disabled={loading}
+                                disabled={loading || !userTwilioConnected}
                                 className="sr-only peer" 
                               />
-                              <div className={`w-9 h-5 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all ${smsNotifications ? 'bg-blue-600 peer-checked:after:translate-x-full peer-checked:after:border-white' : 'bg-gray-200'} ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}></div>
+                              <div className={`w-9 h-5 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all ${smsNotifications ? 'bg-blue-600 peer-checked:after:translate-x-full peer-checked:after:border-white' : 'bg-gray-200'} ${loading || !userTwilioConnected ? 'opacity-50 cursor-not-allowed' : ''}`}></div>
                             </label>
                           </div>
                         </div>
@@ -2326,16 +2936,15 @@ const JobDetails = () => {
         {/* Edit Service Modal */}
         {showEditServiceModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] flex flex-col">
+            <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col">
               <div className="p-6 flex-1 overflow-y-auto">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Edit Service</h3>
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-2xl font-bold text-gray-900">Edit Job</h3>
+                  <div className="flex space-x-3">
                   <button
                     onClick={() => {
                       setShowEditServiceModal(false);
-                      setOriginalJobData(null); // Clear original data
-                      
-                      // Reset job state to original values
+                        setOriginalJobData(null);
                       if (originalJobData) {
                         setJob(prev => ({
                           ...prev,
@@ -2343,417 +2952,161 @@ const JobDetails = () => {
                         }));
                       }
                     }}
-                    className="text-gray-400 hover:text-gray-600 p-1"
-                  >
-                    <X className="w-5 h-5" />
+                      className="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg text-sm font-medium"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSaveService}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+                    >
+                      Save Job
                   </button>
                 </div>
-                <div className="space-y-4">
+                </div>
+                
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {/* Services Section */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Service Name</label>
+                    <h4 className="text-lg font-semibold text-gray-900 mb-4">Services</h4>
+                    
+                    {/* Search and Add Options */}
+                    <div className="space-y-3 mb-6">
+                      <div className="relative">
                     <input
                       type="text"
-                      value={formData.service_name}
-                      onChange={e => setFormData(prev => ({ ...prev, service_name: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="Search services..."
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
+                        <Search className="absolute right-3 top-2.5 w-4 h-4 text-gray-400" />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Duration</label>
-                    <div className="flex gap-2 items-center">
-                      <input
-                        type="number"
-                        value={Math.floor(formData.duration / 60)}
-                        onChange={e => {
-                          const hours = parseInt(e.target.value) || 0
-                          const minutes = formData.duration % 60
-                          setFormData(prev => ({ ...prev, duration: hours * 60 + minutes }))
-                        }}
-                        className="w-20 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="0"
-                        min="0"
-                      />
-                      <span className="text-sm text-gray-600">hours</span>
-                      <input
-                        type="number"
-                        value={formData.duration % 60}
-                        onChange={e => {
-                          const minutes = parseInt(e.target.value) || 0
-                          const hours = Math.floor(formData.duration / 60)
-                          setFormData(prev => ({ ...prev, duration: hours * 60 + minutes }))
-                        }}
-                        className="w-20 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="0"
-                        min="0"
-                        max="59"
-                      />
-                      <span className="text-sm text-gray-600">minutes</span>
+                      <div className="flex space-x-2">
+                        <button className="px-3 py-2 text-blue-600 hover:text-blue-700 text-sm font-medium border border-blue-200 rounded-lg">
+                          Add Custom Service or Item
+                        </button>
+                        <button className="px-3 py-2 text-gray-600 hover:text-gray-700 text-sm font-medium border border-gray-300 rounded-lg">
+                          Browse Services
+                        </button>
                     </div>
                   </div>
                   
-                  {/* Pricing Section */}
-                  <div className="border-t pt-4">
-                    <h4 className="text-sm font-medium text-gray-700 mb-3">Pricing</h4>
-                    <div className="space-y-3">
+                    {/* Service List */}
+                    <div className="border border-gray-200 rounded-lg">
+                      <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+                        <div className="grid grid-cols-2 gap-4 text-sm font-medium text-gray-600">
+                          <span>SERVICE</span>
+                          <span>PRICE</span>
+                        </div>
+                      </div>
+                      <div className="p-4">
+                        <div className="flex items-center justify-between py-3 border-b border-gray-100">
                   <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Base Service Price ($)</label>
+                            <p className="font-medium text-gray-900">{decodeHtmlEntities(job.service_name || '')}</p>
+                            <button className="text-blue-600 hover:text-blue-700 text-sm">Edit</button>
+                            <button className="text-gray-600 hover:text-gray-700 text-sm ml-4">Show details &gt;</button>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-sm font-medium text-gray-900">${(parseFloat(job.service_price) || 0).toFixed(2)}</span>
+                            <button className="p-1 text-gray-400 hover:text-gray-600">
+                              <Edit className="w-4 h-4" />
+                            </button>
+                            <button className="p-1 text-gray-400 hover:text-red-600">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                        
+                        {/* Customize Price */}
+                        <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Customize price</label>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-sm text-gray-500">$</span>
                     <input
                       type="number"
                           step="0.01"
-                          value={formData.service_price || 0}
-                          onFocus={e => {
-                            if (e.target.value === "0" || e.target.value === "0.00") {
-                              e.target.value = "";
-                            }
-                          }}
+                          value={formData.service_price === 0 ? "" : formData.service_price}
+                              onFocus={e => {
+                                if (e.target.value === "0" || e.target.value === "0.00") {
+                                  e.target.value = "";
+                                }
+                              }}
                           onChange={e => {
-                            const newPrice = parseFloat(e.target.value) || 0;
-                            setFormData(prev => {
-                              const modifierPrice = prev.modifier_price || 0;
-                              const additionalFees = prev.additional_fees || 0;
-                              const taxes = prev.taxes || 0;
-                              const discount = prev.discount || 0;
-                              const newTotal = calculateTotalPriceHelper(newPrice, modifierPrice, additionalFees, taxes, discount);
-                              
-                              return { 
+                            const newPrice = e.target.value === "" ? 0 : parseFloat(e.target.value) || 0;
+                                setFormData(prev => ({
                                 ...prev, 
-                                service_price: newPrice,
-                                total: newTotal,
-                                total_amount: newTotal
-                              };
-                            });
-                          }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                service_price: newPrice
+                                }));
+                              }}
+                              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                           placeholder="0.00"
                         />
+                            <button className="text-sm text-red-600 hover:text-red-800">Reset</button>
                       </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Discount ($)</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={formData.discount || 0}
-                          onFocus={e => {
-                            if (e.target.value === "0" || e.target.value === "0.00") {
-                              e.target.value = "";
-                            }
-                          }}
-                          onChange={e => {
-                            const newDiscount = parseFloat(e.target.value) || 0;
-                            setFormData(prev => {
-                              const servicePrice = prev.service_price || 0;
-                              const modifierPrice = prev.modifier_price || 0;
-                              const additionalFees = prev.additional_fees || 0;
-                              const taxes = prev.taxes || 0;
-                              const newTotal = calculateTotalPriceHelper(servicePrice, modifierPrice, additionalFees, taxes, newDiscount);
-                              
-                              return { 
-                                ...prev, 
-                                discount: newDiscount,
-                                total: newTotal,
-                                total_amount: newTotal
-                              };
-                            });
-                          }}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          placeholder="0.00"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Additional Fees ($)</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={formData.additional_fees || 0}
-                          onFocus={e => {
-                            if (e.target.value === "0" || e.target.value === "0.00") {
-                              e.target.value = "";
-                            }
-                          }}
-                          onChange={e => {
-                            const newFees = parseFloat(e.target.value) || 0;
-                            setFormData(prev => {
-                              const servicePrice = prev.service_price || 0;
-                              const modifierPrice = prev.modifier_price || 0;
-                              const taxes = prev.taxes || 0;
-                              const discount = prev.discount || 0;
-                              const newTotal = calculateTotalPriceHelper(servicePrice, modifierPrice, newFees, taxes, discount);
-                              
-                              return { 
-                                ...prev, 
-                                additional_fees: newFees,
-                                total: newTotal,
-                                total_amount: newTotal
-                              };
-                            });
-                          }}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          placeholder="0.00"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Taxes ($)</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={formData.taxes || 0}
-                          onFocus={e => {
-                            if (e.target.value === "0" || e.target.value === "0.00") {
-                              e.target.value = "";
-                            }
-                          }}
-                          onChange={e => {
-                            const newTaxes = parseFloat(e.target.value) || 0;
-                            setFormData(prev => {
-                              const servicePrice = prev.service_price || 0;
-                              const modifierPrice = prev.modifier_price || 0;
-                              const additionalFees = prev.additional_fees || 0;
-                              const discount = prev.discount || 0;
-                              const newTotal = calculateTotalPriceHelper(servicePrice, modifierPrice, additionalFees, newTaxes, discount);
-                              
-                              return { 
-                                ...prev, 
-                                taxes: newTaxes,
-                                total: newTotal,
-                                total_amount: newTotal
-                              };
-                            });
-                          }}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          placeholder="0.00"
-                        />
-                      </div>
-                      
-                      {/* Show modifier price editing if there are modifiers */}
-                      {(() => {
-                        const serviceModifiers = getServiceModifiers();
-                        const hasModifiers = serviceModifiers.some(modifier => 
-                          modifier.selectedOptions && modifier.selectedOptions.length > 0
-                        );
-                        
-                        if (hasModifiers) {
-                          return (
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">Modifier Prices</label>
-                              <div className="space-y-3">
-                                {serviceModifiers.map(modifier => {
-                                  if (!modifier.selectedOptions || modifier.selectedOptions.length === 0) return null;
-                                  
-                                  return (
-                                    <div key={modifier.id} className="border border-gray-200 rounded-lg p-3">
-                                      <h4 className="text-sm font-medium text-gray-700 mb-2">{modifier.name}</h4>
-                                      <div className="space-y-2">
-                                        {modifier.selectedOptions.map(option => {
-                                          const currentPrice = parseFloat(option.price || 0);
-                                          
-                                          return (
-                                            <div key={option.id} className="flex items-center justify-between">
-                                              <span className="text-sm text-gray-600">{option.label}</span>
-                                              <div className="flex items-center space-x-2">
-                                                <span className="text-sm text-gray-500">$</span>
-                                                <input
-                                                  type="number"
-                                                  step="0.01"
-                                                  value={currentPrice}
-                                                  onFocus={e => {
-                                                    if (e.target.value === "0" || e.target.value === "0.00") {
-                                                      e.target.value = "";
-                                                    }
-                                                  }}
-                                                  onChange={e => {
-                                                    const newPrice = parseFloat(e.target.value) || 0;
-                                                    
-                                                    // Update the job state with the new modifier price
-                                                    setJob(prev => {
-                                                      const updatedModifiers = prev.service_modifiers?.map(mod => {
-                                                        if (mod.id === modifier.id) {
-                                                          return {
-                                                            ...mod,
-                                                            selectedOptions: mod.selectedOptions?.map(opt => {
-                                                              if (opt.id === option.id) {
-                                                                return { ...opt, price: newPrice };
-                                                              }
-                                                              return opt;
-                                                            })
-                                                          };
-                                                        }
-                                                        return mod;
-                                                      });
-                                                      
-                                                      return {
-                                                        ...prev,
-                                                        service_modifiers: updatedModifiers
-                                                      };
-                                                    });
-                                                  }}
-                                                  className="w-20 px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                                />
-                                                <button
-                                                  onClick={() => {
-                                                    // Reset the job state to original price
-                                                    setJob(prev => {
-                                                      const updatedModifiers = prev.service_modifiers?.map(mod => {
-                                                        if (mod.id === modifier.id) {
-                                                          return {
-                                                            ...mod,
-                                                            selectedOptions: mod.selectedOptions?.map(opt => {
-                                                              if (opt.id === option.id) {
-                                                                // Reset to original price from the service data
-                                                                const originalPrice = parseFloat(option.originalPrice || option.price || 0);
-                                                                return { ...opt, price: originalPrice };
-                                                              }
-                                                              return opt;
-                                                            })
-                                                          };
-                                                        }
-                                                        return mod;
-                                                      });
-                                                      
-                                                      return {
-                                                        ...prev,
-                                                        service_modifiers: updatedModifiers
-                                                      };
-                                                    });
-                                                  }}
-                                                  className="text-xs text-red-600 hover:text-red-800"
-                                                >
-                                                  Reset
-                                                </button>
-                                              </div>
-                                            </div>
-                                          );
-                                        })}
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                                <div className="text-sm text-gray-600">
-                                  Total Modifier Price: ${calculateModifierPrice().toFixed(2)}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        }
-                        return null;
-                      })()}
-                      
-                      {/* Service Adjustment Price */}
-                      {(() => {
-                        const originalServicePrice = parseFloat(job.service_price) || 0;
-                        const currentServicePrice = formData.service_price !== undefined ? formData.service_price : originalServicePrice;
-                        const serviceAdjustment = currentServicePrice - originalServicePrice;
-                        
-                        if (Math.abs(serviceAdjustment) > 0.01) { // Only show if there's a meaningful difference
-                          return (
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">Service Adjustment Price</label>
-                              <div className="flex items-center space-x-2">
-                                <span className="text-sm text-gray-500">$</span>
-                                <input
-                                  type="number"
-                                  step="0.01"
-                                  value={serviceAdjustment}
-                                  onFocus={e => {
-                                    if (e.target.value === "0" || e.target.value === "0.00") {
-                                      e.target.value = "";
-                                    }
-                                  }}
-                                  onChange={e => {
-                                    const newAdjustment = parseFloat(e.target.value) || 0;
-                                    const newServicePrice = originalServicePrice + newAdjustment;
-                                    
-                                    setFormData(prev => {
-                                      const modifierPrice = prev.modifier_price || 0;
-                                      const additionalFees = prev.additional_fees || 0;
-                                      const taxes = prev.taxes || 0;
-                                      const discount = prev.discount || 0;
-                                      const newTotal = calculateTotalPriceHelper(newServicePrice, modifierPrice, additionalFees, taxes, discount);
-                                      
-                                      return { 
-                                        ...prev, 
-                                        service_price: newServicePrice,
-                                        total: newTotal,
-                                        total_amount: newTotal
-                                      };
-                                    });
-                                  }}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                  placeholder="0.00"
-                                />
-                                <button
-                                  onClick={() => {
-                                    setFormData(prev => {
-                                      const modifierPrice = prev.modifier_price || 0;
-                                      const additionalFees = prev.additional_fees || 0;
-                                      const taxes = prev.taxes || 0;
-                                      const discount = prev.discount || 0;
-                                      const newTotal = calculateTotalPriceHelper(originalServicePrice, modifierPrice, additionalFees, taxes, discount);
-                                      
-                                      return { 
-                                        ...prev, 
-                                        service_price: originalServicePrice,
-                                        total: newTotal,
-                                        total_amount: newTotal
-                                      };
-                                    });
-                                  }}
-                                  className="text-xs text-red-600 hover:text-red-800 px-2 py-1 border border-red-300 rounded hover:bg-red-50"
-                                >
-                                  Reset
-                                </button>
-                              </div>
-                              <div className="text-xs text-gray-500 mt-1">
-                                Original: ${originalServicePrice.toFixed(2)} | Current: ${currentServicePrice.toFixed(2)}
-                              </div>
-                            </div>
-                          );
-                        }
-                        return null;
-                      })()}
-                      
-                      <div className="bg-gray-50 p-3 rounded-lg">
-                        <div className="flex justify-between text-sm">
-                          <span className="font-medium">Total:</span>
-                          <span className="font-semibold">
-                            ${(formData.total || 0).toFixed(2)}
-                          </span>
+                          <div className="flex space-x-2 mt-2">
+                            <button 
+                              onClick={() => setShowEditServiceModal(false)}
+                              className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800"
+                            >
+                              Cancel
+                            </button>
+                            <button 
+                              onClick={handleSaveService}
+                              className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+                            >
+                              Save
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
+                    
+                    {/* Cost Breakdown */}
+                    <div className="mt-6 space-y-3">
+                      <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                        <span className="text-sm text-gray-600">Subtotal</span>
+                        <span className="text-sm font-medium text-gray-900">${calculateTotalPrice().toFixed(2)}</span>
+                      </div>
+                      <button 
+                        onClick={() => setShowDiscountModal(true)}
+                        className="text-sm text-blue-600 hover:text-blue-700"
+                      >
+                        Add Discount
+                      </button>
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-sm text-gray-600">Taxes</span>
+                        <span className="text-sm font-medium text-gray-900">$0.00</span>
+                      </div>
+                      <button 
+                        onClick={() => setShowTipModal(true)}
+                        className="text-sm text-blue-600 hover:text-blue-700"
+                      >
+                        Add tip
+                      </button>
+                      <div className="flex justify-between items-center py-2 border-t border-gray-200">
+                        <span className="text-sm font-medium text-gray-900">Total</span>
+                        <span className="text-sm font-medium text-gray-900">${calculateTotalPrice().toFixed(2)}</span>
+                      </div>
+                    </div>
                   </div>
+                  
+                  {/* Summary Section */}
+                      <div>
+                    <h4 className="text-lg font-semibold text-gray-900 mb-4">Summary</h4>
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                        <span className="text-sm text-gray-600">Previous Total</span>
+                        <span className="text-sm font-medium text-gray-900">${calculateTotalPrice().toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                        <span className="text-sm text-gray-600">Updated Total</span>
+                        <span className="text-sm font-medium text-gray-900">${calculateTotalPrice().toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-sm text-gray-600">Estimated duration</span>
+                        <span className="text-sm font-medium text-gray-900">{formatDuration(job.duration || 0)}</span>
+                      </div>
+                    </div>
                   </div>
-                </div>
-                
-              {/* Fixed footer with buttons */}
-              <div className="p-6 border-t border-gray-200 bg-gray-50">
-                <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3">
-                  <button
-                    onClick={() => {
-                      setShowEditServiceModal(false);
-                      setOriginalJobData(null); // Clear original data
-                      
-                      // Reset job state to original values
-                      if (originalJobData) {
-                        setJob(prev => ({
-                          ...prev,
-                          service_modifiers: originalJobData.service_modifiers
-                        }));
-                      }
-                    }}
-                    className="px-4 py-2 text-gray-600 hover:text-gray-800 order-2 sm:order-1"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={() => {
-                      handleSave()
-                      setShowEditServiceModal(false)
-                      setOriginalJobData(null); // Clear original data
-                    }}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 order-1 sm:order-2"
-                  >
-                    Save Changes
-                  </button>
                 </div>
               </div>
             </div>
@@ -2938,23 +3291,73 @@ const JobDetails = () => {
         {/* Send Invoice Modal */}
         {showSendInvoiceModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
               <div className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Send Invoice</h3>
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-xl font-semibold text-gray-900">Email Invoice</h3>
                   <button
-                    onClick={() => setShowSendInvoiceModal(false)}
+                    onClick={() => {
+                      setShowSendInvoiceModal(false);
+                      setManualEmail('');
+                    }}
                     className="text-gray-400 hover:text-gray-600 p-1"
                   >
                     <X className="w-5 h-5" />
                   </button>
                 </div>
-                <div className="space-y-4">
+
+                <div className="space-y-6">
+                  {/* Payment Link Option */}
+                  <div className={`flex items-center justify-between p-4 rounded-lg ${stripeConnected ? 'bg-gray-50' : 'bg-red-50 border border-red-200'}`}>
+                    <div className="flex-1">
+                      <h4 className="font-medium text-gray-900">Include a link to pay this invoice online</h4>
+                      <p className="text-sm text-gray-600">
+                        {stripeConnected 
+                          ? 'Allow customer to pay directly via Stripe' 
+                          : 'Stripe is not connected. Please connect Stripe in Settings to enable online payments.'
+                        }
+                      </p>
+                      {!stripeConnected && (
+                        <button
+                          onClick={async () => {
+                            try {
+                              console.log('🔄 Refreshing Stripe status...')
+                              const response = await stripeAPI.testConnection()
+                              console.log('🔄 Stripe refresh response:', response)
+                              setStripeConnected(response.connected)
+                              if (response.connected) {
+                                setIncludePaymentLink(true)
+                              }
+                            } catch (error) {
+                              console.error('Error refreshing Stripe status:', error)
+                            }
+                          }}
+                          className="mt-2 text-sm text-blue-600 hover:text-blue-700 underline"
+                        >
+                          Refresh Stripe Status
+                        </button>
+                      )}
+                    </div>
+                    <label className={`relative inline-flex items-center ${stripeConnected ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}>
+                      <input
+                        type="checkbox"
+                        className="sr-only peer"
+                        checked={includePaymentLink}
+                        disabled={!stripeConnected}
+                        onChange={(e) => setIncludePaymentLink(e.target.checked)}
+                      />
+                      <div className={`w-11 h-6 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 ${stripeConnected ? 'bg-gray-200' : 'bg-gray-300'}`}></div>
+                    </label>
+                  </div>
+
+                  {/* Email Details */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Send to</label>
                     <input
                       type="email"
-                      defaultValue={job.customer_email}
+                      value={manualEmail || job.customer_email || ''}
+                      onChange={(e) => setManualEmail(e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       placeholder="Enter email address"
                     />
@@ -2963,32 +3366,111 @@ const JobDetails = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-2">Subject</label>
                     <input
                       type="text"
-                      defaultValue={`Invoice for ${job.service_names && job.service_names.length > 1 ? job.service_names.join(', ') : (job.service_name || 'Service')}`}
+                        defaultValue={`You have a new invoice from ${user?.business_name || 'Your Business'}`}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Message</label>
-                    <textarea
-                      rows={4}
-                      defaultValue={`Hi ${job.customer_first_name},
+                  </div>
 
-Please find attached the invoice for your recent service.
+                  {/* Invoice Summary */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h4 className="font-medium text-gray-900 mb-4">Invoice Summary</h4>
+                    <div className="space-y-3">
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">AMOUNT DUE</span>
+                        <span className="font-semibold">${calculateTotalPrice().toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">DUE BY</span>
+                        <span className="text-sm">{new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">SERVICE DATE</span>
+                        <span className="text-sm">{new Date(job.scheduled_date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">SERVICE ADDRESS</span>
+                        <span className="text-sm">{job.customer_address || 'Address not provided'}</span>
+                      </div>
+                    </div>
+                  </div>
 
-Total Amount: $${calculateTotalPrice().toFixed(2)}
+                  {/* Service Details */}
+                  <div className="bg-white border border-gray-200 rounded-lg p-4">
+                    <h4 className="font-medium text-gray-900 mb-3">Service Details</h4>
+                    <div className="space-y-2">
+                      {job.service_names && job.service_names.length > 0 ? (
+                        job.service_names.map((service, index) => (
+                          <div key={index} className="flex justify-between text-sm">
+                            <span>{decodeHtmlEntities(service || '')}</span>
+                            <span>${job.service_prices && job.service_prices[index] ? job.service_prices[index].toFixed(2) : '0.00'}</span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="flex justify-between text-sm">
+                          <span>{job.service_name || 'Service'}</span>
+                          <span>${calculateTotalPrice().toFixed(2)}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
 
-Thank you for choosing our services.
+                  {/* Financial Summary */}
+                  <div className="bg-white border border-gray-200 rounded-lg p-4">
+                    <h4 className="font-medium text-gray-900 mb-3">Financial Summary</h4>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span>Subtotal</span>
+                        <span>${calculateTotalPrice().toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span>Total</span>
+                        <span>${calculateTotalPrice().toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span>Total Paid</span>
+                        <span>${job.total_paid_amount ? job.total_paid_amount.toFixed(2) : '0.00'}</span>
+                      </div>
+                      <div className="flex justify-between font-semibold border-t pt-2">
+                        <span>Total Due</span>
+                        <span className={job.invoice_status === 'paid' ? 'text-green-600' : ''}>
+                          ${job.invoice_status === 'paid' ? '0.00' : (job.total_invoice_amount ? job.total_invoice_amount.toFixed(2) : calculateTotalPrice().toFixed(2))}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
 
-Best regards,
-Your Service Team`}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
+                  {/* Closing Message */}
+                  <div className="text-center text-sm text-gray-600">
+                    We appreciate your business.
+                  </div>
+
+                  {/* Pay Invoice Button (if payment link is enabled) */}
+                  {includePaymentLink && (
+                    <div className="text-center">
+                      <button className="px-6 py-3 bg-yellow-500 text-white font-semibold rounded-lg hover:bg-yellow-600 transition-colors">
+                        Pay Invoice
+                      </button>
+                </div>
+                  )}
+
+                  {/* Test Email Button */}
+                  <div className="text-center">
+                    <button 
+                      onClick={handleTestEmail}
+                      className="px-4 py-2 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600 transition-colors"
+                    >
+                      Test Email
+                    </button>
                   </div>
                 </div>
                 
-                <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 mt-6">
+                <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 mt-6 pt-4 border-t">
                   <button
-                    onClick={() => setShowSendInvoiceModal(false)}
+                    onClick={() => {
+                      setShowSendInvoiceModal(false);
+                      setManualEmail('');
+                    }}
                     className="px-4 py-2 text-gray-600 hover:text-gray-800 order-2 sm:order-1"
                   >
                     Cancel
@@ -2997,8 +3479,791 @@ Your Service Team`}
                     onClick={handleSendInvoice}
                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 order-1 sm:order-2"
                   >
-                    Send Invoice
+                    Send
                   </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Email Required Modal */}
+        {showEmailRequiredModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Email Required</h3>
+                <button
+                  onClick={() => {
+                    setShowEmailRequiredModal(false);
+                    setPendingAction(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                <p className="text-gray-600">
+                  This customer doesn't have an email address. Please provide an email to {pendingAction === 'send' ? 'send the invoice' : 'resend the notification'}.
+                </p>
+                
+                <div>
+                  <label htmlFor="customer-email" className="block text-sm font-medium text-gray-700 mb-2">
+                    Customer Email
+                  </label>
+                  <input
+                    type="email"
+                    id="customer-email"
+                    value={manualEmail}
+                    onChange={(e) => setManualEmail(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Enter customer email address"
+                    required
+                  />
+                </div>
+                
+                <div className="flex space-x-3 pt-4">
+                  <button
+                    onClick={() => {
+                      setShowEmailRequiredModal(false);
+                      setPendingAction(null);
+                      setManualEmail('');
+                    }}
+                    className="flex-1 px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (manualEmail.trim()) {
+                        if (pendingAction === 'send') {
+                          setShowSendInvoiceModal(true);
+                        } else if (pendingAction === 'resend') {
+                          setSuccessMessage('Confirmation sent to customer!');
+                          setTimeout(() => setSuccessMessage(""), 3000);
+                        }
+                        setShowEmailRequiredModal(false);
+                        setPendingAction(null);
+                      } else {
+                        setError('Please enter a valid email address');
+                      }
+                    }}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  >
+                    {pendingAction === 'send' ? 'Send Invoice' : 'Resend'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Customer Modal */}
+        {showEditCustomerModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Edit Customer</h3>
+                <button
+                  onClick={() => setShowEditCustomerModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="edit-first-name" className="block text-sm font-medium text-gray-700 mb-2">
+                    First Name
+                  </label>
+                  <input
+                    type="text"
+                    id="edit-first-name"
+                    value={editCustomerData.firstName}
+                    onChange={(e) => setEditCustomerData(prev => ({ ...prev, firstName: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                
+                <div>
+                  <label htmlFor="edit-last-name" className="block text-sm font-medium text-gray-700 mb-2">
+                    Last Name
+                  </label>
+                  <input
+                    type="text"
+                    id="edit-last-name"
+                    value={editCustomerData.lastName}
+                    onChange={(e) => setEditCustomerData(prev => ({ ...prev, lastName: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                
+                <div>
+                  <label htmlFor="edit-email" className="block text-sm font-medium text-gray-700 mb-2">
+                    Email Address
+                  </label>
+                  <input
+                    type="email"
+                    id="edit-email"
+                    value={editCustomerData.email}
+                    onChange={(e) => setEditCustomerData(prev => ({ ...prev, email: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Enter email address"
+                  />
+                </div>
+                
+                <div>
+                  <label htmlFor="edit-phone" className="block text-sm font-medium text-gray-700 mb-2">
+                    Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    id="edit-phone"
+                    value={editCustomerData.phone}
+                    onChange={(e) => setEditCustomerData(prev => ({ ...prev, phone: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Enter phone number"
+                  />
+                </div>
+                
+                <div className="flex space-x-3 pt-4">
+                  <button
+                    onClick={() => setShowEditCustomerModal(false)}
+                    className="flex-1 px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={async () => {
+                      // Frontend validation
+                      if (editCustomerData.firstName && editCustomerData.firstName.trim() && (editCustomerData.firstName.trim().length < 2 || editCustomerData.firstName.trim().length > 50)) {
+                        setError('First name must be between 2 and 50 characters');
+                        return;
+                      }
+                      
+                      if (editCustomerData.lastName && editCustomerData.lastName.trim() && (editCustomerData.lastName.trim().length < 2 || editCustomerData.lastName.trim().length > 50)) {
+                        setError('Last name must be between 2 and 50 characters');
+                        return;
+                      }
+                      
+                      if (editCustomerData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editCustomerData.email)) {
+                        setError('Please enter a valid email address');
+                        return;
+                      }
+
+                      try {
+                        setLoading(true);
+                        setError(''); // Clear any previous errors
+                        
+                        const response = await api.put(`/customers/${job.customer_id}`, {
+                          firstName: editCustomerData.firstName,
+                          lastName: editCustomerData.lastName,
+                          email: editCustomerData.email,
+                          phone: editCustomerData.phone
+                        });
+
+                        console.log('✅ Customer updated successfully:', response.data);
+                        
+                        // Update the job data with new customer info
+                        setJob(prev => ({
+                          ...prev,
+                          customer_first_name: editCustomerData.firstName,
+                          customer_last_name: editCustomerData.lastName,
+                          customer_email: editCustomerData.email,
+                          customer_phone: editCustomerData.phone
+                        }));
+
+                        setSuccessMessage('Customer updated successfully!');
+                        setTimeout(() => setSuccessMessage(""), 3000);
+                        setShowEditCustomerModal(false);
+                      } catch (error) {
+                        console.error('❌ Error updating customer:', error);
+                        setError(`Failed to update customer: ${error.response?.data?.error || error.message}`);
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    disabled={loading}
+                  >
+                    {loading ? 'Saving...' : 'Save Changes'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Notification Modal */}
+        {showNotificationModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-xl font-semibold text-gray-900">
+                    {notificationType === 'confirmation' ? 'Appointment Confirmation' : 'Appointment Reminder'}
+                  </h3>
+                  <button
+                    onClick={() => {
+                      setShowNotificationModal(false);
+                      setNotificationType(null);
+                      setNotificationEmail('');
+                    }}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="space-y-6">
+                  {/* Notification Method Selection */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                      Send via
+                    </label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        onClick={() => {
+                          if (emailNotifications) {
+                            setSelectedNotificationMethod('email')
+                            setNotificationEmail(job.customer_email || '')
+                          }
+                        }}
+                        disabled={!emailNotifications}
+                        className={`p-3 border rounded-lg text-center transition-colors ${
+                          !emailNotifications
+                            ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed'
+                            : selectedNotificationMethod === 'email'
+                            ? 'border-blue-500 bg-blue-50 text-blue-700'
+                            : 'border-gray-300 hover:border-gray-400'
+                        }`}
+                        title={!emailNotifications ? 'Email notifications are disabled' : ''}
+                      >
+                        <Mail className={`w-5 h-5 mx-auto mb-1 ${!emailNotifications ? 'text-gray-400' : ''}`} />
+                        <div className={`text-sm font-medium ${!emailNotifications ? 'text-gray-400' : ''}`}>
+                          Email
+                          {!emailNotifications && <span className="text-xs block text-red-500">(Disabled)</span>}
+                        </div>
+                        <div className="text-xs text-gray-500">Send via email</div>
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (smsNotifications) {
+                            setSelectedNotificationMethod('sms')
+                            setNotificationPhone(job.customer_phone || '')
+                          }
+                        }}
+                        disabled={!smsNotifications}
+                        className={`p-3 border rounded-lg text-center transition-colors ${
+                          !smsNotifications
+                            ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed'
+                            : selectedNotificationMethod === 'sms'
+                            ? 'border-blue-500 bg-blue-50 text-blue-700'
+                            : 'border-gray-300 hover:border-gray-400'
+                        }`}
+                        title={!smsNotifications ? 'SMS notifications are disabled' : ''}
+                      >
+                        <Phone className={`w-5 h-5 mx-auto mb-1 ${!smsNotifications ? 'text-gray-400' : ''}`} />
+                        <div className={`text-sm font-medium ${!smsNotifications ? 'text-gray-400' : ''}`}>
+                          SMS
+                          {!smsNotifications && <span className="text-xs block text-red-500">(Disabled)</span>}
+                        </div>
+                        <div className="text-xs text-gray-500">Send via text</div>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Contact Information Input */}
+                  {selectedNotificationMethod === 'email' ? (
+                    <div>
+                      <label htmlFor="notification-email" className={`block text-sm font-medium mb-2 ${
+                        !emailNotifications ? 'text-gray-400' : 'text-gray-700'
+                      }`}>
+                        Email Address
+                        {!emailNotifications && <span className="text-red-500 ml-1">(Disabled)</span>}
+                      </label>
+                      <input
+                        type="email"
+                        id="notification-email"
+                        value={notificationEmail}
+                        onChange={(e) => setNotificationEmail(e.target.value)}
+                        disabled={!emailNotifications}
+                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-blue-500 ${
+                          !emailNotifications 
+                            ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed' 
+                            : 'border-gray-300 focus:ring-blue-500'
+                        }`}
+                        placeholder={!emailNotifications ? "Email notifications are disabled" : "Enter email address"}
+                        required
+                      />
+                    </div>
+                  ) : (
+                    <div>
+                      <label htmlFor="notification-phone" className={`block text-sm font-medium mb-2 ${
+                        !smsNotifications ? 'text-gray-400' : 'text-gray-700'
+                      }`}>
+                        Phone Number
+                        {!smsNotifications && <span className="text-red-500 ml-1">(Disabled)</span>}
+                      </label>
+                      <input
+                        type="tel"
+                        id="notification-phone"
+                        value={notificationPhone}
+                        onChange={(e) => setNotificationPhone(e.target.value)}
+                        disabled={!smsNotifications}
+                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-blue-500 ${
+                          !smsNotifications 
+                            ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed' 
+                            : 'border-gray-300 focus:ring-blue-500'
+                        }`}
+                        placeholder={!smsNotifications ? "SMS notifications are disabled" : "Enter phone number (e.g., +1234567890)"}
+                        required
+                      />
+                      <p className={`text-xs mt-1 ${
+                        !smsNotifications ? 'text-gray-400' : 'text-gray-500'
+                      }`}>
+                        {!smsNotifications ? "SMS notifications are disabled for this customer" : "Include country code (e.g., +1 for US)"}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Message Preview */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Message Preview
+                    </label>
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 max-h-60 overflow-y-auto">
+                      {selectedNotificationMethod === 'email' ? (
+                        // Email preview
+                        notificationType === 'confirmation' ? (
+                          <div className="space-y-3">
+                            <div className="font-semibold text-gray-900">
+                              Hi {job?.customer_first_name || 'Customer'},
+                            </div>
+                            <div className="text-gray-700">
+                              Your appointment has been confirmed for <strong>{new Date(job?.scheduled_date).toLocaleDateString('en-US', { 
+                                weekday: 'long', 
+                                month: 'long', 
+                                day: 'numeric', 
+                                year: 'numeric' 
+                              })} at {new Date(job?.scheduled_date).toLocaleTimeString('en-US', { 
+                                hour: 'numeric', 
+                                minute: '2-digit',
+                                hour12: true 
+                              })}</strong>.
+                            </div>
+                            <div className="text-gray-700">
+                              <strong>Service:</strong> {job?.service_name || 'Service'}
+                            </div>
+                            <div className="text-gray-700">
+                              <strong>Location:</strong> {job?.service_address_street || 'Service Address'}, {job?.service_address_city || 'City'}, {job?.service_address_state || 'State'} {job?.service_address_zip || 'ZIP'}
+                            </div>
+                            <div className="text-gray-700">
+                              We look forward to serving you!
+                            </div>
+                            <div className="text-gray-700">
+                              Best regards,<br />
+                              Your Service Team
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            <div className="font-semibold text-gray-900">
+                              Hi {job?.customer_first_name || 'Customer'},
+                            </div>
+                            <div className="text-gray-700">
+                              This is a friendly reminder that you have an appointment scheduled for <strong>{new Date(job?.scheduled_date).toLocaleDateString('en-US', { 
+                                weekday: 'long', 
+                                month: 'long', 
+                                day: 'numeric', 
+                                year: 'numeric' 
+                              })} at {new Date(job?.scheduled_date).toLocaleTimeString('en-US', { 
+                                hour: 'numeric', 
+                                minute: '2-digit',
+                                hour12: true 
+                              })}</strong>.
+                            </div>
+                            <div className="text-gray-700">
+                              <strong>Service:</strong> {job?.service_name || 'Service'}
+                            </div>
+                            <div className="text-gray-700">
+                              <strong>Location:</strong> {job?.service_address_street || 'Service Address'}, {job?.service_address_city || 'City'}, {job?.service_address_state || 'State'} {job?.service_address_zip || 'ZIP'}
+                            </div>
+                            <div className="text-gray-700">
+                              Please arrive on time. If you need to reschedule, please contact us as soon as possible.
+                            </div>
+                            <div className="text-gray-700">
+                              Best regards,<br />
+                              Your Service Team
+                            </div>
+                          </div>
+                        )
+                      ) : (
+                        // SMS preview
+                        notificationType === 'confirmation' ? (
+                          <div className="text-gray-700">
+                            Hi {job?.customer_first_name || 'Customer'}! Your appointment is confirmed for {job?.service_name || 'Service'} on {new Date(job?.scheduled_date).toLocaleDateString('en-US', { 
+                              weekday: 'long', 
+                              month: 'long', 
+                              day: 'numeric' 
+                            })} at {new Date(job?.scheduled_date).toLocaleTimeString('en-US', { 
+                              hour: 'numeric', 
+                              minute: '2-digit',
+                              hour12: true 
+                            })}. We'll see you soon! - Your Service Team
+                          </div>
+                        ) : (
+                          <div className="text-gray-700">
+                            Hi {job?.customer_first_name || 'Customer'}! Reminder: You have an appointment for {job?.service_name || 'Service'} on {new Date(job?.scheduled_date).toLocaleDateString('en-US', { 
+                              weekday: 'long', 
+                              month: 'long', 
+                              day: 'numeric' 
+                            })} at {new Date(job?.scheduled_date).toLocaleTimeString('en-US', { 
+                              hour: 'numeric', 
+                              minute: '2-digit',
+                              hour12: true 
+                            })}. Please arrive on time! - Your Service Team
+                          </div>
+                        )
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 pt-4 border-t">
+                    <button
+                      onClick={() => {
+                        setShowNotificationModal(false);
+                        setNotificationType(null);
+                        setNotificationEmail('');
+                        setNotificationPhone('');
+                        setSelectedNotificationMethod('email');
+                      }}
+                      className="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 order-2 sm:order-1"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={async () => {
+                        // Check if notifications are disabled
+                        if (!emailNotifications && !smsNotifications) {
+                          setError('Notifications are disabled for this customer. Please enable notifications first.');
+                          return;
+                        }
+                        
+                        // Check if the selected method is disabled
+                        if (selectedNotificationMethod === 'email' && !emailNotifications) {
+                          setError('Email notifications are disabled for this customer.');
+                          return;
+                        }
+                        
+                        if (selectedNotificationMethod === 'sms' && !smsNotifications) {
+                          setError('SMS notifications are disabled for this customer.');
+                          return;
+                        }
+                        
+                        const isValidEmail = selectedNotificationMethod === 'email' && notificationEmail.trim();
+                        const isValidPhone = selectedNotificationMethod === 'sms' && notificationPhone.trim();
+                        
+                        if (isValidEmail || isValidPhone) {
+                          try {
+                            setLoading(true);
+                            
+                            // Construct service address
+                            const serviceAddress = (() => {
+                              if (job?.service_address_street) {
+                                const addressParts = [
+                                  job.service_address_street,
+                                  job.service_address_city,
+                                  job.service_address_state,
+                                  job.service_address_zip,
+                                  job.service_address_country
+                                ].filter(Boolean);
+                                return addressParts.join(', ');
+                              }
+                              return 'Service Address';
+                            })();
+
+                            if (selectedNotificationMethod === 'email') {
+                              // Send email notification
+                              const response = await api.post('/send-appointment-notification', {
+                                notificationType,
+                                customerEmail: notificationEmail,
+                                jobId: job.id,
+                                customerName: `${job.customer_first_name || ''} ${job.customer_last_name || ''}`.trim() || 'Customer',
+                                serviceName: job.service_name || 'Service',
+                                scheduledDate: job.scheduled_date,
+                                serviceAddress: serviceAddress
+                              });
+
+                              console.log('📧 Email notification sent successfully:', response.data);
+                              
+                              // Update job status
+                              if (notificationType === 'confirmation') {
+                                setJob(prev => ({
+                                  ...prev,
+                                  confirmation_sent: true,
+                                  confirmation_sent_at: new Date().toISOString(),
+                                  confirmation_email: notificationEmail,
+                                  confirmation_failed: false,
+                                  confirmation_error: null,
+                                  confirmation_no_email: false
+                                }));
+                              } else if (notificationType === 'reminder') {
+                                setJob(prev => ({
+                                  ...prev,
+                                  reminder_sent: true,
+                                  reminder_sent_at: new Date().toISOString(),
+                                  reminder_email: notificationEmail,
+                                  reminder_failed: false,
+                                  reminder_error: null,
+                                  reminder_no_email: false
+                                }));
+                              }
+                              
+                              const isResend = (notificationType === 'confirmation' && job.confirmation_sent) || (notificationType === 'reminder' && job.reminder_sent);
+                              setSuccessMessage(`${notificationType === 'confirmation' ? (isResend ? 'Confirmation email resent' : 'Confirmation email sent') : (isResend ? 'Reminder email resent' : 'Reminder email sent')} to ${notificationEmail}!`);
+                            } else {
+                              // Send SMS notification
+                              const smsMessage = notificationType === 'confirmation' 
+                                ? `Hi ${job?.customer_first_name || 'Customer'}! Your appointment is confirmed for ${job?.service_name || 'Service'} on ${new Date(job?.scheduled_date).toLocaleDateString('en-US', { 
+                                    weekday: 'long', 
+                                    month: 'long', 
+                                    day: 'numeric' 
+                                  })} at ${new Date(job?.scheduled_date).toLocaleTimeString('en-US', { 
+                                    hour: 'numeric', 
+                                    minute: '2-digit',
+                                    hour12: true 
+                                  })}. We'll see you soon! - Your Service Team`
+                                : `Hi ${job?.customer_first_name || 'Customer'}! Reminder: You have an appointment for ${job?.service_name || 'Service'} on ${new Date(job?.scheduled_date).toLocaleDateString('en-US', { 
+                                    weekday: 'long', 
+                                    month: 'long', 
+                                    day: 'numeric' 
+                                  })} at ${new Date(job?.scheduled_date).toLocaleTimeString('en-US', { 
+                                    hour: 'numeric', 
+                                    minute: '2-digit',
+                                    hour12: true 
+                                  })}. Please arrive on time! - Your Service Team`;
+
+                              const response = await twilioAPI.sendSMS(notificationPhone, smsMessage);
+
+                              console.log('📱 SMS notification sent successfully:', response);
+                              
+                              // Update job status for SMS
+                              if (notificationType === 'confirmation') {
+                                setJob(prev => ({
+                                  ...prev,
+                                  sms_sent: true,
+                                  sms_sent_at: new Date().toISOString(),
+                                  sms_phone: notificationPhone,
+                                  sms_sid: response.sid,
+                                  sms_failed: false,
+                                  sms_error: null
+                                }));
+                              }
+                              
+                              const isResend = (notificationType === 'confirmation' && job.sms_sent);
+                              setSuccessMessage(`${notificationType === 'confirmation' ? (isResend ? 'Confirmation SMS resent' : 'Confirmation SMS sent') : (isResend ? 'Reminder SMS resent' : 'Reminder SMS sent')} to ${notificationPhone}!`);
+                            }
+                            
+                            setTimeout(() => setSuccessMessage(""), 3000);
+                            setShowNotificationModal(false);
+                            setNotificationType(null);
+                            setNotificationEmail('');
+                            setNotificationPhone('');
+                            setSelectedNotificationMethod('email');
+                          } catch (error) {
+                            console.error('❌ Error sending notification:', error);
+                            
+                            // Update job status for failures
+                            if (selectedNotificationMethod === 'email') {
+                              if (notificationType === 'confirmation') {
+                                setJob(prev => ({
+                                  ...prev,
+                                  confirmation_sent: false,
+                                  confirmation_failed: true,
+                                  confirmation_error: error.response?.data?.error || error.message
+                                }));
+                              } else if (notificationType === 'reminder') {
+                                setJob(prev => ({
+                                  ...prev,
+                                  reminder_sent: false,
+                                  reminder_failed: true,
+                                  reminder_error: error.response?.data?.error || error.message
+                                }));
+                              }
+                            } else {
+                              if (notificationType === 'confirmation') {
+                                setJob(prev => ({
+                                  ...prev,
+                                  sms_sent: false,
+                                  sms_failed: true,
+                                  sms_error: error.response?.data?.error || error.message
+                                }));
+                              }
+                            }
+                            
+                            setError(`Failed to send ${notificationType === 'confirmation' ? 'confirmation' : 'reminder'} ${selectedNotificationMethod.toUpperCase()}: ${error.response?.data?.error || error.message}`);
+                          } finally {
+                            setLoading(false);
+                          }
+                        } else {
+                          setError(`Please enter a valid ${selectedNotificationMethod === 'email' ? 'email address' : 'phone number'}`);
+                        }
+                      }}
+                      className={`px-4 py-2 rounded-lg order-1 sm:order-2 ${
+                        (!emailNotifications && !smsNotifications) || 
+                        (selectedNotificationMethod === 'email' && !emailNotifications) ||
+                        (selectedNotificationMethod === 'sms' && !smsNotifications)
+                          ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                          : 'bg-blue-600 text-white hover:bg-blue-700'
+                      }`}
+                      disabled={
+                        loading || 
+                        (!emailNotifications && !smsNotifications) ||
+                        (selectedNotificationMethod === 'email' && !emailNotifications) ||
+                        (selectedNotificationMethod === 'sms' && !smsNotifications)
+                      }
+                    >
+                      {loading ? 'Sending...' : 
+                        (!emailNotifications && !smsNotifications) ? 'Notifications Disabled' :
+                        (selectedNotificationMethod === 'email' && !emailNotifications) ? 'Email Disabled' :
+                        (selectedNotificationMethod === 'sms' && !smsNotifications) ? 'SMS Disabled' :
+                        `${selectedNotificationMethod === 'email' ? 'Send Email' : 'Send SMS'} ${notificationType === 'confirmation' ? 'Confirmation' : 'Reminder'}`
+                      }
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Custom Message Modal */}
+        {showCustomMessageModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-xl font-semibold text-gray-900">Send Custom Message</h3>
+                  <button
+                    onClick={() => {
+                      setShowCustomMessageModal(false);
+                      setCustomMessage('');
+                      setCustomMessageEmail('');
+                    }}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="space-y-6">
+                  {/* Email Address */}
+                  <div>
+                    <label htmlFor="custom-message-email" className="block text-sm font-medium text-gray-700 mb-2">
+                      Send to
+                    </label>
+                    <input
+                      type="email"
+                      id="custom-message-email"
+                      value={customMessageEmail}
+                      onChange={(e) => setCustomMessageEmail(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Enter email address"
+                      required
+                    />
+                  </div>
+
+                  {/* Custom Message */}
+                  <div>
+                    <label htmlFor="custom-message-text" className="block text-sm font-medium text-gray-700 mb-2">
+                      Message
+                    </label>
+                    <textarea
+                      id="custom-message-text"
+                      value={customMessage}
+                      onChange={(e) => setCustomMessage(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      rows={6}
+                      placeholder="Enter your custom message here..."
+                      required
+                    />
+                  </div>
+
+                  {/* Message Preview */}
+                  {customMessage && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Message Preview
+                      </label>
+                      <div className="border border-gray-300 rounded-lg p-4 bg-gray-50 max-h-40 overflow-y-auto">
+                        <div className="space-y-2">
+                          <div className="font-semibold text-gray-900">
+                            Hi {job?.customer_first_name || 'Customer'},
+                          </div>
+                          <div className="text-gray-700 whitespace-pre-wrap">
+                            {customMessage}
+                          </div>
+                          <div className="text-gray-700">
+                            Best regards,<br />
+                            Your Service Team
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Action Buttons */}
+                  <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 pt-4 border-t">
+                    <button
+                      onClick={() => {
+                        setShowCustomMessageModal(false);
+                        setCustomMessage('');
+                        setCustomMessageEmail('');
+                      }}
+                      className="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 order-2 sm:order-1"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (customMessageEmail.trim() && customMessage.trim()) {
+                          try {
+                            setLoading(true);
+                            
+                            const response = await api.post('/send-custom-message', {
+                              customerEmail: customMessageEmail,
+                              jobId: job.id,
+                              customerName: `${job.customer_first_name || ''} ${job.customer_last_name || ''}`.trim() || 'Customer',
+                              message: customMessage
+                            });
+
+                            console.log('📧 Custom message sent successfully:', response.data);
+                            setSuccessMessage(`Custom message sent to ${customMessageEmail}!`);
+                            setTimeout(() => setSuccessMessage(""), 3000);
+                            setShowCustomMessageModal(false);
+                            setCustomMessage('');
+                            setCustomMessageEmail('');
+                          } catch (error) {
+                            console.error('❌ Error sending custom message:', error);
+                            setError(`Failed to send custom message: ${error.response?.data?.error || error.message}`);
+                          } finally {
+                            setLoading(false);
+                          }
+                        } else {
+                          setError('Please enter both email address and message');
+                        }
+                      }}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 order-1 sm:order-2"
+                      disabled={loading}
+                    >
+                      {loading ? 'Sending...' : 'Send Message'}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -3079,10 +4344,133 @@ Your Service Team`}
               </div>
             </div>
           </div>
+          )}
+
+        {/* Discount Modal */}
+        {showDiscountModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Add Discount</h3>
+                  <button
+                    onClick={() => setShowDiscountModal(false)}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Discount Amount</label>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm text-gray-500">$</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={formData.discount !== undefined ? formData.discount : ""}
+                        onChange={e => {
+                          const newDiscount = parseFloat(e.target.value) || 0;
+                          setFormData(prev => ({
+                            ...prev,
+                            discount: newDiscount
+                          }));
+                        }}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="flex space-x-3 pt-4">
+                    <button
+                      onClick={() => setShowDiscountModal(false)}
+                      className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSuccessMessage('Discount added successfully!')
+                        setTimeout(() => setSuccessMessage(""), 3000)
+                        setShowDiscountModal(false)
+                      }}
+                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    >
+                      Add Discount
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
-      </div>
-    </div>
-  )
-}
+
+        {/* Tip Modal */}
+        {showTipModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Add Tip</h3>
+                  <button
+                    onClick={() => setShowTipModal(false)}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Tip Amount</label>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm text-gray-500">$</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={formData.tip || 0}
+                        onChange={e => {
+                          const newTip = parseFloat(e.target.value) || 0;
+                          setFormData(prev => ({
+                            ...prev,
+                            tip: newTip
+                          }));
+                        }}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="flex space-x-3 pt-4">
+                    <button
+                      onClick={() => setShowTipModal(false)}
+                      className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSuccessMessage('Tip added successfully!')
+                        setTimeout(() => setSuccessMessage(""), 3000)
+                        setShowTipModal(false)
+                      }}
+                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    >
+                      Add Tip
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        </div>
+    )
+  }
 
 export default JobDetails 

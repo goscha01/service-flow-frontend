@@ -33,8 +33,18 @@ const SheetsExport = ({ exportType = 'customers', dateRange = null, onSuccess, o
 
     } catch (error) {
       console.error('❌ Sheets export error:', error);
-      const errorMessage = error.response?.data?.error || 'Failed to export to Google Sheets';
-      setError(errorMessage);
+      
+      // Check for insufficient scopes error
+      if (error.response?.data?.error === 'insufficient_scopes' || 
+          error.response?.status === 403 ||
+          (error.response?.data?.requiresReconnect)) {
+        const errorMessage = error.response?.data?.message || 
+          'Your Google account connection does not have the required permissions for Google Sheets. Please disconnect and reconnect your Google account in Settings > Google Sheets Integration to grant the necessary permissions.';
+        setError(errorMessage);
+      } else {
+        const errorMessage = error.response?.data?.error || error.response?.data?.message || 'Failed to export to Google Sheets';
+        setError(errorMessage);
+      }
       
       if (onError) {
         onError(error);
@@ -90,15 +100,40 @@ const SheetsExport = ({ exportType = 'customers', dateRange = null, onSuccess, o
       </button>
 
       {error && (
-        <div className="flex items-center space-x-2 text-red-600 bg-red-50 p-3 rounded-lg">
-          <AlertCircle className="w-4 h-4" />
-          <span className="text-sm">{error}</span>
+        <div className="flex items-start space-x-2 text-red-600 bg-red-50 p-3 rounded-lg">
+          <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+          <div className="flex-1">
+            <span className="text-sm block">{error}</span>
+            {error.includes('disconnect and reconnect') && (
+              <a 
+                href="/settings/google-sheets" 
+                className="text-sm text-blue-600 hover:text-blue-800 underline mt-2 inline-block"
+              >
+                Go to Google Sheets Settings →
+              </a>
+            )}
+          </div>
         </div>
       )}
 
       {!user?.google_access_token && (
         <div className="text-sm text-gray-600 bg-yellow-50 p-3 rounded-lg">
-          <p>⚠️ Google Sheets not connected. Please connect your Google account in settings to export data to Google Sheets.</p>
+          <p>⚠️ Google Sheets not connected. Please sign in with Google or connect your Google account in settings to export data to Google Sheets.</p>
+          <div className="mt-2">
+            <a 
+              href="/signin" 
+              className="text-blue-600 hover:text-blue-800 underline"
+            >
+              Sign in with Google
+            </a>
+            <span className="mx-2">or</span>
+            <a 
+              href="/settings" 
+              className="text-blue-600 hover:text-blue-800 underline"
+            >
+              Connect Google Account
+            </a>
+          </div>
         </div>
       )}
     </div>

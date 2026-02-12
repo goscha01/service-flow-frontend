@@ -6,11 +6,11 @@ import PageLayout from "../../components/PageLayout"
 import Card from "../../components/Card"
 import Button from "../../components/Button"
 import Input from "../../components/Input"
-import { Camera, Eye, EyeOff, Check, X } from "lucide-react"
-import { userProfileAPI, authAPI } from "../../services/api"
+import { Camera, Eye, EyeOff, Check, X, Trash2, Download, FileSpreadsheet, Calendar, AlertTriangle } from "lucide-react"
+import { userProfileAPI, authAPI, teamAPI, jobsAPI, customersAPI, invoicesAPI, sheetsAPI } from "../../services/api"
 import { useAuth } from "../../context/AuthContext"
 import Sidebar from "../../components/sidebar"
-import MobileHeader from "../../components/mobile-header"
+import { isWorker } from "../../utils/roleUtils"
 
 const AccountDetails = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -19,6 +19,11 @@ const AccountDetails = () => {
   const [saving, setSaving] = useState(false)
   const [showPasswordModal, setShowPasswordModal] = useState(false)
   const [showEmailModal, setShowEmailModal] = useState(false)
+  const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
+  const [exportProgress, setExportProgress] = useState('')
   const [message, setMessage] = useState({ type: '', text: '' })
   
   const [formData, setFormData] = useState({
@@ -107,16 +112,24 @@ const AccountDetails = () => {
         return
       }
       
-      console.log('Fetching profile for user:', user.id);
+      console.log('Fetching profile for user:', user.id, 'teamMemberId:', user.teamMemberId);
       const profile = await userProfileAPI.getProfile(user.id)
       console.log('Profile loaded:', profile);
+      
+      // Handle both account owners and team members
+      const fullName = profile.firstName || profile.lastName 
+        ? `${profile.firstName || ''} ${profile.lastName || ''}`.trim()
+        : user.firstName && user.lastName
+        ? `${user.firstName} ${user.lastName}`
+        : user.firstName || 'User';
+      
       setFormData({
-        fullName: `${profile.firstName} ${profile.lastName}`,
+        fullName: fullName,
         businessName: profile.businessName || profile.business_name || "",
         phone: profile.phone || "",
         email: profile.email,
-        emailNotifications: profile.emailNotifications,
-        smsNotifications: profile.smsNotifications,
+        emailNotifications: profile.emailNotifications || false,
+        smsNotifications: profile.smsNotifications || false,
         profilePicture: profile.profilePicture
       })
     } catch (error) {
@@ -184,33 +197,59 @@ const AccountDetails = () => {
       const [firstName, ...lastNameParts] = formData.fullName.split(' ')
       const lastName = lastNameParts.join(' ') || ''
       
-      const result = await userProfileAPI.updateProfile({
-        userId: user.id,
-        firstName,
-        lastName,
-        businessName: formData.businessName,
-        phone: formData.phone,
-        emailNotifications: formData.emailNotifications,
-        smsNotifications: formData.smsNotifications
-      })
-      
-      // Update the user data in AuthContext and localStorage
-      const updatedUser = {
-        ...user,
-        firstName,
-        lastName,
-        businessName: formData.businessName,
-        business_name: formData.businessName,
-        phone: formData.phone,
-        emailNotifications: formData.emailNotifications,
-        smsNotifications: formData.smsNotifications
+      // If user is a team member, use team member API
+      if (user.teamMemberId) {
+        const result = await teamAPI.update(user.teamMemberId, {
+          firstName,
+          lastName,
+          phone: formData.phone,
+          email: formData.email // Team members can update their email
+        })
+        
+        // Update the user data in AuthContext and localStorage
+        const updatedUser = {
+          ...user,
+          firstName,
+          lastName,
+          phone: formData.phone,
+          email: formData.email
+        }
+        
+        // Update localStorage
+        localStorage.setItem('user', JSON.stringify(updatedUser))
+        
+        // Update AuthContext
+        updateUserProfile(updatedUser)
+      } else {
+        // Account owner update
+        const result = await userProfileAPI.updateProfile({
+          userId: user.id,
+          firstName,
+          lastName,
+          businessName: formData.businessName,
+          phone: formData.phone,
+          emailNotifications: formData.emailNotifications,
+          smsNotifications: formData.smsNotifications
+        })
+        
+        // Update the user data in AuthContext and localStorage
+        const updatedUser = {
+          ...user,
+          firstName,
+          lastName,
+          businessName: formData.businessName,
+          business_name: formData.businessName,
+          phone: formData.phone,
+          emailNotifications: formData.emailNotifications,
+          smsNotifications: formData.smsNotifications
+        }
+        
+        // Update localStorage
+        localStorage.setItem('user', JSON.stringify(updatedUser))
+        
+        // Update AuthContext
+        updateUserProfile(updatedUser)
       }
-      
-      // Update localStorage
-      localStorage.setItem('user', JSON.stringify(updatedUser))
-      
-      // Update AuthContext
-      updateUserProfile(updatedUser)
       
       // Refresh user profile to ensure all data is synced
       try {
@@ -324,8 +363,12 @@ const AccountDetails = () => {
         return;
       }
 
-      console.log('🔍 Uploading profile picture for user:', user.id);
-      const result = await userProfileAPI.updateProfilePicture(user.id, file);
+      // Use teamMemberId if it's a team member, otherwise use user.id
+      const userIdToUse = user.teamMemberId ? user.teamMemberId : user.id;
+      const isTeamMember = !!user.teamMemberId;
+      
+      console.log('🔍 Uploading profile picture for:', isTeamMember ? 'team member' : 'account owner', userIdToUse);
+      const result = await userProfileAPI.updateProfilePicture(userIdToUse, file, isTeamMember);
       
       setFormData(prev => ({
         ...prev,
@@ -360,7 +403,6 @@ const AccountDetails = () => {
       <div className="flex h-screen bg-gray-50 overflow-hidden">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <div className="flex-1 flex flex-col min-w-0">
-          <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
@@ -377,7 +419,6 @@ const AccountDetails = () => {
       <div className="flex h-screen bg-gray-50 overflow-hidden">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <div className="flex-1 flex flex-col min-w-0">
-          <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
@@ -389,12 +430,24 @@ const AccountDetails = () => {
     )
   }
 
+  // Determine back navigation based on user type
+  const handleBack = () => {
+    const user = authAPI.getCurrentUser()
+    if (isWorker(user) && user?.teamMemberId) {
+      // Workers should go to availability page
+      navigate("/availability")
+    } else {
+      // Account owners/managers go to settings
+      navigate("/settings")
+    }
+  }
+
   return (
     <PageLayout
       title="Account Details"
       subtitle="Manage your account settings and preferences"
       showBackButton={true}
-      backLabel="Settings"
+      onBack={handleBack}
       sidebarOpen={sidebarOpen}
       setSidebarOpen={setSidebarOpen}
       maxWidth="max-w-4xl"
@@ -459,7 +512,10 @@ const AccountDetails = () => {
                       onClick={async () => {
                         try {
                           setSaving(true);
-                          await userProfileAPI.removeProfilePicture(currentUser.id);
+                          // Use teamMemberId if it's a team member, otherwise use user.id
+                          const userIdToUse = currentUser.teamMemberId ? currentUser.teamMemberId : currentUser.id;
+                          const isTeamMember = !!currentUser.teamMemberId;
+                          await userProfileAPI.removeProfilePicture(userIdToUse, isTeamMember);
                           
                           setFormData(prev => ({ ...prev, profilePicture: null }));
                           
@@ -497,13 +553,16 @@ const AccountDetails = () => {
                     onChange={(e) => handleInputChange('fullName', e.target.value)}
                 />
                 
-                <Input
-                  label="Company Name"
-                  type="text"
-                  value={formData.businessName}
-                  onChange={(e) => handleInputChange('businessName', e.target.value)}
-                  placeholder="Your Company Name"
-                />
+                {/* Only show Company Name for account owners */}
+                {!currentUser?.teamMemberId && (
+                  <Input
+                    label="Company Name"
+                    type="text"
+                    value={formData.businessName}
+                    onChange={(e) => handleInputChange('businessName', e.target.value)}
+                    placeholder="Your Company Name"
+                  />
+                )}
                 
                 <Input
                   label="Phone"
@@ -511,25 +570,39 @@ const AccountDetails = () => {
                     value={formData.phone}
                     onChange={(e) => handleInputChange('phone', e.target.value)}
                     placeholder="Mobile Phone Number"
-                  />
+                />
               </div>
 
               {/* Email */}
               <div className="mb-8">
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Email
-                  </label>
-                  <button 
-                    onClick={() => setShowEmailModal(true)}
-                    className="text-blue-600 hover:text-blue-700 font-medium text-sm"
-                  >
-                    Change Email
-                  </button>
-                </div>
-                <div className="text-gray-900">
-                  {formData.email}
-                </div>
+                {currentUser?.teamMemberId ? (
+                  // Team members can edit email directly
+                  <Input
+                    label="Email"
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => handleInputChange('email', e.target.value)}
+                    placeholder="your.email@example.com"
+                  />
+                ) : (
+                  // Account owners use modal to change email
+                  <>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Email
+                      </label>
+                      <button 
+                        onClick={() => setShowEmailModal(true)}
+                        className="text-blue-600 hover:text-blue-700 font-medium text-sm"
+                      >
+                        Change Email
+                      </button>
+                    </div>
+                    <div className="text-gray-900">
+                      {formData.email}
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Password */}
@@ -548,7 +621,8 @@ const AccountDetails = () => {
                 </div>
               </div>
 
-              {/* Notification Preferences */}
+              {/* Notification Preferences - Only for account owners */}
+              {!currentUser?.teamMemberId && (
               <div>
                 <h3 className="text-lg font-medium text-gray-900 mb-2">NOTIFICATION PREFERENCES</h3>
                 <p className="text-gray-600 mb-6">How would you like to be notified when you are assigned to a job?</p>
@@ -599,6 +673,7 @@ const AccountDetails = () => {
                   </div>
                 </div>
               </div>
+              )}
 
               {/* Save Button */}
               <div className="mt-8 pt-6 border-t border-gray-200">
@@ -621,6 +696,42 @@ const AccountDetails = () => {
                   Sign Out
                 </Button>
               </div>
+
+              {/* Delete Account Section */}
+              {!currentUser?.teamMemberId && (
+                <div className="mt-8 pt-8 border-t border-red-200">
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+                    <div className="flex items-start space-x-3 mb-4">
+                      <AlertTriangle className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <h3 className="text-lg font-semibold text-red-900 mb-2">Delete Account</h3>
+                        <p className="text-sm text-red-800 mb-4">
+                          Once you delete your account, there is no going back. This will permanently delete:
+                        </p>
+                        <ul className="text-sm text-red-800 list-disc list-inside space-y-1 mb-4">
+                          <li>All your jobs and job history</li>
+                          <li>All customer information</li>
+                          <li>All invoices and payment records</li>
+                          <li>All team members and their data</li>
+                          <li>All settings and preferences</li>
+                          <li>All calendar and Google Sheets integrations</li>
+                        </ul>
+                        <p className="text-sm font-medium text-red-900 mb-4">
+                          We recommend exporting your data before deleting your account.
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      onClick={() => setShowDeleteAccountModal(true)}
+                      className="text-red-600 hover:text-red-700 border border-red-300 hover:bg-red-50"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Delete Account
+                    </Button>
+                  </div>
+                </div>
+              )}
             </Card>
 
       {/* Password Change Modal */}
@@ -704,6 +815,224 @@ const AccountDetails = () => {
                 className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {saving ? 'Updating...' : 'Update Password'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Account Modal */}
+      {showDeleteAccountModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-start space-x-3 mb-6">
+              <AlertTriangle className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <h3 className="text-xl font-semibold text-red-900 mb-2">Delete Your Account</h3>
+                <p className="text-sm text-gray-700 mb-4">
+                  This action cannot be undone. All your data will be permanently deleted.
+                </p>
+              </div>
+            </div>
+
+            {/* Export Options */}
+            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <h4 className="text-sm font-semibold text-blue-900 mb-3">Save Your Data Before Deleting</h4>
+              <p className="text-xs text-blue-800 mb-4">
+                We strongly recommend exporting your data before deleting your account. Choose one or more options:
+              </p>
+              
+              <div className="space-y-3">
+                {/* CSV Export */}
+                <button
+                  onClick={async () => {
+                    setIsExporting(true)
+                    setExportProgress('Exporting jobs to CSV...')
+                    try {
+                      const csvData = await jobsAPI.export({})
+                      const blob = new Blob([csvData], { type: 'text/csv' })
+                      const url = window.URL.createObjectURL(blob)
+                      const a = document.createElement('a')
+                      a.href = url
+                      a.download = `jobs_export_${new Date().toISOString().split('T')[0]}.csv`
+                      document.body.appendChild(a)
+                      a.click()
+                      window.URL.revokeObjectURL(url)
+                      document.body.removeChild(a)
+                      
+                      setExportProgress('Exporting customers to CSV...')
+                      const customersCsv = await customersAPI.export('csv')
+                      const blob2 = new Blob([customersCsv], { type: 'text/csv' })
+                      const url2 = window.URL.createObjectURL(blob2)
+                      const a2 = document.createElement('a')
+                      a2.href = url2
+                      a2.download = `customers_export_${new Date().toISOString().split('T')[0]}.csv`
+                      document.body.appendChild(a2)
+                      a2.click()
+                      window.URL.revokeObjectURL(url2)
+                      document.body.removeChild(a2)
+                      
+                      setMessage({ type: 'success', text: 'Data exported to CSV files successfully!' })
+                      setTimeout(() => setMessage({ type: '', text: '' }), 3000)
+                    } catch (error) {
+                      console.error('Export error:', error)
+                      setMessage({ type: 'error', text: 'Failed to export data. Please try again.' })
+                    } finally {
+                      setIsExporting(false)
+                      setExportProgress('')
+                    }
+                  }}
+                  disabled={isExporting || isDeleting}
+                  className="w-full flex items-center justify-between p-3 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <div className="flex items-center space-x-3">
+                    <Download className="w-5 h-5 text-blue-600" />
+                    <div className="text-left">
+                      <div className="text-sm font-medium text-gray-900">Export as CSV</div>
+                      <div className="text-xs text-gray-500">Download jobs and customers as CSV files</div>
+                    </div>
+                  </div>
+                </button>
+
+                {/* Google Sheets Export */}
+                <button
+                  onClick={async () => {
+                    setIsExporting(true)
+                    setExportProgress('Exporting to Google Sheets...')
+                    try {
+                      const user = authAPI.getCurrentUser()
+                      await sheetsAPI.exportJobs(user.id)
+                      setExportProgress('Exporting customers to Google Sheets...')
+                      await sheetsAPI.exportCustomers(user.id)
+                      setMessage({ type: 'success', text: 'Data exported to Google Sheets successfully!' })
+                      setTimeout(() => setMessage({ type: '', text: '' }), 3000)
+                    } catch (error) {
+                      console.error('Google Sheets export error:', error)
+                      if (error.response?.status === 401 || error.message?.includes('Google')) {
+                        setMessage({ 
+                          type: 'error', 
+                          text: 'Please connect your Google account in Settings > Google Sheets to export data.' 
+                        })
+                      } else {
+                        setMessage({ type: 'error', text: 'Failed to export to Google Sheets. Please try again.' })
+                      }
+                    } finally {
+                      setIsExporting(false)
+                      setExportProgress('')
+                    }
+                  }}
+                  disabled={isExporting || isDeleting}
+                  className="w-full flex items-center justify-between p-3 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <div className="flex items-center space-x-3">
+                    <FileSpreadsheet className="w-5 h-5 text-green-600" />
+                    <div className="text-left">
+                      <div className="text-sm font-medium text-gray-900">Sync with Google Sheets</div>
+                      <div className="text-xs text-gray-500">Export data to a new Google Spreadsheet</div>
+                    </div>
+                  </div>
+                </button>
+
+                {/* Calendar Sync Note */}
+                <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                  <div className="flex items-start space-x-3">
+                    <Calendar className="w-5 h-5 text-gray-600 flex-shrink-0 mt-0.5" />
+                    <div className="text-left">
+                      <div className="text-sm font-medium text-gray-900">Google Calendar</div>
+                      <div className="text-xs text-gray-500">
+                        If you have calendar sync enabled, your events are already in your Google Calendar and will remain there after account deletion.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {exportProgress && (
+                <div className="mt-4 p-3 bg-blue-100 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-800">{exportProgress}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Delete Confirmation */}
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm font-medium text-red-900 mb-3">
+                To confirm deletion, type <strong>DELETE</strong> in the box below:
+              </p>
+              <input
+                type="text"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                placeholder="Type DELETE to confirm"
+                className="w-full border border-red-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                disabled={isDeleting || isExporting}
+              />
+            </div>
+
+            <div className="flex space-x-3">
+              <button
+                onClick={() => {
+                  setShowDeleteAccountModal(false)
+                  setDeleteConfirmText('')
+                  setExportProgress('')
+                }}
+                disabled={isDeleting || isExporting}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (deleteConfirmText !== 'DELETE') {
+                    setMessage({ type: 'error', text: 'Please type DELETE to confirm' })
+                    return
+                  }
+
+                  setIsDeleting(true)
+                  try {
+                    const user = authAPI.getCurrentUser()
+                    if (!user) {
+                      navigate('/signin')
+                      return
+                    }
+
+                    // Call delete account API
+                    const response = await authAPI.deleteAccount(user.id)
+                    
+                    // Clear local storage
+                    localStorage.removeItem('authToken')
+                    localStorage.removeItem('user')
+                    
+                    // Show success message briefly
+                    setMessage({ type: 'success', text: 'Account deleted successfully' })
+                    
+                    // Redirect to signin after a short delay
+                    setTimeout(() => {
+                      navigate('/signin')
+                    }, 2000)
+                  } catch (error) {
+                    console.error('Error deleting account:', error)
+                    setMessage({ 
+                      type: 'error', 
+                      text: error.response?.data?.error || 'Failed to delete account. Please try again.' 
+                    })
+                    setIsDeleting(false)
+                  }
+                }}
+                disabled={isDeleting || isExporting || deleteConfirmText !== 'DELETE'}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+              >
+                {isDeleting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Deleting Account...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    <span>Permanently Delete Account</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

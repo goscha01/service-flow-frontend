@@ -3,7 +3,6 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import Sidebar from "../../components/sidebar"
-import MobileHeader from "../../components/mobile-header"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 
 const ClientTeamNotifications = () => {
@@ -12,62 +11,8 @@ const ClientTeamNotifications = () => {
 
   const customerNotifications = [
     {
-      title: "Quote Request Processing",
-      description: "Sent automatically to the customer after a quote request is made.",
-      types: ["Email"],
-    },
-    {
-      title: "Job Follow-up",
-      description: "Sent to customers after a job is marked as complete, prompting them to rate their service.",
-      types: ["Email"],
-    },
-    {
-      title: "Booking Request Acknowledgment",
-      description: "Sent automatically to the customer after a booking request is submitted.",
-      types: ["Email"],
-    },
-    {
-      title: "Appointment Cancelled",
-      description:
-        "Sent if a customer cancels their job. Can also be sent when a job is cancelled from the Serviceflow admin.",
-      types: ["SMS", "Email"],
-    },
-    {
-      title: "Enroute",
-      description: "Notify your customer with an ETA when you or an employee is on the way.",
-      types: ["SMS"],
-    },
-    {
-      title: "Recurring Booking Cancelled",
-      description: "Sent when a customer's recurring booking is cancelled.",
-      types: ["SMS", "Email"],
-    },
-    {
-      title: "Payment Receipt",
-      description:
-        "Sent to customer when they pay an invoice online. Can also be sent when a job is paid, and you select the send receipt option.",
-      types: ["Email"],
-    },
-    {
-      title: "Invoice",
-      description: "Sent to the customer when you choose to send an unpaid job invoice.",
-      types: [],
-    },
-    {
-      title: "Contact Customer",
-      description:
-        "Sent to the customer when you contact them from the jobs or customers page. You can edit this email before you send it.",
-      types: [],
-    },
-    {
       title: "Appointment Confirmation",
       description: "Sent automatically to the customer after a job is scheduled.",
-      types: ["SMS", "Email"],
-    },
-    {
-      title: "Estimate",
-      description:
-        "Sent to the customer once their estimate is ready. This notification provides a direct link to book the estimate.",
       types: ["SMS", "Email"],
     },
     {
@@ -82,64 +27,68 @@ const ClientTeamNotifications = () => {
         "Sent automatically to the customer to remind them of their upcoming appointment. You can edit how far in advance the notification is sent.",
       types: ["SMS", "Email"],
     },
+    {
+      title: "Job Follow-up",
+      description: "Sent to customers after a job is marked as complete, prompting them to rate their service.",
+      types: ["SMS", "Email"],
+    },
+    {
+      title: "Appointment Cancelled",
+      description:
+        "Sent if a customer cancels their job. Can also be sent when a job is cancelled from the Serviceflow admin.",
+      types: ["SMS", "Email"],
+    },
+    {
+      title: "Enroute",
+      description: "Notify your customer with an ETA when you or an employee is on the way.",
+      types: ["SMS"],
+    },
+    {
+      title: "Payment Receipt",
+      description:
+        "Sent to customer when they pay an invoice online. Can also be sent when a job is paid, and you select the send receipt option.",
+      types: ["Email"],
+    },
   ]
 
   const teamNotifications = [
     {
       title: "Assigned Job Cancelled",
       description: "Sent to a job's assigned provider(s) if the job has been cancelled.",
-      types: ["SMS", "Email", "Push"],
+      types: ["SMS"],
     },
     {
       title: "Assigned Job Rescheduled",
       description: "Sent to a job's assigned provider(s) if the job has been rescheduled.",
-      types: ["SMS", "Email", "Push"],
+      types: ["SMS"],
     },
     {
       title: "Team Member Invite",
       description: "Sent to newly added team members with account activation instructions.",
-      types: [],
+      types: ["SMS", "Email"],
     },
     {
       title: "Recurring Assignment",
       description: "Sent to service providers when they are assigned to a recurring booking.",
-      types: ["SMS", "Email", "Push"],
-    },
-    {
-      title: "Job Offer",
-      description: "Sent to service providers when a new job is offered to them.",
-      types: ["Email", "Push"],
-    },
-    {
-      title: "Job Assignment",
-      description: "Sent to service providers when they are assigned to a new job.",
-      types: ["SMS", "Email", "Push"],
+      types: ["SMS", "Email"],
     },
   ]
 
   const getNotificationRoute = (title) => {
     const routes = {
       // Customer Notifications
-      "Quote Request Processing": "/settings/client-team-notifications/quote-request-processing",
-      "Job Follow-up": "/settings/client-team-notifications/job-follow-up",
-      "Booking Request Acknowledgment": "/settings/client-team-notifications/booking-request-acknowledgment",
-      "Appointment Cancelled": "/settings/client-team-notifications/appointment-cancelled",
-      "Enroute": "/settings/client-team-notifications/enroute",
-      "Recurring Booking Cancelled": "/settings/client-team-notifications/recurring-booking-cancelled",
-      "Payment Receipt": "/settings/client-team-notifications/payment-receipt",
-      "Invoice": "/settings/client-team-notifications/invoice",
-      "Contact Customer": "/settings/client-team-notifications/contact-customer",
       "Appointment Confirmation": "/settings/client-team-notifications/appointment-confirmation",
-      "Estimate": "/settings/client-team-notifications/estimate",
       "Appointment Rescheduled": "/settings/client-team-notifications/appointment-rescheduled",
       "Appointment Reminder": "/settings/client-team-notifications/appointment-reminder",
+      "Job Follow-up": "/settings/client-team-notifications/job-follow-up",
+      "Appointment Cancelled": "/settings/client-team-notifications/appointment-cancelled",
+      "Enroute": "/settings/client-team-notifications/enroute",
+      "Payment Receipt": "/settings/client-team-notifications/payment-receipt",
       // Team Notifications
       "Assigned Job Cancelled": "/settings/client-team-notifications/assigned-job-cancelled",
       "Assigned Job Rescheduled": "/settings/client-team-notifications/assigned-job-rescheduled",
       "Team Member Invite": "/settings/client-team-notifications/team-member-invite",
-      "Recurring Assignment": "/settings/client-team-notifications/recurring-assignment",
-      "Job Offer": "/settings/client-team-notifications/job-offer",
-      "Job Assignment": "/settings/client-team-notifications/job-assignment"
+      "Recurring Assignment": "/settings/client-team-notifications/recurring-assignment"
     }
     return routes[title] || null
   }
@@ -188,7 +137,6 @@ const ClientTeamNotifications = () => {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
-        <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
 
         {/* Header */}
         <div className="bg-white border-b border-gray-200 px-6 py-4">
@@ -238,6 +186,34 @@ const ClientTeamNotifications = () => {
                 {teamNotifications.map((notification, index) => (
                   <NotificationRow key={index} notification={notification} isTeam />
                 ))}
+              </div>
+            </div>
+
+            {/* Notification Testing */}
+            <div>
+              <div className="mb-6">
+                <h2 className="text-xl font-semibold text-gray-900 mb-2">Notification Testing</h2>
+                <p className="text-gray-600">
+                  Test your email and SMS notifications to ensure they're working correctly. Send test messages to verify your notification setup.
+                </p>
+              </div>
+
+              <div className="bg-white rounded-lg border border-gray-200 p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">Test Notifications</h3>
+                    <p className="text-gray-600 mt-1">
+                      Send test emails and SMS messages to verify your notification configuration is working properly.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => navigate("/settings/client-team-notifications/notification-testing")}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 flex items-center space-x-2"
+                  >
+                    <span>Test Notifications</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             </div>
 

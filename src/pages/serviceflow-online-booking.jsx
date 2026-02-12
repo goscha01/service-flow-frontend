@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import Sidebar from "../components/sidebar"
-import MobileHeader from "../components/mobile-header"
 import { 
   ChevronDown, 
   ChevronRight, 
@@ -898,9 +897,8 @@ const ServiceFlowOnlineBooking = () => {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} activePage="online-booking" />
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0 lg:mx-44 xl:mx-48">
         {/* Mobile Header */}
-        <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
 
         {/* Desktop Header */}
         <div className="hidden lg:flex bg-white border-b border-gray-200 px-6 py-4 items-center justify-between">
@@ -940,7 +938,7 @@ const ServiceFlowOnlineBooking = () => {
         </div>
 
         {/* Content Area */}
-        <div className="flex-1 overflow-auto">
+        <main className="flex-1 overflow-y-auto">
           {isLoading ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-center">
@@ -1132,7 +1130,7 @@ const ServiceFlowOnlineBooking = () => {
               </div>
             </div>
           )}
-        </div>
+        </main>
       </div>
     </div>
   )

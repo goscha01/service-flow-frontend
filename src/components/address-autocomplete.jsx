@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MapPin, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { loadGoogleMapsScript, initializePlacesAutocomplete, getPlaceDetails, isGoogleMapsLoaded } from '../utils/googleMaps';
+import { getGoogleMapsApiKey } from '../config/maps';
 
 const AddressAutocomplete = ({ 
   value, 
@@ -9,8 +10,10 @@ const AddressAutocomplete = ({
   placeholder = "Enter address",
   className = "",
   showValidationResults = true,
-  apiKey = "AIzaSyC_CrJWTsTHOTBd7TSzTuXOfutywZ2AyOQ"
+  apiKey = null // Will use default from config if not provided
 }) => {
+  // Use provided API key or get from config
+  const mapsApiKey = apiKey || getGoogleMapsApiKey()
   const [input, setInput] = useState(value || '');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -24,7 +27,7 @@ const AddressAutocomplete = ({
   useEffect(() => {
     const loadMaps = async () => {
       try {
-        await loadGoogleMapsScript(apiKey);
+        await loadGoogleMapsScript(mapsApiKey);
         setGoogleMapsReady(true);
       } catch (err) {
         console.error('Failed to load Google Maps:', err);
@@ -37,31 +40,38 @@ const AddressAutocomplete = ({
     } else {
       setGoogleMapsReady(true);
     }
-  }, [apiKey]);
+  }, [mapsApiKey]);
 
   // Initialize autocomplete when Google Maps is ready
   useEffect(() => {
-    if (googleMapsReady && inputRef.current && !autocompleteRef.current) {
-      try {
-        const autocomplete = initializePlacesAutocomplete(inputRef.current, {
-          types: ['address'],
-          componentRestrictions: { country: 'us' }
-        });
+    if (!googleMapsReady || !inputRef.current || autocompleteRef.current) return;
 
-        // Listen for place selection
-        autocomplete.addListener('place_changed', () => {
-          const place = autocomplete.getPlace();
-          if (place && place.place_id) {
-            handlePlaceSelection(place);
-          }
-        });
-
-        autocompleteRef.current = autocomplete;
-      } catch (err) {
-        console.error('Failed to initialize autocomplete:', err);
-        setError('Failed to initialize address autocomplete');
+    try {
+      // Verify Places API is available
+      if (!window.google?.maps?.places?.Autocomplete) {
+        throw new Error('Google Places Autocomplete API not available. Please check your API key configuration.');
       }
+
+      // Initialize Autocomplete API with correct configuration
+      const autocomplete = new window.google.maps.places.Autocomplete(inputRef.current, {
+        types: ['geocode'],
+        componentRestrictions: { country: 'us' }
+      });
+
+      // Legacy Autocomplete API uses 'place_changed' event
+      autocomplete.addListener('place_changed', () => {
+        const place = autocomplete.getPlace();
+        if (place && place.place_id) {
+          handlePlaceSelection(place);
+        }
+      });
+
+      autocompleteRef.current = autocomplete;
+    } catch (err) {
+      console.error('Failed to initialize autocomplete:', err);
+      setError(err.message || 'Failed to initialize address autocomplete. Please check your Google Maps API key configuration.');
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [googleMapsReady]);
 
   // Update input when value prop changes
@@ -113,6 +123,49 @@ const AddressAutocomplete = ({
     }
   };
 
+  // Function to parse manually entered address
+  const parseAddressString = (addressString) => {
+    if (!addressString || addressString.trim() === '') {
+      return null;
+    }
+
+    const addressParts = addressString.split(',').map(part => part.trim());
+    
+    if (addressParts.length < 2) {
+      return null; // Need at least street and city
+    }
+
+    const parsedAddress = {
+      formattedAddress: addressString,
+      placeId: null,
+      components: {
+        streetNumber: null,
+        route: null,
+        city: addressParts[1] || '',
+        state: '',
+        zipCode: '',
+        country: 'USA',
+      },
+      geometry: null,
+    };
+
+    // Parse state and zip code from the last part
+    if (addressParts.length >= 3) {
+      const stateZipPart = addressParts[2];
+      const stateZipMatch = stateZipPart.match(/^([A-Za-z\s]+)\s+(\d{5}(?:-\d{4})?)$/);
+      
+      if (stateZipMatch) {
+        parsedAddress.components.state = stateZipMatch[1].trim();
+        parsedAddress.components.zipCode = stateZipMatch[2];
+      } else {
+        // If no zip code pattern, assume it's just state
+        parsedAddress.components.state = stateZipPart;
+      }
+    }
+
+    return parsedAddress;
+  };
+
   const handleInputChange = (e) => {
     const newValue = e.target.value;
     setInput(newValue);
@@ -120,6 +173,13 @@ const AddressAutocomplete = ({
     // Only call onChange if this is manual typing, not programmatic setting
     if (!isProgrammaticUpdate) {
       onChange(newValue);
+      
+      // Try to parse the manually entered address
+      const parsedAddress = parseAddressString(newValue);
+      if (parsedAddress && onAddressSelect) {
+        // Call onAddressSelect with parsed address data
+        onAddressSelect(parsedAddress);
+      }
     }
     
     // Reset flags
@@ -140,6 +200,42 @@ const AddressAutocomplete = ({
     return <MapPin className="w-4 h-4 text-gray-400" />;
   };
 
+  // Add styles for Google Places Autocomplete dropdown
+  useEffect(() => {
+    if (googleMapsReady && inputRef.current) {
+      // Ensure Google Places Autocomplete dropdown is visible
+      const style = document.createElement('style');
+      style.textContent = `
+        .pac-container {
+          z-index: 9999 !important;
+          border-radius: 8px !important;
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+          border: 1px solid #e5e7eb !important;
+          margin-top: 4px !important;
+        }
+        .pac-item {
+          padding: 12px !important;
+          cursor: pointer !important;
+          border-bottom: 1px solid #f3f4f6 !important;
+        }
+        .pac-item:hover {
+          background-color: #f9fafb !important;
+        }
+        .pac-item-selected {
+          background-color: #eff6ff !important;
+        }
+        .pac-icon {
+          margin-right: 8px !important;
+        }
+      `;
+      document.head.appendChild(style);
+      
+      return () => {
+        document.head.removeChild(style);
+      };
+    }
+  }, [googleMapsReady]);
+
   return (
     <div className={`relative ${className}`}>
       <div className="relative">
@@ -150,7 +246,9 @@ const AddressAutocomplete = ({
           onChange={handleInputChange}
           placeholder={placeholder}
           className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          disabled={!googleMapsReady}
+          readOnly={!googleMapsReady}
+          autoComplete="off"
+          spellCheck={false}
         />
         <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
           {getStatusIcon()}

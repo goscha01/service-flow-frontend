@@ -1,7 +1,6 @@
 import React, { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import Sidebar from '../components/sidebar'
-import MobileHeader from '../components/mobile-header'
 import TeamCalendar from '../components/team-calendar'
 import UpdateAvailabilityModal from '../components/update-availability-modal'
 import { Calendar, Plus, Clock, Users } from 'lucide-react'
@@ -39,7 +38,6 @@ const Schedule = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Mobile Header */}
-      <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
       
       {/* Sidebar */}
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />

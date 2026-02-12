@@ -140,18 +140,18 @@ const ServiceModifiersForm = ({ modifiers = [], selectedModifiers: parentSelecte
     }
     
     return (
-      <div key={modifier.id} className="mb-8">
+      <div key={modifier.id} className="mb-6">
         <div className="mb-4">
-          <h3 className="text-lg font-medium text-gray-900 mb-1">
-            {modifier.title}
+          <h3 className="text-base font-bold text-gray-900 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
+            {modifier.name || modifier.title}
             {modifier.required && <span className="text-red-500 ml-1">*</span>}
           </h3>
           {modifier.description && (
-            <p className="text-sm text-gray-600">{modifier.description}</p>
+            <p className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{modifier.description}</p>
           )}
         </div>
 
-        <div className="space-y-3">
+        <div className={modifier.selectionType === 'quantity' ? 'grid grid-cols-2 gap-4' : 'space-y-2'}>
           {(modifier.options && Array.isArray(modifier.options) ? modifier.options : []).map((option) => {
             // Safety check for option
             if (!option || !option.id) {
@@ -164,148 +164,129 @@ const ServiceModifiersForm = ({ modifiers = [], selectedModifiers: parentSelecte
 
             if (modifier.selectionType === 'quantity') {
               return (
-                <div key={option.id} className="border border-gray-200 rounded-lg p-4">
-                  <div className="flex items-center space-x-4">
-                    {option.image ? (
-                      <img
-                        src={option.image}
-                        alt={option.label}
-                        className="w-16 h-16 object-cover rounded"
-                      />
-                    ) : (
-                      <div className="w-16 h-16 bg-gray-100 rounded flex items-center justify-center">
-                        <ImageIcon className="w-6 h-6 text-gray-400" />
-                      </div>
-                    )}
-                    <div className="flex-1">
-                      <div className="font-medium text-gray-900">{option.label}</div>
-                      {option.description && (
-                        <div className="text-sm text-gray-600">{option.description}</div>
-                      )}
-                      <div className="flex items-center space-x-2 mt-1">
-                        <div className="flex items-center space-x-1">
-                          <span className="text-xs text-gray-500">$</span>
-                          <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={(() => {
-                              const priceKey = `${modifier.id}_option_${option.id}`;
-                              const editedPrice = effectiveEditedPrices[priceKey];
-                              console.log('🔧 RENDER VALUE for', priceKey, ':', editedPrice, 'original:', option.price);
-                              return editedPrice !== undefined ? editedPrice : option.price;
-                            })()}
-                            onChange={(e) => {
-                              const priceKey = `${modifier.id}_option_${option.id}`;
-                              const value = e.target.value;
-                              console.log('🔧 MODIFIER INPUT CHANGE:', priceKey, value);
-                              
-                              // Update local state immediately for UI responsiveness
-                              setLocalEditedPrices(prev => ({
-                                ...prev,
-                                [priceKey]: value
-                              }));
-                              
-                              // Call parent callback to update parent state
-                              if (onModifierPriceChange) {
-                                onModifierPriceChange(modifier.id, option.id, value);
-                              }
-                            }}
-                            className="w-16 px-1 py-0.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
-                          />
-                        </div>
-                        {option.duration && (
-                          <span className="text-sm text-gray-500">
-                            {Math.floor(option.duration / 60)}h {option.duration % 60}m
-                          </span>
-                        )}
-                      </div>
+                <div key={option.id} className={`border-2 rounded-lg p-5 transition-all ${
+                  quantity > 0 ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400'
+                }`}>
+                  <div className="text-center">
+                    <h4 className="font-semibold text-gray-900 text-base mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                      {option.label || option.name}
+                    </h4>
+                    <div className="text-base text-gray-600 mb-3" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                      ${(() => {
+                        const priceKey = `${modifier.id}_option_${option.id}`;
+                        const editedPrice = effectiveEditedPrices[priceKey];
+                        return editedPrice !== undefined ? parseFloat(editedPrice).toFixed(2) : parseFloat(option.price || 0).toFixed(2);
+                      })()}
                     </div>
-                    <div className="flex items-center space-x-3">
-                      <span className="text-sm font-medium text-gray-700">
-                        {option.label} x {quantity}
+                    {option.description && (
+                      <p className="text-xs text-gray-500 mb-4 px-2" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                        {option.description}
+                      </p>
+                    )}
+                    <div className="flex items-center justify-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => handleModifierChange(modifier.id, option.id, -1)}
+                        className="w-9 h-9 flex items-center justify-center border border-gray-400 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                        disabled={quantity === 0}
+                      >
+                        <Minus className="w-4 h-4 text-gray-700" />
+                      </button>
+                      <span className="text-xl font-semibold text-gray-900 w-10 text-center" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                        {quantity}
                       </span>
+                      <button
+                        type="button"
+                        onClick={() => handleModifierChange(modifier.id, option.id, 1)}
+                        className="w-9 h-9 flex items-center justify-center border border-gray-400 rounded-lg hover:bg-gray-100 transition-colors"
+                      >
+                        <Plus className="w-4 h-4 text-gray-700" />
+                      </button>
                     </div>
                   </div>
                 </div>
               );
             } else {
-              return (
-                <label key={option.id} className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
-                  <input
-                    type={modifier.selectionType === 'multi' ? 'checkbox' : 'radio'}
-                    name={modifier.id}
-                    checked={isSelected}
-                    onChange={(e) => {
+              // Check if this is a single/multi select with images (like TV mounting bracket type)
+              const hasImage = option.image;
+              const optionPrice = (() => {
+                const priceKey = `${modifier.id}_option_${option.id}`;
+                const editedPrice = effectiveEditedPrices[priceKey];
+                return editedPrice !== undefined ? parseFloat(editedPrice) : parseFloat(option.price || 0);
+              })();
+              
+              if (hasImage) {
+                // Render as card with image (like TV mounting example)
+                return (
+                  <div key={option.id} className="relative">
+                    <label className={`block cursor-pointer ${isSelected ? '' : ''}`}>
+                      <div className={`border-2 rounded-lg p-4 transition-all ${
+                        isSelected ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-gray-300 bg-white'
+                      }`}>
+                        {option.image && (
+                          <div className="mb-3">
+                            <img
+                              src={option.image}
+                              alt={option.label || option.name}
+                              className="w-full h-32 object-cover rounded border border-gray-200"
+                            />
+                          </div>
+                        )}
+                        <div className="text-center">
+                          <div className="font-semibold text-gray-900 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                            {option.label || option.name}
+                          </div>
+                          <div className="text-sm font-medium text-gray-700">
+                            {optionPrice > 0 ? `+$${optionPrice.toFixed(2)}` : 'Free'}
+                          </div>
+                        </div>
+                      </div>
+                      <input
+                        type={modifier.selectionType === 'multi' ? 'checkbox' : 'radio'}
+                        name={modifier.id}
+                        checked={isSelected}
+                        onChange={(e) => {
+                          if (modifier.selectionType === 'multi') {
+                            handleModifierChange(modifier.id, option.id, e.target.checked ? 1 : -1);
+                          } else {
+                            handleModifierChange(modifier.id, option.id, 1);
+                          }
+                        }}
+                        required={modifier.required && modifier.selectionType === 'single'}
+                        className="sr-only"
+                      />
+                    </label>
+                  </div>
+                );
+              } else {
+                // Render as button-style option (like Number of Bathrooms)
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => {
                       if (modifier.selectionType === 'multi') {
-                        handleModifierChange(modifier.id, option.id, e.target.checked ? 1 : -1);
+                        handleModifierChange(modifier.id, option.id, isSelected ? -1 : 1);
                       } else {
-                        // For single selection, always select the option
                         handleModifierChange(modifier.id, option.id, 1);
                       }
                     }}
-                    required={modifier.required && modifier.selectionType === 'single'}
-                    className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                  />
-                  <div className="flex items-center space-x-4 ml-3 flex-1">
-                    {option.image ? (
-                      <img
-                        src={option.image}
-                        alt={option.label}
-                        className="w-12 h-12 object-cover rounded"
-                      />
-                    ) : (
-                      <div className="w-12 h-12 bg-gray-100 rounded flex items-center justify-center">
-                        <ImageIcon className="w-4 h-4 text-gray-400" />
-                      </div>
+                    className={`px-4 py-2.5 rounded-lg font-medium text-sm transition-all ${
+                      isSelected 
+                        ? 'bg-green-600 text-white border-2 border-green-600 hover:bg-green-700' 
+                        : 'bg-white text-gray-900 border-2 border-gray-300 hover:border-gray-400'
+                    }`}
+                    style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
+                  >
+                    {option.label || option.name}
+                    {optionPrice > 0 && (
+                      <span className={`ml-2 ${isSelected ? 'text-white' : 'text-gray-600'}`}>
+                        +${optionPrice.toFixed(2)}
+                      </span>
                     )}
-                    <div className="flex-1">
-                      <div className="font-medium text-gray-900">{option.label}</div>
-                      {option.description && (
-                        <div className="text-sm text-gray-600">{option.description}</div>
-                      )}
-                    </div>
-                    <div className="text-right">
-                      <div className="flex items-center justify-end space-x-1">
-                        <span className="text-xs text-gray-500">$</span>
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={(() => {
-                            const priceKey = `${modifier.id}_option_${option.id}`;
-                            const editedPrice = effectiveEditedPrices[priceKey];
-                            console.log('🔧 RENDER VALUE (2) for', priceKey, ':', editedPrice, 'original:', option.price);
-                            return editedPrice !== undefined ? editedPrice : option.price;
-                          })()}
-                          onChange={(e) => {
-                            const priceKey = `${modifier.id}_option_${option.id}`;
-                            const value = e.target.value;
-                            console.log('🔧 MODIFIER INPUT CHANGE (2):', priceKey, value);
-                            
-                            // Update local state immediately for UI responsiveness
-                            setLocalEditedPrices(prev => ({
-                              ...prev,
-                              [priceKey]: value
-                            }));
-                            
-                            // Call parent callback to update parent state
-                            if (onModifierPriceChange) {
-                              onModifierPriceChange(modifier.id, option.id, value);
-                            }
-                          }}
-                          className="w-16 px-1 py-0.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent text-right"
-                        />
-                      </div>
-                      {option.duration && (
-                        <div className="text-sm text-gray-500">
-                          {Math.floor(option.duration / 60)}h {option.duration % 60}m
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </label>
-              );
+                  </button>
+                );
+              }
             }
           })}
         </div>

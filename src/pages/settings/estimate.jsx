@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import Sidebar from "../../components/sidebar"
-import MobileHeader from "../../components/mobile-header"
+import NotificationTestButton from "../../components/NotificationTestButton"
 import { ChevronLeft, Mail, MessageSquare } from "lucide-react"
 
 const Estimate = () => {
@@ -19,7 +19,6 @@ const Estimate = () => {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
-        <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
 
         {/* Header */}
         <div className="bg-white border-b border-gray-200 px-6 py-4">
@@ -99,6 +98,13 @@ const Estimate = () => {
                           </span>
                         </div>
                       </div>
+                      
+                      {/* Test Button for Email */}
+                      <NotificationTestButton 
+                        notificationType="Estimate"
+                        messageType="email"
+                        templateContent="<h2>Your Estimate is Ready!</h2><p>Hi John,</p><p>Your estimate is ready for review.</p><p><strong>Service:</strong> Home Cleaning</p><p><strong>Estimated Cost:</strong> $150.00</p><p><strong>Valid Until:</strong> March 22, 2025</p><p>Click the link below to view and book your estimate:</p><div style='text-align: center; margin: 20px 0;'><button style='background-color: #3B82F6; color: white; padding: 12px 24px; border-radius: 8px; border: none; font-weight: bold;'>View Estimate</button></div><p>Thank you for considering our services!</p><p>Best regards,<br />The Team at Just web Agency</p>"
+                      />
                     </div>
                   )}
 
@@ -130,6 +136,13 @@ const Estimate = () => {
                           </span>
                         </div>
                       </div>
+                      
+                      {/* Test Button for SMS */}
+                      <NotificationTestButton 
+                        notificationType="Estimate"
+                        messageType="sms"
+                        templateContent="Hi John! Your estimate for Home Cleaning is ready. Cost: $150.00. View and book: [link] Valid until March 22, 2025. - Just web Agency"
+                      />
                     </div>
                   )}
                 </div>

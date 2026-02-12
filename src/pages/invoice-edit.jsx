@@ -6,7 +6,6 @@ import { ChevronLeft, Save, X, FileText, User, Calendar, DollarSign, AlertCircle
 import { invoicesAPI, customersAPI, servicesAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
 import Sidebar from "../components/sidebar"
-import MobileHeader from "../components/mobile-header"
 
 const InvoiceEdit = () => {
   const { invoiceId } = useParams()
@@ -162,7 +161,6 @@ const InvoiceEdit = () => {
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         
         <div className="flex-1 flex flex-col min-w-0">
-          <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
           
           <div className="flex-1 overflow-auto flex items-center justify-center">
             <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
@@ -178,7 +176,6 @@ const InvoiceEdit = () => {
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         
         <div className="flex-1 flex flex-col min-w-0">
-          <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
           
           <div className="flex-1 overflow-auto flex items-center justify-center">
             <div className="text-center">
@@ -205,7 +202,6 @@ const InvoiceEdit = () => {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
       <div className="flex-1 flex flex-col min-w-0">
-        <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
         
         <div className="flex-1 overflow-auto">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

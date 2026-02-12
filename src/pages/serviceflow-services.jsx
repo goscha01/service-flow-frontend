@@ -3,32 +3,35 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import Sidebar from "../components/sidebar"
-import MobileHeader from "../components/mobile-header"
-import { GripVertical, Wrench, Plus, AlertCircle, AlertTriangle, Loader2, Trash2, X, Copy, Edit } from "lucide-react"
-import CreateServiceModal from "../components/create-service-modal"
+import { GripVertical, Wrench, Plus, AlertCircle, AlertTriangle, Loader2, Trash2, X, Copy, Edit, Eye, EyeOff } from "lucide-react"
+import SimpleCreateServiceModal from "../components/simple-create-service-modal"
 import ServiceTemplatesModal from "../components/service-templates-modal"
-import ServicesDisplay from "../components/services-display"
 import { servicesAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
 import { getImageUrl, handleImageError } from "../utils/imageUtils"
 import { normalizeAPIResponse, handleAPIError } from "../utils/dataHandler"
+import { safeDecodeText } from "../utils/htmlUtils"
 import useServiceSettings from "../components/use-service-settings"
+import MobileHeader from "../components/mobile-header"
 
 const ServiceFlowServices = () => {
   const navigate = useNavigate()
   const { user, loading: authLoading } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  
+
   // Use persistent settings for categories enabled state
-  const { 
-    settings: { categoriesEnabled }, 
-    updateSettings: updateServiceSettings, 
-    saveSettings: saveServiceSettings 
+  const {
+    settings: { categoriesEnabled },
+    updateSettings: updateServiceSettings,
+    saveSettings: saveServiceSettings
   } = useServiceSettings({ categoriesEnabled: false })
   const [createModalOpen, setCreateModalOpen] = useState(false)
+  const [creatingService, setCreatingService] = useState(false)
   const [templatesModalOpen, setTemplatesModalOpen] = useState(false)
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [serviceToDelete, setServiceToDelete] = useState(null)
+  const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false)
+  const [deleteAllLoading, setDeleteAllLoading] = useState(false)
   const [duplicateSuccessModalOpen, setDuplicateSuccessModalOpen] = useState(false)
   const [duplicatedService, setDuplicatedService] = useState(null)
   const [categories, setCategories] = useState([])
@@ -41,11 +44,11 @@ const ServiceFlowServices = () => {
   const [categoryEditModalOpen, setCategoryEditModalOpen] = useState(false)
   const [categoryToEdit, setCategoryToEdit] = useState(null)
   const [editingCategory, setEditingCategory] = useState(false)
-  
+
   // Drag and drop state
   const [draggedService, setDraggedService] = useState(null)
   const [dragOverCategory, setDragOverCategory] = useState(null)
-  
+
   // API State
   const [services, setServices] = useState([])
   const [loading, setLoading] = useState(true)
@@ -55,47 +58,32 @@ const ServiceFlowServices = () => {
   // Fetch services on component mount
   useEffect(() => {
     if (user?.id && !authLoading) {
-    fetchServices()
+      fetchServices()
     }
   }, [user?.id, authLoading])
 
   const fetchServices = async () => {
     if (!user?.id) return
-    
+
     try {
       setLoading(true)
       setError("")
-      console.log('🔍 Fetching services for user:', user.id)
-      
       // Fetch services first
       const servicesResponse = await servicesAPI.getAll(user.id)
-      console.log('🔍 Services API response:', servicesResponse)
-      
-      // Extract services array from response using standardized handler
       const servicesArray = normalizeAPIResponse(servicesResponse, 'services')
-      console.log('🔍 Services array:', servicesArray)
-      
-      // Sort services alphabetically by name
       const sortedServices = servicesArray.sort((a, b) => a.name.localeCompare(b.name))
-      console.log('🔍 Sorted services:', sortedServices)
       setServices(sortedServices)
-      
+
       // Try to fetch categories, but handle 404 gracefully
       try {
         const categoriesResponse = await servicesAPI.getServiceCategories(user.id)
-        console.log('🔍 Categories API response:', categoriesResponse)
-        
-        // Set categories from API response - ensure we have the full category objects
         const categoryNames = categoriesResponse.map(cat => cat.name)
-        console.log('🔍 Category names:', categoryNames)
-        console.log('🔍 Full categories response:', categoriesResponse)
         setCategories(categoryNames)
         setCategoryObjects(categoriesResponse)
-        
+
         // Update services to properly map to category names
         const updatedServices = sortedServices.map(service => {
           if (service.category && service.category.trim() !== '') {
-            // Find the matching category object
             const matchingCategory = categoriesResponse.find(cat => cat.name === service.category)
             if (matchingCategory) {
               return { ...service, category: matchingCategory.name }
@@ -105,23 +93,12 @@ const ServiceFlowServices = () => {
         })
         setServices(updatedServices)
       } catch (categoriesError) {
-        console.log('🔍 Categories endpoint not available, using fallback:', categoriesError.message)
-        
         // Fallback: Extract categories from services
         const uniqueCategories = [...new Set(sortedServices.map(service => service.category).filter(cat => cat && cat.trim() !== ''))]
-        console.log('🔍 Fallback categories:', uniqueCategories)
         setCategories(uniqueCategories)
         setCategoryObjects([])
       }
-      
-      // Debug logging for rendering logic
-      console.log('🔍 Debug - categoriesEnabled:', categoriesEnabled)
-      console.log('🔍 Debug - categories array:', categories)
-      console.log('🔍 Debug - services array length:', sortedServices.length)
-      console.log('🔍 Debug - services with categories:', sortedServices.filter(s => s.category).length)
-      console.log('🔍 Debug - services without categories:', sortedServices.filter(s => !s.category).length)
     } catch (error) {
-      console.error('Error fetching services:', error)
       const errorInfo = handleAPIError(error, 'Services fetch')
       setError(`Failed to load services: ${errorInfo.message}`)
     } finally {
@@ -129,90 +106,47 @@ const ServiceFlowServices = () => {
     }
   }
 
-  const handleCreateService = async (serviceData) => {
+  const handleCreateService = async (serviceName) => {
     if (!user?.id) {
-      console.error('No user ID found:', user);
       setError("Please log in again to create services.");
       return;
     }
-    
+
     try {
       setError("")
+      setCreatingService(true)
       
-      console.log('Current user:', user);
-      console.log('Service data:', serviceData);
-      
-      // Upload image first if provided
-      let imageUrl = null;
-      if (serviceData.image) {
-        try {
-          const formData = new FormData();
-          formData.append('image', serviceData.image);
-          
-          const uploadResponse = await fetch('https://service-flow-backend-production-4568.up.railway.app/api/upload-service-image', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-            },
-            body: formData
-          });
-          
-          if (uploadResponse.ok) {
-            const uploadResult = await uploadResponse.json();
-            imageUrl = uploadResult.imageUrl;
-            console.log('Image uploaded successfully:', imageUrl);
-          } else {
-            console.error('Failed to upload image:', uploadResponse.statusText);
-          }
-        } catch (uploadError) {
-          console.error('Error uploading image:', uploadError);
-        }
-      }
-      
-      // Convert duration to minutes for backend
-      const durationInMinutes = (serviceData.duration.hours * 60) + serviceData.duration.minutes
-      
+      // Create a minimal service with just the name
       const newService = {
         userId: user.id,
-        name: serviceData.name,
-        description: serviceData.description || "",
-        price: serviceData.isFree ? 0 : parseFloat(serviceData.price) || 0,
-        duration: durationInMinutes,
-        category: serviceData.category || "",
-        modifiers: JSON.stringify([]), // Initialize with empty modifiers array
-        isFree: serviceData.isFree,
-        image: imageUrl // Include the uploaded image URL
+        name: serviceName,
+        description: "",
+        price: 0,
+        duration: 60, // Default to 60 minutes
+        category: "",
+        modifiers: JSON.stringify([]),
+        isFree: false
       }
-      
-      console.log('Sending service data to backend:', newService);
-      
+
       const response = await servicesAPI.create(newService)
-      
-      // Extract the service from the response (backend returns { message, service })
       const newServiceData = response.service || response
-      
-      // Add the new service to the list
       setServices(prev => [newServiceData, ...prev])
-      
-      // If the service has a category, make sure it's in the categories array
+
       if (newServiceData.category && newServiceData.category.trim() !== '') {
         setCategories(prev => {
           const categoryExists = prev.includes(newServiceData.category);
           if (!categoryExists) {
-            console.log('🔧 Adding new category to categories array:', newServiceData.category);
             return [...prev, newServiceData.category];
           }
           return prev;
         });
       }
-      
+
       setCreateModalOpen(false)
-      
-      // Navigate to the new service details
+      setCreatingService(false)
       navigate(`/services/${newServiceData.id}`)
     } catch (error) {
-      console.error('Error creating service:', error)
-      
+      setCreatingService(false)
       if (error.response) {
         const { status, data } = error.response
         switch (status) {
@@ -241,20 +175,16 @@ const ServiceFlowServices = () => {
 
   const confirmDelete = async () => {
     if (!serviceToDelete) return
-    
+
     try {
       setDeleteLoading(serviceToDelete.id)
       setError("")
-      
+
       await servicesAPI.delete(serviceToDelete.id)
-      
-      // Remove the service from the list
       setServices(prev => prev.filter(service => service.id !== serviceToDelete.id))
       setDeleteModalOpen(false)
       setServiceToDelete(null)
     } catch (error) {
-      console.error('Error deleting service:', error)
-      
       if (error.response) {
         const { status, data } = error.response
         switch (status) {
@@ -277,6 +207,40 @@ const ServiceFlowServices = () => {
     }
   }
 
+  const confirmDeleteAll = async () => {
+    try {
+      setDeleteAllLoading(true)
+      setError("")
+
+      await servicesAPI.deleteAll()
+      setServices([])
+      setShowDeleteAllConfirm(false)
+
+      // Show success message
+      setTimeout(() => {
+        fetchServices()
+      }, 500)
+    } catch (error) {
+      console.error('Error deleting all services:', error)
+      if (error.response) {
+        const { status, data } = error.response
+        switch (status) {
+          case 500:
+            setError("Server error. Please try again later.")
+            break
+          default:
+            setError(data?.error || "Failed to delete all services. Please try again.")
+        }
+      } else if (error.request) {
+        setError("Network error. Please check your connection.")
+      } else {
+        setError("An unexpected error occurred.")
+      }
+    } finally {
+      setDeleteAllLoading(false)
+    }
+  }
+
   const cancelDelete = () => {
     setDeleteModalOpen(false)
     setServiceToDelete(null)
@@ -284,8 +248,6 @@ const ServiceFlowServices = () => {
 
   const handleSelectTemplate = async (template) => {
     setTemplatesModalOpen(false)
-    
-    // Create service from template
     const serviceData = {
       name: template.name,
       description: template.description,
@@ -295,7 +257,6 @@ const ServiceFlowServices = () => {
       modifiers: template.modifiers || [],
       isFree: false
     }
-    
     await handleCreateService(serviceData)
   }
 
@@ -305,9 +266,7 @@ const ServiceFlowServices = () => {
 
   const handleDuplicateService = async (service) => {
     try {
-      setDeleteLoading(service.id); // Reuse loading state for duplicate
-      
-      // Create duplicate service data
+      setDeleteLoading(service.id);
       const duplicateData = {
         name: `${service.name} (Copy)`,
         description: service.description,
@@ -321,23 +280,11 @@ const ServiceFlowServices = () => {
         require_payment_method: service.require_payment_method,
         userId: user.id
       };
-      
-      console.log('🔄 Duplicating service with data:', duplicateData);
-      
-      // Create the duplicate service
       const duplicatedService = await servicesAPI.create(duplicateData);
-      
-      // Store the duplicated service for the modal
       setDuplicatedService(duplicatedService);
-      
-      // Refresh the services list
       await fetchServices();
-      
-      // Show success modal
       setDuplicateSuccessModalOpen(true);
-      
     } catch (error) {
-      console.error('Error duplicating service:', error);
       alert('Failed to duplicate service. Please try again.');
     } finally {
       setDeleteLoading(null);
@@ -345,116 +292,11 @@ const ServiceFlowServices = () => {
   }
 
   const handleServiceEdit = (service) => {
-    // Navigate to service edit page or open edit modal
     navigate(`/service/${service.id}/edit`)
   }
 
-  const fixCategoryMapping = async () => {
-    // This function can be used to manually fix category mapping issues
-    console.log('🔧 Attempting to fix category mapping...')
-    
-    // Check if services have categories that don't match the categories array
-    const mismatchedServices = services.filter(s => {
-      if (!s.category || s.category.trim() === '') return false
-      return !categories.includes(s.category)
-    })
-    
-    console.log('🔧 Services with mismatched categories:', mismatchedServices)
-    
-    if (mismatchedServices.length > 0) {
-      // Try to find the correct category for each service
-      mismatchedServices.forEach(service => {
-        console.log(`🔧 Service "${service.name}" has category "${service.category}" but categories array has:`, categories)
-      })
-      
-      // Check if we can auto-fix by looking at service names
-      console.log('🔧 Attempting to auto-fix category mapping...')
-      
-      services.forEach(service => {
-        if (!service.category || service.category.trim() === '') {
-          // Try to match service name to category
-          if (service.name.toLowerCase().includes('clean') && categories.includes('cleaning')) {
-            console.log(`🔧 Auto-fixing: "${service.name}" -> "cleaning" category`)
-            // You can implement the actual update here
-          }
-        }
-      })
-    }
-    
-    // Show current state
-    console.log('🔧 Current services state:')
-    services.forEach(service => {
-      console.log(`  - "${service.name}": category="${service.category}"`)
-    })
-    
-    console.log('🔧 Available categories:', categories)
-  }
-
-  const autoFixCategoryMapping = async () => {
-    console.log('🔧 Auto-fixing category mapping...')
-    
-    try {
-      // Find services that should be in the cleaning category
-      const servicesToUpdate = services.filter(service => {
-        if (service.category && service.category.trim() !== '') return false // Already has a category
-        return service.name.toLowerCase().includes('clean') || 
-               service.name.toLowerCase().includes('cleaning') ||
-               service.description?.toLowerCase().includes('clean') ||
-               service.description?.toLowerCase().includes('cleaning')
-      })
-      
-      console.log('🔧 Services to update:', servicesToUpdate.map(s => s.name))
-      
-      if (servicesToUpdate.length === 0) {
-        console.log('🔧 No services need updating')
-        return
-      }
-      
-      // Update each service with the cleaning category
-      for (const service of servicesToUpdate) {
-        try {
-          const updateData = {
-            name: service.name,
-            description: service.description,
-            price: service.price,
-            duration: service.duration,
-            category: 'cleaning', // Set to cleaning category
-            // Preserve other important fields
-            image: service.image,
-            require_payment_method: service.require_payment_method,
-            is_active: service.is_active,
-            category_id: service.category_id
-          }
-          
-          // Only include modifiers and intake_questions if they exist and are not null/undefined
-          if (service.modifiers !== null && service.modifiers !== undefined) {
-            updateData.modifiers = service.modifiers;
-          }
-          if (service.intake_questions !== null && service.intake_questions !== undefined) {
-            updateData.intake_questions = service.intake_questions;
-          }
-          
-          console.log(`🔧 Updating service "${service.name}" with category "cleaning"`)
-          await servicesAPI.update(service.id, updateData)
-          
-          // Update local state
-          setServices(prev => prev.map(s => 
-            s.id === service.id ? { ...s, category: 'cleaning' } : s
-          ))
-          
-          console.log(`✅ Successfully updated "${service.name}"`)
-        } catch (error) {
-          console.error(`❌ Failed to update "${service.name}":`, error)
-        }
-      }
-      
-      // Refresh services to see the changes
-      await fetchServices()
-      
-    } catch (error) {
-      console.error('🔧 Auto-fix failed:', error)
-    }
-  }
+  const fixCategoryMapping = async () => {}
+  const autoFixCategoryMapping = async () => {}
 
   const handleRetry = () => {
     fetchServices()
@@ -462,20 +304,14 @@ const ServiceFlowServices = () => {
 
   const handleAddCategory = async () => {
     if (!newCategoryName.trim() || !user?.id) return
-    
-    // Check if category name already exists
     const trimmedName = newCategoryName.trim()
     const categoryExists = categories.some(cat => cat.toLowerCase() === trimmedName.toLowerCase())
-    
     if (categoryExists) {
       setError(`Category "${trimmedName}" already exists. Please choose a different name.`)
       return
     }
-    
     try {
       setError("")
-      
-      // Try to create category via API first
       try {
         const categoryData = {
           userId: user.id,
@@ -483,30 +319,19 @@ const ServiceFlowServices = () => {
           description: `${trimmedName} services`,
           color: '#3B82F6'
         }
-        
         const newCategory = await servicesAPI.createCategory(categoryData)
-        console.log('Category created:', newCategory)
-        
-        // Add the new category to the list
         setCategories(prev => [...prev, newCategory.name])
         setCategoryObjects(prev => [...prev, newCategory])
       } catch (apiError) {
-        console.log('Categories API not available, using local fallback:', apiError.message)
-        
-        // Check if it's a duplicate error from the API
         if (apiError.response?.status === 400 && apiError.response?.data?.error?.includes('already exists')) {
           setError(`Category "${trimmedName}" already exists. Please choose a different name.`)
           return
         }
-        
-        // Fallback: Add category locally only
         setCategories(prev => [...prev, trimmedName])
       }
-      
       setNewCategoryName("")
       setShowAddCategoryModal(false)
     } catch (error) {
-      console.error('Error adding category:', error)
       setError("Failed to add category. Please try again.")
     }
   }
@@ -515,104 +340,58 @@ const ServiceFlowServices = () => {
     try {
       const service = services.find(s => s.id === serviceId)
       if (!service) return
-      
-      // Preserve all service data including modifiers and intake questions
       const updateData = {
         name: service.name,
         description: service.description,
         price: service.price,
         duration: service.duration,
         category: newCategory,
-        // Preserve other important fields
         image: service.image,
         require_payment_method: service.require_payment_method,
         is_active: service.is_active,
         category_id: service.category_id
       }
-      
-      // Only include modifiers and intake_questions if they exist and are not null/undefined
       if (service.modifiers !== null && service.modifiers !== undefined) {
         updateData.modifiers = service.modifiers;
       }
       if (service.intake_questions !== null && service.intake_questions !== undefined) {
         updateData.intake_questions = service.intake_questions;
       }
-      
-      console.log('🔧 Moving service to category:', service.name, '→', newCategory);
-      console.log('🔧 Preserving modifiers:', service.modifiers);
-      console.log('🔧 Preserving intake_questions:', service.intake_questions);
-      
-      // Update the service in the backend
       await servicesAPI.update(serviceId, updateData)
-      
-      // Update the service in the local state
-      setServices(prev => prev.map(s => 
+      setServices(prev => prev.map(s =>
         s.id === serviceId ? { ...s, category: newCategory } : s
       ))
     } catch (error) {
-      console.error('Error moving service to category:', error)
       setError("Failed to move service to category. Please try again.")
     }
   }
 
   const handleRemoveCategory = (categoryName) => {
-    console.log('🔄 handleRemoveCategory called with:', categoryName);
-    
-    // Find the category object to get the ID
     const categoryObject = categoryObjects.find(cat => cat.name === categoryName);
-    
     if (!categoryObject) {
-      console.error('❌ Category object not found for:', categoryName);
       setError('Category not found. Please refresh the page and try again.');
       return;
     }
-    
-    console.log('🔄 Found category object:', categoryObject);
-    
-    // Set the category to delete and open the modal
     setCategoryToDelete({ name: categoryName, object: categoryObject });
     setCategoryDeleteModalOpen(true);
   }
 
   const handleConfirmCategoryDelete = async () => {
     if (!categoryToDelete) return;
-    
-    console.log('✅ User confirmed category deletion');
-    
     try {
       setDeletingCategory(true);
       setError('');
-      
       const { name: categoryName, object: categoryObject } = categoryToDelete;
-      
-      // First, move all services in this category to "Uncategorized"
       const servicesInCategory = services.filter(s => s.category === categoryName);
-      console.log(`🔄 Moving ${servicesInCategory.length} services to uncategorized`);
-      
       for (const service of servicesInCategory) {
         await handleMoveServiceToCategory(service.id, "");
       }
-      
-      // Now delete the category from the database
-      console.log('🔄 Deleting category from database:', categoryObject.id);
-      const result = await servicesAPI.deleteCategory(categoryObject.id);
-      console.log('✅ Category deletion result:', result);
-      
-      // Update local state
+      await servicesAPI.deleteCategory(categoryObject.id);
       setCategories(prev => prev.filter(cat => cat !== categoryName));
       setCategoryObjects(prev => prev.filter(cat => cat.name !== categoryName));
-      
-      console.log('✅ Category removed successfully');
-      
-      // Close the modal
       setCategoryDeleteModalOpen(false);
       setCategoryToDelete(null);
-      
     } catch (error) {
-      console.error('❌ Error removing category:', error);
-      console.error('❌ Error response:', error.response);
-      console.error('❌ Error data:', error.response?.data);
-      
       if (error.response?.data?.error) {
         setError(error.response.data.error);
       } else {
@@ -624,72 +403,39 @@ const ServiceFlowServices = () => {
   }
 
   const handleCancelCategoryDelete = () => {
-    console.log('❌ User cancelled category deletion');
     setCategoryDeleteModalOpen(false);
     setCategoryToDelete(null);
   }
 
   const handleEditCategory = (categoryName) => {
-    console.log('🔄 handleEditCategory called with:', categoryName);
-    
-    // Find the category object to get the ID
     const categoryObject = categoryObjects.find(cat => cat.name === categoryName);
-    
     if (!categoryObject) {
-      console.error('❌ Category object not found for:', categoryName);
       setError('Category not found. Please refresh the page and try again.');
       return;
     }
-    
-    console.log('🔄 Found category object for editing:', categoryObject);
-    
-    // Set the category to edit and open the modal
     setCategoryToEdit({ name: categoryName, object: categoryObject });
     setCategoryEditModalOpen(true);
   }
 
   const handleConfirmCategoryEdit = async () => {
     if (!categoryToEdit) return;
-    
-    console.log('✅ User confirmed category edit');
-    
     try {
       setEditingCategory(true);
       setError('');
-      
       const { name: oldCategoryName, object: categoryObject } = categoryToEdit;
-      const newCategoryName = categoryObject.name; // This will be updated by the modal
-      
-      // Update the category in the database
-      console.log('🔄 Updating category in database:', categoryObject.id, 'to:', newCategoryName);
-      const result = await servicesAPI.updateCategory(categoryObject.id, { name: newCategoryName });
-      console.log('✅ Category update result:', result);
-      
-      // Update all services in this category to use the new category name
+      const newCategoryName = categoryObject.name;
+      await servicesAPI.updateCategory(categoryObject.id, { name: newCategoryName });
       const servicesInCategory = services.filter(s => s.category === oldCategoryName);
-      console.log(`🔄 Updating ${servicesInCategory.length} services to use new category name`);
-      
       for (const service of servicesInCategory) {
         await handleMoveServiceToCategory(service.id, newCategoryName);
       }
-      
-      // Update local state
       setCategories(prev => prev.map(cat => cat === oldCategoryName ? newCategoryName : cat));
-      setCategoryObjects(prev => prev.map(cat => 
+      setCategoryObjects(prev => prev.map(cat =>
         cat.name === oldCategoryName ? { ...cat, name: newCategoryName } : cat
       ));
-      
-      console.log('✅ Category updated successfully');
-      
-      // Close the modal
       setCategoryEditModalOpen(false);
       setCategoryToEdit(null);
-      
     } catch (error) {
-      console.error('❌ Error updating category:', error);
-      console.error('❌ Error response:', error.response);
-      console.error('❌ Error data:', error.response?.data);
-      
       if (error.response?.data?.error) {
         setError(error.response.data.error);
       } else {
@@ -701,7 +447,6 @@ const ServiceFlowServices = () => {
   }
 
   const handleCancelCategoryEdit = () => {
-    console.log('❌ User cancelled category edit');
     setCategoryEditModalOpen(false);
     setCategoryToEdit(null);
   }
@@ -711,19 +456,13 @@ const ServiceFlowServices = () => {
     setDraggedService(service)
     e.dataTransfer.effectAllowed = 'move'
     e.dataTransfer.setData('text/html', e.target.outerHTML)
-    
-    // Add visual feedback
     e.target.style.opacity = '0.5'
     e.target.style.transform = 'scale(0.95)'
-    
-    // Set a custom drag image
     const dragImage = e.target.cloneNode(true)
     dragImage.style.opacity = '0.8'
     dragImage.style.transform = 'scale(0.9)'
     document.body.appendChild(dragImage)
     e.dataTransfer.setDragImage(dragImage, 0, 0)
-    
-    // Remove the drag image after a short delay
     setTimeout(() => {
       document.body.removeChild(dragImage)
     }, 0)
@@ -732,7 +471,6 @@ const ServiceFlowServices = () => {
   const handleDragOver = (e, category) => {
     e.preventDefault()
     e.dataTransfer.dropEffect = 'move'
-    // Don't allow dropping on the same category
     if (draggedService && draggedService.category === (category === 'No category' ? '' : category)) {
       return
     }
@@ -745,7 +483,6 @@ const ServiceFlowServices = () => {
   }
 
   const handleDragEnd = (e) => {
-    // Clean up visual feedback
     e.target.style.opacity = ''
     e.target.style.transform = ''
     setDraggedService(null)
@@ -755,61 +492,164 @@ const ServiceFlowServices = () => {
   const handleDrop = async (e, targetCategory) => {
     e.preventDefault()
     setDragOverCategory(null)
-    
     if (!draggedService || draggedService.category === targetCategory) {
       return
     }
-
     try {
-      // Convert "No category" category to empty string for uncategorized services
       const newCategory = targetCategory === 'No category' ? '' : targetCategory
       await handleMoveServiceToCategory(draggedService.id, newCategory)
       setDraggedService(null)
     } catch (error) {
-      console.error('Error moving service:', error)
       setError("Failed to move service. Please try again.")
     }
   }
 
-  return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
-      {/* Main Sidebar */}
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} activePage="services" />
+  // Service Card UI
+  const renderServiceCard = (service) => (
+    <div
+      key={service.id}
+      draggable
+      onDragStart={(e) => handleDragStart(e, service)}
+      onDragEnd={handleDragEnd}
+      onClick={() => handleServiceClick(service.id)}
+      className={`flex items-center justify-between px-4 py-3 transition-all duration-200 bg-white cursor-pointer ${
+        draggedService?.id === service.id ? 'opacity-50 scale-95' : 'hover:bg-gray-50'
+      } border-b last:border-b-0`}
+    >
+      <div className="flex items-center gap-3 flex-1 min-w-0">
+        <GripVertical className="w-5 h-5 text-gray-300 cursor-move hover:text-gray-400 transition-colors flex-shrink-0" title="Drag to move service" />
+        {service.image ? (
+          <img
+            src={getImageUrl(service.image)}
+            alt={safeDecodeText(service.name) || 'Service'}
+            className="w-9 h-9 object-cover rounded flex-shrink-0"
+            onError={(e) => handleImageError(e, null)}
+          />
+        ) : (
+          <div className="w-9 h-9 flex items-center justify-center bg-gray-100 rounded flex-shrink-0">
+            <Wrench className="w-4 h-4 text-gray-400" />
+          </div>
+        )}
+        <div className="flex flex-col min-w-0">
+          <span className="font-medium text-gray-900 text-sm truncate" title={safeDecodeText(service.name)}>
+            {safeDecodeText(service.name) || 'Unnamed Service'}
+          </span>
+          <span className="text-xs text-gray-500">{service.price > 0 ? `${service.price}` : 'Free'}</span>
+        </div>
+      </div>
+      <div className="flex items-center gap-2 flex-shrink-0 ml-4">
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            handleServiceClick(service.id)
+          }}
+          className="p-1 rounded hover:bg-gray-100"
+          title="Edit"
+          tabIndex={-1}
+          type="button"
+        >
+          <Edit className="w-5 h-5 text-gray-500" />
+        </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            handleDuplicateService(service)
+          }}
+          disabled={deleteLoading === service.id}
+          className="p-1 rounded hover:bg-gray-100 disabled:opacity-50"
+          title="Copy"
+          tabIndex={-1}
+          type="button"
+        >
+          {deleteLoading === service.id ? (
+            <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+          ) : (
+            <Copy className="w-5 h-5 text-gray-500" />
+          )}
+        </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            handleDeleteService(service.id)
+          }}
+          disabled={deleteLoading === service.id}
+          className="p-1 rounded hover:bg-red-50 disabled:opacity-50"
+          title="Delete"
+          tabIndex={-1}
+          type="button"
+        >
+          {deleteLoading === service.id ? (
+            <Loader2 className="w-5 h-5 animate-spin text-red-400" />
+          ) : (
+            <Trash2 className="w-5 h-5 text-red-500" />
+          )}
+        </button>
+      </div>
+    </div>
+  );
 
+  return (
+    <div style={{fontFamily: 'Montserrat', fontWeight: 500}} className="flex h-screen bg-gray-50 overflow-hidden">
+   
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         {/* Mobile Header */}
-        <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
+        <MobileHeader pageTitle="Services" />
 
         {/* Desktop Header */}
-        <div className="hidden lg:flex bg-white border-b border-gray-200 px-6 py-4 items-center justify-between">
-          <h1 className="text-2xl font-semibold text-gray-900">Services</h1>
-          <button 
-            onClick={() => setCreateModalOpen(true)}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center space-x-2"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Add Service</span>
-          </button>
+        <div className="hidden lg:flex bg-white border-b border-gray-200 px-5 lg:px-40 xl:px-44 2xl:px-48 py-4 items-center justify-between">
+          <div className="max-w-7xl mx-auto w-full flex items-center justify-between">
+            <h1 className="text-2xl font-semibold text-gray-900">Services</h1>
+            <div className="flex items-center space-x-2">
+              {services.length > 0 && (
+                <button
+                  onClick={() => setShowDeleteAllConfirm(true)}
+                  className="bg-red-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-red-700 transition-colors flex items-center space-x-2"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>Delete All</span>
+                </button>
+              )}
+            <button
+              onClick={() => setCreateModalOpen(true)}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center space-x-2"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add Service</span>
+            </button>
+            </div>
+          </div>
         </div>
 
         {/* Mobile Header Content */}
         <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-4">
           <div className="flex items-center justify-between">
             <h1 className="text-xl font-semibold text-gray-900">Services</h1>
-            <button 
+            <div className="flex items-center space-x-2">
+              {services.length > 0 && (
+                <button
+                  onClick={() => setShowDeleteAllConfirm(true)}
+                  className="bg-red-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-red-700 transition-colors flex items-center space-x-2"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>Delete All</span>
+                </button>
+              )}
+            <button
               onClick={() => setCreateModalOpen(true)}
               className="bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors flex items-center space-x-2"
             >
               <Plus className="w-4 h-4" />
               <span>Add Service</span>
             </button>
+            </div>
           </div>
         </div>
 
         {/* Content Area */}
-        <div className="flex-1 overflow-auto">
-          <div className="max-w-4xl mx-auto p-6">
+        <main className="flex-1 overflow-y-auto">
+          <div className="px-5 lg:px-40 xl:px-44 2xl:px-48 py-4 sm:py-6 lg:py-8">
+            <div className="max-w-7xl mx-auto">
             {/* Auth Loading */}
             {authLoading ? (
               <div className="p-8 text-center">
@@ -835,7 +675,7 @@ const ServiceFlowServices = () => {
             )}
 
             {/* Services List */}
-            <div className="bg-white rounded-lg border border-gray-200 mb-8">
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm mb-6">
               {loading ? (
                 <div className="p-8 text-center">
                   <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
@@ -855,218 +695,57 @@ const ServiceFlowServices = () => {
                 </div>
               ) : (
                 <div>
-                      {console.log('🔍 Render - categoriesEnabled:', categoriesEnabled, 'services length:', services.length, 'categories length:', categories.length)}
-                      {categoriesEnabled ? (
-                        // Group services by category, including "Additional" for uncategorized services
-                        (() => {
-                          // Services with string categories that don't exist in the categories array are treated as uncategorized
-                          // Improved categorization logic - handle both category names and IDs
-                          const categorizedServices = services.filter(s => {
-                            if (!s.category || s.category.trim() === '') return false
-                            // Check if the category exists in the categories array (by name)
-                            return categories.includes(s.category)
-                          })
-                          const uncategorizedServices = services.filter(s => {
-                            if (!s.category || s.category.trim() === '') return true
-                            // Services with categories that don't exist in the categories array are uncategorized
-                            return !categories.includes(s.category)
-                          })
-                          
-                          console.log('🔍 Debug - Total services:', services.length)
-                          console.log('🔍 Debug - Categorized services:', categorizedServices.length)
-                          console.log('🔍 Debug - Uncategorized services:', uncategorizedServices.length)
-                          console.log('🔍 Debug - Uncategorized services details:', uncategorizedServices.map(s => ({ id: s.id, name: s.name, category: s.category })))
-                          console.log('🔍 Debug - Categories array:', categories)
-                          console.log('🔍 Debug - All services and their categories:', services.map(s => ({ id: s.id, name: s.name, category: s.category, categoryType: typeof s.category })))
-                          
-                          // Debug: Check if services have categories that match the categories array
-                          console.log('🔍 Debug - Categories array:', categories)
-                          console.log('🔍 Debug - Services with categories:', services.filter(s => s.category && s.category.trim() !== '').map(s => s.category))
-                          console.log('🔍 Debug - Category matching test:', categories.map(cat => ({
-                            category: cat,
-                            matchingServices: services.filter(s => s.category === cat).length
-                          })))
-                          
-                          // Only show all services in "Additional" if there are truly no categories defined
-                          if (categories.length === 0) {
-                            console.log('🔍 Debug - No categories defined, showing all services in Additional')
-                            return (
-                              <div 
-                                key="Additional" 
-                                className="border-b border-gray-200 last:border-b-0 transition-all duration-200 relative"
-                              >
-                                <div className="px-4 py-3 flex items-center justify-between bg-gray-50">
-                                  <h3 className="font-medium text-gray-900">No category</h3>
-                                  <div className="flex items-center space-x-2">
-                                    <span className="text-sm text-gray-500">
-                                      {services.length} service{services.length !== 1 ? 's' : ''}
-                                    </span>
-                                  </div>
-                                </div>
-                                {services.map((service, index) => (
-                                  <div
-                                    key={service.id}
-                                    draggable
-                                    onDragStart={(e) => handleDragStart(e, service)}
-                                    onDragEnd={handleDragEnd}
-                                    className={`flex items-center justify-between p-4 transition-all duration-200 ${
-                                      index !== services.length - 1 ? "border-b border-gray-100" : ""
-                                    } hover:bg-gray-50 cursor-move`}
-                                  >
-                                    <div 
-                                      className="flex items-center space-x-4 flex-1 cursor-pointer hover:bg-gray-50 p-2 rounded"
-                                      onClick={() => handleServiceClick(service.id)}
-                                    >
-                                      <GripVertical className="w-5 h-5 text-gray-400 cursor-move hover:text-gray-600 transition-colors" title="Drag to move service" />
-                                      {service.image ? (
-                                        <img 
-                                          src={getImageUrl(service.image)} 
-                                          alt={service.name}
-                                          className="w-10 h-10 object-cover rounded"
-                                          onError={(e) => handleImageError(e, null)}
-                                        />
-                                      ) : (
-                                        <Wrench className="w-5 h-5 text-gray-400" />
-                                      )}
-                                      <div className="flex-1 min-w-0">
-                                        <div className="flex items-center justify-between mb-1">
-                                          <h3 className="font-medium text-gray-900">{service.name}</h3>
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation()
-                                              handleDuplicateService(service)
-                                            }}
-                                            disabled={deleteLoading === service.id}
-                                            className="flex items-center px-2 py-1 text-xs font-medium text-green-600 hover:text-green-800 hover:bg-green-50 rounded-md transition-colors disabled:opacity-50"
-                                            title="Duplicate service"
-                                          >
-                                            {deleteLoading === service.id ? (
-                                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-green-600"></div>
-                                            ) : (
-                                              <>
-                                                <Copy className="w-3 h-3 mr-1" />
-                                                Duplicate
-                                              </>
-                                            )}
-                                          </button>
-                                        </div>
-                                        {service.description && (
-                                          <p className="text-sm text-gray-500 mt-1 line-clamp-1">
-                                            {service.description}
-                                          </p>
-                                        )}
-                                        <div className="flex items-center space-x-4 mt-2">
-                                          <span className="text-sm text-gray-600">
-                                            {service.price ? `$${service.price}` : 'Free'}
-                                          </span>
-                                          {service.duration && (
-                                            <span className="text-sm text-gray-600">
-                                              {Math.floor(service.duration / 60)}h {service.duration % 60}m
-                                            </span>
-                                          )}
-                                        </div>
-                                      </div>
-                                    </div>
-                                    <div className="flex items-center space-x-4">
-                                      <div className={`w-2 h-2 rounded-full ${service.visible ? "bg-green-500" : "bg-yellow-500"}`}></div>
-                                      <span className={`text-sm ${service.visible ? "text-green-700" : "text-yellow-700"}`}>
-                                        {service.visible ? "Visible" : "Hidden"}
-                                      </span>
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation()
-                                          handleDeleteService(service.id)
-                                        }}
-                                        disabled={deleteLoading === service.id}
-                                        className="text-red-600 hover:text-red-700 text-sm font-medium disabled:opacity-50"
-                                      >
-                                        {deleteLoading === service.id ? (
-                                          <Loader2 className="w-4 h-4 animate-spin" />
-                                        ) : (
-                                          "Delete"
-                                        )}
-                                      </button>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            )
-                          }
-                          
-                          // Get all categories and add "Additional" if there are uncategorized services
-                          const allCategories = [...categories]
-                          console.log('🔍 Debug - Initial allCategories:', allCategories)
-                          if (uncategorizedServices.length > 0) {
-                            allCategories.push('No category')
-                            console.log('🔍 Debug - Added "Additional" category')
-                          }
-                          console.log('🔍 Debug - Final allCategories:', allCategories)
-                          
-                          // Smart sorting: categories with services first, then empty categories
-                          // This ensures new categories (with 0 services) appear at the bottom
-                          // and move up when they get their first service
-                          const sortedCategories = allCategories.sort((a, b) => {
-                            const aServices = a === 'No category' 
-                              ? uncategorizedServices 
-                              : services.filter(s => s.category && s.category.trim() === a)
-                            const bServices = b === 'No category' 
-                              ? uncategorizedServices 
-                              : services.filter(s => s.category && s.category.trim() === b)
-                            
-                            const aCount = aServices.length
-                            const bCount = bServices.length
-                            
-                            // If both have services or both are empty, maintain original order
-                            if ((aCount > 0 && bCount > 0) || (aCount === 0 && bCount === 0)) {
-                              return allCategories.indexOf(a) - allCategories.indexOf(b)
-                            }
-                            
-                            // Categories with services come first
-                            if (aCount > 0 && bCount === 0) return -1
-                            if (aCount === 0 && bCount > 0) return 1
-                            
-                            return 0
-                          })
-                          
-                          return sortedCategories.map(category => {
-                            console.log(`🔍 Debug - Processing category: "${category}"`)
-                            const categoryServices = category === 'No category' 
-                              ? uncategorizedServices 
-                              : services.filter(s => s.category && s.category.trim() === category)
-                            
-                            console.log(`🔍 Category "${category}" has ${categoryServices.length} services`)
-                            
-                                                    // Show all categories, even if they have 0 services (for better UX)
-                        // if (categoryServices.length === 0) {
-                        //   return null
-                        // }
-                            
-                        return (
-                                <div 
-                          key={category} 
+                  {categoriesEnabled ? (() => {
+                    const categorizedServices = services.filter(s => {
+                      if (!s.category || s.category.trim() === '') return false
+                      return categories.includes(s.category)
+                    })
+                    const uncategorizedServices = services.filter(s => {
+                      if (!s.category || s.category.trim() === '') return true
+                      return !categories.includes(s.category)
+                    })
+                    const allCategories = [...categories]
+                    if (uncategorizedServices.length > 0) {
+                      allCategories.push('No category')
+                    }
+                    const sortedCategories = allCategories.sort((a, b) => {
+                      const aServices = a === 'No category'
+                        ? uncategorizedServices
+                        : services.filter(s => s.category && s.category.trim() === a)
+                      const bServices = b === 'No category'
+                        ? uncategorizedServices
+                        : services.filter(s => s.category && s.category.trim() === b)
+                      const aCount = aServices.length
+                      const bCount = bServices.length
+                      if ((aCount > 0 && bCount > 0) || (aCount === 0 && bCount === 0)) {
+                        return allCategories.indexOf(a) - allCategories.indexOf(b)
+                      }
+                      if (aCount > 0 && bCount === 0) return -1
+                      if (aCount === 0 && bCount > 0) return 1
+                      return 0
+                    })
+                    return sortedCategories.map(category => {
+                      const categoryServices = category === 'No category'
+                        ? uncategorizedServices
+                        : services.filter(s => s.category && s.category.trim() === category)
+                      return (
+                        <div
+                          key={category}
                           className={`border-b border-gray-200 last:border-b-0 transition-all duration-200 relative ${
-                                    dragOverCategory === category ? 'bg-blue-50 border-2 border-blue-200' : ''
-                          } ${draggedService && draggedService.category !== (category === 'No category' ? '' : category) ? 'hover:bg-blue-25' : ''}`}
-                                  onDragOver={(e) => handleDragOver(e, category)}
-                                  onDragLeave={handleDragLeave}
-                                  onDrop={(e) => handleDrop(e, category)}
-                                >
-                          {/* Drop zone indicator */}
-                          {dragOverCategory === category && (
-                            <div className="absolute inset-0 bg-blue-100 bg-opacity-20 border-2 border-dashed border-blue-300 rounded-lg pointer-events-none z-10 flex items-center justify-center">
-                              <div className="bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg">
-                                <span className="font-medium">Drop service here</span>
-                              </div>
-                            </div>
-                          )}
-                                <div 
-                                  className={`px-4 py-3 flex items-center justify-between ${
-                                    categoryServices.length === 0 
-                                      ? 'bg-gray-100' 
-                                      : 'bg-gray-50'
-                                  }`}
-                                >
-                                                        <h3 className={`font-medium ${categoryServices.length === 0 ? 'text-gray-400' : 'text-gray-900'}`}>
+                            dragOverCategory === category ? 'bg-blue-50 border-2 border-blue-200' : ''
+                          }`}
+                          onDragOver={(e) => handleDragOver(e, category)}
+                          onDragLeave={handleDragLeave}
+                          onDrop={(e) => handleDrop(e, category)}
+                        >
+                          <div
+                            className={`px-4 py-3 flex items-center justify-between ${
+                              categoryServices.length === 0
+                                ? 'bg-gray-100'
+                                : 'bg-gray-50'
+                            }`}
+                          >
+                            <h3 className={`font-medium ${categoryServices.length === 0 ? 'text-gray-400' : 'text-gray-900'}`}>
                               {category}
                               {categoryServices.length === 0 && (
                                 <span className="ml-2 text-xs text-gray-400 font-normal">(empty)</span>
@@ -1076,9 +755,7 @@ const ServiceFlowServices = () => {
                               <span className={`text-sm ${categoryServices.length === 0 ? 'text-gray-400' : 'text-gray-500'}`}>
                                 {categoryServices.length} service{categoryServices.length !== 1 ? 's' : ''}
                               </span>
-                              
-                              {/* Category Actions */}
-                              {category !== 'Additional' && category !== 'No category' && (
+                              {category !== 'No category' && (
                                 <div className="flex items-center space-x-1">
                                   <button
                                     onClick={() => handleEditCategory(category)}
@@ -1098,231 +775,41 @@ const ServiceFlowServices = () => {
                               )}
                             </div>
                           </div>
-                          
-                          {/* Show empty state for categories with no services */}
                           {categoryServices.length === 0 && (
                             <div className="px-4 py-6 text-center text-gray-500">
                               <p>No services in this category yet.</p>
                               <p className="text-sm mt-1">Drag services here or create new ones to get started.</p>
                             </div>
                           )}
-                          
-                          {categoryServices.map((service, index) => (
-                            <div
-                              key={service.id}
-                                    draggable
-                                    onDragStart={(e) => handleDragStart(e, service)}
-                              onDragEnd={handleDragEnd}
-                              className={`flex items-center justify-between p-4 transition-all duration-200 ${
-                                index !== categoryServices.length - 1 ? "border-b border-gray-100" : ""
-                              } ${draggedService?.id === service.id ? 'opacity-50 scale-95' : 'hover:bg-gray-50'} cursor-move`}
-                            >
-                              <div 
-                                className="flex items-center space-x-4 flex-1 cursor-pointer hover:bg-gray-50 p-2 rounded"
-                                onClick={() => handleServiceClick(service.id)}
-                              >
-                                <GripVertical className="w-5 h-5 text-gray-400 cursor-move hover:text-gray-600 transition-colors" title="Drag to move service" />
-                                {service.image ? (
-                                  <img 
-                                    src={getImageUrl(service.image)} 
-                                    alt={service.name}
-                                    className="w-10 h-10 object-cover rounded"
-                                    onError={(e) => handleImageError(e, null)}
-                                  />
-                                ) : (
-                                  <Wrench className="w-5 h-5 text-gray-400" />
-                                )}
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center justify-between mb-1">
-                                    <h3 className="font-medium text-gray-900">{service.name}</h3>
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        handleDuplicateService(service)
-                                      }}
-                                      disabled={deleteLoading === service.id}
-                                      className="flex items-center px-2 py-1 text-xs font-medium text-green-600 hover:text-green-800 hover:bg-green-50 rounded-md transition-colors disabled:opacity-50"
-                                      title="Duplicate service"
-                                    >
-                                      {deleteLoading === service.id ? (
-                                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-green-600"></div>
-                                      ) : (
-                                        <>
-                                          <Copy className="w-3 h-3 mr-1" />
-                                          Duplicate
-                                        </>
-                                      )}
-                                    </button>
-                                  </div>
-                                  {service.description && (
-                                    <p className="text-sm text-gray-500 mt-1 line-clamp-1">
-                                      {service.description}
-                                    </p>
-                                  )}
-                                  <div className="flex items-center space-x-4 mt-2">
-                                    <span className="text-sm text-gray-600">
-                                      {service.price ? `$${service.price}` : 'Free'}
-                                    </span>
-                                    {service.duration && (
-                                      <span className="text-sm text-gray-600">
-                                        {Math.floor(service.duration / 60)}h {service.duration % 60}m
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="flex items-center space-x-4">
-                                <div className={`w-2 h-2 rounded-full ${service.visible ? "bg-green-500" : "bg-yellow-500"}`}></div>
-                                <span className={`text-sm ${service.visible ? "text-green-700" : "text-yellow-700"}`}>
-                                  {service.visible ? "Visible" : "Hidden"}
-                                </span>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleDeleteService(service.id)
-                                  }}
-                                  disabled={deleteLoading === service.id}
-                                  className="text-red-600 hover:text-red-700 text-sm font-medium disabled:opacity-50"
-                                >
-                                  {deleteLoading === service.id ? (
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                  ) : (
-                                    "Delete"
-                                  )}
-                                </button>
-                              </div>
-                            </div>
-                          ))}
+                          {categoryServices.map((service, index) => renderServiceCard(service))}
                         </div>
                       )
                     })
-                        })()
-                  ) : (
-                    // Show all services without categories
-                    services.map((service, index) => (
-                      <div
-                        key={service.id}
-                            draggable
-                            onDragStart={(e) => handleDragStart(e, service)}
-                        className={`flex items-center justify-between p-4 ${
-                          index !== services.length - 1 ? "border-b border-gray-200" : ""
-                            } ${draggedService?.id === service.id ? 'opacity-50' : ''}`}
-                      >
-                        <div 
-                          className="flex items-center space-x-4 flex-1 cursor-pointer hover:bg-gray-50 p-2 rounded"
-                          onClick={() => handleServiceClick(service.id)}
-                        >
-                          <GripVertical className="w-5 h-5 text-gray-400 cursor-move" />
-                          {service.image ? (
-                            <img 
-                              src={getImageUrl(service.image)} 
-                              alt={service.name}
-                              className="w-10 h-10 object-cover rounded"
-                              onError={(e) => handleImageError(e, null)}
-                            />
-                          ) : (
-                            <Wrench className="w-5 h-5 text-gray-400" />
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between mb-1">
-                              <h3 className="font-medium text-gray-900">{service.name}</h3>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleDuplicateService(service)
-                                }}
-                                disabled={deleteLoading === service.id}
-                                className="flex items-center px-2 py-1 text-xs font-medium text-green-600 hover:text-green-800 hover:bg-green-50 rounded-md transition-colors disabled:opacity-50"
-                                title="Duplicate service"
-                              >
-                                {deleteLoading === service.id ? (
-                                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-green-600"></div>
-                                ) : (
-                                  <>
-                                    <Copy className="w-3 h-3 mr-1" />
-                                    Duplicate
-                                  </>
-                                )}
-                              </button>
-                            </div>
-                            {service.description && (
-                              <p className="text-sm text-gray-500 mt-1 line-clamp-1">
-                                {service.description}
-                              </p>
-                            )}
-                            <div className="flex items-center space-x-4 mt-2">
-                              <span className="text-sm text-gray-600">
-                                {service.price ? `$${service.price}` : 'Free'}
-                              </span>
-                              {service.duration && (
-                                <span className="text-sm text-gray-600">
-                                  {Math.floor(service.duration / 60)}h {service.duration % 60}m
-                                </span>
-                              )}
-                              {service.category && (
-                                <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
-                                  {service.category}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-4">
-                          <div className={`w-2 h-2 rounded-full ${service.visible ? "bg-green-500" : "bg-yellow-500"}`}></div>
-                          <span className={`text-sm ${service.visible ? "text-green-700" : "text-yellow-700"}`}>
-                            {service.visible ? "Visible" : "Hidden"}
-                          </span>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleDeleteService(service.id)
-                            }}
-                            disabled={deleteLoading === service.id}
-                            className="text-red-600 hover:text-red-700 text-sm font-medium disabled:opacity-50"
-                          >
-                            {deleteLoading === service.id ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              "Delete"
-                            )}
-                          </button>
-                        </div>
-                      </div>
-                    ))
+                  })() : (
+                    services.map((service, index) => renderServiceCard(service))
                   )}
                 </div>
               )}
             </div>
 
             {/* Service Categories */}
-            <div className="bg-gray-50 rounded-lg p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Service categories</h3>
-                  <p className="text-gray-600">
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <h3 className="text-base font-semibold text-gray-900 mb-1">Service categories</h3>
+                  <p className="text-sm text-gray-600">
                     Service categories allow you to organize your services into groups for your booking page.{" "}
-                    <button className="text-blue-600 hover:text-blue-700">Learn more</button>
+                    <button className="text-blue-600 hover:text-blue-700 font-medium">Learn more</button>
                   </p>
                 </div>
                 <div className="flex-shrink-0">
                   <button
                     onClick={async () => {
-                      console.log('🔍 Toggle clicked - current categoriesEnabled:', categoriesEnabled)
-                      console.log('🔍 Current services count:', services.length)
-                      console.log('🔍 Current categories count:', categories.length)
-                      
                       const newCategoriesEnabled = !categoriesEnabled
-                      
-                      // Update settings immediately (updates local state)
                       updateServiceSettings({ categoriesEnabled: newCategoriesEnabled })
-                      
-                      // Save to localStorage and potentially backend
                       try {
                         await saveServiceSettings({ categoriesEnabled: newCategoriesEnabled })
-                        console.log('🔍 Service categories setting saved successfully:', newCategoriesEnabled)
-                      } catch (error) {
-                        console.error('🔍 Failed to save service categories setting:', error)
-                      }
+                      } catch (error) {}
                     }}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                       categoriesEnabled ? "bg-blue-600" : "bg-gray-300"
@@ -1336,9 +823,8 @@ const ServiceFlowServices = () => {
                   </button>
                 </div>
               </div>
-              
               {categoriesEnabled && (
-                <div className="space-y-4">
+                <div className="space-y-4 mt-6">
                   <div className="flex items-center justify-between">
                     <h4 className="font-medium text-gray-900">Categories</h4>
                     <div className="flex items-center space-x-2">
@@ -1356,51 +842,37 @@ const ServiceFlowServices = () => {
                       >
                         Auto-Fix Cleaning
                       </button>
-                    <button
-                      onClick={() => setShowAddCategoryModal(true)}
-                      className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
-                    >
-                      Add Category
-                    </button>
+                      <button
+                        onClick={() => setShowAddCategoryModal(true)}
+                        className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
+                      >
+                        Add Category
+                      </button>
                     </div>
                   </div>
-                  
-                  {/* {categories.length > 0 ? (
-                    <div className="space-y-2">
-                      {categories.map(category => (
-                        <div key={category} className="flex items-center justify-between bg-white p-3 rounded border">
-                          <span className="font-medium text-gray-900">{category}</span>
-                          <button
-                            onClick={() => handleRemoveCategory(category)}
-                            className="text-red-600 hover:text-red-700 text-sm"
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-gray-500 text-sm">No categories created yet. Add your first category to get started.</p>
-                  )} */}
                 </div>
               )}
             </div>
               </>
             )}
+            </div>
           </div>
-        </div>
-      </div>
+        </main>
 
       {/* Modals */}
-      <CreateServiceModal
+      <SimpleCreateServiceModal
         isOpen={createModalOpen}
-        onClose={() => setCreateModalOpen(false)}
+        onClose={() => {
+          if (!creatingService) {
+            setCreateModalOpen(false)
+          }
+        }}
         onCreateService={handleCreateService}
         onStartWithTemplate={() => {
           setCreateModalOpen(false)
           setTemplatesModalOpen(true)
         }}
-        existingCategories={categoryObjects}
+        loading={creatingService}
       />
 
       <ServiceTemplatesModal
@@ -1409,369 +881,396 @@ const ServiceFlowServices = () => {
         onSelectTemplate={handleSelectTemplate}
       />
 
-              {/* Delete Confirmation Modal */}
-        {deleteModalOpen && serviceToDelete && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all duration-300 ease-out">
-              {/* Header */}
-              <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-red-100 rounded-full">
-                    <Trash2 className="w-5 h-5 text-red-600" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">Delete Service</h3>
-                    <p className="text-sm text-gray-500">This action cannot be undone</p>
-                  </div>
-                  </div>
-                <button 
-                  onClick={cancelDelete} 
-                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
-                  disabled={deleteLoading === serviceToDelete.id}
-                >
-                  <X className="w-5 h-5" />
-                </button>
+      {deleteModalOpen && serviceToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all duration-300 ease-out">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-red-100 rounded-full">
+                  <Trash2 className="w-5 h-5 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Delete Service</h3>
+                  <p className="text-sm text-gray-500">This action cannot be undone</p>
+                </div>
               </div>
-
-              {/* Content */}
-              <div className="p-6">
-                <div className="mb-4">
-                  <p className="text-gray-700 mb-2">
-                    Are you sure you want to delete <strong>"{serviceToDelete.name}"</strong>?
-                  </p>
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                    <div className="flex items-start space-x-2">
-                      <AlertTriangle className="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0" />
-                      <div className="text-sm text-yellow-800">
-                        <p className="font-medium">Warning:</p>
-                        <ul className="mt-1 space-y-1 text-xs">
-                          <li>• This service will be removed from all future bookings</li>
-                          <li>• Existing jobs with this service will be affected</li>
-                          <li>• This action cannot be undone</li>
-                        </ul>
-                      </div>
+              <button
+                onClick={cancelDelete}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                disabled={deleteLoading === serviceToDelete.id}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6">
+              <div className="mb-4">
+                <p className="text-gray-700 mb-2">
+                  Are you sure you want to delete <strong>"{serviceToDelete.name}"</strong>?
+                </p>
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                  <div className="flex items-start space-x-2">
+                    <AlertTriangle className="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0" />
+                    <div className="text-sm text-yellow-800">
+                      <p className="font-medium">Warning:</p>
+                      <ul className="mt-1 space-y-1 text-xs">
+                        <li>• This service will be removed from all future bookings</li>
+                        <li>• Existing jobs with this service will be affected</li>
+                        <li>• This action cannot be undone</li>
+                      </ul>
                     </div>
                   </div>
                 </div>
-
-                {/* Error Display */}
-                {error && (
-                  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                    <div className="flex items-center space-x-2">
-                      <AlertCircle className="w-4 h-4 text-red-600" />
-                      <p className="text-sm text-red-800">{error}</p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Action Buttons */}
-                <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
-                  <button
-                    onClick={cancelDelete}
-                    disabled={deleteLoading === serviceToDelete.id}
-                    className="flex-1 sm:flex-none px-6 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={confirmDelete}
-                    disabled={deleteLoading === serviceToDelete.id}
-                    className="flex-1 sm:flex-none px-6 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
-                  >
-                    {deleteLoading === serviceToDelete.id ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Deleting...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Trash2 className="w-4 h-4" />
-                        <span>Delete Service</span>
-                      </>
-                    )}
-                  </button>
-                </div>
               </div>
-            </div>
-          </div>
-        )}
-
-        {/* Category Delete Confirmation Modal */}
-        {categoryDeleteModalOpen && categoryToDelete && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all duration-300 ease-out">
-              {/* Header */}
-              <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-red-100 rounded-full">
-                    <Trash2 className="w-5 h-5 text-red-600" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">Delete Category</h3>
-                    <p className="text-sm text-gray-500">This action cannot be undone</p>
-                  </div>
-                </div>
-                <button 
-                  onClick={handleCancelCategoryDelete} 
-                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
-                  disabled={deletingCategory}
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              {/* Content */}
-              <div className="p-6">
-                <div className="mb-4">
-                  <p className="text-gray-700 mb-2">
-                    Are you sure you want to delete the category <strong>"{categoryToDelete.name}"</strong>?
-                  </p>
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                    <div className="flex items-start space-x-2">
-                      <AlertCircle className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                      <div className="text-sm text-blue-800">
-                        <p className="font-medium">Note:</p>
-                        <p className="mt-1">All services in this category will be moved to "Uncategorized" and will remain available for booking.</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
-                  <button
-                    onClick={handleCancelCategoryDelete}
-                    disabled={deletingCategory}
-                    className="flex-1 sm:flex-none px-6 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleConfirmCategoryDelete}
-                    disabled={deletingCategory}
-                    className="flex-1 sm:flex-none px-6 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
-                  >
-                    {deletingCategory ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Deleting...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Trash2 className="w-4 h-4" />
-                        <span>Delete Category</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Edit Category Modal */}
-        {categoryEditModalOpen && categoryToEdit && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all duration-300 ease-out">
-              {/* Header */}
-              <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-blue-100 rounded-full">
-                    <Edit className="w-5 h-5 text-blue-600" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">Edit Category</h3>
-                    <p className="text-sm text-gray-500">Update category name</p>
-                  </div>
-                </div>
-                <button 
-                  onClick={handleCancelCategoryEdit} 
-                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
-                  disabled={editingCategory}
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              {/* Content */}
-              <div className="p-6">
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Category Name
-                  </label>
-                  <input
-                    type="text"
-                    value={categoryToEdit.object.name}
-                    onChange={(e) => {
-                      setCategoryToEdit(prev => ({
-                        ...prev,
-                        object: { ...prev.object, name: e.target.value }
-                      }));
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Enter category name"
-                    disabled={editingCategory}
-                  />
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
-                  <button
-                    onClick={handleCancelCategoryEdit}
-                    disabled={editingCategory}
-                    className="flex-1 sm:flex-none px-6 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleConfirmCategoryEdit}
-                    disabled={editingCategory || !categoryToEdit.object.name.trim()}
-                    className="flex-1 sm:flex-none px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
-                  >
-                    {editingCategory ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Updating...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Edit className="w-4 h-4" />
-                        <span>Update Category</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Add Category Modal */}
-        {showAddCategoryModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Add Category</h3>
-                <button onClick={() => setShowAddCategoryModal(false)} className="text-gray-500 hover:text-gray-700">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              
-              {/* Error Message */}
               {error && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                  <p className="text-sm text-red-800">{error}</p>
+                  <div className="flex items-center space-x-2">
+                    <AlertCircle className="w-4 h-4 text-red-600" />
+                    <p className="text-sm text-red-800">{error}</p>
+                  </div>
                 </div>
               )}
-              
+              <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
+                <button
+                  onClick={cancelDelete}
+                  disabled={deleteLoading === serviceToDelete.id}
+                  className="flex-1 sm:flex-none px-6 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmDelete}
+                  disabled={deleteLoading === serviceToDelete.id}
+                  className="flex-1 sm:flex-none px-6 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                >
+                  {deleteLoading === serviceToDelete.id ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Deleting...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4" />
+                      <span>Delete Service</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete All Confirmation Modal */}
+      {showDeleteAllConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all duration-300 ease-out">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-red-100 rounded-full">
+                  <AlertTriangle className="w-5 h-5 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Delete All Services</h3>
+                  <p className="text-sm text-gray-500">This action cannot be undone</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowDeleteAllConfirm(false)}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                disabled={deleteAllLoading}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6">
+              <p className="text-gray-700 mb-4">
+                Are you sure you want to delete all {services.length} service(s)? This action is permanent and cannot be undone.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
+                <button
+                  onClick={() => setShowDeleteAllConfirm(false)}
+                  disabled={deleteAllLoading}
+                  className="flex-1 sm:flex-none px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmDeleteAll}
+                  disabled={deleteAllLoading}
+                  className="flex-1 sm:flex-none px-6 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                >
+                  {deleteAllLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Deleting...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4" />
+                      <span>Delete All Services</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {categoryDeleteModalOpen && categoryToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all duration-300 ease-out">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-red-100 rounded-full">
+                  <Trash2 className="w-5 h-5 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Delete Category</h3>
+                  <p className="text-sm text-gray-500">This action cannot be undone</p>
+                </div>
+              </div>
+              <button
+                onClick={handleCancelCategoryDelete}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                disabled={deletingCategory}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6">
+              <div className="mb-4">
+                <p className="text-gray-700 mb-2">
+                  Are you sure you want to delete the category <strong>"{categoryToDelete.name}"</strong>?
+                </p>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <div className="flex items-start space-x-2">
+                    <AlertCircle className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                    <div className="text-sm text-blue-800">
+                      <p className="font-medium">Note:</p>
+                      <p className="mt-1">All services in this category will be moved to "Uncategorized" and will remain available for booking.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
+                <button
+                  onClick={handleCancelCategoryDelete}
+                  disabled={deletingCategory}
+                  className="flex-1 sm:flex-none px-6 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmCategoryDelete}
+                  disabled={deletingCategory}
+                  className="flex-1 sm:flex-none px-6 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                >
+                  {deletingCategory ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Deleting...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4" />
+                      <span>Delete Category</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {categoryEditModalOpen && categoryToEdit && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all duration-300 ease-out">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-blue-100 rounded-full">
+                  <Edit className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Edit Category</h3>
+                  <p className="text-sm text-gray-500">Update category name</p>
+                </div>
+              </div>
+              <button
+                onClick={handleCancelCategoryEdit}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                disabled={editingCategory}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6">
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Category Name
                 </label>
                 <input
                   type="text"
-                  value={newCategoryName}
+                  value={categoryToEdit.object.name}
                   onChange={(e) => {
-                    setNewCategoryName(e.target.value)
-                    // Clear error when user starts typing
-                    if (error) setError("")
+                    setCategoryToEdit(prev => ({
+                      ...prev,
+                      object: { ...prev.object, name: e.target.value }
+                    }));
                   }}
-                  placeholder="Enter category name"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  onKeyPress={(e) => e.key === 'Enter' && handleAddCategory()}
+                  placeholder="Enter category name"
+                  disabled={editingCategory}
                 />
               </div>
-              <div className="flex justify-end space-x-2">
+              <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
                 <button
-                  onClick={() => {
-                    setShowAddCategoryModal(false)
-                    setError("") // Clear error when closing
-                  }}
-                  className="px-4 py-2 rounded-lg text-gray-700 border border-gray-300 hover:bg-gray-100"
+                  onClick={handleCancelCategoryEdit}
+                  disabled={editingCategory}
+                  className="flex-1 sm:flex-none px-6 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancel
                 </button>
                 <button
-                  onClick={handleAddCategory}
-                  disabled={!newCategoryName.trim()}
-                  className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                  onClick={handleConfirmCategoryEdit}
+                  disabled={editingCategory || !categoryToEdit.object.name.trim()}
+                  className="flex-1 sm:flex-none px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
                 >
-                  Add Category
+                  {editingCategory ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Updating...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Edit className="w-4 h-4" />
+                      <span>Update Category</span>
+                    </>
+                  )}
                 </button>
               </div>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Duplicate Success Modal */}
-        {duplicateSuccessModalOpen && duplicatedService && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all duration-300 ease-out">
-              {/* Header */}
-              <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-green-100 rounded-full">
-                    <Copy className="w-5 h-5 text-green-600" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">Service Duplicated!</h3>
-                    <p className="text-sm text-gray-500">Your service has been successfully duplicated</p>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => setDuplicateSuccessModalOpen(false)} 
-                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+      {showAddCategoryModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Add Category</h3>
+              <button onClick={() => setShowAddCategoryModal(false)} className="text-gray-500 hover:text-gray-700">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            {error && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-sm text-red-800">{error}</p>
               </div>
+            )}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Category Name
+              </label>
+              <input
+                type="text"
+                value={newCategoryName}
+                onChange={(e) => {
+                  setNewCategoryName(e.target.value)
+                  if (error) setError("")
+                }}
+                placeholder="Enter category name"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                onKeyPress={(e) => e.key === 'Enter' && handleAddCategory()}
+              />
+            </div>
+            <div className="flex justify-end space-x-2">
+              <button
+                onClick={() => {
+                  setShowAddCategoryModal(false)
+                  setError("")
+                }}
+                className="px-4 py-2 rounded-lg text-gray-700 border border-gray-300 hover:bg-gray-100"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddCategory}
+                disabled={!newCategoryName.trim()}
+                className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                Add Category
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
-              {/* Content */}
-              <div className="p-6">
-                <div className="mb-4">
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                    <div className="flex items-start space-x-2">
-                      <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                      </div>
-                      <div className="text-sm text-green-800">
-                        <p className="font-medium">All service data has been copied:</p>
-                        <ul className="mt-1 space-y-1 text-xs">
-                          <li>• Service details and pricing</li>
-                          <li>• Modifiers and options</li>
-                          <li>• Intake questions</li>
-                          <li>• Category assignment</li>
-                        </ul>
-                      </div>
+      {duplicateSuccessModalOpen && duplicatedService && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all duration-300 ease-out">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-green-100 rounded-full">
+                  <Copy className="w-5 h-5 text-green-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Service Duplicated!</h3>
+                  <p className="text-sm text-gray-500">Your service has been successfully duplicated</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setDuplicateSuccessModalOpen(false)}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6">
+              <div className="mb-4">
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                  <div className="flex items-start space-x-2">
+                    <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="text-sm text-green-800">
+                      <p className="font-medium">All service data has been copied:</p>
+                      <ul className="mt-1 space-y-1 text-xs">
+                        <li>• Service details and pricing</li>
+                        <li>• Modifiers and options</li>
+                        <li>• Intake questions</li>
+                        <li>• Category assignment</li>
+                      </ul>
                     </div>
                   </div>
                 </div>
-
-                {/* Action Buttons */}
-                <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
-                  <button
-                    onClick={() => setDuplicateSuccessModalOpen(false)}
-                    className="flex-1 sm:flex-none px-6 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors"
-                  >
-                    Stay Here
-                  </button>
-                  <button
-                    onClick={() => {
-                      setDuplicateSuccessModalOpen(false);
-                      navigate(`/services/${duplicatedService.id}`);
-                    }}
-                    className="flex-1 sm:flex-none px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors flex items-center justify-center space-x-2"
-                  >
-                    <Copy className="w-4 h-4" />
-                    <span>View Duplicated Service</span>
-                  </button>
-                </div>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
+                <button
+                  onClick={() => setDuplicateSuccessModalOpen(false)}
+                  className="flex-1 sm:flex-none px-6 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors"
+                >
+                  Stay Here
+                </button>
+                <button
+                  onClick={() => {
+                    setDuplicateSuccessModalOpen(false);
+                    navigate(`/services/${duplicatedService.id}`);
+                  }}
+                  className="flex-1 sm:flex-none px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors flex items-center justify-center space-x-2"
+                >
+                  <Copy className="w-4 h-4" />
+                  <span>View Duplicated Service</span>
+                </button>
               </div>
             </div>
           </div>
-        )}
+        </div>
+      )}
+      </div>
     </div>
   )
 }

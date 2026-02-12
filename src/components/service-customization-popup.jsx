@@ -13,7 +13,9 @@ const ServiceCustomizationPopup = ({
   onIntakeQuestionsChange,
   onSave,
   initialAnswers = {},
-  selectedModifiers = {}
+  selectedModifiers = {},
+  editedModifierPrices = {},
+  onModifierPriceChange
 }) => {
   if (!isOpen) return null;
 
@@ -64,6 +66,8 @@ const ServiceCustomizationPopup = ({
                   modifiers={modifiers}
                   selectedModifiers={selectedModifiers}
                   onModifiersChange={onModifiersChange}
+                  editedModifierPrices={editedModifierPrices}
+                  onModifierPriceChange={onModifierPriceChange}
                 />
               </div>
             )}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { X, ChevronRight, ChevronLeft, Plus, Tag } from 'lucide-react';
+import { X, ChevronRight, ChevronLeft, Plus, Tag, CheckCircle2, AlertCircle, Sparkles } from 'lucide-react';
 import { servicesAPI } from '../services/api';
 import ServiceModifiersForm from './service-modifiers-form';
 import CreateModifierGroupModal from './create-modifier-group-modal';
@@ -12,9 +12,11 @@ const CreateServiceModal = ({
   user,
   initialCategory = null
 }) => {
-  const [currentStep, setCurrentStep] = useState(1); // 1: Category, 2: Basic Info, 3: Modifiers, 4: Intake Questions, 5: Review
+  const [currentStep, setCurrentStep] = useState(1);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [validationErrors, setValidationErrors] = useState({});
   const [formData, setFormData] = useState({
     categoryId: '',
     name: '',
@@ -27,61 +29,40 @@ const CreateServiceModal = ({
     intakeQuestions: []
   });
   
-  // Debug formData changes
-  useEffect(() => {
-    console.log('🔧 CreateServiceModal formData changed:', formData);
-  }, [formData]);
   const [selectedModifiers, setSelectedModifiers] = useState({});
-  
-  // Modal states for modifiers and intake questions
   const [isCreateModifierGroupModalOpen, setIsCreateModifierGroupModalOpen] = useState(false);
   const [editingModifier, setEditingModifier] = useState(null);
   const [isIntakeModalOpen, setIsIntakeModalOpen] = useState(false);
   const [selectedQuestionType, setSelectedQuestionType] = useState(null);
   const [editingIntakeQuestion, setEditingIntakeQuestion] = useState(null);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
 
   const loadCategories = useCallback(async () => {
     try {
-      setLoading(true);
+      setCategoriesLoading(true);
       const categoriesData = await servicesAPI.getServiceCategories(user.id);
       setCategories(categoriesData || []);
     } catch (error) {
       console.error('Error loading categories:', error);
       setCategories([]);
     } finally {
-      setLoading(false);
+      setCategoriesLoading(false);
     }
-  }, [user?.id, setCategories]);
+  }, [user?.id]);
 
-  // Load categories when modal opens
   useEffect(() => {
     if (isOpen && user?.id) {
       loadCategories();
     }
   }, [isOpen, user?.id, loadCategories]);
 
-  // Set initial category when modal opens and categories are loaded
   useEffect(() => {
-    console.log('🔧 CreateServiceModal useEffect triggered:', { isOpen, initialCategory, categoriesLength: categories.length });
     if (isOpen && initialCategory && categories.length > 0) {
-      console.log('🔧 Setting initial category:', initialCategory);
-      console.log('🔧 Available categories:', categories);
-      
-      // Check if the category exists in the loaded categories
       const categoryExists = categories.find(c => c.id === initialCategory.id || c.name === initialCategory.name);
-      console.log('🔧 Category exists check:', categoryExists);
-      
       if (categoryExists) {
         setFormData(prev => ({
           ...prev,
           categoryId: categoryExists.id
-        }));
-        console.log('🔧 Set categoryId to:', categoryExists.id, 'type:', typeof categoryExists.id);
-      } else {
-        console.log('🔧 Category not found in loaded categories, using initialCategory.id:', initialCategory.id, 'type:', typeof initialCategory.id);
-        setFormData(prev => ({
-          ...prev,
-          categoryId: initialCategory.id || initialCategory
         }));
       }
     }
@@ -92,17 +73,43 @@ const CreateServiceModal = ({
       ...prev,
       [field]: value
     }));
+    // Clear validation errors when user types
+    if (validationErrors[field]) {
+      setValidationErrors(prev => ({
+        ...prev,
+        [field]: ''
+      }));
+    }
+    setError('');
+  };
+
+  const validateStep = () => {
+    const errors = {};
     
-    // Don't update global state when creating a service
-    // The global category state should remain unchanged during service creation
+    if (currentStep === 1) {
+      if (!formData.categoryId || formData.categoryId === '') {
+        errors.categoryId = 'Please select a category';
+      }
+    } else if (currentStep === 2) {
+      if (!formData.name || formData.name.trim() === '') {
+        errors.name = 'Service name is required';
+      }
+      if (!formData.price || parseFloat(formData.price) < 0) {
+        errors.price = 'Price must be a positive number';
+      }
+      if (!formData.duration || parseInt(formData.duration) < 1) {
+        errors.duration = 'Duration must be at least 1 minute';
+      }
+    }
+    
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   const handleModifiersChange = (modifiers) => {
     setSelectedModifiers(modifiers);
   };
 
-
-  // Modifier handlers
   const handleEditModifier = (modifier) => {
     setEditingModifier(modifier);
     setIsCreateModifierGroupModalOpen(true);
@@ -113,7 +120,6 @@ const CreateServiceModal = ({
       let updatedModifiers;
       
       if (editingModifier) {
-        // Update existing modifier
         updatedModifiers = formData.modifiers.map(m => 
           m.id === editingModifier.id ? {
             ...m,
@@ -121,7 +127,6 @@ const CreateServiceModal = ({
           } : m
         );
       } else {
-        // Create new modifier
         const maxId = formData.modifiers.length > 0 
           ? Math.max(...formData.modifiers.map(m => m.id || 0))
           : 0;
@@ -134,8 +139,8 @@ const CreateServiceModal = ({
         updatedModifiers = [...formData.modifiers, newModifier];
       }
       
-    setFormData(prev => ({
-      ...prev,
+      setFormData(prev => ({
+        ...prev,
         modifiers: updatedModifiers
       }));
       
@@ -146,7 +151,6 @@ const CreateServiceModal = ({
     }
   };
 
-  // Intake question handlers
   const handleOpenIntakeModal = (questionType) => {
     setSelectedQuestionType(questionType);
     setIsIntakeModalOpen(true);
@@ -163,7 +167,6 @@ const CreateServiceModal = ({
       let updatedQuestions;
       
       if (editingIntakeQuestion) {
-        // Update existing question
         updatedQuestions = formData.intakeQuestions.map(q => 
           q.id === editingIntakeQuestion.id ? {
             ...q,
@@ -171,7 +174,6 @@ const CreateServiceModal = ({
           } : q
         );
       } else {
-        // Create new question
         const maxId = formData.intakeQuestions.length > 0 
           ? Math.max(...formData.intakeQuestions.map(q => q.id || 0))
           : 0;
@@ -210,6 +212,9 @@ const CreateServiceModal = ({
   };
 
   const handleNext = () => {
+    if (!validateStep()) {
+      return;
+    }
     if (currentStep < 5) {
       setCurrentStep(currentStep + 1);
     }
@@ -218,35 +223,65 @@ const CreateServiceModal = ({
   const handleBack = () => {
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1);
+      setValidationErrors({});
     }
   };
 
   const handleCreateService = async () => {
+    setError('');
+    setValidationErrors({});
+    
+    // Final validation
+    if (!validateStep() || !formData.categoryId || !formData.name || !formData.price || !formData.duration) {
+      setError('Please fill in all required fields');
+      return;
+    }
+
     try {
       setLoading(true);
+      setError('');
       
+      // Get category name
+      const selectedCategory = categories.find(cat => 
+        cat.id === formData.categoryId || 
+        cat.id?.toString() === formData.categoryId?.toString()
+      );
+      const categoryName = formData.categoryId === 'uncategorized' || !selectedCategory
+        ? 'Uncategorized' 
+        : selectedCategory.name;
+      
+      // Prepare service data - backend expects category as string, not categoryId
+      // userId comes from auth token, not from body
       const serviceData = {
-        categoryId: formData.categoryId === 'uncategorized' ? null : formData.categoryId,
-        category: formData.categoryId === 'uncategorized' ? 'Uncategorized' : 
-                 categories.find(cat => cat.id === formData.categoryId)?.name || 'Uncategorized',
-        name: formData.name,
-        description: formData.description,
-        price: parseFloat(formData.price),
-        duration: parseInt(formData.duration),
-        workers: parseInt(formData.workers),
-        skills: parseInt(formData.skills),
-        modifiers: JSON.stringify(formData.modifiers),
-        intake_questions: JSON.stringify(formData.intakeQuestions),
-        userId: user.id
+        name: formData.name.trim(),
+        description: formData.description || '',
+        price: parseFloat(formData.price) || 0,
+        duration: parseInt(formData.duration) || 60,
+        category: categoryName,
+        modifiers: formData.modifiers && formData.modifiers.length > 0 
+          ? JSON.stringify(formData.modifiers) 
+          : JSON.stringify([]),
+        intake_questions: formData.intakeQuestions && formData.intakeQuestions.length > 0
+          ? JSON.stringify(formData.intakeQuestions)
+          : null
       };
 
-      const createdService = await servicesAPI.create(serviceData);
+      console.log('Creating service with data:', serviceData);
+      const response = await servicesAPI.create(serviceData);
+      console.log('Service created successfully:', response);
       
-      // Add the created service to the job
+      // Extract service from response
+      const createdService = response.service || response;
+      
+      if (!createdService) {
+        throw new Error('Service creation failed - no service returned');
+      }
+      
+      // Call callback with created service
       onServiceCreated(createdService);
       
-      // Reset form and close modal
-    setFormData({
+      // Reset form
+      setFormData({
         categoryId: '',
         name: '',
         description: '',
@@ -258,11 +293,17 @@ const CreateServiceModal = ({
         intakeQuestions: []
       });
       setCurrentStep(1);
+      setSelectedModifiers({});
+      setValidationErrors({});
+      setError('');
       onClose();
       
     } catch (error) {
       console.error('Error creating service:', error);
-      alert('Error creating service. Please try again.');
+      const errorMessage = error.response?.data?.error || 
+                          error.message || 
+                          'Failed to create service. Please try again.';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -282,74 +323,89 @@ const CreateServiceModal = ({
       intakeQuestions: []
     });
     setSelectedModifiers({});
+    setValidationErrors({});
+    setError('');
     onClose();
   };
 
   const getStepTitle = () => {
     switch (currentStep) {
       case 1: return 'Select Category';
-      case 2: return 'Basic Information';
-      case 3: return 'Service Modifiers';
+      case 2: return 'Service Details';
+      case 3: return 'Service Options';
       case 4: return 'Intake Questions';
-      case 5: return 'Review & Create';
+      case 5: return 'Review';
       default: return 'Create Service';
     }
   };
 
   const getStepDescription = () => {
     switch (currentStep) {
-      case 1: return 'Choose a category for your new service';
+      case 1: return 'Choose a category for your service';
       case 2: return 'Enter basic information about your service';
-      case 3: return 'Configure service options and modifiers';
-      case 4: return 'Set up customer intake questions';
-      case 5: return 'Review your service details before creating';
+      case 3: return 'Configure modifiers and options (optional)';
+      case 4: return 'Set up customer intake questions (optional)';
+      case 5: return 'Review your service before creating';
       default: return '';
     }
   };
 
   if (!isOpen) return null;
 
+  const selectedCategory = categories.find(cat => 
+    cat.id === formData.categoryId || 
+    cat.id?.toString() === formData.categoryId?.toString()
+  );
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[95vh] overflow-hidden flex flex-col">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" style={{ fontFamily: 'Montserrat' }}>
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <div className="flex items-center space-x-4">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
+          <div className="flex items-center gap-4">
             {currentStep > 1 && (
               <button
                 onClick={handleBack}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                className="p-2 hover:bg-gray-50 rounded-lg transition-colors"
+                type="button"
               >
-                <ChevronLeft className="w-5 h-5" />
+                <ChevronLeft className="w-5 h-5 text-gray-600" />
               </button>
             )}
             <div>
-              <h2 className="text-xl font-semibold text-gray-900">{getStepTitle()}</h2>
-              <p className="text-sm text-gray-600 mt-1">{getStepDescription()}</p>
+              <h2 className="text-xl font-bold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
+                {getStepTitle()}
+              </h2>
+              <p className="text-sm text-gray-500 mt-0.5" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                {getStepDescription()}
+              </p>
             </div>
           </div>
           <button
             onClick={handleClose}
-            className="text-gray-400 hover:text-gray-500 hover:bg-gray-100 p-2 rounded-full transition-colors"
+            className="p-2 hover:bg-gray-50 rounded-lg transition-colors text-gray-400 hover:text-gray-600"
+            type="button"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Progress Bar */}
-        <div className="px-6 py-3 bg-gray-50 border-b border-gray-200">
-          <div className="flex items-center space-x-2">
+        {/* Progress Indicator */}
+        <div className="px-6 py-4 bg-gray-50/50 border-b border-gray-100">
+          <div className="flex items-center gap-2">
             {[1, 2, 3, 4, 5].map((step) => (
               <React.Fragment key={step}>
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                  step <= currentStep 
+                <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium transition-all ${
+                  step < currentStep 
                     ? 'bg-blue-600 text-white' 
-                    : 'bg-gray-200 text-gray-600'
+                    : step === currentStep
+                    ? 'bg-blue-600 text-white ring-2 ring-blue-600 ring-offset-2'
+                    : 'bg-gray-200 text-gray-500'
                 }`}>
-                  {step}
+                  {step < currentStep ? <CheckCircle2 className="w-4 h-4" /> : step}
                 </div>
                 {step < 5 && (
-                  <div className={`w-8 h-1 ${
+                  <div className={`h-0.5 flex-1 transition-all ${
                     step < currentStep ? 'bg-blue-600' : 'bg-gray-200'
                   }`} />
                 )}
@@ -358,19 +414,30 @@ const CreateServiceModal = ({
           </div>
         </div>
 
+        {/* Error Message */}
+        {error && (
+          <div className="mx-6 mt-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-red-700">{error}</p>
+          </div>
+        )}
+
         {/* Content */}
-        <div className="p-6 flex-1 overflow-y-auto pb-8">
+        <div className="p-6 flex-1 overflow-y-auto">
           {/* Step 1: Category Selection */}
           {currentStep === 1 && (
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                   Service Category <span className="text-red-500">*</span>
                 </label>
                 <select
                   value={formData.categoryId}
                   onChange={(e) => handleInputChange('categoryId', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className={`w-full px-4 py-3 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
+                    validationErrors.categoryId ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                  }`}
+                  style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                   required
                 >
                   <option value="">Select a category...</option>
@@ -381,10 +448,13 @@ const CreateServiceModal = ({
                     </option>
                   ))}
                 </select>
+                {validationErrors.categoryId && (
+                  <p className="text-sm text-red-600 mt-1">{validationErrors.categoryId}</p>
+                )}
               </div>
               
-              {loading && (
-                <div className="text-center py-4">
+              {categoriesLoading && (
+                <div className="text-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
                   <p className="text-sm text-gray-600 mt-2">Loading categories...</p>
                 </div>
@@ -394,37 +464,44 @@ const CreateServiceModal = ({
 
           {/* Step 2: Basic Information */}
           {currentStep === 2 && (
-            <div className="space-y-4">
+            <div className="space-y-5">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                   Service Name <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
-                value={formData.name}
-                onChange={(e) => handleInputChange('name', e.target.value)}
+                  value={formData.name}
+                  onChange={(e) => handleInputChange('name', e.target.value)}
                   placeholder="e.g., Home Cleaning, Plumbing Repair"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                required
+                  className={`w-full px-4 py-3 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
+                    validationErrors.name ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                  }`}
+                  style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
+                  required
                 />
-            </div>
+                {validationErrors.name && (
+                  <p className="text-sm text-red-600 mt-1">{validationErrors.name}</p>
+                )}
+              </div>
 
-            <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                Description
-              </label>
-              <textarea
-                value={formData.description}
-                onChange={(e) => handleInputChange('description', e.target.value)}
-                placeholder="Describe what this service includes..."
-                rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                  Description
+                </label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => handleInputChange('description', e.target.value)}
+                  placeholder="Describe what this service includes..."
+                  rows={3}
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none"
+                  style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                 />
               </div>
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                     Price ($) <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -434,13 +511,19 @@ const CreateServiceModal = ({
                     value={formData.price}
                     onChange={(e) => handleInputChange('price', e.target.value)}
                     placeholder="0.00"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className={`w-full px-4 py-3 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
+                      validationErrors.price ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                    }`}
+                    style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                     required
                   />
+                  {validationErrors.price && (
+                    <p className="text-sm text-red-600 mt-1">{validationErrors.price}</p>
+                  )}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                     Duration (minutes) <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -449,37 +532,15 @@ const CreateServiceModal = ({
                     value={formData.duration}
                     onChange={(e) => handleInputChange('duration', e.target.value)}
                     placeholder="60"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className={`w-full px-4 py-3 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
+                      validationErrors.duration ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                    }`}
+                    style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                     required
                   />
-                </div>
-            </div>
-
-              <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Workers Required
-              </label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={formData.workers}
-                    onChange={(e) => handleInputChange('workers', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Skills Required
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={formData.skills}
-                    onChange={(e) => handleInputChange('skills', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
+                  {validationErrors.duration && (
+                    <p className="text-sm text-red-600 mt-1">{validationErrors.duration}</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -489,22 +550,23 @@ const CreateServiceModal = ({
           {currentStep === 3 && (
             <div className="space-y-4">
               <div className="flex items-center justify-between mb-4">
-            <div>
-                  <h3 className="text-lg font-medium text-gray-900">Service Modifiers</h3>
-                  <p className="text-sm text-gray-600">Configure options and modifiers for your service</p>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Service Modifiers</h3>
+                  <p className="text-sm text-gray-500 mt-0.5">Configure options and modifiers for your service (optional)</p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setIsCreateModifierGroupModalOpen(true)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm font-medium"
+                  style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                 >
                   <Plus className="w-4 h-4" />
-                  <span>New Modifier Group</span>
+                  Add Modifier
                 </button>
               </div>
 
               {formData.modifiers.length > 0 ? (
-                <div className="bg-gray-50 rounded-lg p-6">
+                <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
                   <ServiceModifiersForm 
                     modifiers={formData.modifiers}
                     selectedModifiers={selectedModifiers}
@@ -514,16 +576,17 @@ const CreateServiceModal = ({
                   />
                 </div>
               ) : (
-                <div className="text-center py-8">
-                  <Tag className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Modifiers Added</h3>
-                  <p className="text-sm text-gray-600 mb-4">
-                    Add modifier groups to give customers options for your service
+                <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-lg bg-gray-50/50">
+                  <Sparkles className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                  <h3 className="text-base font-medium text-gray-900 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>No Modifiers Added</h3>
+                  <p className="text-sm text-gray-500 mb-4">
+                    Add modifier groups to give customers options
                   </p>
                   <button
                     type="button"
                     onClick={() => setIsCreateModifierGroupModalOpen(true)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                    style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                   >
                     Add Your First Modifier
                   </button>
@@ -537,70 +600,62 @@ const CreateServiceModal = ({
             <div className="space-y-4">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h3 className="text-lg font-medium text-gray-900">Intake Questions</h3>
-                  <p className="text-sm text-gray-600">Set up questions to collect additional information from customers</p>
+                  <h3 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Intake Questions</h3>
+                  <p className="text-sm text-gray-500 mt-0.5">Set up questions to collect additional information (optional)</p>
                 </div>
-                <div className="flex space-x-2">
+                <div className="flex gap-2">
                   <button
                     type="button"
                     onClick={() => handleOpenIntakeModal('short_text')}
-                    className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                    className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                    style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                   >
                     Short Text
                   </button>
                   <button
                     type="button"
                     onClick={() => handleOpenIntakeModal('multiple_choice')}
-                    className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+                    className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                    style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                   >
                     Multiple Choice
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleOpenIntakeModal('dropdown')}
-                    className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm"
-                  >
-                    Dropdown
                   </button>
                 </div>
               </div>
 
               {formData.intakeQuestions.length > 0 ? (
-                <div className="space-y-4">
-                  {formData.intakeQuestions.map((question, index) => (
+                <div className="space-y-3">
+                  {formData.intakeQuestions.map((question) => (
                     <div key={question.id} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <div className="flex items-center space-x-2 mb-2">
-                            <span className="text-sm font-medium text-gray-700">
-                              {question.questionType === 'short_text' && '📝'}
-                              {question.questionType === 'multiple_choice' && '☑️'}
-                              {question.questionType === 'dropdown' && '📋'}
-                              {question.questionType === 'long_text' && '📄'}
-                            </span>
-                            <span className="text-sm font-medium text-gray-900">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-sm">{question.questionType === 'short_text' && '📝'}{question.questionType === 'multiple_choice' && '☑️'}{question.questionType === 'dropdown' && '📋'}</span>
+                            <span className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                               {question.question}
                             </span>
                             {question.required && (
-                              <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">Required</span>
+                              <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded">Required</span>
                             )}
                           </div>
                           {question.description && (
-                            <p className="text-sm text-gray-600">{question.description}</p>
+                            <p className="text-sm text-gray-600 ml-6">{question.description}</p>
                           )}
                         </div>
-                        <div className="flex items-center space-x-2">
+                        <div className="flex items-center gap-2">
                           <button
                             type="button"
                             onClick={() => handleEditIntakeQuestion(question)}
-                            className="text-blue-600 hover:text-blue-700 text-sm"
+                            className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                            style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                           >
                             Edit
                           </button>
                           <button
                             type="button"
                             onClick={() => handleDeleteIntakeQuestion(question.id)}
-                            className="text-red-600 hover:text-red-700 text-sm"
+                            className="text-red-600 hover:text-red-700 text-sm font-medium"
+                            style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                           >
                             Delete
                           </button>
@@ -610,28 +665,20 @@ const CreateServiceModal = ({
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-8">
-                  <Tag className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Questions Added</h3>
-                  <p className="text-sm text-gray-600 mb-4">
+                <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-lg bg-gray-50/50">
+                  <Tag className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                  <h3 className="text-base font-medium text-gray-900 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>No Questions Added</h3>
+                  <p className="text-sm text-gray-500 mb-4">
                     Add questions to collect additional information from customers
                   </p>
-                  <div className="flex justify-center space-x-2">
-                    <button
-                      type="button"
-                      onClick={() => handleOpenIntakeModal('short_text')}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                      Add Short Text Question
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleOpenIntakeModal('multiple_choice')}
-                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                    >
-                      Add Multiple Choice
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenIntakeModal('short_text')}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                    style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
+                  >
+                    Add Question
+                  </button>
                 </div>
               )}
             </div>
@@ -640,75 +687,57 @@ const CreateServiceModal = ({
           {/* Step 5: Review */}
           {currentStep === 5 && (
             <div className="space-y-6">
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Service Summary</h3>
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-blue-600 rounded-lg">
+                    <Sparkles className="w-5 h-5 text-white" />
+                  </div>
+                  <h3 className="text-lg font-bold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Service Summary</h3>
+                </div>
                 
                 <div className="space-y-3">
-                  <div>
-                    <span className="font-medium text-gray-700">Name:</span>
-                    <span className="ml-2">{formData.name}</span>
+                  <div className="flex justify-between py-2 border-b border-blue-100">
+                    <span className="font-medium text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Name:</span>
+                    <span className="text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>{formData.name}</span>
                   </div>
                   
-                  <div>
-                    <span className="font-medium text-gray-700">Category:</span>
-                    <span className="ml-2">
-                      {(() => {
-                        console.log('🔧 Service Summary - formData.categoryId:', formData.categoryId, 'type:', typeof formData.categoryId);
-                        console.log('🔧 Service Summary - categories:', categories);
-                        console.log('🔧 Service Summary - categories IDs:', categories.map(c => ({ id: c.id, name: c.name, idType: typeof c.id })));
-                        
-                        // Try different comparison methods
-                        const foundCategory = categories.find(c => c.id === formData.categoryId);
-                        const foundCategoryLoose = categories.find(c => c.id == formData.categoryId); // eslint-disable-line eqeqeq
-                        const foundCategoryString = categories.find(c => String(c.id) === String(formData.categoryId));
-                        
-                        console.log('🔧 Service Summary - foundCategory (strict):', foundCategory);
-                        console.log('🔧 Service Summary - foundCategory (loose):', foundCategoryLoose);
-                        console.log('🔧 Service Summary - foundCategory (string):', foundCategoryString);
-                        
-                        const finalCategory = foundCategory || foundCategoryLoose || foundCategoryString;
-                        console.log('🔧 Service Summary - finalCategory:', finalCategory);
-                        
-                        return finalCategory?.name || 'Not selected';
-                      })()}
+                  <div className="flex justify-between py-2 border-b border-blue-100">
+                    <span className="font-medium text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Category:</span>
+                    <span className="text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                      {selectedCategory?.name || formData.categoryId === 'uncategorized' ? 'Uncategorized' : 'Not selected'}
                     </span>
                   </div>
                   
-                  <div>
-                    <span className="font-medium text-gray-700">Price:</span>
-                    <span className="ml-2">${formData.price}</span>
+                  <div className="flex justify-between py-2 border-b border-blue-100">
+                    <span className="font-medium text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Price:</span>
+                    <span className="text-gray-900 font-semibold" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>${parseFloat(formData.price || 0).toFixed(2)}</span>
                   </div>
                   
-                  <div>
-                    <span className="font-medium text-gray-700">Duration:</span>
-                    <span className="ml-2">{formData.duration} minutes</span>
-                  </div>
-                  
-                  <div>
-                    <span className="font-medium text-gray-700">Workers:</span>
-                    <span className="ml-2">{formData.workers}</span>
+                  <div className="flex justify-between py-2 border-b border-blue-100">
+                    <span className="font-medium text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Duration:</span>
+                    <span className="text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>{formData.duration} minutes</span>
                   </div>
                   
                   {formData.description && (
-                    <div>
-                      <span className="font-medium text-gray-700">Description:</span>
-                      <p className="ml-2 text-sm text-gray-600">{formData.description}</p>
+                    <div className="pt-2">
+                      <span className="font-medium text-gray-700 block mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Description:</span>
+                      <p className="text-sm text-gray-600">{formData.description}</p>
                     </div>
                   )}
                   
                   {formData.modifiers.length > 0 && (
-                    <div>
-                      <span className="font-medium text-gray-700">Modifiers:</span>
-                      <span className="ml-2">{formData.modifiers.length} configured</span>
+                    <div className="flex justify-between py-2">
+                      <span className="font-medium text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Modifiers:</span>
+                      <span className="text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>{formData.modifiers.length} configured</span>
                     </div>
                   )}
                   
                   {formData.intakeQuestions.length > 0 && (
-                    <div>
-                      <span className="font-medium text-gray-700">Intake Questions:</span>
-                      <span className="ml-2">{formData.intakeQuestions.length} configured</span>
-                  </div>
-                )}
+                    <div className="flex justify-between py-2">
+                      <span className="font-medium text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Intake Questions:</span>
+                      <span className="text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>{formData.intakeQuestions.length} configured</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -716,33 +745,39 @@ const CreateServiceModal = ({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between p-6 border-t border-gray-200 bg-gray-50 flex-shrink-0">
-          <div className="text-sm text-gray-600">
+        <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 bg-gray-50/50 flex-shrink-0">
+          <div className="text-sm text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
             Step {currentStep} of 5
-            </div>
+          </div>
 
-          <div className="flex space-x-3">
-                <button
+          <div className="flex gap-3">
+            <button
               onClick={handleClose}
-              className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  Cancel
-                </button>
+              className="px-5 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium text-sm"
+              style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
+              type="button"
+            >
+              Cancel
+            </button>
             
             {currentStep < 5 ? (
               <button
                 onClick={handleNext}
                 disabled={!formData.categoryId || (currentStep === 2 && !formData.name)}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+                className="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2 font-medium text-sm"
+                style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
+                type="button"
               >
                 <span>Next</span>
                 <ChevronRight className="w-4 h-4" />
               </button>
             ) : (
-                <button
+              <button
                 onClick={handleCreateService}
                 disabled={loading}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+                className="px-5 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2 font-medium text-sm"
+                style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
+                type="button"
               >
                 {loading ? (
                   <>
@@ -751,8 +786,8 @@ const CreateServiceModal = ({
                   </>
                 ) : (
                   <>
-                    <Plus className="w-4 h-4" />
-                  <span>Create Service</span>
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Create Service</span>
                   </>
                 )}
               </button>
@@ -761,7 +796,7 @@ const CreateServiceModal = ({
         </div>
       </div>
 
-      {/* Modals */}
+      {/* Nested Modals */}
       <CreateModifierGroupModal
         isOpen={isCreateModifierGroupModalOpen}
         onClose={() => {

@@ -1,9 +1,9 @@
 import './App.css';
 import './index.css'
-import { Navigate } from 'react-router-dom';
+import LandingPageSimple from './pages/LandingPageSimple';
 
 function App() {
-  return <Navigate to="/dashboard" replace />;
+  return <LandingPageSimple />;
 }
 
 export default App;
