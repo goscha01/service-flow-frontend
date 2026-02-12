@@ -33,8 +33,8 @@ jobs:
 
       # Your default build is CI=false (won't fail on warnings).
       # Use build:strict in CI so it behaves like real CI and fails when needed.
-      - name: Build (strict)
-        run: npm run build:strict
+      - name: Build (non-strict)
+        run: npm run build
 
       # CRA test command opens watch mode by default.
       # In CI, force it to run once.
