@@ -28,22 +28,29 @@ const ImportCustomersModal = ({ isOpen, onClose, onImportSuccess }) => {
   }
 
   const parseCSV = (csvText) => {
-    const lines = csvText.split('\n')
-    const headers = lines[0].split(',').map(h => h.trim())
+    const lines = csvText.split('\n').filter(line => line.trim())
+    if (lines.length < 2) return []
+    
+    // Parse CSV header
+    const headers = parseCSVLine(lines[0])
     const customers = []
     
     for (let i = 1; i < lines.length; i++) {
       if (lines[i].trim()) {
-        const values = lines[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''))
+        const values = parseCSVLine(lines[i])
         const customer = {}
         
         headers.forEach((header, index) => {
           const value = values[index] || ''
-          switch (header.toLowerCase()) {
+          const headerLower = header.toLowerCase().trim()
+          
+          switch (headerLower) {
             case 'first name':
+            case 'firstname':
               customer.firstName = value
               break
             case 'last name':
+            case 'lastname':
               customer.lastName = value
               break
             case 'email':
@@ -55,11 +62,27 @@ const ImportCustomersModal = ({ isOpen, onClose, onImportSuccess }) => {
             case 'address':
               customer.address = value
               break
+            case 'city':
+              customer.city = value
+              break
+            case 'state':
+              customer.state = value
+              break
+            case 'zip code':
+            case 'zipcode':
+            case 'zip':
+              customer.zipCode = value
+              break
             case 'notes':
               customer.notes = value
               break
             case 'status':
-              customer.status = value || 'active'
+              // Only set status if it's a valid value
+              if (value && ['active', 'inactive', 'pending'].includes(value.toLowerCase())) {
+                customer.status = value.toLowerCase()
+              } else {
+                customer.status = 'active' // default
+              }
               break
           }
         })
@@ -71,6 +94,29 @@ const ImportCustomersModal = ({ isOpen, onClose, onImportSuccess }) => {
     }
     
     return customers
+  }
+
+  // Helper function to parse CSV line properly handling quoted values
+  const parseCSVLine = (line) => {
+    const result = []
+    let current = ''
+    let inQuotes = false
+    
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i]
+      
+      if (char === '"') {
+        inQuotes = !inQuotes
+      } else if (char === ',' && !inQuotes) {
+        result.push(current.trim())
+        current = ''
+      } else {
+        current += char
+      }
+    }
+    
+    result.push(current.trim())
+    return result
   }
 
   const handleImport = async () => {
@@ -89,7 +135,7 @@ const ImportCustomersModal = ({ isOpen, onClose, onImportSuccess }) => {
         return
       }
       
-      const result = await customersAPI.import(customers)
+      const result = await customersAPI.importCustomers(customers)
       setImportResult(result)
       
       if (result.imported > 0) {

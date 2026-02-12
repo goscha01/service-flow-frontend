@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Sidebar from '../components/sidebar'
-import MobileHeader from '../components/mobile-header'
 import AddressValidation from '../components/address-validation'
 import AddressAutocomplete from '../components/address-autocomplete'
 import { 
@@ -29,8 +28,11 @@ import {
   User,
   AlertCircle
 } from 'lucide-react'
-import { teamAPI, territoriesAPI } from '../services/api'
+import { teamAPI, territoriesAPI, staffLocationsAPI } from '../services/api'
 import UpdateAvailabilityModal from '../components/update-availability-modal'
+import AddTeamMemberModal from '../components/add-team-member-modal'
+import { getImageUrl } from '../utils/imageUtils'
+import { decodeHtmlEntities } from '../utils/htmlUtils'
 
 const TeamMemberDetails = () => {
   const { memberId } = useParams()
@@ -46,6 +48,8 @@ const TeamMemberDetails = () => {
   const [editFormData, setEditFormData] = useState({})
   const [territories, setTerritories] = useState([])
   const [displayedTerritories, setDisplayedTerritories] = useState([])
+  const [hasLoadedAvailability, setHasLoadedAvailability] = useState(false) // Track if availability has been loaded
+  const [hasLoadedPermissions, setHasLoadedPermissions] = useState(false) // Track if permissions have been loaded
   const [workingHours, setWorkingHours] = useState({
     sunday: { available: false, hours: "" },
     monday: { available: true, hours: "9:00 AM - 6:00 PM" },
@@ -80,6 +84,8 @@ const TeamMemberDetails = () => {
     revenueGenerated: 0
   })
   const [recentJobs, setRecentJobs] = useState([])
+  const [allTeamMembers, setAllTeamMembers] = useState([]) // For map display
+  const [staffLocationsEnabled, setStaffLocationsEnabled] = useState(true) // Global setting for staff locations
   
   // Google Places Autocomplete
   const addressRef = useRef(null)
@@ -98,6 +104,7 @@ const TeamMemberDetails = () => {
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState("")
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [resendingInvite, setResendingInvite] = useState(false)
   
   // Notifications
   const [notification, setNotification] = useState(null)
@@ -107,8 +114,38 @@ const TeamMemberDetails = () => {
     if (memberId) {
       fetchTeamMemberDetails()
       fetchAvailableTerritories()
+      fetchAllTeamMembers() // Fetch all members for map
+      fetchStaffLocationsSetting() // Fetch global setting
+    } else if (user?.teamMemberId) {
+      // If no memberId in URL but user is a team member, navigate to their own profile
+      navigate(`/team/${user.teamMemberId}`, { replace: true })
     }
-  }, [memberId])
+  }, [memberId, user?.teamMemberId])
+
+  // Fetch global staff locations setting
+  const fetchStaffLocationsSetting = async () => {
+    try {
+      const response = await staffLocationsAPI.getStaffLocationsSetting()
+      setStaffLocationsEnabled(response?.staff_locations_enabled !== false) // Default to true
+    } catch (error) {
+      console.error('Error fetching staff locations setting:', error)
+      // Default to enabled if error
+      setStaffLocationsEnabled(true)
+    }
+  }
+
+  // Fetch all team members for map display
+  const fetchAllTeamMembers = async () => {
+    try {
+      if (user?.id) {
+        const response = await teamAPI.getAll(user.id, { status: 'active' })
+        const members = response.teamMembers || response || []
+        setAllTeamMembers(members)
+      }
+    } catch (error) {
+      console.error('Error fetching all team members:', error)
+    }
+  }
 
 
 
@@ -118,9 +155,13 @@ const TeamMemberDetails = () => {
       setError('')
       
       console.log('Fetching team member with ID:', memberId)
+      console.log('Current user:', user)
+      console.log('User teamMemberId:', user?.teamMemberId)
       const response = await teamAPI.getById(memberId)
       console.log('Team member response:', response)
       console.log('Team member data:', JSON.stringify(response, null, 2))
+      console.log('Team member availability from API:', response.teamMember?.availability)
+      console.log('Team member permissions from API:', response.teamMember?.permissions)
       console.log('Team member territories from API:', response.teamMember?.territories)
       
       if (response && response.teamMember) {
@@ -196,8 +237,8 @@ const TeamMemberDetails = () => {
           setTerritories([])
         }
 
-        // Parse availability
-        if (teamMemberData.availability) {
+        // Parse availability - use actual data from database, only use defaults if truly no data exists
+        if (teamMemberData.availability !== null && teamMemberData.availability !== undefined) {
           try {
             let parsedAvailability;
             
@@ -220,26 +261,41 @@ const TeamMemberDetails = () => {
               if (parsedAvailability.workingHours) {
                 setWorkingHours(parsedAvailability.workingHours)
               }
-              if (parsedAvailability.customAvailability) {
-                setCustomAvailability(parsedAvailability.customAvailability)
+              if (parsedAvailability.customAvailability !== undefined) {
+                setCustomAvailability(parsedAvailability.customAvailability || [])
               }
+              setHasLoadedAvailability(true) // Mark as loaded
             }
           } catch (e) {
             console.error('Error processing availability:', e)
-            setWorkingHours({
-              sunday: { available: false, hours: "" },
-              monday: { available: true, hours: "9:00 AM - 6:00 PM" },
-              tuesday: { available: true, hours: "9:00 AM - 6:00 PM" },
-              wednesday: { available: true, hours: "9:00 AM - 6:00 PM" },
-              thursday: { available: true, hours: "9:00 AM - 6:00 PM" },
-              friday: { available: true, hours: "9:00 AM - 6:00 PM" },
-              saturday: { available: false, hours: "" }
-            })
+            // Don't reset to defaults on error - data might exist but be malformed
+            setHasLoadedAvailability(true) // Mark as attempted to load
           }
+        } else {
+          // No availability in database (null or undefined)
+          // Only set defaults if this is the first time loading (hasn't been loaded before)
+          if (!hasLoadedAvailability) {
+            // Only set defaults on first load when no data exists
+            console.log('No availability in database, setting defaults for first load')
+          setWorkingHours({
+            sunday: { available: false, hours: "" },
+            monday: { available: true, hours: "9:00 AM - 6:00 PM" },
+            tuesday: { available: true, hours: "9:00 AM - 6:00 PM" },
+            wednesday: { available: true, hours: "9:00 AM - 6:00 PM" },
+            thursday: { available: true, hours: "9:00 AM - 6:00 PM" },
+            friday: { available: true, hours: "9:00 AM - 6:00 PM" },
+            saturday: { available: false, hours: "" }
+          })
+            setCustomAvailability([])
+          } else {
+            // Already loaded before, availability is null - keep current state (don't reset)
+            console.log('No availability in database, but already loaded - keeping current state')
+          }
+          setHasLoadedAvailability(true) // Mark as loaded (even though it's null)
         }
 
-        // Parse permissions/settings
-        if (teamMemberData.permissions) {
+        // Parse permissions/settings - use actual data from database
+        if (teamMemberData.permissions !== null && teamMemberData.permissions !== undefined) {
           try {
             let parsedPermissions;
             
@@ -259,11 +315,20 @@ const TeamMemberDetails = () => {
             }
             
             if (parsedPermissions && typeof parsedPermissions === 'object') {
+              // Use the actual permissions from database
               setSettings(parsedPermissions);
+              setHasLoadedPermissions(true) // Mark as loaded
             }
           } catch (e) {
             console.error('Error processing permissions:', e)
+            // Don't reset settings on error - keep current state
+            setHasLoadedPermissions(true) // Mark as attempted to load
           }
+        } else {
+          // No permissions in database (null or undefined)
+          // Don't apply defaults - use empty object to ensure each worker only has explicitly saved permissions
+          setSettings({});
+          setHasLoadedPermissions(true) // Mark as loaded (even though it's null)
         }
 
         // Set recent jobs if available
@@ -281,19 +346,24 @@ const TeamMemberDetails = () => {
 
   const handleEditMember = () => {
     setEditFormData({
-      first_name: teamMember.first_name || '',
-      last_name: teamMember.last_name || '',
-      email: teamMember.email || '',
-      phone: teamMember.phone || '',
-      role: teamMember.role || '',
-      location: teamMember.location || '',
-      city: teamMember.city || '',
-      state: teamMember.state || '',
-      zip_code: teamMember.zip_code || '',
-      is_service_provider: teamMember.is_service_provider || false,
-      color: teamMember.color || '#2563EB'
+      first_name: teamMember?.first_name || '',
+      last_name: teamMember?.last_name || '',
+      email: teamMember?.email || '',
+      phone: teamMember?.phone || '',
+      role: teamMember?.role || '',
+      location: teamMember?.location || '',
+      city: teamMember?.city || '',
+      state: teamMember?.state || '',
+      zip_code: teamMember?.zip_code || '',
+      hourly_rate: teamMember?.hourly_rate || null,
+      commission_percentage: teamMember?.commission_percentage || null
     })
     setEditing(true)
+  }
+
+  const handleMemberUpdate = () => {
+    fetchTeamMemberDetails()
+    setEditing(false)
   }
 
   const handleSaveMember = async () => {
@@ -334,25 +404,60 @@ const TeamMemberDetails = () => {
     setShowDeleteModal(true)
   }
 
-  const confirmDeleteMember = async () => {
+  const handleResendInvite = async () => {
+    if (!teamMember?.id) return;
+    
+    try {
+      setResendingInvite(true);
+      await teamAPI.resendInvite(teamMember.id);
+      setNotification({
+        type: 'success',
+        message: 'Invitation email sent successfully!'
+      });
+      // Clear notification after 3 seconds
+      setTimeout(() => setNotification(null), 3000);
+    } catch (error) {
+      console.error('Error resending invite:', error);
+      setNotification({
+        type: 'error',
+        message: error.response?.data?.error || 'Failed to resend invitation. Please try again.'
+      });
+      // Clear notification after 5 seconds
+      setTimeout(() => setNotification(null), 5000);
+    } finally {
+      setResendingInvite(false);
+    }
+  }
+
+  const confirmDeactivateMember = async () => {
+    // Prevent deactivating account owner
+    if (teamMember?.role === 'account owner' || teamMember?.role === 'owner' || teamMember?.role === 'admin') {
+      setDeleteError('Cannot deactivate account owner')
+      return
+    }
+    
     try {
       setDeleting(true)
       setDeleteError("") // Clear any previous errors
-      await teamAPI.delete(memberId)
+      await teamAPI.update(memberId, { status: 'inactive' })
       
-      // Show success notification before navigating
+      // Refresh team member data to reflect the status change
+      await fetchTeamMemberDetails()
+      
+      // Show success notification
       setNotification({
         type: 'success',
-        message: `Team member has been deleted successfully.`
+        message: `Team member has been deactivated successfully.`
       })
       
-      // Navigate back to team page
-      navigate('/team')
+      // Close the modal
+      setShowDeleteModal(false)
+      setTimeout(() => setNotification(null), 3000)
     } catch (error) {
-      console.error('Error deleting team member:', error)
+      console.error('Error deactivating team member:', error)
       
       // Enhanced error handling with specific error types
-      let errorMessage = 'Failed to delete team member. Please try again.'
+      let errorMessage = 'Failed to deactivate team member. Please try again.'
       
       if (error.response?.data) {
         const errorData = error.response.data
@@ -460,15 +565,27 @@ const TeamMemberDetails = () => {
   const handleRemoveTerritory = async (territoryToRemove) => {
     try {
       console.log('Removing territory:', territoryToRemove)
+      console.log('Current territories:', territories)
+      
+      // Get the territory ID to remove
+      let territoryIdToRemove
+      if (typeof territoryToRemove === 'object' && territoryToRemove.id) {
+        territoryIdToRemove = territoryToRemove.id
+      } else {
+        territoryIdToRemove = territoryToRemove
+      }
+      
+      console.log('Territory ID to remove:', territoryIdToRemove)
       
       // Remove the territory by its ID from the territories array
       const updatedTerritories = territories.filter(territoryId => {
         const numericId = typeof territoryId === 'string' ? parseInt(territoryId) : territoryId
-        const removeId = typeof territoryToRemove === 'object' ? territoryToRemove.id : territoryToRemove
-        const numericRemoveId = typeof removeId === 'string' ? parseInt(removeId) : removeId
+        const numericRemoveId = typeof territoryIdToRemove === 'string' ? parseInt(territoryIdToRemove) : territoryIdToRemove
         
         console.log('Comparing territory ID:', numericId, 'with remove ID:', numericRemoveId)
-        return numericId !== numericRemoveId
+        const shouldKeep = numericId !== numericRemoveId
+        console.log('Should keep territory:', shouldKeep)
+        return shouldKeep
       })
       
       console.log('Updated territories after removal:', updatedTerritories)
@@ -588,22 +705,80 @@ const TeamMemberDetails = () => {
     setShowAvailabilityModal(true)
   }
 
-  const handleAvailabilityModalSave = (availabilityData) => {
-    // Handle multiple dates for vacation periods
-    const newAvailabilityItems = availabilityData.dates.map(date => ({
-      id: Date.now() + Math.random(), // Ensure unique IDs
-      date: date,
-      available: availabilityData.type === 'time_period',
-      hours: availabilityData.type === 'time_period' 
-        ? availabilityData.timeSlots.map(slot => `${slot.start}-${slot.end}`).join(', ')
-        : 'Unavailable'
-    }))
+  const handleAvailabilityModalSave = async (availabilityData) => {
+    // Handle single date availability update
+    const existingIndex = customAvailability.findIndex(item => item.date === availabilityData.date)
     
-    setCustomAvailability(prev => [...prev, ...newAvailabilityItems])
+    const availabilityItem = {
+      id: existingIndex >= 0 ? customAvailability[existingIndex].id : Date.now() + Math.random(),
+      date: availabilityData.date,
+      available: availabilityData.available,
+      hours: availabilityData.hours
+    }
+    
+    if (existingIndex >= 0) {
+      // Update existing
+      setCustomAvailability(prev => prev.map((item, index) => 
+        index === existingIndex ? availabilityItem : item
+      ))
+    } else {
+      // Add new
+      setCustomAvailability(prev => [...prev, availabilityItem])
+    }
+    
+    // Save to backend
+    try {
+      setSavingCustomAvailability(true)
+      
+      const updateData = {
+        availability: JSON.stringify({
+          workingHours,
+          customAvailability: existingIndex >= 0 
+            ? customAvailability.map((item, index) => index === existingIndex ? availabilityItem : item)
+            : [...customAvailability, availabilityItem]
+        })
+      }
+      
+      await teamAPI.update(memberId, updateData)
+      
+      // Refresh team member data
+      await fetchTeamMemberDetails()
+    } catch (error) {
+      console.error('Error saving custom availability:', error)
+      alert('Failed to save availability. Please try again.')
+    } finally {
+      setSavingCustomAvailability(false)
+    }
   }
 
-  const handleRemoveCustomAvailability = (id) => {
-    setCustomAvailability(prev => prev.filter(item => item.id !== id))
+  const handleRemoveCustomAvailability = async (id) => {
+    try {
+      setSavingCustomAvailability(true)
+      
+      // Remove from local state
+      const updatedCustomAvailability = customAvailability.filter(item => item.id !== id)
+      setCustomAvailability(updatedCustomAvailability)
+      
+      // Save to backend
+      const updateData = {
+        availability: JSON.stringify({
+          workingHours,
+          customAvailability: updatedCustomAvailability
+        })
+      }
+      
+      await teamAPI.update(memberId, updateData)
+      
+      // Refresh team member data
+      await fetchTeamMemberDetails()
+    } catch (error) {
+      console.error('Error removing custom availability:', error)
+      alert('Failed to remove date override. Please try again.')
+      // Revert local state on error
+      await fetchTeamMemberDetails()
+    } finally {
+      setSavingCustomAvailability(false)
+    }
   }
 
   const handleAddTimeSlot = (day) => {
@@ -786,7 +961,7 @@ const TeamMemberDetails = () => {
 
   // Map territory IDs to full territory objects when available territories load
   useEffect(() => {
-    if (availableTerritories.length > 0 && territories.length > 0) {
+    if (availableTerritories.length > 0) {
       const mappedTerritories = territories.map(territoryId => {
         // Ensure territoryId is a number for comparison
         const numericId = typeof territoryId === 'string' ? parseInt(territoryId) : territoryId
@@ -802,6 +977,9 @@ const TeamMemberDetails = () => {
       })
       
       setDisplayedTerritories(mappedTerritories)
+    } else if (territories.length === 0) {
+      // If no territories, clear displayed territories
+      setDisplayedTerritories([])
     }
   }, [availableTerritories, territories])
 
@@ -861,17 +1039,14 @@ const TeamMemberDetails = () => {
 
   return (
     <>
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+   <div className="flex h-screen bg-gray-50 overflow-hidden">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      
-      <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72 2xl:ml-80">
-          <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
-        
+
         {/* Notification Display */}
         {notification && (
           <div className={`fixed top-4 right-4 z-50 max-w-sm p-4 rounded-lg shadow-lg ${
-            notification.type === 'success' 
-              ? 'bg-green-50 border border-green-200 text-green-800' 
+            notification.type === 'success'
+              ? 'bg-green-50 border border-green-200 text-green-800'
               : 'bg-red-50 border border-red-200 text-red-800'
           }`}>
             <div className="flex items-center">
@@ -884,546 +1059,685 @@ const TeamMemberDetails = () => {
             </div>
           </div>
         )}
-        
-        <div className="flex-1 overflow-auto">
-          <div className="px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16 py-8 max-w-7xl mx-auto">
-            {/* Header */}
-            <div className="mb-8">
-              <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
-                <div className="flex items-center space-x-4">
-                  <button
-                    onClick={() => navigate("/team")}
-                    className="flex items-center text-sm text-gray-500 hover:text-gray-700"
-                  >
-                    <ChevronLeft className="w-4 h-4 mr-1" />
-                    All Team Members
-                  </button>
-                  <div className="h-6 w-px bg-gray-300 hidden sm:block"></div>
-                  <h1 className="text-2xl font-bold text-gray-900">Team Member Details</h1>
-                </div>
-                <div className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2">
-                  {!editing && (
-                  <button 
-                    onClick={handleEditMember}
-                    className="inline-flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                  >
-                    <Edit className="w-4 h-4 mr-2" />
-                    Edit
-                  </button>
-                  )}
-                  {editing && (
-                    <div className="flex items-center space-x-2">
+
+        <div className="flex-1 overflow-auto bg-gray-50">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+
+            {/* Main Content */}
+            <div className="space-y-4 sm:space-y-6">
+              {/* Profile Header Card with Map */}
+              <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-4 sm:mb-6 gap-4">
+            <button
+              onClick={() => navigate("/team")}
+                    className="flex items-center text-sm text-gray-600 hover:text-gray-900 self-start"
+            >
+              <ChevronLeft className="w-4 h-4 mr-1" />
+              All Team Members
+            </button>
+                  <div className="flex items-center space-x-2 sm:space-x-3">
+                    <button
+                      onClick={handleEditMember}
+                      className="px-3 sm:px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                    >
+                      Edit
+                    </button>
+                    {!(teamMember?.role === 'account owner' || teamMember?.role === 'owner' || teamMember?.role === 'admin') && (
                       <button
-                        onClick={handleCancelEdit}
-                        className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                        onClick={() => setShowDeleteModal(true)}
+                        className="px-3 sm:px-4 py-2 text-sm font-medium text-white bg-red-600 border border-red-600 rounded-md hover:bg-red-700"
                       >
-                        Cancel
+                        Deactivate
                       </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Two Column Layout: Profile Info Left, Map Right */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Left Column: Profile Information */}
+                  <div className="lg:col-span-2 space-y-4">
+                <div className="flex flex-col sm:flex-row items-start space-y-4 sm:space-y-0 sm:space-x-6">
+                  {/* Profile Picture - Larger and Circular */}
+                    <div
+                    className="w-20 h-20 sm:w-24 sm:h-24 rounded-full flex items-center justify-center text-white text-xl sm:text-2xl font-semibold overflow-hidden flex-shrink-0 mx-auto sm:mx-0"
+                    style={{ backgroundColor: teamMember?.profile_picture ? 'transparent' : (teamMember?.color || '#2563EB') }}
+                    >
+                    {teamMember?.profile_picture ? (
+                      <img 
+                        src={getImageUrl(teamMember.profile_picture)} 
+                        alt={`${decodeHtmlEntities(teamMember?.first_name || '')} ${decodeHtmlEntities(teamMember?.last_name || '')}`}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          console.error('Failed to load profile picture:', teamMember.profile_picture);
+                          e.target.style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      <span className="text-xl sm:text-2xl">
+                      {decodeHtmlEntities(teamMember?.first_name || 'T')?.charAt(0) || 'T'}{decodeHtmlEntities(teamMember?.last_name || 'M')?.charAt(0) || 'M'}
+                      </span>
+                    )}
+                    </div>
+                  <div className="flex-1 w-full text-center sm:text-left">
+                    <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 mb-1">
+                        {decodeHtmlEntities(teamMember?.first_name || 'First')} {decodeHtmlEntities(teamMember?.last_name || 'Last')}
+                      </h1>
+                    <p className="text-sm text-gray-600 mb-4 sm:mb-6">
+                        {teamMember?.role === 'account owner' || teamMember?.role === 'owner' || teamMember?.role === 'admin' 
+                          ? 'Account Owner' 
+                          : teamMember?.role === 'manager' 
+                            ? 'Manager' 
+                            : teamMember?.role === 'scheduler' 
+                              ? 'Scheduler' 
+                              : teamMember?.role === 'worker' || teamMember?.role === 'technician' 
+                              ? 'Team member' 
+                                : teamMember?.role || 'Team Member'}
+                      </p>
+                    </div>
+                </div>
+
+                {/* Notification Banner */}
+                {notification && (
+                  <div className={`mt-4 p-3 rounded-lg ${
+                    notification.type === 'success' 
+                      ? 'bg-green-50 border border-green-200 text-green-800' 
+                      : 'bg-red-50 border border-red-200 text-red-800'
+                  }`}>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">{notification.message}</span>
                       <button
-                        onClick={handleSaveMember}
-                        disabled={saving}
-                        className="flex items-center px-3 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 disabled:opacity-50"
+                        onClick={() => setNotification(null)}
+                        className="text-gray-400 hover:text-gray-600"
                       >
-                        {saving ? (
-                          <>
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                            Saving...
-                          </>
-                        ) : (
-                          <>
-                            <Save className="w-4 h-4 mr-2" />
-                            Save Changes
-                          </>
-                        )}
+                        <X className="w-4 h-4" />
                       </button>
                     </div>
-                  )}
-                  <button 
-                    onClick={handleDeleteMember}
-                    className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                  >
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    Delete
-                  </button>
-                </div>
-              </div>
-            </div>
+                  </div>
+                )}
 
-            <div className="space-y-6">
-              {/* Basic Info Card */}
-              <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                <div className="p-4 sm:p-6">
-                  <div className="flex items-center space-x-3 mb-6">
-                      <div className="w-12 h-12 rounded-lg flex items-center justify-center" style={{ backgroundColor: teamMember.color || '#2563EB' }}>
-                        <span className="font-medium text-lg" style={{ color: '#fff' }}>
-                        {teamMember.first_name?.charAt(0) || 'T'}{teamMember.last_name?.charAt(0) || 'M'}
+                {/* Contact Information Grid */}
+                <div className="mt-4 sm:mt-6 space-y-3">
+                  <div className="flex flex-col sm:grid sm:grid-cols-3 gap-2 sm:gap-4 py-2">
+                    <span className="text-sm text-gray-600 font-medium sm:font-normal">Mobile phone</span>
+                    <span className="text-sm text-gray-900 sm:col-span-2">{teamMember?.phone || 'No phone number'}</span>
+                  </div>
+                  <div className="flex flex-col sm:grid sm:grid-cols-3 gap-2 sm:gap-4 py-2">
+                    <span className="text-sm text-gray-600 font-medium sm:font-normal">Email</span>
+                    <span className="text-sm text-gray-900 sm:col-span-2 break-words">{teamMember?.email || 'No email'}</span>
+                  </div>
+                  <div className="flex flex-col sm:grid sm:grid-cols-3 gap-2 sm:gap-4 py-2">
+                    <span className="text-sm text-gray-600 font-medium sm:font-normal">Address</span>
+                    <span className="text-sm text-gray-900 sm:col-span-2">
+                      {teamMember?.location || 'No address on file'}
+                      {teamMember?.city && teamMember?.state && (
+                        <span className="block text-gray-600">
+                          {teamMember.city}, {teamMember.state} {teamMember.zip_code}
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex flex-col sm:grid sm:grid-cols-3 gap-2 sm:gap-4 py-2">
+                    <span className="text-sm text-gray-600 font-medium sm:font-normal">Status</span>
+                    <span className="text-sm sm:col-span-2">
+                      {(() => {
+                        const status = teamMember?.status?.toLowerCase() || 'unknown';
+                        if (status === 'active' || status === 'activated') {
+                          return (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              <CheckCircle className="w-3 h-3 mr-1" />
+                              Account Activated
+                            </span>
+                          );
+                        } else if (status === 'invited' || status === 'pending') {
+                          return (
+                            <div className="flex items-center gap-2">
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                <AlertCircle className="w-3 h-3 mr-1" />
+                                Pending Invitation
+                              </span>
+                              <button
+                                onClick={handleResendInvite}
+                                disabled={resendingInvite}
+                                className="text-xs text-blue-600 hover:text-blue-700 font-medium underline disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                {resendingInvite ? 'Sending...' : 'Resend Invite'}
+                              </button>
+                            </div>
+                          );
+                        } else if (status === 'inactive' || status === 'deactivated') {
+                          return (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                              <XCircle className="w-3 h-3 mr-1" />
+                              Inactive
+                            </span>
+                          );
+                        } else {
+                          return (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                              {teamMember?.status || 'Unknown'}
+                            </span>
+                          );
+                        }
+                      })()}
+                    </span>
+                  </div>
+                  <div className="flex flex-col sm:grid sm:grid-cols-3 gap-2 sm:gap-4 py-2">
+                    <span className="text-sm text-gray-600 font-medium sm:font-normal">Role</span>
+                    <span className="text-sm text-gray-900 sm:col-span-2">
+                      {teamMember?.role === 'account owner' || teamMember?.role === 'owner' || teamMember?.role === 'admin' 
+                        ? 'Account Owner' 
+                        : teamMember?.role === 'manager' 
+                          ? 'Manager' 
+                          : teamMember?.role === 'scheduler' 
+                            ? 'Scheduler' 
+                            : teamMember?.role === 'worker' || teamMember?.role === 'technician' 
+                              ? 'Worker' 
+                              : teamMember?.role || 'Team Member'}
+                    </span>
+                  </div>
+                  {/* Payment Settings Section */}
+                  <div className="border-t border-gray-200 pt-4 mt-4">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-3">Payment Settings</h3>
+                    
+                  <div className="flex flex-col sm:grid sm:grid-cols-3 gap-2 sm:gap-4 py-2">
+                    <span className="text-sm text-gray-600 font-medium sm:font-normal">Hourly Rate</span>
+                    <span className="text-sm text-gray-900 sm:col-span-2">
+                      {editing ? (
+                        <div className="flex items-center space-x-2">
+                          <span className="text-gray-500">$</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={editFormData.hourly_rate !== undefined ? editFormData.hourly_rate : (teamMember?.hourly_rate || '')}
+                            onChange={(e) => setEditFormData({ ...editFormData, hourly_rate: parseFloat(e.target.value) || null })}
+                            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="0.00"
+                          />
+                            <span className="text-xs text-gray-400">/hour</span>
+                        </div>
+                      ) : (
+                          <div className="flex items-center space-x-2">
+                            {teamMember?.hourly_rate 
+                              ? <span>${parseFloat(teamMember.hourly_rate).toFixed(2)}/hour</span>
+                              : <span className="text-gray-400 italic">Not set</span>
+                            }
+                            {!editing && (
+                              <button
+                                onClick={handleEditMember}
+                                className="text-xs text-blue-600 hover:text-blue-700 underline ml-2"
+                              >
+                                Set hourly rate
+                              </button>
+                            )}
+                          </div>
+                      )}
+                    </span>
+                    </div>
+                    
+                    <div className="flex flex-col sm:grid sm:grid-cols-3 gap-2 sm:gap-4 py-2">
+                      <span className="text-sm text-gray-600 font-medium sm:font-normal">Commission %</span>
+                      <span className="text-sm text-gray-900 sm:col-span-2">
+                        {editing ? (
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              max="100"
+                              value={editFormData.commission_percentage !== undefined ? editFormData.commission_percentage : (teamMember?.commission_percentage || '')}
+                              onChange={(e) => setEditFormData({ ...editFormData, commission_percentage: parseFloat(e.target.value) || null })}
+                              className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="0.00"
+                            />
+                            <span className="text-gray-500">%</span>
+                            <span className="text-xs text-gray-400">of job revenue</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center space-x-2">
+                            {teamMember?.commission_percentage 
+                              ? <span>{parseFloat(teamMember.commission_percentage).toFixed(2)}% of job revenue</span>
+                              : <span className="text-gray-400 italic">Not set</span>
+                            }
+                            {!editing && (
+                              <button
+                                onClick={handleEditMember}
+                                className="text-xs text-blue-600 hover:text-blue-700 underline ml-2"
+                              >
+                                Set commission
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </span>
+                    </div>
+                    
+                    {(teamMember?.hourly_rate || teamMember?.commission_percentage) && (
+                      <div className="flex flex-col sm:grid sm:grid-cols-3 gap-2 sm:gap-4 py-2">
+                        <span className="text-sm text-gray-600 font-medium sm:font-normal">Payment Method</span>
+                        <span className="text-sm text-gray-900 sm:col-span-2">
+                          {teamMember?.hourly_rate && teamMember?.commission_percentage 
+                            ? 'Hybrid (Hourly + Commission)'
+                            : teamMember?.hourly_rate 
+                              ? 'Hourly Rate Only'
+                              : 'Commission Percentage Only'
+                          }
                         </span>
                       </div>
-                      <div>
-                        <h2 className="text-lg sm:text-xl font-semibold text-gray-900">
-                        {teamMember.first_name || 'First'} {teamMember.last_name || 'Last'}
-                        </h2>
-                        <p className="text-sm text-gray-500">{teamMember.role || 'Team Member'}</p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                    {/* Contact Information */}
-                    <div className="space-y-4">
-                      <h3 className="text-lg font-medium text-gray-900">Contact Information</h3>
-                      
-                      {editing ? (
-                        <div className="space-y-4">
-                    <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
-                            <input
-                              type="text"
-                              value={editFormData.first_name || ''}
-                                onChange={(e) => setEditFormData({ ...editFormData, first_name: e.target.value })}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                    </div>
-                    <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
-                            <input
-                              type="text"
-                              value={editFormData.last_name || ''}
-                                onChange={(e) => setEditFormData({ ...editFormData, last_name: e.target.value })}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                    </div>
-                    <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                            <input
-                              type="email"
-                              value={editFormData.email || ''}
-                                onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                    </div>
-                    <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                            <input
-                              type="tel"
-                              value={editFormData.phone || ''}
-                                onChange={(e) => setEditFormData({ ...editFormData, phone: e.target.value })}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                    </div>
-                    <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
-                            <input
-                              type="text"
-                              value={editFormData.role || ''}
-                                onChange={(e) => setEditFormData({ ...editFormData, role: e.target.value })}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                    </div>
-                    <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Color</label>
-                            <div className="flex items-center space-x-3">
-                              <div 
-                                className="w-8 h-8 rounded border border-gray-300 flex-shrink-0"
-                                style={{ backgroundColor: editFormData.color || '#2563EB' }}
-                              />
-                              <select
-                                value={editFormData.color || '#2563EB'}
-                                onChange={(e) => setEditFormData({ ...editFormData, color: e.target.value })}
-                                className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              >
-                                <option value="#2563EB">Blue</option>
-                                <option value="#DC2626">Red</option>
-                                <option value="#059669">Green</option>
-                                <option value="#D97706">Orange</option>
-                                <option value="#7C3AED">Purple</option>
-                                <option value="#DB2777">Pink</option>
-                                <option value="#6B7280">Gray</option>
-                                <option value="#F59E0B">Yellow</option>
-                                <option value="#10B981">Emerald</option>
-                                <option value="#8B5CF6">Violet</option>
-                                <option value="#EF4444">Rose</option>
-                                <option value="#14B8A6">Teal</option>
-                              </select>
-                            </div>
-                            <p className="text-xs text-gray-500 mt-1">This color will be used in the calendar and schedule views</p>
-                    </div>
-                        </div>
-                      ) : (
-                        <div className="space-y-3">
-                          <div className="flex items-center space-x-3">
-                            <Mail className="w-4 h-4 text-gray-400" />
-                            <span className="text-sm text-gray-900">{teamMember.email || 'No email provided'}</span>
-                          </div>
-                          <div className="flex items-center space-x-3">
-                            <Phone className="w-4 h-4 text-gray-400" />
-                            <span className="text-sm text-gray-900">{teamMember.phone || 'No phone provided'}</span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Location Information */}
-                    <div className="space-y-4">
-                      <h3 className="text-lg font-medium text-gray-900">Location</h3>
-                      
-                      {editing ? (
-                        <div className="space-y-4">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
-                            <AddressAutocomplete
-                              value={editFormData.location}
-                              onChange={(value) => setEditFormData(prev => ({ ...prev, location: value }))}
-                              onAddressSelect={(addressData) => {
-                                setEditFormData(prev => ({
-                                  ...prev,
-                                  location: addressData.formattedAddress,
-                                  city: addressData.components.city,
-                                  state: addressData.components.state,
-                                  zip_code: addressData.components.zipCode
-                                }));
-                              }}
-                              placeholder="Start typing an address..."
-                              showValidationResults={true}
-                              className="w-full"
-                            />
-                          </div>
-                          <div className="grid grid-cols-3 gap-3">
-                      <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
-                              <input
-                                type="text"
-                                value={editFormData.city}
-                                onChange={(e) => setEditFormData(prev => ({ ...prev, city: e.target.value }))}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">State</label>
-                              <input
-                                type="text"
-                                value={editFormData.state}
-                                onChange={(e) => setEditFormData(prev => ({ ...prev, state: e.target.value }))}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">ZIP Code</label>
-                              <input
-                                type="text"
-                                value={editFormData.zip_code}
-                                onChange={(e) => setEditFormData(prev => ({ ...prev, zip_code: e.target.value }))}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="space-y-3">
-                          <div className="flex items-center space-x-3">
-                            <MapPin className="w-4 h-4 text-gray-400" />
-                            <span className="text-sm text-gray-900">
-                              {teamMember.location || 'No address provided'}
-                            </span>
-                          </div>
-                          {teamMember.city && teamMember.state && (
-                            <div className="text-sm text-gray-600 ml-7">
-                              {teamMember.city}, {teamMember.state} {teamMember.zip_code}
-                      </div>
                     )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-
-              {/* Territories Card */}
-              <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                <div className="p-4 sm:p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-medium text-gray-900">Territories</h3>
-                    {!editing && (
-                              <button
-                        onClick={handleEditMember}
-                        className="text-sm text-blue-600 hover:text-blue-700"
-                      >
-                        Edit
-                              </button>
-                  )}
-              </div>
-
-                  {editing ? (
-                    <div className="space-y-4">
-                      <div className="flex flex-wrap gap-2">
-                        {displayedTerritories.map((territory, index) => (
-                          <div key={index} className="flex items-center space-x-2 bg-green-100 text-green-800 px-3 py-1 rounded-full">
-                            <span className="text-sm">{territory.name || (typeof territory === 'number' ? `Territory ${territory}` : territory)}</span>
-                            <button
-                              onClick={() => handleRemoveTerritory(territory)}
-                              className="text-green-600 hover:text-green-800"
-                            >
-                              <XCircle className="w-4 h-4" />
-                            </button>
-                      </div>
-                        ))}
-                    </div>
-                      <button
-                        onClick={handleAddTerritory}
-                        className="text-sm text-blue-600 hover:text-blue-700"
-                      >
-                        + Add Territory
-                      </button>
-                            </div>
-                  ) : (
-                    <div>
-                      {console.log('Rendering displayed territories:', displayedTerritories)}
-                      {console.log('Displayed territories type:', typeof displayedTerritories)}
-                      {console.log('Displayed territories is array:', Array.isArray(displayedTerritories))}
-                      {displayedTerritories.length > 0 ? (
-                        <div className="flex flex-wrap gap-2">
-                          {displayedTerritories.map((territory, index) => {
-                            console.log('Rendering territory:', territory, 'type:', typeof territory)
-                            return (
-                              <span key={index} className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm">
-                                {territory.name || (typeof territory === 'number' ? `Territory ${territory}` : territory)}
-                            </span>
-                            )
-                          })}
-                          </div>
-                      ) : (
-                        <p className="text-gray-500 text-sm">No territories assigned</p>
-                      )}
-                        </div>
-                  )}
-                    </div>
-                  </div>
-
-              {/* Availability Section */}
-              <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                <div className="p-6">
-                  <div className="mb-6">
-                    <h4 className="text-base font-semibold text-gray-900">Availability</h4>
-                    <p className="text-sm text-gray-500">
-                        Manage this team member's availability by editing their regular work hours, or by adding custom availability for specific dates.
-                        <a href="#" className="text-blue-600 hover:text-blue-700 ml-1">Learn more...</a>
-                    </p>
-                  </div>
-
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center space-x-2">
-                        <Clock className="w-4 h-4 text-gray-400" />
-                        <span className="text-sm font-medium text-gray-900">Allow this team member to edit their availability</span>
-                      </div>
-                      <button
-                        className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${settings.canEditAvailability ? 'bg-green-500' : 'bg-gray-200'
-                        }`}
-                        onClick={async () => {
-                          const newSettings = { ...settings, canEditAvailability: !settings.canEditAvailability }
-                          setSettings(newSettings)
-                          await handleSaveSettings(newSettings)
-                        }}
-                      >
-                        <span
-                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${settings.canEditAvailability ? 'translate-x-5' : 'translate-x-0'
-                          }`}
-                        />
-                      </button>
-                    </div>
-
-                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 lg:gap-8">
-                    {/* Recurring Hours */}
-                    <div className="min-w-0">
-                      <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0 mb-4">
-                        <div className="flex items-center space-x-2">
-                          <Clock className="w-4 h-4 text-gray-400" />
-                          <h5 className="text-sm font-medium text-gray-900">RECURRING HOURS</h5>
-                          <HelpCircle className="w-4 h-4 text-gray-400" />
-                        </div>
-                        <div className="flex space-x-2">
-                            <button
-                              onClick={() => setShowWeeklyHoursModal(true)}
-                              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-                            >
-                              Edit Hours
-                            </button>
-                        </div>
-                      </div>
-                        {/* Compact Hours List - Display Only */}
-                      <div className="bg-white rounded-lg border border-gray-200">
-                        {Object.entries(workingHours).map(([day, { available, hours, timeSlots = [] }], index) => (
-                          <div key={day}>
-                            <div className="flex items-center justify-between p-3 min-w-0">
-                              <div className="flex items-center space-x-3">
-                                  <div className={`w-4 h-4 rounded-full ${available ? 'bg-green-500' : 'bg-gray-300'}`}></div>
-                                <span className="text-sm font-medium text-gray-900 capitalize min-w-[80px]">
-                                  {day}
-                                </span>
-                              </div>
-                              
-                              {available ? (
-                                    <div className="text-sm text-gray-600 text-right">
-                                      {timeSlots.length > 0 ? (
-                                        timeSlots.map((slot, slotIndex) => (
-                                          <span key={slot.id}>
-                                            {slot.start} - {slot.end}
-                                            {slotIndex < timeSlots.length - 1 && ', '}
-                                          </span>
-                                        ))
-                                      ) : (
-                                        <span className="text-gray-500">{hours || 'No hours set'}</span>
-                                  )}
-                                </div>
-                              ) : (
-                                <div className="text-sm text-gray-500">
-                                  Unavailable
-                                </div>
-                              )}
-                            </div>
-                            {index < Object.entries(workingHours).length - 1 && (
-                              <div className="border-b border-gray-100"></div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Custom Availability */}
-                    <div>
-                      <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0 mb-4">
-                        <div className="flex items-center space-x-2">
-                          <Calendar className="w-4 h-4 text-gray-400" />
-                          <h5 className="text-sm font-medium text-gray-900">CUSTOM AVAILABILITY</h5>
-                          <HelpCircle className="w-4 h-4 text-gray-400" />
-                        </div>
-                        {!editingAvailability ? (
-                          <button
-                            onClick={() => setEditingAvailability(true)}
-                            className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-                          >
-                            Add Date Override
-                          </button>
-                        ) : (
-                          <div className="flex space-x-2">
-                            <button
-                              onClick={handleSaveCustomAvailability}
-                              disabled={savingCustomAvailability}
-                                className={`text-sm font-medium ${savingCustomAvailability
-                                  ? 'text-gray-400 cursor-not-allowed' 
-                                  : 'text-green-600 hover:text-green-700'
-                              }`}
-                            >
-                              {savingCustomAvailability ? 'Saving...' : 'Save'}
-                            </button>
-                            <button
-                              onClick={() => setEditingAvailability(false)}
-                              className="text-sm text-gray-600 hover:text-gray-700 font-medium"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                      
-                      {editingAvailability && (
-                        <div className="mb-4">
-                          <button
-                            onClick={handleAddCustomAvailability}
-                            className="flex items-center text-sm text-blue-600 hover:text-blue-700 font-medium"
-                          >
-                            <Plus className="w-4 h-4 mr-1" />
-                            Add Custom Date
-                          </button>
-                        </div>
-                      )}
-                      
-                      {customAvailability.length === 0 ? (
-                        <div className="text-center p-6 bg-gray-50 rounded-lg">
-                            <Calendar className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                            <p className="text-sm text-gray-500 mb-4">Add a date override</p>
-                          <p className="text-xs text-gray-500 mb-4">Customize this provider's availability for specific dates.</p>
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          {customAvailability.map((item) => (
-                            <div key={item.id} className="flex flex-col space-y-2 sm:flex-row sm:items-center sm:justify-between sm:space-y-0 p-3 bg-gray-50 rounded-lg">
-                              <div className="flex-1 flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2">
-                                <input
-                                  type="date"
-                                  value={item.date}
-                                  onChange={(e) => setCustomAvailability(prev => 
-                                    prev.map(i => i.id === item.id ? { ...i, date: e.target.value } : i)
-                                  )}
-                                  className="text-sm border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                                />
-                                <input
-                                  type="text"
-                                  value={item.hours}
-                                  onChange={(e) => setCustomAvailability(prev => 
-                                    prev.map(i => i.id === item.id ? { ...i, hours: e.target.value } : i)
-                                  )}
-                                  placeholder="9:00 AM - 6:00 PM"
-                                  className="text-sm border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                                />
-                              </div>
-                              {editingAvailability && (
-                                <button
-                                  onClick={() => handleRemoveCustomAvailability(item.id)}
-                                  className="text-red-600 hover:text-red-700"
-                                >
-                                  <X className="w-4 h-4" />
-                                </button>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                    </div>
-                  </div>
-
-              {/* Recent Jobs Card */}
-              {recentJobs.length > 0 && (
-                <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                  <div className="p-6">
-                    <div className="flex items-center justify-between mb-6">
-                      <div className="flex items-center space-x-2">
-                        <h3 className="text-lg font-semibold text-gray-900">Recent Jobs</h3>
-                        <Calendar className="w-4 h-4 text-gray-400" />
-                        </div>
-                        </div>
-                    <div className="space-y-4">
-                      {recentJobs.slice(0, 5).map((job) => (
-                        <div key={job.id} className="border border-gray-200 rounded-lg p-4">
-                          <div className="flex flex-col space-y-2 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
-                        <div>
-                              <h4 className="font-medium text-gray-900">{job.service_name}</h4>
-                              <p className="text-sm text-gray-600">
-                                {job.customer_first_name} {job.customer_last_name}
-                              </p>
-                        <p className="text-sm text-gray-500">
-                                {job.scheduled_date ? job.scheduled_date.split(' ')[0] : 'No date'}
+                    
+                    {!editing && !teamMember?.hourly_rate && !teamMember?.commission_percentage && (
+                      <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <p className="text-xs text-yellow-800">
+                          <strong>Note:</strong> Set an hourly rate or commission percentage to enable payroll calculations. Click "Edit" above to set payment settings.
                         </p>
                       </div>
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${job.status === 'completed' ? 'bg-green-100 text-green-800' :
-                                      job.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
-                                      'bg-gray-100 text-gray-800'
-                                    }`}>
-                                      {job.status.replace('_', ' ')}
-                                    </span>
-                          </div>
-                        </div>
-                                      ))}
-                                    </div>
-                                  </div>
-                </div>
-                            )}
-                      </div>
+                    )}
+                  </div>
+                  <div className="flex flex-col sm:grid sm:grid-cols-3 gap-2 sm:gap-4 py-2">
+                    <span className="text-sm text-gray-600 font-medium sm:font-normal">Role permissions</span>
+                    <div className="text-sm text-gray-900 sm:col-span-2 space-y-1">
+                      {(() => {
+                        // Define permission list based on role
+                        const permissions = [];
+                        if (teamMember?.role === 'worker') {
+                          // Worker permissions from settings - use exact field names from database
+                          // Only show permissions that are explicitly set to true
+                          if (settings.viewCustomerContact === true) permissions.push('View contact info for customer (phone & email)');
+                          if (settings.viewCustomerNotes === true) permissions.push('View customer notes');
+                          if (settings.markJobStatus === true) permissions.push('Mark jobs as \'en-route\', \'in-progress\' & \'complete\'');
+                          if (settings.resetJobStatuses === true) permissions.push('Reset job statuses');
+                          if (settings.editJobDetails === true) permissions.push('Edit job details');
+                          if (settings.viewEditJobPrice === true) permissions.push('View & edit job price, invoice, and line items');
+                          if (settings.processPayments === true) permissions.push('Process payments and mark jobs as paid');
+                          if (settings.rescheduleJobs === true) permissions.push('Reschedule jobs');
+                          if (settings.seeOtherProviders === true) permissions.push('See other providers assigned');
+                          if (settings.editAvailability === true) permissions.push('Edit their own availability');
+                        } else if (teamMember?.role === 'scheduler') {
+                          permissions.push('Access all jobs and all customers');
+                          permissions.push('Create, edit, cancel, reschedule jobs');
+                          permissions.push('Assign or un-assign jobs');
+                          if (settings.processPayments) permissions.push('Process payments for jobs');
+                        } else if (teamMember?.role === 'manager') {
+                          permissions.push('Full access to all areas except billing');
+                        } else {
+                          permissions.push('Full access to all areas of account');
+                        }
+                        
+                        if (permissions.length === 0) {
+                          return <span>No specific permissions set</span>;
+                        }
+                        
+                        return (
+                          <ul className="space-y-1">
+                            {permissions.map((permission, index) => (
+                              <li key={index} className="flex items-center">
+                                <CheckCircle className="w-4 h-4 text-green-500 mr-2 flex-shrink-0" />
+                                <span>{permission}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>
+                  </div>
+
+                  {/* Right Column: Map */}
+                  <div className="lg:col-span-1">
+                    {!staffLocationsEnabled ? (
+                      <div className="h-64 sm:h-80 bg-gray-100 rounded-lg flex items-center justify-center border border-gray-200">
+                        <div className="text-center px-4">
+                          <MapPin className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+                          <p className="text-sm text-gray-500">Staff locations are currently hidden</p>
+                        </div>
+                      </div>
+                    ) : (() => {
+                      // Helper function to get address from team member
+                      const getMemberAddress = (member) => {
+                        if (member.location) return member.location
+                        if (member.city && member.state) {
+                          const parts = [member.city, member.state]
+                          if (member.zip_code) parts.push(member.zip_code)
+                          return parts.join(', ')
+                        }
+                        if (member.address) return member.address
+                        return null
+                      }
+
+                      // Get current team member's address only
+                      const currentAddress = getMemberAddress(teamMember)
+
+                      if (!currentAddress) {
+                        return (
+                          <div className="h-64 sm:h-80 bg-gray-100 rounded-lg flex items-center justify-center border border-gray-200">
+                            <div className="text-center">
+                              <MapPin className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+                              <p className="text-sm text-gray-500">No address on file</p>
+                            </div>
+                          </div>
+                        )
+                      }
+
+                      // Build Google Maps URL for current member's address only
+                      // Use place API with higher zoom (15) for close range view
+                      const mapUrl = `https://www.google.com/maps/embed/v1/place?key=AIzaSyC_CrJWTsTHOTBd7TSzTuXOfutywZ2AyOQ&q=${encodeURIComponent(currentAddress)}&zoom=15&maptype=roadmap`
+
+                      return (
+                        <div className="relative">
+                          <div className="h-64 sm:h-80 rounded-lg overflow-hidden border border-gray-200">
+                            <iframe
+                              title="Team Member Location"
+                              width="100%"
+                              height="100%"
+                              style={{ border: 0 }}
+                              loading="lazy"
+                              allowFullScreen
+                              referrerPolicy="no-referrer-when-downgrade"
+                              src={mapUrl}
+                            />
+                          </div>
+                        </div>
+                      )
+                    })()}
+                  </div>
+                </div>
+              </div>
+
+              {/* Availability Card */}
+              <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
+                <div className="mb-4 sm:mb-6">
+                  <h3 className="text-base font-semibold text-gray-900 mb-2">Availability</h3>
+                  <p className="text-sm text-gray-600">
+                    Manage this team member's availability by editing their regular work hours, or by adding custom availability for specific dates.{' '}
+                    <a href="#" className="text-blue-600 hover:text-blue-700">Learn more...</a>
+                  </p>
+                </div>
+
+                {/* Allow Edit Availability Toggle */}
+                <div className="flex items-center justify-between py-4 border-b border-gray-200">
+                  <div className="flex items-start space-x-3">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-900">
+                        Allow this team member to edit their availability
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        The team member's role allows them to edit their availability
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 ${
+                      settings.canEditAvailability ? 'bg-green-500' : 'bg-gray-200'
+                    }`}
+                    onClick={async () => {
+                      const newSettings = { ...settings, canEditAvailability: !settings.canEditAvailability }
+                      setSettings(newSettings)
+                      await handleSaveSettings(newSettings)
+                    }}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                        settings.canEditAvailability ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* Recurring Hours and Custom Availability Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 mt-4 sm:mt-6">
+                  {/* Recurring Hours */}
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center space-x-2">
+                        <Calendar className="w-4 h-4 text-gray-400" />
+                        <h4 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Recurring Hours</h4>
+                        <HelpCircle className="w-4 h-4 text-gray-400" />
+                      </div>
+                    </div>
+
+                    <div className="space-y-0 border border-gray-200 rounded-lg overflow-hidden">
+                      {Object.entries(workingHours).map(([day, { available, hours, timeSlots = [] }], index) => (
+                        <div
+                          key={day}
+                          className={`flex items-center justify-between px-4 py-3 ${
+                            index !== Object.entries(workingHours).length - 1 ? 'border-b border-gray-200' : ''
+                          }`}
+                        >
+                          <span className="text-sm font-medium text-gray-700 capitalize w-24">
+                            {day}
+                          </span>
+                          <span className="text-sm text-gray-600 text-right flex-1">
+                            {available ? (
+                              timeSlots.length > 0 ? (
+                                timeSlots.map((slot, slotIndex) => (
+                                  <span key={slot.id}>
+                                    {slot.start} - {slot.end}
+                                    {slotIndex < timeSlots.length - 1 && ', '}
+                                  </span>
+                                ))
+                              ) : (
+                                hours || '9:00 AM - 6:00 PM'
+                              )
+                            ) : (
+                              'Unavailable'
+                            )}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <button
+                      onClick={() => setShowWeeklyHoursModal(true)}
+                      className="mt-3 text-sm text-blue-600 hover:text-blue-700 font-medium"
+                    >
+                      Edit Hours
+                    </button>
+                  </div>
+
+                  {/* Custom Availability */}
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center space-x-2">
+                        <Calendar className="w-4 h-4 text-gray-400" />
+                        <h4 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Custom Availability</h4>
+                        <HelpCircle className="w-4 h-4 text-gray-400" />
+                      </div>
+                    </div>
+
+                    {customAvailability.length === 0 ? (
+                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                        <Calendar className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                        <h5 className="text-sm font-medium text-gray-900 mb-1">Add a date override</h5>
+                        <p className="text-xs text-gray-600 mb-4">
+                          Customize this provider's availability for specific dates.
+                        </p>
+                        <button
+                          onClick={() => setShowAvailabilityModal(true)}
+                          className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                        >
+                          Add Date Override
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {customAvailability.map((item) => (
+                          <div
+                            key={item.id}
+                            className="flex items-center justify-between p-3 border border-gray-200 rounded-lg"
+                          >
+                            <div>
+                              <p className="text-sm font-medium text-gray-900">{item.date}</p>
+                              <p className="text-xs text-gray-600">{item.hours}</p>
+                            </div>
+                            <button
+                              onClick={() => handleRemoveCustomAvailability(item.id)}
+                              className="text-gray-400 hover:text-red-600"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                        <button
+                          onClick={() => setShowAvailabilityModal(true)}
+                          className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                        >
+                          Add Date Override
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+              {/* Notifications Card */}
+              <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
+                <div className="mb-4 sm:mb-6">
+                  <h3 className="text-base font-semibold text-gray-900 mb-2">Notifications</h3>
+                  <p className="text-sm text-gray-600">
+                    How should this service provider be notified when they are assigned to a job?
+                  </p>
+                </div>
+
+                <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                  <div className="flex items-start space-x-3">
+                    <Bell className="w-5 h-5 text-gray-400 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">Push Alerts: Not enabled</p>
+                      <p className="text-sm text-gray-600">
+                        This service provider has not enabled push notifications.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between py-3 border-b border-gray-200">
+                    <div className="flex items-center space-x-3">
+                      <Mail className="w-5 h-5 text-gray-400" />
+                      <span className="text-sm text-gray-700">Emails</span>
+                    </div>
+                    <button
+                      className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 ${
+                        settings.emailNotifications ? 'bg-green-500' : 'bg-gray-200'
+                      }`}
+                      onClick={async () => {
+                        const newSettings = { ...settings, emailNotifications: !settings.emailNotifications }
+                        setSettings(newSettings)
+                        await handleSaveSettings(newSettings)
+                      }}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                          settings.emailNotifications ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between py-3">
+                    <div className="flex items-center space-x-3">
+                      <MessageSquare className="w-5 h-5 text-gray-400" />
+                      <span className="text-sm text-gray-700">Text Messages (SMS)</span>
+                    </div>
+                    <button
+                      className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 ${
+                        settings.smsNotifications ? 'bg-green-500' : 'bg-gray-200'
+                      }`}
+                      onClick={async () => {
+                        const newSettings = { ...settings, smsNotifications: !settings.smsNotifications }
+                        setSettings(newSettings)
+                        await handleSaveSettings(newSettings)
+                      }}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                          settings.smsNotifications ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Skills Card */}
+              <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
+                <div className="mb-4 sm:mb-6">
+                  <h3 className="text-base font-semibold text-gray-900 mb-2">Skills</h3>
+                  <p className="text-sm text-gray-600">
+                    Skill tags can be used to make sure workers meet specific job-related skills, certifications, equipment and licensing requirements.
+                  </p>
+                </div>
+
+                <div className="text-center py-8">
+                  <svg className="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                  </svg>
+                  <p className="text-sm text-gray-600 mb-4">This provider doesn't have any skill tags yet</p>
+                  <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+                    Edit Skills
+                  </button>
+                </div>
+              </div>
+
+              {/* Calendar Color Card */}
+              <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
+                <div className="mb-4 sm:mb-6">
+                  <h3 className="text-base font-semibold text-gray-900">Calendar color</h3>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    '#F97316', // Orange
+                    '#EC4899', // Pink
+                    '#EF4444', // Red
+                    '#EAB308', // Yellow
+                    '#A855F7', // Purple
+                    '#3B82F6', // Blue
+                    '#10B981', // Green
+                    '#06B6D4', // Cyan
+                    '#14B8A6', // Teal
+                    '#E11D48', // Rose
+                    '#DC2626', // Dark Red
+                    '#1E293B', // Slate
+                    '#0D9488', // Teal Dark
+                    '#7C3AED', // Violet
+                  ].map((color) => (
+                    <button
+                      key={color}
+                      onClick={async () => {
+                        setEditFormData({ ...editFormData, color })
+                        const updateData = { ...teamMember, color }
+                        await teamAPI.update(memberId, { color })
+                        setTeamMember(updateData)
+                      }}
+                      className={`w-10 h-10 rounded-lg border-2 transition-all ${
+                        (editFormData.color || teamMember?.color) === color
+                          ? 'border-gray-900 scale-110'
+                          : 'border-gray-200 hover:border-gray-400'
+                      }`}
+                      style={{ backgroundColor: color }}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Delete Button - Hidden for account owner */}
+              {!(teamMember?.role === 'account owner' || teamMember?.role === 'owner' || teamMember?.role === 'admin') && (
+                <div className="bg-white rounded-lg border border-gray-200 p-6">
+                  <button
+                    onClick={handleDeleteMember}
+                    className="w-full px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                  >
+                    Delete Team Member
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
          
       {/* Add Territory Modal */}
       {showAddTerritoryModal && (
@@ -1627,7 +1941,7 @@ const TeamMemberDetails = () => {
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-semibold text-gray-900">
-                  Delete Team Member
+                  Deactivate Team Member
                 </h3>
                 <button
                   onClick={() => setShowDeleteModal(false)}
@@ -1650,8 +1964,8 @@ const TeamMemberDetails = () => {
 
               <div className="mb-6">
                 <p className="text-gray-600">
-                  Are you sure you want to delete <strong>{teamMember?.first_name} {teamMember?.last_name}</strong>? 
-                  This action cannot be undone and will remove all associated data.
+                  Are you sure you want to deactivate <strong>{decodeHtmlEntities(teamMember?.first_name || '')} {decodeHtmlEntities(teamMember?.last_name || '')}</strong>? 
+                  They will no longer be able to access the system, but their data will be preserved and they can be reactivated later.
                 </p>
               </div>
 
@@ -1667,11 +1981,11 @@ const TeamMemberDetails = () => {
                   Cancel
                 </button>
                 <button
-                  onClick={confirmDeleteMember}
+                  onClick={confirmDeactivateMember}
                   disabled={deleting}
                   className="flex-1 px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
                 >
-                  {deleting ? 'Deleting...' : 'Delete'}
+                  {deleting ? 'Deactivating...' : 'Deactivate'}
                 </button>
               </div>
             </div>
@@ -1684,10 +1998,24 @@ const TeamMemberDetails = () => {
         isOpen={showAvailabilityModal}
         onClose={() => setShowAvailabilityModal(false)}
         onSave={handleAvailabilityModalSave}
+        teamMemberName={teamMember ? `${decodeHtmlEntities(teamMember.first_name || '')} ${decodeHtmlEntities(teamMember.last_name || '')}` : ''}
         selectedDates={selectedDates}
         availability={customAvailability}
       />
 
+      {/* Edit Team Member Modal */}
+      {editing && teamMember && (
+        <AddTeamMemberModal
+          isOpen={editing}
+          onClose={() => {
+            setEditing(false)
+          }}
+          onSuccess={handleMemberUpdate}
+          userId={user?.id}
+          member={teamMember}
+          isEditing={true}
+        />
+      )}
     </>
   )
 }

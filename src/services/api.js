@@ -24,13 +24,108 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor for error handling
+
+// Response interceptor for error handling with retry logic
 api.interceptors.response.use(
   (response) => {
     console.log('API Response:', response.status, response.config.url);
     return response;
   },
-  (error) => {
+  async (error) => {
+    const config = error.config;
+    
+    // Handle 429 (Too Many Requests) with exponential backoff
+    if (error.response?.status === 429) {
+      const retryAfter = error.response.headers['retry-after'];
+      const retryDelay = retryAfter ? parseInt(retryAfter) * 1000 : null;
+      
+      // Initialize retry count if not exists
+      if (!config.__retryCount) {
+        config.__retryCount = 0;
+      }
+      
+      // Don't retry more than 3 times for 429 errors
+      if (config.__retryCount >= 3) {
+        console.error('❌ Rate limit exceeded - too many retries. Please wait before making more requests.');
+        return Promise.reject(error);
+      }
+      
+      config.__retryCount++;
+      
+      // Calculate delay: use retry-after header if available, otherwise exponential backoff
+      const delay = retryDelay || Math.min(1000 * Math.pow(2, config.__retryCount), 30000); // Max 30 seconds
+      
+      console.warn(`⚠️ Rate limit (429) - Retrying in ${delay}ms (attempt ${config.__retryCount}/3):`, config.url);
+      
+      await new Promise(resolve => setTimeout(resolve, delay));
+      
+      return api(config);
+    }
+    
+    // Don't retry if we've already retried or if it's not a network error
+    if (config.__retryCount >= 3 || (error.response?.status && error.response?.status !== 429)) {
+      // Handle non-network errors normally
+      if (error.response) {
+        const { status, data } = error.response;
+        
+        switch (status) {
+          case 401:
+            console.error('Unauthorized - checking if payment context');
+            // Only redirect to login if not in payment context and not already on signin page
+            const isPaymentContext = window.location.pathname.includes('/payment') || 
+                                     window.location.pathname.includes('/public/');
+            const isSigninPage = window.location.pathname.includes('/signin');
+            
+            if (!isPaymentContext && !isSigninPage) {
+              localStorage.removeItem('authToken');
+              localStorage.removeItem('user');
+              // Redirect to signin page
+              window.location.href = '/signin';
+            } else {
+              if (isSigninPage) {
+                console.log('Already on signin page - not redirecting');
+            } else {
+              console.log('Payment context detected - not redirecting to login');
+              }
+            }
+            break;
+          case 403:
+            console.error('Access forbidden');
+            break;
+          case 404:
+            console.error('Resource not found');
+            break;
+          case 500:
+            console.error('Server error occurred');
+            break;
+          default:
+            console.error('API error:', data?.error || 'Unknown error');
+        }
+      } else if (error.request) {
+        console.error('Network error - no response received');
+      } else {
+        console.error('Request setup error:', error.message);
+      }
+      
+      return Promise.reject(error);
+    }
+    
+    // Only retry on network errors (ERR_NETWORK, ERR_FAILED, timeout, Railway cold start)
+    if (error.code === 'ERR_NETWORK' || error.message === 'Network Error' || error.code === 'ECONNABORTED' || 
+        error.message?.includes('Failed to fetch') || error.message?.includes('CORS') || 
+        error.message?.includes('preflight')) {
+      config.__retryCount = (config.__retryCount || 0) + 1;
+      
+      console.log(`🔄 Retrying request (attempt ${config.__retryCount}/3):`, config.url);
+      console.log(`🔄 Error details:`, error.message);
+      
+      // Wait longer for Railway cold start (exponential backoff with longer delays)
+      const delay = 2000 * config.__retryCount; // 2s, 4s, 6s
+      await new Promise(resolve => setTimeout(resolve, delay));
+      
+      return api(config);
+    }
+    
     // Don't log canceled requests as errors - they're expected behavior
     if (error.message === 'canceled' || error.code === 'ERR_CANCELED') {
       console.log('🔄 Request was canceled - this is expected behavior');
@@ -38,36 +133,6 @@ api.interceptors.response.use(
     }
     
     console.error('API Error:', error.response?.status, error.response?.config?.url, error.message);
-    
-    if (error.response) {
-      const { status, data } = error.response;
-      
-      switch (status) {
-        case 401:
-          console.error('Unauthorized - redirecting to login');
-          localStorage.removeItem('authToken');
-          localStorage.removeItem('user');
-          // Redirect to signin page
-          window.location.href = '/signin';
-          break;
-        case 403:
-          console.error('Access forbidden');
-          break;
-        case 404:
-          console.error('Resource not found');
-          break;
-        case 500:
-          console.error('Server error occurred');
-          break;
-        default:
-          console.error('API error:', data?.error || 'Unknown error');
-      }
-    } else if (error.request) {
-      console.error('Network error - no response received');
-    } else {
-      console.error('Request setup error:', error.message);
-    }
-    
     return Promise.reject(error);
   }
 );
@@ -106,9 +171,36 @@ export const authAPI = {
     return !!localStorage.getItem('authToken');
   },
 
-  googleAuth: async (idToken) => {
+  googleAuth: async (googleData) => {
     try {
-      const response = await api.post('/auth/google', { idToken });
+      const response = await api.post('/auth/google', googleData);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+  connectGoogle: async (googleData) => {
+    try {
+      const response = await api.post('/auth/connect-google', googleData);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+  getGoogleAuthUrl: async () => {
+    try {
+      console.log('🔗 Calling /auth/google/authorize endpoint...');
+      const response = await api.get('/auth/google/authorize');
+      console.log('🔗 Authorization URL response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Error getting Google auth URL:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+  deleteAccount: async (userId) => {
+    try {
+      const response = await api.delete(`/auth/delete-account/${userId}`);
       return response.data;
     } catch (error) {
       throw error;
@@ -164,6 +256,15 @@ export const servicesAPI = {
   delete: async (id) => {
     try {
       const response = await api.delete(`/services/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  deleteAll: async () => {
+    try {
+      const response = await api.delete('/services/all');
       return response.data;
     } catch (error) {
       throw error;
@@ -249,7 +350,7 @@ export const servicesAPI = {
   }
 };
 
-// Customers API functions
+
 export const customersAPI = {
   getAll: async (userId, params = {}) => {
     try {
@@ -307,8 +408,45 @@ export const customersAPI = {
     } catch (error) {
       throw error;
     }
+  },
+
+  deleteAll: async () => {
+    try {
+      const response = await api.delete('/customers/all');
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  export: async (format = 'csv') => {
+    try {
+      if (format === 'csv') {
+        // For CSV, we need to get the raw response text
+        const response = await api.get(`/customers/export?format=${format}`, {
+          responseType: 'text'
+        });
+        return response.data;
+      } else {
+        // For JSON, return the parsed data
+        const response = await api.get(`/customers/export?format=${format}`);
+        return response.data;
+      }
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  importCustomers: async (customers) => {
+    try {
+      const response = await api.post('/customers/import', { customers });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
   }
 };
+
 
 // Estimates API functions
 export const estimatesAPI = {
@@ -449,6 +587,18 @@ export const invoicesAPI = {
     } catch (error) {
       throw error;
     }
+  },
+
+  send: async (invoiceId, invoiceData) => {
+    try {
+      const response = await api.post('/send-invoice-email', {
+        invoiceId,
+        ...invoiceData
+      });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
   }
 };
 
@@ -456,7 +606,9 @@ export const invoicesAPI = {
 export const userProfileAPI = {
   getProfile: async (userId) => {
     try {
-      const response = await api.get(`/user/profile?userId=${userId}`);
+      // Note: userId parameter is kept for compatibility but endpoint uses JWT token
+      // The endpoint will automatically detect if user is team member or account owner
+      const response = await api.get(`/user/profile`);
       console.log('🔍 userProfileAPI.getProfile response:', response.data);
       return response.data;
     } catch (error) {
@@ -476,14 +628,15 @@ export const userProfileAPI = {
     }
   },
 
-  updateProfilePicture: async (userId, file) => {
+  updateProfilePicture: async (userId, file, isTeamMember = false) => {
     try {
-      console.log('🔍 Uploading profile picture for user:', userId);
+      console.log('🔍 Uploading profile picture for:', isTeamMember ? 'team member' : 'account owner', userId);
       
       // Create FormData for file upload
       const formData = new FormData();
       formData.append('profilePicture', file);
       formData.append('userId', userId);
+      formData.append('isTeamMember', isTeamMember.toString());
       
       // Upload to server
       const apiUrl = process.env.REACT_APP_API_URL || 'https://service-flow-backend-production-4568.up.railway.app/api';
@@ -511,20 +664,20 @@ export const userProfileAPI = {
     }
   },
 
-  removeProfilePicture: async (userId) => {
+  removeProfilePicture: async (userId, isTeamMember = false) => {
     try {
-      console.log('🔍 Removing profile picture for user:', userId);
+      console.log('🔍 Removing profile picture for:', isTeamMember ? 'team member' : 'account owner', userId);
       
       const apiUrl = process.env.REACT_APP_API_URL || 'https://service-flow-backend-production-4568.up.railway.app/api';
       console.log('🔍 Removing from:', `${apiUrl}/user/profile-picture`);
       
+      // Note: Backend now uses JWT token to determine user/team member, so we don't need to send userId
       const response = await fetch(`${apiUrl}/user/profile-picture`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-        },
-        body: JSON.stringify({ userId })
+        }
       });
       
       if (response.ok) {
@@ -589,9 +742,22 @@ export const notificationSettingsAPI = {
   getSettings: async (userId) => {
     try {
       const response = await api.get(`/user/notification-settings?userId=${userId}`);
-      return response.data;
+      // Ensure we return an array even if the response structure is different
+      if (Array.isArray(response.data)) {
+        return response.data;
+      } else if (response.data?.settings && Array.isArray(response.data.settings)) {
+        return response.data.settings;
+      } else if (response.data?.data && Array.isArray(response.data.data)) {
+        return response.data.data;
+      }
+      // If response is not an array, return empty array to prevent errors
+      console.warn('Notification settings API returned unexpected format:', response.data);
+      return [];
     } catch (error) {
-      throw error;
+      // Log the error but return empty array instead of throwing
+      // This allows the app to continue functioning even if the API fails
+      console.warn('Failed to load notification settings (using defaults):', error.response?.status, error.message);
+      return []; // Return empty array so calling code can continue
     }
   },
 
@@ -654,8 +820,19 @@ export const publicBookingAPI = {
 };
 
 // Jobs API functions
+export const recurringBookingsAPI = {
+  getAll: async (status = 'active') => {
+    try {
+      const response = await api.get(`/recurring-bookings?status=${status}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+};
+
 export const jobsAPI = {
-  getAll: async (userId, status, search, page = 1, limit = 20, dateFilter, dateRange, sortBy, sortOrder, teamMember, invoiceStatus, customerId, territoryId, signal) => {
+  getAll: async (userId, status, search, page = 1, limit = 20, dateFilter, dateRange, sortBy, sortOrder, teamMember, invoiceStatus, customerId, territoryId, recurring, signal) => {
     try {
       const params = new URLSearchParams({ userId });
       if (status) params.append('status', status);
@@ -670,6 +847,7 @@ export const jobsAPI = {
       if (invoiceStatus) params.append('invoiceStatus', invoiceStatus);
       if (customerId) params.append('customerId', customerId);
       if (territoryId) params.append('territoryId', territoryId);
+      if (recurring) params.append('recurring', recurring);
       
       const config = signal ? { signal } : {};
       const response = await api.get(`/jobs?${params}`, config);
@@ -706,9 +884,84 @@ export const jobsAPI = {
     }
   },
 
+  convertToRecurring: async (id, data) => {
+    try {
+      const response = await api.post(`/jobs/${id}/convert-to-recurring`, data);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  duplicate: async (id, data) => {
+    try {
+      const response = await api.post(`/jobs/${id}/duplicate`, data);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  getImportedJobsCount: async (params = {}) => {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params.startDate) queryParams.append('startDate', params.startDate);
+      if (params.endDate) queryParams.append('endDate', params.endDate);
+      const queryString = queryParams.toString();
+      const url = `/jobs/imported/count${queryString ? `?${queryString}` : ''}`;
+      const response = await api.get(url);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  deleteImportedJobs: async (params = {}) => {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params.startDate) queryParams.append('startDate', params.startDate);
+      if (params.endDate) queryParams.append('endDate', params.endDate);
+      const queryString = queryParams.toString();
+      const url = `/jobs/delete-imported${queryString ? `?${queryString}` : ''}`;
+      const response = await api.delete(url);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Get available jobs for workers
+  getAvailableForWorkers: async () => {
+    try {
+      const response = await api.get('/jobs/available-for-workers');
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Claim a job (for workers)
+  claim: async (jobId, notes) => {
+    try {
+      const response = await api.post(`/jobs/${jobId}/claim`, { notes });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
   delete: async (id) => {
     try {
       const response = await api.delete(`/jobs/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  deleteAll: async () => {
+    try {
+      const response = await api.delete('/jobs/all');
       return response.data;
     } catch (error) {
       throw error;
@@ -757,6 +1010,49 @@ export const jobsAPI = {
   getTeamAssignments: async (jobId) => {
     try {
       const response = await api.get(`/jobs/${jobId}/assignments`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  export: async (filters = {}) => {
+    try {
+      const params = new URLSearchParams();
+      Object.keys(filters).forEach(key => {
+        if (filters[key] !== undefined && filters[key] !== null && filters[key] !== '') {
+          params.append(key, filters[key]);
+        }
+      });
+      
+      const response = await api.get(`/jobs/export?${params.toString()}`, {
+        responseType: 'text'
+      });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  importJobs: async (jobs) => {
+    try {
+      // Use a longer timeout for import operations (2 minutes)
+      const response = await api.post('/jobs/import', { jobs }, { timeout: 120000 });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  getAvailableSlots: async ({ date, duration, workerId, serviceId }) => {
+    try {
+      const params = new URLSearchParams();
+      if (date) params.append('date', date);
+      if (duration) params.append('duration', duration);
+      if (workerId) params.append('workerId', workerId);
+      if (serviceId) params.append('serviceId', serviceId);
+      
+      const response = await api.get(`/jobs/available-slots?${params.toString()}`);
       return response.data;
     } catch (error) {
       throw error;
@@ -842,6 +1138,37 @@ export const teamAPI = {
     }
   },
 
+  // Time tracking and salary
+  recordStartTime: async (jobId, startTime) => {
+    try {
+      const response = await api.post(`/jobs/${jobId}/start-time`, { startTime });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  recordEndTime: async (jobId, endTime) => {
+    try {
+      const response = await api.post(`/jobs/${jobId}/end-time`, { endTime });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  getSalary: async (teamMemberId, startDate, endDate) => {
+    try {
+      const params = new URLSearchParams();
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+      const response = await api.get(`/team-members/${teamMemberId}/salary?${params}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
   getAnalytics: async (userId, startDate, endDate) => {
     try {
       const params = new URLSearchParams({ userId });
@@ -885,6 +1212,92 @@ export const teamAPI = {
   updateSettings: async (memberId, settings) => {
     try {
       const response = await api.put(`/team-members/${memberId}/settings`, { settings });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+};
+
+// Payroll API functions
+export const payrollAPI = {
+  getPayroll: async (startDate, endDate) => {
+    try {
+      const params = new URLSearchParams();
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+      const response = await api.get(`/payroll?${params}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+  getSalaryAnalytics: async (startDate, endDate, groupBy = 'day') => {
+    try {
+      const params = new URLSearchParams();
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+      if (groupBy) params.append('groupBy', groupBy);
+      const response = await api.get(`/analytics/salary?${params}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+};
+
+// Staff Locations API functions
+export const staffLocationsAPI = {
+  // Record a staff location
+  recordLocation: async (locationData) => {
+    try {
+      const response = await api.post('/staff-locations', locationData);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Get current staff locations
+  getLocations: async (teamMemberId = null) => {
+    try {
+      const params = new URLSearchParams();
+      if (teamMemberId) params.append('teamMemberId', teamMemberId);
+      const response = await api.get(`/staff-locations?${params}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Get location history for a team member
+  getLocationHistory: async (teamMemberId, startDate = null, endDate = null, limit = 100) => {
+    try {
+      const params = new URLSearchParams();
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+      if (limit) params.append('limit', limit);
+      const response = await api.get(`/staff-locations/${teamMemberId}/history?${params}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Get global staff locations setting
+  getStaffLocationsSetting: async () => {
+    try {
+      const response = await api.get('/user/staff-locations-setting');
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Update global staff locations setting
+  updateStaffLocationsSetting: async (enabled) => {
+    try {
+      const response = await api.put('/user/staff-locations-setting', { staff_locations_enabled: enabled });
       return response.data;
     } catch (error) {
       throw error;
@@ -974,9 +1387,21 @@ export const serviceAvailabilityAPI = {
 export const availabilityAPI = {
   getAvailability: async (userId) => {
     try {
+      // Try with userId in query first, then fallback to using auth token
       const response = await api.get(`/user/availability?userId=${userId}`);
       return response.data;
     } catch (error) {
+      console.error('Error fetching availability:', error);
+      // If it fails with userId, try without (uses auth token)
+      if (error.response?.status === 401 || error.response?.status === 400) {
+        try {
+          const response = await api.get('/user/availability');
+          return response.data;
+        } catch (retryError) {
+          console.error('Retry also failed:', retryError);
+          throw retryError;
+        }
+      }
       throw error;
     }
   },
@@ -986,6 +1411,7 @@ export const availabilityAPI = {
       const response = await api.put('/user/availability', availabilityData);
       return response.data;
     } catch (error) {
+      console.error('Error updating availability:', error);
       throw error;
     }
   }
@@ -1372,6 +1798,49 @@ export const analyticsAPI = {
     } catch (error) {
       throw error;
     }
+  },
+
+  getConversionMetrics: async (startDate, endDate, groupBy = 'day') => {
+    try {
+      const params = new URLSearchParams();
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+      if (groupBy) params.append('groupBy', groupBy);
+      
+      const response = await api.get(`/analytics/conversion?${params}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  getRecurringConversionMetrics: async (startDate, endDate, groupBy = 'day') => {
+    try {
+      const params = new URLSearchParams();
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+      if (groupBy) params.append('groupBy', groupBy);
+      
+      const response = await api.get(`/analytics/recurring-conversion?${params}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  getLostCustomersMetrics: async (startDate, endDate, groupBy = 'day', inactiveDays = 90) => {
+    try {
+      const params = new URLSearchParams();
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+      if (groupBy) params.append('groupBy', groupBy);
+      if (inactiveDays) params.append('inactiveDays', inactiveDays);
+      
+      const response = await api.get(`/analytics/lost-customers?${params}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
   }
 };
 
@@ -1487,6 +1956,22 @@ export const calendarAPI = {
     } catch (error) {
       throw error;
     }
+  },
+  getSettings: async () => {
+    try {
+      const response = await api.get('/calendar/settings');
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+  updateSettings: async (settings) => {
+    try {
+      const response = await api.put('/calendar/settings', settings);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
   }
 };
 
@@ -1542,6 +2027,212 @@ export const smsAPI = {
         invoiceDetails, 
         customerName 
       });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+};
+
+// Twilio OAuth/API Integration functions
+export const twilioAPI = {
+  // Simple OAuth setup - user provides their own Twilio credentials
+  setupCredentials: async (accountSid, authToken, phoneNumber) => {
+    try {
+      const response = await api.post('/twilio/setup-credentials', {
+        accountSid,
+        authToken,
+        phoneNumber
+      });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Get user's Twilio phone numbers
+  getPhoneNumbers: async () => {
+    try {
+      const response = await api.get('/twilio/phone-numbers');
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Setup SMS messaging for notifications
+  setupSMSNotifications: async (phoneNumber, notificationTypes) => {
+    try {
+      const response = await api.post('/twilio/setup-sms-notifications', {
+        phoneNumber,
+        notificationTypes
+      });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Send SMS using user's Twilio account
+  sendSMS: async (to, message) => {
+    try {
+      const response = await api.post('/twilio/send-sms', { to, message });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Test SMS functionality
+  testSMS: async (phoneNumber) => {
+    try {
+      const response = await api.post('/twilio/test-sms', { phoneNumber });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Disconnect Twilio integration
+  disconnect: async () => {
+    try {
+      const response = await api.delete('/twilio/disconnect');
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Get current default phone number
+  getDefaultPhoneNumber: async () => {
+    try {
+      const response = await api.get('/twilio/default-phone-number');
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Set default phone number
+  setDefaultPhoneNumber: async (phoneNumber) => {
+    try {
+      const response = await api.post('/twilio/set-default-phone-number', {
+        phoneNumber
+      });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Check if Stripe is connected
+  checkStripeStatus: async () => {
+    try {
+      const response = await api.get('/stripe/status');
+      return response.data;
+    } catch (error) {
+      console.error('Error checking Stripe status:', error);
+      throw error;
+    }
+  }
+};
+
+// Stripe OAuth/API Integration functions
+export const stripeAPI = {
+  // Simple OAuth setup - user provides their own Stripe API keys
+  setupCredentials: async (publishableKey, secretKey) => {
+    try {
+      const response = await api.post('/stripe/setup-credentials', {
+        publishableKey,
+        secretKey
+      });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Create invoice using user's Stripe account
+  createInvoice: async (customerId, amount, description, dueDate) => {
+    try {
+      const response = await api.post('/stripe/create-invoice', {
+        customerId,
+        amount,
+        description,
+        dueDate
+      });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Send invoice to customer
+  sendInvoice: async (invoiceId, customerEmail) => {
+    try {
+      const response = await api.post('/stripe/send-invoice', {
+        invoiceId,
+        customerEmail
+      });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Create payment intent for direct payments
+  createPaymentIntent: async (amount, currency = 'usd', customerId, metadata = {}) => {
+    try {
+      const response = await api.post('/stripe/create-payment-intent', {
+        amount,
+        currency,
+        customerId,
+        metadata
+      });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Get payment status
+  getPaymentStatus: async (paymentIntentId) => {
+    try {
+      const response = await api.get(`/stripe/payment-status/${paymentIntentId}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Create customer in user's Stripe account
+  createCustomer: async (email, name, phone) => {
+    try {
+      const response = await api.post('/stripe/create-customer', {
+        email,
+        name,
+        phone
+      });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Test Stripe connection
+  testConnection: async () => {
+    try {
+      const response = await api.get('/stripe/test-connection');
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Disconnect Stripe integration
+  disconnect: async () => {
+    try {
+      const response = await api.delete('/stripe/disconnect');
       return response.data;
     } catch (error) {
       throw error;
@@ -1675,6 +2366,159 @@ export const placesAPI = {
   getDetails: async (placeId) => {
     try {
       const response = await api.get(`/places/details?place_id=${placeId}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+};
+
+// Leads Pipeline API functions
+export const leadsAPI = {
+  // Get pipeline with stages
+  getPipeline: async () => {
+    try {
+      const response = await api.get('/leads/pipeline');
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Update pipeline stages
+  updateStages: async (stages) => {
+    try {
+      const response = await api.put('/leads/pipeline/stages', { stages });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Delete a stage
+  deleteStage: async (stageId) => {
+    try {
+      const response = await api.delete(`/leads/pipeline/stages/${stageId}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Get all leads
+  getAll: async () => {
+    try {
+      const response = await api.get('/leads');
+      return response.data.leads || [];
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Get a single lead
+  getById: async (id) => {
+    try {
+      const response = await api.get(`/leads/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Create a new lead
+  create: async (leadData) => {
+    try {
+      const response = await api.post('/leads', leadData);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Update a lead
+  update: async (id, leadData) => {
+    try {
+      const response = await api.put(`/leads/${id}`, leadData);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Delete a lead
+  delete: async (id) => {
+    try {
+      const response = await api.delete(`/leads/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Move lead to different stage
+  moveToStage: async (leadId, stageId) => {
+    try {
+      const response = await api.put(`/leads/${leadId}/move`, { stageId });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Convert lead to customer
+  convertToCustomer: async (leadId) => {
+    try {
+      const response = await api.post(`/leads/${leadId}/convert`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Tasks API
+  getTasks: async (leadId) => {
+    try {
+      const response = await api.get(`/leads/${leadId}/tasks`);
+      return response.data.tasks || [];
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  getAllTasks: async (params = {}) => {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params.status) queryParams.append('status', params.status);
+      if (params.overdue) queryParams.append('overdue', params.overdue);
+      
+      const response = await api.get(`/leads/tasks?${queryParams}`);
+      return response.data.tasks || [];
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  createTask: async (leadId, taskData) => {
+    try {
+      const response = await api.post(`/leads/${leadId}/tasks`, taskData);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  updateTask: async (taskId, taskData) => {
+    try {
+      const response = await api.put(`/leads/tasks/${taskId}`, taskData);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  deleteTask: async (taskId) => {
+    try {
+      const response = await api.delete(`/leads/tasks/${taskId}`);
       return response.data;
     } catch (error) {
       throw error;

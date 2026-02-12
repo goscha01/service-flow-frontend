@@ -270,7 +270,7 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
   const validatePhone = (phone) => {
     if (!phone) return true // Phone is optional
     // Remove all formatting characters (spaces, dashes, parentheses)
-    const cleaned = phone.replace(/[\s\-\(\)]/g, '')
+    const cleaned = phone.replace(/[\s\-()]/g, '')
     // More flexible validation: allow common phone number formats
     const phoneRegex = /^[\+]?[1-9][\d]{6,15}$/
     return phoneRegex.test(cleaned)
@@ -321,6 +321,9 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
         } else {
           delete errors.lastName
         }
+        break
+      default:
+        // No validation needed for other fields
         break
     }
     
@@ -384,6 +387,7 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
   }
 
   const handleAddressSelect = (addressData) => {
+    console.log('🏠 Address selected from autocomplete:', addressData)
     setCustomerData({
       ...customerData,
       address: addressData.formattedAddress,
@@ -391,6 +395,18 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
       state: addressData.components.state,
       zipCode: addressData.components.zipCode
     })
+  }
+
+  const handleAddressChange = (value) => {
+    console.log('✏️ Address manually changed:', value)
+    setCustomerData(prev => ({ 
+      ...prev, 
+      address: value,
+      // Clear city, state, zipCode when address is manually changed
+      city: "",
+      state: "",
+      zipCode: ""
+    }))
   }
 
 
@@ -427,7 +443,7 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
     
     try {
       // Format phone number for server (remove all formatting, keep only digits and +)
-      const formattedPhone = customerData.phone ? customerData.phone.replace(/[\s\-\(\)]/g, '') : ''
+      const formattedPhone = customerData.phone ? customerData.phone.replace(/[\s\-()]/g, '') : ''
       
       const customerToSave = {
         firstName: customerData.firstName.trim(),
@@ -546,7 +562,7 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
               <AddressAutocomplete
                 ref={addressRef}
                 value={customerData.address}
-                onChange={(value) => setCustomerData(prev => ({ ...prev, address: value }))}
+                onChange={handleAddressChange}
                 onAddressSelect={handleAddressSelect}
                 placeholder="Street Address"
                 className="w-full"
@@ -668,6 +684,22 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
               </div>
               {validationErrors.email && (
                 <p className="mt-1 text-sm text-red-600">{validationErrors.email}</p>
+              )}
+              {!customerData.email && (
+                <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-start">
+                    <div className="flex-shrink-0">
+                      <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm text-blue-800">
+                        <strong>Recommended:</strong> Add an email address to automatically send job confirmations and updates to your customer.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
 

@@ -1,70 +1,31 @@
-import { useState, useEffect, useRef } from "react"
-import { Link, useNavigate } from "react-router-dom"
+import { useState, useEffect } from "react"
+import { Link, useNavigate, Navigate } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
 import GoogleOAuth from "../components/GoogleOAuth"
 
 export default function SignInForm() {
   const navigate = useNavigate()
-  const { login } = useAuth()
+  const { login, user, loading } = useAuth()
   const [formData, setFormData] = useState({
     email: "",
     password: ""
   })
   const [error, setError] = useState("")
-  const [isEmailFocused, setIsEmailFocused] = useState(false)
-  const [isPasswordFocused, setIsPasswordFocused] = useState(false)
 
-  // Refs for autofill sync
-  const emailRef = useRef(null)
-  const passwordRef = useRef(null)
-
-  // Simple, reliable autofill detection
-  useEffect(() => {
-    const syncAutofill = () => {
-      const email = emailRef.current?.value || ""
-      const password = passwordRef.current?.value || ""
-      if (email || password) {
-        setFormData({ email, password })
-      }
-    }
-
-    // CSS animation detection (Chrome's autofill trigger)
-    const handleAnimationStart = () => {
-      setTimeout(syncAutofill, 100)
-    }
-
-    // Multiple timeout checks to catch browser autofill at different speeds
-    const timeouts = [100, 300, 500].map(delay => 
-      setTimeout(syncAutofill, delay)
-    )
-
-    // Add event listeners
-    const emailInput = emailRef.current
-    const passwordInput = passwordRef.current
-
-    if (emailInput) {
-      emailInput.addEventListener('animationstart', handleAnimationStart)
-    }
-    if (passwordInput) {
-      passwordInput.addEventListener('animationstart', handleAnimationStart)
-    }
-
-    return () => {
-      timeouts.forEach(clearTimeout)
-      if (emailInput) {
-        emailInput.removeEventListener('animationstart', handleAnimationStart)
-      }
-      if (passwordInput) {
-        passwordInput.removeEventListener('animationstart', handleAnimationStart)
-      }
-    }
-  }, [])
   const [errors, setErrors] = useState({})
   const [isLoading, setIsLoading] = useState(false)
   const [apiError, setApiError] = useState("")
 
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (!loading && user) {
+      navigate('/dashboard', { replace: true })
+    }
+  }, [user, loading, navigate])
+
   const handleInputChange = (e) => {
     const { name, value } = e.target
+    console.log('🔍 Input change:', { name, value })
     setFormData(prev => ({
       ...prev,
       [name]: value
@@ -106,40 +67,62 @@ export default function SignInForm() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     
+    // Debug: Log form data
+    console.log('🔍 Signin formData:', formData)
+    
+    // Validate form
     if (!validateForm()) {
       return
     }
     
     setIsLoading(true)
     setApiError("")
+    setError("") // Clear any previous errors
     
     try {
-      await login(formData)
-      navigate('/dashboard')
+      const result = await login(formData)
+      // Only navigate if login was successful
+      if (result && result.success) {
+        // Small delay to ensure state is updated
+        setTimeout(() => {
+          navigate('/dashboard', { replace: true })
+        }, 100)
+      }
     } catch (error) {
       console.error('Signin error:', error)
+      console.error('Signin error details:', {
+        response: error.response,
+        message: error.message,
+        stack: error.stack
+      })
+      
+      // Prevent navigation on error
+      let errorMessage = "An error occurred. Please try again."
       
       if (error.response) {
         const { status, data } = error.response
         
         switch (status) {
           case 401:
-            setApiError("Invalid email or password")
+            errorMessage = data?.error || "Invalid email or password"
             break
           case 404:
-            setApiError("User not found")
+            errorMessage = "User not found"
             break
           case 500:
-            setApiError("Server error. Please try again later.")
+            errorMessage = data?.error || "Server error. Please try again later."
             break
           default:
-            setApiError(data?.error || "An error occurred. Please try again.")
+            errorMessage = data?.error || "An error occurred. Please try again."
         }
       } else if (error.request) {
-        setApiError("Network error. Please check your connection.")
-      } else {
-        setApiError("An unexpected error occurred.")
+        errorMessage = "Network error. Please check your connection."
+      } else if (error.message) {
+        errorMessage = error.message
       }
+      
+      setApiError(errorMessage)
+      setError(errorMessage)
     } finally {
       setIsLoading(false)
     }
@@ -156,30 +139,36 @@ export default function SignInForm() {
 
   const isFormValid = formData.email.trim() !== "" && formData.password.trim() !== ""
 
+  // Show loading spinner while checking authentication
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    )
+  }
+
+  // Redirect if already authenticated (fallback)
+  if (user) {
+    return <Navigate to="/dashboard" replace />
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Logo Section */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-8 mb-6">
-          <div className="flex justify-center mb-8">
-             <Link to="/" className="flex items-center">
-            <img src="/logo.svg" alt="ServiceFlow" className="h-10 w-auto" />
-          </Link>
+        {/* Main Card */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+          {/* Logo */}
+          <div className="flex justify-center mb-6">
+            <Link to="/" className="flex items-center">
+              <img src="/logo.svg" alt="zenbooker" className="h-10 w-auto" />
+            </Link>
           </div>
 
           {/* API Error Display */}
-          {apiError && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-red-600 text-sm">{apiError}</p>
-            </div>
-          )}
-
-          {/* Autofill Hint */}
-          {!formData.email && (
-            <div className="mb-4 p-2 bg-gray-50 border border-gray-200 rounded-lg">
-              <p className="text-gray-600 text-xs text-center">
-                💡 Click the email field to see saved accounts
-              </p>
+          {(apiError || error) && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+              <p className="text-red-600 text-sm font-medium">{apiError || error}</p>
             </div>
           )}
 
@@ -189,81 +178,57 @@ export default function SignInForm() {
             method="post"
             autoComplete="on"
             onSubmit={handleSubmit}
-            className="space-y-6"
+            className="space-y-4"
           >
             {/* Email Input */}
             <div>
               <label htmlFor="email" className="sr-only">Email Address</label>
-              <div className="relative">
-                <input
-                  id="email"
-                  type="email"
-                  name="email"
-                  autoComplete="email"
-                  placeholder={formData.email ? "" : "Email"}
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  onFocus={() => setIsEmailFocused(true)}
-                  onBlur={() => setIsEmailFocused(false)}
-                  ref={emailRef}
-                  className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
-                    errors.email 
-                      ? "border-red-500 bg-red-50" 
-                      : isEmailFocused || formData.email
-                        ? "border-blue-500 bg-blue-50" 
-                        : "border-gray-300 bg-white hover:border-gray-400"
-                  }`}
-                  required
-                  disabled={isLoading}
-                />
-                {formData.email && (
-                  <div className="absolute inset-y-0 right-0 flex items-center pr-3">
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  </div>
-                )}
-              </div>
+              <input
+                id="email"
+                type="email"
+                name="email"
+                autoComplete="email"
+                placeholder="Email"
+                value={formData.email}
+                onChange={handleInputChange}
+                className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 transition-colors ${
+                  errors.email 
+                    ? "border-red-500 bg-red-50" 
+                    : "border-gray-300 bg-white"
+                }`}
+                required
+                disabled={isLoading}
+              />
               {errors.email && (
-                <p className="text-red-500 text-sm mt-1">{errors.email}</p>
+                <p className="mt-1 text-red-500 text-sm">{errors.email}</p>
               )}
             </div>
 
             {/* Password Input */}
             <div>
               <label htmlFor="password" className="sr-only">Password</label>
-              <div className="relative">
-                <input
-                  id="password"
-                  type="password"
-                  name="password"
-                  placeholder={formData.password ? "" : "Password"}
-                  value={formData.password}
-                  onChange={handleInputChange}
-                  onFocus={() => setIsPasswordFocused(true)}
-                  onBlur={() => setIsPasswordFocused(false)}
-                  autoComplete="current-password"
-                  ref={passwordRef}
-                  className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
-                    errors.password 
-                      ? "border-red-500 bg-red-50" 
-                      : isPasswordFocused || formData.password
-                        ? "border-blue-500 bg-blue-50" 
-                        : "border-gray-300 bg-white hover:border-gray-400"
-                  }`}
-                  required
-                  disabled={isLoading}
-                />
-                {formData.password && (
-                  <div className="absolute inset-y-0 right-0 flex items-center pr-3">
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  </div>
-                )}
-              </div>
+              <input
+                id="password"
+                type="password"
+                name="password"
+                placeholder="Password"
+                value={formData.password}
+                onChange={handleInputChange}
+                autoComplete="current-password"
+                className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 transition-colors ${
+                  errors.password 
+                    ? "border-red-500 bg-red-50" 
+                    : "border-gray-300 bg-white"
+                }`}
+                required
+                disabled={isLoading}
+              />
               {errors.password && (
-                <p className="text-red-500 text-sm mt-1">{errors.password}</p>
+                <p className="mt-1 text-red-500 text-sm">{errors.password}</p>
               )}
             </div>
 
-            {/* Sign In Button */}
+            {/* Sign In Button - Blue when form is valid */}
             <div>
               <button
                 type="submit"
@@ -291,15 +256,15 @@ export default function SignInForm() {
                 type="button"
                 onClick={handleForgotPassword}
                 disabled={isLoading}
-                className="text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors disabled:opacity-50"
+                className="text-gray-600 hover:text-gray-800 text-sm transition-colors disabled:opacity-50"
               >
                 Forgot Password?
               </button>
             </div>
           </form>
 
-          {/* Divider */}
-          <div className="relative my-6">
+          {/* Divider with "Or continue with" */}
+          <div className="relative my-4">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-gray-300" />
             </div>
@@ -309,7 +274,7 @@ export default function SignInForm() {
           </div>
 
           {/* Google OAuth */}
-          <div className="mt-4">
+          <div>
             <GoogleOAuth 
               onSuccess={(result) => {
                 console.log('✅ Google OAuth success:', result);
@@ -331,7 +296,7 @@ export default function SignInForm() {
         </div>
 
         {/* Sign Up Section */}
-        <div className="text-center">
+        <div className="text-center mt-6">
           <span className="text-gray-600 text-sm">
             {"Don't have an account? "}
             <button 

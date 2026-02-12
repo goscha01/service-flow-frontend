@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import Sidebar from "../../components/sidebar"
-import MobileHeader from "../../components/mobile-header"
+import NotificationTestButton from "../../components/NotificationTestButton"
 import { ChevronLeft, Mail, MessageSquare, Check, X } from "lucide-react"
 import { notificationTemplatesAPI, notificationSettingsAPI } from "../../services/api"
 import { useAuth } from "../../context/AuthContext"
@@ -69,18 +69,30 @@ const AppointmentReminder = () => {
         setEnableSMS(template.is_enabled === 1);
       }
 
-      // Load notification settings
-      const settings = await notificationSettingsAPI.getSettings(user.id);
-      const reminderSetting = settings.find(s => s.notification_type === 'appointment_reminder');
-      
-      if (reminderSetting) {
-        setEnableEmail(reminderSetting.email_enabled === 1);
-        setEnableSMS(reminderSetting.sms_enabled === 1);
+      // Load notification settings - handle gracefully if API fails
+      try {
+        const settings = await notificationSettingsAPI.getSettings(user.id);
+        if (settings && Array.isArray(settings) && settings.length > 0) {
+          const reminderSetting = settings.find(s => s.notification_type === 'appointment_reminder');
+          
+          if (reminderSetting) {
+            setEnableEmail(reminderSetting.email_enabled === 1);
+            setEnableSMS(reminderSetting.sms_enabled === 1);
+          }
+        }
+      } catch (settingsError) {
+        // If notification settings API fails, log but don't show error to user
+        // The templates are more important, so we'll continue with template-based settings
+        console.warn('Could not load notification settings (using template defaults):', settingsError);
+        // Don't set error message - templates loaded successfully, settings are optional
       }
 
     } catch (error) {
       console.error('Error loading templates:', error);
-      setMessage({ type: 'error', text: 'Failed to load notification templates' });
+      // Only show error if templates failed to load
+      if (error.response?.status !== 500 || !error.config?.url?.includes('notification-settings')) {
+        setMessage({ type: 'error', text: 'Failed to load notification templates' });
+      }
     } finally {
       setLoading(false);
     }
@@ -135,7 +147,6 @@ const AppointmentReminder = () => {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
-        <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
 
         {/* Header */}
         <div className="bg-white border-b border-gray-200 px-6 py-4">
@@ -230,6 +241,13 @@ const AppointmentReminder = () => {
                           </span>
                         </div>
                       </div>
+                      
+                      {/* Test Button for Email */}
+                      <NotificationTestButton 
+                        notificationType="Appointment Reminder"
+                        messageType="email"
+                        templateContent="<h2>Appointment Reminder</h2><p>Hi John,</p><p>This is a friendly reminder about your upcoming appointment.</p><p><strong>Service:</strong> Home Cleaning</p><p><strong>Date:</strong> March 15, 2025</p><p><strong>Time:</strong> 10:00 AM - 12:00 PM</p><p><strong>Location:</strong> 123 Main St, Brooklyn, NY</p><p>We look forward to seeing you!</p><p>Best regards,<br />The Team at Just web Agency</p>"
+                      />
                     </div>
                   )}
 
@@ -261,6 +279,13 @@ const AppointmentReminder = () => {
                           </span>
                         </div>
                       </div>
+                      
+                      {/* Test Button for SMS */}
+                      <NotificationTestButton 
+                        notificationType="Appointment Reminder"
+                        messageType="sms"
+                        templateContent="Hi John! Reminder: Your Home Cleaning appointment is tomorrow (March 15) at 10:00 AM. Location: 123 Main St, Brooklyn, NY. We look forward to seeing you! - Just web Agency"
+                      />
                     </div>
                   )}
                 </div>

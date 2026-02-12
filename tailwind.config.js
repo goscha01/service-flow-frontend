@@ -69,8 +69,9 @@ module.exports = {
         sm: "calc(var(--radius, 0.5rem) - 4px)",
       },
       fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"],
-        display: ["Sofia Pro", "Inter", "system-ui", "sans-serif"],
+        sans: [ "Montserrat", "system-ui", "sans-serif"],
+        display: ["Montserrat", "system-ui", "sans-serif"],
+        body: [ "Montserrat", "system-ui", "sans-serif"],
       },
       animation: {
         "fade-in": "smoothFadeIn 1s ease-out",
@@ -82,6 +83,9 @@ module.exports = {
       },
       backdropBlur: {
         xs: "2px",
+      },
+      screens: {
+        'xs': {'max': '600px'},   // applies ONLY when screen ≤ 600px
       },
     },
   },

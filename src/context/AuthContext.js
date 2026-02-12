@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { authAPI } from '../services/api';
 
 const AuthContext = createContext();
@@ -14,6 +15,10 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const location = useLocation();
+  const pollingIntervalRef = useRef(null);
+  const lastFetchedRef = useRef(null);
+  const isPollingEnabledRef = useRef(true);
 
   // Helper to decode JWT and check expiration
   const isTokenExpired = (token) => {
@@ -46,9 +51,12 @@ export const AuthProvider = ({ children }) => {
             setUser(fullProfile);
             // Update localStorage with full profile data
             localStorage.setItem('user', JSON.stringify(fullProfile));
+            // Initialize last fetched timestamp
+            lastFetchedRef.current = Date.now();
           } catch (profileError) {
             console.error('Error loading full user profile:', profileError);
             // Keep using basic user data if profile loading fails
+            lastFetchedRef.current = Date.now();
           }
         } catch (error) {
           console.error('Error parsing user data:', error);
@@ -75,6 +83,25 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('user', JSON.stringify(userData));
       
       setUser(userData);
+      lastFetchedRef.current = Date.now();
+      return { success: true, user: userData };
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const loginWithGoogle = async (googleResponse) => {
+    try {
+      // Google OAuth response already contains user data and token
+      const userData = googleResponse.user;
+      const token = googleResponse.token;
+      
+      // Store user data and token
+      localStorage.setItem('authToken', token);
+      localStorage.setItem('user', JSON.stringify(userData));
+      
+      setUser(userData);
+      lastFetchedRef.current = Date.now();
       return { success: true, user: userData };
     } catch (error) {
       throw error;
@@ -92,6 +119,7 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('user', JSON.stringify(newUser));
       
       setUser(newUser);
+      lastFetchedRef.current = Date.now();
       return { success: true, user: newUser };
     } catch (error) {
       throw error;
@@ -116,7 +144,7 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem('user', JSON.stringify(syncedProfile));
   };
 
-  const refreshUserProfile = async () => {
+  const refreshUserProfile = async (silent = false) => {
     try {
       if (!user?.id) return;
       
@@ -130,14 +158,54 @@ export const AuthProvider = ({ children }) => {
         business_name: freshProfile.business_name || freshProfile.businessName
       };
       
-      console.log('🔍 AuthContext: Refreshing user profile with fresh data:', syncedProfile);
-      setUser(syncedProfile);
-      localStorage.setItem('user', JSON.stringify(syncedProfile));
+      // Compare roles and permissions to detect changes
+      const hasRoleChanged = user.role !== syncedProfile.role || 
+                            user.teamMemberRole !== syncedProfile.teamMemberRole;
+      
+      // Compare permissions (handle both object and string formats)
+      const currentPermissions = typeof user.permissions === 'string' 
+        ? JSON.parse(user.permissions || '{}') 
+        : (user.permissions || {});
+      const newPermissions = typeof syncedProfile.permissions === 'string'
+        ? JSON.parse(syncedProfile.permissions || '{}')
+        : (syncedProfile.permissions || {});
+      
+      const permissionsChanged = JSON.stringify(currentPermissions) !== JSON.stringify(newPermissions);
+      
+      if (hasRoleChanged || permissionsChanged) {
+        if (!silent) {
+          console.log('🔄 AuthContext: Role or permissions changed, updating user profile');
+          console.log('🔄 Role changed:', hasRoleChanged);
+          console.log('🔄 Permissions changed:', permissionsChanged);
+        }
+        
+        // Update user state
+        setUser(syncedProfile);
+        localStorage.setItem('user', JSON.stringify(syncedProfile));
+        
+        // Update last fetched timestamp
+        lastFetchedRef.current = Date.now();
+        
+        // Optionally show a notification to user about permission changes
+        if (!silent && (hasRoleChanged || permissionsChanged)) {
+          // You can add a toast notification here if needed
+          console.log('✅ User role/permissions updated successfully');
+        }
+      } else {
+        // Even if nothing changed, update the timestamp
+        lastFetchedRef.current = Date.now();
+        if (!silent) {
+          console.log('🔍 AuthContext: User profile refreshed (no changes detected)');
+        }
+      }
       
       return syncedProfile;
     } catch (error) {
       console.error('Error refreshing user profile:', error);
-      throw error;
+      if (!silent) {
+        throw error;
+      }
+      return null;
     }
   };
 
@@ -153,6 +221,87 @@ export const AuthProvider = ({ children }) => {
     return () => clearInterval(interval);
   }, []);
 
+  // Poll for role/permission updates every 5 minutes
+  useEffect(() => {
+    if (!user?.id) {
+      // Clear any existing polling if user logs out
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+      return;
+    }
+
+    // Only start polling if it's not already running
+    if (!pollingIntervalRef.current && isPollingEnabledRef.current) {
+      console.log('🔄 AuthContext: Starting role/permission polling (every 5 minutes)');
+      
+      const pollUserProfile = async () => {
+        if (isPollingEnabledRef.current && user?.id) {
+          try {
+            await refreshUserProfile(true); // Silent refresh
+          } catch (error) {
+            console.error('Error during role/permission polling:', error);
+          }
+        }
+      };
+      
+      pollingIntervalRef.current = setInterval(pollUserProfile, 5 * 60 * 1000); // 5 minutes
+    }
+
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+    };
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Fetch roles/permissions on navigation (route change)
+  useEffect(() => {
+    if (!user?.id) return;
+
+    // Only fetch if it's been more than 30 seconds since last fetch
+    // This prevents too many API calls during rapid navigation
+    const now = Date.now();
+    const timeSinceLastFetch = lastFetchedRef.current ? now - lastFetchedRef.current : Infinity;
+    
+    if (timeSinceLastFetch > 30000) { // 30 seconds throttle
+      console.log('🔄 AuthContext: Route changed, fetching latest roles/permissions');
+      refreshUserProfile(true).catch(error => {
+        console.error('Error fetching roles on navigation:', error);
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname, user?.id]);
+
+  // Fetch roles/permissions when tab becomes visible again
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && isPollingEnabledRef.current) {
+        const now = Date.now();
+        const timeSinceLastFetch = lastFetchedRef.current ? now - lastFetchedRef.current : Infinity;
+        
+        // Only fetch if it's been more than 1 minute since last fetch
+        if (timeSinceLastFetch > 60000) {
+          console.log('🔄 AuthContext: Tab became visible, fetching latest roles/permissions');
+          refreshUserProfile(true).catch(error => {
+            console.error('Error fetching roles on visibility change:', error);
+          });
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
   const isAuthenticated = () => {
     return !!user;
   };
@@ -161,6 +310,7 @@ export const AuthProvider = ({ children }) => {
     user,
     loading,
     login,
+    loginWithGoogle,
     signup,
     logout,
     updateUserProfile,

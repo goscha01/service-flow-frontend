@@ -2,18 +2,45 @@
 
 import { useState, useEffect, useRef } from "react"
 import Sidebar from "../components/sidebar"
-import MobileHeader from "../components/mobile-header"
 import CustomerModal from "../components/customer-modal"
 import CalendarPicker from "../components/CalendarPicker"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
+import { Button } from "../components/ui/button"
+import { Badge } from "../components/ui/badge"
+import { Progress } from "../components/ui/progress"
 import { Plus, ChevronDown, Info, Star, Calendar, ArrowRight, BarChart2, CreditCard, Users, RefreshCw, MapPin, Globe, Check, AlertTriangle } from "lucide-react"
 import { Link, useNavigate } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
 import { jobsAPI, customersAPI, servicesAPI, invoicesAPI, teamAPI } from "../services/api"
 import { normalizeAPIResponse, handleAPIError } from "../utils/dataHandler"
+import { decodeHtmlEntities } from "../utils/htmlUtils"
 
 const ServiceFlowDashboard = () => {
   const { user } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [isWakingUp, setIsWakingUp] = useState(true)
+  
+  // Keepalive functionality to prevent Railway backend from sleeping
+  useEffect(() => {
+    const keepWarm = async () => {
+      try {
+        await fetch(`${process.env.REACT_APP_API_URL || 'https://service-flow-backend-production-4568.up.railway.app/api'}/health`, {
+          method: 'HEAD',
+        });
+        console.log('✅ Backend keepalive ping');
+      } catch (error) {
+        console.log('⚠️ Keepalive ping failed (normal if backend is sleeping)');
+      }
+    };
+
+    // Initial ping on dashboard load
+    keepWarm();
+
+    // Set up interval to ping every 10 minutes
+    const keepaliveInterval = setInterval(keepWarm, 10 * 60 * 1000); // 10 minutes
+
+    return () => clearInterval(keepaliveInterval);
+  }, []);
   
   // Helper function to get today's date in local timezone
   const getTodayString = () => {
@@ -116,7 +143,7 @@ const ServiceFlowDashboard = () => {
   const generateMapUrl = (jobs, mapType = 'roadmap') => {
     if (!jobs || jobs.length === 0) {
       // Default to New York if no jobs
-      return `https://www.google.com/maps/embed/v1/view?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&center=40.7128,-74.0060&zoom=11&maptype=${mapType}`
+      return `https://www.google.com/maps/embed/v1/view?key=AIzaSyC_CrJWTsTHOTBd7TSzTuXOfutywZ2AyOQ&center=40.7128,-74.0060&zoom=11&maptype=${mapType}`
     }
 
     // Filter jobs that have valid addresses
@@ -124,20 +151,20 @@ const ServiceFlowDashboard = () => {
     
     if (jobsWithAddresses.length === 0) {
       // No valid addresses, use default
-      return `https://www.google.com/maps/embed/v1/view?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&center=40.7128,-74.0060&zoom=11&maptype=${mapType}`
+      return `https://www.google.com/maps/embed/v1/view?key=AIzaSyC_CrJWTsTHOTBd7TSzTuXOfutywZ2AyOQ&center=40.7128,-74.0060&zoom=11&maptype=${mapType}`
     }
 
     if (jobsWithAddresses.length === 1) {
       // Single job - use place mode for better centering
       const address = encodeURIComponent(jobsWithAddresses[0].customer_address)
-      return `https://www.google.com/maps/embed/v1/place?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&q=${address}&zoom=14&maptype=${mapType}`
+      return `https://www.google.com/maps/embed/v1/place?key=AIzaSyC_CrJWTsTHOTBd7TSzTuXOfutywZ2AyOQ&q=${address}&zoom=14&maptype=${mapType}`
     }
 
     // Multiple jobs - use search mode to show all locations
     const addresses = jobsWithAddresses.map(job => job.customer_address).join('|')
     const encodedAddresses = encodeURIComponent(addresses)
     
-    return `https://www.google.com/maps/embed/v1/search?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&q=${encodedAddresses}&zoom=10&maptype=${mapType}`
+    return `https://www.google.com/maps/embed/v1/search?key=AIzaSyC_CrJWTsTHOTBd7TSzTuXOfutywZ2AyOQ&q=${encodedAddresses}&zoom=10&maptype=${mapType}`
   }
 
   // Setup section visibility state - ALWAYS starts hidden and stays hidden until proven needed
@@ -333,6 +360,52 @@ const ServiceFlowDashboard = () => {
     
     console.log('🔍 Setup section dismissed from localStorage:', dismissed)
     console.log('✅ Complete cache and cookie cleanup completed')
+  }, [])
+
+  // Keepalive ping to prevent Railway backend from sleeping
+  useEffect(() => {
+    const backendUrl = process.env.REACT_APP_API_URL || 'https://service-flow-backend-production-4568.up.railway.app/api';
+    
+    // Ping the backend every 10 minutes to keep it warm
+    const keepWarm = setInterval(async () => {
+      try {
+        await fetch(`${backendUrl}/health`, {
+          method: 'HEAD',
+        });
+        console.log('✅ Backend keepalive ping successful');
+      } catch (error) {
+        console.log('⚠️ Keepalive ping failed (normal if backend is sleeping)');
+      }
+    }, 10 * 60 * 1000); // 10 minutes
+
+    // Initial ping on app load
+    fetch(`${backendUrl}/health`, {
+      method: 'HEAD',
+    }).then(() => {
+      console.log('✅ Initial backend ping successful');
+    }).catch(() => {
+      console.log('⚠️ Initial backend ping failed (normal if backend is sleeping)');
+    });
+
+    return () => clearInterval(keepWarm);
+  }, [])
+
+  // Check if backend is ready on initial load
+  useEffect(() => {
+    const checkBackend = async () => {
+      try {
+        const backendUrl = process.env.REACT_APP_API_URL || 'https://service-flow-backend-production-4568.up.railway.app/api';
+        await fetch(`${backendUrl}/health`, { method: 'HEAD' });
+        setIsWakingUp(false);
+        console.log('✅ Backend is ready');
+      } catch (error) {
+        console.log('⚠️ Backend not ready, retrying in 2 seconds...');
+        // Retry after a delay
+        setTimeout(checkBackend, 2000);
+      }
+    };
+    
+    checkBackend();
   }, [])
 
   // Silent background check if setup section should be shown based on user's data
@@ -656,7 +729,7 @@ const ServiceFlowDashboard = () => {
         return sum + jobValue
       }, 0)
       
-      const avgJobValue = rangeJobs.length > 0 ? totalRevenue / rangeJobs.length : 0
+      const avgJobValue = rangeJobs.length > 0 ? Math.round((totalRevenue / rangeJobs.length) * 100) / 100 : 0
       
       // Calculate max values for progress bars (for better visualization)
       const maxJobValue = Math.max(avgJobValue, 100) // Use $100 as minimum scale
@@ -876,11 +949,22 @@ const ServiceFlowDashboard = () => {
     return updatedTasks
   }
 
+  // Show loading state while backend is waking up
+  if (isWakingUp) {
+    return (
+      <div className="flex h-screen bg-gray-50 items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Connecting to server...</h2>
+          <p className="text-gray-600">Please wait while we wake up the backend</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="flex h-screen bg-gray-50 overflow-hidden">
-        {/* Sidebar */}
-        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
         {/* Customer Modal */}
         <CustomerModal
@@ -891,11 +975,9 @@ const ServiceFlowDashboard = () => {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
-        {/* Mobile Header */}
-        <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
 
         {/* Trial Banner */}
-        <div className="bg-orange-50 border-b border-orange-100 px-4 lg:px-6 py-3">
+        <div className="bg-orange-50 border-b border-orange-100 px-2 sm:px-4 md:px-6 lg:px-8 py-3">
           <div className="max-w-7xl mx-auto flex items-center justify-center space-x-2">
             <AlertTriangle className="w-4 h-4 text-orange-600" />
             <p className="text-sm text-orange-800 font-medium">
@@ -908,7 +990,7 @@ const ServiceFlowDashboard = () => {
         </div>
 
         {/* Desktop Header */}
-        <div className="hidden lg:block bg-white border-b border-gray-200 px-6 py-5">
+        <div className="hidden lg:block bg-white border-b border-gray-200 px-2 sm:px-4 md:px-6 lg:px-8 py-5">
           <div className="max-w-7xl mx-auto flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-display font-semibold text-gray-900">{getGreeting()}, {getUserDisplayName()}.</h1>
@@ -1007,8 +1089,8 @@ const ServiceFlowDashboard = () => {
 
         {/* Main Content Area */}
         <div className="flex-1 overflow-auto">
-          <div className="p-4 lg:p-6">
-            <div className="max-w-7xl mx-auto space-y-6 lg:space-y-8">
+          <div className="px-1 sm:px-3 md:px-4 lg:px-6 xl:px-8 py-4 sm:py-6 lg:py-8">
+            <div className="max-w-7xl mx-auto space-y-6 lg:space-y-8 min-w-0">
               {/* Error Display */}
               {error && (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4">
@@ -1245,7 +1327,7 @@ const ServiceFlowDashboard = () => {
                                       </div>
                                       <div className="min-w-0 flex-1">
                                         <p className="font-medium text-gray-900 truncate">
-                                          {job.service_name || 'Service'}
+                                          {decodeHtmlEntities(job.service_name || 'Service')}
                                         </p>
                                         <p className="text-gray-500 truncate">
                                           {job.customer_first_name} {job.customer_last_name}
@@ -1300,7 +1382,7 @@ const ServiceFlowDashboard = () => {
                                       </div>
                                       <div className="min-w-0 flex-1">
                                         <p className="font-medium text-gray-900 truncate">
-                                          {job.service_name || 'Service'}
+                                          {decodeHtmlEntities(job.service_name || 'Service')}
                                         </p>
                                         <p className="text-gray-500 truncate">
                                           {job.customer_first_name} {job.customer_last_name}
@@ -1443,112 +1525,130 @@ const ServiceFlowDashboard = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                   {/* New jobs */}
-                  <div className="space-y-4 p-4 bg-gray-50 rounded-xl">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <BarChart2 className="w-5 h-5 text-primary-600" />
-                        <h3 className="text-sm font-medium text-gray-900">New jobs</h3>
-                      </div>
-                      <Info className="w-4 h-4 text-gray-400 hover:text-gray-600 cursor-help transition-colors duration-200" />
-                    </div>
-                    {isLoading ? (
-                      <div className="animate-pulse space-y-4">
-                        <div className="h-8 bg-gray-200 rounded w-16"></div>
-                        <div className="h-2 bg-gray-200 rounded-full"></div>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="text-3xl font-bold text-gray-900">{dashboardData.newJobs}</div>
-                        <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                          <div className="h-2 bg-primary-600 rounded-full" style={{ width: `${(dashboardData.newJobs / dashboardData.totalJobs) * 100}%` }}></div>
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">New jobs</CardTitle>
+                      <Info className="h-4 w-4 text-gray-400" />
+                    </CardHeader>
+                    <CardContent>
+                      {isLoading ? (
+                        <div className="animate-pulse space-y-4">
+                          <div className="h-8 bg-gray-200 rounded w-16"></div>
+                          <div className="h-2 bg-gray-200 rounded-full"></div>
                         </div>
-                      </>
-                    )}
-                  </div>
+                      ) : (
+                        <>
+                          <div className="text-3xl font-bold text-gray-900">{dashboardData.newJobs}</div>
+                          <div className="flex items-center space-x-2 mt-2">
+                            <Progress value={dashboardData.totalJobs > 0 ? (dashboardData.newJobs / dashboardData.totalJobs) * 100 : 0} className="flex-1" />
+                            <span className="text-xs text-gray-500">7 days</span>
+                          </div>
+                        </>
+                      )}
+                    </CardContent>
+                  </Card>
 
                   {/* Jobs */}
-                  <div className="space-y-4 p-4 bg-gray-50 rounded-xl">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <RefreshCw className="w-5 h-5 text-primary-600" />
-                        <h3 className="text-sm font-medium text-gray-900">Jobs</h3>
-                      </div>
-                      <Info className="w-4 h-4 text-gray-400 hover:text-gray-600 cursor-help transition-colors duration-200" />
-                    </div>
-                    {isLoading ? (
-                      <div className="animate-pulse space-y-4">
-                        <div className="h-8 bg-gray-200 rounded w-16"></div>
-                        <div className="h-2 bg-gray-200 rounded-full"></div>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="text-3xl font-bold text-gray-900">{dashboardData.totalJobs}</div>
-                        <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                          <div className="h-2 bg-primary-600 rounded-full" style={{ width: `${(dashboardData.totalJobs / Math.max(dashboardData.totalJobs, 1)) * 100}%` }}></div>
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Jobs</CardTitle>
+                      <Info className="h-4 w-4 text-gray-400" />
+                    </CardHeader>
+                    <CardContent>
+                      {isLoading ? (
+                        <div className="animate-pulse space-y-4">
+                          <div className="h-8 bg-gray-200 rounded w-16"></div>
+                          <div className="h-2 bg-gray-200 rounded-full"></div>
                         </div>
-                      </>
-                    )}
-                  </div>
+                      ) : dashboardData.totalJobs > 0 ? (
+                        <>
+                          <div className="text-3xl font-bold text-gray-900">{dashboardData.totalJobs}</div>
+                          <div className="flex items-center space-x-2 mt-2">
+                            <Progress value={100} className="flex-1" />
+                            <span className="text-xs text-gray-500">Total</span>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="text-center py-4">
+                          <p className="text-gray-900 font-medium">No data to display</p>
+                          <p className="text-gray-600 text-sm mt-1">
+                            Try changing the date range filter at the top of the page
+                          </p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
 
                   {/* New recurring bookings */}
-                  <div className="space-y-4 p-4 bg-gray-50 rounded-xl">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <Calendar className="w-5 h-5 text-primary-600" />
-                        <h3 className="text-sm font-medium text-gray-900">New recurring bookings</h3>
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">New recurring bookings</CardTitle>
+                      <Info className="h-4 w-4 text-gray-400" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-3xl font-bold text-gray-900">{dashboardData.newRecurringBookings}</div>
+                      <div className="flex items-center space-x-2 mt-2">
+                        <Progress value={dashboardData.recurringBookings > 0 ? (dashboardData.newRecurringBookings / dashboardData.recurringBookings) * 100 : 0} className="flex-1" />
+                        <span className="text-xs text-gray-500">7 days</span>
                       </div>
-                      <Info className="w-4 h-4 text-gray-400 hover:text-gray-600 cursor-help transition-colors duration-200" />
-                    </div>
-                    <div className="text-3xl font-bold text-gray-900">{dashboardData.newRecurringBookings}</div>
-                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <div className="h-2 bg-primary-600 rounded-full" style={{ width: `${(dashboardData.newRecurringBookings / dashboardData.recurringBookings) * 100}%` }}></div>
-                    </div>
-                  </div>
+                    </CardContent>
+                  </Card>
 
                   {/* Recurring bookings */}
-                  <div className="space-y-4 p-4 bg-gray-50 rounded-xl">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <RefreshCw className="w-5 h-5 text-primary-600" />
-                        <h3 className="text-sm font-medium text-gray-900">Recurring bookings</h3>
-                      </div>
-                      <Info className="w-4 h-4 text-gray-400 hover:text-gray-600 cursor-help transition-colors duration-200" />
-                    </div>
-                    <div className="text-3xl font-bold text-gray-900">{dashboardData.recurringBookings}</div>
-                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <div className="h-2 bg-primary-600 rounded-full" style={{ width: `${(dashboardData.recurringBookings / Math.max(dashboardData.recurringBookings, 1)) * 100}%` }}></div>
-                    </div>
-                  </div>
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Recurring bookings</CardTitle>
+                      <Info className="h-4 w-4 text-gray-400" />
+                    </CardHeader>
+                    <CardContent>
+                      {dashboardData.recurringBookings > 0 ? (
+                        <>
+                          <div className="text-3xl font-bold text-gray-900">{dashboardData.recurringBookings}</div>
+                          <div className="flex items-center space-x-2 mt-2">
+                            <Progress value={100} className="flex-1" />
+                            <span className="text-xs text-gray-500">Total</span>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="text-center py-4">
+                          <p className="text-gray-900 font-medium">No data to display</p>
+                          <p className="text-gray-600 text-sm mt-1">
+                            Try changing the date range filter at the top of the page
+                          </p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
 
                   {/* Job value */}
-                  <div className="space-y-4 p-4 bg-gray-50 rounded-xl">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <CreditCard className="w-5 h-5 text-primary-600" />
-                        <h3 className="text-sm font-medium text-gray-900">Avg job value</h3>
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Job value</CardTitle>
+                      <Info className="h-4 w-4 text-gray-400" title="Average value per job (total revenue ÷ number of jobs)" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-3xl font-bold text-gray-900">${dashboardData.jobValue}</div>
+                      <div className="flex items-center space-x-2 mt-2">
+                        <Progress value={Math.min((dashboardData.jobValue / dashboardData.maxJobValue) * 100, 100)} className="flex-1" />
+                        <span className="text-xs text-gray-500">Avg</span>
                       </div>
-                      <Info className="w-4 h-4 text-gray-400 hover:text-gray-600 cursor-help transition-colors duration-200" title="Average value per job (total revenue ÷ number of jobs)" />
-                    </div>
-                    <div className="text-3xl font-bold text-gray-900">${dashboardData.jobValue}</div>
-                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <div className="h-2 bg-primary-600 rounded-full" style={{ width: `${Math.min((dashboardData.jobValue / dashboardData.maxJobValue) * 100, 100)}%` }}></div>
-                    </div>
-                  </div>
+                    </CardContent>
+                  </Card>
 
                   {/* Payments collected */}
-                  <div className="space-y-4 p-4 bg-gray-50 rounded-xl">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <CreditCard className="w-5 h-5 text-primary-600" />
-                        <h3 className="text-sm font-medium text-gray-900">Total revenue</h3>
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Payments collected</CardTitle>
+                      <Info className="h-4 w-4 text-gray-400" title="Total value of all jobs in the selected time period" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-3xl font-bold text-gray-900">${dashboardData.totalRevenue}</div>
+                      <div className="flex items-center space-x-2 mt-2">
+                        <Progress value={Math.min((dashboardData.totalRevenue / dashboardData.maxRevenue) * 100, 100)} className="flex-1" />
+                        <span className="text-xs text-gray-500">Total</span>
                       </div>
-                      <Info className="w-4 h-4 text-gray-400 hover:text-gray-600 cursor-help transition-colors duration-200" title="Total value of all jobs in the selected time period" />
-                    </div>
-                    <div className="text-3xl font-bold text-gray-900">${dashboardData.totalRevenue}</div>
-                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <div className="h-2 bg-primary-600 rounded-full" style={{ width: `${Math.min((dashboardData.totalRevenue / dashboardData.maxRevenue) * 100, 100)}%` }}></div>
-                    </div>
-                  </div>
+                    </CardContent>
+                  </Card>
                 </div>
 
                 {/* Rating Section */}

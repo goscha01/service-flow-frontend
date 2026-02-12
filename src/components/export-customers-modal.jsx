@@ -96,10 +96,12 @@ const ExportCustomersModal = ({ isOpen, onClose }) => {
                 
                 try {
                   const format = exportType === "csv_format" ? "csv" : "json"
-                  const response = await customersAPI.export(format)
                   
                   if (format === "csv") {
-                    // For CSV, the response is the CSV content directly
+                    // For CSV, use the API service which handles authentication properly
+                    const response = await customersAPI.export('csv')
+                    
+                    // The API service returns the CSV data directly
                     const blob = new Blob([response], { type: 'text/csv' })
                     const url = window.URL.createObjectURL(blob)
                     const a = document.createElement('a')
@@ -110,7 +112,8 @@ const ExportCustomersModal = ({ isOpen, onClose }) => {
                     window.URL.revokeObjectURL(url)
                     document.body.removeChild(a)
                   } else {
-                    // For JSON, the response is the data object
+                    // For JSON, use the API method
+                    const response = await customersAPI.export('json')
                     const blob = new Blob([JSON.stringify(response, null, 2)], { type: 'application/json' })
                     const url = window.URL.createObjectURL(blob)
                     const a = document.createElement('a')

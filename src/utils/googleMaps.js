@@ -4,8 +4,8 @@ let googleMapsLoaded = false;
 let googleMapsLoading = false;
 const loadingCallbacks = [];
 
-// Load Google Maps JavaScript API
-export const loadGoogleMapsScript = (apiKey) => {
+// Load Google Maps JavaScript API with Places API (New)
+export const loadGoogleMapsScript = (apiKey, libraries = 'places') => {
   return new Promise((resolve, reject) => {
     // If already loaded, resolve immediately
     if (googleMapsLoaded && window.google && window.google.maps && window.google.maps.places) {
@@ -13,7 +13,44 @@ export const loadGoogleMapsScript = (apiKey) => {
       return;
     }
 
-    // If currently loading, add to callback queue
+    // Check if script already exists in DOM (even if not loaded yet)
+    const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
+    if (existingScript) {
+      // Script exists in DOM, wait for it to load instead of creating a new one
+      // Add to callback queue (will be resolved when script loads)
+      if (!googleMapsLoading) {
+        googleMapsLoading = true;
+      }
+      loadingCallbacks.push({ resolve, reject });
+      
+      // Start checking if it's already loaded
+      const checkLoaded = setInterval(() => {
+        if (window.google && window.google.maps && window.google.maps.places) {
+          clearInterval(checkLoaded);
+          googleMapsLoaded = true;
+          googleMapsLoading = false;
+          
+          // Resolve all pending callbacks
+          loadingCallbacks.forEach(callback => callback.resolve());
+          loadingCallbacks.length = 0;
+        }
+      }, 100);
+
+      // Timeout after 10 seconds
+      setTimeout(() => {
+        clearInterval(checkLoaded);
+        if (!googleMapsLoaded) {
+          googleMapsLoading = false;
+          const error = new Error('Google Maps API failed to load within timeout');
+          loadingCallbacks.forEach(callback => callback.reject(error));
+          loadingCallbacks.length = 0;
+        }
+      }, 10000);
+      
+      return;
+    }
+
+    // If currently loading (but script not in DOM yet), add to callback queue
     if (googleMapsLoading) {
       loadingCallbacks.push({ resolve, reject });
       return;
@@ -23,25 +60,36 @@ export const loadGoogleMapsScript = (apiKey) => {
     googleMapsLoading = true;
     loadingCallbacks.push({ resolve, reject });
 
-    // Check if script already exists
-    const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
-    if (existingScript) {
-      existingScript.remove();
-    }
-
     // Create script element
     const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=${libraries}`;
     script.async = true;
     script.defer = true;
     
     script.onload = () => {
-      googleMapsLoaded = true;
-      googleMapsLoading = false;
-      
-      // Resolve all pending callbacks
-      loadingCallbacks.forEach(callback => callback.resolve());
-      loadingCallbacks.length = 0;
+      // Wait for the library to fully initialize
+      const checkLoaded = setInterval(() => {
+        if (window.google && window.google.maps && window.google.maps.places) {
+          clearInterval(checkLoaded);
+          googleMapsLoaded = true;
+          googleMapsLoading = false;
+          
+          // Resolve all pending callbacks
+          loadingCallbacks.forEach(callback => callback.resolve());
+          loadingCallbacks.length = 0;
+        }
+      }, 100);
+
+      // Timeout after 5 seconds
+      setTimeout(() => {
+        clearInterval(checkLoaded);
+        if (!googleMapsLoaded) {
+          googleMapsLoading = false;
+          const error = new Error('Google Maps API failed to load within timeout');
+          loadingCallbacks.forEach(callback => callback.reject(error));
+          loadingCallbacks.length = 0;
+        }
+      }, 5000);
     };
     
     script.onerror = (error) => {
@@ -59,17 +107,22 @@ export const loadGoogleMapsScript = (apiKey) => {
 };
 
 // Initialize Google Places Autocomplete
+// Using legacy Autocomplete API by default to avoid referer restriction issues with new API
+// The new PlaceAutocompleteElement requires Places API (New) and proper referer configuration
 export const initializePlacesAutocomplete = (inputElement, options = {}) => {
   if (!window.google || !window.google.maps || !window.google.maps.places) {
     throw new Error('Google Maps Places API not loaded');
   }
 
+  // Use legacy Autocomplete API (works with existing API keys and referer restrictions)
+  // The new PlaceAutocompleteElement API has stricter referer requirements and requires
+  // Places API (New) to be enabled, which may not be configured for all API keys
   const autocomplete = new window.google.maps.places.Autocomplete(inputElement, {
-    types: ['address'],
-    componentRestrictions: { country: 'us' },
+    types: options.types || ['geocode'],
+    componentRestrictions: options.componentRestrictions || { country: 'us' },
     ...options
   });
-
+  autocomplete._isPlaceAutocompleteElement = false;
   return autocomplete;
 };
 

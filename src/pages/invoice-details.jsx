@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from "react"
 import { useParams, useNavigate } from "react-router-dom"
-import { ChevronLeft, Edit, Trash2, Send, Check, FileText, User, Calendar, DollarSign, AlertCircle, Loader2, Eye } from "lucide-react"
+import { ChevronLeft, Edit, Trash2, Send, Check, FileText, User, Calendar, DollarSign, AlertCircle, Loader2, Eye, Printer } from "lucide-react"
 import { invoicesAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
 import Sidebar from "../components/sidebar"
-import MobileHeader from "../components/mobile-header"
 import { formatPhoneNumber } from "../utils/phoneFormatter"
+import SendInvoiceModal from "../components/send-invoice-modal"
+import Notification from "../components/notification"
 
 const InvoiceDetails = () => {
   const { invoiceId } = useParams()
@@ -17,6 +18,8 @@ const InvoiceDetails = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [showSendModal, setShowSendModal] = useState(false)
+  const [notification, setNotification] = useState({ show: false, message: "", type: "info" })
 
   useEffect(() => {
     if (invoiceId && user?.id) {
@@ -75,15 +78,21 @@ const InvoiceDetails = () => {
     }
   }
 
-  const handleSendInvoice = async () => {
-    try {
-      await invoicesAPI.updateStatus(invoiceId, 'sent', user.id)
-      fetchInvoiceData()
-      alert('Invoice sent successfully!')
-    } catch (error) {
-      console.error('Error sending invoice:', error)
-      setError("Failed to send invoice.")
-    }
+  const handleSendInvoice = () => {
+    setShowSendModal(true)
+  }
+
+  const handleSendSuccess = () => {
+    fetchInvoiceData()
+    setNotification({
+      show: true,
+      message: 'Invoice sent successfully!',
+      type: 'success'
+    })
+  }
+
+  const handlePrint = () => {
+    window.print()
   }
 
   const formatDate = (dateString) => {
@@ -125,7 +134,6 @@ const InvoiceDetails = () => {
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         
         <div className="flex-1 flex flex-col min-w-0">
-          <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
           
           <div className="flex-1 overflow-auto flex items-center justify-center">
             <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
@@ -141,7 +149,6 @@ const InvoiceDetails = () => {
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         
         <div className="flex-1 flex flex-col min-w-0">
-          <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
           
           <div className="flex-1 overflow-auto flex items-center justify-center">
             <div className="text-center">
@@ -168,7 +175,6 @@ const InvoiceDetails = () => {
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         
         <div className="flex-1 flex flex-col min-w-0">
-          <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
           
           <div className="flex-1 overflow-auto flex items-center justify-center">
             <div className="text-center">
@@ -193,7 +199,6 @@ const InvoiceDetails = () => {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
       <div className="flex-1 flex flex-col min-w-0">
-        <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
         
         <div className="flex-1 overflow-auto">
           <div className="px-4 sm:px-6 lg:px-8 py-8">
@@ -348,6 +353,14 @@ const InvoiceDetails = () => {
                     <h2 className="text-lg font-medium text-gray-900 mb-4">Actions</h2>
                     
                     <div className="space-y-3">
+                      <button
+                        onClick={handlePrint}
+                        className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                      >
+                        <Printer className="w-4 h-4 mr-2" />
+                        Print Invoice
+                      </button>
+                      
                       {invoice.status === 'draft' && (
                         <>
                           <button
@@ -392,6 +405,22 @@ const InvoiceDetails = () => {
           </div>
         </div>
       </div>
+
+      {/* Send Invoice Modal */}
+      <SendInvoiceModal
+        isOpen={showSendModal}
+        onClose={() => setShowSendModal(false)}
+        invoice={invoice}
+        onSuccess={handleSendSuccess}
+      />
+
+      {/* Notification */}
+      <Notification
+        show={notification.show}
+        message={notification.message}
+        type={notification.type}
+        onClose={() => setNotification({ ...notification, show: false })}
+      />
     </div>
   )
 }

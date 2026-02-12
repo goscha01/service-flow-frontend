@@ -3,6 +3,7 @@ import { Plus, Edit, Trash2, GripVertical, Wrench, Copy } from 'lucide-react';
 import { servicesAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { getImageUrl, handleImageError } from '../utils/imageUtils';
+import { safeDecodeText } from '../utils/htmlUtils';
 
 const ServicesDisplay = ({ 
   services = [], 
@@ -127,7 +128,7 @@ const ServicesDisplay = ({
             {service.image ? (
               <img
                 src={getImageUrl(service.image)}
-                alt={service.name}
+                alt={safeDecodeText(service.name) || 'Service'}
                 onError={handleImageError}
                 className="w-16 h-16 object-cover rounded-lg border border-gray-200"
               />
@@ -141,7 +142,9 @@ const ServicesDisplay = ({
           {/* Service Details */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between mb-1">
-              <h3 className="text-lg font-semibold text-gray-900">{service.name}</h3>
+              <h3 className="text-lg font-semibold text-gray-900" title={safeDecodeText(service.name)}>
+                {safeDecodeText(service.name) || 'Unnamed Service'}
+              </h3>
               <button
                 onClick={() => handleDuplicateService(service)}
                 disabled={deleteLoading === service.id}
@@ -159,7 +162,9 @@ const ServicesDisplay = ({
               </button>
             </div>
             {service.description && (
-              <p className="text-sm text-gray-600 mb-2 line-clamp-2">{service.description}</p>
+              <p className="text-sm text-gray-600 mb-2 line-clamp-2" title={safeDecodeText(service.description)}>
+                {safeDecodeText(service.description)}
+              </p>
             )}
             
             <div className="flex items-center space-x-4 text-sm text-gray-500">

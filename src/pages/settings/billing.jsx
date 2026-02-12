@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import Sidebar from "../../components/sidebar"
-import MobileHeader from "../../components/mobile-header"
 import PlanSelectionModal from "../../components/plan-selection-modal"
+import StripeAPISetup from "../../components/StripeAPISetup"
 import { ChevronLeft, Lock, Check, X, CreditCard, Calendar, AlertCircle } from "lucide-react"
-import { billingAPI } from "../../services/api"
+import { billingAPI, stripeAPI } from "../../services/api"
+import api from "../../services/api"
 import { useAuth } from "../../context/AuthContext"
 import { loadStripe } from "@stripe/stripe-js"
 import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js"
@@ -143,6 +144,7 @@ const BillingSettings = () => {
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState({ type: '', text: '' })
   const [paymentMethods, setPaymentMethods] = useState([])
+  const [stripeConnectStatus, setStripeConnectStatus] = useState(null)
   const navigate = useNavigate()
   
   const [billingDetails, setBillingDetails] = useState({
@@ -161,6 +163,7 @@ const BillingSettings = () => {
     if (user?.id) {
       loadBillingData()
       loadPaymentMethods()
+      loadStripeConnectStatus()
     } else if (user === null) {
       navigate('/signin')
     }
@@ -185,6 +188,15 @@ const BillingSettings = () => {
       setPaymentMethods(methods.payment_methods || [])
     } catch (error) {
       console.error('Error loading payment methods:', error)
+    }
+  }
+
+  const loadStripeConnectStatus = async () => {
+    try {
+      const response = await stripeAPI.testConnection()
+      setStripeConnectStatus({ connected: response.connected })
+    } catch (error) {
+      console.error('Error loading Stripe Connect status:', error)
     }
   }
 
@@ -219,7 +231,6 @@ const BillingSettings = () => {
       <div className="flex h-screen bg-gray-50 overflow-hidden">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
-          <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
@@ -236,7 +247,6 @@ const BillingSettings = () => {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
-        <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
 
         {/* Header */}
         <div className="bg-white border-b border-gray-200 px-6 py-4">
@@ -337,6 +347,48 @@ const BillingSettings = () => {
                 </div>
               </div>
             )}
+
+            {/* Stripe Connect Account Section */}
+            <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Stripe Account</h3>
+                  <p className="text-sm text-gray-600">Connect your Stripe account to accept payments</p>
+                </div>
+                {stripeConnectStatus?.connected && (
+                  <div className="flex items-center space-x-2">
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <span className="text-sm text-green-600 font-medium">Connected</span>
+                  </div>
+                )}
+              </div>
+
+              {stripeConnectStatus?.connected ? (
+                <div className="bg-green-50 rounded-lg border border-green-200 p-4">
+                  <div className="flex items-center space-x-3">
+                    <Check className="w-5 h-5 text-green-500" />
+                    <div>
+                      <h4 className="text-sm font-medium text-green-900">Stripe Account Connected</h4>
+                      <p className="text-sm text-green-700">
+                        {stripeConnectStatus.charges_enabled 
+                          ? 'Ready to accept payments' 
+                          : 'Account setup in progress'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <StripeAPISetup 
+                  onSuccess={() => {
+                    setMessage({ type: 'success', text: 'Stripe account connected successfully!' })
+                    loadStripeConnectStatus()
+                  }}
+                  onError={(error) => {
+                    setMessage({ type: 'error', text: 'Failed to connect Stripe account' })
+                  }}
+                />
+              )}
+            </div>
 
             {/* Subscription Setup Card */}
             {billingDetails.isTrial && paymentMethods.length === 0 && (

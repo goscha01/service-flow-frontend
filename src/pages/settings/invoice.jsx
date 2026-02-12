@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import Sidebar from "../../components/sidebar"
-import MobileHeader from "../../components/mobile-header"
+import NotificationTestButton from "../../components/NotificationTestButton"
 import { ChevronLeft, Mail } from "lucide-react"
 
 const Invoice = () => {
@@ -16,8 +16,7 @@ const Invoice = () => {
     <div className="flex h-screen bg-gray-50 overflow-hidden">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <div className="flex-1 flex flex-col min-w-0">
-        <MobileHeader onMenuClick={() => setSidebarOpen(true)} />
+      <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
 
         {/* Header */}
         <div className="bg-white border-b border-gray-200 px-6 py-4">
@@ -72,6 +71,13 @@ const Invoice = () => {
                       </span>
                     </div>
                   </div>
+                  
+                  {/* Test Button for Email */}
+                  <NotificationTestButton 
+                    notificationType="Invoice"
+                    messageType="email"
+                    templateContent="<h2>Invoice #INV-001</h2><p>Hi John,</p><p>Please find attached your invoice for the services provided.</p><p><strong>Service:</strong> Home Cleaning</p><p><strong>Date:</strong> March 15, 2025</p><p><strong>Amount:</strong> $150.00</p><p><strong>Due Date:</strong> March 22, 2025</p><p>Thank you for your business!</p><p>Best regards,<br />The Team at Just web Agency</p>"
+                  />
                 </div>
 
                 {/* Logo Settings */}
