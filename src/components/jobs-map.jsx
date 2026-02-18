@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { getGoogleMapsApiKey } from '../config/maps'
 import { decodeHtmlEntities } from '../utils/htmlUtils'
 
-const JobsMap = ({ jobs, mapType = 'roadmap' }) => {
+const JobsMap = ({ jobs, teamMembers = [], mapType = 'roadmap' }) => {
   const mapRef = useRef(null)
   const mapInstanceRef = useRef(null)
   const markersRef = useRef([])
@@ -10,6 +10,37 @@ const JobsMap = ({ jobs, mapType = 'roadmap' }) => {
   const [useEmbedAPI, setUseEmbedAPI] = useState(false) // Only use Embed API on actual script load failures
   const [mapReady, setMapReady] = useState(false) // Track when map is fully ready for markers
   
+  // Helper: get cleaner/team member names from a job
+  const getCleanerNames = (job) => {
+    const names = []
+    if (job.team_assignments && Array.isArray(job.team_assignments) && job.team_assignments.length > 0) {
+      job.team_assignments.forEach(ta => {
+        // Try to find full name from teamMembers prop
+        const member = teamMembers.find(m => m.id === ta.team_member_id)
+        if (member) {
+          const name = member.name || `${member.first_name || ''} ${member.last_name || ''}`.trim()
+          if (name) names.push(name)
+        } else {
+          // Fallback: use data from assignment itself
+          const name = `${ta.first_name || ''} ${ta.last_name || ''}`.trim()
+          if (name) names.push(name)
+        }
+      })
+    }
+    if (names.length === 0) {
+      // Fallback: try team_member_id
+      const memberId = job.team_member_id || job.assigned_team_member_id
+      if (memberId) {
+        const member = teamMembers.find(m => m.id === memberId)
+        if (member) {
+          const name = member.name || `${member.first_name || ''} ${member.last_name || ''}`.trim()
+          if (name) names.push(name)
+        }
+      }
+    }
+    return names
+  }
+
   // ✅ Fix 1: Feature flag to disable Embed API fallback for multiple markers
   // Set to false to prevent Embed API fallback (multiple markers require JS API)
   const ALLOW_EMBED_FALLBACK = false // CRITICAL: Set to false for multiple markers to work
@@ -566,6 +597,10 @@ const JobsMap = ({ jobs, mapType = 'roadmap' }) => {
           })
 
           // Create info window
+          const cleanerNames = getCleanerNames(job)
+          const cleanerLine = cleanerNames.length > 0
+            ? `<p style="margin: 4px 0 0 0; font-size: 11px; color: #555;">👤 ${cleanerNames.join(', ')}</p>`
+            : `<p style="margin: 4px 0 0 0; font-size: 11px; color: #999;">Unassigned</p>`
           const infoWindow = new window.google.maps.InfoWindow({
             content: `
               <div style="padding: 8px; min-width: 200px;">
@@ -574,6 +609,7 @@ const JobsMap = ({ jobs, mapType = 'roadmap' }) => {
                 </h3>
             ${displayAddress ? `<p style="margin: 0 0 4px 0; font-size: 12px; color: #666;">${displayAddress}</p>` : ''}
                 ${job.service_name ? `<p style="margin: 4px 0 0 0; font-size: 12px; color: #333;">${decodeHtmlEntities(job.service_name)}</p>` : ''}
+                ${cleanerLine}
               </div>
             `
           })
@@ -740,6 +776,10 @@ const JobsMap = ({ jobs, mapType = 'roadmap' }) => {
             })
 
             // Create info window
+            const cleanerNames = getCleanerNames(job)
+            const cleanerLine = cleanerNames.length > 0
+              ? `<p style="margin: 4px 0 0 0; font-size: 11px; color: #555;">👤 ${cleanerNames.join(', ')}</p>`
+              : `<p style="margin: 4px 0 0 0; font-size: 11px; color: #999;">Unassigned</p>`
             const infoWindow = new window.google.maps.InfoWindow({
               content: `
                 <div style="padding: 8px; min-width: 200px;">
@@ -748,6 +788,7 @@ const JobsMap = ({ jobs, mapType = 'roadmap' }) => {
                   </h3>
             ${displayAddress ? `<p style="margin: 0 0 4px 0; font-size: 12px; color: #666;">${displayAddress}</p>` : ''}
                   ${job.service_name ? `<p style="margin: 4px 0 0 0; font-size: 12px; color: #333;">${decodeHtmlEntities(job.service_name)}</p>` : ''}
+                  ${cleanerLine}
                 </div>
               `
             })

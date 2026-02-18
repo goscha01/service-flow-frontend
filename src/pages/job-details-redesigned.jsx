@@ -130,6 +130,7 @@ const JobDetails = () => {
   const [showEditServiceModal, setShowEditServiceModal] = useState(false)
   const [showEditAddressModal, setShowEditAddressModal] = useState(false)
   const [showConvertToRecurringModal, setShowConvertToRecurringModal] = useState(false)
+  const [showEditRecurringModal, setShowEditRecurringModal] = useState(false)
   const [showMobileSidebar, setShowMobileSidebar] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [showSendInvoiceModal, setShowSendInvoiceModal] = useState(false)
@@ -3159,23 +3160,32 @@ const JobDetails = () => {
                 <div className="flex flex-row items-start space-x-4">
                   <RotateCw className="w-5 h-5 text-gray-400 mt-1 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <h3 style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-xs font-medium text-gray-600 mb-2">REPEATS</h3>
-                    <div className="bg-red-50 border border-red-200 rounded-full px-4 py-2 inline-block">
-                      <p style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-sm text-red-800">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-xs font-medium text-gray-600">REPEATS</h3>
+                      {canEditJobDetails(user) && (
+                        <button
+                          onClick={() => setShowEditRecurringModal(true)}
+                          className="text-blue-600 hover:text-blue-700 text-xs font-medium"
+                          style={{fontFamily: 'Montserrat', fontWeight: 500}}
+                        >
+                          Edit
+                        </button>
+                      )}
+                    </div>
+                    <div className="bg-blue-50 border border-blue-200 rounded-full px-4 py-2 inline-block">
+                      <p style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-sm text-blue-800">
                         {(() => {
                           const frequency = job.recurring_frequency || job.recurringFrequency || ''
                           const scheduledDate = job.scheduled_date ? new Date(job.scheduled_date) : null
-                          const formatted = formatRecurringFrequency(frequency, scheduledDate)
-                          console.log('🔍 Job Details - Recurring Frequency Debug:', {
-                            rawFrequency: frequency,
-                            isRecurring: job.is_recurring,
-                            scheduledDate: scheduledDate,
-                            formatted: formatted
-                          })
-                          return formatted
+                          return formatRecurringFrequency(frequency, scheduledDate)
                         })()}
                       </p>
                     </div>
+                    {job.recurring_end_date && (
+                      <p className="mt-1 text-xs text-gray-500" style={{fontFamily: 'Montserrat'}}>
+                        Ends: {new Date(job.recurring_end_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </p>
+                    )}
                     <button
                       onClick={() => navigate('/recurring')}
                       className="mt-2 text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center gap-1"
@@ -7079,27 +7089,32 @@ const JobDetails = () => {
           onClose={() => setShowConvertToRecurringModal(false)}
           job={job}
           onConvert={async (data) => {
-            try {
-              setLoading(true);
-              setError(""); // Clear any previous errors
-              console.log('🔄 Converting job to recurring with data:', data);
-              const result = await jobsAPI.convertToRecurring(jobId, data);
-              console.log('✅ Convert to recurring result:', result);
-              setSuccessMessage('Job converted to recurring successfully!');
-              setTimeout(() => setSuccessMessage(""), 3000);
-              // Reload job data
-              const updatedJob = await jobsAPI.getById(jobId);
-              setJob(updatedJob.job || updatedJob);
-              setShowConvertToRecurringModal(false);
-            } catch (error) {
-              console.error('❌ Error converting job to recurring:', error);
-              console.error('❌ Error response:', error.response?.data);
-              const errorMessage = error.response?.data?.error || error.response?.data?.details || error.message || 'Failed to convert job to recurring';
-              setError(`Failed to convert job: ${errorMessage}`);
-              setTimeout(() => setError(""), 5000);
-            } finally {
-              setLoading(false);
-            }
+            console.log('🔄 Converting job to recurring with data:', data);
+            const result = await jobsAPI.convertToRecurring(jobId, data);
+            console.log('✅ Convert to recurring result:', result);
+            setSuccessMessage('Job converted to recurring successfully!');
+            setTimeout(() => setSuccessMessage(""), 3000);
+            // Reload job data
+            const updatedJob = await jobsAPI.getById(jobId);
+            setJob(updatedJob.job || updatedJob);
+          }}
+        />
+
+        {/* Edit Recurring Frequency Modal */}
+        <ConvertToRecurringModal
+          isOpen={showEditRecurringModal}
+          onClose={() => setShowEditRecurringModal(false)}
+          job={job}
+          mode="edit"
+          onConvert={async (data) => {
+            console.log('🔄 Updating recurring frequency with data:', data);
+            const result = await jobsAPI.updateRecurringFrequency(jobId, data);
+            console.log('✅ Update recurring frequency result:', result);
+            setSuccessMessage('Recurring frequency updated successfully!');
+            setTimeout(() => setSuccessMessage(""), 3000);
+            // Reload job data
+            const updatedJob = await jobsAPI.getById(jobId);
+            setJob(updatedJob.job || updatedJob);
           }}
         />
 
