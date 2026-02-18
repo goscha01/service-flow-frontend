@@ -592,6 +592,7 @@ const Availability = () => {
                           >
                             Delete
                           </button>
+                        </div>
                       </div>
                     ))}
                   </div>
