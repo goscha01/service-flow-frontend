@@ -10,6 +10,7 @@ import { isWorker } from "../../utils/roleUtils"
 
 const Availability = () => {
   const [isTimeslotTemplateModalOpen, setIsTimeslotTemplateModalOpen] = useState(false)
+  const [editingTemplateIndex, setEditingTemplateIndex] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState({ type: '', text: '' })
@@ -226,27 +227,71 @@ const Availability = () => {
   const handleSaveTimeslotTemplate = async (template) => {
     try {
       setSaving(true)
-      const updatedTemplates = [...availabilityData.timeslotTemplates, template]
+
+      let updatedTemplates
+      if (editingTemplateIndex !== null) {
+        updatedTemplates = [...availabilityData.timeslotTemplates]
+        updatedTemplates[editingTemplateIndex] = template
+      } else {
+        updatedTemplates = [...availabilityData.timeslotTemplates, template]
+      }
+
+      // Sync template's drivingTime into businessHours so schedule page reads it
+      const newDrivingTime = template.drivingTime ?? availabilityData.drivingTime ?? 0
+
       await availabilityAPI.updateAvailability({
         userId: user.id,
-        businessHours: { ...availabilityData.businessHours, drivingTime: availabilityData.drivingTime || 0 },
+        businessHours: { ...availabilityData.businessHours, drivingTime: newDrivingTime },
         timeslotTemplates: updatedTemplates
       })
-      
+
       setAvailabilityData(prev => ({
         ...prev,
+        drivingTime: newDrivingTime,
         timeslotTemplates: updatedTemplates
       }))
-      
-      setMessage({ type: 'success', text: 'Timeslot template saved successfully!' })
+
+      setMessage({ type: 'success', text: editingTemplateIndex !== null ? 'Template updated successfully!' : 'Timeslot template saved successfully!' })
       setTimeout(() => setMessage({ type: '', text: '' }), 3000)
       setIsTimeslotTemplateModalOpen(false)
+      setEditingTemplateIndex(null)
     } catch (error) {
       console.error('Error saving timeslot template:', error)
       setMessage({ type: 'error', text: error.response?.data?.error || 'Failed to save timeslot template' })
     } finally {
       setSaving(false)
     }
+  }
+
+  const handleDeleteTimeslotTemplate = async (indexToDelete) => {
+    try {
+      setSaving(true)
+      const updatedTemplates = availabilityData.timeslotTemplates.filter((_, i) => i !== indexToDelete)
+
+      await availabilityAPI.updateAvailability({
+        userId: user.id,
+        businessHours: { ...availabilityData.businessHours, drivingTime: availabilityData.drivingTime || 0 },
+        timeslotTemplates: updatedTemplates
+      })
+
+      setAvailabilityData(prev => ({
+        ...prev,
+        timeslotTemplates: updatedTemplates
+      }))
+
+      setMessage({ type: 'success', text: 'Template deleted successfully!' })
+      setTimeout(() => setMessage({ type: '', text: '' }), 3000)
+    } catch (error) {
+      console.error('Error deleting timeslot template:', error)
+      setMessage({ type: 'error', text: error.response?.data?.error || 'Failed to delete timeslot template' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleEditTemplate = (index) => {
+    setEditingTemplateIndex(index)
+    setIsTimeslotTemplateModalOpen(true)
   }
 
   const handleSaveBusinessHours = async () => {
@@ -482,58 +527,13 @@ const Availability = () => {
               )}
             </div>
 
-            {/* Driving Time / Travel Buffer */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <h2 className="text-xl font-semibold text-gray-900">Driving Time</h2>
-              <p className="text-gray-600 mt-1 mb-4">
-                Add a travel buffer before each job to account for driving time between locations.
-                This time will be blocked out in your schedule availability calculations.
-              </p>
-              <div className="flex items-center space-x-4">
-                <label className="text-sm font-medium text-gray-700">
-                  Buffer before each job:
-                </label>
-                <select
-                  value={availabilityData.drivingTime}
-                  onChange={(e) => {
-                    setAvailabilityData(prev => ({
-                      ...prev,
-                      drivingTime: parseInt(e.target.value)
-                    }))
-                  }}
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value={0}>No buffer</option>
-                  <option value={15}>15 minutes</option>
-                  <option value={30}>30 minutes</option>
-                  <option value={45}>45 minutes</option>
-                  <option value={60}>1 hour</option>
-                </select>
-              </div>
-              {availabilityData.drivingTime > 0 && (
-                <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                  <p className="text-sm text-amber-800">
-                    {availabilityData.drivingTime} minutes of travel time will be blocked before each scheduled job in the availability view.
-                  </p>
-                </div>
-              )}
-              <button
-                onClick={handleSaveBusinessHours}
-                disabled={saving}
-                className="mt-4 bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50"
-              >
-                {saving ? 'Saving...' : 'Save Driving Time'}
-              </button>
-            </div>
-
             {/* Timeslot Templates */}
             <div>
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h2 className="text-xl font-semibold text-gray-900">Timeslot Templates</h2>
                   <p className="text-gray-600 mt-1">
-                    You can override your default hours of operation and timeslot settings for specific services using
-                    timeslot templates. <button className="text-blue-600 hover:text-blue-700">Learn more</button>
+                    Override your default hours of operation, timeslot settings, and driving time for specific services.
                   </p>
                 </div>
               </div>
@@ -541,8 +541,8 @@ const Availability = () => {
               {availabilityData.timeslotTemplates.length === 0 ? (
               <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
                 <p className="text-gray-500 mb-4">No timeslot templates created yet</p>
-                <button 
-                  onClick={() => setIsTimeslotTemplateModalOpen(true)}
+                <button
+                  onClick={() => { setEditingTemplateIndex(null); setIsTimeslotTemplateModalOpen(true) }}
                   className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700"
                 >
                   New Timeslot Template
@@ -552,8 +552,8 @@ const Availability = () => {
                 <div className="bg-white rounded-lg border border-gray-200 p-6">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-medium text-gray-900">Timeslot Templates</h3>
-                    <button 
-                      onClick={() => setIsTimeslotTemplateModalOpen(true)}
+                    <button
+                      onClick={() => { setEditingTemplateIndex(null); setIsTimeslotTemplateModalOpen(true) }}
                       className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700"
                     >
                       New Template
@@ -561,14 +561,37 @@ const Availability = () => {
                   </div>
                   <div className="space-y-3">
                     {availabilityData.timeslotTemplates.map((template, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
-                        <div>
-                          <h4 className="font-medium text-gray-900">{template.name}</h4>
-                          <p className="text-sm text-gray-600">{template.description}</p>
+                      <div key={index} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                        <div className="flex-1">
+                          <h4 className="font-medium text-gray-900">
+                            {template.name || `Template ${index + 1}`}
+                          </h4>
+                          {template.description && (
+                            <p className="text-sm text-gray-600">{template.description}</p>
+                          )}
+                          <div className="flex items-center gap-4 mt-1 text-xs text-gray-500">
+                            <span>{template.timeslotType || 'Arrival windows'}</span>
+                            <span>
+                              {Object.entries(template.days || {}).filter(([_, d]) => d.enabled).length} days active
+                            </span>
+                            {(template.drivingTime > 0) && (
+                              <span className="text-amber-600">{template.drivingTime} min driving buffer</span>
+                            )}
+                          </div>
                         </div>
-                        <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">
-                          Edit
-                        </button>
+                        <div className="flex items-center space-x-3">
+                          <button
+                            onClick={() => handleEditTemplate(index)}
+                            className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteTimeslotTemplate(index)}
+                            className="text-red-600 hover:text-red-700 text-sm font-medium"
+                          >
+                            Delete
+                          </button>
                       </div>
                     ))}
                   </div>
@@ -578,10 +601,11 @@ const Availability = () => {
           </div>
         </div>
 
-      <TimeslotTemplateModal 
+      <TimeslotTemplateModal
         isOpen={isTimeslotTemplateModalOpen}
-        onClose={() => setIsTimeslotTemplateModalOpen(false)}
+        onClose={() => { setIsTimeslotTemplateModalOpen(false); setEditingTemplateIndex(null) }}
         onSave={handleSaveTimeslotTemplate}
+        existingTemplate={editingTemplateIndex !== null ? availabilityData.timeslotTemplates[editingTemplateIndex] : null}
       />
     </div>
   )
