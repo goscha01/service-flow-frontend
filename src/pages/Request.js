@@ -30,7 +30,7 @@ const ServiceFlowRequests = () => {
       console.log('❌ No authenticated user, redirecting to signin')
       navigate('/signin')
     }
-  }, [currentUser, activeFilter, navigate])
+  }, [currentUser, activeFilter, navigate]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadRequests = async () => {
     if (!currentUser?.id) return

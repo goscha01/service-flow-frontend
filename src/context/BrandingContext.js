@@ -36,7 +36,7 @@ export const BrandingProvider = ({ children }) => {
     } else {
       setLoading(false);
     }
-  }, [user?.id]);
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadBrandingFromDatabase = async () => {
     try {

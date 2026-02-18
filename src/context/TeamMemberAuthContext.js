@@ -88,7 +88,7 @@ export const TeamMemberAuthProvider = ({ children }) => {
     }
     
     validateAuth()
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const login = async (username, password) => {
     try {
