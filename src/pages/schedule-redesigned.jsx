@@ -1665,12 +1665,22 @@ const ServiceFlowSchedule = () => {
       const formattedSlots = remainingHours.map(slot =>
         `${formatTime(slot.start)} - ${formatTime(slot.end)}`
       ).join(', ')
+      // Build freeSpots for this individual member
+      const member = teamMembers.find(m => Number(m.id) === memberId)
+      const memberLabel = member ? `${member.first_name} ${member.last_name?.[0] || ''}`.trim() : `Member ${memberId}`
+      const freeSpots = remainingHours.map(slot => ({
+        start: slot.start,
+        end: slot.end,
+        memberCount: 1,
+        members: [memberLabel]
+      }))
       return {
         isOpen: true,
         hours: formattedSlots,
         jobCount: dayJobs.length,
         hasJobs: dayJobs.length > 0,
         availableSlots: remainingHours,
+        freeSpots,
         busySlots,
         drivingSlots: displayDrivingSlots,
         totalAvailable,
@@ -1684,6 +1694,7 @@ const ServiceFlowSchedule = () => {
         jobCount: dayJobs.length,
         hasJobs: dayJobs.length > 0,
         availableSlots: [],
+        freeSpots: [],
         busySlots,
         drivingSlots: displayDrivingSlots,
         totalAvailable: 0,
@@ -1701,7 +1712,7 @@ const ServiceFlowSchedule = () => {
     // If in availability tab and "all-team-members" is selected, aggregate availability for ALL team members
     if (activeTab === 'availability' && selectedFilter === 'all-team-members') {
       if (teamMembers.length === 0) {
-        return { isOpen: false, hours: null, jobCount: 0, availableSlots: [], drivingSlots: [], totalDriving: 0, totalBusy: 0, totalAvailable: 0 }
+        return { isOpen: false, hours: null, jobCount: 0, availableSlots: [], freeSpots: [], drivingSlots: [], totalDriving: 0, totalBusy: 0, totalAvailable: 0 }
       }
 
       // Aggregate availability for all team members
@@ -1709,6 +1720,7 @@ const ServiceFlowSchedule = () => {
       // Each member's availability already has their jobs subtracted by getDayAvailabilityForMember
       const allAvailableSlots = []
       const allDrivingSlots = []
+      const memberSlotsMap = new Map() // memberId -> { name, slots }
       let totalJobCount = 0
       let aggregateTotalDriving = 0
       let aggregateTotalBusy = 0
@@ -1725,6 +1737,10 @@ const ServiceFlowSchedule = () => {
         console.log(`    - Available slots: ${memberAvailability.availableSlots?.length || 0}`)
         if (memberAvailability.availableSlots && memberAvailability.availableSlots.length > 0) {
           allAvailableSlots.push(...memberAvailability.availableSlots)
+          memberSlotsMap.set(Number(member.id), {
+            name: `${member.first_name} ${member.last_name?.[0] || ''}`.trim(),
+            slots: memberAvailability.availableSlots
+          })
         }
         if (memberAvailability.drivingSlots && memberAvailability.drivingSlots.length > 0) {
           allDrivingSlots.push(...memberAvailability.drivingSlots)
@@ -1740,7 +1756,7 @@ const ServiceFlowSchedule = () => {
       
       // Merge overlapping time slots to show combined availability
       if (allAvailableSlots.length === 0) {
-        return { isOpen: false, hours: null, jobCount: totalJobCount, availableSlots: [], drivingSlots: allDrivingSlots, totalDriving: aggregateTotalDriving, totalBusy: aggregateTotalBusy, totalAvailable: 0 }
+        return { isOpen: false, hours: null, jobCount: totalJobCount, availableSlots: [], freeSpots: [], drivingSlots: allDrivingSlots, totalDriving: aggregateTotalDriving, totalBusy: aggregateTotalBusy, totalAvailable: 0 }
       }
 
       // Sort slots by start time
@@ -1758,18 +1774,32 @@ const ServiceFlowSchedule = () => {
         const nextStart = timeToMinutes(nextSlot.start)
 
         if (nextStart <= currentEnd) {
-          // Slots overlap or are adjacent - merge them
           const nextEnd = timeToMinutes(nextSlot.end)
           if (nextEnd > currentEnd) {
             currentSlot.end = nextSlot.end
           }
         } else {
-          // No overlap - save current slot and start a new one
           mergedSlots.push(currentSlot)
           currentSlot = { ...nextSlot }
         }
       }
       mergedSlots.push(currentSlot)
+
+      // Build freeSpots: for each merged slot, find which members are available
+      const freeSpots = mergedSlots.map(slot => {
+        const slotStart = timeToMinutes(slot.start)
+        const slotEnd = timeToMinutes(slot.end)
+        const availableMembers = []
+        memberSlotsMap.forEach((memberData, memberId) => {
+          const hasOverlap = memberData.slots.some(ms => {
+            const msStart = timeToMinutes(ms.start)
+            const msEnd = timeToMinutes(ms.end)
+            return msStart < slotEnd && msEnd > slotStart
+          })
+          if (hasOverlap) availableMembers.push(memberData.name)
+        })
+        return { start: slot.start, end: slot.end, memberCount: availableMembers.length, members: availableMembers }
+      })
 
       // Format the merged slots for display
       const formatTime = (time24) => {
@@ -1790,6 +1820,7 @@ const ServiceFlowSchedule = () => {
         jobCount: totalJobCount,
         hasJobs: totalJobCount > 0,
         availableSlots: mergedSlots,
+        freeSpots,
         drivingSlots: allDrivingSlots,
         totalDriving: aggregateTotalDriving,
         totalBusy: aggregateTotalBusy,
@@ -1827,14 +1858,13 @@ const ServiceFlowSchedule = () => {
         )
         
         if (territoryTeamMembers.length === 0) {
-          return { isOpen: false, hours: null, jobCount: 0, availableSlots: [], drivingSlots: [], totalDriving: 0, totalBusy: 0, totalAvailable: 0 }
+          return { isOpen: false, hours: null, jobCount: 0, availableSlots: [], freeSpots: [], drivingSlots: [], totalDriving: 0, totalBusy: 0, totalAvailable: 0 }
         }
 
         // Aggregate availability for all team members in the territory
-        // Combine all available time slots from all team members
-        // Each member's availability already has their jobs subtracted by getDayAvailabilityForMember
         const allAvailableSlots = []
         const allDrivingSlots = []
+        const memberSlotsMap = new Map()
         let totalJobCount = 0
         let aggregateTotalDriving = 0
         let aggregateTotalBusy = 0
@@ -1852,6 +1882,10 @@ const ServiceFlowSchedule = () => {
           console.log(`    - Available slots: ${memberAvailability.availableSlots?.length || 0}`)
           if (memberAvailability.availableSlots && memberAvailability.availableSlots.length > 0) {
             allAvailableSlots.push(...memberAvailability.availableSlots)
+            memberSlotsMap.set(Number(member.id), {
+              name: `${member.first_name} ${member.last_name?.[0] || ''}`.trim(),
+              slots: memberAvailability.availableSlots
+            })
           }
           if (memberAvailability.drivingSlots && memberAvailability.drivingSlots.length > 0) {
             allDrivingSlots.push(...memberAvailability.drivingSlots)
@@ -1867,7 +1901,7 @@ const ServiceFlowSchedule = () => {
         
         // Merge overlapping time slots to show combined availability
         if (allAvailableSlots.length === 0) {
-          return { isOpen: false, hours: null, jobCount: totalJobCount, availableSlots: [], drivingSlots: allDrivingSlots, totalDriving: aggregateTotalDriving, totalBusy: aggregateTotalBusy, totalAvailable: 0 }
+          return { isOpen: false, hours: null, jobCount: totalJobCount, availableSlots: [], freeSpots: [], drivingSlots: allDrivingSlots, totalDriving: aggregateTotalDriving, totalBusy: aggregateTotalBusy, totalAvailable: 0 }
         }
 
         // Sort slots by start time
@@ -1885,18 +1919,32 @@ const ServiceFlowSchedule = () => {
           const nextStart = timeToMinutes(nextSlot.start)
 
           if (nextStart <= currentEnd) {
-            // Slots overlap or are adjacent - merge them
             const nextEnd = timeToMinutes(nextSlot.end)
             if (nextEnd > currentEnd) {
               currentSlot.end = nextSlot.end
             }
           } else {
-            // No overlap - save current slot and start a new one
             mergedSlots.push(currentSlot)
             currentSlot = { ...nextSlot }
           }
         }
         mergedSlots.push(currentSlot)
+
+        // Build freeSpots with member info
+        const freeSpots = mergedSlots.map(slot => {
+          const slotStart = timeToMinutes(slot.start)
+          const slotEnd = timeToMinutes(slot.end)
+          const availableMembers = []
+          memberSlotsMap.forEach((memberData, memberId) => {
+            const hasOverlap = memberData.slots.some(ms => {
+              const msStart = timeToMinutes(ms.start)
+              const msEnd = timeToMinutes(ms.end)
+              return msStart < slotEnd && msEnd > slotStart
+            })
+            if (hasOverlap) availableMembers.push(memberData.name)
+          })
+          return { start: slot.start, end: slot.end, memberCount: availableMembers.length, members: availableMembers }
+        })
 
         // Format the merged slots for display
         const formatTime = (time24) => {
@@ -1917,6 +1965,7 @@ const ServiceFlowSchedule = () => {
           jobCount: totalJobCount,
           hasJobs: totalJobCount > 0,
           availableSlots: mergedSlots,
+          freeSpots,
           drivingSlots: allDrivingSlots,
           totalDriving: aggregateTotalDriving,
           totalBusy: aggregateTotalBusy,
@@ -1937,7 +1986,7 @@ const ServiceFlowSchedule = () => {
     const dayHours = hours[dayOfWeek] || { enabled: false, start: '09:00', end: '18:00' }
     
     if (!dayHours.enabled) {
-      return { isOpen: false, hours: null, jobCount: dayJobs.length, availableSlots: [], drivingSlots: [], totalDriving: 0, totalBusy: 0, totalAvailable: 0 }
+      return { isOpen: false, hours: null, jobCount: dayJobs.length, availableSlots: [], freeSpots: [], drivingSlots: [], totalDriving: 0, totalBusy: 0, totalAvailable: 0 }
     }
 
     // Format hours (e.g., "09:00" -> "9 AM", "18:00" -> "6 PM")
@@ -2086,6 +2135,7 @@ const ServiceFlowSchedule = () => {
           jobCount: dayJobs.length,
           hasJobs: dayJobs.length > 0,
           availableSlots: remainingHours,
+          freeSpots: [],
           drivingSlots: [],
           totalDriving: 0,
           totalBusy: 0,
@@ -2100,6 +2150,7 @@ const ServiceFlowSchedule = () => {
           jobCount: dayJobs.length,
           hasJobs: true,
           availableSlots: [],
+          freeSpots: [],
           drivingSlots: [],
           totalDriving: 0,
           totalBusy: 0,
@@ -2118,6 +2169,7 @@ const ServiceFlowSchedule = () => {
         start: dayHours.start,
         end: dayHours.end
       }],
+      freeSpots: [],
       drivingSlots: [],
       totalDriving: 0,
       totalBusy: 0,
@@ -5373,6 +5425,26 @@ const ServiceFlowSchedule = () => {
                                   )}
                                 </div>
                               )}
+                              {/* Free spot cards */}
+                              {availability.freeSpots && availability.freeSpots.length > 0 && (
+                                <div className="mt-4">
+                                  <h4 className="text-sm font-medium text-green-700 mb-2">Available Slots</h4>
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    {availability.freeSpots.map((spot, si) => {
+                                      const fmtT = (t) => { const [h, m] = t.split(':'); const hr = parseInt(h); const ampm = hr >= 12 ? 'PM' : 'AM'; const h12 = hr > 12 ? hr - 12 : hr || 12; return `${h12}:${m || '00'} ${ampm}` }
+                                      return (
+                                        <div key={si} className="px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
+                                          <div className="text-sm font-medium text-green-800">{fmtT(spot.start)} - {fmtT(spot.end)}</div>
+                                          <div className="text-xs text-green-600 mt-0.5">{spot.memberCount} cleaner{spot.memberCount !== 1 ? 's' : ''} available</div>
+                                          {spot.members && spot.members.length > 0 && (
+                                            <div className="text-xs text-green-500 mt-0.5">{spot.members.slice(0, 3).join(', ')}{spot.members.length > 3 ? ` +${spot.members.length - 3}` : ''}</div>
+                                          )}
+                                        </div>
+                                      )
+                                    })}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </div>
                         )
@@ -5442,6 +5514,23 @@ const ServiceFlowSchedule = () => {
                                 {availability.totalAvailable > 0 && (
                                   <div className="text-xs font-medium text-green-700 mt-1">
                                     {formatDuration(availability.totalAvailable)} free
+                                  </div>
+                                )}
+                                {/* Free spot cards */}
+                                {availability.freeSpots && availability.freeSpots.length > 0 && (
+                                  <div className="mt-2 space-y-1">
+                                    {availability.freeSpots.slice(0, 4).map((spot, si) => {
+                                      const fmtT = (t) => { const [h, m] = t.split(':'); const hr = parseInt(h); return `${hr > 12 ? hr - 12 : hr || 12}:${m || '00'}${hr >= 12 ? 'p' : 'a'}` }
+                                      return (
+                                        <div key={si} className="px-2 py-1 bg-green-50 border border-green-200 rounded text-[10px] text-green-800 leading-tight">
+                                          <div className="font-medium">{fmtT(spot.start)} - {fmtT(spot.end)}</div>
+                                          <div className="text-green-600">{spot.memberCount} cleaner{spot.memberCount !== 1 ? 's' : ''} free</div>
+                                        </div>
+                                      )
+                                    })}
+                                    {availability.freeSpots.length > 4 && (
+                                      <div className="text-[10px] text-green-600 text-center">+{availability.freeSpots.length - 4} more slots</div>
+                                    )}
                                   </div>
                                 )}
                               </div>
@@ -5514,6 +5603,23 @@ const ServiceFlowSchedule = () => {
                               {availability.totalDriving > 0 && (
                                 <div className="text-xs font-medium text-amber-600 mt-0.5">
                                   {formatDuration(availability.totalDriving)} travel
+                                </div>
+                              )}
+                              {/* Free spot cards */}
+                              {availability.freeSpots && availability.freeSpots.length > 0 && (
+                                <div className="mt-1 space-y-0.5">
+                                  {availability.freeSpots.slice(0, 3).map((spot, si) => {
+                                    const fmtT = (t) => { const [h] = t.split(':'); const hr = parseInt(h); return `${hr > 12 ? hr - 12 : hr || 12}${hr >= 12 ? 'p' : 'a'}` }
+                                    return (
+                                      <div key={si} className="px-1.5 py-0.5 bg-green-50 border border-green-200 rounded text-[10px] text-green-800 leading-tight">
+                                        <span className="font-medium">{fmtT(spot.start)}-{fmtT(spot.end)}</span>
+                                        <span className="text-green-600 ml-1">({spot.memberCount} free)</span>
+                                      </div>
+                                    )
+                                  })}
+                                  {availability.freeSpots.length > 3 && (
+                                    <div className="text-[10px] text-green-600">+{availability.freeSpots.length - 3} more</div>
+                                  )}
                                 </div>
                               )}
                             </>
@@ -5591,6 +5697,23 @@ const ServiceFlowSchedule = () => {
                         }`}  style={{fontFamily: 'Montserrat', fontWeight: 700}}>
                           {day.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
                         </div>
+                        {(() => {
+                          const weekDayAvailability = getDayAvailability(day)
+                          return weekDayAvailability.freeSpots && weekDayAvailability.freeSpots.length > 0 ? (
+                            weekDayAvailability.freeSpots.slice(0, 2).map((spot, si) => {
+                              const fmtT = (t) => { const [h] = t.split(':'); const hr = parseInt(h); return `${hr > 12 ? hr - 12 : hr || 12}${hr >= 12 ? 'p' : 'a'}` }
+                              return (
+                                <div key={`free-${si}`} className="bg-green-50 rounded-md m-2 p-2 mb-1 text-xs border border-green-200">
+                                  <div className="flex items-center gap-1">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+                                    <span className="font-medium text-green-800 text-[9px]">{fmtT(spot.start)}-{fmtT(spot.end)}</span>
+                                  </div>
+                                  <div className="text-[9px] text-green-600 mt-0.5">{spot.memberCount} free</div>
+                                </div>
+                              )
+                            })
+                          ) : null
+                        })()}
                         {dayJobs.map((job, jobIndex) => {
                           const statusDisplay = formatStatus(job.status, job)
                           // Parse scheduled_date correctly - it's stored as string "YYYY-MM-DD HH:MM:SS"
@@ -5604,13 +5727,13 @@ const ServiceFlowSchedule = () => {
                           } else {
                             jobTime = new Date(job.scheduled_date);
                           }
-                          
+
                           // Duration is in minutes, ensure it's a number - check all possible duration fields
                           const duration = getJobDuration(job);
-                          
+
                           // Calculate end time
                           const endTime = new Date(jobTime.getTime() + duration * 60000);
-                          
+
                           // Format times
                           const timeString = jobTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
                           const endTimeString = endTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
@@ -5931,6 +6054,26 @@ const ServiceFlowSchedule = () => {
                             {isExpanded ? 'Show less' : `+${dayJobs.length - 2} more`}
                           </button>
                         )}
+                        {/* Free spot cards */}
+                        {(() => {
+                          const monthDayAvail = getDayAvailability(day)
+                          return monthDayAvail.freeSpots && monthDayAvail.freeSpots.length > 0 && isCurrentMonth ? (
+                            <div className="mt-0.5">
+                              {monthDayAvail.freeSpots.slice(0, 2).map((spot, si) => {
+                                const fmtT = (t) => { const [h] = t.split(':'); const hr = parseInt(h); return `${hr > 12 ? hr - 12 : hr || 12}${hr >= 12 ? 'p' : 'a'}` }
+                                return (
+                                  <div key={`free-${si}`} className="px-1 py-0.5 mb-0.5 bg-green-50 border border-green-200 rounded text-[9px] text-green-800 leading-tight">
+                                    <span className="font-medium">{fmtT(spot.start)}-{fmtT(spot.end)}</span>
+                                    <span className="text-green-600 ml-0.5">({spot.memberCount} free)</span>
+                                  </div>
+                                )
+                              })}
+                              {monthDayAvail.freeSpots.length > 2 && (
+                                <div className="text-[9px] text-green-600">+{monthDayAvail.freeSpots.length - 2} more</div>
+                              )}
+                            </div>
+                          ) : null
+                        })()}
                       </div>
                     )
                   })}
@@ -6131,6 +6274,42 @@ const ServiceFlowSchedule = () => {
                 </div>
               )
             })}
+
+            {/* Free spot cards (day view - job tab) */}
+            {(() => {
+              const dayAvail = getDayAvailability(selectedDate)
+              return dayAvail.freeSpots && dayAvail.freeSpots.length > 0 ? (
+                <div className="mt-4">
+                  <h4 className="text-sm font-medium text-green-700 mb-2 flex items-center gap-1.5">
+                    <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                    Available Slots
+                  </h4>
+                  <div className="space-y-2">
+                    {dayAvail.freeSpots.map((spot, si) => {
+                      const fmtT = (t) => { const [h, m] = t.split(':'); const hr = parseInt(h); const ampm = hr >= 12 ? 'PM' : 'AM'; const h12 = hr > 12 ? hr - 12 : hr || 12; return `${h12}:${m || '00'} ${ampm}` }
+                      return (
+                        <div key={si} className="bg-green-50 rounded-lg border border-green-200 p-3">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-sm font-semibold text-green-800">{fmtT(spot.start)} - {fmtT(spot.end)}</span>
+                            <span className="text-xs font-medium text-green-600 bg-green-100 px-2 py-0.5 rounded-full">{spot.memberCount} available</span>
+                          </div>
+                          {spot.members && spot.members.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {spot.members.slice(0, 5).map((name, ni) => (
+                                <span key={ni} className="text-xs text-green-700 bg-green-100 px-1.5 py-0.5 rounded">{name}</span>
+                              ))}
+                              {spot.members.length > 5 && (
+                                <span className="text-xs text-green-600">+{spot.members.length - 5} more</span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              ) : null
+            })()}
 
             {/* Empty state when no jobs (only in day view) */}
             {filteredJobs.length === 0 && !isLoading && (

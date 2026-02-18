@@ -569,13 +569,13 @@ const Availability = () => {
                           {template.description && (
                             <p className="text-sm text-gray-600">{template.description}</p>
                           )}
-                          <div className="flex items-center gap-4 mt-1 text-xs text-gray-500">
+                          <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
                             <span>{template.timeslotType || 'Arrival windows'}</span>
-                            <span>
-                              {Object.entries(template.days || {}).filter(([_, d]) => d.enabled).length} days active
-                            </span>
+                            {template.arrivalWindowLength && (
+                              <span>{template.arrivalWindowLength >= 60 ? `${template.arrivalWindowLength / 60}h` : `${template.arrivalWindowLength}m`} window</span>
+                            )}
                             {(template.drivingTime > 0) && (
-                              <span className="text-amber-600">{template.drivingTime} min driving buffer</span>
+                              <span className="text-amber-600">{template.drivingTime} min interval</span>
                             )}
                           </div>
                         </div>
