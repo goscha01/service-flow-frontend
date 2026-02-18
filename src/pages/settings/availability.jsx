@@ -31,6 +31,7 @@ const Availability = () => {
       saturday: { start: '09:00', end: '17:00', enabled: false },
       sunday: { start: '09:00', end: '17:00', enabled: false }
     },
+    drivingTime: 0,
     timeslotTemplates: []
   })
 
@@ -164,6 +165,7 @@ const Availability = () => {
       
       setAvailabilityData({
         businessHours: normalizedBusinessHours,
+        drivingTime: businessHours.drivingTime || 0,
         timeslotTemplates: availability?.timeslotTemplates || availability?.timeslot_templates || []
       })
     } catch (error) {
@@ -186,6 +188,7 @@ const Availability = () => {
           saturday: { start: '09:00', end: '17:00', enabled: false },
           sunday: { start: '09:00', end: '17:00', enabled: false }
         },
+        drivingTime: 0,
         timeslotTemplates: []
       })
       
@@ -226,7 +229,7 @@ const Availability = () => {
       const updatedTemplates = [...availabilityData.timeslotTemplates, template]
       await availabilityAPI.updateAvailability({
         userId: user.id,
-        businessHours: availabilityData.businessHours,
+        businessHours: { ...availabilityData.businessHours, drivingTime: availabilityData.drivingTime || 0 },
         timeslotTemplates: updatedTemplates
       })
       
@@ -312,7 +315,7 @@ const Availability = () => {
         // Account owners/managers save to their own availability
         const response = await availabilityAPI.updateAvailability({
           userId: user.id,
-          businessHours: availabilityData.businessHours,
+          businessHours: { ...availabilityData.businessHours, drivingTime: availabilityData.drivingTime || 0 },
           timeslotTemplates: availabilityData.timeslotTemplates
         })
         
@@ -477,6 +480,50 @@ const Availability = () => {
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* Driving Time / Travel Buffer */}
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <h2 className="text-xl font-semibold text-gray-900">Driving Time</h2>
+              <p className="text-gray-600 mt-1 mb-4">
+                Add a travel buffer before each job to account for driving time between locations.
+                This time will be blocked out in your schedule availability calculations.
+              </p>
+              <div className="flex items-center space-x-4">
+                <label className="text-sm font-medium text-gray-700">
+                  Buffer before each job:
+                </label>
+                <select
+                  value={availabilityData.drivingTime}
+                  onChange={(e) => {
+                    setAvailabilityData(prev => ({
+                      ...prev,
+                      drivingTime: parseInt(e.target.value)
+                    }))
+                  }}
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value={0}>No buffer</option>
+                  <option value={15}>15 minutes</option>
+                  <option value={30}>30 minutes</option>
+                  <option value={45}>45 minutes</option>
+                  <option value={60}>1 hour</option>
+                </select>
+              </div>
+              {availabilityData.drivingTime > 0 && (
+                <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                  <p className="text-sm text-amber-800">
+                    {availabilityData.drivingTime} minutes of travel time will be blocked before each scheduled job in the availability view.
+                  </p>
+                </div>
+              )}
+              <button
+                onClick={handleSaveBusinessHours}
+                disabled={saving}
+                className="mt-4 bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50"
+              >
+                {saving ? 'Saving...' : 'Save Driving Time'}
+              </button>
             </div>
 
             {/* Timeslot Templates */}

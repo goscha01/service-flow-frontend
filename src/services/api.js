@@ -893,6 +893,15 @@ export const jobsAPI = {
     }
   },
 
+  updateRecurringFrequency: async (id, data) => {
+    try {
+      const response = await api.put(`/jobs/${id}/recurring-frequency`, data);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
   duplicate: async (id, data) => {
     try {
       const response = await api.post(`/jobs/${id}/duplicate`, data);
