@@ -1,10 +1,136 @@
 import { Link } from "react-router-dom"
 import {
   Briefcase, Users, DollarSign, Wrench, UserCheck,
-  Map, Building2, Upload, ChevronRight, Layers
+  Map, Building2, Upload, ChevronRight, Layers,
+  LayoutDashboard, Calendar, ClipboardList, Bell,
+  FileText, RotateCcw, CreditCard, Wallet,
+  UserCog, MapPin, BarChart2, Settings,
+  FilePlus, Package, Tag, Globe, ArrowUpFromLine,
+  ExternalLink,
 } from "lucide-react"
 
-const CATEGORIES = [
+// ─── Main app pages ───────────────────────────────────────────────────────────
+const PAGE_GROUPS = [
+  {
+    id: "operations",
+    label: "Operations",
+    icon: LayoutDashboard,
+    headerColor: "bg-slate-700",
+    color: "bg-slate-50 border-slate-200",
+    iconColor: "text-slate-600",
+    pages: [
+      { label: "Dashboard", path: "/dashboard", desc: "Overview of jobs, revenue, and team activity" },
+      { label: "Schedule", path: "/schedule", desc: "Daily and weekly job scheduling view" },
+      { label: "Calendar", path: "/calendar", desc: "Unified calendar across all team members" },
+      { label: "Jobs", path: "/jobs", desc: "All jobs list with filters and search" },
+      { label: "Requests", path: "/request", desc: "Incoming booking and quote requests" },
+      { label: "Leads Pipeline", path: "/leads", desc: "Kanban pipeline for managing leads" },
+      { label: "Notifications", path: "/notifications", desc: "System and customer notifications" },
+    ],
+  },
+  {
+    id: "finance",
+    label: "Finance",
+    icon: DollarSign,
+    headerColor: "bg-yellow-600",
+    color: "bg-yellow-50 border-yellow-200",
+    iconColor: "text-yellow-600",
+    pages: [
+      { label: "Invoices", path: "/invoices", desc: "All customer invoices and payment status" },
+      { label: "Estimates", path: "/estimates", desc: "Quotes and estimates sent to customers" },
+      { label: "Payments", path: "/payments", desc: "Payment records and reconciliation" },
+      { label: "Recurring", path: "/recurring", desc: "Recurring service subscriptions" },
+      { label: "Payroll", path: "/payroll", desc: "Team member payroll and earnings" },
+    ],
+  },
+  {
+    id: "people",
+    label: "People",
+    icon: Users,
+    headerColor: "bg-green-600",
+    color: "bg-green-50 border-green-200",
+    iconColor: "text-green-600",
+    pages: [
+      { label: "Customers", path: "/customers", desc: "Customer directory and history" },
+      { label: "Team", path: "/team", desc: "Team member list and management" },
+      { label: "Team Availability", path: "/team-availability", desc: "Availability calendar per team member" },
+      { label: "Staff Locations", path: "/staff-locations", desc: "Real-time map of staff locations" },
+    ],
+  },
+  {
+    id: "business",
+    label: "Business",
+    icon: Building2,
+    headerColor: "bg-purple-600",
+    color: "bg-purple-50 border-purple-200",
+    iconColor: "text-purple-600",
+    pages: [
+      { label: "Services", path: "/services", desc: "Service catalogue and pricing" },
+      { label: "Territories", path: "/territories", desc: "Service area territories" },
+      { label: "Coupons", path: "/coupons", desc: "Discount coupons and promo codes" },
+      { label: "Online Booking", path: "/online-booking", desc: "Public booking page settings" },
+      { label: "Analytics", path: "/analytics", desc: "Revenue, jobs, and performance charts" },
+    ],
+  },
+  {
+    id: "create",
+    label: "Create & Import",
+    icon: FilePlus,
+    headerColor: "bg-blue-600",
+    color: "bg-blue-50 border-blue-200",
+    iconColor: "text-blue-600",
+    pages: [
+      { label: "Create Job", path: "/createjob", desc: "Create a new job from scratch" },
+      { label: "Bookable Estimate", path: "/bookable-estimate", desc: "Create a bookable estimate" },
+      { label: "Create Coupon", path: "/coupons/create", desc: "Create a new discount coupon" },
+      { label: "Import Data", path: "/import-data", desc: "Import data from CSV or external sources" },
+      { label: "Import Customers", path: "/import-customers", desc: "Bulk import customers from CSV" },
+      { label: "Import Jobs", path: "/import-jobs", desc: "Bulk import jobs from CSV" },
+    ],
+  },
+  {
+    id: "settings",
+    label: "Settings",
+    icon: Settings,
+    headerColor: "bg-gray-600",
+    color: "bg-gray-50 border-gray-200",
+    iconColor: "text-gray-600",
+    pages: [
+      { label: "Settings", path: "/settings", desc: "Main settings hub" },
+      { label: "Account", path: "/settings/account", desc: "Account details and profile" },
+      { label: "Billing", path: "/settings/billing", desc: "Subscription and billing info" },
+      { label: "Branding", path: "/settings/branding", desc: "Logo, colors, and brand settings" },
+      { label: "Availability", path: "/settings/availability", desc: "Business hours and availability" },
+      { label: "Payments Settings", path: "/settings/payments", desc: "Payment gateway configuration" },
+      { label: "Booking & Quotes", path: "/settings/booking-quote-requests", desc: "Booking and quote request rules" },
+      { label: "Job Assignment", path: "/settings/job-assignment", desc: "Auto-assignment rules" },
+      { label: "Notifications Config", path: "/settings/client-team-notifications", desc: "Email and SMS notification templates" },
+      { label: "Calendar Sync", path: "/settings/calendar-syncing", desc: "Google Calendar and iCal sync" },
+      { label: "Service Areas", path: "/settings/service-areas", desc: "Zip code and radius service areas" },
+      { label: "Field App", path: "/settings/field-app", desc: "Field app settings for team members" },
+      { label: "Taxes & Fees", path: "/settings/taxes-fees", desc: "Tax rates and service fees" },
+      { label: "Feedback & Reviews", path: "/settings/feedback-reviews", desc: "Review request automation" },
+      { label: "Developers", path: "/settings/developers", desc: "API keys and webhook settings" },
+    ],
+  },
+  {
+    id: "public",
+    label: "Public Pages",
+    icon: Globe,
+    headerColor: "bg-teal-600",
+    color: "bg-teal-50 border-teal-200",
+    iconColor: "text-teal-600",
+    pages: [
+      { label: "Public Booking", path: "/book/demo", desc: "Customer-facing booking page" },
+      { label: "Public Quote", path: "/quote/demo", desc: "Customer-facing quote request page" },
+      { label: "What's New", path: "/whats-new", desc: "Release notes and changelog" },
+      { label: "Help", path: "/help", desc: "Help centre and documentation" },
+    ],
+  },
+]
+
+// ─── Modal categories (unchanged) ─────────────────────────────────────────────
+const MODAL_CATEGORIES = [
   {
     id: "jobs",
     label: "Jobs & Scheduling",
@@ -126,8 +252,10 @@ const CATEGORIES = [
   },
 ]
 
+// ─── Component ────────────────────────────────────────────────────────────────
 const DemoHub = () => {
-  const totalPopups = CATEGORIES.reduce((sum, c) => sum + c.popups.length, 0)
+  const totalPages = PAGE_GROUPS.reduce((sum, g) => sum + g.pages.length, 0)
+  const totalModals = MODAL_CATEGORIES.reduce((sum, c) => sum + c.popups.length, 0)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -139,8 +267,10 @@ const DemoHub = () => {
               <Layers className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-semibold text-gray-900">Component Demo</h1>
-              <p className="text-sm text-gray-500">{totalPopups} modals across {CATEGORIES.length} categories</p>
+              <h1 className="text-xl font-semibold text-gray-900">Demo Hub</h1>
+              <p className="text-sm text-gray-500">
+                {totalPages} pages · {totalModals} modals
+              </p>
             </div>
           </div>
           <Link
@@ -152,51 +282,105 @@ const DemoHub = () => {
         </div>
       </div>
 
-      {/* Content */}
-      <div className="max-w-7xl mx-auto px-6 py-8 space-y-10">
-        {CATEGORIES.map((category) => {
-          const Icon = category.icon
-          return (
-            <section key={category.id}>
-              {/* Category header */}
-              <div className="flex items-center gap-2 mb-4">
-                <div className={`w-7 h-7 rounded-md flex items-center justify-center ${category.headerColor}`}>
-                  <Icon className="w-4 h-4 text-white" />
-                </div>
-                <h2 className="text-base font-semibold text-gray-900">{category.label}</h2>
-                <span className="text-xs text-gray-400 font-medium ml-1">
-                  {category.popups.length} modals
-                </span>
-              </div>
+      <div className="max-w-7xl mx-auto px-6 py-8 space-y-14">
 
-              {/* Modal cards grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                {category.popups.map((popup) => (
-                  <Link
-                    key={popup.id}
-                    to={`/demo/popup/${popup.id}`}
-                    className={`group flex flex-col justify-between border rounded-lg p-4 hover:shadow-sm transition-all duration-150 ${category.color} hover:border-opacity-60`}
-                  >
-                    <div>
-                      <p className="text-sm font-medium text-gray-900 group-hover:text-gray-700">
-                        {popup.label}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1 leading-relaxed">{popup.desc}</p>
+        {/* ── Pages section ───────────────────────────────────────── */}
+        <div>
+          <div className="flex items-center gap-3 mb-6">
+            <h2 className="text-lg font-semibold text-gray-900">Pages</h2>
+            <span className="text-xs bg-gray-900 text-white rounded-full px-2 py-0.5 font-medium">
+              {totalPages}
+            </span>
+          </div>
+
+          <div className="space-y-8">
+            {PAGE_GROUPS.map((group) => {
+              const Icon = group.icon
+              return (
+                <section key={group.id}>
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className={`w-6 h-6 rounded flex items-center justify-center ${group.headerColor}`}>
+                      <Icon className="w-3.5 h-3.5 text-white" />
                     </div>
-                    <div className="flex items-center justify-between mt-3">
-                      <code className="text-[10px] text-gray-400 font-mono">/demo/popup/{popup.id}</code>
-                      <ChevronRight className={`w-3.5 h-3.5 ${category.iconColor} opacity-0 group-hover:opacity-100 transition-opacity`} />
+                    <h3 className="text-sm font-semibold text-gray-700">{group.label}</h3>
+                    <span className="text-xs text-gray-400">{group.pages.length}</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                    {group.pages.map((page) => (
+                      <Link
+                        key={page.path}
+                        to={page.path}
+                        className={`group flex flex-col justify-between border rounded-lg p-4 hover:shadow-sm transition-all duration-150 ${group.color}`}
+                      >
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">{page.label}</p>
+                          <p className="text-xs text-gray-500 mt-1 leading-relaxed">{page.desc}</p>
+                        </div>
+                        <div className="flex items-center justify-between mt-3">
+                          <code className="text-[10px] text-gray-400 font-mono">{page.path}</code>
+                          <ExternalLink className={`w-3 h-3 ${group.iconColor} opacity-0 group-hover:opacity-100 transition-opacity`} />
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </section>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Divider */}
+        <div className="border-t border-gray-200" />
+
+        {/* ── Modals section ───────────────────────────────────────── */}
+        <div>
+          <div className="flex items-center gap-3 mb-6">
+            <h2 className="text-lg font-semibold text-gray-900">Modals</h2>
+            <span className="text-xs bg-gray-900 text-white rounded-full px-2 py-0.5 font-medium">
+              {totalModals}
+            </span>
+          </div>
+
+          <div className="space-y-8">
+            {MODAL_CATEGORIES.map((category) => {
+              const Icon = category.icon
+              return (
+                <section key={category.id}>
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className={`w-6 h-6 rounded flex items-center justify-center ${category.headerColor}`}>
+                      <Icon className="w-3.5 h-3.5 text-white" />
                     </div>
-                  </Link>
-                ))}
-              </div>
-            </section>
-          )
-        })}
+                    <h3 className="text-sm font-semibold text-gray-700">{category.label}</h3>
+                    <span className="text-xs text-gray-400">{category.popups.length}</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                    {category.popups.map((popup) => (
+                      <Link
+                        key={popup.id}
+                        to={`/demo/popup/${popup.id}`}
+                        className={`group flex flex-col justify-between border rounded-lg p-4 hover:shadow-sm transition-all duration-150 ${category.color}`}
+                      >
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">{popup.label}</p>
+                          <p className="text-xs text-gray-500 mt-1 leading-relaxed">{popup.desc}</p>
+                        </div>
+                        <div className="flex items-center justify-between mt-3">
+                          <code className="text-[10px] text-gray-400 font-mono">/demo/popup/{popup.id}</code>
+                          <ChevronRight className={`w-3.5 h-3.5 ${category.iconColor} opacity-0 group-hover:opacity-100 transition-opacity`} />
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </section>
+              )
+            })}
+          </div>
+        </div>
+
       </div>
     </div>
   )
 }
 
-export { CATEGORIES }
+export { MODAL_CATEGORIES }
 export default DemoHub
