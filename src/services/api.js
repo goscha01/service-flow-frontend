@@ -116,9 +116,13 @@ api.interceptors.response.use(
     }
     
     // Only retry on network errors (ERR_NETWORK, ERR_FAILED, timeout, Railway cold start)
-    if (error.code === 'ERR_NETWORK' || error.message === 'Network Error' || error.code === 'ECONNABORTED' || 
-        error.message?.includes('Failed to fetch') || error.message?.includes('CORS') || 
+    if (error.code === 'ERR_NETWORK' || error.message === 'Network Error' || error.code === 'ECONNABORTED' ||
+        error.message?.includes('Failed to fetch') || error.message?.includes('CORS') ||
         error.message?.includes('preflight')) {
+      // On demo routes skip retries — mock interceptor handles it immediately
+      if (window.location.pathname.startsWith('/demo')) {
+        return Promise.reject(error);
+      }
       config.__retryCount = (config.__retryCount || 0) + 1;
       
       console.log(`🔄 Retrying request (attempt ${config.__retryCount}/3):`, config.url);

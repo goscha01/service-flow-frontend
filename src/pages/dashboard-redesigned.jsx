@@ -246,6 +246,11 @@ const DashboardRedesigned = () => {
 
   // Check if backend is ready (don't block dashboard loading)
   useEffect(() => {
+    // Skip health check on demo routes — backend is mocked
+    if (window.location.pathname.startsWith('/demo')) {
+      setIsWakingUp(false);
+      return;
+    }
     const checkBackend = async () => {
       try {
         const backendUrl = process.env.REACT_APP_API_URL || 'https://service-flow-backend-production-4568.up.railway.app/api';
