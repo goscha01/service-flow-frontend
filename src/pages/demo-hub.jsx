@@ -17,7 +17,6 @@ const CATEGORIES = [
       { id: "edit-job-details", label: "Edit Job Details", desc: "Edit duration, team size, and skill level" },
       { id: "duplicate-job", label: "Duplicate Job", desc: "Create a copy of an existing job" },
       { id: "assign-job", label: "Assign Job", desc: "Assign team members to a job" },
-      { id: "job-template", label: "Job Template", desc: "Create or edit a reusable job template" },
       { id: "scheduling-booking", label: "Scheduling & Booking", desc: "Book a new scheduling appointment" },
       { id: "create-recurring-option", label: "Create Recurring Option", desc: "Set up a recurring service option" },
       { id: "convert-to-recurring", label: "Convert to Recurring", desc: "Convert a one-time job to recurring" },
