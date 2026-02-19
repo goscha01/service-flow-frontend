@@ -1,10 +1,12 @@
-import { useEffect } from "react"
+import { useState, useEffect } from "react"
 import { useParams, Link } from "react-router-dom"
 import { Layers } from "lucide-react"
 
 import { AuthContext } from "../context/AuthContext"
 import api from "../services/api"
 import { DEMO_USER, matchDemoResponse } from "../mocks/demo-data"
+import Sidebar from "../components/sidebar"
+import MobileBottomNav from "../components/mobile-bottom-nav"
 
 // ─── Page imports ─────────────────────────────────────────────────────────────
 import ServiceFlowDashboard from "./dashboard-redesigned"
@@ -60,7 +62,6 @@ import HelpPage from "./help"
 
 // ─── Page map ─────────────────────────────────────────────────────────────────
 const PAGE_MAP = {
-  // Operations
   dashboard:            ServiceFlowDashboard,
   schedule:             ServiceFlowSchedule,
   calendar:             UnifiedCalendar,
@@ -68,36 +69,26 @@ const PAGE_MAP = {
   request:              ServiceFlowRequests,
   leads:                LeadsPipeline,
   notifications:        Notifications,
-
-  // Finance
   invoices:             ServiceFlowInvoices,
   estimates:            ServiceFlowEstimates,
   payments:             ServiceFlowPayments,
   recurring:            ServiceFlowRecurring,
   payroll:              Payroll,
-
-  // People
   customers:            ServiceFlowCustomers,
   team:                 ServiceFlowTeam,
   "team-availability":  TeamAvailabilityCalendar,
   "staff-locations":    StaffLocationsMap,
-
-  // Business
   services:             ServiceFlowServices,
   territories:          ServiceFlowTerritories,
   coupons:              ServiceFlowCoupons,
   "online-booking":     ServiceFlowOnlineBooking,
   analytics:            Analytics,
-
-  // Create & Import
   createjob:            CreateJobPage,
   "bookable-estimate":  ServiceFlowEstimatePage,
   "create-coupon":      CreateCoupon,
   "import-data":        ImportDataPage,
   "import-customers":   ImportCustomersPage,
   "import-jobs":        UnifiedImportJobsPage,
-
-  // Settings
   settings:                              ServiceFlowSettings,
   "settings-account":                    AccountDetails,
   "settings-billing":                    BillingSettings,
@@ -113,13 +104,13 @@ const PAGE_MAP = {
   "settings-taxes-fees":                 TaxesFees,
   "settings-feedback-reviews":           FeedbackReviews,
   "settings-developers":                 Developers,
-
-  // Other
   "whats-new":          WhatsNewPage,
   help:                 HelpPage,
 }
 
-// ─── Mock auth context value ───────────────────────────────────────────────────
+// ─── Static mock auth value ───────────────────────────────────────────────────
+// Provided via AuthContext.Provider so ALL components in the tree
+// (Sidebar, page components, etc.) get a valid user without a real session.
 const noop = () => {}
 const MOCK_AUTH = {
   user: DEMO_USER,
@@ -133,29 +124,28 @@ const MOCK_AUTH = {
   isAuthenticated:     () => true,
 }
 
-// ─── Demo Page Wrapper ────────────────────────────────────────────────────────
+// ─── Component ────────────────────────────────────────────────────────────────
 const DemoPageWrapper = () => {
   const { pageId } = useParams()
   const Component = PAGE_MAP[pageId]
 
-  // Add axios response interceptor: catch failed API calls and return mock data
+  // Intercept failed API responses and return mock data instead.
+  // This runs before API calls resolve, so demo pages see realistic content.
   useEffect(() => {
-    const interceptorId = api.interceptors.response.use(
-      // Successful responses pass through unchanged
-      (response) => response,
-      // Failed responses (401, 404, etc.) get mock data instead
-      (error) => {
-        const url    = error?.config?.url  ?? ""
-        const method = error?.config?.method ?? "get"
-        const mockData = matchDemoResponse(url, method)
-        // Return a resolved response that mimics axios shape
-        return Promise.resolve({ data: mockData, status: 200, headers: {}, config: error.config })
+    const id = api.interceptors.response.use(
+      (res) => res,
+      (err) => {
+        const url    = err?.config?.url    ?? ""
+        const method = err?.config?.method ?? "get"
+        return Promise.resolve({
+          data: matchDemoResponse(url, method),
+          status: 200,
+          headers: {},
+          config: err.config,
+        })
       }
     )
-
-    return () => {
-      api.interceptors.response.eject(interceptorId)
-    }
+    return () => api.interceptors.response.eject(id)
   }, [])
 
   if (!Component) {
@@ -173,12 +163,26 @@ const DemoPageWrapper = () => {
     )
   }
 
+  // Wrap the entire layout — including Sidebar — inside AuthContext.Provider
+  // so every useAuth() call in any child returns MOCK_AUTH (no login redirect).
   return (
-    // Override AuthContext so pages receive a mock user instead of redirecting
     <AuthContext.Provider value={MOCK_AUTH}>
-      <Component />
+      <div className="min-h-screen bg-gray-50 flex">
+        {/* Sidebar — rendered with mock auth, shows full nav */}
+        <div className="hidden lg:block">
+          <Sidebar isOpen={false} onClose={noop} />
+        </div>
 
-      {/* Floating badge — bottom-right corner, non-intrusive */}
+        {/* Page content */}
+        <div className="flex-1 lg:ml-52 xl:ml-52">
+          <Component />
+        </div>
+
+        {/* Mobile bottom nav */}
+        <MobileBottomNav teamMembers={[]} />
+      </div>
+
+      {/* Floating Demo Hub badge */}
       <Link
         to="/demo"
         className="fixed bottom-5 right-5 z-50 flex items-center gap-1.5 bg-gray-900 text-white text-xs font-medium px-3 py-2 rounded-full shadow-lg hover:bg-gray-700 transition-colors"

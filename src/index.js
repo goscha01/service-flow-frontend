@@ -124,8 +124,6 @@ root.render(
       <Route path="signin" element={<SignInForm />} />
       <Route path="legacy-landing" element={<LandingPageLegacy />} />
       <Route element={<AppLayout />}>
-      {/* Demo pages — no auth required */}
-      <Route path="/demo/pages/:pageId" element={<DemoPageWrapper />} />
       <Route path="/dashboard" element={<ProtectedRoute><ServiceFlowDashboard /></ProtectedRoute>} />
       <Route path="/request" element={<ProtectedRoute><ServiceFlowRequests /></ProtectedRoute>} />
       <Route path="/schedule" element={<ProtectedRoute><ServiceFlowSchedule /></ProtectedRoute>} />
@@ -234,10 +232,11 @@ root.render(
       <Route path="team-member/dashboard" element={<TeamMemberDashboard />} />
       <Route path="team-member/field-app" element={<TeamMemberFieldApp />} />
       
-      {/* Demo Routes */}
+      {/* Demo Routes — no auth required */}
       <Route path="dropdown-demo" element={<DropdownMultiselectDemo />} />
       <Route path="/demo" element={<DemoHub />} />
       <Route path="/demo/popup/:popupId" element={<DemoPopup />} />
+      <Route path="/demo/pages/:pageId" element={<DemoPageWrapper />} />
       
       {/* Catch-all route - redirect to dashboard for any unmatched routes */}
       <Route path="*" element={<ProtectedRoute><ServiceFlowDashboard /></ProtectedRoute>} />
