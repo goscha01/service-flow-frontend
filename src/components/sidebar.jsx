@@ -25,7 +25,7 @@ import {
   Receipt,
 } from "lucide-react"
 
-const Sidebar = ({ isOpen, onClose }) => {
+const Sidebar = ({ isOpen, onClose, demoMode = false }) => {
   const navigate = useNavigate()
   const location = useLocation()
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false)
@@ -58,7 +58,8 @@ const Sidebar = ({ isOpen, onClose }) => {
 
 
   const handleNavigation = (path) => {
-    navigate(path)
+    const target = demoMode ? `/demo/pages${path}` : path
+    navigate(target)
     // Close sidebar on mobile when item is clicked
     if (window.innerWidth < 1024) {
       onClose()
@@ -97,7 +98,7 @@ const Sidebar = ({ isOpen, onClose }) => {
 
         {/* Logo */}
         <div className="p-1 border-b border-gray-200 md:flex md:justify-center lg:justify-start">
-          <div className="flex items-center space-x-2 cursor-pointer" onClick={() => handleNavigation("/dashboard")}>
+          <div className="flex items-center space-x-2 cursor-pointer" onClick={() => demoMode ? navigate("/demo") : handleNavigation("/dashboard")}>
            <img src="/logo.svg" alt="ServiceFlow Logo" className="md:w-8 lg:w-auto" />
           </div>
         </div>
@@ -107,7 +108,11 @@ const Sidebar = ({ isOpen, onClose }) => {
           <ul className="space-y-1">
             {sidebarItems.map((item, index) => {
               const Icon = item.icon
-              const isActive = location.pathname === item.path || (item.path === "/settings" && location.pathname.startsWith("/settings"))
+              const isActive = demoMode
+                ? location.pathname === `/demo/pages${item.path}` ||
+                  (item.path === "/settings" && location.pathname.startsWith("/demo/pages/settings"))
+                : location.pathname === item.path ||
+                  (item.path === "/settings" && location.pathname.startsWith("/settings"))
               
               return (
                 <li key={index} className={item.hidden ? "feature-hidden" : ""}>

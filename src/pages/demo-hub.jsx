@@ -384,5 +384,5 @@ const DemoHub = () => {
   )
 }
 
-export { MODAL_CATEGORIES }
+export { MODAL_CATEGORIES, PAGE_GROUPS }
 export default DemoHub
