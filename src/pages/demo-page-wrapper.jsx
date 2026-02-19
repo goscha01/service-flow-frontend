@@ -241,6 +241,12 @@ function installDemoInterceptors() {
   // Use a custom adapter so the response is treated as a SUCCESS — no error
   // chain, no interference from existing api.js error handlers.
   const reqId = api.interceptors.request.use((config) => {
+    // Only intercept requests when actually on a demo page.
+    // This makes the interceptors safe to leave installed across demo→demo
+    // route transitions: even if cleanup/reinstall racing occurs, requests
+    // that fire while the pathname is still a demo path will be mocked,
+    // and requests that fire after leaving the demo won't be touched.
+    if (!window.location.pathname.startsWith("/demo/")) return config
     const url    = config.url    ?? ""
     const method = config.method ?? "get"
     const mock   = matchDemoResponse(url, method)
@@ -254,12 +260,11 @@ function installDemoInterceptors() {
   const resId = api.interceptors.response.use(
     (res) => res,
     (err) => {
+      if (!window.location.pathname.startsWith("/demo/")) return Promise.reject(err)
       const url    = err?.config?.url    ?? ""
       const method = err?.config?.method ?? "get"
       return Promise.resolve({
-        data: err?.config?.adapter
-          ? matchDemoResponse(url, method)
-          : (err?.config?.__demoMock ?? matchDemoResponse(url, method)),
+        data: matchDemoResponse(url, method),
         status: 200,
         headers: {},
         config: err.config,
