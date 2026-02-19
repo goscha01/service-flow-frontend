@@ -914,6 +914,16 @@ export const DEMO_LEADS = [
   },
 ]
 
+// ─── Pipeline stages (for leads-pipeline page) ────────────────────────────────
+export const DEMO_PIPELINE_STAGES = [
+  { id: "stage1", name: "New",       color: "#6B7280", position: 1 },
+  { id: "stage2", name: "Contacted", color: "#3B82F6", position: 2 },
+  { id: "stage3", name: "Quoted",    color: "#F59E0B", position: 3 },
+  { id: "stage4", name: "Follow-Up", color: "#8B5CF6", position: 4 },
+  { id: "stage5", name: "Won",       color: "#10B981", position: 5 },
+  { id: "stage6", name: "Lost",      color: "#EF4444", position: 6 },
+]
+
 // ─── Coupons ─────────────────────────────────────────────────────────────────
 export const DEMO_COUPONS = [
   {
@@ -1056,6 +1066,52 @@ export const DEMO_NOTIFICATIONS = [
   { _id: "n8", userId: DEMO_USER_ID, type: "estimate_accepted", title: "Estimate Accepted", message: "Bartlett Agency accepted EST-2025-009 — annual contract worth $2,692.80.", read: true, createdAt: d(-5, 16) },
   { _id: "n9", userId: DEMO_USER_ID, type: "team_update", title: "Team Check-In", message: "Sofia Reyes checked in for Deep Clean — Bennett at 2:05pm.", read: true, createdAt: d(0, 14, 5) },
 ]
+
+// ─── Post-process: enrich jobs with snake_case fields expected by calendar /
+//     analytics / schedule pages ────────────────────────────────────────────────
+const _statusToStageId = {
+  new: "stage1", contacted: "stage2", quoted: "stage3",
+  "follow-up": "stage4", won: "stage5", lost: "stage6",
+}
+DEMO_JOBS.forEach((job) => {
+  // "YYYY-MM-DD HH:MM" from the ISO scheduledDate
+  if (job.scheduledDate) {
+    const dt = new Date(job.scheduledDate)
+    const y   = dt.getFullYear()
+    const mo  = String(dt.getMonth() + 1).padStart(2, "0")
+    const day = String(dt.getDate()).padStart(2, "0")
+    const h   = String(dt.getHours()).padStart(2, "0")
+    const min = String(dt.getMinutes()).padStart(2, "0")
+    job.scheduled_date = `${y}-${mo}-${day} ${h}:${min}`
+  }
+  // duration stored as hours; calendar / analytics expect minutes
+  job.service_duration = (job.duration || 1) * 60
+  // convenience fields used by analytics
+  job.service_name  = job.service?.name || ""
+  job.total_amount  = job.price
+  job.customer_id   = job.customer?._id || null
+  // team assignment array that analytics team-performance logic checks
+  job.team_assignments = (job.assignedTeamMembers || []).map((m) => ({
+    team_member_id: m.id,
+  }))
+})
+
+// ─── Post-process: enrich invoices with snake_case fields ───────────────────
+DEMO_INVOICES.forEach((inv) => {
+  inv.created_at   = inv.createdAt   // analytics filters on created_at
+  inv.total_amount = inv.total       // analytics sums total_amount
+})
+
+// ─── Post-process: enrich leads with snake_case fields + stage_id ────────────
+DEMO_LEADS.forEach((lead) => {
+  const parts = (lead.name || "").split(" ")
+  lead.first_name = parts[0] || ""
+  lead.last_name  = parts.slice(1).join(" ") || ""
+  lead.company    = null
+  lead.value      = lead.estimatedValue || 0
+  lead.stage_id   = _statusToStageId[lead.status] || "stage1"
+  lead.service_id = null
+})
 
 // ─── Analytics ────────────────────────────────────────────────────────────────
 const months = ["Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb"]
@@ -1208,6 +1264,9 @@ export const RESPONSES = {
       totalEstimatedValue: DEMO_LEADS.reduce((s, l) => s + (l.estimatedValue || 0), 0),
     },
   },
+  pipeline: {
+    stages: DEMO_PIPELINE_STAGES,
+  },
   notifications: {
     notifications: DEMO_NOTIFICATIONS,
     data: DEMO_NOTIFICATIONS,
@@ -1215,14 +1274,88 @@ export const RESPONSES = {
     total: DEMO_NOTIFICATIONS.length,
   },
   analytics: DEMO_ANALYTICS,
-  payroll: {
-    payroll: DEMO_PAYROLL,
-    data: DEMO_PAYROLL,
-    total: DEMO_PAYROLL.length,
-    period: "Feb 1 – Feb 15, 2025",
-    totalGrossPay: DEMO_PAYROLL.reduce((s, p) => s + p.grossPay, 0),
-    totalNetPay: DEMO_PAYROLL.reduce((s, p) => s + p.netPay, 0),
+  // Shaped responses for specific analytics sub-endpoints
+  salaryAnalytics: {
+    timeSeries: months.map((m, i) => ({
+      date: m,
+      "Maria Santos": [1672, 1408, 1496, 1584, 1144, 1320][i] || 0,
+      "James Kim":    [1280, 1088, 1088, 1280,  988, 1120][i] || 0,
+      "Sofia Reyes":  [1428, 1197, 1197, 1428, 1092, 1302][i] || 0,
+    })),
+    memberBreakdown: DEMO_PAYROLL.map((p) => ({
+      memberId: p.teamMember.id,
+      name: p.teamMember.name,
+      totalSalary: p.grossPay,
+    })),
+    summary: { totalSalary: DEMO_PAYROLL.reduce((s, p) => s + p.grossPay, 0) },
   },
+  conversionMetrics: {
+    summary: { totalLeads: DEMO_LEADS.length, converted: 2, conversionRate: 0.25 },
+    bySource: {
+      "google-ads":    { total: 2, converted: 1, conversionRate: 0.5,  totalValue: 720,  convertedValue: 480 },
+      referral:        { total: 2, converted: 1, conversionRate: 0.5,  totalValue: 2840, convertedValue: 2400 },
+      "online-booking":{ total: 1, converted: 0, conversionRate: 0,    totalValue: 275,  convertedValue: 0 },
+      facebook:        { total: 1, converted: 0, conversionRate: 0,    totalValue: 340,  convertedValue: 0 },
+      instagram:       { total: 1, converted: 0, conversionRate: 0,    totalValue: 480,  convertedValue: 0 },
+      "cold-outreach": { total: 1, converted: 0, conversionRate: 0,    totalValue: 220,  convertedValue: 0 },
+    },
+    byStage: {
+      New:       { total: 2, converted: 0, conversionRate: 0 },
+      Contacted: { total: 2, converted: 1, conversionRate: 0.5 },
+      Quoted:    { total: 2, converted: 1, conversionRate: 0.5 },
+      "Follow-Up": { total: 1, converted: 0, conversionRate: 0 },
+      Lost:      { total: 1, converted: 0, conversionRate: 0 },
+    },
+    timeSeries: months.map((m, i) => ({ date: m, total: [3, 4, 3, 5, 4, 3, 2][i], converted: [1, 2, 1, 2, 1, 1, 0][i] })),
+  },
+  recurringConversionMetrics: {
+    summary: { totalRecurring: 7, newRecurring: 2, churnedRecurring: 0 },
+    byFrequency: {
+      weekly:  { total: 2, revenue: 15600 },
+      biweekly: { total: 2, revenue: 8040 },
+      monthly: { total: 1, revenue: 1440 },
+      custom:  { total: 2, revenue: 17640 },
+    },
+    timeSeries: months.map((m, i) => ({ date: m, newRecurring: [1, 1, 0, 2, 1, 1, 1][i] })),
+    customerBreakdown: [],
+  },
+  lostCustomersMetrics: {
+    summary: { totalLost: 1, totalRevenueLost: 220, avgInactiveDays: 120 },
+    timeSeries: months.map((m) => ({ date: m, lost: 0 })),
+    lostCustomersList: [],
+  },
+  payroll: (() => {
+    // Map DEMO_PAYROLL → shape expected by payroll.jsx:
+    // { teamMembers: [{ teamMember:{id,name,hourlyRate,commissionPercentage}, jobCount,
+    //   totalHours, hourlySalary, commissionSalary, totalSalary, paymentMethod }],
+    //   summary: { totalTeamMembers, totalHours, totalHourlySalary, totalCommission, totalSalary } }
+    const members = DEMO_PAYROLL.map((p) => ({
+      teamMember: {
+        id: p.teamMember.id,
+        name: p.teamMember.name,
+        hourlyRate: p.teamMember.payRate,
+        commissionPercentage: 0,
+      },
+      jobCount: p.jobsCompleted,
+      totalHours: p.hoursWorked,
+      hourlySalary: p.grossPay,
+      commissionSalary: 0,
+      totalSalary: p.grossPay,
+      paymentMethod: "bank-transfer",
+    }))
+    const totalHours       = members.reduce((s, m) => s + m.totalHours,    0)
+    const totalHourlySalary = members.reduce((s, m) => s + m.hourlySalary, 0)
+    return {
+      teamMembers: members,
+      summary: {
+        totalTeamMembers:  members.length,
+        totalHours,
+        totalHourlySalary,
+        totalCommission: 0,
+        totalSalary: totalHourlySalary,
+      },
+    }
+  })(),
   coupons: {
     coupons: DEMO_COUPONS,
     data: DEMO_COUPONS,
@@ -1299,29 +1432,36 @@ export function matchDemoResponse(url = "", method = "get") {
     return RESPONSES.success
   }
 
-  if (/\/dashboard/.test(url))       return RESPONSES.dashboard
-  if (/\/schedule/.test(url))        return RESPONSES.schedule
-  if (/\/jobs/.test(url))            return RESPONSES.jobs
-  if (/\/customers/.test(url))       return RESPONSES.customers
-  if (/\/invoices/.test(url))        return RESPONSES.invoices
-  if (/\/estimates/.test(url))       return RESPONSES.estimates
-  if (/\/payments/.test(url))        return RESPONSES.payments
-  if (/\/team/.test(url))            return RESPONSES.team
-  if (/\/services/.test(url))        return RESPONSES.services
-  if (/\/territories/.test(url))     return RESPONSES.territories
-  if (/\/leads/.test(url))           return RESPONSES.leads
-  if (/\/notifications/.test(url))   return RESPONSES.notifications
-  if (/\/analytics/.test(url))       return RESPONSES.analytics
-  if (/\/payroll/.test(url))         return RESPONSES.payroll
-  if (/\/coupons/.test(url))         return RESPONSES.coupons
-  if (/\/recurring/.test(url))       return RESPONSES.recurring
-  if (/\/user-profile/.test(url))    return RESPONSES.userProfile
-  if (/\/availability/.test(url))    return RESPONSES.availability
-  if (/\/service-templates/.test(url)) return { templates: [] }
-  if (/\/settings/.test(url))        return { settings: {} }
-  if (/\/branding/.test(url))        return { branding: { primaryColor: "#1a1a2e", logo: null } }
-  if (/\/business/.test(url))        return RESPONSES.userProfile
-  if (/\/stats/.test(url))           return RESPONSES.dashboard.stats
+  if (/\/dashboard/.test(url))                      return RESPONSES.dashboard
+  if (/\/schedule/.test(url))                       return RESPONSES.schedule
+  if (/\/jobs/.test(url))                           return RESPONSES.jobs
+  if (/\/customers/.test(url))                      return RESPONSES.customers
+  if (/\/invoices/.test(url))                       return RESPONSES.invoices
+  if (/\/estimates/.test(url))                      return RESPONSES.estimates
+  if (/\/payments/.test(url))                       return RESPONSES.payments
+  if (/\/team/.test(url))                           return RESPONSES.team
+  if (/\/services/.test(url))                       return RESPONSES.services
+  if (/\/territories/.test(url))                    return RESPONSES.territories
+  // Leads: pipeline MUST come before the general /leads match
+  if (/\/leads\/pipeline/.test(url))                return RESPONSES.pipeline
+  if (/\/leads/.test(url))                          return RESPONSES.leads
+  if (/\/notifications/.test(url))                  return RESPONSES.notifications
+  // Analytics sub-endpoints (must come before general /analytics)
+  if (/\/analytics\/salary/.test(url))              return RESPONSES.salaryAnalytics
+  if (/\/analytics\/conversion/.test(url))          return RESPONSES.conversionMetrics
+  if (/\/analytics\/recurring-conversion/.test(url))return RESPONSES.recurringConversionMetrics
+  if (/\/analytics\/lost-customers/.test(url))      return RESPONSES.lostCustomersMetrics
+  if (/\/analytics/.test(url))                      return RESPONSES.analytics
+  if (/\/payroll/.test(url))                        return RESPONSES.payroll
+  if (/\/coupons/.test(url))                        return RESPONSES.coupons
+  if (/\/recurring/.test(url))                      return RESPONSES.recurring
+  if (/\/user-profile/.test(url))                   return RESPONSES.userProfile
+  if (/\/availability/.test(url))                   return RESPONSES.availability
+  if (/\/service-templates/.test(url))              return { templates: [] }
+  if (/\/settings/.test(url))                       return { settings: {} }
+  if (/\/branding/.test(url))                       return { branding: { primaryColor: "#1a1a2e", logo: null } }
+  if (/\/business/.test(url))                       return RESPONSES.userProfile
+  if (/\/stats/.test(url))                          return RESPONSES.dashboard.stats
 
   return RESPONSES.success
 }
