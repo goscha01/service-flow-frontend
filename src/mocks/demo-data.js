@@ -1444,37 +1444,41 @@ export function matchDemoResponse(url = "", method = "get") {
     return RESPONSES.success
   }
 
-  if (/\/dashboard/.test(url))                      return RESPONSES.dashboard
-  if (/\/schedule/.test(url))                       return RESPONSES.schedule
-  if (/\/jobs/.test(url))                           return RESPONSES.jobs
-  if (/\/customers/.test(url))                      return RESPONSES.customers
-  if (/\/invoices/.test(url))                       return RESPONSES.invoices
-  if (/\/estimates/.test(url))                      return RESPONSES.estimates
-  if (/\/payments/.test(url))                       return RESPONSES.payments
-  if (/\/team/.test(url))                           return RESPONSES.team
-  if (/\/services/.test(url))                       return RESPONSES.services
-  if (/\/territories/.test(url))                    return RESPONSES.territories
-  // Leads sub-routes MUST come before the general /leads match
-  if (/\/leads\/pipeline/.test(url))                return RESPONSES.pipeline
-  if (/\/leads\/tasks/.test(url))                   return RESPONSES.tasks
-  if (/\/leads/.test(url))                          return RESPONSES.leads
-  if (/\/notifications/.test(url))                  return RESPONSES.notifications
-  // Analytics sub-endpoints (must come before general /analytics)
-  if (/\/analytics\/salary/.test(url))              return RESPONSES.salaryAnalytics
-  if (/\/analytics\/conversion/.test(url))          return RESPONSES.conversionMetrics
-  if (/\/analytics\/recurring-conversion/.test(url))return RESPONSES.recurringConversionMetrics
-  if (/\/analytics\/lost-customers/.test(url))      return RESPONSES.lostCustomersMetrics
-  if (/\/analytics/.test(url))                      return RESPONSES.analytics
-  if (/\/payroll/.test(url))                        return RESPONSES.payroll
-  if (/\/coupons/.test(url))                        return RESPONSES.coupons
-  if (/\/recurring/.test(url))                      return RESPONSES.recurring
-  if (/\/user-profile/.test(url))                   return RESPONSES.userProfile
-  if (/\/availability/.test(url))                   return RESPONSES.availability
-  if (/\/service-templates/.test(url))              return { templates: [] }
-  if (/\/settings/.test(url))                       return { settings: {} }
-  if (/\/branding/.test(url))                       return { branding: { primaryColor: "#1a1a2e", logo: null } }
-  if (/\/business/.test(url))                       return RESPONSES.userProfile
-  if (/\/stats/.test(url))                          return RESPONSES.dashboard.stats
+  let key = "success"
+  let response = RESPONSES.success
 
-  return RESPONSES.success
+  if      (/\/dashboard/.test(url))                       { key = "dashboard";                    response = RESPONSES.dashboard }
+  else if (/\/schedule/.test(url))                        { key = "schedule";                     response = RESPONSES.schedule }
+  else if (/\/jobs/.test(url))                            { key = "jobs";                         response = RESPONSES.jobs }
+  else if (/\/customers/.test(url))                       { key = "customers";                    response = RESPONSES.customers }
+  else if (/\/invoices/.test(url))                        { key = "invoices";                     response = RESPONSES.invoices }
+  else if (/\/estimates/.test(url))                       { key = "estimates";                    response = RESPONSES.estimates }
+  else if (/\/payments/.test(url))                        { key = "payments";                     response = RESPONSES.payments }
+  else if (/\/team/.test(url))                            { key = "team";                         response = RESPONSES.team }
+  else if (/\/services/.test(url))                        { key = "services";                     response = RESPONSES.services }
+  else if (/\/territories/.test(url))                     { key = "territories";                  response = RESPONSES.territories }
+  // Leads sub-routes MUST come before the general /leads match
+  else if (/\/leads\/pipeline/.test(url))                 { key = "pipeline";                     response = RESPONSES.pipeline }
+  else if (/\/leads\/tasks/.test(url))                    { key = "tasks";                        response = RESPONSES.tasks }
+  else if (/\/leads/.test(url))                           { key = "leads";                        response = RESPONSES.leads }
+  else if (/\/notifications/.test(url))                   { key = "notifications";                response = RESPONSES.notifications }
+  // Analytics sub-endpoints (must come before general /analytics)
+  else if (/\/analytics\/salary/.test(url))               { key = "salaryAnalytics";              response = RESPONSES.salaryAnalytics }
+  else if (/\/analytics\/conversion/.test(url))           { key = "conversionMetrics";            response = RESPONSES.conversionMetrics }
+  else if (/\/analytics\/recurring-conversion/.test(url)) { key = "recurringConversionMetrics";   response = RESPONSES.recurringConversionMetrics }
+  else if (/\/analytics\/lost-customers/.test(url))       { key = "lostCustomersMetrics";         response = RESPONSES.lostCustomersMetrics }
+  else if (/\/analytics/.test(url))                       { key = "analytics";                    response = RESPONSES.analytics }
+  else if (/\/payroll/.test(url))                         { key = "payroll";                      response = RESPONSES.payroll }
+  else if (/\/coupons/.test(url))                         { key = "coupons";                      response = RESPONSES.coupons }
+  else if (/\/recurring/.test(url))                       { key = "recurring";                    response = RESPONSES.recurring }
+  else if (/\/user-profile/.test(url))                    { key = "userProfile";                  response = RESPONSES.userProfile }
+  else if (/\/availability/.test(url))                    { key = "availability";                 response = RESPONSES.availability }
+  else if (/\/service-templates/.test(url))               { key = "service-templates";            response = { templates: [] } }
+  else if (/\/settings/.test(url))                        { key = "settings";                     response = { settings: {} } }
+  else if (/\/branding/.test(url))                        { key = "branding";                     response = { branding: { primaryColor: "#1a1a2e", logo: null } } }
+  else if (/\/business/.test(url))                        { key = "userProfile(business)";        response = RESPONSES.userProfile }
+  else if (/\/stats/.test(url))                           { key = "stats";                        response = RESPONSES.dashboard.stats }
+
+  console.log(`[DEMO] GET ${url} → ${key}`, Array.isArray(response) ? `[${response.length} items]` : (response && typeof response === "object" ? Object.keys(response) : response))
+  return response
 }

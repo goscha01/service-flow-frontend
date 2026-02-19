@@ -236,6 +236,7 @@ let _demoInterceptors = null
 
 function installDemoInterceptors() {
   if (_demoInterceptors) return
+  console.log("[DEMO] Installing demo interceptors (custom adapter mode)")
   // Use a custom adapter so the response is treated as a SUCCESS — no error
   // chain, no interference from existing api.js error handlers.
   const reqId = api.interceptors.request.use((config) => {

@@ -13,7 +13,6 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('authToken');
-    console.log('API Request:', config.method?.toUpperCase(), config.url, 'Token:', token ? 'Present' : 'Missing');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -28,7 +27,6 @@ api.interceptors.request.use(
 // Response interceptor for error handling with retry logic
 api.interceptors.response.use(
   (response) => {
-    console.log('API Response:', response.status, response.config.url);
     return response;
   },
   async (error) => {
@@ -137,7 +135,6 @@ api.interceptors.response.use(
     
     // Don't log canceled requests as errors - they're expected behavior
     if (error.message === 'canceled' || error.code === 'ERR_CANCELED') {
-      console.log('🔄 Request was canceled - this is expected behavior');
       return Promise.reject(error);
     }
     
