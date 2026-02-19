@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react"
 import { useParams, Link } from "react-router-dom"
-import { Layers } from "lucide-react"
+import { Layers, X, ChevronRight } from "lucide-react"
 
 import { AuthContext } from "../context/AuthContext"
 import api from "../services/api"
 import { DEMO_USER, matchDemoResponse } from "../mocks/demo-data"
 import Sidebar from "../components/sidebar"
 import MobileBottomNav from "../components/mobile-bottom-nav"
+import { PAGE_GROUPS, MODAL_CATEGORIES } from "./demo-hub"
 
 // ─── Page imports ─────────────────────────────────────────────────────────────
 import ServiceFlowDashboard from "./dashboard-redesigned"
@@ -109,8 +110,6 @@ const PAGE_MAP = {
 }
 
 // ─── Static mock auth value ───────────────────────────────────────────────────
-// Provided via AuthContext.Provider so ALL components in the tree
-// (Sidebar, page components, etc.) get a valid user without a real session.
 const noop = () => {}
 const MOCK_AUTH = {
   user: DEMO_USER,
@@ -124,13 +123,116 @@ const MOCK_AUTH = {
   isAuthenticated:     () => true,
 }
 
+// ─── Floating demo panel ───────────────────────────────────────────────────────
+const DemoPanel = () => {
+  const [open, setOpen] = useState(false)
+  const [tab, setTab] = useState("pages")
+
+  return (
+    <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-2">
+      {open && (
+        <div
+          className="bg-white border border-gray-200 rounded-xl shadow-2xl w-72 flex flex-col overflow-hidden"
+          style={{ maxHeight: "70vh" }}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 flex-shrink-0">
+            <div className="flex items-center gap-2">
+              <Layers className="w-4 h-4 text-gray-700" />
+              <span className="text-sm font-semibold text-gray-900">Demo Controls</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <Link
+                to="/demo"
+                onClick={() => setOpen(false)}
+                className="text-xs text-blue-600 hover:underline flex items-center gap-0.5"
+              >
+                Hub <ChevronRight className="w-3 h-3" />
+              </Link>
+              <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Tabs */}
+          <div className="flex border-b border-gray-100 flex-shrink-0">
+            {["pages", "modals"].map((t) => (
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                className={`flex-1 text-xs py-2 font-medium capitalize transition-colors ${
+                  tab === t
+                    ? "text-blue-600 border-b-2 border-blue-600 -mb-px"
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+
+          {/* Scrollable content */}
+          <div className="overflow-y-auto flex-1 p-2">
+            {tab === "pages" &&
+              PAGE_GROUPS.map((group) => (
+                <div key={group.id} className="mb-3">
+                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-2 mb-1">
+                    {group.label}
+                  </p>
+                  {group.pages.map((page) => (
+                    <Link
+                      key={page.path}
+                      to={page.path}
+                      onClick={() => setOpen(false)}
+                      className="block px-2 py-1.5 text-xs text-gray-700 hover:bg-gray-50 rounded-md transition-colors"
+                    >
+                      {page.label}
+                    </Link>
+                  ))}
+                </div>
+              ))}
+
+            {tab === "modals" &&
+              MODAL_CATEGORIES.map((cat) => (
+                <div key={cat.id} className="mb-3">
+                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-2 mb-1">
+                    {cat.label}
+                  </p>
+                  {cat.popups.map((popup) => (
+                    <Link
+                      key={popup.id}
+                      to={`/demo/popup/${popup.id}`}
+                      onClick={() => setOpen(false)}
+                      className="block px-2 py-1.5 text-xs text-gray-700 hover:bg-gray-50 rounded-md transition-colors"
+                    >
+                      {popup.label}
+                    </Link>
+                  ))}
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
+
+      {/* Trigger button */}
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-1.5 bg-gray-900 text-white text-xs font-medium px-3 py-2 rounded-full shadow-lg hover:bg-gray-700 transition-colors"
+      >
+        <Layers className="w-3 h-3" />
+        Demo
+      </button>
+    </div>
+  )
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 const DemoPageWrapper = () => {
   const { pageId } = useParams()
   const Component = PAGE_MAP[pageId]
 
   // Intercept failed API responses and return mock data instead.
-  // This runs before API calls resolve, so demo pages see realistic content.
   useEffect(() => {
     const id = api.interceptors.response.use(
       (res) => res,
@@ -163,14 +265,12 @@ const DemoPageWrapper = () => {
     )
   }
 
-  // Wrap the entire layout — including Sidebar — inside AuthContext.Provider
-  // so every useAuth() call in any child returns MOCK_AUTH (no login redirect).
   return (
     <AuthContext.Provider value={MOCK_AUTH}>
       <div className="min-h-screen bg-gray-50 flex">
-        {/* Sidebar — rendered with mock auth, shows full nav */}
+        {/* Sidebar — demo-aware navigation stays within /demo/pages/* */}
         <div className="hidden lg:block">
-          <Sidebar isOpen={false} onClose={noop} />
+          <Sidebar isOpen={false} onClose={noop} demoMode={true} />
         </div>
 
         {/* Page content */}
@@ -182,14 +282,8 @@ const DemoPageWrapper = () => {
         <MobileBottomNav teamMembers={[]} />
       </div>
 
-      {/* Floating Demo Hub badge */}
-      <Link
-        to="/demo"
-        className="fixed bottom-5 right-5 z-50 flex items-center gap-1.5 bg-gray-900 text-white text-xs font-medium px-3 py-2 rounded-full shadow-lg hover:bg-gray-700 transition-colors"
-      >
-        <Layers className="w-3 h-3" />
-        Demo Hub
-      </Link>
+      {/* Floating demo panel — navigate pages & open modals */}
+      <DemoPanel />
     </AuthContext.Provider>
   )
 }
