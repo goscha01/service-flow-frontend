@@ -227,48 +227,58 @@ const DemoPanel = () => {
   )
 }
 
+// ─── Interceptors installed at module scope ───────────────────────────────────
+// useEffect fires AFTER children's effects, so any API call a child makes on
+// mount would escape before a useEffect-based interceptor is ready.
+// Installing at module level (once, synchronously) guarantees the interceptors
+// are in place before the very first render of any child component.
+let _demoInterceptors = null
+
+function installDemoInterceptors() {
+  if (_demoInterceptors) return
+  const reqId = api.interceptors.request.use((config) => {
+    const url    = config.url    ?? ""
+    const method = config.method ?? "get"
+    config.__demoMock = matchDemoResponse(url, method)
+    const controller = new AbortController()
+    controller.abort()
+    config.signal = controller.signal
+    return config
+  })
+  const resId = api.interceptors.response.use(
+    (res) => res,
+    (err) => {
+      const url    = err?.config?.url    ?? ""
+      const method = err?.config?.method ?? "get"
+      return Promise.resolve({
+        data: err?.config?.__demoMock ?? matchDemoResponse(url, method),
+        status: 200,
+        headers: {},
+        config: err.config,
+      })
+    }
+  )
+  _demoInterceptors = { reqId, resId }
+}
+
+function ejectDemoInterceptors() {
+  if (!_demoInterceptors) return
+  api.interceptors.request.eject(_demoInterceptors.reqId)
+  api.interceptors.response.eject(_demoInterceptors.resId)
+  _demoInterceptors = null
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 const DemoPageWrapper = () => {
   const { pageId } = useParams()
   const Component = PAGE_MAP[pageId]
 
-  // Short-circuit ALL axios requests — return mock data before any network call.
-  useEffect(() => {
-    const reqId = api.interceptors.request.use((config) => {
-      const url    = config.url    ?? ""
-      const method = config.method ?? "get"
-      // Resolve immediately with mock data; throw a cancel so the request never fires
-      const mockData = matchDemoResponse(url, method)
-      // Attach mock to config so the response interceptor can read it
-      config.__demoMock = mockData
-      // Cancel the real request
-      const controller = new AbortController()
-      controller.abort()
-      config.signal = controller.signal
-      config.__isMockCancelled = true
-      return config
-    })
+  // Install synchronously during render so interceptors are active before any
+  // child component's useEffect can fire an API call.
+  installDemoInterceptors()
 
-    // Catch the cancelled request and return mock data
-    const resId = api.interceptors.response.use(
-      (res) => res,
-      (err) => {
-        const url    = err?.config?.url    ?? ""
-        const method = err?.config?.method ?? "get"
-        return Promise.resolve({
-          data: err?.config?.__demoMock ?? matchDemoResponse(url, method),
-          status: 200,
-          headers: {},
-          config: err.config,
-        })
-      }
-    )
-
-    return () => {
-      api.interceptors.request.eject(reqId)
-      api.interceptors.response.eject(resId)
-    }
-  }, [])
+  // Eject only when the wrapper itself unmounts (user leaves demo entirely).
+  useEffect(() => () => ejectDemoInterceptors(), [])
 
   if (!Component) {
     return (
