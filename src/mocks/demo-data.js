@@ -1067,6 +1067,9 @@ export const DEMO_NOTIFICATIONS = [
   { _id: "n9", userId: DEMO_USER_ID, type: "team_update", title: "Team Check-In", message: "Sofia Reyes checked in for Deep Clean — Bennett at 2:05pm.", read: true, createdAt: d(0, 14, 5) },
 ]
 
+// ─── Post-process: add id alias to customers (pages use both _id and id) ────────
+DEMO_CUSTOMERS.forEach((c) => { if (!c.id) c.id = c._id })
+
 // ─── Post-process: enrich jobs with snake_case fields expected by calendar /
 //     analytics / schedule pages ────────────────────────────────────────────────
 const _statusToStageId = {
@@ -1450,6 +1453,13 @@ export function matchDemoResponse(url = "", method = "get") {
   if      (/\/dashboard/.test(url))                       { key = "dashboard";                    response = RESPONSES.dashboard }
   else if (/\/schedule/.test(url))                        { key = "schedule";                     response = RESPONSES.schedule }
   else if (/\/jobs/.test(url))                            { key = "jobs";                         response = RESPONSES.jobs }
+  // Single customer by ID must come before the general /customers list match
+  else if (/\/customers\/[^?]/.test(url))                 {
+    const cid = url.match(/\/customers\/([^?/]+)/)?.[1]
+    const found = DEMO_CUSTOMERS.find(c => String(c._id) === String(cid) || String(c.id) === String(cid))
+    key = `customer(${cid})`
+    response = found || DEMO_CUSTOMERS[0]
+  }
   else if (/\/customers/.test(url))                       { key = "customers";                    response = RESPONSES.customers }
   else if (/\/invoices/.test(url))                        { key = "invoices";                     response = RESPONSES.invoices }
   else if (/\/estimates/.test(url))                       { key = "estimates";                    response = RESPONSES.estimates }

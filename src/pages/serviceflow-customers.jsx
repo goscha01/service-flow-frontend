@@ -59,7 +59,6 @@ const ServiceFlowCustomers = () => {
 
   const fetchCustomers = async () => {
     if (!user?.id) {
-      console.log('No user ID found:', user)
       setLoading(false)
       return
     }
@@ -67,7 +66,6 @@ const ServiceFlowCustomers = () => {
     try {
       setLoading(true)
       setError("")
-      console.log('Fetching all customers for user:', user.id)
       
       // Fetch all customers by setting a very high limit
       const response = await customersAPI.getAll(user.id, {
@@ -77,7 +75,6 @@ const ServiceFlowCustomers = () => {
         sortOrder: 'DESC'
       })
       
-      console.log('Customers response:', response)
       
       // Handle different response formats
       let customersList = [];
@@ -117,7 +114,6 @@ const ServiceFlowCustomers = () => {
         }
       })
       
-      console.log(`📊 Found ${recurringCustomerIds.size} customers with recurring jobs`)
       setCustomersWithRecurring(recurringCustomerIds)
     } catch (error) {
       console.error('Error fetching recurring customers:', error)
@@ -142,9 +138,7 @@ const ServiceFlowCustomers = () => {
 
     try {
       setError("")
-      console.log('Saving customer:', customerData)
       const response = await customersAPI.create(customerData)
-      console.log('Customer saved successfully:', response)
 
       // Add the new customer to the list
       setCustomers(prev => [response.customer || response, ...prev])
@@ -183,7 +177,6 @@ const ServiceFlowCustomers = () => {
       }
 
       // Don't close the modal if there's an error
-      console.log('Customer creation failed, keeping modal open')
       throw error // Re-throw to prevent modal from closing
     }
   }
@@ -241,9 +234,8 @@ const ServiceFlowCustomers = () => {
   }
 
   const handleViewCustomer = (customer) => {
-    // Stay within demo sandbox when in demo mode
     const isDemoMode = window.location.pathname.startsWith('/demo/')
-    navigate(isDemoMode ? `/demo/pages/customers` : `/customer/${customer.id}`)
+    navigate(isDemoMode ? `/demo/customer/${customer.id}` : `/customer/${customer.id}`)
   }
 
   const handleRetry = () => {
@@ -319,8 +311,6 @@ const ServiceFlowCustomers = () => {
       // Normalize search term: trim and collapse whitespace
       const normalizedSearch = searchTerm.trim().replace(/\s+/g, ' ').toLowerCase()
       
-      console.log('🔍 Searching with term:', searchTerm, '-> normalized:', normalizedSearch)
-      console.log('🔍 Total customers to search:', filtered.length)
       
       filtered = filtered.filter(customer => {
         // Normalize customer fields for comparison (handle whitespace differences)
@@ -343,24 +333,10 @@ const ServiceFlowCustomers = () => {
           state.includes(normalizedSearch)
         )
         
-        // Debug logging for first few matches
-        if (matches && normalizedSearch === 'kat') {
-          console.log('✅ Match found:', {
-            original: `${customer.first_name} ${customer.last_name}`,
-            normalized: fullName,
-            searchTerm: normalizedSearch,
-            matchedField: {
-              firstName: firstName.includes(normalizedSearch),
-              lastName: lastName.includes(normalizedSearch),
-              fullName: fullName.includes(normalizedSearch)
-            }
-          })
-        }
         
         return matches
       })
       
-      console.log('🔍 Filtered results:', filtered.length, 'out of', customers.length)
     }
     
     return filtered

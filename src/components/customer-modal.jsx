@@ -82,7 +82,6 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
   }
 
   useEffect(() => {
-    console.log('CustomerModal useEffect:', { isOpen, isEditing, customer })
     if (!isOpen) {
       // Clear form data when modal closes
       setCustomerData({
@@ -121,7 +120,6 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
       setIsValidatingPhone(false)
     } else if (isEditing && customer) {
       // Populate form with existing customer data for editing
-      console.log('Populating form with customer data:', customer)
       
       // Parse the combined address if it exists (for backward compatibility)
       const parsedAddress = parseCombinedAddress(customer.address)
@@ -148,7 +146,6 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
       const email = emailRef.current?.value || ""
       const phone = phoneRef.current?.value || ""
       
-      console.log('Checking autofill values:', { address, email, phone })
       
       if (address || email || phone) {
         setCustomerData(prev => ({
@@ -157,33 +154,26 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
           email: email || prev.email,
           phone: phone || prev.phone
         }))
-        console.log('✅ Autofill detected in customer modal:', { address, email, phone })
-      } else {
-        console.log('❌ No autofill values found')
       }
     }
 
     // CSS animation detection (Chrome's autofill trigger)
     const handleAnimationStart = (event) => {
-      console.log('🎬 Animation start event:', event.type)
       setTimeout(syncAutofill, 100)
     }
 
     // Enhanced event listeners for better detection
     const handleInput = (event) => {
-      console.log('📝 Input event:', event.target.name, event.target.value)
       setTimeout(syncAutofill, 50)
     }
 
     const handleChange = (event) => {
-      console.log('🔄 Change event:', event.target.name, event.target.value)
       setTimeout(syncAutofill, 50)
     }
 
     // Multiple timeout checks to catch browser autofill at different speeds
     const timeouts = [50, 100, 200, 500, 1000].map(delay => 
       setTimeout(() => {
-        console.log(`⏰ Timeout check at ${delay}ms`)
         syncAutofill()
       }, delay)
     )
@@ -204,7 +194,6 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
         ref.addEventListener('animationstart', handleAnimationStart)
         ref.addEventListener('input', handleInput)
         ref.addEventListener('change', handleChange)
-        console.log(`📌 Added listeners to ${name}`)
       }
     })
 
@@ -215,7 +204,6 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
           ref.removeEventListener('animationstart', handleAnimationStart)
           ref.removeEventListener('input', handleInput)
           ref.removeEventListener('change', handleChange)
-          console.log(`🧹 Removed listeners from ${name}`)
         }
       })
     }
@@ -387,7 +375,6 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
   }
 
   const handleAddressSelect = (addressData) => {
-    console.log('🏠 Address selected from autocomplete:', addressData)
     setCustomerData({
       ...customerData,
       address: addressData.formattedAddress,
@@ -398,7 +385,6 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
   }
 
   const handleAddressChange = (value) => {
-    console.log('✏️ Address manually changed:', value)
     setCustomerData(prev => ({ 
       ...prev, 
       address: value,
@@ -458,9 +444,7 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
         zipCode: customerData.zipCode
       }
       
-      console.log('Submitting customer data:', customerToSave)
       const result = await onSave(customerToSave)
-      console.log('Customer saved successfully:', result)
       
       // Close modal
       onClose()
@@ -474,7 +458,6 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
     }
   }
 
-  console.log('CustomerModal render:', { isOpen, isEditing, customer })
   if (!isOpen) return null
 
   return (
