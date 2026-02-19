@@ -236,22 +236,28 @@ let _demoInterceptors = null
 
 function installDemoInterceptors() {
   if (_demoInterceptors) return
+  // Use a custom adapter so the response is treated as a SUCCESS — no error
+  // chain, no interference from existing api.js error handlers.
   const reqId = api.interceptors.request.use((config) => {
     const url    = config.url    ?? ""
     const method = config.method ?? "get"
-    config.__demoMock = matchDemoResponse(url, method)
-    const controller = new AbortController()
-    controller.abort()
-    config.signal = controller.signal
+    const mock   = matchDemoResponse(url, method)
+    // Swap the adapter: return resolved mock immediately, skip network entirely
+    config.adapter = () =>
+      Promise.resolve({ data: mock, status: 200, headers: {}, config })
     return config
   })
+  // Fallback error interceptor — should never fire in demo mode, but keeps
+  // the chain safe if something bypasses the custom adapter.
   const resId = api.interceptors.response.use(
     (res) => res,
     (err) => {
       const url    = err?.config?.url    ?? ""
       const method = err?.config?.method ?? "get"
       return Promise.resolve({
-        data: err?.config?.__demoMock ?? matchDemoResponse(url, method),
+        data: err?.config?.adapter
+          ? matchDemoResponse(url, method)
+          : (err?.config?.__demoMock ?? matchDemoResponse(url, method)),
         status: 200,
         headers: {},
         config: err.config,
