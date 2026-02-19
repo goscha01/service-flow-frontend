@@ -30,7 +30,6 @@ const Sidebar = ({ isOpen, onClose, demoMode = false }) => {
   const location = useLocation()
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false)
   const { user } = useAuth()
-  console.log('🔍 Sidebar: Current user data:', user)
 
   const allSidebarItems = [
     { icon: Home, label: "Dashboard", path: "/dashboard" },
@@ -138,14 +137,6 @@ const Sidebar = ({ isOpen, onClose, demoMode = false }) => {
 
         {/* User Profile */}
         <div className="p-2 border-t border-gray-200 relative">
-          {/* Debug: Log user object to see what fields are available */}
-          {user && (
-            <div className="hidden">
-              {console.log('🔍 Sidebar: User object:', user)}
-              {console.log('🔍 Sidebar: Profile picture field:', user.profilePicture)}
-            </div>
-          )}
-          
           <button
             onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)}
             className="w-full flex items-center space-x-3 md:justify-center lg:justify-start hover:bg-gray-50 rounded-lg p-2 transition-colors"
@@ -178,15 +169,7 @@ const Sidebar = ({ isOpen, onClose, demoMode = false }) => {
                 }
               </p>
               <p className="text-xs text-gray-500 truncate">
-                {(() => {
-                  const businessName = user?.business_name || user?.businessName || user?.email || 'Business';
-                  console.log('🔍 Sidebar: Displaying business name:', businessName, 'from fields:', {
-                    business_name: user?.business_name,
-                    businessName: user?.businessName,
-                    email: user?.email
-                  });
-                  return businessName;
-                })()}
+                {user?.business_name || user?.businessName || user?.email || 'Business'}
               </p>
             </div>
           </button>

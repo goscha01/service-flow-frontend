@@ -11,14 +11,6 @@ const UserDropdown = ({ isOpen, onClose, onToggle }) => {
   const dropdownRef = useRef(null)
   const { user, logout } = useAuth()
 
-  // Debug: Log user object to see what fields are available
-  useEffect(() => {
-    if (user) {
-      console.log('🔍 UserDropdown: User object:', user)
-      console.log('🔍 UserDropdown: Profile picture field:', user.profilePicture)
-    }
-  }, [user])
-
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -42,9 +34,6 @@ const UserDropdown = ({ isOpen, onClose, onToggle }) => {
     // Redirect to signin page
     navigate("/signin")
     onClose()
-    
-    // Optional: Show success message
-    console.log("Successfully signed out")
   }
 
   const allMenuItems = [

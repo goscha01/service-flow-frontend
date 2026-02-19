@@ -155,11 +155,7 @@ const Analytics = () => {
     const startDateString = formatDateLocal(startDate)
     const endDateString = formatDateLocal(endDate)
     const dateRangeString = `${startDateString} to ${endDateString}`
-    
-    console.log(`📊 Analytics: Date range filter - ${dateRange} days`)
-    console.log(`📊 Analytics: Start date: ${startDateString}, End date: ${endDateString}`)
-    console.log(`📊 Analytics: Date range string: ${dateRangeString}`)
-    
+
     // Pass dateRange to API for efficient backend filtering (same approach as dashboard)
     const jobsResponse = await jobsAPI.getAll(
       user.id, 
@@ -183,10 +179,7 @@ const Analytics = () => {
     // Backend should already filter jobs, but normalize the response
     const jobs = normalizeAPIResponse(jobsResponse, 'jobs') || []
     const filteredJobs = jobs || []
-    
-    console.log(`📊 Analytics: Total jobs fetched (after backend filtering): ${filteredJobs.length}`)
-    console.log(`📊 Analytics: Total invoices fetched: ${invoices.invoices?.length || 0}`)
-    
+
     // Still filter invoices client-side (invoices API doesn't support dateRange parameter yet)
     const filteredInvoices = invoices.invoices?.filter(invoice => {
       const invoiceDate = new Date(invoice.created_at)
@@ -194,12 +187,9 @@ const Analytics = () => {
       return isInRange
     }) || []
     
-    console.log(`📊 Analytics: Filtered jobs: ${filteredJobs.length}`)
-    console.log(`📊 Analytics: Filtered invoices: ${filteredInvoices.length}`)
     // Calculate revenue from invoices first
     let totalRevenue = filteredInvoices.reduce((sum, invoice) => {
       const amount = parseFloat(invoice.total_amount) || parseFloat(invoice.amount) || 0
-      console.log('Invoice amount:', invoice.total_amount, invoice.amount, amount)
       return sum + amount
     }, 0)
     
@@ -216,7 +206,6 @@ const Analytics = () => {
                           0
         return sum + jobRevenue
       }, 0)
-      console.log('Revenue calculated from jobs:', totalRevenue)
     }
     
     const completedJobs = filteredJobs.filter(job => job.status === 'completed').length
@@ -481,63 +470,11 @@ const Analytics = () => {
     )
     
     const allJobs = normalizeAPIResponse(jobsResponse, 'jobs') || []
-    
-    console.log('📊 Analytics: Date range:', dateRangeString)
-    console.log('📊 Analytics: Total jobs fetched:', allJobs.length)
-    console.log('📊 Analytics: Team members count:', teamMembers.length)
-    console.log('📊 Analytics: Team member IDs:', teamMembers.map(m => ({ id: m.id, idType: typeof m.id, name: `${m.first_name} ${m.last_name}` })))
-    
-    if (allJobs.length > 0) {
-      console.log('📊 Analytics: Sample job structure:', {
-        id: allJobs[0].id,
-        scheduled_date: allJobs[0].scheduled_date,
-        team_member_id: allJobs[0].team_member_id,
-        assigned_team_member_id: allJobs[0].assigned_team_member_id,
-        team_assignments: allJobs[0].team_assignments,
-        team_assignments_type: typeof allJobs[0].team_assignments,
-        team_assignments_is_array: Array.isArray(allJobs[0].team_assignments),
-        team_assignments_length: allJobs[0].team_assignments?.length || 0,
-        job_team_assignments: allJobs[0].job_team_assignments,
-        job_team_assignments_type: typeof allJobs[0].job_team_assignments,
-        job_team_assignments_is_array: Array.isArray(allJobs[0].job_team_assignments),
-        job_team_assignments_length: allJobs[0].job_team_assignments?.length || 0
-      })
-      
-      // Log first few jobs' team assignments in detail
-      allJobs.slice(0, 5).forEach((job, idx) => {
-        const teamAssignments = job.team_assignments || []
-        const jobTeamAssignments = job.job_team_assignments || []
-        console.log(`📊 Analytics: Job ${idx + 1} (ID: ${job.id}, Date: ${job.scheduled_date}):`, {
-          team_member_id: job.team_member_id,
-          assigned_team_member_id: job.assigned_team_member_id,
-          team_assignments_count: teamAssignments.length,
-          team_assignments_ids: teamAssignments.map(ta => ta.team_member_id),
-          job_team_assignments_count: jobTeamAssignments.length,
-          job_team_assignments_ids: jobTeamAssignments.map(jta => jta.team_member_id)
-        })
-      })
-      
-      // Count jobs with team assignments
-      const jobsWithAssignments = allJobs.filter(j => {
-        const hasDirect = !!(j.team_member_id || j.assigned_team_member_id)
-        const hasTeamAssignments = j.team_assignments && Array.isArray(j.team_assignments) && j.team_assignments.length > 0
-        const hasJobTeamAssignments = j.job_team_assignments && Array.isArray(j.job_team_assignments) && j.job_team_assignments.length > 0
-        return hasDirect || hasTeamAssignments || hasJobTeamAssignments
-      })
-      console.log(`📊 Analytics: Jobs with team assignments: ${jobsWithAssignments.length} out of ${allJobs.length}`)
-    } else {
-      console.warn('📊 Analytics: No jobs found in date range!', {
-        dateRange: dateRangeString,
-        startDate: startDateString,
-        endDate: endDateString
-      })
-    }
-    
+
     return teamMembers.map(member => {
       // Handle both string and number IDs - use same approach as schedule page
       const targetId = Number(member.id)
       if (isNaN(targetId)) {
-        console.error(`📊 Analytics: Invalid team member ID: ${member.id} (type: ${typeof member.id})`)
         return {
           ...member,
           totalJobs: 0,
@@ -547,8 +484,7 @@ const Analytics = () => {
           totalRevenue: 0
         }
       }
-      console.log(`📊 Analytics: Processing team member ${member.id} (${member.first_name} ${member.last_name}), targetId: ${targetId} (type: ${typeof targetId})`)
-      
+
       // Check for jobs assigned to this team member
       // Use same logic as schedule page's isJobAssignedTo function
       const memberJobs = allJobs.filter(job => {
@@ -620,51 +556,6 @@ const Analytics = () => {
         return isAssigned
       })
       
-      console.log(`📊 Analytics: Team member ${member.id} (${member.first_name} ${member.last_name}) matched ${memberJobs.length} jobs out of ${allJobs.length} total jobs`)
-      
-      // Log sample job structure if no jobs found to help debug
-      if (memberJobs.length === 0 && allJobs.length > 0) {
-        console.log(`📊 Analytics: No jobs found for member ${member.id} (targetId: ${targetId}, targetIdType: ${typeof targetId}). Checking sample jobs...`)
-        
-        // Check first 3 jobs to see their assignment structure
-        allJobs.slice(0, 3).forEach((job, idx) => {
-          const jobAssignedId = job.assigned_team_member_id ? Number(job.assigned_team_member_id) : null
-          const jobTeamMemberId = job.team_member_id ? Number(job.team_member_id) : null
-          const teamAssignments = job.team_assignments || []
-          const jobTeamAssignments = job.job_team_assignments || []
-          
-          console.log(`📊 Analytics: Job ${idx + 1} (ID: ${job.id}):`, {
-            assigned_team_member_id: job.assigned_team_member_id,
-            assigned_team_member_id_number: jobAssignedId,
-            team_member_id: job.team_member_id,
-            team_member_id_number: jobTeamMemberId,
-            team_assignments_count: teamAssignments.length,
-            team_assignments_ids: teamAssignments.map(ta => ({
-              team_member_id: ta.team_member_id,
-              team_member_id_type: typeof ta.team_member_id,
-              team_member_id_number: ta.team_member_id ? Number(ta.team_member_id) : null,
-              matches_target: ta.team_member_id ? Number(ta.team_member_id) === targetId : false
-            })),
-            job_team_assignments_count: jobTeamAssignments.length,
-            job_team_assignments_ids: jobTeamAssignments.map(jta => ({
-              team_member_id: jta.team_member_id,
-              team_member_id_type: typeof jta.team_member_id,
-              team_member_id_number: jta.team_member_id ? Number(jta.team_member_id) : null,
-              matches_target: jta.team_member_id ? Number(jta.team_member_id) === targetId : false
-            }))
-          })
-        })
-      }
-      
-      if (memberJobs.length > 0) {
-        console.log(`📊 Analytics: Team member ${member.id} (${member.first_name} ${member.last_name}) has ${memberJobs.length} jobs`)
-        console.log(`📊 Analytics: Sample job IDs for member ${member.id}:`, memberJobs.slice(0, 3).map(j => ({
-          id: j.id,
-          team_member_id: j.team_member_id,
-          team_assignments: j.team_assignments?.map(ta => ta.team_member_id) || []
-        })))
-      }
-      
       const completedJobs = memberJobs.filter(job => job.status === 'completed')
       const completionRate = memberJobs.length > 0 ? (completedJobs.length / memberJobs.length * 100).toFixed(1) : 0
       
@@ -711,23 +602,7 @@ const Analytics = () => {
         totalRevenue: totalRevenue
       }
     })
-    
-    // Summary log to help debug
-    const totalJobsMatched = teamMembers.reduce((sum, m) => sum + (m.totalJobs || 0), 0)
-    console.log(`📊 Analytics: Summary - Total jobs matched across all team members: ${totalJobsMatched} out of ${allJobs.length} total jobs in date range`)
-    
-    if (allJobs.length > 0 && totalJobsMatched === 0) {
-      console.warn('📊 Analytics: WARNING - Jobs exist in date range but none are assigned to team members!')
-      console.log('📊 Analytics: Sample unassigned jobs:', allJobs.slice(0, 3).map(j => ({
-        id: j.id,
-        scheduled_date: j.scheduled_date,
-        has_team_member_id: !!j.team_member_id,
-        has_assigned_team_member_id: !!j.assigned_team_member_id,
-        has_team_assignments: !!(j.team_assignments && Array.isArray(j.team_assignments) && j.team_assignments.length > 0),
-        has_job_team_assignments: !!(j.job_team_assignments && Array.isArray(j.job_team_assignments) && j.job_team_assignments.length > 0)
-      })))
-    }
-    
+
     return teamMembers
   }
 
@@ -738,14 +613,10 @@ const Analytics = () => {
       
       // Handle different response structures - API returns response.data.customers || response.data
       // So customersResponse might already be the array, or it might be an object with a customers property
-      const allCustomers = Array.isArray(customersResponse) 
-        ? customersResponse 
+      const allCustomers = Array.isArray(customersResponse)
+        ? customersResponse
         : (customersResponse?.customers || customersResponse?.data || [])
-      
-      console.log('Customer analytics - Total customers fetched:', allCustomers.length)
-      console.log('Customer analytics - Sample customer:', allCustomers[0])
-      console.log('Customer analytics - Response structure:', customersResponse)
-      
+
       const jobs = await jobsAPI.getAll(user.id, "", "", 1, 1000)
       const allJobs = jobs.jobs || []
       

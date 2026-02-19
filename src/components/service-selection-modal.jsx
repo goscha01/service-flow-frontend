@@ -42,8 +42,6 @@ const ServiceSelectionModal = ({
   const calculateDynamicPrice = (service, modifiers = {}) => {
     // Use edited service price if available, otherwise use original
     let totalPrice = editedServicePrice !== null ? parseFloat(editedServicePrice) : parseFloat(service.price) || 0;
-    console.log('🔧 CALC START: Base price =', totalPrice, '(edited:', editedServicePrice, ', original:', service.price, ')');
-    
     // Add modifier prices
     if (service.parsedModifiers && Array.isArray(service.parsedModifiers)) {
       service.parsedModifiers.forEach(modifier => {
@@ -97,9 +95,6 @@ const ServiceSelectionModal = ({
   // Load categories and services
   useEffect(() => {
     if (isOpen && user?.id) {
-      console.log('🔄 Loading data for user:', user.id);
-      console.log('🔄 Categories enabled:', categoriesEnabled);
-      
       if (categoriesEnabled) {
         loadCategories();
         loadServices();
@@ -125,24 +120,6 @@ const ServiceSelectionModal = ({
     }
   }, [isOpen, categoriesEnabled, selectedCategoryId, categories]);
 
-  // Debug services data
-  useEffect(() => {
-    console.log('🔧 Services state updated:', services);
-    console.log('🔧 Services length:', services.length);
-    if (services.length > 0) {
-      console.log('🔧 First service sample:', services[0]);
-    }
-  }, [services]);
-
-  // Debug categories data
-  useEffect(() => {
-    console.log('📋 Categories state updated:', categories);
-    console.log('📋 Categories length:', categories.length);
-    if (categories.length > 0) {
-      console.log('📋 First category sample:', categories[0]);
-    }
-  }, [categories]);
-
   const loadCategories = async () => {
     if (!user?.id) {
       console.error('❌ Cannot load categories: No user ID available');
@@ -152,9 +129,7 @@ const ServiceSelectionModal = ({
 
     try {
       setLoading(true);
-      console.log('🔄 Loading categories for user:', user.id);
       const categoriesData = await servicesAPI.getServiceCategories(user.id);
-      console.log('📋 Categories loaded:', categoriesData);
       setCategories(categoriesData || []);
     } catch (error) {
       console.error('❌ Error loading categories:', error);
@@ -173,28 +148,18 @@ const ServiceSelectionModal = ({
 
     try {
       setLoading(true);
-      console.log('🔄 Loading services for user:', user.id);
       const response = await servicesAPI.getAll(user.id);
-      console.log('🔧 Full API response:', response);
-      console.log('🔧 Response type:', typeof response);
-      console.log('🔧 Response keys:', Object.keys(response));
-      console.log('🔧 Response services:', response.services);
-      console.log('🔧 Response pagination:', response.pagination);
-      
+
       // servicesAPI.getAll returns response.data directly, which is {services: [...], pagination: {...}}
       let servicesArray = [];
       if (response.services && Array.isArray(response.services)) {
         servicesArray = response.services;
-        console.log('✅ Found services array with', servicesArray.length, 'services');
       } else if (Array.isArray(response)) {
         servicesArray = response;
-        console.log('✅ Response is direct array with', servicesArray.length, 'services');
       } else {
-        console.warn('⚠️ Unexpected response structure:', response);
         servicesArray = [];
       }
-      
-      console.log('🔧 Final services array:', servicesArray);
+
       setServices(servicesArray);
     } catch (error) {
       console.error('❌ Error loading services:', error);
@@ -332,16 +297,6 @@ const ServiceSelectionModal = ({
       return;
     }
 
-    console.log('🔧 Adding service with customization data:');
-    console.log('🔧 Selected modifiers:', selectedModifiers);
-    console.log('🔧 Intake question answers:', intakeQuestionAnswers);
-    console.log('🔧 Selected service:', selectedService);
-
-    // Don't calculate total price here - let the main form handle it
-    // Just pass the base service price and let modifiers be calculated separately
-    console.log('🔧 SERVICE MODAL: Base price:', selectedService.price);
-    console.log('🔧 SERVICE MODAL: Selected modifiers:', selectedModifiers);
-    
     // Create service with proper customization data
     const serviceWithCustomization = {
       ...selectedService,
@@ -358,10 +313,6 @@ const ServiceSelectionModal = ({
       serviceIntakeQuestions: selectedService.parsedIntakeQuestions || []
     };
     
-    console.log('🔧 SERVICE MODAL: Final service price being passed:', serviceWithCustomization.price);
-
-    console.log('🔧 Final service data being passed:', serviceWithCustomization);
-
     // Save customizations back to the service if any were made
     const hasCustomizations = Object.keys(selectedModifiers).length > 0 || 
                              Object.keys(intakeQuestionAnswers).length > 0 ||
@@ -391,8 +342,6 @@ const ServiceSelectionModal = ({
           }))
         };
 
-        console.log('🔄 Updating service with customizations:', updatedServiceData);
-        
         // Save to backend
         await servicesAPI.update(selectedService.id, {
           name: updatedServiceData.name,
@@ -409,7 +358,6 @@ const ServiceSelectionModal = ({
           default_intake_answers: JSON.stringify(intakeQuestionAnswers)
         });
         
-        console.log('✅ Service updated successfully with customizations');
       } catch (error) {
         console.error('❌ Failed to update service with customizations:', error);
         console.error('❌ Error details:', error.message);
@@ -455,7 +403,6 @@ const ServiceSelectionModal = ({
   const getFilteredServices = () => {
     // When categories are disabled, show all services
     if (!categoriesEnabled) {
-      console.log('🔍 Categories disabled - showing all services:', services);
       let filtered = services;
       
       // Apply search filter
@@ -472,9 +419,6 @@ const ServiceSelectionModal = ({
     // When categories are enabled, filter by selected category
     if (!selectedCategory) return [];
     
-    console.log('🔍 Filtering services for category:', selectedCategory);
-    console.log('🔍 All services:', services);
-    
     let filtered;
     
     // Handle "No category" - show uncategorized services
@@ -485,12 +429,9 @@ const ServiceSelectionModal = ({
       filtered = services.filter(service => {
         const matchesId = service.category_id === selectedCategory.id;
         const matchesName = service.category === selectedCategory.name;
-        console.log(`🔍 Service "${service.name}": category_id=${service.category_id}, category=${service.category}, matchesId=${matchesId}, matchesName=${matchesName}`);
         return matchesId || matchesName;
       });
     }
-
-    console.log('🔍 Filtered services:', filtered);
 
     if (searchTerm) {
       filtered = filtered.filter(service =>
@@ -514,7 +455,6 @@ const ServiceSelectionModal = ({
       return matchesId || matchesName;
     }).length;
     
-    console.log(`📊 Service count for category "${category.name}":`, count);
     return count;
   };
 
@@ -750,15 +690,10 @@ const ServiceSelectionModal = ({
                             editedModifierPrices={editedModifierPrices}
                             onModifierPriceChange={(modifierId, optionId, value) => {
                               const priceKey = `${modifierId}_option_${optionId}`;
-                              console.log('🔧 MODIFIER PRICE CHANGE:', priceKey, '=', value);
-                              setEditedModifierPrices(prev => {
-                                const updated = {
-                                  ...prev,
-                                  [priceKey]: value
-                                };
-                                console.log('🔧 UPDATED MODIFIER PRICES:', updated);
-                                return updated;
-                              });
+                              setEditedModifierPrices(prev => ({
+                                ...prev,
+                                [priceKey]: value
+                              }));
                             }}
                           />
                         </div>
