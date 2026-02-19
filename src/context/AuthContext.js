@@ -211,6 +211,7 @@ export const AuthProvider = ({ children }) => {
 
   // Listen for token expiration on every page load and API error
   useEffect(() => {
+    if (location.pathname.startsWith('/demo')) return;
     const interval = setInterval(() => {
       const token = localStorage.getItem('authToken');
       if (token && isTokenExpired(token)) {
@@ -219,10 +220,11 @@ export const AuthProvider = ({ children }) => {
       }
     }, 60 * 1000); // check every minute
     return () => clearInterval(interval);
-  }, []);
+  }, [location.pathname]);
 
   // Poll for role/permission updates every 5 minutes
   useEffect(() => {
+    if (location.pathname.startsWith('/demo')) return;
     if (!user?.id) {
       // Clear any existing polling if user logs out
       if (pollingIntervalRef.current) {
@@ -259,6 +261,7 @@ export const AuthProvider = ({ children }) => {
 
   // Fetch roles/permissions on navigation (route change)
   useEffect(() => {
+    if (location.pathname.startsWith('/demo')) return;
     if (!user?.id) return;
 
     // Only fetch if it's been more than 30 seconds since last fetch
@@ -277,6 +280,7 @@ export const AuthProvider = ({ children }) => {
 
   // Fetch roles/permissions when tab becomes visible again
   useEffect(() => {
+    if (location.pathname.startsWith('/demo')) return;
     if (!user?.id) return;
 
     const handleVisibilityChange = () => {
