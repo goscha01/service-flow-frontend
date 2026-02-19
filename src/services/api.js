@@ -64,6 +64,10 @@ api.interceptors.response.use(
     
     // Don't retry if we've already retried or if it's not a network error
     if (config.__retryCount >= 3 || (error.response?.status && error.response?.status !== 429)) {
+      // On demo routes let the DemoPageWrapper interceptor handle everything
+      if (window.location.pathname.startsWith('/demo')) {
+        return Promise.reject(error);
+      }
       // Handle non-network errors normally
       if (error.response) {
         const { status, data } = error.response;
