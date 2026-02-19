@@ -15,7 +15,6 @@ import EditJobModal from "../components/edit-job-modal"
 import EditJobDetailsModal from "../components/edit-job-details-modal"
 import DuplicateJobModal from "../components/duplicate-job-modal"
 import AssignJobModal from "../components/assign-job-modal"
-import JobTemplateModal from "../components/job-template-modal"
 import SchedulingBookingModal from "../components/scheduling-booking-modal"
 import CreateRecurringOptionModal from "../components/create-recurring-option-modal"
 import ConvertToRecurringModal from "../components/convert-to-recurring-modal"
@@ -154,20 +153,6 @@ const POPUP_CONFIG = {
     desc: "Search and assign available team members to a job, with availability info.",
     render: (isOpen, onClose) => (
       <AssignJobModal isOpen={isOpen} onClose={onClose} job={MOCK_JOB} onAssign={noop} />
-    ),
-  },
-  "job-template": {
-    label: "Job Template",
-    category: "jobs",
-    desc: "Save or edit a reusable job template with pre-filled services and details.",
-    render: (isOpen, onClose) => (
-      <JobTemplateModal
-        isOpen={isOpen}
-        onClose={onClose}
-        onSave={noop}
-        editingTemplate={null}
-        userId={MOCK_USER.id}
-      />
     ),
   },
   "scheduling-booking": {
@@ -605,7 +590,7 @@ const SIDEBAR_CATEGORIES = [
     color: "text-blue-600",
     ids: [
       "edit-job", "edit-job-details", "duplicate-job", "assign-job",
-      "job-template", "scheduling-booking", "create-recurring-option",
+      "scheduling-booking", "create-recurring-option",
       "convert-to-recurring", "recurring-frequency",
     ],
   },
