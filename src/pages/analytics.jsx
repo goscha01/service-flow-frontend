@@ -27,7 +27,7 @@ import { normalizeAPIResponse } from "../utils/dataHandler"
 import { RevenueChart, JobStatusChart, BarChartComponent } from "../components/analytics-chart"
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts"
 import { isAccountOwner } from "../utils/roleUtils"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useLocation } from "react-router-dom"
 import MobileHeader from "../components/mobile-header"
 import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
@@ -36,11 +36,13 @@ import * as XLSX from "xlsx"
 const Analytics = () => {
   const { user } = useAuth()
   const navigate = useNavigate()
-  
+  const location = useLocation()
+  const isDemoMode = location.pathname.startsWith('/demo/')
+
   // Redirect non-owners away from analytics
   useEffect(() => {
     if (user && !isAccountOwner(user)) {
-      navigate('/dashboard', { replace: true })
+      navigate(isDemoMode ? '/demo/pages/dashboard' : '/dashboard', { replace: true })
     }
   }, [user, navigate])
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -67,7 +69,7 @@ const Analytics = () => {
   // Redirect non-owners away from analytics
   useEffect(() => {
     if (user && !isAccountOwner(user)) {
-      navigate('/dashboard', { replace: true })
+      navigate(isDemoMode ? '/demo/pages/dashboard' : '/dashboard', { replace: true })
       return
     }
   }, [user, navigate])
@@ -1050,7 +1052,7 @@ const Analytics = () => {
   if (loading) {
     return (
       <div className="flex h-screen bg-gray-50 overflow-hidden">
-        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} activePage="analytics" />
+        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} activePage="analytics" demoMode={isDemoMode} />
         <div className="flex-1 flex flex-col min-w-0 ">
           <div className="flex-1 overflow-auto">
             <div className="flex items-center justify-center py-12">
@@ -1065,7 +1067,7 @@ const Analytics = () => {
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} activePage="analytics" />
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} activePage="analytics" demoMode={isDemoMode} />
 
       <div className="flex-1 flex flex-col min-w-0 ">
         {/* Mobile Header */}

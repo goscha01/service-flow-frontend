@@ -241,8 +241,9 @@ const ServiceFlowCustomers = () => {
   }
 
   const handleViewCustomer = (customer) => {
-    // Navigate to customer details page
-    navigate(`/customer/${customer.id}`)
+    // Stay within demo sandbox when in demo mode
+    const isDemoMode = window.location.pathname.startsWith('/demo/')
+    navigate(isDemoMode ? `/demo/pages/customers` : `/customer/${customer.id}`)
   }
 
   const handleRetry = () => {

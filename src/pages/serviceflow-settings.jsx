@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useLocation } from "react-router-dom"
 import Sidebar from "../components/sidebar"
 import BusinessDetailsModal from "../components/business-details-modal"
 import SchedulingBookingModal from "../components/scheduling-booking-modal"
@@ -41,12 +41,14 @@ const ServiceFlowSettings = () => {
     return saved === 'true'
   })
   const navigate = useNavigate()
+  const location = useLocation()
+  const isDemoMode = location.pathname.startsWith('/demo/')
   const { user } = useAuth()
 
   // Redirect team members to their profile editing page
   useEffect(() => {
     if (user && user.teamMemberId) {
-      navigate(`/settings/account`)
+      navigate(isDemoMode ? `/demo/pages/settings-account` : `/settings/account`)
     }
   }, [user, navigate])
 
@@ -56,6 +58,30 @@ const ServiceFlowSettings = () => {
   }, [showInactiveCards])
 
   const handleSettingClick = (settingId) => {
+    // In demo mode, map setting IDs to demo page paths
+    if (isDemoMode) {
+      const demoPageMap = {
+        "branding":                   "/demo/pages/settings-branding",
+        "availability":               "/demo/pages/settings-availability",
+        "service-areas":              "/demo/pages/territories",
+        "booking-quote-requests":     "/demo/pages/settings-booking-quote-requests",
+        "job-assignment":             "/demo/pages/settings-job-assignment",
+        "client-team-notifications":  "/demo/pages/settings-notifications",
+        "feedback-reviews":           "/demo/pages/settings-feedback-reviews",
+        "payments":                   "/demo/pages/settings-payments",
+        "taxes-fees":                 "/demo/pages/settings-taxes-fees",
+        "calendar-syncing":           "/demo/pages/settings-calendar-syncing",
+        "developers":                 "/demo/pages/settings-developers",
+        "field-app":                  "/demo/pages/settings-field-app",
+        "services":                   "/demo/pages/services",
+      }
+      if (settingId === "business-details") { setBusinessDetailsOpen(true); return }
+      if (settingId === "scheduling-policies") { setSchedulingBookingOpen(true); return }
+      if (demoPageMap[settingId]) { navigate(demoPageMap[settingId]); return }
+      // Settings not yet in demo — stay on settings page
+      return
+    }
+
     switch (settingId) {
       case "business-details":
         setBusinessDetailsOpen(true)
@@ -118,7 +144,7 @@ const ServiceFlowSettings = () => {
         navigate("/services")
         break
       default:
-        console.log(`Navigate to ${settingId}`)
+        break
     }
   }
 
