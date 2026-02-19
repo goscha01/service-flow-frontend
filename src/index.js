@@ -100,6 +100,7 @@ import TeamMemberSignup from "./pages/team-member-signup"
 import DropdownMultiselectDemo from "./pages/dropdown-multiselect-demo"
 import DemoHub from "./pages/demo-hub"
 import DemoPopup from "./pages/demo-popup"
+import DemoPageWrapper from "./pages/demo-page-wrapper"
 import ImportDataPage from "./pages/import-data"
 import ImportCustomersPage from "./pages/import-customers"
 import ImportJobsPage from "./pages/import-jobs"
@@ -123,6 +124,8 @@ root.render(
       <Route path="signin" element={<SignInForm />} />
       <Route path="legacy-landing" element={<LandingPageLegacy />} />
       <Route element={<AppLayout />}>
+      {/* Demo pages — no auth required */}
+      <Route path="/demo/pages/:pageId" element={<DemoPageWrapper />} />
       <Route path="/dashboard" element={<ProtectedRoute><ServiceFlowDashboard /></ProtectedRoute>} />
       <Route path="/request" element={<ProtectedRoute><ServiceFlowRequests /></ProtectedRoute>} />
       <Route path="/schedule" element={<ProtectedRoute><ServiceFlowSchedule /></ProtectedRoute>} />
