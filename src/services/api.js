@@ -1004,11 +1004,12 @@ export const jobsAPI = {
     }
   },
 
-  assignMultipleTeamMembers: async (jobId, teamMemberIds, primaryMemberId) => {
+  assignMultipleTeamMembers: async (jobId, teamMemberIds, primaryMemberId, forceBook = false) => {
     try {
-      const response = await api.post(`/jobs/${jobId}/assign-multiple`, { 
-        teamMemberIds, 
-        primaryMemberId 
+      const response = await api.post(`/jobs/${jobId}/assign-multiple`, {
+        teamMemberIds,
+        primaryMemberId,
+        forceBook
       });
       return response.data;
     } catch (error) {
@@ -1053,14 +1054,15 @@ export const jobsAPI = {
     }
   },
 
-  getAvailableSlots: async ({ date, duration, workerId, serviceId }) => {
+  getAvailableSlots: async ({ date, duration, workerId, serviceId, customerAddress }) => {
     try {
       const params = new URLSearchParams();
       if (date) params.append('date', date);
       if (duration) params.append('duration', duration);
       if (workerId) params.append('workerId', workerId);
       if (serviceId) params.append('serviceId', serviceId);
-      
+      if (customerAddress) params.append('customerAddress', customerAddress);
+
       const response = await api.get(`/jobs/available-slots?${params.toString()}`);
       return response.data;
     } catch (error) {

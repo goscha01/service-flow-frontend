@@ -1567,16 +1567,23 @@ const ServiceFlowSchedule = () => {
       return null
     }).filter(Boolean)
     
-    // STEP 5b: Compute driving time slots (travel buffer BEFORE each job)
+    // STEP 5b: Compute driving time slots (travel buffer BEFORE AND AFTER each job)
     const drivingTime = drivingTimeMinutes || 0
     let drivingTimeRanges = []
     if (drivingTime > 0 && jobTimeRanges.length > 0) {
       const intersectionStart = timeToMinutes(intersectionTimeSlots[0]?.start || '00:00')
+      const intersectionEnd = timeToMinutes(intersectionTimeSlots[intersectionTimeSlots.length - 1]?.end || '23:59')
       const sortedJobs = [...jobTimeRanges].sort((a, b) => a.start - b.start)
       sortedJobs.forEach(job => {
-        const drivingStart = Math.max(job.start - drivingTime, intersectionStart)
-        if (drivingStart < job.start) {
-          drivingTimeRanges.push({ start: drivingStart, end: job.start })
+        // Driving buffer BEFORE each job
+        const drivingStartBefore = Math.max(job.start - drivingTime, intersectionStart)
+        if (drivingStartBefore < job.start) {
+          drivingTimeRanges.push({ start: drivingStartBefore, end: job.start })
+        }
+        // Driving buffer AFTER each job
+        const drivingEndAfter = Math.min(job.end + drivingTime, intersectionEnd)
+        if (drivingEndAfter > job.end) {
+          drivingTimeRanges.push({ start: job.end, end: drivingEndAfter })
         }
       })
       drivingTimeRanges = mergeTimeRanges(drivingTimeRanges)
@@ -3298,59 +3305,67 @@ const ServiceFlowSchedule = () => {
     }
   }
 
-  const handleSaveReschedule = async () => {
+  const handleSaveReschedule = async (forceBook = false) => {
     if (!selectedJobDetails) return
-    
+
     try {
       setIsUpdatingJob(true)
       setErrorMessage('')
-      
+
       const newDateTime = `${editFormData.scheduled_date}T${editFormData.scheduled_time}:00`
-      
-      console.log('Rescheduling with data:', {
-        scheduledDate: newDateTime
-      }) // Debug log
-      
-      // Use the correct field name that the API expects
+
       const updateData = {
-        scheduledDate: newDateTime
+        scheduledDate: newDateTime,
+        forceBook
       }
-      
+
       await jobsAPI.update(selectedJobDetails.id, updateData)
-      
+
       // Invalidate cache since job was rescheduled
       invalidateJobsCache()
-      
+
       // Update local state
       setSelectedJobDetails(prev => ({
         ...prev,
         scheduled_date: newDateTime
       }))
-      
+
       // Update the job in the main jobs list
-      setJobs(prevJobs => prevJobs.map(job => 
-        job.id === selectedJobDetails.id ? { 
-          ...job, 
+      setJobs(prevJobs => prevJobs.map(job =>
+        job.id === selectedJobDetails.id ? {
+          ...job,
           scheduled_date: newDateTime
         } : job
       ))
-      
+
       // Update filtered jobs as well
-      setFilteredJobs(prevFilteredJobs => prevFilteredJobs.map(job => 
-        job.id === selectedJobDetails.id ? { 
-          ...job, 
+      setFilteredJobs(prevFilteredJobs => prevFilteredJobs.map(job =>
+        job.id === selectedJobDetails.id ? {
+          ...job,
           scheduled_date: newDateTime
         } : job
       ))
-      
+
       setSuccessMessage('Job rescheduled successfully!')
       setTimeout(() => setSuccessMessage(''), 3000)
       setShowRescheduleModal(false)
-      
+
     } catch (error) {
+      // Handle 409 conflict — offer force-book option
+      if (error.response?.status === 409 && error.response?.data?.canForceBook) {
+        const warnings = error.response.data.warnings || []
+        const warningText = warnings.join('\n- ')
+        const proceed = window.confirm(
+          `Scheduling conflict detected:\n- ${warningText}\n\nDo you want to override and reschedule anyway?`
+        )
+        if (proceed) {
+          return handleSaveReschedule(true)
+        }
+        return
+      }
       console.error('Error rescheduling job:', error)
-      setErrorMessage('Failed to reschedule job')
-      setTimeout(() => setErrorMessage(''), 3000)
+      setErrorMessage(error.response?.data?.error || 'Failed to reschedule job')
+      setTimeout(() => setErrorMessage(''), 5000)
     } finally {
       setIsUpdatingJob(false)
     }
@@ -3455,19 +3470,19 @@ const ServiceFlowSchedule = () => {
     }
   }
 
-  const handleAssignTeamMember = async (teamMemberIds) => {
+  const handleAssignTeamMember = async (teamMemberIds, forceBook = false) => {
     if (!selectedJobDetails) return
-    
+
     try {
       setIsUpdatingJob(true)
       setErrorMessage('')
-      
+
       // teamMemberIds is now an array of selected member IDs
       const memberIdsArray = Array.isArray(teamMemberIds) ? teamMemberIds : (teamMemberIds ? [teamMemberIds] : [])
-      
+
       // Convert all IDs to numbers for consistency
       const normalizedMemberIds = memberIdsArray.map(id => Number(id)).filter(id => id && !isNaN(id))
-      
+
       // Get current assignments to remove if needed
       const currentAssignments = selectedJobDetails.team_assignments || []
       const currentMemberIds = new Set(
@@ -3480,25 +3495,25 @@ const ServiceFlowSchedule = () => {
           currentMemberIds.add(Number(singleId))
         }
       }
-      
+
       if (normalizedMemberIds.length > 0) {
         // Assign multiple members (or single member) - this replaces all existing assignments
         const primaryMemberId = normalizedMemberIds[0]
-        await jobsAPI.assignMultipleTeamMembers(selectedJobDetails.id, normalizedMemberIds, primaryMemberId)
+        await jobsAPI.assignMultipleTeamMembers(selectedJobDetails.id, normalizedMemberIds, primaryMemberId, forceBook)
       } else {
         // If no members selected, remove all assignments one by one
         // The backend assign-multiple endpoint doesn't accept empty arrays
-        const removePromises = Array.from(currentMemberIds).map(memberId => 
+        const removePromises = Array.from(currentMemberIds).map(memberId =>
           jobsAPI.removeTeamMember(selectedJobDetails.id, memberId)
         )
         await Promise.all(removePromises)
       }
-      
+
       // Reload job data from API to get the latest state
       const jobData = await jobsAPI.getById(selectedJobDetails.id)
       // Normalize customer data to ensure flat fields are preserved
       const normalizedJob = normalizeCustomerData(jobData)
-      
+
       // Ensure team_assignments is properly structured
       if (!normalizedJob.team_assignments || !Array.isArray(normalizedJob.team_assignments)) {
         // If team_assignments is missing, try to construct it from other fields
@@ -3512,38 +3527,51 @@ const ServiceFlowSchedule = () => {
         }
         normalizedJob.team_assignments = assignments
       }
-      
+
       // Update selected job details with fresh data, preserving payment amounts
       setSelectedJobDetails(prev => ({
         ...normalizedJob,
         total_paid_amount: prev.total_paid_amount || normalizedJob.total_paid_amount || 0,
         invoice_paid_amount: prev.invoice_paid_amount || normalizedJob.invoice_paid_amount || 0
       }))
-      
+
       // Update the job in the main jobs list
-      setJobs(prevJobs => prevJobs.map(job => 
+      setJobs(prevJobs => prevJobs.map(job =>
         job.id === selectedJobDetails.id ? normalizedJob : job
       ))
-      
+
       // Update filtered jobs as well
-      setFilteredJobs(prevFilteredJobs => prevFilteredJobs.map(job => 
+      setFilteredJobs(prevFilteredJobs => prevFilteredJobs.map(job =>
         job.id === selectedJobDetails.id ? normalizedJob : job
       ))
-      
-      const actionText = memberIdsArray.length === 0 
-        ? 'All team members unassigned successfully!' 
-        : memberIdsArray.length === 1 
-        ? 'Team member assigned successfully!' 
+
+      const actionText = memberIdsArray.length === 0
+        ? 'All team members unassigned successfully!'
+        : memberIdsArray.length === 1
+        ? 'Team member assigned successfully!'
         : `${memberIdsArray.length} team members assigned successfully!`
-      
+
       setSuccessMessage(actionText)
       setTimeout(() => setSuccessMessage(''), 3000)
       setShowAssignModal(false)
-      
+
     } catch (error) {
+      // Handle 409 conflict — offer force-book option
+      if (error.response?.status === 409 && error.response?.data?.canForceBook) {
+        const conflicts = error.response.data.conflicts || []
+        const allWarnings = conflicts.flatMap(c => c.warnings.map(w => `${c.memberLabel}: ${w}`))
+        const warningText = allWarnings.length > 0 ? allWarnings.join('\n- ') : (error.response.data.error || 'Scheduling conflict')
+        const proceed = window.confirm(
+          `Scheduling conflicts detected:\n- ${warningText}\n\nDo you want to override and assign anyway?`
+        )
+        if (proceed) {
+          return handleAssignTeamMember(teamMemberIds, true)
+        }
+        return
+      }
       console.error('Error assigning team member:', error)
-      setErrorMessage('Failed to update team member assignments')
-      setTimeout(() => setErrorMessage(''), 3000)
+      setErrorMessage(error.response?.data?.error || 'Failed to update team member assignments')
+      setTimeout(() => setErrorMessage(''), 5000)
     } finally {
       setIsUpdatingJob(false)
     }
@@ -4223,6 +4251,9 @@ const ServiceFlowSchedule = () => {
                     {/* Time with Duration */}
                     <div className="text-[10px] sm:text-[11px] font-semibold text-gray-900 mb-1 truncate">
                       {timeString} - {endTimeString}{durationFormatted && ` ${durationFormatted}`}
+                      {drivingTimeMinutes > 0 && (
+                        <span className="text-amber-600 font-normal ml-1">+{drivingTimeMinutes}min travel</span>
+                      )}
                     </div>
                     
                     {/* Customer Name and Service */}
@@ -5767,6 +5798,9 @@ const ServiceFlowSchedule = () => {
                                   {getStatusIcon(job.status, job)}
                                   <span className="font-medium text-gray-900 truncate text-[9px]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                                     {timeString}{durationFormatted && ` ${durationFormatted}`}
+                                    {drivingTimeMinutes > 0 && (
+                                      <span className="text-amber-600 font-normal"> +{drivingTimeMinutes}m</span>
+                                    )}
                                   </span>
                                 </div>
                                 {territoryName && (
@@ -5986,6 +6020,9 @@ const ServiceFlowSchedule = () => {
                                   {getStatusIcon(job.status, job)}
                                   <span className="font-medium text-gray-900 truncate text-[9px]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                                     {timeString}{durationFormatted && ` ${durationFormatted}`}
+                                    {drivingTimeMinutes > 0 && (
+                                      <span className="text-amber-600 font-normal"> +{drivingTimeMinutes}m</span>
+                                    )}
                                   </span>
                                 </div>
                                 <div className="flex items-center space-x-0.5">
@@ -6173,6 +6210,9 @@ const ServiceFlowSchedule = () => {
                         <Clock className="w-3 h-3 text-gray-400" />
                         <span className="text-[9px] sm:text-[9px] font-medium text-gray-900">
                           {timeString} - {endTimeString}{durationFormatted && ` ${durationFormatted}`}
+                          {drivingTimeMinutes > 0 && (
+                            <span className="text-amber-600 font-normal"> +{drivingTimeMinutes}m travel</span>
+                          )}
                         </span>
                       </div>
                         <div className="flex items-center justify-between">
@@ -6767,13 +6807,22 @@ const ServiceFlowSchedule = () => {
                         return `${startTimeString} - ${endTimeString}`;
                       })()}
                     </p>
+                    {drivingTimeMinutes > 0 && (() => {
+                      const duration = getJobDuration(selectedJobDetails);
+                      const blockedTotal = duration + (drivingTimeMinutes * 2);
+                      return (
+                        <p className="text-xs text-amber-600 mt-0.5" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                          +{drivingTimeMinutes}min travel before & after ({formatDuration(blockedTotal)} blocked)
+                        </p>
+                      );
+                    })()}
                   </div>
                   <p className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
-                    {new Date(selectedJobDetails.scheduled_date).toLocaleDateString('en-US', { 
-                      weekday: 'long', 
-                      month: 'short', 
-                      day: 'numeric', 
-                      year: 'numeric' 
+                    {new Date(selectedJobDetails.scheduled_date).toLocaleDateString('en-US', {
+                      weekday: 'long',
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric'
                     })}
                   </p>
                 </div>
