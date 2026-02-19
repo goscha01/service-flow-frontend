@@ -35,6 +35,11 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     // Check if user is already logged in on app start
     const checkAuthStatus = async () => {
+      // On demo routes mock auth handles everything — skip all real auth activity
+      if (window.location.pathname.startsWith('/demo')) {
+        setLoading(false);
+        return;
+      }
       const token = localStorage.getItem('authToken');
       const userData = localStorage.getItem('user');
       
