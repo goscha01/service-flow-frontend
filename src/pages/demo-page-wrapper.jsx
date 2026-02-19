@@ -232,22 +232,42 @@ const DemoPageWrapper = () => {
   const { pageId } = useParams()
   const Component = PAGE_MAP[pageId]
 
-  // Intercept failed API responses and return mock data instead.
+  // Short-circuit ALL axios requests — return mock data before any network call.
   useEffect(() => {
-    const id = api.interceptors.response.use(
+    const reqId = api.interceptors.request.use((config) => {
+      const url    = config.url    ?? ""
+      const method = config.method ?? "get"
+      // Resolve immediately with mock data; throw a cancel so the request never fires
+      const mockData = matchDemoResponse(url, method)
+      // Attach mock to config so the response interceptor can read it
+      config.__demoMock = mockData
+      // Cancel the real request
+      const controller = new AbortController()
+      controller.abort()
+      config.signal = controller.signal
+      config.__isMockCancelled = true
+      return config
+    })
+
+    // Catch the cancelled request and return mock data
+    const resId = api.interceptors.response.use(
       (res) => res,
       (err) => {
         const url    = err?.config?.url    ?? ""
         const method = err?.config?.method ?? "get"
         return Promise.resolve({
-          data: matchDemoResponse(url, method),
+          data: err?.config?.__demoMock ?? matchDemoResponse(url, method),
           status: 200,
           headers: {},
           config: err.config,
         })
       }
     )
-    return () => api.interceptors.response.eject(id)
+
+    return () => {
+      api.interceptors.request.eject(reqId)
+      api.interceptors.response.eject(resId)
+    }
   }, [])
 
   if (!Component) {
