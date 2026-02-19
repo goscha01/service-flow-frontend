@@ -98,6 +98,8 @@ import TeamMemberDashboard from "./pages/team-member-dashboard"
 import TeamMemberFieldApp from "./pages/team-member-field-app"
 import TeamMemberSignup from "./pages/team-member-signup"
 import DropdownMultiselectDemo from "./pages/dropdown-multiselect-demo"
+import DemoHub from "./pages/demo-hub"
+import DemoPopup from "./pages/demo-popup"
 import ImportDataPage from "./pages/import-data"
 import ImportCustomersPage from "./pages/import-customers"
 import ImportJobsPage from "./pages/import-jobs"
@@ -231,6 +233,8 @@ root.render(
       
       {/* Demo Routes */}
       <Route path="dropdown-demo" element={<DropdownMultiselectDemo />} />
+      <Route path="/demo" element={<DemoHub />} />
+      <Route path="/demo/popup/:popupId" element={<DemoPopup />} />
       
       {/* Catch-all route - redirect to dashboard for any unmatched routes */}
       <Route path="*" element={<ProtectedRoute><ServiceFlowDashboard /></ProtectedRoute>} />
