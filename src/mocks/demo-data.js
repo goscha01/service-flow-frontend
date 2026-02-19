@@ -1178,6 +1178,48 @@ export const DEMO_PAYROLL = DEMO_TEAM.map((m, i) => {
   }
 })
 
+// ─── Payroll response — computed separately so bundlers never see an IIFE
+//     inside an object literal (some transforms choke on that pattern).
+const _payrollMembers = DEMO_PAYROLL.map((p) => ({
+  teamMember: {
+    id: p.teamMember.id,
+    name: p.teamMember.name,
+    hourlyRate: p.teamMember.payRate,
+    commissionPercentage: 0,
+  },
+  jobCount: p.jobsCompleted,
+  totalHours: p.hoursWorked,
+  hourlySalary: p.grossPay,
+  commissionSalary: 0,
+  totalSalary: p.grossPay,
+  paymentMethod: "bank-transfer",
+}))
+const PAYROLL_RESPONSE = {
+  teamMembers: _payrollMembers,
+  summary: {
+    totalTeamMembers:   _payrollMembers.length,
+    totalHours:        _payrollMembers.reduce((s, m) => s + m.totalHours,    0),
+    totalHourlySalary: _payrollMembers.reduce((s, m) => s + m.hourlySalary, 0),
+    totalCommission:   0,
+    totalSalary:       _payrollMembers.reduce((s, m) => s + m.hourlySalary, 0),
+  },
+}
+
+// ─── Leads tasks ──────────────────────────────────────────────────────────────
+const DEMO_TASKS = DEMO_LEADS.flatMap((lead) =>
+  (lead.tasks || []).map((t, i) => ({
+    _id:     `task-${lead._id}-${i}`,
+    leadId:  lead._id,
+    title:   t.title,
+    dueDate: t.dueDate,
+    done:    t.done,
+    status:  t.done ? "completed" : "pending",
+    leadName: lead.name,
+    first_name: lead.first_name,
+    last_name:  lead.last_name,
+  }))
+)
+
 // ─── API response wrappers ────────────────────────────────────────────────────
 export const RESPONSES = {
   jobs: {
@@ -1324,38 +1366,8 @@ export const RESPONSES = {
     timeSeries: months.map((m) => ({ date: m, lost: 0 })),
     lostCustomersList: [],
   },
-  payroll: (() => {
-    // Map DEMO_PAYROLL → shape expected by payroll.jsx:
-    // { teamMembers: [{ teamMember:{id,name,hourlyRate,commissionPercentage}, jobCount,
-    //   totalHours, hourlySalary, commissionSalary, totalSalary, paymentMethod }],
-    //   summary: { totalTeamMembers, totalHours, totalHourlySalary, totalCommission, totalSalary } }
-    const members = DEMO_PAYROLL.map((p) => ({
-      teamMember: {
-        id: p.teamMember.id,
-        name: p.teamMember.name,
-        hourlyRate: p.teamMember.payRate,
-        commissionPercentage: 0,
-      },
-      jobCount: p.jobsCompleted,
-      totalHours: p.hoursWorked,
-      hourlySalary: p.grossPay,
-      commissionSalary: 0,
-      totalSalary: p.grossPay,
-      paymentMethod: "bank-transfer",
-    }))
-    const totalHours       = members.reduce((s, m) => s + m.totalHours,    0)
-    const totalHourlySalary = members.reduce((s, m) => s + m.hourlySalary, 0)
-    return {
-      teamMembers: members,
-      summary: {
-        totalTeamMembers:  members.length,
-        totalHours,
-        totalHourlySalary,
-        totalCommission: 0,
-        totalSalary: totalHourlySalary,
-      },
-    }
-  })(),
+  payroll: PAYROLL_RESPONSE,
+  tasks: { tasks: DEMO_TASKS, data: DEMO_TASKS, total: DEMO_TASKS.length },
   coupons: {
     coupons: DEMO_COUPONS,
     data: DEMO_COUPONS,
@@ -1442,8 +1454,9 @@ export function matchDemoResponse(url = "", method = "get") {
   if (/\/team/.test(url))                           return RESPONSES.team
   if (/\/services/.test(url))                       return RESPONSES.services
   if (/\/territories/.test(url))                    return RESPONSES.territories
-  // Leads: pipeline MUST come before the general /leads match
+  // Leads sub-routes MUST come before the general /leads match
   if (/\/leads\/pipeline/.test(url))                return RESPONSES.pipeline
+  if (/\/leads\/tasks/.test(url))                   return RESPONSES.tasks
   if (/\/leads/.test(url))                          return RESPONSES.leads
   if (/\/notifications/.test(url))                  return RESPONSES.notifications
   // Analytics sub-endpoints (must come before general /analytics)
