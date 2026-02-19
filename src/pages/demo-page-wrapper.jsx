@@ -60,6 +60,7 @@ import Developers from "./settings/developers"
 
 import WhatsNewPage from "./whats-new"
 import HelpPage from "./help"
+import CustomerDetails from "./customer-details"
 
 // ─── Page map ─────────────────────────────────────────────────────────────────
 const PAGE_MAP = {
@@ -320,6 +321,27 @@ const DemoPageWrapper = () => {
       </div>
 
       {/* Floating demo panel — navigate pages & open modals */}
+      <DemoPanel />
+    </AuthContext.Provider>
+  )
+}
+
+// ─── Demo customer detail wrapper ─────────────────────────────────────────────
+// Wraps CustomerDetails at /demo/customer/:customerId with mock auth + interceptors,
+// providing the same demo sandbox as DemoPageWrapper without needing a static pageId.
+export const DemoCustomerWrapper = () => {
+  installDemoInterceptors()
+  return (
+    <AuthContext.Provider value={MOCK_AUTH}>
+      <div className="min-h-screen bg-gray-50 flex">
+        <div className="hidden lg:block">
+          <Sidebar isOpen={false} onClose={noop} demoMode={true} />
+        </div>
+        <div className="flex-1 lg:ml-52 xl:ml-52">
+          <CustomerDetails />
+        </div>
+        <MobileBottomNav teamMembers={[]} />
+      </div>
       <DemoPanel />
     </AuthContext.Provider>
   )
