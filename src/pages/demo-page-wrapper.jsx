@@ -1,5 +1,10 @@
+import { useEffect } from "react"
 import { useParams, Link } from "react-router-dom"
 import { Layers } from "lucide-react"
+
+import { AuthContext } from "../context/AuthContext"
+import api from "../services/api"
+import { DEMO_USER, matchDemoResponse } from "../mocks/demo-data"
 
 // ─── Page imports ─────────────────────────────────────────────────────────────
 import ServiceFlowDashboard from "./dashboard-redesigned"
@@ -103,7 +108,7 @@ const PAGE_MAP = {
   "settings-job-assignment":             JobAssignment,
   "settings-notifications":              ClientTeamNotifications,
   "settings-calendar-syncing":           CalendarSyncing,
-  "settings-service-areas":              ServiceAreas,
+  "settings-service-areas":             ServiceAreas,
   "settings-field-app":                  FieldApp,
   "settings-taxes-fees":                 TaxesFees,
   "settings-feedback-reviews":           FeedbackReviews,
@@ -114,10 +119,44 @@ const PAGE_MAP = {
   help:                 HelpPage,
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
+// ─── Mock auth context value ───────────────────────────────────────────────────
+const noop = () => {}
+const MOCK_AUTH = {
+  user: DEMO_USER,
+  loading: false,
+  login:               () => Promise.resolve({ success: true }),
+  loginWithGoogle:     () => Promise.resolve({ success: true }),
+  signup:              () => Promise.resolve({ success: true }),
+  logout:              noop,
+  updateUserProfile:   noop,
+  refreshUserProfile:  () => Promise.resolve(DEMO_USER),
+  isAuthenticated:     () => true,
+}
+
+// ─── Demo Page Wrapper ────────────────────────────────────────────────────────
 const DemoPageWrapper = () => {
   const { pageId } = useParams()
   const Component = PAGE_MAP[pageId]
+
+  // Add axios response interceptor: catch failed API calls and return mock data
+  useEffect(() => {
+    const interceptorId = api.interceptors.response.use(
+      // Successful responses pass through unchanged
+      (response) => response,
+      // Failed responses (401, 404, etc.) get mock data instead
+      (error) => {
+        const url    = error?.config?.url  ?? ""
+        const method = error?.config?.method ?? "get"
+        const mockData = matchDemoResponse(url, method)
+        // Return a resolved response that mimics axios shape
+        return Promise.resolve({ data: mockData, status: 200, headers: {}, config: error.config })
+      }
+    )
+
+    return () => {
+      api.interceptors.response.eject(interceptorId)
+    }
+  }, [])
 
   if (!Component) {
     return (
@@ -135,10 +174,11 @@ const DemoPageWrapper = () => {
   }
 
   return (
-    <>
+    // Override AuthContext so pages receive a mock user instead of redirecting
+    <AuthContext.Provider value={MOCK_AUTH}>
       <Component />
 
-      {/* Fixed demo badge — bottom-right, non-intrusive */}
+      {/* Floating badge — bottom-right corner, non-intrusive */}
       <Link
         to="/demo"
         className="fixed bottom-5 right-5 z-50 flex items-center gap-1.5 bg-gray-900 text-white text-xs font-medium px-3 py-2 rounded-full shadow-lg hover:bg-gray-700 transition-colors"
@@ -146,7 +186,7 @@ const DemoPageWrapper = () => {
         <Layers className="w-3 h-3" />
         Demo Hub
       </Link>
-    </>
+    </AuthContext.Provider>
   )
 }
 
