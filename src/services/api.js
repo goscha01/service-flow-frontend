@@ -72,11 +72,12 @@ api.interceptors.response.use(
           case 401:
             console.error('Unauthorized - checking if payment context');
             // Only redirect to login if not in payment context and not already on signin page
-            const isPaymentContext = window.location.pathname.includes('/payment') || 
+            const isPaymentContext = window.location.pathname.includes('/payment') ||
                                      window.location.pathname.includes('/public/');
             const isSigninPage = window.location.pathname.includes('/signin');
-            
-            if (!isPaymentContext && !isSigninPage) {
+            const isDemoPage = window.location.pathname.startsWith('/demo');
+
+            if (!isPaymentContext && !isSigninPage && !isDemoPage) {
               localStorage.removeItem('authToken');
               localStorage.removeItem('user');
               // Redirect to signin page
