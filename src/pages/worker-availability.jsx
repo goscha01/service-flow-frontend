@@ -145,13 +145,18 @@ const WorkerAvailability = () => {
             const dayData = availData.workingHours[dayName]
             
             if (dayData) {
+              // Preserve timeSlots from API; ensure each slot has an id for UI (add/remove)
+              const rawSlots = dayData.timeSlots || (dayData.hours ? [{
+                start: dayData.hours.split(' - ')[0]?.replace(' AM', '').replace(' PM', '')?.trim() || '09:00',
+                end: dayData.hours.split(' - ')[1]?.replace(' AM', '').replace(' PM', '')?.trim() || '18:00'
+              }] : [])
+              const timeSlots = rawSlots.map((slot, i) => ({
+                ...slot,
+                id: slot.id != null ? slot.id : Date.now() + dayIdx * 100 + i
+              }))
               newWorkingHours[dayName] = {
                 available: dayData.available !== false,
-                timeSlots: dayData.timeSlots || (dayData.hours ? [{
-                  id: Date.now() + dayIdx,
-                  start: dayData.hours.split(' - ')[0]?.replace(' AM', '').replace(' PM', '') || '09:00',
-                  end: dayData.hours.split(' - ')[1]?.replace(' AM', '').replace(' PM', '') || '18:00'
-                }] : [])
+                timeSlots
               }
             } else {
               // Day not set - check if business hours available, otherwise use default
@@ -521,12 +526,12 @@ const WorkerAvailability = () => {
       
       // Save to appropriate endpoint based on user type
       if (user?.teamMemberId) {
-        // Workers: use team member availability endpoint
+        // Workers: use team member availability endpoint (pass object so backend stringifies once)
         const availabilityData = {
           workingHours: workingHoursForAPI,
           customAvailability: []
         }
-        await teamAPI.updateAvailability(user.teamMemberId, JSON.stringify(availabilityData))
+        await teamAPI.updateAvailability(user.teamMemberId, availabilityData)
       } else {
         // Account owners/managers: use user availability endpoint
         // Convert to businessHours format for user availability
@@ -713,8 +718,8 @@ const WorkerAvailability = () => {
             }
           }
           
-          // Save using teamAPI
-          await teamAPI.updateAvailability(user.teamMemberId, JSON.stringify(availData))
+          // Save using teamAPI (pass object so backend stringifies once)
+          await teamAPI.updateAvailability(user.teamMemberId, availData)
         } else {
           // Account owners/managers: use user availability endpoint
           await availabilityAPI.updateAvailability({

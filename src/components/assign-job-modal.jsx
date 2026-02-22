@@ -6,7 +6,7 @@ import { getImageUrl } from '../utils/imageUtils'
 import { normalizeAPIResponse } from '../utils/dataHandler'
 import { decodeHtmlEntities } from '../utils/htmlUtils'
 
-const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
+const AssignJobModal = ({ job, isOpen, onClose, onAssign, companyDrivingTimeMinutes }) => {
   const { user } = useAuth()
   const [teamMembers, setTeamMembers] = useState([])
   const [selectedMemberIds, setSelectedMemberIds] = useState(new Set())
@@ -16,9 +16,26 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
   const [loading, setLoading] = useState(false)
   const [assigning, setAssigning] = useState(false)
   const [memberAvailability, setMemberAvailability] = useState({})
-  const [driveTimes, setDriveTimes] = useState({})
   const [expandedSchedules, setExpandedSchedules] = useState({})
   const [allSkills, setAllSkills] = useState([])
+  const [companyDrivingTime, setCompanyDrivingTime] = useState(companyDrivingTimeMinutes ?? null)
+
+  // Fetch company driving time when modal opens (for fallback when member has no per-member driving time)
+  useEffect(() => {
+    if (!isOpen) return
+    if (companyDrivingTimeMinutes != null) {
+      setCompanyDrivingTime(companyDrivingTimeMinutes)
+      return
+    }
+    if (user?.id && companyDrivingTime == null) {
+      availabilityAPI.getAvailability(user.id).then((data) => {
+        const hours = data?.businessHours || data?.business_hours
+        const parsed = typeof hours === 'string' ? (() => { try { return JSON.parse(hours) } catch (e) { return null } })() : hours
+        if (parsed && typeof parsed.drivingTime === 'number') setCompanyDrivingTime(parsed.drivingTime)
+        else if (parsed && parsed.drivingTime != null) setCompanyDrivingTime(parseInt(parsed.drivingTime, 10) || 0)
+      }).catch(() => {})
+    }
+  }, [isOpen, user?.id, companyDrivingTimeMinutes])
 
   // Fetch team members when modal opens
   useEffect(() => {
@@ -58,11 +75,8 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
   useEffect(() => {
     if (isOpen && job && teamMembers.length > 0) {
       fetchMemberAvailability()
-      if (showDriveTime) {
-        calculateDriveTimes()
-      }
     }
-  }, [isOpen, job, teamMembers, showDriveTime])
+  }, [isOpen, job, teamMembers])
 
   const fetchTeamMembers = async () => {
     try {
@@ -91,7 +105,7 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
       })))
       
       setTeamMembers(providers)
-      
+
       // Extract unique skills from all members
       const skillsSet = new Set()
       providers.forEach(member => {
@@ -220,8 +234,9 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
         
         const memberJobs = normalizeAPIResponse(jobsResponse, 'jobs') || []
         const jobStart = new Date(job.scheduled_date)
-        const jobDuration = job.service_duration || job.duration || 360 // default 6 hours in minutes
-        const jobEnd = new Date(jobStart.getTime() + jobDuration * 60000)
+        const jobDuration = job.estimated_duration ?? job.service_duration ?? job.duration ?? (job.service && (job.service.duration ?? job.service.service_duration)) ?? 60
+        const jobDurationMinutes = typeof jobDuration === 'number' ? jobDuration : parseInt(jobDuration, 10) || 60
+        const jobEnd = new Date(jobStart.getTime() + jobDurationMinutes * 60000)
         
         // Extract job time in minutes for easier comparison
         const jobStartMinutes = timeToMinutes(formatTimeFromDate(jobStart))
@@ -251,59 +266,79 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
         
         const hasConflict = conflictingJobs.length > 0
         
-        // Calculate free time slots by subtracting jobs from available hours
+        // Calculate free time slots by subtracting jobs + driving time from available hours
         const freeTimeSlots = []
-        
+        const drivingBuffer = getMemberDrivingTime(member)
+
+        // Build job time ranges and driving time ranges
+        const jobTimeRanges = []
+        const drivingTimeRanges = []
+
+        // Get ALL member jobs for the day (not just conflicting ones) to compute busy/driving
+        const allMemberJobs = memberJobs.filter(ej => {
+          if (!ej.scheduled_date || ej.id === job.id) return false
+          const isAssigned =
+            ej.team_member_id === member.id ||
+            ej.assigned_team_member_id === member.id ||
+            (ej.team_assignments && Array.isArray(ej.team_assignments) &&
+             ej.team_assignments.some(ta => ta.team_member_id === member.id))
+          return isAssigned
+        })
+
+        allMemberJobs.forEach(ej => {
+          const ejStart = new Date(ej.scheduled_date)
+          const ejDuration = ej.service_duration || ej.duration || 360
+          const ejStartMin = timeToMinutes(formatTimeFromDate(ejStart))
+          const ejEndMin = ejStartMin + ejDuration
+          jobTimeRanges.push({ start: ejStartMin, end: ejEndMin })
+        })
+
+        // Compute driving time buffers before and after each job
+        if (drivingBuffer > 0 && jobTimeRanges.length > 0 && dayAvailability.enabled && dayAvailability.timeSlots?.length > 0) {
+          const availStart = timeToMinutes(dayAvailability.timeSlots[0].start || dayAvailability.timeSlots[0].startTime || '09:00')
+          const availEnd = timeToMinutes(dayAvailability.timeSlots[dayAvailability.timeSlots.length - 1].end || dayAvailability.timeSlots[dayAvailability.timeSlots.length - 1].endTime || '18:00')
+          const sorted = [...jobTimeRanges].sort((a, b) => a.start - b.start)
+          sorted.forEach(jr => {
+            const beforeStart = Math.max(jr.start - drivingBuffer, availStart)
+            if (beforeStart < jr.start) drivingTimeRanges.push({ start: beforeStart, end: jr.start })
+            const afterEnd = Math.min(jr.end + drivingBuffer, availEnd)
+            if (afterEnd > jr.end) drivingTimeRanges.push({ start: jr.end, end: afterEnd })
+          })
+        }
+
+        // Merge all blocked ranges (jobs + driving)
+        const allBlocked = [...jobTimeRanges, ...drivingTimeRanges]
+          .sort((a, b) => a.start - b.start)
+          .reduce((merged, range) => {
+            if (merged.length === 0 || merged[merged.length - 1].end < range.start) {
+              merged.push({ ...range })
+            } else {
+              merged[merged.length - 1].end = Math.max(merged[merged.length - 1].end, range.end)
+            }
+            return merged
+          }, [])
+
         if (dayAvailability.enabled && dayAvailability.timeSlots && dayAvailability.timeSlots.length > 0) {
           dayAvailability.timeSlots.forEach(slot => {
-            let slotStart = timeToMinutes(slot.start || slot.startTime)
-            let slotEnd = timeToMinutes(slot.end || slot.endTime)
-            
-            // Get all jobs that overlap with this time slot
-            const overlappingJobs = conflictingJobs.filter(existingJob => {
-              if (!existingJob.scheduled_date) return false
-              const existingStart = new Date(existingJob.scheduled_date)
-              const existingDuration = existingJob.service_duration || existingJob.duration || 360
-              const existingEnd = new Date(existingStart.getTime() + existingDuration * 60000)
-              
-              const jobStartMinutes = timeToMinutes(formatTimeFromDate(existingStart))
-              const jobEndMinutes = timeToMinutes(formatTimeFromDate(existingEnd))
-              
-              return (jobStartMinutes < slotEnd && jobEndMinutes > slotStart)
-            })
-            
-            // Sort overlapping jobs by start time
-            overlappingJobs.sort((a, b) => {
-              const aStart = new Date(a.scheduled_date)
-              const bStart = new Date(b.scheduled_date)
-              return aStart - bStart
-            })
-            
-            // Calculate free time segments
+            const slotStart = timeToMinutes(slot.start || slot.startTime)
+            const slotEnd = timeToMinutes(slot.end || slot.endTime)
+
+            // Subtract all blocked ranges to get free time
             let currentStart = slotStart
-            
-            overlappingJobs.forEach(existingJob => {
-              const existingStart = new Date(existingJob.scheduled_date)
-              const existingDuration = existingJob.service_duration || existingJob.duration || 360
-              const existingEnd = new Date(existingStart.getTime() + existingDuration * 60000)
-              
-              const jobStartMinutes = timeToMinutes(formatTimeFromDate(existingStart))
-              const jobEndMinutes = timeToMinutes(formatTimeFromDate(existingEnd))
-              
-              // If there's free time before this job, add it
-              if (jobStartMinutes > currentStart) {
+            const relevantBlocked = allBlocked.filter(b => b.start < slotEnd && b.end > slotStart).sort((a, b) => a.start - b.start)
+
+            relevantBlocked.forEach(blocked => {
+              if (currentStart < blocked.start) {
                 freeTimeSlots.push({
                   start: minutesToTime(currentStart),
-                  end: minutesToTime(jobStartMinutes),
+                  end: minutesToTime(blocked.start),
                   startMinutes: currentStart,
-                  endMinutes: jobStartMinutes
+                  endMinutes: blocked.start
                 })
               }
-              
-              currentStart = Math.max(currentStart, jobEndMinutes)
+              currentStart = Math.max(currentStart, blocked.end)
             })
-            
-            // Add remaining free time after last job
+
             if (currentStart < slotEnd) {
               freeTimeSlots.push({
                 start: minutesToTime(currentStart),
@@ -314,6 +349,20 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
             }
           })
         }
+
+        // Compute totals
+        const totalBusy = jobTimeRanges.reduce((sum, r) => sum + (r.end - r.start), 0)
+        const totalDriving = drivingTimeRanges.reduce((sum, r) => {
+          // Only count driving that doesn't overlap with jobs
+          let dur = r.end - r.start
+          jobTimeRanges.forEach(jr => {
+            const overlapStart = Math.max(r.start, jr.start)
+            const overlapEnd = Math.min(r.end, jr.end)
+            if (overlapStart < overlapEnd) dur -= (overlapEnd - overlapStart)
+          })
+          return sum + Math.max(dur, 0)
+        }, 0)
+        const totalAvailable = freeTimeSlots.reduce((sum, s) => sum + (s.endMinutes - s.startMinutes), 0)
         
         // If the day is explicitly marked as unavailable, member is not available
         if (dayAvailability.enabled === false) {
@@ -323,7 +372,10 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
             availableTo: '',
             availableHours: [],
             hasConflict: false,
-            freeTimeSlots: []
+            freeTimeSlots: [],
+            totalBusy: 0,
+            totalDriving: 0,
+            totalAvailable: 0
           }
         }
         
@@ -383,7 +435,10 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
           availableTo,
           availableHours,
           hasConflict,
-          freeTimeSlots
+          freeTimeSlots,
+          totalBusy,
+          totalDriving,
+          totalAvailable
         }
       } catch (error) {
         console.error(`Error fetching availability for member ${member.id}:`, error)
@@ -393,7 +448,10 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
           availableTo: '6:00 PM',
           availableHours: [{ start: '09:00', end: '18:00', label: '9:00 AM - 6:00 PM' }],
           hasConflict: false,
-          freeTimeSlots: []
+          freeTimeSlots: [],
+          totalBusy: 0,
+          totalDriving: 0,
+          totalAvailable: 0
         }
       }
     })
@@ -434,26 +492,21 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
     return `${hour12}:${minutes || '00'} ${ampm}`
   }
 
-  const calculateDriveTimes = async () => {
-    if (!job?.service_address_street && !job?.customer_address) {
-      setDriveTimes({})
-      return
+  // Get a member's driving time: per-member availability.drivingTime overrides company default.
+  const getMemberDrivingTime = (member) => {
+    const companyDefault = companyDrivingTime ?? 0
+    if (!member) return companyDefault
+    try {
+      const avail = member.availability
+        ? (typeof member.availability === 'string' ? JSON.parse(member.availability) : member.availability)
+        : null
+      if (avail && avail.drivingTime !== undefined && avail.drivingTime !== null) {
+        return parseInt(avail.drivingTime) || 0
+      }
+    } catch (e) {
+      // ignore parse errors
     }
-
-    const jobAddress = job.service_address_street || job.customer_address || ''
-    const jobCity = job.service_address_city || job.customer_city || ''
-    const jobState = job.service_address_state || job.customer_state || ''
-    const fullAddress = `${jobAddress}, ${jobCity}, ${jobState}`.trim()
-
-    // For now, we'll simulate drive times based on member location
-    // In production, you'd use Google Maps Distance Matrix API
-    const driveTimeMap = {}
-    teamMembers.forEach((member, index) => {
-      // Simulate drive time (you can enhance this with actual geocoding)
-      const times = ['40+ min', '25 min', '15 min', '5 min', '20 min', '30 min']
-      driveTimeMap[member.id] = times[index % times.length]
-    })
-    setDriveTimes(driveTimeMap)
+    return companyDefault
   }
 
   // Get currently assigned member IDs to ensure they're always shown
@@ -517,16 +570,17 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
     const assignedMembers = teamMembers.filter(member => currentlyAssignedIds.has(Number(member.id)))
     const assignedMemberIds = new Set(assignedMembers.map(m => m.id))
 
-    // Filter to only available members (must be explicitly available: true)
-    // BUT always include currently assigned members
+    // Show: assigned members always; others when they have availability (free time) for this job.
+    // Until availability has been fetched for at least one member, show all (avoids showing only assigned due to load race).
+    const availabilityLoaded = Object.keys(memberAvailability).length > 0
     filtered = filtered.filter(member => {
       const isAssigned = assignedMemberIds.has(member.id)
       if (isAssigned) return true // Always show assigned members
-      
+
+      if (!availabilityLoaded) return true // Show all until fetch completes so list isn't only assigned
       const availability = memberAvailability[member.id]
-      // Only show members who are explicitly available (available === true)
-      // Don't show if available === false, undefined, or null
-      return availability && availability.available === true
+      if (availability == null) return true // This member's data not ready yet
+      return availability.available === true // Only show members with free time for this job
     })
 
     // Merge assigned members that might not be in filtered list
@@ -839,7 +893,6 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
                   const memberId = Number(member.id) // Ensure consistent number type
                   const isSelected = selectedMemberIds.has(memberId)
                   const availability = memberAvailability[member.id] || {}
-                  const driveTime = driveTimes[member.id]
                   const isExpanded = expandedSchedules[member.id]
 
                   return (
@@ -908,16 +961,37 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign }) => {
                                 return businessName || 'Provider'
                               })()}
                             </h3>
-                            {showDriveTime && driveTime && (
-                              <span className="text-xs text-gray-500 ml-2" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
-                                {driveTime} away
+                            {showDriveTime && getMemberDrivingTime(member) > 0 && (
+                              <span className="text-xs text-amber-600 ml-2" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                                +{getMemberDrivingTime(member)}min buffer
                               </span>
                             )}
                           </div>
                           
                           {availability.availableFrom && availability.availableTo && (
-                            <div className="text-xs text-gray-600 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
-                              Available from {availability.availableFrom} to {availability.availableTo}
+                            <div className="text-xs text-gray-600 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                              Available {availability.availableFrom} - {availability.availableTo}
+                            </div>
+                          )}
+
+                          {/* Time breakdown: available / busy / driving */}
+                          {(availability.totalAvailable > 0 || availability.totalBusy > 0 || availability.totalDriving > 0) && (
+                            <div className="flex flex-wrap gap-2 mb-2">
+                              {availability.totalAvailable > 0 && (
+                                <span className="text-xs font-medium text-green-700 bg-green-50 px-1.5 py-0.5 rounded" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                                  {formatDuration(availability.totalAvailable)} free
+                                </span>
+                              )}
+                              {availability.totalBusy > 0 && (
+                                <span className="text-xs font-medium text-orange-700 bg-orange-50 px-1.5 py-0.5 rounded" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                                  {formatDuration(availability.totalBusy)} busy
+                                </span>
+                              )}
+                              {availability.totalDriving > 0 && (
+                                <span className="text-xs font-medium text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                                  {formatDuration(availability.totalDriving)} travel
+                                </span>
+                              )}
                             </div>
                           )}
 

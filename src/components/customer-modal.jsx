@@ -18,7 +18,8 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
     notes: "",
     city: "",
     state: "",
-    zipCode: ""
+    zipCode: "",
+    source: ""
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
@@ -95,7 +96,8 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
         notes: "",
         city: "",
         state: "",
-        zipCode: ""
+        zipCode: "",
+        source: ""
       })
       setError("")
       setValidationErrors({})
@@ -113,7 +115,8 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
         notes: "",
         city: "",
         state: "",
-        zipCode: ""
+        zipCode: "",
+        source: ""
       })
       setError("")
       setValidationErrors({})
@@ -136,7 +139,8 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
         notes: customer.notes || "",
         city: customer.city || "",
         state: customer.state || "",
-        zipCode: customer.zip_code || ""
+        zipCode: customer.zip_code || "",
+        source: customer.source || ""
       })
     }
   }, [isOpen, isEditing, customer])
@@ -455,7 +459,8 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
         notes: customerData.notes,
         city: customerData.city,
         state: customerData.state,
-        zipCode: customerData.zipCode
+        zipCode: customerData.zipCode,
+        source: customerData.source ? customerData.source.trim() : ""
       }
       
       console.log('Submitting customer data:', customerToSave)
@@ -701,6 +706,20 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* Source (e.g. Website, Referral – preserved when converting from lead) */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Source
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Website, Referral"
+                value={customerData.source}
+                onChange={(e) => setCustomerData({ ...customerData, source: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-gray-900 text-sm"
+              />
             </div>
 
             {/* Notes */}

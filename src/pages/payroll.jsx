@@ -14,14 +14,20 @@ const Payroll = () => {
   const [loading, setLoading] = useState(true)
   const [payrollData, setPayrollData] = useState(null)
   const [error, setError] = useState("")
+  // Use local date strings (YYYY-MM-DD) so date range isn't off by one due to UTC
+  const toLocalDateString = (d) => {
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${y}-${m}-${day}`
+  }
   const [startDate, setStartDate] = useState(() => {
     const date = new Date()
-    date.setDate(1) // First day of current month
-    return date.toISOString().split('T')[0]
+    date.setDate(1)
+    return toLocalDateString(date)
   })
   const [endDate, setEndDate] = useState(() => {
-    const date = new Date()
-    return date.toISOString().split('T')[0]
+    return toLocalDateString(new Date())
   })
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
