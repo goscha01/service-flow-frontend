@@ -57,6 +57,8 @@ const Availability = () => {
       
       let availability
       let businessHours = null
+      let loadedTimeslotTemplates = []
+      let loadedDrivingTime = 0
       
       // Workers should load their own team member availability
       if (isWorker(user) && user?.teamMemberId) {
@@ -113,6 +115,8 @@ const Availability = () => {
             }
           })
         }
+        loadedTimeslotTemplates = availData?.timeslotTemplates || []
+        loadedDrivingTime = availData?.drivingTime ?? 0
       } else {
         // Account owners/managers load their own availability
         availability = await availabilityAPI.getAvailability(user.id)
@@ -130,6 +134,9 @@ const Availability = () => {
             businessHours = null
           }
         }
+        loadedTimeslotTemplates = availability?.timeslotTemplates || availability?.timeslot_templates || []
+        const bh = availability?.businessHours || availability?.business_hours
+        loadedDrivingTime = (typeof bh === 'object' && bh?.drivingTime != null) ? bh.drivingTime : 0
       }
       
       // If no business hours, use defaults
@@ -166,8 +173,8 @@ const Availability = () => {
       
       setAvailabilityData({
         businessHours: normalizedBusinessHours,
-        drivingTime: businessHours.drivingTime || 0,
-        timeslotTemplates: availability?.timeslotTemplates || availability?.timeslot_templates || []
+        drivingTime: loadedDrivingTime ?? (businessHours?.drivingTime || 0),
+        timeslotTemplates: loadedTimeslotTemplates
       })
     } catch (error) {
       console.error('❌ Error loading availability data:', error)
@@ -236,14 +243,45 @@ const Availability = () => {
         updatedTemplates = [...availabilityData.timeslotTemplates, template]
       }
 
-      // Sync template's drivingTime into businessHours so schedule page reads it
       const newDrivingTime = template.drivingTime ?? availabilityData.drivingTime ?? 0
 
-      await availabilityAPI.updateAvailability({
-        userId: user.id,
-        businessHours: { ...availabilityData.businessHours, drivingTime: newDrivingTime },
-        timeslotTemplates: updatedTemplates
-      })
+      if (isWorker(user) && user?.teamMemberId) {
+        // Team members: save templates to their own team member availability (not user/owner)
+        const currentAvailability = await teamAPI.getAvailability(user.teamMemberId)
+        let availData = currentAvailability?.availability
+        if (typeof availData === 'string') {
+          try {
+            availData = JSON.parse(availData)
+          } catch (e) {
+            availData = { workingHours: {}, customAvailability: [] }
+          }
+        }
+        if (!availData) availData = { workingHours: {}, customAvailability: [] }
+        if (!availData.workingHours) availData.workingHours = {}
+        // Merge current businessHours from UI into workingHours so we don't lose them
+        const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+        days.forEach(day => {
+          const h = availabilityData.businessHours[day]
+          if (h?.enabled) {
+            availData.workingHours[day] = {
+              available: true,
+              timeSlots: [{ start: h.start || '09:00', end: h.end || '17:00' }]
+            }
+          } else {
+            availData.workingHours[day] = { available: false, timeSlots: [] }
+          }
+        })
+        availData.timeslotTemplates = updatedTemplates
+        availData.drivingTime = newDrivingTime
+        await teamAPI.updateAvailability(user.teamMemberId, availData)
+      } else {
+        // Account owners: save to user_availability
+        await availabilityAPI.updateAvailability({
+          userId: user.id,
+          businessHours: { ...availabilityData.businessHours, drivingTime: newDrivingTime },
+          timeslotTemplates: updatedTemplates
+        })
+      }
 
       setAvailabilityData(prev => ({
         ...prev,
@@ -268,11 +306,27 @@ const Availability = () => {
       setSaving(true)
       const updatedTemplates = availabilityData.timeslotTemplates.filter((_, i) => i !== indexToDelete)
 
-      await availabilityAPI.updateAvailability({
-        userId: user.id,
-        businessHours: { ...availabilityData.businessHours, drivingTime: availabilityData.drivingTime || 0 },
-        timeslotTemplates: updatedTemplates
-      })
+      if (isWorker(user) && user?.teamMemberId) {
+        const currentAvailability = await teamAPI.getAvailability(user.teamMemberId)
+        let availData = currentAvailability?.availability
+        if (typeof availData === 'string') {
+          try {
+            availData = JSON.parse(availData)
+          } catch (e) {
+            availData = { workingHours: {}, customAvailability: [] }
+          }
+        }
+        if (!availData) availData = { workingHours: {}, customAvailability: [] }
+        availData.timeslotTemplates = updatedTemplates
+        if (availabilityData.drivingTime != null) availData.drivingTime = availabilityData.drivingTime
+        await teamAPI.updateAvailability(user.teamMemberId, availData)
+      } else {
+        await availabilityAPI.updateAvailability({
+          userId: user.id,
+          businessHours: { ...availabilityData.businessHours, drivingTime: availabilityData.drivingTime || 0 },
+          timeslotTemplates: updatedTemplates
+        })
+      }
 
       setAvailabilityData(prev => ({
         ...prev,
@@ -351,8 +405,8 @@ const Availability = () => {
         // Update availability with new workingHours
         availData.workingHours = workingHours
         
-        // Save to team member availability
-        await teamAPI.updateAvailability(user.teamMemberId, JSON.stringify(availData))
+        // Save to team member availability (pass object so backend stringifies once)
+        await teamAPI.updateAvailability(user.teamMemberId, availData)
         
         console.log('✅ Worker availability saved successfully')
         setMessage({ type: 'success', text: 'Availability hours saved successfully!' })
@@ -527,7 +581,7 @@ const Availability = () => {
               )}
             </div>
 
-            {/* Timeslot Templates */}
+            {/* Timeslot Templates - for both account owners and team members (team members save to their own availability) */}
             <div>
               <div className="flex items-center justify-between mb-4">
                 <div>
