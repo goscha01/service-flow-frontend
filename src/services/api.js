@@ -32,7 +32,10 @@ api.interceptors.response.use(
     return response;
   },
   async (error) => {
-    const config = error.config;
+    const config = error?.config;
+    if (!config) {
+      return Promise.reject(error);
+    }
     
     // Handle 429 (Too Many Requests) with exponential backoff
     if (error.response?.status === 429) {
