@@ -505,15 +505,33 @@ const ServiceFlowJobs = () => {
     }
   }
 
+  // Job is "past" only when the scheduled END time (start + duration) has passed — not when start time has passed.
+  // e.g. 5pm job with 2h duration is late only after 7pm, not at 5:01pm.
   const isJobPast = (job) => {
     if (!job.scheduled_date) return false
-    const scheduledDate = new Date(job.scheduled_date)
+    let startDate
+    if (typeof job.scheduled_date === 'string' && job.scheduled_date.includes(' ')) {
+      const [datePart, timePart] = job.scheduled_date.split(' ')
+      const [hours, minutes] = (timePart || '').split(':').map(Number)
+      startDate = new Date(datePart)
+      startDate.setHours(hours || 0, minutes || 0, 0, 0)
+    } else if (typeof job.scheduled_date === 'string' && job.scheduled_date.includes('T')) {
+      const [datePart, timePart] = job.scheduled_date.split('T')
+      const [hours, minutes] = (timePart || '').split(':').map(Number)
+      startDate = new Date(datePart)
+      startDate.setHours(hours || 0, minutes || 0, 0, 0)
+    } else {
+      startDate = new Date(job.scheduled_date)
+    }
+    let durationMin = parseInt(job.duration || job.service_duration || job.estimated_duration || (job.service && (job.service.duration || job.service.service_duration || job.service.estimated_duration)) || (job.services && (job.services.duration || job.services.service_duration || job.services.estimated_duration)) || 60, 10) || 60
+    if (durationMin >= 1 && durationMin <= 24) durationMin = durationMin * 60
+    const endDate = new Date(startDate.getTime() + durationMin * 60 * 1000)
     const now = new Date()
-    return scheduledDate < now
+    return endDate < now
   }
 
   const getStatusLabel = (status, job = null) => {
-    // If job is past scheduled time and not completed, show "Late"
+    // If job is past scheduled end time and not completed, show "Late"
     if (job && isJobPast(job) && status !== 'completed' && status !== 'cancelled') {
       return 'Late'
     }
