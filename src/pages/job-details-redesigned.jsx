@@ -717,12 +717,18 @@ const JobDetails = () => {
             
             setPaymentHistory(transactions)
             
-            // Update job state with payment info
-            setJob(prev => ({
-              ...prev,
-              total_paid_amount: totalPaid,
-              invoice_paid_amount: totalPaid
-            }))
+            // Update job state with payment info. If job is marked paid (e.g. from import) but has no
+            // transaction records, keep amount paid = job total so we don't show "Amount paid: $0".
+            setJob(prev => {
+              const jobTotal = parseFloat(prev?.total) || parseFloat(prev?.total_amount) || parseFloat(prev?.price) || 0
+              const isPaidWithNoPayments = (prev?.invoice_status === 'paid' || prev?.payment_status === 'paid') && jobTotal > 0 && totalPaid <= 0
+              const effectivePaid = isPaidWithNoPayments ? jobTotal : totalPaid
+              return {
+                ...prev,
+                total_paid_amount: effectivePaid,
+                invoice_paid_amount: effectivePaid
+              }
+            })
           }
         } catch (error) {
           console.error('Error fetching payment history:', error)
@@ -1890,6 +1896,10 @@ const JobDetails = () => {
   // $0 jobs are considered free — show as paid (no amount due)
   const totalPrice = calculateTotalPrice();
   const isPaidOrFree = job?.invoice_status === 'paid' || totalPrice === 0;
+  // When job is paid but total_paid_amount is 0 (e.g. import), show job total as amount paid
+  const effectiveAmountPaid = (isPaidOrFree && totalPrice > 0 && !(parseFloat(job?.total_paid_amount) > 0))
+    ? totalPrice
+    : (parseFloat(job?.total_paid_amount) || 0);
 
   // Parse service modifiers from JSON
   const getServiceModifiers = () => {
@@ -2344,7 +2354,7 @@ const JobDetails = () => {
                 </div>
                 <div className="flex justify-between text-sm pt-2 border-t border-gray-200">
                   <span className="text-gray-600">Amount paid</span>
-                  <span className="text-gray-900">${job?.total_paid_amount ? job.total_paid_amount.toFixed(2) : '0.00'}</span>
+                  <span className="text-gray-900">${effectiveAmountPaid.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Total due</span>
@@ -3662,7 +3672,7 @@ const JobDetails = () => {
                 <div>
                   <p className="text-sm text-gray-600 mb-1">Amount paid</p>
                   <p className="text-lg font-semibold text-gray-900">
-                    ${job.total_paid_amount ? job.total_paid_amount.toFixed(2) : '0.00'}
+                    ${effectiveAmountPaid.toFixed(2)}
                   </p>
                 </div>
                 <div className="text-right">
@@ -3842,7 +3852,7 @@ const JobDetails = () => {
                 <div className="flex justify-between items-center py-2">
                   <span className="text-sm text-gray-600">Amount paid</span>
                   <span className="text-sm font-medium text-gray-900">
-                    ${job.total_paid_amount ? job.total_paid_amount.toFixed(2) : '0.00'}
+                    ${effectiveAmountPaid.toFixed(2)}
                   </span>
                         </div>
                 
@@ -5309,7 +5319,7 @@ const JobDetails = () => {
                       </div>
                       <div className="flex justify-between text-sm">
                         <span>Total Paid</span>
-                        <span>${job.total_paid_amount ? job.total_paid_amount.toFixed(2) : '0.00'}</span>
+                        <span>${effectiveAmountPaid.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between font-semibold border-t pt-2">
                         <span>Total Due</span>
