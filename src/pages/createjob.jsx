@@ -3535,6 +3535,11 @@ setIntakeQuestionAnswers(answers);
                               Edit
                                 </button>
                             </div>
+                              {selectedCustomer.source && (
+                                <p className="mt-1 text-xs text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                                  Source: <span className="font-medium text-gray-700">{selectedCustomer.source}</span>
+                                </p>
+                              )}
                               </div>
                           </div>
                     </div>
