@@ -582,36 +582,40 @@ const JobsMap = ({ jobs, teamMembers = [], mapType = 'roadmap' }) => {
         displayAddress = job.service_address || job.customer_address || job.address || ''
       }
 
-      // Create marker
+      // Create marker (no label on pin – job ID is in the info window with link)
           const marker = new window.google.maps.Marker({
         position: finalPosition,
         map: mapInstanceRef.current,
             title: customerName || decodeHtmlEntities(job.service_name || '') || `Job ${job.id}`,
             icon: getPinIcon(),
-            label: job.id ? {
-              text: String(job.id),
-              color: 'white',
-              fontWeight: 'bold'
-            } : undefined,
             animation: window.google.maps.Animation.DROP
           })
 
-          // Create info window
+          // Create info window – job ID at top as link, then customer, address, service, cleaner
           const cleanerNames = getCleanerNames(job)
           const cleanerLine = cleanerNames.length > 0
             ? `<p style="margin: 4px 0 0 0; font-size: 11px; color: #555;">👤 ${cleanerNames.join(', ')}</p>`
             : `<p style="margin: 4px 0 0 0; font-size: 11px; color: #999;">Unassigned</p>`
+          const jobIdLine = job.id
+            ? `<p style="margin: 0 0 6px 0; font-size: 12px;"><a href="/job/${job.id}" target="_self" style="color: #2563eb; font-weight: 600; text-decoration: none;">Job #${job.id}</a></p>`
+            : ''
           const infoWindow = new window.google.maps.InfoWindow({
             content: `
-              <div style="padding: 8px; min-width: 200px;">
+              <div style="position: relative; padding: 8px; padding-right: 28px; min-width: 200px;">
+                <button type="button" class="jobs-map-infowindow-close" style="position: absolute; top: 4px; right: 4px; margin: 0; padding: 0; border: none; background: none; cursor: pointer; font-size: 18px; line-height: 1; color: #666;" aria-label="Close">&times;</button>
+                ${jobIdLine}
                 <h3 style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600;">
-                  ${customerName || decodeHtmlEntities(job.service_name || '') || `Job ${job.id}`}
+                  ${customerName || decodeHtmlEntities(job.service_name || '') || `Job ${job.id || ''}`}
                 </h3>
             ${displayAddress ? `<p style="margin: 0 0 4px 0; font-size: 12px; color: #666;">${displayAddress}</p>` : ''}
                 ${job.service_name ? `<p style="margin: 4px 0 0 0; font-size: 12px; color: #333;">${decodeHtmlEntities(job.service_name)}</p>` : ''}
                 ${cleanerLine}
               </div>
             `
+          })
+          window.google.maps.event.addListener(infoWindow, 'domready', () => {
+            const btn = document.querySelector('.jobs-map-infowindow-close')
+            if (btn) btn.onclick = () => infoWindow.close()
           })
 
       // Add click listener
@@ -761,36 +765,40 @@ const JobsMap = ({ jobs, teamMembers = [], mapType = 'roadmap' }) => {
         }
       }
 
-      // Create marker
+      // Create marker (no label on pin – job ID is in the info window with link)
             const marker = new window.google.maps.Marker({
               position: position,
         map: mapInstanceRef.current,
               title: customerName || decodeHtmlEntities(job.service_name || '') || `Job ${job.id}`,
               icon: getPinIcon(),
-              label: job.id ? {
-                text: String(job.id),
-                color: 'white',
-                fontWeight: 'bold'
-              } : undefined,
               animation: window.google.maps.Animation.DROP
             })
 
-            // Create info window
+            // Create info window – job ID at top as link, then customer, address, service, cleaner
             const cleanerNames = getCleanerNames(job)
             const cleanerLine = cleanerNames.length > 0
               ? `<p style="margin: 4px 0 0 0; font-size: 11px; color: #555;">👤 ${cleanerNames.join(', ')}</p>`
               : `<p style="margin: 4px 0 0 0; font-size: 11px; color: #999;">Unassigned</p>`
+            const jobIdLine = job.id
+              ? `<p style="margin: 0 0 6px 0; font-size: 12px;"><a href="/job/${job.id}" target="_self" style="color: #2563eb; font-weight: 600; text-decoration: none;">Job #${job.id}</a></p>`
+              : ''
             const infoWindow = new window.google.maps.InfoWindow({
               content: `
-                <div style="padding: 8px; min-width: 200px;">
+                <div style="position: relative; padding: 8px; padding-right: 28px; min-width: 200px;">
+                  <button type="button" class="jobs-map-infowindow-close" style="position: absolute; top: 4px; right: 4px; margin: 0; padding: 0; border: none; background: none; cursor: pointer; font-size: 18px; line-height: 1; color: #666;" aria-label="Close">&times;</button>
+                  ${jobIdLine}
                   <h3 style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600;">
-                    ${customerName || decodeHtmlEntities(job.service_name || '') || `Job ${job.id}`}
+                    ${customerName || decodeHtmlEntities(job.service_name || '') || `Job ${job.id || ''}`}
                   </h3>
             ${displayAddress ? `<p style="margin: 0 0 4px 0; font-size: 12px; color: #666;">${displayAddress}</p>` : ''}
                   ${job.service_name ? `<p style="margin: 4px 0 0 0; font-size: 12px; color: #333;">${decodeHtmlEntities(job.service_name)}</p>` : ''}
                   ${cleanerLine}
                 </div>
               `
+            })
+            window.google.maps.event.addListener(infoWindow, 'domready', () => {
+              const btn = document.querySelector('.jobs-map-infowindow-close')
+              if (btn) btn.onclick = () => infoWindow.close()
             })
 
       // Add click listener
@@ -970,6 +978,11 @@ const JobsMap = ({ jobs, teamMembers = [], mapType = 'roadmap' }) => {
   // Overlay iframe on top if using Embed API, but never unmount the map container
   return (
     <div className="w-full h-full relative" style={{ minHeight: '256px' }}>
+      {/* Hide Google's default InfoWindow close (top-right); we use our own in-content close */}
+      <style>{`
+        .gm-style-iw + button,
+        .gm-style-iw-tc { display: none !important; }
+      `}</style>
       {/* Map container - always mounted, never unmounted */}
       <div 
         ref={mapRef} 
