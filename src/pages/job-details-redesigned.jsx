@@ -161,7 +161,8 @@ const JobDetails = () => {
     firstName: '',
     lastName: '',
     email: '',
-    phone: ''
+    phone: '',
+    source: ''
   })
   useEffect(() => {
     function handleClickOutside(event) {
@@ -1867,19 +1868,25 @@ const JobDetails = () => {
     }
   }
 
-  // Use backend-calculated total as source of truth
-  // job.total = the job/service price (base + modifiers + adjustments)
-  // Tips and discounts are separate modifiers on top of the job price
+  // Backend stores job.total as (subtotal - discount), so discount is already applied. Tip is separate.
   const calculateTotalPrice = () => {
     try {
-      const jobPrice = parseFloat(job.total) || 0;
+      const jobPrice = parseFloat(job.total) || 0; // already includes - discount
       const tip = parseFloat(job?.tip_amount) || 0;
-      const discount = parseFloat(job?.discount) || 0;
-      return jobPrice + tip - discount;
+      return jobPrice + tip;
     } catch (error) {
       console.error('Error getting total price:', error);
       return 0;
     }
+  }
+
+  // Edit Service modal: total from visible breakdown (Subtotal - Discount + Taxes + Tip)
+  const getEditServiceModalTotal = () => {
+    const subtotal = parseFloat(formData.service_price) || parseFloat(job?.service_price) || 0;
+    const discount = parseFloat(job?.discount) || 0;
+    const taxes = parseFloat(job?.taxes) || 0;
+    const tip = parseFloat(job?.tip_amount) || 0;
+    return Math.max(0, subtotal - discount + taxes + tip);
   }
 
   // $0 jobs are considered free — show as paid (no amount due)
@@ -2135,12 +2142,10 @@ const JobDetails = () => {
             )}
           </div>
           
-          {/* Customer Source (lead/source channel) */}
-          {job?.customer_source && (
-            <p className="text-xs text-gray-500 mb-1">
-              Source: <span className="font-medium text-gray-700">{job.customer_source}</span>
-            </p>
-          )}
+          {/* Customer Source (lead/source channel) - always show, editable via Edit Customer */}
+          <p className="text-xs text-gray-500 mb-1">
+            Source: <span className="font-medium text-gray-700">{job?.customer_source || 'No source'}</span>
+          </p>
           
           {/* Address */}
           <p className="text-sm text-gray-600 mb-1">
@@ -2360,7 +2365,7 @@ const JobDetails = () => {
               <div className="border-t border-gray-200 pt-2 mt-2 space-y-1">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Subtotal</span>
-                  <span className="text-gray-900">${(parseFloat(job?.total) || 0).toFixed(2)}</span>
+                  <span className="text-gray-900">${((parseFloat(job?.total) || 0) + (parseFloat(job?.discount) || 0)).toFixed(2)}</span>
                 </div>
                 {parseFloat(job?.discount || 0) > 0 ? (
                   <div className="flex justify-between text-sm">
@@ -2491,7 +2496,8 @@ const JobDetails = () => {
                     firstName: job?.customer_first_name || '',
                     lastName: job?.customer_last_name || '',
                     email: job?.customer_email || '',
-                    phone: job?.customer_phone || ''
+                    phone: job?.customer_phone || '',
+                    source: job?.customer_source || ''
                   })
                   setShowEditCustomerModal(true)
                 }}
@@ -2526,6 +2532,9 @@ const JobDetails = () => {
                     </a>
                   </div>
                 )}
+                <p className="text-xs text-gray-500 mt-1">
+                  Source: <span className="font-medium text-gray-700">{job?.customer_source || 'No source'}</span>
+                </p>
               </div>
             </div>
             {canViewEditJobPrice(user) && (
@@ -3856,7 +3865,7 @@ const JobDetails = () => {
               <div className="space-y-0">
                 <div className="flex justify-between items-center py-2 border-b border-gray-200">
                   <span className="text-sm text-gray-600">Subtotal</span>
-                  <span className="text-sm font-medium text-gray-900">${(parseFloat(job?.total) || 0).toFixed(2)}</span>
+                  <span className="text-sm font-medium text-gray-900">${((parseFloat(job?.total) || 0) + (parseFloat(job?.discount) || 0)).toFixed(2)}</span>
                 </div>
                 {parseFloat(job?.discount || 0) > 0 && (
                 <div className="flex justify-between items-center py-2 border-b border-gray-200">
@@ -3963,7 +3972,8 @@ const JobDetails = () => {
                       firstName: job.customer_first_name || '',
                       lastName: job.customer_last_name || '',
                       email: job.customer_email || '',
-                      phone: job.customer_phone || ''
+                      phone: job.customer_phone || '',
+                      source: job.customer_source || ''
                     })
                     setShowEditCustomerModal(true)
                   }}
@@ -4003,6 +4013,9 @@ const JobDetails = () => {
                       
                       return 'Customer'
                     })()}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Source: <span className="font-medium text-gray-700">{job?.customer_source || 'No source'}</span>
                   </p>
                 </div>
               </div>
@@ -4627,6 +4640,9 @@ const JobDetails = () => {
                         <p className="font-semibold text-gray-900">
                           {job.customer_first_name} {job.customer_last_name}
                         </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Source: <span className="font-medium text-gray-700">{job?.customer_source || 'No source'}</span>
+                        </p>
                       </div>
                     </div>
 
@@ -5018,7 +5034,7 @@ const JobDetails = () => {
                       )}
                       <div className="flex justify-between items-center py-2 border-t border-gray-200">
                         <span className="text-sm font-medium text-gray-900">Total</span>
-                        <span className="text-sm font-medium text-gray-900">${calculateTotalPrice().toFixed(2)}</span>
+                        <span className="text-sm font-medium text-gray-900">${getEditServiceModalTotal().toFixed(2)}</span>
                       </div>
                     </div>
                   </div>
@@ -5029,11 +5045,11 @@ const JobDetails = () => {
                     <div className="space-y-4">
                       <div className="flex justify-between items-center py-2 border-b border-gray-200">
                         <span className="text-sm text-gray-600">Previous Total</span>
-                        <span className="text-sm font-medium text-gray-900">${calculateTotalPrice().toFixed(2)}</span>
+                        <span className="text-sm font-medium text-gray-900">${getEditServiceModalTotal().toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between items-center py-2 border-b border-gray-200">
                         <span className="text-sm text-gray-600">Updated Total</span>
-                        <span className="text-sm font-medium text-gray-900">${calculateTotalPrice().toFixed(2)}</span>
+                        <span className="text-sm font-medium text-gray-900">${getEditServiceModalTotal().toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between items-center py-2">
                         <span className="text-sm text-gray-600">Estimated duration</span>
@@ -5355,7 +5371,7 @@ const JobDetails = () => {
                     <div className="space-y-2">
                       <div className="flex justify-between text-sm">
                         <span>Subtotal</span>
-                        <span>${(parseFloat(job?.total) || 0).toFixed(2)}</span>
+                        <span>${((parseFloat(job?.total) || 0) + (parseFloat(job?.discount) || 0)).toFixed(2)}</span>
                       </div>
                       {(formData.tip ?? parseFloat(job?.tip_amount) ?? 0) > 0 && (
                       <div className="flex justify-between text-sm">
@@ -5568,6 +5584,20 @@ const JobDetails = () => {
                     placeholder="Enter phone number"
                   />
                 </div>
+
+                <div>
+                  <label htmlFor="edit-source" className="block text-sm font-medium text-gray-700 mb-2">
+                    Source
+                  </label>
+                  <input
+                    type="text"
+                    id="edit-source"
+                    value={editCustomerData.source ?? ''}
+                    onChange={(e) => setEditCustomerData(prev => ({ ...prev, source: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="e.g. Website, Referral"
+                  />
+                </div>
                 
                 <div className="flex space-x-3 pt-4">
                   <button
@@ -5602,7 +5632,8 @@ const JobDetails = () => {
                           firstName: editCustomerData.firstName,
                           lastName: editCustomerData.lastName,
                           email: editCustomerData.email,
-                          phone: editCustomerData.phone
+                          phone: editCustomerData.phone,
+                          source: editCustomerData.source ?? ''
                         });
 
                         console.log('✅ Customer updated successfully:', response.data);
@@ -5613,7 +5644,8 @@ const JobDetails = () => {
                           customer_first_name: editCustomerData.firstName,
                           customer_last_name: editCustomerData.lastName,
                           customer_email: editCustomerData.email,
-                          customer_phone: editCustomerData.phone
+                          customer_phone: editCustomerData.phone,
+                          customer_source: editCustomerData.source ?? ''
                         }));
 
                         setSuccessMessage('Customer updated successfully!');
@@ -6750,6 +6782,20 @@ const JobDetails = () => {
                   placeholder="Enter phone number"
                 />
                   </div>
+
+              <div>
+                <label htmlFor="edit-source-mobile" className="block text-sm font-medium text-gray-700 mb-2">
+                  Source
+                </label>
+                <input
+                  type="text"
+                  id="edit-source-mobile"
+                  value={editCustomerData.source ?? ''}
+                  onChange={(e) => setEditCustomerData(prev => ({ ...prev, source: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="e.g. Website, Referral"
+                />
+              </div>
                   </div>
                   </div>
 
@@ -6781,7 +6827,8 @@ const JobDetails = () => {
                     firstName: editCustomerData.firstName,
                     lastName: editCustomerData.lastName,
                     email: editCustomerData.email,
-                    phone: editCustomerData.phone
+                    phone: editCustomerData.phone,
+                    source: editCustomerData.source ?? ''
                   });
 
                   console.log('✅ Customer updated successfully:', response.data);
@@ -6792,7 +6839,8 @@ const JobDetails = () => {
                     customer_first_name: editCustomerData.firstName,
                     customer_last_name: editCustomerData.lastName,
                     customer_email: editCustomerData.email,
-                    customer_phone: editCustomerData.phone
+                    customer_phone: editCustomerData.phone,
+                    customer_source: editCustomerData.source ?? ''
                   }));
 
                   setSuccessMessage('Customer updated successfully!');

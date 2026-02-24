@@ -1309,15 +1309,12 @@ const JobDetails = () => {
     }
   }
 
-  // Use backend-calculated total as source of truth (match job-details-redesigned: include tip from form or job.tip_amount)
-  // job.total = the job/service price (base + modifiers + adjustments)
-  // Tips and discounts are separate modifiers on top of the job price
+  // Backend stores job.total as (subtotal - discount), so do not subtract discount again. Tip is separate.
   const calculateTotalPrice = () => {
     try {
-      const jobPrice = parseFloat(job.total) || 0;
+      const jobPrice = parseFloat(job.total) || 0; // already includes - discount
       const tip = parseFloat(job?.tip_amount) || 0;
-      const discount = parseFloat(job?.discount) || 0;
-      return jobPrice + tip - discount;
+      return jobPrice + tip;
     } catch (error) {
       console.error('Error getting total price:', error);
       return 0;
@@ -2147,7 +2144,7 @@ const JobDetails = () => {
               <div className="space-y-0">
                 <div className="flex justify-between items-center py-2 border-b border-gray-200">
                   <span className="text-sm text-gray-600">Subtotal</span>
-                  <span className="text-sm font-medium text-gray-900">${(parseFloat(job?.total) || 0).toFixed(2)}</span>
+                  <span className="text-sm font-medium text-gray-900">${((parseFloat(job?.total) || 0) + (parseFloat(job?.discount) || 0)).toFixed(2)}</span>
                 </div>
                 {parseFloat(job.discount || 0) > 0 && (
                   <div className="flex justify-between items-center py-2 border-b border-gray-200">
@@ -3411,7 +3408,7 @@ const JobDetails = () => {
                     <div className="space-y-2">
                       <div className="flex justify-between text-sm">
                         <span>Subtotal</span>
-                        <span>${(parseFloat(job?.total) || 0).toFixed(2)}</span>
+                        <span>${((parseFloat(job?.total) || 0) + (parseFloat(job?.discount) || 0)).toFixed(2)}</span>
                       </div>
                       {parseFloat(job?.discount || 0) > 0 && (
                       <div className="flex justify-between text-sm">
