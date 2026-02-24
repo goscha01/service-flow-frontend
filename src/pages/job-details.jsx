@@ -167,24 +167,22 @@ const JobDetails = () => {
         service_modifiers: job.service_modifiers
       });
       
-      const servicePrice = job.service_price || 0;
-      const discount = job.discount || 0;
-      const additionalFees = job.additional_fees || 0;
-      const taxes = job.taxes || 0;
+      // Use initial base price (service_price) for the customize field — not job.total
+      const servicePrice = parseFloat(job.service_price) || 0;
+      const discount = parseFloat(job.discount) || 0;
+      const additionalFees = parseFloat(job.additional_fees) || 0;
+      const taxes = parseFloat(job.taxes) || 0;
       const modifierPrice = calculateModifierPrice();
       const calculatedTotal = servicePrice + modifierPrice + additionalFees + taxes - discount;
-      
-      // Use the backend total as the default value for the input
-      const totalPrice = parseFloat(job.total) || 0;
       
       setFormData(prev => ({
         ...prev,
         service_name: job.service_name || "",
         bathroom_count: job.bathroom_count || "",
         duration: job.duration || job.estimated_duration || 0,
-        service_price: totalPrice, // Set backend total as default
+        service_price: servicePrice,
         modifier_price: modifierPrice,
-        discount: discount > 0 ? discount : undefined, // Only set if discount exists
+        discount: discount > 0 ? discount : undefined,
         additional_fees: additionalFees,
         taxes: taxes,
         tip: 0,
@@ -3042,7 +3040,7 @@ const JobDetails = () => {
                     <div className="mt-6 space-y-3">
                       <div className="flex justify-between items-center py-2 border-b border-gray-200">
                         <span className="text-sm text-gray-600">Subtotal</span>
-                        <span className="text-sm font-medium text-gray-900">${(parseFloat(job?.total) || 0).toFixed(2)}</span>
+                        <span className="text-sm font-medium text-gray-900">${(parseFloat(formData.service_price) || parseFloat(job?.service_price) || 0).toFixed(2)}</span>
                       </div>
                       {parseFloat(job.discount || 0) > 0 ? (
                         <div className="flex justify-between items-center py-2">
