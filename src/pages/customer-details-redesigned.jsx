@@ -287,12 +287,10 @@ const CustomerDetailsRedesigned = () => {
                       </span>
                     </div>
 
-                    {customer.source && (
-                      <div className="flex items-center space-x-3">
-                        <Link className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                        <span className="text-sm text-gray-900">{customer.source}</span>
-                      </div>
-                    )}
+                    <div className="flex items-center space-x-3">
+                      <Link className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                      <span className="text-sm text-gray-900">{customer.source || 'No source'}</span>
+                    </div>
                   </div>
 
                   <div className="mt-6 pt-4 border-t border-gray-200">

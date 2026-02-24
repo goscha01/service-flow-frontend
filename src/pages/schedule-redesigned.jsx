@@ -2663,15 +2663,13 @@ const ServiceFlowSchedule = () => {
     }
   }
 
-  // Calculate total price for invoice (base + tip) — match job details page
-  // job.total = the job/service price. Tips and discounts are separate modifiers.
+  // job.total from backend is already (subtotal - discount). Tip is separate. Do not subtract discount again.
   const calculateTotalPrice = () => {
     if (!selectedJobDetails) return 0
     try {
       const jobPrice = parseFloat(selectedJobDetails.total || selectedJobDetails.service_price || selectedJobDetails.price || 0)
       const tip = parseFloat(selectedJobDetails.tip_amount || 0) || 0
-      const discount = parseFloat(selectedJobDetails.discount || 0) || 0
-      return jobPrice + tip - discount
+      return jobPrice + tip
     } catch (error) {
       console.error('Error calculating total price:', error)
       return 0
@@ -2705,10 +2703,12 @@ const ServiceFlowSchedule = () => {
           year: 'numeric' 
         })
     const serviceAddress = selectedJobDetails.customer_address || selectedJobDetails.address || 'Address not provided'
-    const subtotal = parseFloat(selectedJobDetails.total || selectedJobDetails.service_price || selectedJobDetails.price || 0)
+    // job.total is already (base - discount) from backend. Subtotal = base (before discount) for display.
+    const totalAfterDiscount = parseFloat(selectedJobDetails.total || selectedJobDetails.service_price || selectedJobDetails.price || 0)
     const tip = parseFloat(selectedJobDetails.tip_amount || 0)
     const discount = parseFloat(selectedJobDetails.discount || 0)
-    const grandTotal = subtotal + tip - discount
+    const subtotal = totalAfterDiscount + discount // base price before discount
+    const grandTotal = totalAfterDiscount + tip
     const totalPaid = selectedJobDetails.invoice_paid_amount || selectedJobDetails.amount_paid || 0
     const totalDue = grandTotal - totalPaid
     // Check both invoice_status and payment_status for 'paid'
@@ -7351,7 +7351,7 @@ const ServiceFlowSchedule = () => {
                         <div className="flex justify-between items-center">
                           <span className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Subtotal</span>
                           <span className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
-                            ${(parseFloat(selectedJobDetails.total) || 0).toFixed(2)}
+                            ${((parseFloat(selectedJobDetails.total) || 0) + (parseFloat(selectedJobDetails.discount) || 0)).toFixed(2)}
                           </span>
                         </div>
                         {parseFloat(selectedJobDetails.discount || 0) > 0 && (
