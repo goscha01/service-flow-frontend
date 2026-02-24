@@ -1869,28 +1869,14 @@ const JobDetails = () => {
   }
 
   // Use backend-calculated total as source of truth
+  // job.total = the job/service price (base + modifiers + adjustments)
+  // Tips and discounts are separate modifiers on top of the job price
   const calculateTotalPrice = () => {
     try {
-      // Use backend-calculated total from job data; tip from formData (after Add Tip) or job.tip_amount
-      const baseTotal = parseFloat(job.total) || 0;
-      const tip = formData.tip ?? parseFloat(job?.tip_amount) ?? 0;
-      const calculatedTotal = baseTotal + tip;
-      
-      console.log('💰 Price calculation:', {
-        jobTotal: job.total,
-        baseTotal,
-        tip,
-        calculatedTotal,
-        jobData: {
-          service_price: job.service_price,
-          additional_fees: job.additional_fees,
-          taxes: job.taxes,
-          discount: job.discount,
-          total: job.total
-        }
-      });
-      
-      return calculatedTotal;
+      const jobPrice = parseFloat(job.total) || 0;
+      const tip = parseFloat(job?.tip_amount) || 0;
+      const discount = parseFloat(job?.discount) || 0;
+      return jobPrice + tip - discount;
     } catch (error) {
       console.error('Error getting total price:', error);
       return 0;
@@ -2352,9 +2338,9 @@ const JobDetails = () => {
               <div className="flex justify-between items-start">
                 <div>
                   <p className="text-sm font-medium text-gray-900">{job?.service_name || 'Service'}</p>
-                  <p className="text-xs text-gray-600">Base Price (${(parseFloat(job?.services?.price) || calculateTotalPrice()).toFixed(2)})</p>
+                  <p className="text-xs text-gray-600">Base Price (${(parseFloat(job?.services?.price) || parseFloat(job?.total) || 0).toFixed(2)})</p>
                 </div>
-                <span className="text-sm font-medium text-gray-900">${(parseFloat(job?.services?.price) || calculateTotalPrice()).toFixed(2)}</span>
+                <span className="text-sm font-medium text-gray-900">${(parseFloat(job?.services?.price) || parseFloat(job?.total) || 0).toFixed(2)}</span>
               </div>
               {canEditJobDetails(user) && (
                 <button 
@@ -2383,7 +2369,7 @@ const JobDetails = () => {
                 {parseFloat(job?.tip_amount || 0) > 0 ? (
                   <div className="flex justify-between text-sm">
                     <button onClick={() => setShowTipModal(true)} className="text-blue-600 hover:text-blue-700">Tip</button>
-                    <span className="text-green-600">${parseFloat(job.tip_amount).toFixed(2)}</span>
+                    <span className="text-green-600">+${parseFloat(job.tip_amount).toFixed(2)}</span>
                   </div>
                 ) : (
                   <button onClick={() => setShowTipModal(true)} className="text-sm text-blue-600 hover:text-blue-700">
@@ -3810,25 +3796,6 @@ const JobDetails = () => {
                     );
                   })()}
                   
-                  {/* Discount */}
-                  {(() => {
-                    const discount = formData.discount !== undefined ? formData.discount : (parseFloat(job.discount) || 0);
-                    
-                    if (discount > 0) {
-                      return (
-                        <div className="flex justify-between items-center">
-                          <div>
-                            <p className="text-sm text-gray-600">Discount</p>
-                          </div>
-                          <span className="text-sm font-medium text-green-600">
-                            -${discount.toFixed(2)}
-                          </span>
-                        </div>
-                      );
-                    }
-                    return null;
-                  })()}
-                  
                   {/* Service Adjustment Price */}
                   {(() => {
                     const basePrice = parseFloat(job.services?.price) || 0;
@@ -3851,25 +3818,13 @@ const JobDetails = () => {
                     return null;
                   })()}
                   
-                  {/* Tip */}
-                  {parseFloat(job?.tip_amount || 0) > 0 && (
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <p className="text-sm text-gray-600">Tip</p>
-                      </div>
-                      <span className="text-sm font-medium text-green-600">
-                        +${parseFloat(job.tip_amount).toFixed(2)}
-                      </span>
-                    </div>
-                  )}
-                  
-                  {/* Total */}
+                  {/* Total (job price only — tips/discounts shown in summary below) */}
                   <div className="flex justify-between items-center pt-2 border-t border-gray-200">
                     <div>
                       <p className="text-sm font-semibold text-gray-900">Total</p>
                     </div>
                     <span className="text-sm font-semibold text-gray-900">
-                      ${calculateTotalPrice().toFixed(2)}
+                      ${(parseFloat(job?.total) || 0).toFixed(2)}
                     </span>
                   </div>
                 </div>
@@ -3892,36 +3847,42 @@ const JobDetails = () => {
 
               {/* Summary Section - Only show if user has permission */}
               {canViewEditJobPrice(user) && (
-              <div className="space-y-4">
+              <div className="space-y-0">
                 <div className="flex justify-between items-center py-2 border-b border-gray-200">
                   <span className="text-sm text-gray-600">Subtotal</span>
                   <span className="text-sm font-medium text-gray-900">${(parseFloat(job?.total) || 0).toFixed(2)}</span>
-                    </div>
-                {(formData.tip ?? parseFloat(job?.tip_amount) ?? 0) > 0 && (
+                </div>
+                {parseFloat(job?.discount || 0) > 0 && (
+                <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                  <span className="text-sm text-gray-600">Discount</span>
+                  <span className="text-sm font-medium text-red-600">-${parseFloat(job.discount).toFixed(2)}</span>
+                </div>
+                )}
+                {parseFloat(job?.tip_amount || 0) > 0 && (
                 <div className="flex justify-between items-center py-2 border-b border-gray-200">
                   <span className="text-sm text-gray-600">Tip</span>
-                  <span className="text-sm font-medium text-green-600">${(parseFloat(formData.tip ?? job?.tip_amount ?? 0) || 0).toFixed(2)}</span>
-                    </div>
+                  <span className="text-sm font-medium text-green-600">+${parseFloat(job.tip_amount).toFixed(2)}</span>
+                </div>
                 )}
                 <div className="flex justify-between items-center py-2 border-b border-gray-200">
                   <span className="text-sm text-gray-600">Total</span>
-                  <span className="text-sm font-medium text-gray-900">${calculateTotalPrice().toFixed(2)}</span>
-                    </div>
-                
+                  <span className="text-sm font-semibold text-gray-900">${calculateTotalPrice().toFixed(2)}</span>
+                </div>
+
                 <div className="flex justify-between items-center py-2">
                   <span className="text-sm text-gray-600">Amount paid</span>
                   <span className="text-sm font-medium text-gray-900">
                     ${effectiveAmountPaid.toFixed(2)}
                   </span>
-                        </div>
-                
+                </div>
+
                 <div className="flex justify-between items-center py-2">
                   <span className="text-sm text-gray-600">Total due</span>
                   <span className={`text-sm font-medium ${isPaidOrFree ? 'text-green-600' : 'text-gray-900'}`}>
                     ${isPaidOrFree ? '0.00' : (job.total_invoice_amount ? job.total_invoice_amount.toFixed(2) : totalPrice.toFixed(2))}
                   </span>
-                  </div>
-                  </div>
+                </div>
+              </div>
               )}
 
               {/* Payments Section - Only show if user has permission */}
@@ -5035,7 +4996,7 @@ const JobDetails = () => {
                       {parseFloat(job.tip_amount || 0) > 0 ? (
                         <div className="flex justify-between items-center py-2">
                           <button onClick={() => { setError(''); setFormData(prev => ({ ...prev, tipInput: '' })); setShowTipModal(true); }} className="text-sm text-blue-600 hover:text-blue-700">Tip</button>
-                          <span className="text-sm font-medium text-green-600">${parseFloat(job.tip_amount).toFixed(2)}</span>
+                          <span className="text-sm font-medium text-green-600">+${parseFloat(job.tip_amount).toFixed(2)}</span>
                         </div>
                       ) : (
                         <button

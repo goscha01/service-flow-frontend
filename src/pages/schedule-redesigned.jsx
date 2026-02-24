@@ -2664,12 +2664,14 @@ const ServiceFlowSchedule = () => {
   }
 
   // Calculate total price for invoice (base + tip) — match job details page
+  // job.total = the job/service price. Tips and discounts are separate modifiers.
   const calculateTotalPrice = () => {
     if (!selectedJobDetails) return 0
     try {
-      const baseTotal = parseFloat(selectedJobDetails.total || selectedJobDetails.service_price || selectedJobDetails.price || 0)
+      const jobPrice = parseFloat(selectedJobDetails.total || selectedJobDetails.service_price || selectedJobDetails.price || 0)
       const tip = parseFloat(selectedJobDetails.tip_amount || 0) || 0
-      return baseTotal + tip
+      const discount = parseFloat(selectedJobDetails.discount || 0) || 0
+      return jobPrice + tip - discount
     } catch (error) {
       console.error('Error calculating total price:', error)
       return 0
@@ -2703,9 +2705,12 @@ const ServiceFlowSchedule = () => {
           year: 'numeric' 
         })
     const serviceAddress = selectedJobDetails.customer_address || selectedJobDetails.address || 'Address not provided'
-    const subtotal = calculateTotalPrice()
+    const subtotal = parseFloat(selectedJobDetails.total || selectedJobDetails.service_price || selectedJobDetails.price || 0)
+    const tip = parseFloat(selectedJobDetails.tip_amount || 0)
+    const discount = parseFloat(selectedJobDetails.discount || 0)
+    const grandTotal = subtotal + tip - discount
     const totalPaid = selectedJobDetails.invoice_paid_amount || selectedJobDetails.amount_paid || 0
-    const totalDue = subtotal - totalPaid
+    const totalDue = grandTotal - totalPaid
     // Check both invoice_status and payment_status for 'paid'
     const isPaid = selectedJobDetails.invoice_status === 'paid' || selectedJobDetails.payment_status === 'paid'
     const status = isPaid ? 'Paid' : 
@@ -2964,9 +2969,17 @@ const ServiceFlowSchedule = () => {
               <span class="label">Subtotal</span>
               <span class="value">$${subtotal.toFixed(2)}</span>
             </div>
+            ${discount > 0 ? `<div class="totals-row">
+              <span class="label">Discount</span>
+              <span class="value" style="color: #dc2626;">-$${discount.toFixed(2)}</span>
+            </div>` : ''}
+            ${tip > 0 ? `<div class="totals-row">
+              <span class="label">Tip</span>
+              <span class="value" style="color: #16a34a;">+$${tip.toFixed(2)}</span>
+            </div>` : ''}
             <div class="totals-row">
               <span class="label">Total</span>
-              <span class="value">$${subtotal.toFixed(2)}</span>
+              <span class="value">$${grandTotal.toFixed(2)}</span>
             </div>
             <div class="totals-row">
               <span class="label">Amount Paid</span>
@@ -5507,6 +5520,7 @@ const ServiceFlowSchedule = () => {
                           }`}>{day.getDate()}</div>
                           {isCurrentMonth && showMembers.map((member) => {
                             const availability = getDayAvailabilityForMember(day, member.id)
+                            if (!availability.isOpen) return null
                             const memberColor = member.color || '#2563EB'
                             const memberName = `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'Cleaner'
                             return (
@@ -5522,7 +5536,7 @@ const ServiceFlowSchedule = () => {
                                   <div className="flex items-center gap-0.5 flex-1 min-w-0">
                                     <Clock className="w-3 h-3 text-gray-500 flex-shrink-0" />
                                     <span className="font-medium text-gray-900 truncate text-[9px]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
-                                      {availability.totalAvailable > 0 ? formatDuration(availability.totalAvailable) + ' free' : availability.hours || 'Closed'}
+                                      {availability.hours || ''}
                                     </span>
                                   </div>
                                   <div
@@ -7337,7 +7351,7 @@ const ServiceFlowSchedule = () => {
                         <div className="flex justify-between items-center">
                           <span className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Subtotal</span>
                           <span className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
-                            ${parseFloat(selectedJobDetails.service_price || selectedJobDetails.price || 0).toFixed(2)}
+                            ${(parseFloat(selectedJobDetails.total) || 0).toFixed(2)}
                           </span>
                         </div>
                         {parseFloat(selectedJobDetails.discount || 0) > 0 && (
@@ -7348,24 +7362,8 @@ const ServiceFlowSchedule = () => {
                             </span>
                           </div>
                         )}
-                        {parseFloat(selectedJobDetails.additional_fees || 0) > 0 && (
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Additional Fees</span>
-                            <span className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
-                              +${parseFloat(selectedJobDetails.additional_fees).toFixed(2)}
-                            </span>
-                          </div>
-                        )}
-                        {parseFloat(selectedJobDetails.taxes || 0) > 0 && (
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Taxes</span>
-                            <span className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
-                              +${parseFloat(selectedJobDetails.taxes).toFixed(2)}
-                            </span>
-                          </div>
-                        )}
                         {parseFloat(selectedJobDetails.tip_amount || 0) > 0 && (
-                          <div className="flex justify-between items-center pt-2">
+                          <div className="flex justify-between items-center">
                             <span className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Tip</span>
                             <span className="text-sm font-medium text-green-600" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                               +${parseFloat(selectedJobDetails.tip_amount).toFixed(2)}
@@ -9091,7 +9089,7 @@ const ServiceFlowSchedule = () => {
                   {parseFloat(selectedJobDetails.tip_amount || 0) > 0 && (
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Tip</span>
-                      <span className="text-green-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>${parseFloat(selectedJobDetails.tip_amount).toFixed(2)}</span>
+                      <span className="text-green-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>+${parseFloat(selectedJobDetails.tip_amount).toFixed(2)}</span>
                     </div>
                   )}
                   <div className="flex justify-between text-sm">

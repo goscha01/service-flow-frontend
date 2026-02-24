@@ -637,6 +637,17 @@ const UnifiedImportJobsPage = () => {
       }
     };
 
+    const parseRecurringFromValue = (frequencyStr) => {
+      if (!frequencyStr || !String(frequencyStr).trim()) return { isRecurring: false, frequency: null };
+      const freq = String(frequencyStr).toLowerCase().trim();
+      if (freq === 'one-time' || freq === 'onetime') return { isRecurring: false, frequency: null };
+      const map = { 'weekly': 'weekly', 'every other week': 'bi-weekly', 'every 4 weeks': 'monthly', 'every 2 weeks': 'bi-weekly', 'biweekly': 'bi-weekly', 'bi-weekly': 'bi-weekly', 'monthly': 'monthly' };
+      for (const [key, value] of Object.entries(map)) {
+        if (freq.includes(key)) return { isRecurring: true, frequency: value };
+      }
+      return { isRecurring: true, frequency: 'custom' };
+    };
+
     const parseAddress = (addressStr) => {
       if (!addressStr) return { street: '', city: '', state: '', zipCode: '', country: 'USA' };
       
@@ -903,7 +914,16 @@ const UnifiedImportJobsPage = () => {
         job.offerToProviders = rawData['offer_job_to_providers_boolean'] === 'true';
         job.inStoreJob = rawData['in_store_job_boolean'] === 'true';
         job.smsMessages = rawData['sms_messages_boolean'] === 'true';
-        
+
+        // Recurring: set from any column that looks like frequency/recurring so schedule "Recurring" filter shows them
+        const frequencyKey = Object.keys(rawData).find(k => /frequen|recurring/i.test(k));
+        const frequencyValue = rawData['frequency_text'] || rawData['recurring_frequency_text'] || rawData['Frequency'] || rawData['frequency'] || rawData['Is Recurring'] || rawData['is_recurring'] || rawData['Recurring Frequency'] || rawData['recurring_frequency'] || (frequencyKey ? rawData[frequencyKey] : null);
+        if (frequencyValue != null && String(frequencyValue).trim()) {
+          const recurring = parseRecurringFromValue(frequencyValue);
+          job.isRecurring = recurring.isRecurring;
+          job.recurringFrequency = recurring.frequency;
+        }
+
         // Check cancel_boolean - if true, mark job as cancelled
         const cancelBoolean = rawData['cancel_boolean'];
         if (cancelBoolean === 'true' || cancelBoolean === true || cancelBoolean === 'TRUE') {
