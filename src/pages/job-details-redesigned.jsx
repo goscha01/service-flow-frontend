@@ -718,18 +718,14 @@ const JobDetails = () => {
             
             setPaymentHistory(transactions)
             
-            // Update job state with payment info. If job is marked paid (e.g. from import) but has no
-            // transaction records, keep amount paid = job total so we don't show "Amount paid: $0".
-            // Also set tip_amount from payment history so tips show even when job row was loaded before tip was synced.
+            // Use actual transaction total as amount paid. Do not substitute job total when there are no payments —
+            // if no payments exist, amount paid should be 0 and total due should be the full invoice amount.
             setJob(prev => {
-              const jobTotal = parseFloat(prev?.total) || parseFloat(prev?.total_amount) || parseFloat(prev?.price) || 0
-              const isPaidWithNoPayments = (prev?.invoice_status === 'paid' || prev?.payment_status === 'paid') && jobTotal > 0 && totalPaid <= 0
-              const effectivePaid = isPaidWithNoPayments ? jobTotal : totalPaid
               const effectiveTip = Math.max(parseFloat(prev?.tip_amount || 0) || 0, totalTips)
               return {
                 ...prev,
-                total_paid_amount: effectivePaid,
-                invoice_paid_amount: effectivePaid,
+                total_paid_amount: totalPaid,
+                invoice_paid_amount: totalPaid,
                 tip_amount: effectiveTip
               }
             })
@@ -789,22 +785,29 @@ const JobDetails = () => {
       const historyResponse = await api.get(`/transactions/job/${job.id}`)
       if (historyResponse.data) {
         const transactions = historyResponse.data.transactions || []
-        const totalPaid = historyResponse.data.totalPaid || transactions.reduce((sum, tx) => sum + parseFloat(tx.amount || 0), 0)
-        const totalTips = historyResponse.data.totalTips || transactions.reduce((sum, tx) => sum + parseFloat(tx.tip_amount || 0), 0)
+        const totalPaid = historyResponse.data.totalPaid ?? transactions.reduce((sum, tx) => sum + parseFloat(tx.amount || 0), 0)
 
         setPaymentHistory(transactions)
 
-        // Update job state with payment info
-        setJob(prev => ({
-          ...prev,
-          total_paid_amount: totalPaid,
-          invoice_paid_amount: totalPaid,
-          tip_amount: totalTips
-        }))
+        // Invoice total = job.total (already after discount) + tip. Do NOT subtract discount again.
+        setJob(prev => {
+          const jobPrice = parseFloat(prev?.total) || 0
+          const existingTip = parseFloat(prev?.tip_amount || 0) || 0
+          const totalTipsFromPayments = historyResponse.data.totalTips ?? transactions.reduce((s, tx) => s + parseFloat(tx.tip_amount || 0), 0)
+          const finalTipAmount = Math.max(existingTip, totalTipsFromPayments)
+          const invoiceTotal = jobPrice + finalTipAmount
+          const isFullyPaid = totalPaid >= invoiceTotal - 0.01
+          return {
+            ...prev,
+            total_paid_amount: totalPaid,
+            invoice_paid_amount: totalPaid,
+            tip_amount: finalTipAmount,
+            total_invoice_amount: invoiceTotal,
+            invoice_status: isFullyPaid ? 'paid' : (invoiceTotal > 0 ? 'invoiced' : prev?.invoice_status || 'draft'),
+            payment_status: isFullyPaid ? 'paid' : 'pending'
+          }
+        })
       }
-      
-      // Refresh job data
-      await fetchInvoiceStatus(job.id)
       
       setSuccessMessage('Payment recorded successfully!')
       setTimeout(() => setSuccessMessage(''), 3000)
@@ -835,21 +838,28 @@ const JobDetails = () => {
       const historyResponse = await api.get(`/transactions/job/${job.id}`);
       if (historyResponse.data) {
         const transactions = historyResponse.data.transactions || [];
-        const totalPaid = historyResponse.data.totalPaid || transactions.reduce((sum, tx) => sum + parseFloat(tx.amount || 0), 0);
-        const totalTips = historyResponse.data.totalTips || transactions.reduce((sum, tx) => sum + parseFloat(tx.tip_amount || 0), 0);
+        const totalPaid = historyResponse.data.totalPaid ?? transactions.reduce((sum, tx) => sum + parseFloat(tx.amount || 0), 0);
 
         setPaymentHistory(transactions);
 
-        setJob(prev => ({
-          ...prev,
-          total_paid_amount: totalPaid,
-          invoice_paid_amount: totalPaid,
-          tip_amount: totalTips
-        }));
+        setJob(prev => {
+          const jobPrice = parseFloat(prev?.total) || 0
+          const existingTip = parseFloat(prev?.tip_amount || 0) || 0
+          const totalTipsFromPayments = historyResponse.data.totalTips ?? transactions.reduce((s, tx) => s + parseFloat(tx.tip_amount || 0), 0)
+          const finalTipAmount = Math.max(existingTip, totalTipsFromPayments)
+          const invoiceTotal = jobPrice + finalTipAmount
+          const isFullyPaid = totalPaid >= invoiceTotal - 0.01
+          return {
+            ...prev,
+            total_paid_amount: totalPaid,
+            invoice_paid_amount: totalPaid,
+            tip_amount: finalTipAmount,
+            total_invoice_amount: invoiceTotal,
+            invoice_status: isFullyPaid ? 'paid' : (invoiceTotal > 0 ? 'invoiced' : prev?.invoice_status || 'draft'),
+            payment_status: isFullyPaid ? 'paid' : 'pending'
+          };
+        });
       }
-
-      // Also refresh invoice status
-      await fetchInvoiceStatus(job.id);
 
       setSuccessMessage('Payment deleted successfully!');
       setTimeout(() => setSuccessMessage(''), 3000);
@@ -882,13 +892,11 @@ const JobDetails = () => {
       
       console.log('💳 API URL:', `${process.env.REACT_APP_API_URL || 'https://service-flow-backend-production-4568.up.railway.app/api'}/transactions/job/${jobId}`)
       
-      // Check transactions for this job
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://service-flow-backend-production-4568.up.railway.app/api'}/transactions/job/${jobId}`)
+      // Check transactions for this job (use api.get so auth is sent)
+      const response = await api.get(`/transactions/job/${jobId}`)
+      const data = response.data
       
-      console.log('💳 Transaction API response status:', response.status)
-      
-      if (response.ok) {
-        const data = await response.json()
+      if (data) {
         console.log('💳 Transaction API response data:', data)
         
         const { hasPayment, totalPaid, transactionCount, transactions } = data
@@ -896,23 +904,22 @@ const JobDetails = () => {
         console.log('💳 Payment status:', { hasPayment, totalPaid, transactionCount })
         
         if (hasPayment && totalPaid > 0) {
-          // Payment found - job is paid
-          console.log('💳 Job is PAID - found', transactionCount, 'transactions totaling $', totalPaid)
-          
           setJob(prev => {
-            // Only update if not already paid (preserve import status)
-            if (prev?.invoice_status === 'paid' || prev?.payment_status === 'paid') {
-              console.log('💳 Job already marked as paid - preserving status');
-              return prev;
-            }
-            console.log('💳 Updating job status to PAID')
+            // job.total is already (subtotal - discount) per backend; tip is separate
+            const jobPrice = parseFloat(prev?.total) || 0
+            const existingTip = parseFloat(prev?.tip_amount || 0) || 0
+            const totalTipsFromTx = data.totalTips ?? (data.transactions || []).reduce((s, tx) => s + parseFloat(tx.tip_amount || 0), 0)
+            const tipAmount = Math.max(existingTip, totalTipsFromTx)
+            const invoiceTotal = jobPrice + tipAmount
+            const isFullyPaid = totalPaid >= invoiceTotal - 0.01
             return {
               ...prev,
-              invoice_status: 'paid',
-              payment_status: 'paid',
+              invoice_status: isFullyPaid ? 'paid' : 'invoiced',
+              payment_status: isFullyPaid ? 'paid' : 'pending',
               total_paid_amount: totalPaid,
-              total_invoice_amount: totalPaid, // For paid jobs, invoice amount = paid amount
-              transaction_count: transactionCount
+              total_invoice_amount: invoiceTotal,
+              tip_amount: tipAmount,
+              transaction_count: data.transactionCount
             }
           })
         } else {
@@ -1001,20 +1008,7 @@ const JobDetails = () => {
           }
         }
       } else {
-        console.error('💳 Transaction API error:', response.status)
-        // Don't overwrite if already paid
-        setJob(prev => {
-          if (prev?.invoice_status === 'paid' || prev?.payment_status === 'paid') {
-            return prev;
-          }
-          return {
-          ...prev,
-          invoice_status: 'none',
-          invoice_id: null,
-          total_invoice_amount: 0,
-          total_paid_amount: 0
-          }
-        })
+        console.error('💳 Transaction API returned no data')
       }
     } catch (error) {
       console.error('💳 Error checking payment status:', error)
@@ -1935,18 +1929,18 @@ const JobDetails = () => {
 
   // $0 jobs are considered free — show as paid (no amount due)
   const totalPrice = calculateTotalPrice();
-  const isPaidOrFree = job?.invoice_status === 'paid' || totalPrice === 0;
-  // When job is paid but total_paid_amount is 0 (e.g. import), show job total as amount paid
-  const effectiveAmountPaid = (isPaidOrFree && totalPrice > 0 && !(parseFloat(job?.total_paid_amount) > 0))
-    ? totalPrice
-    : (parseFloat(job?.total_paid_amount) || 0);
-
-  // Balance between total and amount paid (always a positive difference for display)
+  const effectiveAmountPaid = parseFloat(job?.total_paid_amount) || 0;
   const invoiceBaseTotal = parseFloat(job?.total_invoice_amount) || totalPrice;
   const rawBalance = invoiceBaseTotal - effectiveAmountPaid;
+  const isFullyPaidByAmount = rawBalance <= 0.01;
+  const isPaidOrFree = totalPrice === 0 || isFullyPaidByAmount;
   const totalDueAmount = Math.abs(rawBalance);
   const isOverpaid = rawBalance < 0;
   const overpaymentAmount = isOverpaid ? Math.abs(rawBalance) : 0;
+  // Only show "Credit" when there is real overpayment (paid > total). Do NOT show credit when balance equals tip — that's still amount owed.
+  const displayTotalDue = isOverpaid ? 0 : totalDueAmount;
+  const displayCreditAmount = isOverpaid ? overpaymentAmount : 0;
+  const showCreditLine = isOverpaid && overpaymentAmount > 0;
 
   // Parse service modifiers from JSON
   const getServiceModifiers = () => {
@@ -2448,14 +2442,14 @@ const JobDetails = () => {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Total due</span>
-                  <span className={`font-semibold ${(totalDueAmount === 0 || isOverpaid) ? 'text-green-600' : 'text-red-600'}`}>
-                    ${isOverpaid ? '0.00' : totalDueAmount.toFixed(2)}
+                  <span className={`font-semibold ${displayTotalDue === 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    ${displayTotalDue.toFixed(2)}
                   </span>
                 </div>
-                {isOverpaid && overpaymentAmount > 0 && (
+                {showCreditLine && displayCreditAmount > 0 && (
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Credit</span>
-                    <span className="font-semibold text-green-600">+${overpaymentAmount.toFixed(2)}</span>
+                    <span className="font-semibold text-green-600">+${displayCreditAmount.toFixed(2)}</span>
                   </div>
                 )}
               </div>
@@ -3794,11 +3788,11 @@ const JobDetails = () => {
                 </div>
                 <div className="text-right">
                   <p className="text-sm text-gray-600 mb-1">Amount due</p>
-                  <p className={`text-lg font-semibold ${(totalDueAmount === 0 || isOverpaid) ? 'text-green-600' : 'text-red-600 underline'}`}>
-                    ${isOverpaid ? '0.00' : totalDueAmount.toFixed(2)}
+                  <p className={`text-lg font-semibold ${displayTotalDue === 0 ? 'text-green-600' : 'text-red-600 underline'}`}>
+                    ${displayTotalDue.toFixed(2)}
                   </p>
-                  {isOverpaid && overpaymentAmount > 0 && (
-                    <p className="text-sm font-semibold text-green-600 mt-0.5">Credit +${overpaymentAmount.toFixed(2)}</p>
+                  {showCreditLine && displayCreditAmount > 0 && (
+                    <p className="text-sm font-semibold text-green-600 mt-0.5">Credit +${displayCreditAmount.toFixed(2)}</p>
                   )}
                 </div>
                 </div>
@@ -3982,14 +3976,14 @@ const JobDetails = () => {
 
                 <div className="flex justify-between items-center py-2">
                   <span className="text-sm text-gray-600">Total due</span>
-                  <span className={`text-sm font-medium ${(totalDueAmount === 0 || isOverpaid) ? 'text-green-600' : 'text-gray-900'}`}>
-                    ${isOverpaid ? '0.00' : totalDueAmount.toFixed(2)}
+                  <span className={`text-sm font-medium ${displayTotalDue === 0 ? 'text-green-600' : 'text-gray-900'}`}>
+                    ${displayTotalDue.toFixed(2)}
                   </span>
                 </div>
-                {isOverpaid && overpaymentAmount > 0 && (
+                {showCreditLine && displayCreditAmount > 0 && (
                 <div className="flex justify-between items-center py-2">
                   <span className="text-sm text-gray-600">Credit</span>
-                  <span className="text-sm font-medium text-green-600">+${overpaymentAmount.toFixed(2)}</span>
+                  <span className="text-sm font-medium text-green-600">+${displayCreditAmount.toFixed(2)}</span>
                 </div>
                 )}
               </div>

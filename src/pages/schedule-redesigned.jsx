@@ -35,6 +35,7 @@ import {
   FileText,
   User as UserIcon,
   CreditCard,
+  Trash2,
   Target,
   Home,
   Briefcase,
@@ -325,30 +326,37 @@ const ServiceFlowSchedule = () => {
       
       // Refresh payment history
       const historyResponse = await api.get(`/transactions/job/${selectedJobDetails.id}`)
+      let newTotalPaid = 0
+      const jobTotal = parseFloat(selectedJobDetails?.total ?? selectedJobDetails?.total_amount ?? selectedJobDetails?.price) || 0
+      const jobTip = parseFloat(selectedJobDetails?.tip_amount || 0) || 0
+      const expectedTotal = jobTotal + jobTip
       if (historyResponse.data) {
         const transactions = historyResponse.data.transactions || []
-        const totalPaid = historyResponse.data.totalPaid || transactions.reduce((sum, tx) => sum + parseFloat(tx.amount || 0), 0)
-        const totalTips = historyResponse.data.totalTips || transactions.reduce((sum, tx) => sum + parseFloat(tx.tip_amount || 0), 0)
-
+        newTotalPaid = historyResponse.data.totalPaid ?? transactions.reduce((sum, tx) => sum + parseFloat(tx.amount || 0), 0)
+        const totalTips = historyResponse.data.totalTips ?? transactions.reduce((sum, tx) => sum + parseFloat(tx.tip_amount || 0), 0)
+        const isFullyPaid = newTotalPaid >= expectedTotal - 0.01
         setPaymentHistory(transactions)
-
-        // Update selectedJobDetails with payment info
         setSelectedJobDetails(prev => ({
           ...prev,
-          total_paid_amount: totalPaid,
-          invoice_paid_amount: totalPaid,
-          tip_amount: totalTips
+          total_paid_amount: newTotalPaid,
+          invoice_paid_amount: newTotalPaid,
+          tip_amount: totalTips,
+          invoice_status: isFullyPaid ? 'paid' : (jobTotal > 0 ? 'invoiced' : prev?.invoice_status || 'draft'),
+          payment_status: isFullyPaid ? 'paid' : 'pending'
         }))
       }
-      
-      // Refresh job data
-      const jobData = await jobsAPI.getById(selectedJobDetails.id)
-      const mappedJobData = normalizeCustomerData(jobData)
-      setSelectedJobDetails(prev => ({
-        ...mappedJobData,
-        total_paid_amount: prev.total_paid_amount || mappedJobData.total_paid_amount || 0,
-        invoice_paid_amount: prev.invoice_paid_amount || mappedJobData.invoice_paid_amount || 0
-      }))
+      const isFullyPaid = newTotalPaid >= expectedTotal - 0.01
+      const jobId = selectedJobDetails.id
+      setJobs(prevJobs => prevJobs.map(job =>
+        job.id === jobId
+          ? {
+              ...job,
+              total_paid_amount: newTotalPaid,
+              invoice_status: isFullyPaid ? 'paid' : (jobTotal > 0 ? 'invoiced' : job.invoice_status || 'draft'),
+              payment_status: isFullyPaid ? 'paid' : 'pending'
+            }
+          : job
+      ))
       
       setSuccessMessage('Payment recorded successfully!')
       setTimeout(() => setSuccessMessage(''), 3000)
@@ -356,6 +364,59 @@ const ServiceFlowSchedule = () => {
     } catch (error) {
       console.error('Error recording payment:', error)
       setErrorMessage(error.response?.data?.error || 'Failed to record payment')
+      setTimeout(() => setErrorMessage(''), 3000)
+    } finally {
+      setIsUpdatingJob(false)
+    }
+  }
+
+  // Delete a recorded payment
+  const handleDeletePayment = async (paymentId) => {
+    if (!selectedJobDetails?.id || !paymentId) return
+    if (!window.confirm('Are you sure you want to delete this payment? This will update the amount paid for this job.')) {
+      return
+    }
+    try {
+      setIsUpdatingJob(true)
+      setErrorMessage('')
+      await api.delete(`/transactions/${paymentId}`)
+      const historyResponse = await api.get(`/transactions/job/${selectedJobDetails.id}`)
+      let newTotalPaid = 0
+      const jobTotal = parseFloat(selectedJobDetails?.total ?? selectedJobDetails?.total_amount ?? selectedJobDetails?.price) || 0
+      const jobTip = parseFloat(selectedJobDetails?.tip_amount || 0) || 0
+      const expectedTotal = jobTotal + jobTip
+      if (historyResponse.data) {
+        const transactions = historyResponse.data.transactions || []
+        newTotalPaid = historyResponse.data.totalPaid ?? transactions.reduce((sum, tx) => sum + parseFloat(tx.amount || 0), 0)
+        const totalTips = historyResponse.data.totalTips ?? transactions.reduce((sum, tx) => sum + parseFloat(tx.tip_amount || 0), 0)
+        const isFullyPaid = newTotalPaid >= expectedTotal - 0.01
+        setPaymentHistory(transactions)
+        setSelectedJobDetails(prev => ({
+          ...prev,
+          total_paid_amount: newTotalPaid,
+          invoice_paid_amount: newTotalPaid,
+          tip_amount: totalTips,
+          invoice_status: isFullyPaid ? 'paid' : (jobTotal > 0 ? 'invoiced' : prev?.invoice_status || 'draft'),
+          payment_status: isFullyPaid ? 'paid' : 'pending'
+        }))
+      }
+      const isFullyPaid = newTotalPaid >= expectedTotal - 0.01
+      const jobId = selectedJobDetails.id
+      setJobs(prevJobs => prevJobs.map(job =>
+        job.id === jobId
+          ? {
+              ...job,
+              total_paid_amount: newTotalPaid,
+              invoice_status: isFullyPaid ? 'paid' : (jobTotal > 0 ? 'invoiced' : job.invoice_status || 'draft'),
+              payment_status: isFullyPaid ? 'paid' : 'pending'
+            }
+          : job
+      ))
+      setSuccessMessage('Payment deleted successfully!')
+      setTimeout(() => setSuccessMessage(''), 3000)
+    } catch (error) {
+      console.error('Error deleting payment:', error)
+      setErrorMessage(error.response?.data?.error || 'Failed to delete payment')
       setTimeout(() => setErrorMessage(''), 3000)
     } finally {
       setIsUpdatingJob(false)
@@ -7406,7 +7467,7 @@ const ServiceFlowSchedule = () => {
                           {paymentHistory && paymentHistory.length > 0 ? (
                             <div className="space-y-3">
                               {paymentHistory.map((payment, index) => (
-                                <div key={payment.id || index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                                <div key={payment.id || payment.transaction_id || index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
                                   <div className="flex-1">
                                     <div className="flex items-center gap-2 mb-1">
                                       <span className="text-sm font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
@@ -7436,8 +7497,20 @@ const ServiceFlowSchedule = () => {
                                       </div>
                                     )}
                                   </div>
-                                  <div className="text-xs text-green-600 font-semibold" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
-                                    Completed
+                                  <div className="flex flex-col items-end gap-2">
+                                    <span className="text-xs text-green-600 font-semibold" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                                      Completed
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => (payment.id || payment.transaction_id) && handleDeletePayment(payment.id || payment.transaction_id)}
+                                      className="text-xs text-red-600 hover:text-red-800 flex items-center gap-1"
+                                      title="Delete payment"
+                                      style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                      Delete
+                                    </button>
                                   </div>
                                 </div>
                               ))}
