@@ -6728,6 +6728,15 @@ const ServiceFlowSchedule = () => {
                       </span>
                     </h2>
                     <p className="text-sm text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Job #{selectedJobDetails.id}</p>
+                    <p className="text-xs text-gray-500 mt-0.5" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                      Source:{' '}
+                      <span className="font-medium text-gray-700">
+                        {selectedJobDetails.customer_source
+                          || selectedJobDetails.customer?.source
+                          || selectedJobDetails.customers?.source
+                          || 'No source'}
+                      </span>
+                    </p>
                   </div>
                  
                 </div>

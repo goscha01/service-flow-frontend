@@ -447,6 +447,14 @@ const CustomerDetails = () => {
                     <p className="text-sm text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                       {customer.created_at ? new Date(customer.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'November, 2025'}
                     </p>
+                    <div className="flex items-center justify-between mt-3">
+                      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                        SOURCE
+                      </h3>
+                    </div>
+                    <p className="text-sm text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                      {customer.source || customer.customer_source || 'No source'}
+                    </p>
                   </div>
 
                   <div className="mt-4 pt-4 border-t border-gray-200">
