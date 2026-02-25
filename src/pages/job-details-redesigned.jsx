@@ -818,6 +818,50 @@ const JobDetails = () => {
     }
   }
 
+  // Delete a recorded payment
+  const handleDeletePayment = async (paymentId) => {
+    if (!job || !paymentId) return;
+    if (!window.confirm('Are you sure you want to delete this payment? This will update the amount paid for this job.')) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError('');
+
+      await api.delete(`/transactions/${paymentId}`);
+
+      // Refresh payment history and totals
+      const historyResponse = await api.get(`/transactions/job/${job.id}`);
+      if (historyResponse.data) {
+        const transactions = historyResponse.data.transactions || [];
+        const totalPaid = historyResponse.data.totalPaid || transactions.reduce((sum, tx) => sum + parseFloat(tx.amount || 0), 0);
+        const totalTips = historyResponse.data.totalTips || transactions.reduce((sum, tx) => sum + parseFloat(tx.tip_amount || 0), 0);
+
+        setPaymentHistory(transactions);
+
+        setJob(prev => ({
+          ...prev,
+          total_paid_amount: totalPaid,
+          invoice_paid_amount: totalPaid,
+          tip_amount: totalTips
+        }));
+      }
+
+      // Also refresh invoice status
+      await fetchInvoiceStatus(job.id);
+
+      setSuccessMessage('Payment deleted successfully!');
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (error) {
+      console.error('Error deleting payment:', error);
+      setError(error.response?.data?.error || 'Failed to delete payment');
+      setTimeout(() => setError(''), 3000);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   // Fetch payment status from transactions table
   const fetchInvoiceStatus = async (jobId) => {
     try {
@@ -1897,6 +1941,13 @@ const JobDetails = () => {
     ? totalPrice
     : (parseFloat(job?.total_paid_amount) || 0);
 
+  // Balance between total and amount paid (always a positive difference for display)
+  const invoiceBaseTotal = parseFloat(job?.total_invoice_amount) || totalPrice;
+  const rawBalance = invoiceBaseTotal - effectiveAmountPaid;
+  const totalDueAmount = Math.abs(rawBalance);
+  const isOverpaid = rawBalance < 0;
+  const overpaymentAmount = isOverpaid ? Math.abs(rawBalance) : 0;
+
   // Parse service modifiers from JSON
   const getServiceModifiers = () => {
     try {
@@ -2397,10 +2448,16 @@ const JobDetails = () => {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Total due</span>
-                  <span className={`font-semibold ${isPaidOrFree ? 'text-green-600' : 'text-red-600'}`}>
-                    ${isPaidOrFree ? '0.00' : (job?.total_invoice_amount ? job.total_invoice_amount.toFixed(2) : totalPrice.toFixed(2))}
+                  <span className={`font-semibold ${(totalDueAmount === 0 || isOverpaid) ? 'text-green-600' : 'text-red-600'}`}>
+                    ${isOverpaid ? '0.00' : totalDueAmount.toFixed(2)}
                   </span>
                 </div>
+                {isOverpaid && overpaymentAmount > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Credit</span>
+                    <span className="font-semibold text-green-600">+${overpaymentAmount.toFixed(2)}</span>
+                  </div>
+                )}
               </div>
             </div>
             {canProcessPayments(user) && (
@@ -2438,7 +2495,7 @@ const JobDetails = () => {
             {paymentHistory && paymentHistory.length > 0 ? (
               <div className="space-y-3">
                 {paymentHistory.map((payment, index) => (
-                  <div key={payment.id || index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                  <div key={payment.id || payment.transaction_id || index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-sm font-semibold text-gray-900">
@@ -2468,8 +2525,19 @@ const JobDetails = () => {
                         </div>
                       )}
                     </div>
-                    <div className="text-xs text-green-600 font-semibold">
-                      Completed
+                    <div className="flex flex-col items-end space-y-2">
+                      <span className="text-xs text-green-600 font-semibold">
+                        Completed
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => (payment.id || payment.transaction_id) && handleDeletePayment(payment.id || payment.transaction_id)}
+                        className="text-xs text-red-600 hover:text-red-800 flex items-center gap-1"
+                        title="Delete payment"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Delete
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -2532,9 +2600,6 @@ const JobDetails = () => {
                     </a>
                   </div>
                 )}
-                <p className="text-xs text-gray-500 mt-1">
-                  Source: <span className="font-medium text-gray-700">{job?.customer_source || 'No source'}</span>
-                </p>
               </div>
             </div>
             {canViewEditJobPrice(user) && (
@@ -2821,6 +2886,15 @@ const JobDetails = () => {
                   </div>
                 )}
               </div>
+              <p className="text-xs text-gray-500 mt-0.5" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                Source:{' '}
+                <span className="font-medium text-gray-700">
+                  {job?.customer_source
+                    || job?.customer?.source
+                    || job?.customers?.source
+                    || 'No source'}
+                </span>
+              </p>
             </div>
 
             <div className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
@@ -3720,9 +3794,12 @@ const JobDetails = () => {
                 </div>
                 <div className="text-right">
                   <p className="text-sm text-gray-600 mb-1">Amount due</p>
-                  <p className={`text-lg font-semibold ${isPaidOrFree ? 'text-green-600' : 'text-red-600 underline'}`}>
-                    ${isPaidOrFree ? '0.00' : (job.total_invoice_amount ? job.total_invoice_amount.toFixed(2) : totalPrice.toFixed(2))}
+                  <p className={`text-lg font-semibold ${(totalDueAmount === 0 || isOverpaid) ? 'text-green-600' : 'text-red-600 underline'}`}>
+                    ${isOverpaid ? '0.00' : totalDueAmount.toFixed(2)}
                   </p>
+                  {isOverpaid && overpaymentAmount > 0 && (
+                    <p className="text-sm font-semibold text-green-600 mt-0.5">Credit +${overpaymentAmount.toFixed(2)}</p>
+                  )}
                 </div>
                 </div>
 
@@ -3879,6 +3956,18 @@ const JobDetails = () => {
                   <span className="text-sm font-medium text-green-600">+${parseFloat(job.tip_amount).toFixed(2)}</span>
                 </div>
                 )}
+                {(!job?.tip_amount || parseFloat(job.tip_amount) === 0) && canEditJobDetails(user) && (
+                <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                  <span className="text-sm text-gray-600">Tip</span>
+                  <button type="button" onClick={() => setShowTipModal(true)} className="text-sm text-blue-600 hover:text-blue-700">Add Tip</button>
+                </div>
+                )}
+                {(!job?.tip_amount || parseFloat(job.tip_amount) === 0) && !canEditJobDetails(user) && (
+                <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                  <span className="text-sm text-gray-600">Tip</span>
+                  <span className="text-sm text-gray-400">$0.00</span>
+                </div>
+                )}
                 <div className="flex justify-between items-center py-2 border-b border-gray-200">
                   <span className="text-sm text-gray-600">Total</span>
                   <span className="text-sm font-semibold text-gray-900">${calculateTotalPrice().toFixed(2)}</span>
@@ -3893,10 +3982,16 @@ const JobDetails = () => {
 
                 <div className="flex justify-between items-center py-2">
                   <span className="text-sm text-gray-600">Total due</span>
-                  <span className={`text-sm font-medium ${isPaidOrFree ? 'text-green-600' : 'text-gray-900'}`}>
-                    ${isPaidOrFree ? '0.00' : (job.total_invoice_amount ? job.total_invoice_amount.toFixed(2) : totalPrice.toFixed(2))}
+                  <span className={`text-sm font-medium ${(totalDueAmount === 0 || isOverpaid) ? 'text-green-600' : 'text-gray-900'}`}>
+                    ${isOverpaid ? '0.00' : totalDueAmount.toFixed(2)}
                   </span>
                 </div>
+                {isOverpaid && overpaymentAmount > 0 && (
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-sm text-gray-600">Credit</span>
+                  <span className="text-sm font-medium text-green-600">+${overpaymentAmount.toFixed(2)}</span>
+                </div>
+                )}
               </div>
               )}
 
@@ -3907,7 +4002,7 @@ const JobDetails = () => {
                 {paymentHistory && paymentHistory.length > 0 ? (
                   <div className="space-y-3">
                     {paymentHistory.map((payment, index) => (
-                      <div key={payment.id || index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                      <div key={payment.id || payment.transaction_id || index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
                             <span className="text-sm font-semibold text-gray-900">
@@ -3937,8 +4032,19 @@ const JobDetails = () => {
                             </div>
                           )}
                         </div>
-                        <div className="text-xs text-green-600 font-semibold">
-                          Completed
+                        <div className="flex flex-col items-end space-y-2">
+                          <span className="text-xs text-green-600 font-semibold">
+                            Completed
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => (payment.id || payment.transaction_id) && handleDeletePayment(payment.id || payment.transaction_id)}
+                            className="text-xs text-red-600 hover:text-red-800 flex items-center gap-1"
+                            title="Delete payment"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            Delete
+                          </button>
                         </div>
                       </div>
                     ))}
@@ -4013,9 +4119,6 @@ const JobDetails = () => {
                       
                       return 'Customer'
                     })()}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Source: <span className="font-medium text-gray-700">{job?.customer_source || 'No source'}</span>
                   </p>
                 </div>
               </div>
@@ -4639,9 +4742,6 @@ const JobDetails = () => {
                       <div>
                         <p className="font-semibold text-gray-900">
                           {job.customer_first_name} {job.customer_last_name}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          Source: <span className="font-medium text-gray-700">{job?.customer_source || 'No source'}</span>
                         </p>
                       </div>
                     </div>

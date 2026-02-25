@@ -289,7 +289,7 @@ const CustomerDetailsRedesigned = () => {
 
                     <div className="flex items-center space-x-3">
                       <Link className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                      <span className="text-sm text-gray-900">{customer.source || 'No source'}</span>
+                      <span className="text-sm text-gray-900">{customer.source || customer.customer_source || 'No source'}</span>
                     </div>
                   </div>
 
@@ -301,6 +301,13 @@ const CustomerDetailsRedesigned = () => {
                           month: 'long', 
                           year: 'numeric' 
                         })}
+                      </span>
+                    </div>
+                    
+                    <div className="flex items-center justify-between mt-3">
+                      <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">SOURCE</span>
+                      <span className="text-sm text-gray-900">
+                        {customer.source || customer.customer_source || 'No source'}
                       </span>
                     </div>
                     
