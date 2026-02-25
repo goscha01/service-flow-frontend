@@ -718,14 +718,26 @@ const JobDetails = () => {
             
             setPaymentHistory(transactions)
             
-            // Use actual transaction total as amount paid. Do not substitute job total when there are no payments —
-            // if no payments exist, amount paid should be 0 and total due should be the full invoice amount.
+            // Update job state with payment info.
+            // Special case: if the job is already marked PAID (e.g. imported as paid) but there are NO
+            // completed transactions, treat it as fully paid so Amount due = $0.
+            // Otherwise, use the real transaction total.
             setJob(prev => {
+              const jobTotal =
+                parseFloat(prev?.total) ||
+                parseFloat(prev?.total_amount) ||
+                parseFloat(prev?.price) ||
+                0
+              const isPaidWithNoPayments =
+                (prev?.invoice_status === 'paid' || prev?.payment_status === 'paid') &&
+                jobTotal > 0 &&
+                totalPaid <= 0
+              const effectivePaid = isPaidWithNoPayments ? jobTotal : totalPaid
               const effectiveTip = Math.max(parseFloat(prev?.tip_amount || 0) || 0, totalTips)
               return {
                 ...prev,
-                total_paid_amount: totalPaid,
-                invoice_paid_amount: totalPaid,
+                total_paid_amount: effectivePaid,
+                invoice_paid_amount: effectivePaid,
                 tip_amount: effectiveTip
               }
             })
