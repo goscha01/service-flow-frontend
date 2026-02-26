@@ -994,7 +994,7 @@ const DashboardRedesigned = () => {
                       </div>
                       <div className="ml-3 flex-1">
                         <h3 className="text-sm font-medium text-red-800">{error}</h3>
-                        <p className="mt-1 text-sm text-red-700">
+                        <p className="mt-1 text-sm text-red-600">
                           Please check your connection and try refreshing the page.
                         </p>
                       </div>
