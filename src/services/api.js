@@ -1071,6 +1071,15 @@ export const jobsAPI = {
     } catch (error) {
       throw error;
     }
+  },
+
+  updateTeamMemberTip: async (jobId, teamMemberId, tipAmount) => {
+    try {
+      const response = await api.put(`/jobs/${jobId}/team-tip`, { teamMemberId, tipAmount });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
   }
 };
 

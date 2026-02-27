@@ -232,7 +232,7 @@ const ServiceFlowSchedule = () => {
     }
   }, [showSendInvoiceModal])
 
-  // Fetch payment history when job is selected and invoice is expanded
+  // Fetch payment history when invoice is expanded (refresh)
   useEffect(() => {
     const fetchPaymentHistory = async () => {
       if (selectedJobDetails?.id && invoiceExpanded) {
@@ -241,7 +241,7 @@ const ServiceFlowSchedule = () => {
           if (response.data) {
             const transactions = response.data.transactions || []
             const totalPaid = response.data.totalPaid || transactions.reduce((sum, tx) => sum + parseFloat(tx.amount || 0), 0)
-            
+
             setPaymentHistory(transactions)
             // Update selectedJobDetails with payment info
             setSelectedJobDetails(prev => ({
@@ -2445,21 +2445,37 @@ const ServiceFlowSchedule = () => {
         
         // Merge with team member info if available
         const memberId = normalizedJob.assigned_team_member_id || normalizedJob.team_member_id
+        let finalJobData = jobWithParsedHistory
         if (memberId && teamMembers.length > 0) {
           const member = teamMembers.find(m => m.id === memberId)
           if (member) {
-            setSelectedJobDetails({
+            finalJobData = {
               ...jobWithParsedHistory,
               team_member_first_name: member.first_name,
               team_member_last_name: member.last_name
-            })
-          } else {
-            setSelectedJobDetails(jobWithParsedHistory)
+            }
           }
-        } else {
-          setSelectedJobDetails(jobWithParsedHistory)
         }
-        
+
+        // Fetch payment history immediately so amounts are accurate
+        try {
+          const paymentResponse = await api.get(`/transactions/job/${job.id}`)
+          if (paymentResponse.data) {
+            const transactions = paymentResponse.data.transactions || []
+            const totalPaid = paymentResponse.data.totalPaid || transactions.reduce((sum, tx) => sum + parseFloat(tx.amount || 0), 0)
+            setPaymentHistory(transactions)
+            finalJobData = {
+              ...finalJobData,
+              total_paid_amount: totalPaid,
+              invoice_paid_amount: totalPaid
+            }
+          }
+        } catch (err) {
+          console.error('Error fetching payment history:', err)
+        }
+
+        setSelectedJobDetails(finalJobData)
+
         // Load customer notification preferences and global settings
         const customerId = normalizedJob.customer_id || job.customer_id
         if (customerId && user?.id) {
@@ -7370,13 +7386,13 @@ const ServiceFlowSchedule = () => {
                     <div className="flex items-start justify-between">
                       <div>
                         <p className="text-lg font-bold text-gray-900 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
-                          ${(selectedJobDetails.invoice_paid_amount || selectedJobDetails.amount_paid || 0).toFixed(2)}
+                          ${(selectedJobDetails.total_paid_amount || selectedJobDetails.invoice_paid_amount || selectedJobDetails.amount_paid || 0).toFixed(2)}
                         </p>
                         <p className="text-xs text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Amount paid</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-lg font-bold text-gray-900 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
-                          ${((selectedJobDetails.total || selectedJobDetails.price || selectedJobDetails.service_price || 0) - (selectedJobDetails.invoice_paid_amount || selectedJobDetails.amount_paid || 0)).toFixed(2)}
+                        <p className={`text-lg font-bold mb-1 ${Math.max(0, (selectedJobDetails.total || 0) - (selectedJobDetails.total_paid_amount || selectedJobDetails.invoice_paid_amount || selectedJobDetails.amount_paid || 0)) <= 0 ? 'text-green-600' : 'text-red-600'}`} style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
+                          ${Math.max(0, (selectedJobDetails.total || 0) - (selectedJobDetails.total_paid_amount || selectedJobDetails.invoice_paid_amount || selectedJobDetails.amount_paid || 0)).toFixed(2)}
                         </p>
                         <p className="text-xs text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Amount due</p>
                       </div>
@@ -7417,48 +7433,81 @@ const ServiceFlowSchedule = () => {
                       </div>
 
                       {/* Financial Breakdown */}
+                      {(() => {
+                        const sjTotal = parseFloat(selectedJobDetails.total) || 0;
+                        const sjDiscount = parseFloat(selectedJobDetails.discount) || 0;
+                        const sjFees = parseFloat(selectedJobDetails.additional_fees) || 0;
+                        const sjTaxes = parseFloat(selectedJobDetails.taxes) || 0;
+                        const sjServicePrice = parseFloat(selectedJobDetails.service_price) || sjTotal + sjDiscount;
+                        const sjSubtotal = sjServicePrice;
+                        const sjTotalAfterDiscount = sjSubtotal - sjDiscount;
+                        const sjTotalDue = sjTotalAfterDiscount + sjFees + sjTaxes;
+                        const sjAmountPaid = parseFloat(selectedJobDetails.total_paid_amount || selectedJobDetails.invoice_paid_amount || selectedJobDetails.amount_paid || 0);
+                        const sjTipStored = parseFloat(selectedJobDetails.tip_amount) || 0;
+                        const sjDerivedTip = Math.max(0, sjAmountPaid - sjTotalDue);
+                        const sjDisplayTip = sjDerivedTip > 0 ? sjDerivedTip : sjTipStored;
+                        const sjBalance = Math.max(0, sjTotalDue - sjAmountPaid);
+                        return (
                       <div className="space-y-2 pt-4 border-t border-gray-200">
                         <div className="flex justify-between items-center">
                           <span className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Subtotal</span>
                           <span className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
-                            ${((parseFloat(selectedJobDetails.total) || 0) + (parseFloat(selectedJobDetails.discount) || 0)).toFixed(2)}
+                            ${sjSubtotal.toFixed(2)}
                           </span>
                         </div>
-                        {parseFloat(selectedJobDetails.discount || 0) > 0 && (
+                        {sjDiscount > 0 && (
                           <div className="flex justify-between items-center">
                             <span className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Discount</span>
                             <span className="text-sm font-medium text-red-600" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
-                              -${parseFloat(selectedJobDetails.discount).toFixed(2)}
-                            </span>
-                          </div>
-                        )}
-                        {parseFloat(selectedJobDetails.tip_amount || 0) > 0 && (
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Tip</span>
-                            <span className="text-sm font-medium text-green-600" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
-                              +${parseFloat(selectedJobDetails.tip_amount).toFixed(2)}
+                              -${sjDiscount.toFixed(2)}
                             </span>
                           </div>
                         )}
                         <div className="flex justify-between items-center pt-2 border-t border-gray-200">
                           <span className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>Total</span>
                           <span className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
-                            ${calculateTotalPrice().toFixed(2)}
+                            ${sjTotalAfterDiscount.toFixed(2)}
+                          </span>
+                        </div>
+                        {sjFees > 0 && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Fee</span>
+                            <span className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                              ${sjFees.toFixed(2)}
+                            </span>
+                          </div>
+                        )}
+                        {sjTaxes > 0 && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Taxes</span>
+                            <span className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                              ${sjTaxes.toFixed(2)}
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex justify-between items-center pt-2 border-t border-gray-200">
+                          <span className="text-sm font-bold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Total due</span>
+                          <span className={`text-sm font-bold ${sjBalance === 0 ? 'text-green-600' : 'text-red-600'}`} style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
+                            ${sjBalance.toFixed(2)}
                           </span>
                         </div>
                         <div className="flex justify-between items-center pt-2">
                           <span className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Amount paid</span>
                           <span className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
-                            ${(selectedJobDetails.invoice_paid_amount || selectedJobDetails.amount_paid || selectedJobDetails.total_paid_amount || 0).toFixed(2)}
+                            ${sjAmountPaid.toFixed(2)}
                           </span>
                         </div>
-                        <div className="flex justify-between items-center pt-2 border-t border-gray-200">
-                          <span className="text-sm font-bold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Total due</span>
-                          <span className="text-sm font-bold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
-                            ${(calculateTotalPrice() - (selectedJobDetails.invoice_paid_amount || selectedJobDetails.amount_paid || selectedJobDetails.total_paid_amount || 0)).toFixed(2)}
-                          </span>
-                        </div>
+                        {sjDisplayTip > 0 && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Tip</span>
+                            <span className="text-sm font-medium text-green-600" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                              +${sjDisplayTip.toFixed(2)}
+                            </span>
+                          </div>
+                        )}
                       </div>
+                        );
+                      })()}
 
                       {/* Payments Section */}
                       {canProcessPayments(user) && (

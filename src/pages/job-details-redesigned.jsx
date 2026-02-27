@@ -138,6 +138,9 @@ const JobDetails = () => {
   const [showAddPaymentModal, setShowAddPaymentModal] = useState(false)
   const [showDiscountModal, setShowDiscountModal] = useState(false)
   const [showTipModal, setShowTipModal] = useState(false)
+  const [showMemberTipModal, setShowMemberTipModal] = useState(false)
+  const [tipTargetMember, setTipTargetMember] = useState(null)
+  const [memberTipInput, setMemberTipInput] = useState('')
   const [includePaymentLink, setIncludePaymentLink] = useState(true)
   const [stripeConnected, setStripeConnected] = useState(false)
   const [manualEmail, setManualEmail] = useState('')
@@ -1930,29 +1933,43 @@ const JobDetails = () => {
     }
   }
 
-  // Edit Service modal: total from visible breakdown (Subtotal - Discount + Taxes + Tip)
+  // Edit Service modal: total from visible breakdown (Subtotal - Discount + Fee + Taxes, no tip)
   const getEditServiceModalTotal = () => {
     const subtotal = parseFloat(formData.service_price) || parseFloat(job?.service_price) || 0;
     const discount = parseFloat(job?.discount) || 0;
+    const fees = parseFloat(job?.additional_fees) || 0;
     const taxes = parseFloat(job?.taxes) || 0;
-    const tip = parseFloat(job?.tip_amount) || 0;
-    return Math.max(0, subtotal - discount + taxes + tip);
+    return Math.max(0, subtotal - discount + fees + taxes);
   }
 
   // $0 jobs are considered free — show as paid (no amount due)
   const totalPrice = calculateTotalPrice();
+  const jobTotal = parseFloat(job?.total) || 0;          // job.total = subtotal - discount + fees + taxes (no tip)
+  const jobDiscount = parseFloat(job?.discount) || 0;
+  const jobFees = parseFloat(job?.additional_fees) || 0;
+  const jobTaxes = parseFloat(job?.taxes) || 0;
+  const tipAmountStored = parseFloat(job?.tip_amount) || 0;
+
+  // Breakdown: Subtotal (service_price) → Discount → Total → Fee → Taxes → Total due
+  const subtotalDisplay = parseFloat(job?.service_price) || (jobTotal + jobDiscount - jobFees - jobTaxes);
+  const totalAfterDiscount = subtotalDisplay - jobDiscount;
+  const totalDueAmount = totalAfterDiscount + jobFees + jobTaxes;
+  const displayServiceTotal = totalDueAmount;                           // alias for backward compat
+
   const effectiveAmountPaid = parseFloat(job?.total_paid_amount) || 0;
-  const invoiceBaseTotal = parseFloat(job?.total_invoice_amount) || totalPrice;
-  const rawBalance = invoiceBaseTotal - effectiveAmountPaid;
+
+  // Tips = overpayment (amount paid beyond total due). Fallback to stored tip if no overpayment.
+  const derivedTip = Math.max(0, effectiveAmountPaid - totalDueAmount);
+  const displayTip = derivedTip > 0 ? derivedTip : tipAmountStored;
+
+  // Balance
+  const rawBalance = totalDueAmount - effectiveAmountPaid;
   const isFullyPaidByAmount = rawBalance <= 0.01;
-  const isPaidOrFree = totalPrice === 0 || isFullyPaidByAmount;
-  const totalDueAmount = Math.abs(rawBalance);
-  const isOverpaid = rawBalance < 0;
-  const overpaymentAmount = isOverpaid ? Math.abs(rawBalance) : 0;
-  // Only show "Credit" when there is real overpayment (paid > total). Do NOT show credit when balance equals tip — that's still amount owed.
-  const displayTotalDue = isOverpaid ? 0 : totalDueAmount;
-  const displayCreditAmount = isOverpaid ? overpaymentAmount : 0;
-  const showCreditLine = isOverpaid && overpaymentAmount > 0;
+  const isPaidOrFree = totalDueAmount === 0 || isFullyPaidByAmount;
+  const displayTotalDue = Math.max(0, rawBalance);
+  // Overpayment beyond tip is credit (rare edge case)
+  const showCreditLine = false;
+  const displayCreditAmount = 0;
 
   // Parse service modifiers from JSON
   const getServiceModifiers = () => {
@@ -2422,42 +2439,55 @@ const JobDetails = () => {
               <div className="border-t border-gray-200 pt-2 mt-2 space-y-1">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Subtotal</span>
-                  <span className="text-gray-900">${((parseFloat(job?.total) || 0) + (parseFloat(job?.discount) || 0)).toFixed(2)}</span>
+                  <span className="text-gray-900">${subtotalDisplay.toFixed(2)}</span>
                 </div>
-                {parseFloat(job?.discount || 0) > 0 ? (
+                {jobDiscount > 0 ? (
                   <div className="flex justify-between text-sm">
                     <button onClick={() => setShowDiscountModal(true)} className="text-blue-600 hover:text-blue-700">Discount</button>
-                    <span className="text-red-600">-${parseFloat(job.discount).toFixed(2)}</span>
+                    <span className="text-red-600">-${jobDiscount.toFixed(2)}</span>
                   </div>
                 ) : (
                   <button onClick={() => setShowDiscountModal(true)} className="text-sm text-blue-600 hover:text-blue-700">
                     Add Discount
                   </button>
                 )}
-                {parseFloat(job?.tip_amount || 0) > 0 ? (
-                  <div className="flex justify-between text-sm">
-                    <button onClick={() => setShowTipModal(true)} className="text-blue-600 hover:text-blue-700">Tip</button>
-                    <span className="text-green-600">+${parseFloat(job.tip_amount).toFixed(2)}</span>
-                  </div>
-                ) : (
-                  <button onClick={() => setShowTipModal(true)} className="text-sm text-blue-600 hover:text-blue-700">
-                    Add Tip
-                  </button>
-                )}
                 <div className="flex justify-between text-sm font-semibold">
                   <span className="text-gray-900">Total</span>
-                  <span className="text-gray-900">${calculateTotalPrice().toFixed(2)}</span>
+                  <span className="text-gray-900">${totalAfterDiscount.toFixed(2)}</span>
                 </div>
+                {jobFees > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Fee</span>
+                    <span className="text-gray-900">${jobFees.toFixed(2)}</span>
+                  </div>
+                )}
+                {jobTaxes > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Taxes</span>
+                    <span className="text-gray-900">${jobTaxes.toFixed(2)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-sm pt-2 border-t border-gray-200">
-                  <span className="text-gray-600">Amount paid</span>
-                  <span className="text-gray-900">${effectiveAmountPaid.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Total due</span>
                   <span className={`font-semibold ${displayTotalDue === 0 ? 'text-green-600' : 'text-red-600'}`}>
                     ${displayTotalDue.toFixed(2)}
                   </span>
                 </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Amount paid</span>
+                  <span className="text-gray-900">${effectiveAmountPaid.toFixed(2)}</span>
+                </div>
+                {displayTip > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <button onClick={() => setShowTipModal(true)} className="text-blue-600 hover:text-blue-700">Tip</button>
+                    <span className="text-green-600">+${displayTip.toFixed(2)}</span>
+                  </div>
+                )}
+                {displayTip <= 0 && (
+                  <button onClick={() => setShowTipModal(true)} className="text-sm text-blue-600 hover:text-blue-700">
+                    Add Tip
+                  </button>
+                )}
                 {showCreditLine && displayCreditAmount > 0 && (
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Credit</span>
@@ -2780,10 +2810,32 @@ const JobDetails = () => {
                         Travel time: {drivingMin} min before & after — blocks this cleaner’s schedule
                       </p>
                     )}
+                    {(() => {
+                      const primaryAssignmentData = job.team_assignments?.find(ta => ta.is_primary) || job.team_assignments?.[0];
+                      if (!primaryAssignmentData) return null;
+                      const memberTip = parseFloat(primaryAssignmentData.tip_amount) || 0;
+                      return (
+                        <div className="flex items-center gap-2">
+                          {memberTip > 0 && (
+                            <span className="text-xs text-green-600 font-medium">Tip: ${memberTip.toFixed(2)}</span>
+                          )}
+                          <button
+                            onClick={() => {
+                              setTipTargetMember({ ...primaryAssignmentData, name: getTeamMemberName(assignedMember) });
+                              setMemberTipInput('');
+                              setShowMemberTipModal(true);
+                            }}
+                            className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                          >
+                            {memberTip > 0 ? 'Edit Tip' : 'Add Tip'}
+                          </button>
+                        </div>
+                      );
+                    })()}
                   </div>
                 ) : (
                   canEditJobDetails(user) && (
-                    <button 
+                    <button
                       onClick={() => setShowAssignModal(true)}
                       className="text-sm text-blue-600 font-medium"
                     >
@@ -3746,8 +3798,8 @@ const JobDetails = () => {
                         ? 'bg-blue-100 text-blue-800'
                         : 'bg-gray-100 text-gray-800'
                     }`}>
-                      {isPaidOrFree 
-                        ? (totalPrice === 0 ? 'Free' : 'Paid') 
+                      {isPaidOrFree
+                        ? (displayServiceTotal === 0 ? 'Free' : 'Paid')
                         : job.invoice_status === 'invoiced' || job.invoice_status === 'sent'
                         ? 'Unpaid'
                         : job.invoice_status === 'draft'
@@ -3800,8 +3852,8 @@ const JobDetails = () => {
                 </div>
                 <div className="text-right">
                   <p className="text-sm text-gray-600 mb-1">Amount due</p>
-                  <p className={`text-lg font-semibold ${displayTotalDue === 0 ? 'text-green-600' : 'text-red-600 underline'}`}>
-                    ${displayTotalDue.toFixed(2)}
+                  <p className={`text-lg font-semibold ${displayTotalDue <= 0 ? 'text-green-600' : 'text-red-600 underline'}`}>
+                    ${Math.max(0, displayTotalDue).toFixed(2)}
                   </p>
                   {showCreditLine && displayCreditAmount > 0 && (
                     <p className="text-sm font-semibold text-green-600 mt-0.5">Credit +${displayCreditAmount.toFixed(2)}</p>
@@ -3821,7 +3873,7 @@ const JobDetails = () => {
                          'No Invoice Sent'}
                       </p>
                       <p className="text-xs text-gray-500">
-                        {isPaidOrFree ? (totalPrice === 0 ? 'Free — no payment required' : 'Customer has paid the invoice') : 
+                        {isPaidOrFree ? (displayServiceTotal === 0 ? 'Free — no payment required' : 'Customer has paid the invoice') :
                          job.invoice_status === 'invoiced' || job.invoice_status === 'sent' ? 'Invoice sent to customer, awaiting payment' : 
                          'Invoice not yet sent to customer'}
                       </p>
@@ -3898,8 +3950,8 @@ const JobDetails = () => {
                   {(() => {
                     const basePrice = parseFloat(job.services?.price) || 0;
                     const modifierPrice = calculateModifierPrice();
-                    const totalPrice = parseFloat(job.total) || 0;
-                    const serviceAdjustment = totalPrice - (basePrice + modifierPrice);
+                    const servicePriceVal = parseFloat(job.service_price) || parseFloat(job.total) || 0;
+                    const serviceAdjustment = servicePriceVal - (basePrice + modifierPrice);
                     
                     if (Math.abs(serviceAdjustment) > 0.01) {
                       return (
@@ -3916,17 +3968,8 @@ const JobDetails = () => {
                     return null;
                   })()}
                   
-                  {/* Total (job price only — tips/discounts shown in summary below) */}
-                  <div className="flex justify-between items-center pt-2 border-t border-gray-200">
-                    <div>
-                      <p className="text-sm font-semibold text-gray-900">Total</p>
-                    </div>
-                    <span className="text-sm font-semibold text-gray-900">
-                      ${(parseFloat(job?.total) || 0).toFixed(2)}
-                    </span>
-                  </div>
                 </div>
-                
+
                 <div className="mt-4 pt-4 border-t border-gray-200">
                   <button 
                     onClick={() => setShowEditServiceModal(true)}
@@ -3948,35 +3991,36 @@ const JobDetails = () => {
               <div className="space-y-0">
                 <div className="flex justify-between items-center py-2 border-b border-gray-200">
                   <span className="text-sm text-gray-600">Subtotal</span>
-                  <span className="text-sm font-medium text-gray-900">${((parseFloat(job?.total) || 0) + (parseFloat(job?.discount) || 0)).toFixed(2)}</span>
+                  <span className="text-sm font-medium text-gray-900">${subtotalDisplay.toFixed(2)}</span>
                 </div>
-                {parseFloat(job?.discount || 0) > 0 && (
+                {jobDiscount > 0 && (
                 <div className="flex justify-between items-center py-2 border-b border-gray-200">
                   <span className="text-sm text-gray-600">Discount</span>
-                  <span className="text-sm font-medium text-red-600">-${parseFloat(job.discount).toFixed(2)}</span>
-                </div>
-                )}
-                {parseFloat(job?.tip_amount || 0) > 0 && (
-                <div className="flex justify-between items-center py-2 border-b border-gray-200">
-                  <span className="text-sm text-gray-600">Tip</span>
-                  <span className="text-sm font-medium text-green-600">+${parseFloat(job.tip_amount).toFixed(2)}</span>
-                </div>
-                )}
-                {(!job?.tip_amount || parseFloat(job.tip_amount) === 0) && canEditJobDetails(user) && (
-                <div className="flex justify-between items-center py-2 border-b border-gray-200">
-                  <span className="text-sm text-gray-600">Tip</span>
-                  <button type="button" onClick={() => setShowTipModal(true)} className="text-sm text-blue-600 hover:text-blue-700">Add Tip</button>
-                </div>
-                )}
-                {(!job?.tip_amount || parseFloat(job.tip_amount) === 0) && !canEditJobDetails(user) && (
-                <div className="flex justify-between items-center py-2 border-b border-gray-200">
-                  <span className="text-sm text-gray-600">Tip</span>
-                  <span className="text-sm text-gray-400">$0.00</span>
+                  <span className="text-sm font-medium text-red-600">-${jobDiscount.toFixed(2)}</span>
                 </div>
                 )}
                 <div className="flex justify-between items-center py-2 border-b border-gray-200">
                   <span className="text-sm text-gray-600">Total</span>
-                  <span className="text-sm font-semibold text-gray-900">${calculateTotalPrice().toFixed(2)}</span>
+                  <span className="text-sm font-semibold text-gray-900">${totalAfterDiscount.toFixed(2)}</span>
+                </div>
+                {jobFees > 0 && (
+                <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                  <span className="text-sm text-gray-600">Fee</span>
+                  <span className="text-sm font-medium text-gray-900">${jobFees.toFixed(2)}</span>
+                </div>
+                )}
+                {jobTaxes > 0 && (
+                <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                  <span className="text-sm text-gray-600">Taxes</span>
+                  <span className="text-sm font-medium text-gray-900">${jobTaxes.toFixed(2)}</span>
+                </div>
+                )}
+
+                <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                  <span className="text-sm text-gray-600">Total due</span>
+                  <span className={`text-sm font-semibold ${displayTotalDue === 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    ${displayTotalDue.toFixed(2)}
+                  </span>
                 </div>
 
                 <div className="flex justify-between items-center py-2">
@@ -3986,16 +4030,16 @@ const JobDetails = () => {
                   </span>
                 </div>
 
+                {displayTip > 0 && (
                 <div className="flex justify-between items-center py-2">
-                  <span className="text-sm text-gray-600">Total due</span>
-                  <span className={`text-sm font-medium ${displayTotalDue === 0 ? 'text-green-600' : 'text-gray-900'}`}>
-                    ${displayTotalDue.toFixed(2)}
-                  </span>
+                  <span className="text-sm text-gray-600">Tip</span>
+                  <span className="text-sm font-medium text-green-600">+${displayTip.toFixed(2)}</span>
                 </div>
-                {showCreditLine && displayCreditAmount > 0 && (
+                )}
+                {displayTip <= 0 && canEditJobDetails(user) && (
                 <div className="flex justify-between items-center py-2">
-                  <span className="text-sm text-gray-600">Credit</span>
-                  <span className="text-sm font-medium text-green-600">+${displayCreditAmount.toFixed(2)}</span>
+                  <span className="text-sm text-gray-600">Tip</span>
+                  <button type="button" onClick={() => setShowTipModal(true)} className="text-sm text-blue-600 hover:text-blue-700">Add Tip</button>
                 </div>
                 )}
               </div>
@@ -4318,6 +4362,21 @@ const JobDetails = () => {
                                           {memberEmail}
                                         </p>
                                       )}
+                                      <div className="flex items-center gap-2 mt-1">
+                                        {parseFloat(assignment.tip_amount) > 0 && (
+                                          <span className="text-xs text-green-600 font-medium">Tip: ${parseFloat(assignment.tip_amount).toFixed(2)}</span>
+                                        )}
+                                        <button
+                                          onClick={() => {
+                                            setTipTargetMember({ ...assignment, name: memberName });
+                                            setMemberTipInput('');
+                                            setShowMemberTipModal(true);
+                                          }}
+                                          className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                                        >
+                                          {parseFloat(assignment.tip_amount) > 0 ? 'Edit Tip' : 'Add Tip'}
+                                        </button>
+                                      </div>
                                     </div>
                                   </div>
                                 );
@@ -5117,14 +5176,32 @@ const JobDetails = () => {
                           Add Discount
                         </button>
                       )}
+                      <div className="flex justify-between items-center py-2 border-t border-gray-200">
+                        <span className="text-sm font-medium text-gray-900">Total</span>
+                        <span className="text-sm font-medium text-gray-900">${Math.max(0, (parseFloat(formData.service_price) || parseFloat(job?.service_price) || 0) - (parseFloat(job?.discount) || 0)).toFixed(2)}</span>
+                      </div>
+                      {jobFees > 0 && (
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-sm text-gray-600">Fee</span>
+                        <span className="text-sm font-medium text-gray-900">${jobFees.toFixed(2)}</span>
+                      </div>
+                      )}
+                      {jobTaxes > 0 && (
                       <div className="flex justify-between items-center py-2">
                         <span className="text-sm text-gray-600">Taxes</span>
-                        <span className="text-sm font-medium text-gray-900">$0.00</span>
+                        <span className="text-sm font-medium text-gray-900">${jobTaxes.toFixed(2)}</span>
                       </div>
-                      {parseFloat(job.tip_amount || 0) > 0 ? (
+                      )}
+                      {(jobFees > 0 || jobTaxes > 0) && (
+                      <div className="flex justify-between items-center py-2 border-t border-gray-200">
+                        <span className="text-sm font-medium text-gray-900">Total due</span>
+                        <span className="text-sm font-medium text-gray-900">${getEditServiceModalTotal().toFixed(2)}</span>
+                      </div>
+                      )}
+                      {displayTip > 0 ? (
                         <div className="flex justify-between items-center py-2">
                           <button onClick={() => { setError(''); setFormData(prev => ({ ...prev, tipInput: '' })); setShowTipModal(true); }} className="text-sm text-blue-600 hover:text-blue-700">Tip</button>
-                          <span className="text-sm font-medium text-green-600">+${parseFloat(job.tip_amount).toFixed(2)}</span>
+                          <span className="text-sm font-medium text-green-600">+${displayTip.toFixed(2)}</span>
                         </div>
                       ) : (
                         <button
@@ -5135,13 +5212,9 @@ const JobDetails = () => {
                           }}
                           className="text-sm text-blue-600 hover:text-blue-700"
                         >
-                          Add tip
+                          Add Tip
                         </button>
                       )}
-                      <div className="flex justify-between items-center py-2 border-t border-gray-200">
-                        <span className="text-sm font-medium text-gray-900">Total</span>
-                        <span className="text-sm font-medium text-gray-900">${getEditServiceModalTotal().toFixed(2)}</span>
-                      </div>
                     </div>
                   </div>
                   
@@ -5434,7 +5507,7 @@ const JobDetails = () => {
                     <div className="space-y-3">
                       <div className="flex justify-between">
                         <span className="text-sm text-gray-600">AMOUNT DUE</span>
-                        <span className="font-semibold">${calculateTotalPrice().toFixed(2)}</span>
+                        <span className="font-semibold">${displayServiceTotal.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-sm text-gray-600">DUE BY</span>
@@ -5477,28 +5550,46 @@ const JobDetails = () => {
                     <div className="space-y-2">
                       <div className="flex justify-between text-sm">
                         <span>Subtotal</span>
-                        <span>${((parseFloat(job?.total) || 0) + (parseFloat(job?.discount) || 0)).toFixed(2)}</span>
+                        <span>${subtotalDisplay.toFixed(2)}</span>
                       </div>
-                      {(formData.tip ?? parseFloat(job?.tip_amount) ?? 0) > 0 && (
+                      {jobDiscount > 0 && (
                       <div className="flex justify-between text-sm">
-                        <span>Tip</span>
-                        <span className="text-green-600">${(parseFloat(formData.tip ?? job?.tip_amount ?? 0) || 0).toFixed(2)}</span>
+                        <span>Discount</span>
+                        <span className="text-red-600">-${jobDiscount.toFixed(2)}</span>
                       </div>
                       )}
                       <div className="flex justify-between text-sm">
                         <span>Total</span>
-                        <span>${calculateTotalPrice().toFixed(2)}</span>
+                        <span>${totalAfterDiscount.toFixed(2)}</span>
                       </div>
+                      {jobFees > 0 && (
                       <div className="flex justify-between text-sm">
-                        <span>Total Paid</span>
-                        <span>${effectiveAmountPaid.toFixed(2)}</span>
+                        <span>Fee</span>
+                        <span>${jobFees.toFixed(2)}</span>
                       </div>
+                      )}
+                      {jobTaxes > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span>Taxes</span>
+                        <span>${jobTaxes.toFixed(2)}</span>
+                      </div>
+                      )}
                       <div className="flex justify-between font-semibold border-t pt-2">
                         <span>Total Due</span>
-                        <span className={isPaidOrFree ? 'text-green-600' : ''}>
-                          ${isPaidOrFree ? '0.00' : (job.total_invoice_amount ? job.total_invoice_amount.toFixed(2) : totalPrice.toFixed(2))}
+                        <span className={isPaidOrFree ? 'text-green-600' : 'text-red-600'}>
+                          ${displayTotalDue.toFixed(2)}
                         </span>
                       </div>
+                      <div className="flex justify-between text-sm">
+                        <span>Amount Paid</span>
+                        <span>${effectiveAmountPaid.toFixed(2)}</span>
+                      </div>
+                      {displayTip > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span>Tip</span>
+                        <span className="text-green-600">+${displayTip.toFixed(2)}</span>
+                      </div>
+                      )}
                     </div>
                   </div>
 
@@ -6730,6 +6821,111 @@ const JobDetails = () => {
                           setTimeout(() => setError(''), 3000)
                         } finally {
                           setLoading(false)
+                        }
+                      }}
+                      disabled={loading}
+                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      {loading ? 'Saving...' : 'Add Tip'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Per-Member Tip Modal */}
+        {showMemberTipModal && tipTargetMember && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10000] p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    {parseFloat(tipTargetMember.tip_amount) > 0 ? 'Edit' : 'Add'} Tip for {tipTargetMember.name || tipTargetMember.first_name || 'Team Member'}
+                  </h3>
+                  <button
+                    onClick={() => { setShowMemberTipModal(false); setTipTargetMember(null); setMemberTipInput(''); }}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  {parseFloat(tipTargetMember.tip_amount) > 0 && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                      <p className="text-sm text-green-800">Current tip: <span className="font-semibold">${parseFloat(tipTargetMember.tip_amount).toFixed(2)}</span></p>
+                    </div>
+                  )}
+                  {error && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                      <p className="text-sm text-red-800">{error}</p>
+                    </div>
+                  )}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Tip Amount</label>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm text-gray-500">$</span>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={memberTipInput}
+                        onChange={e => {
+                          const val = e.target.value;
+                          if (val === '' || /^\d*\.?\d{0,2}$/.test(val)) {
+                            setMemberTipInput(val);
+                          }
+                        }}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="0.00"
+                        autoFocus
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex space-x-3 pt-4">
+                    <button
+                      onClick={() => { setShowMemberTipModal(false); setTipTargetMember(null); setMemberTipInput(''); }}
+                      className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={async () => {
+                        const tipVal = parseFloat(memberTipInput) || 0;
+                        if (tipVal <= 0) {
+                          setError('Please enter a valid tip amount');
+                          setTimeout(() => setError(''), 3000);
+                          return;
+                        }
+                        try {
+                          setError('');
+                          setLoading(true);
+                          const prevTip = parseFloat(tipTargetMember.tip_amount) || 0;
+                          const newTip = prevTip + tipVal;
+                          const result = await jobsAPI.updateTeamMemberTip(job.id, tipTargetMember.team_member_id, newTip);
+                          // Update local job state with new per-member tip and job-level tip total
+                          setJob(prev => ({
+                            ...prev,
+                            tip_amount: result.jobTipTotal,
+                            team_assignments: (prev.team_assignments || []).map(ta =>
+                              ta.team_member_id === tipTargetMember.team_member_id
+                                ? { ...ta, tip_amount: newTip }
+                                : ta
+                            )
+                          }));
+                          setSuccessMessage(`Tip added for ${tipTargetMember.name || 'team member'}!`);
+                          setTimeout(() => setSuccessMessage(''), 3000);
+                          setShowMemberTipModal(false);
+                          setTipTargetMember(null);
+                          setMemberTipInput('');
+                        } catch (err) {
+                          console.error('Error saving member tip:', err);
+                          setError('Failed to save tip');
+                          setTimeout(() => setError(''), 3000);
+                        } finally {
+                          setLoading(false);
                         }
                       }}
                       disabled={loading}
