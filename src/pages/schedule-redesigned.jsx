@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
 import Sidebar from "../components/sidebar-collapsible"
-import { teamAPI, territoriesAPI, availabilityAPI, invoicesAPI, notificationAPI, notificationSettingsAPI } from "../services/api"
+import { teamAPI, territoriesAPI, availabilityAPI, invoicesAPI, notificationAPI, notificationSettingsAPI, paymentMethodsAPI } from "../services/api"
 import api, { stripeAPI } from "../services/api"
 import { 
   Plus, 
@@ -165,6 +165,7 @@ const ServiceFlowSchedule = () => {
   const [stripeConnected, setStripeConnected] = useState(false)
   const [manualEmail, setManualEmail] = useState('')
   const [paymentHistory, setPaymentHistory] = useState([])
+  const [customPaymentMethods, setCustomPaymentMethods] = useState([])
   const [paymentFormData, setPaymentFormData] = useState({
     amount: '',
     tipAmount: '',
@@ -689,7 +690,15 @@ const ServiceFlowSchedule = () => {
       setTerritories([])
     }
   }, [user?.id])
-    
+
+  useEffect(() => {
+    if (user?.id) {
+      paymentMethodsAPI.getPaymentMethods().then(methods => {
+        setCustomPaymentMethods(methods || [])
+      }).catch(() => setCustomPaymentMethods([]))
+    }
+  }, [user?.id])
+
     // Helper function to check if a job is assigned to a team member ID
     // IMPORTANT: Checks ALL assignments, not just primary assignee
   // This handles jobs with multiple team members (team_assignments array)
@@ -7505,6 +7514,14 @@ const ServiceFlowSchedule = () => {
                             </span>
                           </div>
                         )}
+                        {parseFloat(selectedJobDetails.incentive_amount || 0) > 0 && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Incentives</span>
+                            <span className="text-sm font-medium text-purple-600" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                              +${parseFloat(selectedJobDetails.incentive_amount).toFixed(2)}
+                            </span>
+                          </div>
+                        )}
                       </div>
                         );
                       })()}
@@ -9223,6 +9240,12 @@ const ServiceFlowSchedule = () => {
                       <span className="text-green-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>+${parseFloat(selectedJobDetails.tip_amount).toFixed(2)}</span>
                     </div>
                   )}
+                  {parseFloat(selectedJobDetails.incentive_amount || 0) > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Incentives</span>
+                      <span className="text-purple-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>+${parseFloat(selectedJobDetails.incentive_amount).toFixed(2)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Total</span>
                     <span className="text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>${calculateTotalPrice().toFixed(2)}</span>
@@ -9306,6 +9329,9 @@ const ServiceFlowSchedule = () => {
                     <option value="check">Check</option>
                     <option value="credit_card">Credit Card</option>
                     <option value="bank_transfer">Bank Transfer</option>
+                    {customPaymentMethods.map(pm => (
+                      <option key={pm.id} value={pm.name}>{pm.name}</option>
+                    ))}
                     <option value="other">Other</option>
                   </select>
                 </div>
