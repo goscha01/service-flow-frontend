@@ -1080,6 +1080,15 @@ export const jobsAPI = {
     } catch (error) {
       throw error;
     }
+  },
+
+  updateTeamMemberIncentive: async (jobId, teamMemberId, incentiveAmount) => {
+    try {
+      const response = await api.put(`/jobs/${jobId}/team-incentive`, { teamMemberId, incentiveAmount });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
   }
 };
 

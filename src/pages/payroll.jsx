@@ -74,20 +74,22 @@ const Payroll = () => {
     if (!payrollData) return
 
     // Create CSV content
-    let csv = 'Team Member,Job Count,Hours Worked,Hourly Rate,Commission %,Hourly Salary,Commission,Total Salary,Payment Method\n'
-    
+    let csv = 'Team Member,Job Count,Hours Worked,Hourly Rate,Commission %,Hourly Salary,Commission,Tips,Incentives,Total Salary,Payment Method\n'
+
     payrollData.teamMembers.forEach(member => {
       const hourlyRate = member.teamMember.hourlyRate ? formatCurrency(member.teamMember.hourlyRate) : 'N/A'
       const commissionPct = member.teamMember.commissionPercentage ? `${member.teamMember.commissionPercentage}%` : 'N/A'
       const paymentMethod = member.paymentMethod || 'none'
-      csv += `"${member.teamMember.name}",${member.jobCount},${member.totalHours},${hourlyRate},${commissionPct},${formatCurrency(member.hourlySalary || 0)},${formatCurrency(member.commissionSalary || 0)},${formatCurrency(member.totalSalary)},${paymentMethod}\n`
+      csv += `"${member.teamMember.name}",${member.jobCount},${member.totalHours},${hourlyRate},${commissionPct},${formatCurrency(member.hourlySalary || 0)},${formatCurrency(member.commissionSalary || 0)},${formatCurrency(member.totalTips || 0)},${formatCurrency(member.totalIncentives || 0)},${formatCurrency(member.totalSalary)},${paymentMethod}\n`
     })
-    
+
     csv += `\nSummary\n`
     csv += `Total Team Members,${payrollData.summary.totalTeamMembers}\n`
     csv += `Total Hours,${payrollData.summary.totalHours}\n`
     csv += `Total Hourly Salary,${formatCurrency(payrollData.summary.totalHourlySalary || 0)}\n`
     csv += `Total Commission,${formatCurrency(payrollData.summary.totalCommission || 0)}\n`
+    csv += `Total Tips,${formatCurrency(payrollData.summary.totalTips || 0)}\n`
+    csv += `Total Incentives,${formatCurrency(payrollData.summary.totalIncentives || 0)}\n`
     csv += `Total Salary,${formatCurrency(payrollData.summary.totalSalary)}\n`
 
     // Download CSV
@@ -201,7 +203,7 @@ const Payroll = () => {
             <>
               <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">Summary</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4">
                   <div className="bg-gray-50 rounded-lg p-4">
                     <div className="flex items-center space-x-2 mb-2">
                       <Users className="w-5 h-5 text-gray-400" />
@@ -229,6 +231,20 @@ const Payroll = () => {
                       <span className="text-sm text-green-600">Commission</span>
                     </div>
                     <p className="text-2xl font-bold text-green-900">{formatCurrency(payrollData.summary.totalCommission || 0)}</p>
+                  </div>
+                  <div className="bg-yellow-50 rounded-lg p-4">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <DollarSign className="w-5 h-5 text-yellow-400" />
+                      <span className="text-sm text-yellow-600">Tips</span>
+                    </div>
+                    <p className="text-2xl font-bold text-yellow-900">{formatCurrency(payrollData.summary.totalTips || 0)}</p>
+                  </div>
+                  <div className="bg-purple-50 rounded-lg p-4">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <DollarSign className="w-5 h-5 text-purple-400" />
+                      <span className="text-sm text-purple-600">Incentives</span>
+                    </div>
+                    <p className="text-2xl font-bold text-purple-900">{formatCurrency(payrollData.summary.totalIncentives || 0)}</p>
                   </div>
                   <div className="bg-gray-50 rounded-lg p-4">
                     <div className="flex items-center space-x-2 mb-2">
@@ -278,6 +294,12 @@ const Payroll = () => {
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Commission
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Tips
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Incentives
                           </th>
                           <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Total Salary
@@ -341,6 +363,12 @@ const Payroll = () => {
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                               {formatCurrency(member.commissionSalary || 0)}
                             </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {formatCurrency(member.totalTips || 0)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {formatCurrency(member.totalIncentives || 0)}
+                            </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 text-right">
                               {formatCurrency(member.totalSalary)}
                             </td>
@@ -360,6 +388,12 @@ const Payroll = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
                             {formatCurrency(payrollData.summary.totalCommission || 0)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                            {formatCurrency(payrollData.summary.totalTips || 0)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                            {formatCurrency(payrollData.summary.totalIncentives || 0)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 text-right">
                             {formatCurrency(payrollData.summary.totalSalary)}
