@@ -30,6 +30,7 @@ const Payroll = () => {
     return toLocalDateString(new Date())
   })
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [selectedMemberId, setSelectedMemberId] = useState('all')
 
   useEffect(() => {
     if (user?.id) {
@@ -70,13 +71,28 @@ const Payroll = () => {
     })
   }
 
+  // Filter team members and recalculate summary
+  const filteredMembers = payrollData?.teamMembers?.filter(
+    m => selectedMemberId === 'all' || String(m.teamMember.id) === String(selectedMemberId)
+  ) || []
+
+  const filteredSummary = payrollData ? (selectedMemberId === 'all' ? payrollData.summary : {
+    totalTeamMembers: filteredMembers.length,
+    totalHours: parseFloat(filteredMembers.reduce((s, m) => s + (m.totalHours || 0), 0).toFixed(2)),
+    totalHourlySalary: parseFloat(filteredMembers.reduce((s, m) => s + (m.hourlySalary || 0), 0).toFixed(2)),
+    totalCommission: parseFloat(filteredMembers.reduce((s, m) => s + (m.commissionSalary || 0), 0).toFixed(2)),
+    totalTips: parseFloat(filteredMembers.reduce((s, m) => s + (m.totalTips || 0), 0).toFixed(2)),
+    totalIncentives: parseFloat(filteredMembers.reduce((s, m) => s + (m.totalIncentives || 0), 0).toFixed(2)),
+    totalSalary: parseFloat(filteredMembers.reduce((s, m) => s + (m.totalSalary || 0), 0).toFixed(2)),
+  }) : null
+
   const handleExport = () => {
     if (!payrollData) return
 
     // Create CSV content
     let csv = 'Team Member,Job Count,Hours Worked,Hourly Rate,Commission %,Hourly Salary,Commission,Tips,Incentives,Total Salary,Payment Method\n'
 
-    payrollData.teamMembers.forEach(member => {
+    filteredMembers.forEach(member => {
       const hourlyRate = member.teamMember.hourlyRate ? formatCurrency(member.teamMember.hourlyRate) : 'N/A'
       const commissionPct = member.teamMember.commissionPercentage ? `${member.teamMember.commissionPercentage}%` : 'N/A'
       const paymentMethod = member.paymentMethod || 'none'
@@ -84,13 +100,13 @@ const Payroll = () => {
     })
 
     csv += `\nSummary\n`
-    csv += `Total Team Members,${payrollData.summary.totalTeamMembers}\n`
-    csv += `Total Hours,${payrollData.summary.totalHours}\n`
-    csv += `Total Hourly Salary,${formatCurrency(payrollData.summary.totalHourlySalary || 0)}\n`
-    csv += `Total Commission,${formatCurrency(payrollData.summary.totalCommission || 0)}\n`
-    csv += `Total Tips,${formatCurrency(payrollData.summary.totalTips || 0)}\n`
-    csv += `Total Incentives,${formatCurrency(payrollData.summary.totalIncentives || 0)}\n`
-    csv += `Total Salary,${formatCurrency(payrollData.summary.totalSalary)}\n`
+    csv += `Total Team Members,${filteredSummary.totalTeamMembers}\n`
+    csv += `Total Hours,${filteredSummary.totalHours}\n`
+    csv += `Total Hourly Salary,${formatCurrency(filteredSummary.totalHourlySalary || 0)}\n`
+    csv += `Total Commission,${formatCurrency(filteredSummary.totalCommission || 0)}\n`
+    csv += `Total Tips,${formatCurrency(filteredSummary.totalTips || 0)}\n`
+    csv += `Total Incentives,${formatCurrency(filteredSummary.totalIncentives || 0)}\n`
+    csv += `Total Salary,${formatCurrency(filteredSummary.totalSalary)}\n`
 
     // Download CSV
     const blob = new Blob([csv], { type: 'text/csv' })
@@ -143,7 +159,7 @@ const Payroll = () => {
               </div>
               <button
                 onClick={handleExport}
-                disabled={!payrollData || payrollData.teamMembers.length === 0}
+                disabled={!payrollData || filteredMembers.length === 0}
                 className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Download className="w-4 h-4 mr-2" />
@@ -151,14 +167,14 @@ const Payroll = () => {
               </button>
             </div>
 
-            {/* Date Range Filter */}
+            {/* Filters */}
             <div className="bg-white rounded-lg border border-gray-200 p-4">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0 sm:space-x-4">
                 <div className="flex items-center space-x-2">
                   <Filter className="w-4 h-4 text-gray-400" />
-                  <span className="text-sm font-medium text-gray-700">Date Range:</span>
+                  <span className="text-sm font-medium text-gray-700">Filters:</span>
                 </div>
-                <div className="flex items-center space-x-3">
+                <div className="flex flex-wrap items-center gap-3">
                   <div className="flex items-center space-x-2">
                     <label className="text-sm text-gray-600">From:</label>
                     <input
@@ -176,6 +192,21 @@ const Payroll = () => {
                       onChange={(e) => setEndDate(e.target.value)}
                       className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <label className="text-sm text-gray-600">Member:</label>
+                    <select
+                      value={selectedMemberId}
+                      onChange={(e) => setSelectedMemberId(e.target.value)}
+                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    >
+                      <option value="all">All Members</option>
+                      {(payrollData?.teamMembers || []).map(m => (
+                        <option key={m.teamMember.id} value={m.teamMember.id}>
+                          {m.teamMember.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <button
                     onClick={fetchPayrollData}
@@ -209,55 +240,55 @@ const Payroll = () => {
                       <Users className="w-5 h-5 text-gray-400" />
                       <span className="text-sm text-gray-600">Team Members</span>
                     </div>
-                    <p className="text-2xl font-bold text-gray-900">{payrollData.summary.totalTeamMembers}</p>
+                    <p className="text-2xl font-bold text-gray-900">{filteredSummary.totalTeamMembers}</p>
                   </div>
                   <div className="bg-gray-50 rounded-lg p-4">
                     <div className="flex items-center space-x-2 mb-2">
                       <Clock className="w-5 h-5 text-gray-400" />
                       <span className="text-sm text-gray-600">Total Hours</span>
                     </div>
-                    <p className="text-2xl font-bold text-gray-900">{payrollData.summary.totalHours.toFixed(2)}</p>
+                    <p className="text-2xl font-bold text-gray-900">{filteredSummary.totalHours.toFixed(2)}</p>
                   </div>
                   <div className="bg-blue-50 rounded-lg p-4">
                     <div className="flex items-center space-x-2 mb-2">
                       <DollarSign className="w-5 h-5 text-blue-400" />
                       <span className="text-sm text-blue-600">Hourly Salary</span>
                     </div>
-                    <p className="text-2xl font-bold text-blue-900">{formatCurrency(payrollData.summary.totalHourlySalary || 0)}</p>
+                    <p className="text-2xl font-bold text-blue-900">{formatCurrency(filteredSummary.totalHourlySalary || 0)}</p>
                   </div>
                   <div className="bg-green-50 rounded-lg p-4">
                     <div className="flex items-center space-x-2 mb-2">
                       <DollarSign className="w-5 h-5 text-green-400" />
                       <span className="text-sm text-green-600">Commission</span>
                     </div>
-                    <p className="text-2xl font-bold text-green-900">{formatCurrency(payrollData.summary.totalCommission || 0)}</p>
+                    <p className="text-2xl font-bold text-green-900">{formatCurrency(filteredSummary.totalCommission || 0)}</p>
                   </div>
                   <div className="bg-yellow-50 rounded-lg p-4">
                     <div className="flex items-center space-x-2 mb-2">
                       <DollarSign className="w-5 h-5 text-yellow-400" />
                       <span className="text-sm text-yellow-600">Tips</span>
                     </div>
-                    <p className="text-2xl font-bold text-yellow-900">{formatCurrency(payrollData.summary.totalTips || 0)}</p>
+                    <p className="text-2xl font-bold text-yellow-900">{formatCurrency(filteredSummary.totalTips || 0)}</p>
                   </div>
                   <div className="bg-purple-50 rounded-lg p-4">
                     <div className="flex items-center space-x-2 mb-2">
                       <DollarSign className="w-5 h-5 text-purple-400" />
                       <span className="text-sm text-purple-600">Incentives</span>
                     </div>
-                    <p className="text-2xl font-bold text-purple-900">{formatCurrency(payrollData.summary.totalIncentives || 0)}</p>
+                    <p className="text-2xl font-bold text-purple-900">{formatCurrency(filteredSummary.totalIncentives || 0)}</p>
                   </div>
                   <div className="bg-gray-50 rounded-lg p-4">
                     <div className="flex items-center space-x-2 mb-2">
                       <DollarSign className="w-5 h-5 text-gray-400" />
                       <span className="text-sm text-gray-600">Total Salary</span>
                     </div>
-                    <p className="text-2xl font-bold text-gray-900">{formatCurrency(payrollData.summary.totalSalary)}</p>
+                    <p className="text-2xl font-bold text-gray-900">{formatCurrency(filteredSummary.totalSalary)}</p>
                   </div>
                 </div>
               </div>
 
               {/* Team Members List */}
-              {payrollData.teamMembers.length === 0 ? (
+              {filteredMembers.length === 0 ? (
                 <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
                   <Users className="w-12 h-12 text-gray-300 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-gray-900 mb-2">No Team Members</h3>
@@ -307,7 +338,7 @@ const Payroll = () => {
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {payrollData.teamMembers.map((member) => (
+                        {filteredMembers.map((member) => (
                           <tr key={member.teamMember.id} className="hover:bg-gray-50">
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex items-center">
@@ -381,22 +412,22 @@ const Payroll = () => {
                             Totals:
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                            {payrollData.summary.totalHours.toFixed(2)} hrs
+                            {filteredSummary.totalHours.toFixed(2)} hrs
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                            {formatCurrency(payrollData.summary.totalHourlySalary || 0)}
+                            {formatCurrency(filteredSummary.totalHourlySalary || 0)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                            {formatCurrency(payrollData.summary.totalCommission || 0)}
+                            {formatCurrency(filteredSummary.totalCommission || 0)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                            {formatCurrency(payrollData.summary.totalTips || 0)}
+                            {formatCurrency(filteredSummary.totalTips || 0)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                            {formatCurrency(payrollData.summary.totalIncentives || 0)}
+                            {formatCurrency(filteredSummary.totalIncentives || 0)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 text-right">
-                            {formatCurrency(payrollData.summary.totalSalary)}
+                            {formatCurrency(filteredSummary.totalSalary)}
                           </td>
                         </tr>
                       </tfoot>
