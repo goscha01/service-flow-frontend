@@ -224,7 +224,7 @@ const JobDetails = () => {
         service_modifiers: job.service_modifiers
       });
       
-      // Use initial base price (service_price) for the customize field and calculations — not job.total
+      // Use initial base price (service_price) for the customize field and calculations -- not job.total
       const servicePrice = parseFloat(job.service_price) || 0;
       const discount = parseFloat(job.discount) || 0;
       const additionalFees = parseFloat(job.additional_fees) || 0;
@@ -1920,7 +1920,7 @@ const JobDetails = () => {
     return Math.max(0, subtotal - discount + fees + taxes);
   }
 
-  // $0 jobs are considered free — show as paid (no amount due)
+  // $0 jobs are considered free -- show as paid (no amount due)
   const totalPrice = calculateTotalPrice();
   const jobTotal = parseFloat(job?.total) || 0;          // job.total = subtotal - discount + fees + taxes (no tip)
   const jobDiscount = parseFloat(job?.discount) || 0;
@@ -2069,7 +2069,7 @@ const JobDetails = () => {
     return 'Customer'
   }
 
-  // Job is late only when the scheduled END time (start + duration) has passed — not when start time has passed.
+  // Job is late only when the scheduled END time (start + duration) has passed -- not when start time has passed.
   // e.g. 5pm job with 2h duration is late only after 7pm, not at 5:01pm.
   const isJobLate = () => {
     if (!job?.scheduled_date) return false
@@ -2691,151 +2691,153 @@ const JobDetails = () => {
               <p className="text-sm text-gray-900">Skills needed: {job?.required_skills && job.required_skills.length > 0 ? job.required_skills.join(', ') : 'No skill tags required'}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-600 mb-2">ASSIGNED</p>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs text-gray-600">ASSIGNED</p>
+                {canEditJobDetails(user) && (
+                  <button
+                    onClick={() => setShowAssignModal(true)}
+                    className="text-sm text-blue-600 font-medium"
+                  >
+                    Assign
+                  </button>
+                )}
+              </div>
               {(() => {
-                // First, try to get from team_assignments array (multiple team members support)
-                let assignedMember = null;
-                if (job?.team_assignments && Array.isArray(job.team_assignments) && job.team_assignments.length > 0) {
-                  // Get the primary team member (first one or one marked as primary)
-                  const primaryAssignment = job.team_assignments.find(ta => ta.is_primary) || job.team_assignments[0];
-                  if (primaryAssignment) {
-                    // Try nested team_members object first (from backend relation)
-                    assignedMember = primaryAssignment.team_members || null;
-                    // If not found, find in teamMembers array
-                    if (!assignedMember && primaryAssignment.team_member_id) {
-                      assignedMember = teamMembers.find(m => Number(m.id) === Number(primaryAssignment.team_member_id)) || null;
-                    }
-                  }
-                }
-                
-                // Fallback: try direct assignment fields
-                if (!assignedMember) {
-                  assignedMember = teamMembers.find(m => 
-                    Number(m.id) === Number(job?.assigned_team_member_id) || 
-                    Number(m.id) === Number(job?.team_member_id) ||
-                    (job?.assigned_team_member && Number(m.id) === Number(job.assigned_team_member.id))
-                  ) || null;
-                }
-                
-                // Also check if job has team_members relation directly
-                if (!assignedMember && job?.team_members) {
-                  assignedMember = job.team_members;
-                }
+                const teamAssignments = job?.team_assignments || [];
+
                 const getTeamMemberInitials = (member) => {
                   if (!member) return '?'
                   const firstName = member.first_name || member.name || ''
                   const lastName = member.last_name || ''
-                  if (firstName && lastName) {
-                    return (firstName[0] + lastName[0]).toUpperCase()
-                  }
-                  if (firstName) {
-                    return firstName.substring(0, 2).toUpperCase()
-                  }
+                  if (firstName && lastName) return (firstName[0] + lastName[0]).toUpperCase()
+                  if (firstName) return firstName.substring(0, 2).toUpperCase()
                   return '?'
                 }
                 const getTeamMemberName = (member) => {
                   if (!member) return ''
                   if (member.name) return member.name
-                  return `${member.first_name || ''} ${member.last_name || ''}`.trim()
+                  const fullName = `${member.first_name || ''} ${member.last_name || ''}`.trim()
+                  return fullName || member.email || ''
                 }
-                
-                // Resolve full member from teamMembers so we have availability (for driving time)
-                const fullAssignedMember = assignedMember && assignedMember.id
-                  ? teamMembers.find(m => Number(m.id) === Number(assignedMember.id)) || assignedMember
-                  : assignedMember
-                const drivingMin = fullAssignedMember
-                  ? getMemberDrivingTime(fullAssignedMember, companyDrivingTimeMinutes)
-                  : 0
+
+                if (teamAssignments.length > 0) {
+                  return (
+                    <div className="space-y-3">
+                      {teamAssignments.map((assignment, index) => {
+                        let member = assignment.team_members || null;
+                        if (!member && assignment.team_member_id) {
+                          member = teamMembers.find(m => Number(m.id) === Number(assignment.team_member_id)) || null;
+                        }
+                        // Build name from assignment fields as last fallback
+                        if (!member && (assignment.first_name || assignment.last_name)) {
+                          member = { first_name: assignment.first_name, last_name: assignment.last_name, email: assignment.email };
+                        }
+                        const memberName = member ? getTeamMemberName(member) : 'Unknown Team Member';
+
+                        // Resolve full member for driving time
+                        const fullMember = member && member.id
+                          ? teamMembers.find(m => Number(m.id) === Number(member.id)) || member
+                          : (assignment.team_member_id ? teamMembers.find(m => Number(m.id) === Number(assignment.team_member_id)) || member : member);
+                        const drivingMin = fullMember ? getMemberDrivingTime(fullMember, companyDrivingTimeMinutes) : 0;
+
+                        const memberTip = parseFloat(assignment.tip_amount) || 0;
+                        const memberIncentive = parseFloat(assignment.incentive_amount) || 0;
+
+                        return (
+                          <div key={assignment.team_member_id || index} className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-2 flex-1 min-w-0">
+                                <div className="relative flex-shrink-0">
+                                  <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                                    <span className="text-blue-600 font-semibold text-xs">
+                                      {getTeamMemberInitials(member)}
+                                    </span>
+                                  </div>
+                                  {assignment.is_primary && (
+                                    <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-yellow-400 rounded-full flex items-center justify-center border border-white">
+                                      <Star className="w-2 h-2 text-white" fill="white" />
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="flex items-center space-x-1.5 min-w-0">
+                                  <p className="text-sm text-gray-900 truncate" title={memberName}>
+                                    {memberName.length > 22 ? `${memberName.substring(0, 22)}...` : memberName}
+                                  </p>
+                                  {assignment.is_primary && (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-yellow-100 text-yellow-800 rounded-full flex-shrink-0">
+                                      Primary
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            {drivingMin > 0 && (
+                              <p className="text-xs text-amber-700 flex items-center gap-1 ml-10">
+                                <Clock className="w-3.5 h-3.5 flex-shrink-0" />
+                                Travel time: {drivingMin} min before & after — blocks this cleaner's schedule
+                              </p>
+                            )}
+                            <div className="flex items-center gap-2 flex-wrap ml-10">
+                              {memberTip > 0 && (
+                                <span className="text-xs text-green-600 font-medium">Tip: ${memberTip.toFixed(2)}</span>
+                              )}
+                              <button
+                                onClick={() => {
+                                  setTipTargetMember({ ...assignment, name: memberName });
+                                  setMemberTipInput(memberTip > 0 ? memberTip.toFixed(2) : '');
+                                  setShowMemberTipModal(true);
+                                }}
+                                className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                              >
+                                {memberTip > 0 ? 'Edit Tip' : 'Add Tip'}
+                              </button>
+                              {memberIncentive > 0 && (
+                                <span className="text-xs text-purple-600 font-medium">Incentive: ${memberIncentive.toFixed(2)}</span>
+                              )}
+                              <button
+                                onClick={() => {
+                                  setIncentiveTargetMember({ ...assignment, name: memberName });
+                                  setMemberIncentiveInput(memberIncentive > 0 ? memberIncentive.toFixed(2) : '');
+                                  setShowMemberIncentiveModal(true);
+                                }}
+                                className="text-xs text-purple-600 hover:text-purple-700 font-medium"
+                              >
+                                {memberIncentive > 0 ? 'Edit Incentive' : 'Add Incentive'}
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                }
+
+                // Fallback: single member from direct assignment fields
+                let assignedMember = null;
+                if (!assignedMember) {
+                  assignedMember = teamMembers.find(m =>
+                    Number(m.id) === Number(job?.assigned_team_member_id) ||
+                    Number(m.id) === Number(job?.team_member_id) ||
+                    (job?.assigned_team_member && Number(m.id) === Number(job.assigned_team_member.id))
+                  ) || null;
+                }
+                if (!assignedMember && job?.team_members) {
+                  assignedMember = job.team_members;
+                }
+                if (!assignedMember && job?.assigned_team_member) {
+                  assignedMember = job.assigned_team_member;
+                }
 
                 return assignedMember ? (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2 flex-1 min-w-0">
-                        <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                          <span className="text-blue-600 font-semibold text-xs">
-                            {getTeamMemberInitials(assignedMember)}
-                          </span>
-                        </div>
-                        <p className="text-sm text-gray-900 truncate flex-1 min-w-0" title={getTeamMemberName(assignedMember)}>
-                          {(() => {
-                            const name = getTeamMemberName(assignedMember);
-                            return name.length > 25 ? `${name.substring(0, 25)}...` : name;
-                          })()}
-                        </p>
-                      </div>
-                      {canEditJobDetails(user) && (
-                      <div className="flex items-center space-x-2">
-                        <button 
-                          onClick={() => setShowAssignModal(true)}
-                          className="text-sm text-blue-600 font-medium"
-                        >
-                          Assign more
-                        </button>
-                        <button 
-                          onClick={async () => {
-                            try {
-                              setLoading(true)
-                              await jobsAPI.update(job.id, { assigned_team_member_id: null })
-                              setJob(prev => ({ ...prev, assigned_team_member_id: null }))
-                              setSuccessMessage('Team member unassigned')
-                              setTimeout(() => setSuccessMessage(''), 3000)
-                            } catch (error) {
-                              setError('Failed to unassign team member')
-                            } finally {
-                              setLoading(false)
-                            }
-                          }}
-                          className="p-1 hover:bg-gray-100 rounded"
-                        >
-                          <X className="w-4 h-4 text-gray-600" />
-                        </button>
-                      </div>
-                    )}
+                  <div className="flex items-center space-x-2">
+                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                      <span className="text-blue-600 font-semibold text-xs">
+                        {getTeamMemberInitials(assignedMember)}
+                      </span>
                     </div>
-                    {drivingMin > 0 && (
-                      <p className="text-xs text-amber-700 flex items-center gap-1">
-                        <Clock className="w-3.5 h-3.5 flex-shrink-0" />
-                        Travel time: {drivingMin} min before & after — blocks this cleaner’s schedule
-                      </p>
-                    )}
-                    {(() => {
-                      const primaryAssignmentData = job.team_assignments?.find(ta => ta.is_primary) || job.team_assignments?.[0];
-                      if (!primaryAssignmentData) return null;
-                      const memberTip = parseFloat(primaryAssignmentData.tip_amount) || 0;
-                      const memberIncentive = parseFloat(primaryAssignmentData.incentive_amount) || 0;
-                      return (
-                        <div className="flex items-center gap-2 flex-wrap">
-                          {memberTip > 0 && (
-                            <span className="text-xs text-green-600 font-medium">Tip: ${memberTip.toFixed(2)}</span>
-                          )}
-                          <button
-                            onClick={() => {
-                              setTipTargetMember({ ...primaryAssignmentData, name: getTeamMemberName(assignedMember) });
-                              const curTip = parseFloat(primaryAssignmentData.tip_amount) || 0;
-                              setMemberTipInput(curTip > 0 ? curTip.toFixed(2) : '');
-                              setShowMemberTipModal(true);
-                            }}
-                            className="text-xs text-blue-600 hover:text-blue-700 font-medium"
-                          >
-                            {memberTip > 0 ? 'Edit Tip' : 'Add Tip'}
-                          </button>
-                          {memberIncentive > 0 && (
-                            <span className="text-xs text-purple-600 font-medium">Incentive: ${memberIncentive.toFixed(2)}</span>
-                          )}
-                          <button
-                            onClick={() => {
-                              setIncentiveTargetMember({ ...primaryAssignmentData, name: getTeamMemberName(assignedMember) });
-                              const curIncentive = parseFloat(primaryAssignmentData.incentive_amount) || 0;
-                              setMemberIncentiveInput(curIncentive > 0 ? curIncentive.toFixed(2) : '');
-                              setShowMemberIncentiveModal(true);
-                            }}
-                            className="text-xs text-purple-600 hover:text-purple-700 font-medium"
-                          >
-                            {memberIncentive > 0 ? 'Edit Incentive' : 'Add Incentive'}
-                          </button>
-                        </div>
-                      );
-                    })()}
+                    <p className="text-sm text-gray-900 truncate flex-1 min-w-0" title={getTeamMemberName(assignedMember)}>
+                      {getTeamMemberName(assignedMember)}
+                    </p>
                   </div>
                 ) : (
                   canEditJobDetails(user) && (
@@ -3811,7 +3813,7 @@ const JobDetails = () => {
                          'No Invoice Sent'}
                       </p>
                       <p className="text-xs text-gray-500">
-                        {isPaidOrFree ? (displayServiceTotal === 0 ? 'Free — no payment required' : 'Customer has paid the invoice') :
+                        {isPaidOrFree ? (displayServiceTotal === 0 ? 'Free -- no payment required' : 'Customer has paid the invoice') :
                          job.invoice_status === 'invoiced' || job.invoice_status === 'sent' ? 'Invoice sent to customer, awaiting payment' : 
                          'Invoice not yet sent to customer'}
                       </p>
@@ -4261,13 +4263,12 @@ const JobDetails = () => {
                                 }
                                 
                                 // Build member name from available data
-                                const memberName = member 
-                                  ? `${member.first_name || ''} ${member.last_name || ''}`.trim()
-                                  : (assignment.team_members?.first_name && assignment.team_members?.last_name
-                                    ? `${assignment.team_members.first_name} ${assignment.team_members.last_name}`.trim()
-                                    : (assignment.first_name && assignment.last_name 
-                                      ? `${assignment.first_name} ${assignment.last_name}`.trim()
-                                      : 'Unknown Team Member'));
+                                const memberName =
+                                  (member && (member.first_name || member.last_name))
+                                    ? `${member.first_name || ''} ${member.last_name || ''}`.trim()
+                                    : (assignment.first_name || assignment.last_name)
+                                      ? `${assignment.first_name || ''} ${assignment.last_name || ''}`.trim()
+                                      : (member?.email || assignment.email || 'Unknown Team Member');
                                 const memberEmail = member?.email || assignment.email || '';
                                 
                                 return (
