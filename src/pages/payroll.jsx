@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import React, { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import { ChevronLeft, Calendar, DollarSign, Clock, Users, Download, Filter, AlertCircle, CheckCircle } from "lucide-react"
+import { ChevronLeft, Calendar, DollarSign, Clock, Users, Download, Filter, AlertCircle, CheckCircle, ChevronDown, ChevronRight } from "lucide-react"
 import { payrollAPI, teamAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
 import Sidebar from "../components/sidebar"
@@ -11,7 +11,8 @@ import MobileHeader from "../components/mobile-header"
 const Payroll = () => {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(true)  // initial full-page load
+  const [refreshing, setRefreshing] = useState(false)  // subsequent fetches
   const [payrollData, setPayrollData] = useState(null)
   const [error, setError] = useState("")
   // Use local date strings (YYYY-MM-DD) so date range isn't off by one due to UTC
@@ -31,18 +32,24 @@ const Payroll = () => {
   })
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [selectedMemberId, setSelectedMemberId] = useState('all')
+  const [expandedMembers, setExpandedMembers] = useState(new Set())
 
   useEffect(() => {
     if (user?.id) {
       fetchPayrollData()
     }
-  }, [user?.id, startDate, endDate])
+  }, [user?.id])
 
   const fetchPayrollData = async () => {
     if (!user?.id) return
 
     try {
-      setLoading(true)
+      // Use full-page loading only on first load, subtle indicator for subsequent
+      if (!payrollData) {
+        setLoading(true)
+      } else {
+        setRefreshing(true)
+      }
       setError("")
       const data = await payrollAPI.getPayroll(startDate, endDate)
       setPayrollData(data)
@@ -51,6 +58,7 @@ const Payroll = () => {
       setError(error.response?.data?.error || 'Failed to load payroll data')
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
   }
 
@@ -85,6 +93,18 @@ const Payroll = () => {
     totalIncentives: parseFloat(filteredMembers.reduce((s, m) => s + (m.totalIncentives || 0), 0).toFixed(2)),
     totalSalary: parseFloat(filteredMembers.reduce((s, m) => s + (m.totalSalary || 0), 0).toFixed(2)),
   }) : null
+
+  const toggleExpanded = (memberId) => {
+    setExpandedMembers(prev => {
+      const next = new Set(prev)
+      if (next.has(memberId)) {
+        next.delete(memberId)
+      } else {
+        next.add(memberId)
+      }
+      return next
+    })
+  }
 
   const handleExport = () => {
     if (!payrollData) return
@@ -210,8 +230,10 @@ const Payroll = () => {
                   </div>
                   <button
                     onClick={fetchPayrollData}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
+                    disabled={refreshing}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   >
+                    {refreshing && <div className="animate-spin rounded-full h-3 w-3 border-2 border-white border-t-transparent"></div>}
                     Apply
                   </button>
                 </div>
@@ -231,7 +253,7 @@ const Payroll = () => {
 
           {/* Summary Card */}
           {payrollData && (
-            <>
+            <div className={`transition-opacity duration-200 ${refreshing ? 'opacity-50 pointer-events-none' : ''}`}>
               <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">Summary</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4">
@@ -338,8 +360,11 @@ const Payroll = () => {
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {filteredMembers.map((member) => (
-                          <tr key={member.teamMember.id} className="hover:bg-gray-50">
+                        {filteredMembers.map((member) => {
+                          const isExpanded = expandedMembers.has(member.teamMember.id)
+                          return (
+                          <React.Fragment key={member.teamMember.id}>
+                          <tr className="hover:bg-gray-50 cursor-pointer" onClick={() => toggleExpanded(member.teamMember.id)}>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex items-center">
                                 <div className="flex-shrink-0 h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
@@ -348,14 +373,15 @@ const Payroll = () => {
                                   </span>
                                 </div>
                                 <div className="ml-4">
-                                  <div className="text-sm font-medium text-gray-900">
+                                  <div className="text-sm font-medium text-gray-900 flex items-center gap-1">
+                                    {isExpanded ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
                                     {member.teamMember.name}
                                   </div>
                                   <button
-                                    onClick={() => navigate(`/team/${member.teamMember.id}`)}
+                                    onClick={(e) => { e.stopPropagation(); toggleExpanded(member.teamMember.id) }}
                                     className="text-xs text-blue-600 hover:text-blue-700"
                                   >
-                                    View Details
+                                    {isExpanded ? 'Hide Details' : 'View Details'}
                                   </button>
                                 </div>
                               </div>
@@ -376,7 +402,7 @@ const Payroll = () => {
                                   <div className="space-y-1">
                                     <span className="text-gray-400 italic text-xs">Not set</span>
                                     <div className="text-xs text-orange-600">
-                                      ⚠️ Set hourly rate or commission in team member settings
+                                      Set rate in team settings
                                     </div>
                                   </div>
                                 )}
@@ -404,7 +430,59 @@ const Payroll = () => {
                               {formatCurrency(member.totalSalary)}
                             </td>
                           </tr>
-                        ))}
+                          {isExpanded && member.jobs && member.jobs.length > 0 && (
+                            <tr>
+                              <td colSpan="9" className="px-0 py-0">
+                                <div className="bg-gray-50 border-t border-b border-gray-200 px-6 py-3">
+                                  <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">Job Breakdown</h4>
+                                  <div className="overflow-x-auto">
+                                    <table className="min-w-full text-xs">
+                                      <thead>
+                                        <tr className="text-gray-500 uppercase">
+                                          <th className="text-left py-1 pr-4 font-medium">Date</th>
+                                          <th className="text-left py-1 pr-4 font-medium">Service</th>
+                                          <th className="text-left py-1 pr-4 font-medium">Status</th>
+                                          <th className="text-right py-1 pr-4 font-medium">Hours</th>
+                                          <th className="text-right py-1 pr-4 font-medium">Revenue</th>
+                                          <th className="text-right py-1 pr-4 font-medium">Hourly</th>
+                                          <th className="text-right py-1 pr-4 font-medium">Commission</th>
+                                          <th className="text-right py-1 pr-4 font-medium">Tip</th>
+                                          <th className="text-right py-1 font-medium">Incentive</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {member.jobs.map(job => (
+                                          <tr key={job.id} className="border-t border-gray-200 hover:bg-gray-100 cursor-pointer" onClick={(e) => { e.stopPropagation(); navigate(`/job/${job.id}`) }}>
+                                            <td className="py-2 pr-4 text-gray-700">{formatDate(job.scheduledDate)}</td>
+                                            <td className="py-2 pr-4 text-gray-900 font-medium">{job.serviceName}</td>
+                                            <td className="py-2 pr-4">
+                                              <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
+                                                job.status === 'completed' ? 'bg-green-100 text-green-700' :
+                                                job.status === 'in-progress' ? 'bg-blue-100 text-blue-700' :
+                                                job.status === 'scheduled' ? 'bg-yellow-100 text-yellow-700' :
+                                                'bg-gray-100 text-gray-600'
+                                              }`}>
+                                                {job.status}
+                                              </span>
+                                            </td>
+                                            <td className="py-2 pr-4 text-right text-gray-700">{job.hours.toFixed(2)}</td>
+                                            <td className="py-2 pr-4 text-right text-gray-700">{formatCurrency(job.revenue)}</td>
+                                            <td className="py-2 pr-4 text-right text-gray-700">{formatCurrency(job.hourlySalary)}</td>
+                                            <td className="py-2 pr-4 text-right text-gray-700">{formatCurrency(job.commission)}</td>
+                                            <td className="py-2 pr-4 text-right text-gray-700">{job.tip > 0 ? formatCurrency(job.tip) : '-'}</td>
+                                            <td className="py-2 text-right text-gray-700">{job.incentive > 0 ? formatCurrency(job.incentive) : '-'}</td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                          </React.Fragment>
+                          )
+                        })}
                       </tbody>
                       <tfoot className="bg-gray-50">
                         <tr>
@@ -435,7 +513,7 @@ const Payroll = () => {
                   </div>
                 </div>
               )}
-            </>
+            </div>
           )}
         </div>
       </div>

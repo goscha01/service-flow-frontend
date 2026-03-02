@@ -264,45 +264,43 @@ const ServiceFlowJobs = () => {
       let dateRangeForAPI = filters.dateRange
       if (filters.dateFrom || filters.dateTo) {
         // Use the date range picker values
-        dateRangeForAPI = filters.dateFrom && filters.dateTo 
+        dateRangeForAPI = filters.dateFrom && filters.dateTo
           ? `${filters.dateFrom} to ${filters.dateTo}`
           : filters.dateFrom || filters.dateTo
       }
 
-      // If "Soonest" sort is selected on "all" tab, filter for future jobs (today, tomorrow, and so on)
-      // This ensures users see upcoming jobs sorted by soonest, not past jobs
-      if (filters.sortBy === 'scheduled_date' && filters.sortOrder === 'ASC' && activeTab === 'all' && !dateFilter) {
-        dateFilter = "future" // Show today, tomorrow, and all future jobs
+      // When user is actively searching, bypass all tab/sort filters to show all matching results
+      if (!filters.search) {
+        switch (activeTab) {
+          case "upcoming":
+            statusFilter = "confirmed,in_progress"
+            dateFilter = "future" // Jobs scheduled for today and future
+            break
+          case "past":
+            // For past tab, don't filter by status - show all past jobs regardless of status
+            statusFilter = ""
+            dateFilter = "past" // Jobs before today (yesterday and earlier)
+            break
+          case "complete":
+            statusFilter = "completed"
+            break
+          case "incomplete":
+            statusFilter = "confirmed,in_progress"
+            break
+          case "canceled":
+            statusFilter = "cancelled"
+            break
+          case "daterange":
+            // Date range will be handled by filters.dateRange (already set above)
+            statusFilter = ""
+            break
+          case "all":
+          default:
+            statusFilter = ""
+            break
+        }
       }
-
-      switch (activeTab) {
-        case "upcoming":
-          statusFilter = "confirmed,in_progress"
-          dateFilter = "future" // Jobs scheduled for today and future
-          break
-        case "past":
-          // For past tab, don't filter by status - show all past jobs regardless of status
-          statusFilter = ""
-          dateFilter = "past" // Jobs before today (yesterday and earlier)
-          break
-        case "complete":
-          statusFilter = "completed"
-          break
-        case "incomplete":
-          statusFilter = "confirmed,in_progress"
-          break
-        case "canceled":
-          statusFilter = "cancelled"
-          break
-        case "daterange":
-          // Date range will be handled by filters.dateRange (already set above)
-          statusFilter = ""
-          break
-        case "all":
-        default:
-          statusFilter = ""
-          break
-      }
+      // else: search is active, statusFilter and dateFilter stay empty to show all matching results
       
       // Call jobsAPI with individual parameters
       const response = await jobsAPI.getAll(
