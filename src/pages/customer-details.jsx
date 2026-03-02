@@ -194,7 +194,11 @@ const CustomerDetails = () => {
         job.status !== 'completed'
       )
     } else if (jobFilter === "past") {
-      return jobs.filter(job => job.status === 'completed')
+      // Show completed jobs AND jobs with past dates (not cancelled)
+      return jobs.filter(job =>
+        job.status === 'completed' ||
+        (new Date(job.scheduled_date) < now && job.status !== 'cancelled')
+      )
     } else if (jobFilter === "canceled") {
       return jobs.filter(job => job.status === 'cancelled')
     }
@@ -208,7 +212,11 @@ const CustomerDetails = () => {
            job.status !== 'completed'
   }).length
 
-  const pastCount = jobs.filter(job => job.status === 'completed').length
+  const pastCount = jobs.filter(job => {
+    const now = new Date()
+    return job.status === 'completed' ||
+           (new Date(job.scheduled_date) < now && job.status !== 'cancelled')
+  }).length
   const canceledCount = jobs.filter(job => job.status === 'cancelled').length
 
   // Format job date for calendar display
@@ -446,6 +454,14 @@ const CustomerDetails = () => {
                     </div>
                     <p className="text-sm text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                       {customer.created_at ? new Date(customer.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'November, 2025'}
+                    </p>
+                    <div className="flex items-center justify-between mt-3">
+                      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                        SOURCE
+                      </h3>
+                    </div>
+                    <p className="text-sm text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                      {customer.source || customer.customer_source || 'No source'}
                     </p>
                   </div>
 

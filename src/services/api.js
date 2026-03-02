@@ -32,7 +32,10 @@ api.interceptors.response.use(
     return response;
   },
   async (error) => {
-    const config = error.config;
+    const config = error?.config;
+    if (!config) {
+      return Promise.reject(error);
+    }
     
     // Handle 429 (Too Many Requests) with exponential backoff
     if (error.response?.status === 429) {
@@ -893,6 +896,15 @@ export const jobsAPI = {
     }
   },
 
+  updateRecurringFrequency: async (id, data) => {
+    try {
+      const response = await api.put(`/jobs/${id}/recurring-frequency`, data);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
   duplicate: async (id, data) => {
     try {
       const response = await api.post(`/jobs/${id}/duplicate`, data);
@@ -995,11 +1007,12 @@ export const jobsAPI = {
     }
   },
 
-  assignMultipleTeamMembers: async (jobId, teamMemberIds, primaryMemberId) => {
+  assignMultipleTeamMembers: async (jobId, teamMemberIds, primaryMemberId, forceBook = false) => {
     try {
-      const response = await api.post(`/jobs/${jobId}/assign-multiple`, { 
-        teamMemberIds, 
-        primaryMemberId 
+      const response = await api.post(`/jobs/${jobId}/assign-multiple`, {
+        teamMemberIds,
+        primaryMemberId,
+        forceBook
       });
       return response.data;
     } catch (error) {
@@ -1044,15 +1057,34 @@ export const jobsAPI = {
     }
   },
 
-  getAvailableSlots: async ({ date, duration, workerId, serviceId }) => {
+  getAvailableSlots: async ({ date, duration, workerId, serviceId, customerAddress }) => {
     try {
       const params = new URLSearchParams();
       if (date) params.append('date', date);
       if (duration) params.append('duration', duration);
       if (workerId) params.append('workerId', workerId);
       if (serviceId) params.append('serviceId', serviceId);
-      
+      if (customerAddress) params.append('customerAddress', customerAddress);
+
       const response = await api.get(`/jobs/available-slots?${params.toString()}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  updateTeamMemberTip: async (jobId, teamMemberId, tipAmount) => {
+    try {
+      const response = await api.put(`/jobs/${jobId}/team-tip`, { teamMemberId, tipAmount });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  updateTeamMemberIncentive: async (jobId, teamMemberId, incentiveAmount) => {
+    try {
+      const response = await api.put(`/jobs/${jobId}/team-incentive`, { teamMemberId, incentiveAmount });
       return response.data;
     } catch (error) {
       throw error;

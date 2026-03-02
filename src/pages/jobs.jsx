@@ -264,45 +264,43 @@ const ServiceFlowJobs = () => {
       let dateRangeForAPI = filters.dateRange
       if (filters.dateFrom || filters.dateTo) {
         // Use the date range picker values
-        dateRangeForAPI = filters.dateFrom && filters.dateTo 
+        dateRangeForAPI = filters.dateFrom && filters.dateTo
           ? `${filters.dateFrom} to ${filters.dateTo}`
           : filters.dateFrom || filters.dateTo
       }
 
-      // If "Soonest" sort is selected on "all" tab, filter for future jobs (today, tomorrow, and so on)
-      // This ensures users see upcoming jobs sorted by soonest, not past jobs
-      if (filters.sortBy === 'scheduled_date' && filters.sortOrder === 'ASC' && activeTab === 'all' && !dateFilter) {
-        dateFilter = "future" // Show today, tomorrow, and all future jobs
+      // When user is actively searching, bypass all tab/sort filters to show all matching results
+      if (!filters.search) {
+        switch (activeTab) {
+          case "upcoming":
+            statusFilter = "confirmed,in_progress"
+            dateFilter = "future" // Jobs scheduled for today and future
+            break
+          case "past":
+            // For past tab, don't filter by status - show all past jobs regardless of status
+            statusFilter = ""
+            dateFilter = "past" // Jobs before today (yesterday and earlier)
+            break
+          case "complete":
+            statusFilter = "completed"
+            break
+          case "incomplete":
+            statusFilter = "confirmed,in_progress"
+            break
+          case "canceled":
+            statusFilter = "cancelled"
+            break
+          case "daterange":
+            // Date range will be handled by filters.dateRange (already set above)
+            statusFilter = ""
+            break
+          case "all":
+          default:
+            statusFilter = ""
+            break
+        }
       }
-
-      switch (activeTab) {
-        case "upcoming":
-          statusFilter = "confirmed,in_progress"
-          dateFilter = "future" // Jobs scheduled for today and future
-          break
-        case "past":
-          // For past tab, don't filter by status - show all past jobs regardless of status
-          statusFilter = ""
-          dateFilter = "past" // Jobs before today (yesterday and earlier)
-          break
-        case "complete":
-          statusFilter = "completed"
-          break
-        case "incomplete":
-          statusFilter = "confirmed,in_progress"
-          break
-        case "canceled":
-          statusFilter = "cancelled"
-          break
-        case "daterange":
-          // Date range will be handled by filters.dateRange (already set above)
-          statusFilter = ""
-          break
-        case "all":
-        default:
-          statusFilter = ""
-          break
-      }
+      // else: search is active, statusFilter and dateFilter stay empty to show all matching results
       
       // Call jobsAPI with individual parameters
       const response = await jobsAPI.getAll(
@@ -505,15 +503,33 @@ const ServiceFlowJobs = () => {
     }
   }
 
+  // Job is "past" only when the scheduled END time (start + duration) has passed — not when start time has passed.
+  // e.g. 5pm job with 2h duration is late only after 7pm, not at 5:01pm.
   const isJobPast = (job) => {
     if (!job.scheduled_date) return false
-    const scheduledDate = new Date(job.scheduled_date)
+    let startDate
+    if (typeof job.scheduled_date === 'string' && job.scheduled_date.includes(' ')) {
+      const [datePart, timePart] = job.scheduled_date.split(' ')
+      const [hours, minutes] = (timePart || '').split(':').map(Number)
+      startDate = new Date(datePart)
+      startDate.setHours(hours || 0, minutes || 0, 0, 0)
+    } else if (typeof job.scheduled_date === 'string' && job.scheduled_date.includes('T')) {
+      const [datePart, timePart] = job.scheduled_date.split('T')
+      const [hours, minutes] = (timePart || '').split(':').map(Number)
+      startDate = new Date(datePart)
+      startDate.setHours(hours || 0, minutes || 0, 0, 0)
+    } else {
+      startDate = new Date(job.scheduled_date)
+    }
+    let durationMin = parseInt(job.duration || job.service_duration || job.estimated_duration || (job.service && (job.service.duration || job.service.service_duration || job.service.estimated_duration)) || (job.services && (job.services.duration || job.services.service_duration || job.services.estimated_duration)) || 60, 10) || 60
+    if (durationMin >= 1 && durationMin <= 24) durationMin = durationMin * 60
+    const endDate = new Date(startDate.getTime() + durationMin * 60 * 1000)
     const now = new Date()
-    return scheduledDate < now
+    return endDate < now
   }
 
   const getStatusLabel = (status, job = null) => {
-    // If job is past scheduled time and not completed, show "Late"
+    // If job is past scheduled end time and not completed, show "Late"
     if (job && isJobPast(job) && status !== 'completed' && status !== 'cancelled') {
       return 'Late'
     }
@@ -1245,8 +1261,8 @@ const ServiceFlowJobs = () => {
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex flex-col">
                                 <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-sm font-medium text-gray-900">
-                                  {job.customer_first_name && job.customer_last_name
-                                    ? `${job.customer_first_name} ${job.customer_last_name}`
+                                  {job.customer_first_name || job.customer_last_name
+                                    ? `${job.customer_first_name || ''} ${job.customer_last_name || ''}`.trim()
                                     : job.customer_email
                                     ? job.customer_email
                                     : 'Customer Name'

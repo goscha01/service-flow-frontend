@@ -8,7 +8,7 @@
  * Permissions are stored in the user object as user.permissions
  */
 
-import { getUserRole, isAccountOwner, isManager, isScheduler, isWorker } from './roleUtils';
+import { getUserRole, isAccountOwner, isManager } from './roleUtils';
 
 /**
  * Get user permissions from user object

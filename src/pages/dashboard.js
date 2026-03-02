@@ -1,23 +1,21 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
+// eslint-disable-next-line no-unused-vars
 import Sidebar from "../components/sidebar"
 import CustomerModal from "../components/customer-modal"
 import CalendarPicker from "../components/CalendarPicker"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
-import { Button } from "../components/ui/button"
-import { Badge } from "../components/ui/badge"
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { Progress } from "../components/ui/progress"
-import { Plus, ChevronDown, Info, Star, Calendar, ArrowRight, BarChart2, CreditCard, Users, RefreshCw, MapPin, Globe, Check, AlertTriangle } from "lucide-react"
+import { Plus, Info, Star, Calendar, ArrowRight, BarChart2, Users, RefreshCw, MapPin, Globe, Check, AlertTriangle } from "lucide-react"
 import { Link, useNavigate } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
 import { jobsAPI, customersAPI, servicesAPI, invoicesAPI, teamAPI } from "../services/api"
-import { normalizeAPIResponse, handleAPIError } from "../utils/dataHandler"
+import { normalizeAPIResponse } from "../utils/dataHandler"
 import { decodeHtmlEntities } from "../utils/htmlUtils"
 
 const ServiceFlowDashboard = () => {
   const { user } = useAuth()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [isWakingUp, setIsWakingUp] = useState(true)
   
   // Keepalive functionality to prevent Railway backend from sleeping
@@ -266,7 +264,7 @@ const ServiceFlowDashboard = () => {
     if (user?.id) {
       fetchDashboardData()
     }
-  }, [user, dateRange])
+  }, [user, dateRange]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Function to clear cookies (now used for manual cleanup)
   const clearStaleData = () => {
@@ -507,7 +505,7 @@ const ServiceFlowDashboard = () => {
       // Only run the check once when data first loads
       checkIfSetupSectionNeeded()
     }
-  }, [dashboardData, setupSectionDismissed])
+  }, [dashboardData, setupSectionDismissed]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Function to dismiss setup section permanently
   const dismissSetupSection = () => {
@@ -678,7 +676,7 @@ const ServiceFlowDashboard = () => {
       
       console.log('📅 Range jobs found:', rangeJobs.length)
       
-      const rangeInvoices = invoices.filter(invoice => {
+      const _rangeInvoices = invoices.filter(invoice => { // eslint-disable-line no-unused-vars
         // Handle both ISO format and space format for created_at
         let invoiceDateString = ''
         if (invoice.created_at) {

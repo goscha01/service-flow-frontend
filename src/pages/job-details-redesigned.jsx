@@ -63,7 +63,7 @@ import {
   Eye,
   RotateCw
 } from "lucide-react"
-import { jobsAPI, notificationAPI, territoriesAPI, teamAPI, invoicesAPI, twilioAPI, calendarAPI, notificationSettingsAPI } from "../services/api"
+import { jobsAPI, notificationAPI, territoriesAPI, teamAPI, invoicesAPI, twilioAPI, calendarAPI, notificationSettingsAPI, availabilityAPI, paymentMethodsAPI } from "../services/api"
 import api, { stripeAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
 import Sidebar from "../components/sidebar"
@@ -75,7 +75,9 @@ import { formatPhoneNumber } from "../utils/phoneFormatter"
 import { formatDateLocal } from "../utils/dateUtils"
 import { decodeHtmlEntities } from "../utils/htmlUtils"
 import { formatRecurringFrequency } from "../utils/recurringUtils"
+import { getMemberDrivingTime } from "../utils/slotUtils"
 import ConvertToRecurringModal from "../components/convert-to-recurring-modal"
+import AssignJobModal from "../components/assign-job-modal"
 import DuplicateJobModal from "../components/duplicate-job-modal"
 import { 
   canViewCustomerContact, 
@@ -130,12 +132,20 @@ const JobDetails = () => {
   const [showEditServiceModal, setShowEditServiceModal] = useState(false)
   const [showEditAddressModal, setShowEditAddressModal] = useState(false)
   const [showConvertToRecurringModal, setShowConvertToRecurringModal] = useState(false)
+  const [showEditRecurringModal, setShowEditRecurringModal] = useState(false)
   const [showMobileSidebar, setShowMobileSidebar] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [showSendInvoiceModal, setShowSendInvoiceModal] = useState(false)
   const [showAddPaymentModal, setShowAddPaymentModal] = useState(false)
   const [showDiscountModal, setShowDiscountModal] = useState(false)
   const [showTipModal, setShowTipModal] = useState(false)
+  const [showIncentiveModal, setShowIncentiveModal] = useState(false)
+  const [showMemberTipModal, setShowMemberTipModal] = useState(false)
+  const [tipTargetMember, setTipTargetMember] = useState(null)
+  const [memberTipInput, setMemberTipInput] = useState('')
+  const [showMemberIncentiveModal, setShowMemberIncentiveModal] = useState(false)
+  const [incentiveTargetMember, setIncentiveTargetMember] = useState(null)
+  const [memberIncentiveInput, setMemberIncentiveInput] = useState('')
   const [includePaymentLink, setIncludePaymentLink] = useState(true)
   const [stripeConnected, setStripeConnected] = useState(false)
   const [manualEmail, setManualEmail] = useState('')
@@ -159,7 +169,8 @@ const JobDetails = () => {
     firstName: '',
     lastName: '',
     email: '',
-    phone: ''
+    phone: '',
+    source: ''
   })
   useEffect(() => {
     function handleClickOutside(event) {
@@ -213,24 +224,22 @@ const JobDetails = () => {
         service_modifiers: job.service_modifiers
       });
       
-      const servicePrice = job.service_price || 0;
-      const discount = job.discount || 0;
-      const additionalFees = job.additional_fees || 0;
-      const taxes = job.taxes || 0;
+      // Use initial base price (service_price) for the customize field and calculations — not job.total
+      const servicePrice = parseFloat(job.service_price) || 0;
+      const discount = parseFloat(job.discount) || 0;
+      const additionalFees = parseFloat(job.additional_fees) || 0;
+      const taxes = parseFloat(job.taxes) || 0;
       const modifierPrice = calculateModifierPrice();
       const calculatedTotal = servicePrice + modifierPrice + additionalFees + taxes - discount;
-      
-      // Use the backend total as the default value for the input
-      const totalPrice = parseFloat(job.total) || 0;
       
       setFormData(prev => ({
         ...prev,
         service_name: job.service_name || "",
         bathroom_count: job.bathroom_count || "",
         duration: job.duration || job.estimated_duration || 0,
-        service_price: totalPrice, // Set backend total as default
+        service_price: servicePrice,
         modifier_price: modifierPrice,
-        discount: discount > 0 ? discount : undefined, // Only set if discount exists
+        discount: discount > 0 ? discount : undefined,
         additional_fees: additionalFees,
         taxes: taxes,
         tip: 0,
@@ -242,8 +251,8 @@ const JobDetails = () => {
   // Data state
   const [territories, setTerritories] = useState([])
   const [teamMembers, setTeamMembers] = useState([])
-  const [assigning, setAssigning] = useState(false)
-  const [selectedTeamMember, setSelectedTeamMember] = useState(null)
+  const [customPaymentMethods, setCustomPaymentMethods] = useState([])
+  const [companyDrivingTimeMinutes, setCompanyDrivingTimeMinutes] = useState(0)
   const [searchQuery, setSearchQuery] = useState('')
   const [showDriveTime, setShowDriveTime] = useState(true)
   const [invoice, setInvoice] = useState(null)
@@ -255,6 +264,7 @@ const JobDetails = () => {
   const [paymentHistory, setPaymentHistory] = useState([])
   const [paymentFormData, setPaymentFormData] = useState({
     amount: '',
+    tipAmount: '',
     paymentMethod: 'cash',
     paymentDate: new Date().toISOString().split('T')[0],
     notes: ''
@@ -466,99 +476,71 @@ const JobDetails = () => {
     }
   };
 
-  // Team assignment handler
-  const handleTeamAssignment = async () => {
-    console.log('handleTeamAssignment called')
-    console.log('selectedTeamMember:', selectedTeamMember)
-    console.log('job:', job)
-    console.log('teamMembers:', teamMembers)
-    
-    if (!selectedTeamMember || !job) {
-      console.error('No team member or job selected')
-      setError('Please select a team member')
-      return
-    }
-    
+  // Team assignment handler (multi-member via AssignJobModal)
+  const handleAssignTeamMember = async (teamMemberIds, forceBook = false) => {
+    if (!job) return
+
     try {
-      setAssigning(true)
       setError('')
-      
-      console.log('Assigning team member:', { jobId: job.id, teamMemberId: selectedTeamMember })
-      
-      // ✅ ACTUALLY CALL THE API TO SAVE THE ASSIGNMENT
-      await jobsAPI.assignToTeamMember(job.id, selectedTeamMember)
-      
-      // Find the team member details
-      const teamMember = teamMembers.find(member => 
-        member.id == selectedTeamMember || 
-        member.id === parseInt(selectedTeamMember) ||
-        member.id === selectedTeamMember.toString()
+
+      const memberIdsArray = Array.isArray(teamMemberIds) ? teamMemberIds : (teamMemberIds ? [teamMemberIds] : [])
+      const normalizedMemberIds = memberIdsArray.map(id => Number(id)).filter(id => id && !isNaN(id))
+
+      // Get current assignments to remove if needed
+      const currentAssignments = job.team_assignments || []
+      const currentMemberIds = new Set(
+        currentAssignments.map(ta => Number(ta.team_member_id)).filter(id => id)
       )
-      
-      if (teamMember) {
-        // Refresh job data from API to ensure we have the latest state with proper mapping
-        try {
-          const updatedJobData = await jobsAPI.getById(job.id)
-          if (updatedJobData) {
-            // Use mapJobData to ensure assigned_team_member is properly mapped
-            const mappedJobData = mapJobData(updatedJobData)
-            setJob(mappedJobData)
-          } else {
-            // Fallback: Update local state if API refresh fails
-        setJob(prev => ({ 
-          ...prev, 
-              assigned_team_member: {
-                id: teamMember.id,
-                first_name: teamMember.first_name,
-                last_name: teamMember.last_name,
-                email: teamMember.email
-              },
-              team_member_id: selectedTeamMember,
-              assigned_team_member_id: selectedTeamMember
-            }))
-          }
-        } catch (refreshError) {
-          console.error('Error refreshing job data:', refreshError)
-          // Fallback: Update local state if refresh fails
-          setJob(prev => ({ 
-            ...prev, 
-            assigned_team_member: {
-              id: teamMember.id,
-              first_name: teamMember.first_name,
-              last_name: teamMember.last_name,
-              email: teamMember.email
-            },
-            team_member_id: selectedTeamMember,
-            assigned_team_member_id: selectedTeamMember
-          }))
-        }
-          
-        setSuccessMessage(`Team member ${teamMember.first_name} ${teamMember.last_name} assigned successfully!`)
-          setTimeout(() => setSuccessMessage(''), 3000)
-          
-          setShowAssignModal(false)
-          setSelectedTeamMember('')
-        } else {
-          setError(`Team member not found. Selected: ${selectedTeamMember}, Available: ${teamMembers.map(m => m.id).join(', ')}`)
+      if (currentMemberIds.size === 0) {
+        const singleId = job.assigned_team_member_id || job.team_member_id
+        if (singleId) currentMemberIds.add(Number(singleId))
       }
-      
+
+      if (normalizedMemberIds.length > 0) {
+        const primaryMemberId = normalizedMemberIds[0]
+        await jobsAPI.assignMultipleTeamMembers(job.id, normalizedMemberIds, primaryMemberId, forceBook)
+      } else {
+        const removePromises = Array.from(currentMemberIds).map(memberId =>
+          jobsAPI.removeTeamMember(job.id, memberId)
+        )
+        await Promise.all(removePromises)
+      }
+
+      // Reload job data from API
+      const jobData = await jobsAPI.getById(job.id)
+      if (jobData) {
+        const mappedJobData = mapJobData(jobData)
+        setJob(mappedJobData)
+      }
+
+      const actionText = normalizedMemberIds.length === 0
+        ? 'All team members unassigned successfully!'
+        : normalizedMemberIds.length === 1
+        ? 'Team member assigned successfully!'
+        : `${normalizedMemberIds.length} team members assigned successfully!`
+
+      setSuccessMessage(actionText)
+      setTimeout(() => setSuccessMessage(''), 3000)
+      setShowAssignModal(false)
+
     } catch (error) {
+      if (error.response?.status === 409 && error.response?.data?.canForceBook) {
+        const conflicts = error.response.data.conflicts || []
+        const allWarnings = conflicts.flatMap(c => c.warnings.map(w => `${c.memberLabel}: ${w}`))
+        const warningText = allWarnings.length > 0 ? allWarnings.join('\n- ') : (error.response.data.error || 'Scheduling conflict')
+        const proceed = window.confirm(
+          `Scheduling conflicts detected:\n- ${warningText}\n\nDo you want to override and assign anyway?`
+        )
+        if (proceed) {
+          return handleAssignTeamMember(teamMemberIds, true)
+        }
+        return
+      }
       console.error('Error assigning team member:', error)
-      const errorMsg = error.response?.data?.error || error.response?.data?.message || error.message || 'Failed to assign team member'
-      setError(errorMsg)
+      setError(error.response?.data?.error || 'Failed to update team member assignments')
       setTimeout(() => setError(''), 5000)
-    } finally {
-      setAssigning(false)
     }
   }
-
-  // Debug team members when modal opens
-  useEffect(() => {
-    if (showAssignModal) {
-      console.log('Team Assignment Modal opened, teamMembers:', teamMembers)
-      console.log('teamMembers length:', teamMembers.length)
-    }
-  }, [showAssignModal, teamMembers])
 
   // Click outside handler for dropdowns
   useEffect(() => {
@@ -642,6 +624,7 @@ const JobDetails = () => {
       customer_city: jobData.customers?.city || jobData.customer_city,
       customer_state: jobData.customers?.state || jobData.customer_state,
       customer_zip_code: jobData.customers?.zip_code || jobData.customer_zip_code,
+      customer_source: jobData.customers?.source || jobData.customer_source,
       service_name: decodeHtmlEntities(jobData.services?.name || jobData.service_name || ''),
       service_price: jobData.services?.price || jobData.service_price,
       service_duration: jobData.services?.duration || jobData.service_duration,
@@ -710,15 +693,33 @@ const JobDetails = () => {
           if (response.data) {
             const transactions = response.data.transactions || []
             const totalPaid = response.data.totalPaid || transactions.reduce((sum, tx) => sum + parseFloat(tx.amount || 0), 0)
+            const totalTips = response.data.totalTips || transactions.reduce((sum, tx) => sum + parseFloat(tx.tip_amount || 0), 0)
             
             setPaymentHistory(transactions)
             
-            // Update job state with payment info
-            setJob(prev => ({
-              ...prev,
-              total_paid_amount: totalPaid,
-              invoice_paid_amount: totalPaid
-            }))
+            // Update job state with payment info.
+            // Special case: if the job is already marked PAID (e.g. imported as paid) but there are NO
+            // completed transactions, treat it as fully paid so Amount due = $0.
+            // Otherwise, use the real transaction total.
+            setJob(prev => {
+              const jobTotal =
+                parseFloat(prev?.total) ||
+                parseFloat(prev?.total_amount) ||
+                parseFloat(prev?.price) ||
+                0
+              const isPaidWithNoPayments =
+                (prev?.invoice_status === 'paid' || prev?.payment_status === 'paid') &&
+                jobTotal > 0 &&
+                totalPaid <= 0
+              const effectivePaid = isPaidWithNoPayments ? jobTotal : totalPaid
+              const effectiveTip = Math.max(parseFloat(prev?.tip_amount || 0) || 0, totalTips)
+              return {
+                ...prev,
+                total_paid_amount: effectivePaid,
+                invoice_paid_amount: effectivePaid,
+                tip_amount: effectiveTip
+              }
+            })
           }
         } catch (error) {
           console.error('Error fetching payment history:', error)
@@ -743,48 +744,61 @@ const JobDetails = () => {
         return
       }
       
+      const tipAmount = parseFloat(paymentFormData.tipAmount) || 0
+
       const paymentData = {
         jobId: job.id,
         invoiceId: job.invoice_id || null,
         customerId: job.customer_id || null,
         amount: parseFloat(paymentFormData.amount),
+        tipAmount,
         paymentMethod: paymentFormData.paymentMethod,
         paymentDate: paymentFormData.paymentDate,
         notes: paymentFormData.notes || null
       }
-      
+
       console.log('💳 Recording payment:', paymentData)
-      
+
       const response = await api.post('/transactions/record-payment', paymentData)
-      
+
       console.log('✅ Payment recorded:', response.data)
-      
+
       // Reset form
       setPaymentFormData({
         amount: '',
+        tipAmount: '',
         paymentMethod: 'cash',
         paymentDate: new Date().toISOString().split('T')[0],
         notes: ''
       })
-      
+
       // Refresh payment history
       const historyResponse = await api.get(`/transactions/job/${job.id}`)
       if (historyResponse.data) {
         const transactions = historyResponse.data.transactions || []
-        const totalPaid = historyResponse.data.totalPaid || transactions.reduce((sum, tx) => sum + parseFloat(tx.amount || 0), 0)
-        
+        const totalPaid = historyResponse.data.totalPaid ?? transactions.reduce((sum, tx) => sum + parseFloat(tx.amount || 0), 0)
+
         setPaymentHistory(transactions)
-        
-        // Update job state with payment info
-        setJob(prev => ({
-          ...prev,
-          total_paid_amount: totalPaid,
-          invoice_paid_amount: totalPaid
-        }))
+
+        // Invoice total = job.total (already after discount) + tip. Do NOT subtract discount again.
+        setJob(prev => {
+          const jobPrice = parseFloat(prev?.total) || 0
+          const existingTip = parseFloat(prev?.tip_amount || 0) || 0
+          const totalTipsFromPayments = historyResponse.data.totalTips ?? transactions.reduce((s, tx) => s + parseFloat(tx.tip_amount || 0), 0)
+          const finalTipAmount = Math.max(existingTip, totalTipsFromPayments)
+          const invoiceTotal = jobPrice + finalTipAmount
+          const isFullyPaid = totalPaid >= invoiceTotal - 0.01
+          return {
+            ...prev,
+            total_paid_amount: totalPaid,
+            invoice_paid_amount: totalPaid,
+            tip_amount: finalTipAmount,
+            total_invoice_amount: invoiceTotal,
+            invoice_status: isFullyPaid ? 'paid' : (invoiceTotal > 0 ? 'invoiced' : prev?.invoice_status || 'draft'),
+            payment_status: isFullyPaid ? 'paid' : 'pending'
+          }
+        })
       }
-      
-      // Refresh job data
-      await fetchInvoiceStatus(job.id)
       
       setSuccessMessage('Payment recorded successfully!')
       setTimeout(() => setSuccessMessage(''), 3000)
@@ -795,6 +809,57 @@ const JobDetails = () => {
       setTimeout(() => setError(''), 3000)
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Delete a recorded payment
+  const handleDeletePayment = async (paymentId) => {
+    if (!job || !paymentId) return;
+    if (!window.confirm('Are you sure you want to delete this payment? This will update the amount paid for this job.')) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError('');
+
+      await api.delete(`/transactions/${paymentId}`);
+
+      // Refresh payment history and totals
+      const historyResponse = await api.get(`/transactions/job/${job.id}`);
+      if (historyResponse.data) {
+        const transactions = historyResponse.data.transactions || [];
+        const totalPaid = historyResponse.data.totalPaid ?? transactions.reduce((sum, tx) => sum + parseFloat(tx.amount || 0), 0);
+
+        setPaymentHistory(transactions);
+
+        setJob(prev => {
+          const jobPrice = parseFloat(prev?.total) || 0
+          const existingTip = parseFloat(prev?.tip_amount || 0) || 0
+          const totalTipsFromPayments = historyResponse.data.totalTips ?? transactions.reduce((s, tx) => s + parseFloat(tx.tip_amount || 0), 0)
+          const finalTipAmount = Math.max(existingTip, totalTipsFromPayments)
+          const invoiceTotal = jobPrice + finalTipAmount
+          const isFullyPaid = totalPaid >= invoiceTotal - 0.01
+          return {
+            ...prev,
+            total_paid_amount: totalPaid,
+            invoice_paid_amount: totalPaid,
+            tip_amount: finalTipAmount,
+            total_invoice_amount: invoiceTotal,
+            invoice_status: isFullyPaid ? 'paid' : (invoiceTotal > 0 ? 'invoiced' : prev?.invoice_status || 'draft'),
+            payment_status: isFullyPaid ? 'paid' : 'pending'
+          };
+        });
+      }
+
+      setSuccessMessage('Payment deleted successfully!');
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (error) {
+      console.error('Error deleting payment:', error);
+      setError(error.response?.data?.error || 'Failed to delete payment');
+      setTimeout(() => setError(''), 3000);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -818,13 +883,11 @@ const JobDetails = () => {
       
       console.log('💳 API URL:', `${process.env.REACT_APP_API_URL || 'https://service-flow-backend-production-4568.up.railway.app/api'}/transactions/job/${jobId}`)
       
-      // Check transactions for this job
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://service-flow-backend-production-4568.up.railway.app/api'}/transactions/job/${jobId}`)
+      // Check transactions for this job (use api.get so auth is sent)
+      const response = await api.get(`/transactions/job/${jobId}`)
+      const data = response.data
       
-      console.log('💳 Transaction API response status:', response.status)
-      
-      if (response.ok) {
-        const data = await response.json()
+      if (data) {
         console.log('💳 Transaction API response data:', data)
         
         const { hasPayment, totalPaid, transactionCount, transactions } = data
@@ -832,23 +895,22 @@ const JobDetails = () => {
         console.log('💳 Payment status:', { hasPayment, totalPaid, transactionCount })
         
         if (hasPayment && totalPaid > 0) {
-          // Payment found - job is paid
-          console.log('💳 Job is PAID - found', transactionCount, 'transactions totaling $', totalPaid)
-          
           setJob(prev => {
-            // Only update if not already paid (preserve import status)
-            if (prev?.invoice_status === 'paid' || prev?.payment_status === 'paid') {
-              console.log('💳 Job already marked as paid - preserving status');
-              return prev;
-            }
-            console.log('💳 Updating job status to PAID')
+            // job.total is already (subtotal - discount) per backend; tip is separate
+            const jobPrice = parseFloat(prev?.total) || 0
+            const existingTip = parseFloat(prev?.tip_amount || 0) || 0
+            const totalTipsFromTx = data.totalTips ?? (data.transactions || []).reduce((s, tx) => s + parseFloat(tx.tip_amount || 0), 0)
+            const tipAmount = Math.max(existingTip, totalTipsFromTx)
+            const invoiceTotal = jobPrice + tipAmount
+            const isFullyPaid = totalPaid >= invoiceTotal - 0.01
             return {
               ...prev,
-              invoice_status: 'paid',
-              payment_status: 'paid',
+              invoice_status: isFullyPaid ? 'paid' : 'invoiced',
+              payment_status: isFullyPaid ? 'paid' : 'pending',
               total_paid_amount: totalPaid,
-              total_invoice_amount: totalPaid, // For paid jobs, invoice amount = paid amount
-              transaction_count: transactionCount
+              total_invoice_amount: invoiceTotal,
+              tip_amount: tipAmount,
+              transaction_count: data.transactionCount
             }
           })
         } else {
@@ -937,20 +999,7 @@ const JobDetails = () => {
           }
         }
       } else {
-        console.error('💳 Transaction API error:', response.status)
-        // Don't overwrite if already paid
-        setJob(prev => {
-          if (prev?.invoice_status === 'paid' || prev?.payment_status === 'paid') {
-            return prev;
-          }
-          return {
-          ...prev,
-          invoice_status: 'none',
-          invoice_id: null,
-          total_invoice_amount: 0,
-          total_paid_amount: 0
-          }
-        })
+        console.error('💳 Transaction API returned no data')
       }
     } catch (error) {
       console.error('💳 Error checking payment status:', error)
@@ -1169,14 +1218,25 @@ const JobDetails = () => {
       try {
         const user = JSON.parse(localStorage.getItem('user') || '{}')
         if (user.id) {
-          const [territoriesData, teamData] = await Promise.all([
+          const [territoriesData, teamData, paymentMethods] = await Promise.all([
             territoriesAPI.getAll(user.id),
-            teamAPI.getAll(user.id)
+            teamAPI.getAll(user.id),
+            paymentMethodsAPI.getPaymentMethods().catch(() => [])
           ])
           setTerritories(territoriesData.territories || territoriesData)
           console.log('Team data received:', teamData)
           setTeamMembers(teamData.teamMembers || teamData)
           console.log('Team members set:', teamData.teamMembers || teamData)
+          setCustomPaymentMethods(paymentMethods || [])
+          // Company driving time (for showing travel buffer on job details)
+          try {
+            const avail = await availabilityAPI.getAvailability(user.id)
+            const bh = avail?.businessHours || avail?.business_hours
+            const parsed = typeof bh === 'string' ? (() => { try { return JSON.parse(bh) } catch (e) { return null } })() : bh
+            if (parsed && (parsed.drivingTime !== undefined && parsed.drivingTime !== null)) {
+              setCompanyDrivingTimeMinutes(parseInt(parsed.drivingTime, 10) || 0)
+            }
+          } catch (e) { /* ignore */ }
         }
       } catch (e) {
         console.error('Failed to fetch supporting data:', e)
@@ -1839,34 +1899,58 @@ const JobDetails = () => {
     }
   }
 
-  // Use backend-calculated total as source of truth
+  // Backend stores job.total as (subtotal - discount), so discount is already applied. Tip is separate.
   const calculateTotalPrice = () => {
     try {
-      // Use backend-calculated total from job data
-      const baseTotal = parseFloat(job.total) || 0;
-      const tip = formData.tip || 0;
-      const calculatedTotal = baseTotal + tip;
-      
-      console.log('💰 Price calculation:', {
-        jobTotal: job.total,
-        baseTotal,
-        tip,
-        calculatedTotal,
-        jobData: {
-          service_price: job.service_price,
-          additional_fees: job.additional_fees,
-          taxes: job.taxes,
-          discount: job.discount,
-          total: job.total
-        }
-      });
-      
-      return calculatedTotal;
+      const jobPrice = parseFloat(job.total) || 0; // already includes - discount
+      const tip = parseFloat(job?.tip_amount) || 0;
+      return jobPrice + tip;
     } catch (error) {
       console.error('Error getting total price:', error);
       return 0;
     }
   }
+
+  // Edit Service modal: total from visible breakdown (Subtotal - Discount + Fee + Taxes, no tip)
+  const getEditServiceModalTotal = () => {
+    const subtotal = parseFloat(formData.service_price) || parseFloat(job?.service_price) || 0;
+    const discount = parseFloat(job?.discount) || 0;
+    const fees = parseFloat(job?.additional_fees) || 0;
+    const taxes = parseFloat(job?.taxes) || 0;
+    return Math.max(0, subtotal - discount + fees + taxes);
+  }
+
+  // $0 jobs are considered free — show as paid (no amount due)
+  const totalPrice = calculateTotalPrice();
+  const jobTotal = parseFloat(job?.total) || 0;          // job.total = subtotal - discount + fees + taxes (no tip)
+  const jobDiscount = parseFloat(job?.discount) || 0;
+  const jobFees = parseFloat(job?.additional_fees) || 0;
+  const jobTaxes = parseFloat(job?.taxes) || 0;
+  const tipAmountStored = parseFloat(job?.tip_amount) || 0;
+
+  // Breakdown: Subtotal (service_price) → Discount → Total → Fee → Taxes → Total due
+  const subtotalDisplay = parseFloat(job?.service_price) || (jobTotal + jobDiscount - jobFees - jobTaxes);
+  const totalAfterDiscount = subtotalDisplay - jobDiscount;
+  const totalDueAmount = totalAfterDiscount + jobFees + jobTaxes;
+  const displayServiceTotal = totalDueAmount;                           // alias for backward compat
+
+  const effectiveAmountPaid = parseFloat(job?.total_paid_amount) || 0;
+
+  // Tips = overpayment (amount paid beyond total due). Fallback to stored tip if no overpayment.
+  const derivedTip = Math.max(0, effectiveAmountPaid - totalDueAmount);
+  const displayTip = derivedTip > 0 ? derivedTip : tipAmountStored;
+
+  // Incentives = sum of per-member incentive_amount from team assignments
+  const displayIncentive = parseFloat(job?.incentive_amount) || 0;
+
+  // Balance
+  const rawBalance = totalDueAmount - effectiveAmountPaid;
+  const isFullyPaidByAmount = rawBalance <= 0.01;
+  const isPaidOrFree = totalDueAmount === 0 || isFullyPaidByAmount;
+  const displayTotalDue = Math.max(0, rawBalance);
+  // Overpayment beyond tip is credit (rare edge case)
+  const showCreditLine = false;
+  const displayCreditAmount = 0;
 
   // Parse service modifiers from JSON
   const getServiceModifiers = () => {
@@ -1985,13 +2069,31 @@ const JobDetails = () => {
     return 'Customer'
   }
 
-  // Check if job is late
+  // Job is late only when the scheduled END time (start + duration) has passed — not when start time has passed.
+  // e.g. 5pm job with 2h duration is late only after 7pm, not at 5:01pm.
   const isJobLate = () => {
     if (!job?.scheduled_date) return false
-    const scheduledDate = new Date(job.scheduled_date)
-    const now = new Date()
     const status = (job?.status || '').toLowerCase()
-    return scheduledDate < now && status !== 'completed' && status !== 'cancelled'
+    if (status === 'completed' || status === 'cancelled') return false
+    let startDate
+    if (typeof job.scheduled_date === 'string' && job.scheduled_date.includes(' ')) {
+      const [datePart, timePart] = job.scheduled_date.split(' ')
+      const [hours, minutes] = (timePart || '').split(':').map(Number)
+      startDate = new Date(datePart)
+      startDate.setHours(hours || 0, minutes || 0, 0, 0)
+    } else if (typeof job.scheduled_date === 'string' && job.scheduled_date.includes('T')) {
+      const [datePart, timePart] = job.scheduled_date.split('T')
+      const [hours, minutes] = (timePart || '').split(':').map(Number)
+      startDate = new Date(datePart)
+      startDate.setHours(hours || 0, minutes || 0, 0, 0)
+    } else {
+      startDate = new Date(job.scheduled_date)
+    }
+    let durationMin = parseInt(job.service_duration || job.duration || job.estimated_duration || 60, 10) || 60
+    if (durationMin >= 1 && durationMin <= 24) durationMin = durationMin * 60
+    const endDate = new Date(startDate.getTime() + durationMin * 60 * 1000)
+    const now = new Date()
+    return now > endDate
   }
 
   // Format arrival window
@@ -2094,6 +2196,11 @@ const JobDetails = () => {
               </a>
             )}
           </div>
+          
+          {/* Customer Source (lead/source channel) - always show, editable via Edit Customer */}
+          <p className="text-xs text-gray-500 mb-1">
+            Source: <span className="font-medium text-gray-700">{job?.customer_source || 'No source'}</span>
+          </p>
           
           {/* Address */}
           <p className="text-sm text-gray-600 mb-1">
@@ -2297,9 +2404,9 @@ const JobDetails = () => {
               <div className="flex justify-between items-start">
                 <div>
                   <p className="text-sm font-medium text-gray-900">{job?.service_name || 'Service'}</p>
-                  <p className="text-xs text-gray-600">Base Price (${(parseFloat(job?.services?.price) || calculateTotalPrice()).toFixed(2)})</p>
+                  <p className="text-xs text-gray-600">Base Price (${(parseFloat(job?.services?.price) || parseFloat(job?.total) || 0).toFixed(2)})</p>
                 </div>
-                <span className="text-sm font-medium text-gray-900">${(parseFloat(job?.services?.price) || calculateTotalPrice()).toFixed(2)}</span>
+                <span className="text-sm font-medium text-gray-900">${(parseFloat(job?.services?.price) || parseFloat(job?.total) || 0).toFixed(2)}</span>
               </div>
               {canEditJobDetails(user) && (
                 <button 
@@ -2313,22 +2420,68 @@ const JobDetails = () => {
               <div className="border-t border-gray-200 pt-2 mt-2 space-y-1">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Subtotal</span>
-                  <span className="text-gray-900">${calculateTotalPrice().toFixed(2)}</span>
+                  <span className="text-gray-900">${subtotalDisplay.toFixed(2)}</span>
                 </div>
+                {jobDiscount > 0 ? (
+                  <div className="flex justify-between text-sm">
+                    <button onClick={() => setShowDiscountModal(true)} className="text-blue-600 hover:text-blue-700">Discount</button>
+                    <span className="text-red-600">-${jobDiscount.toFixed(2)}</span>
+                  </div>
+                ) : (
+                  <button onClick={() => setShowDiscountModal(true)} className="text-sm text-blue-600 hover:text-blue-700">
+                    Add Discount
+                  </button>
+                )}
                 <div className="flex justify-between text-sm font-semibold">
                   <span className="text-gray-900">Total</span>
-                  <span className="text-gray-900">${calculateTotalPrice().toFixed(2)}</span>
+                  <span className="text-gray-900">${totalAfterDiscount.toFixed(2)}</span>
                 </div>
+                {jobFees > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Fee</span>
+                    <span className="text-gray-900">${jobFees.toFixed(2)}</span>
+                  </div>
+                )}
+                {jobTaxes > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Taxes</span>
+                    <span className="text-gray-900">${jobTaxes.toFixed(2)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-sm pt-2 border-t border-gray-200">
-                  <span className="text-gray-600">Amount paid</span>
-                  <span className="text-gray-900">${job?.total_paid_amount ? job.total_paid_amount.toFixed(2) : '0.00'}</span>
-                </div>
-                <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Total due</span>
-                  <span className={`font-semibold ${job?.invoice_status === 'paid' ? 'text-green-600' : 'text-red-600'}`}>
-                    ${job?.invoice_status === 'paid' ? '0.00' : (job?.total_invoice_amount ? job.total_invoice_amount.toFixed(2) : calculateTotalPrice().toFixed(2))}
+                  <span className={`font-semibold ${displayTotalDue === 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    ${displayTotalDue.toFixed(2)}
                   </span>
                 </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Amount paid</span>
+                  <span className="text-gray-900">${effectiveAmountPaid.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Tip</span>
+                  <button
+                    onClick={() => { const curTip = parseFloat(job?.tip_amount) || 0; setFormData(prev => ({ ...prev, tipInput: curTip > 0 ? curTip.toFixed(2) : '' })); setShowTipModal(true); }}
+                    className={displayTip > 0 ? "text-green-600 hover:text-green-700" : "text-blue-600 hover:text-blue-700"}
+                  >
+                    {displayTip > 0 ? `+$${displayTip.toFixed(2)}` : 'Add Tip'}
+                  </button>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Incentives</span>
+                  <button
+                    onClick={() => { const curIncentive = parseFloat(job?.incentive_amount) || 0; setFormData(prev => ({ ...prev, incentiveInput: curIncentive > 0 ? curIncentive.toFixed(2) : '' })); setShowIncentiveModal(true); }}
+                    className={displayIncentive > 0 ? "text-purple-600 hover:text-purple-700" : "text-purple-600 hover:text-purple-700"}
+                  >
+                    {displayIncentive > 0 ? `+$${displayIncentive.toFixed(2)}` : 'Add Incentive'}
+                  </button>
+                </div>
+                {showCreditLine && displayCreditAmount > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Credit</span>
+                    <span className="font-semibold text-green-600">+${displayCreditAmount.toFixed(2)}</span>
+                  </div>
+                )}
               </div>
             </div>
             {canProcessPayments(user) && (
@@ -2366,20 +2519,25 @@ const JobDetails = () => {
             {paymentHistory && paymentHistory.length > 0 ? (
               <div className="space-y-3">
                 {paymentHistory.map((payment, index) => (
-                  <div key={payment.id || index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                  <div key={payment.id || payment.transaction_id || index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-sm font-semibold text-gray-900">
                           ${parseFloat(payment.amount || 0).toFixed(2)}
                         </span>
+                        {parseFloat(payment.tip_amount || 0) > 0 && (
+                          <span className="text-xs font-medium text-green-700 bg-green-50 px-1.5 py-0.5 rounded">
+                            +${parseFloat(payment.tip_amount).toFixed(2)} tip
+                          </span>
+                        )}
                         <span className="text-xs text-gray-500 capitalize">
                           {payment.payment_method || 'cash'}
                         </span>
                       </div>
                       <div className="text-xs text-gray-500">
-                        {payment.created_at ? new Date(payment.created_at).toLocaleDateString('en-US', { 
-                          month: 'short', 
-                          day: 'numeric', 
+                        {payment.created_at ? new Date(payment.created_at).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
                           year: 'numeric',
                           hour: 'numeric',
                           minute: '2-digit'
@@ -2391,8 +2549,19 @@ const JobDetails = () => {
                         </div>
                       )}
                     </div>
-                    <div className="text-xs text-green-600 font-semibold">
-                      Completed
+                    <div className="flex flex-col items-end space-y-2">
+                      <span className="text-xs text-green-600 font-semibold">
+                        Completed
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => (payment.id || payment.transaction_id) && handleDeletePayment(payment.id || payment.transaction_id)}
+                        className="text-xs text-red-600 hover:text-red-800 flex items-center gap-1"
+                        title="Delete payment"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Delete
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -2419,7 +2588,8 @@ const JobDetails = () => {
                     firstName: job?.customer_first_name || '',
                     lastName: job?.customer_last_name || '',
                     email: job?.customer_email || '',
-                    phone: job?.customer_phone || ''
+                    phone: job?.customer_phone || '',
+                    source: job?.customer_source || ''
                   })
                   setShowEditCustomerModal(true)
                 }}
@@ -2569,22 +2739,31 @@ const JobDetails = () => {
                   return `${member.first_name || ''} ${member.last_name || ''}`.trim()
                 }
                 
+                // Resolve full member from teamMembers so we have availability (for driving time)
+                const fullAssignedMember = assignedMember && assignedMember.id
+                  ? teamMembers.find(m => Number(m.id) === Number(assignedMember.id)) || assignedMember
+                  : assignedMember
+                const drivingMin = fullAssignedMember
+                  ? getMemberDrivingTime(fullAssignedMember, companyDrivingTimeMinutes)
+                  : 0
+
                 return assignedMember ? (
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2 flex-1 min-w-0">
-                      <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                        <span className="text-blue-600 font-semibold text-xs">
-                          {getTeamMemberInitials(assignedMember)}
-                        </span>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2 flex-1 min-w-0">
+                        <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                          <span className="text-blue-600 font-semibold text-xs">
+                            {getTeamMemberInitials(assignedMember)}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-900 truncate flex-1 min-w-0" title={getTeamMemberName(assignedMember)}>
+                          {(() => {
+                            const name = getTeamMemberName(assignedMember);
+                            return name.length > 25 ? `${name.substring(0, 25)}...` : name;
+                          })()}
+                        </p>
                       </div>
-                      <p className="text-sm text-gray-900 truncate flex-1 min-w-0" title={getTeamMemberName(assignedMember)}>
-                        {(() => {
-                          const name = getTeamMemberName(assignedMember);
-                          return name.length > 25 ? `${name.substring(0, 25)}...` : name;
-                        })()}
-                      </p>
-                    </div>
-                    {canEditJobDetails(user) && (
+                      {canEditJobDetails(user) && (
                       <div className="flex items-center space-x-2">
                         <button 
                           onClick={() => setShowAssignModal(true)}
@@ -2612,10 +2791,55 @@ const JobDetails = () => {
                         </button>
                       </div>
                     )}
+                    </div>
+                    {drivingMin > 0 && (
+                      <p className="text-xs text-amber-700 flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5 flex-shrink-0" />
+                        Travel time: {drivingMin} min before & after — blocks this cleaner’s schedule
+                      </p>
+                    )}
+                    {(() => {
+                      const primaryAssignmentData = job.team_assignments?.find(ta => ta.is_primary) || job.team_assignments?.[0];
+                      if (!primaryAssignmentData) return null;
+                      const memberTip = parseFloat(primaryAssignmentData.tip_amount) || 0;
+                      const memberIncentive = parseFloat(primaryAssignmentData.incentive_amount) || 0;
+                      return (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {memberTip > 0 && (
+                            <span className="text-xs text-green-600 font-medium">Tip: ${memberTip.toFixed(2)}</span>
+                          )}
+                          <button
+                            onClick={() => {
+                              setTipTargetMember({ ...primaryAssignmentData, name: getTeamMemberName(assignedMember) });
+                              const curTip = parseFloat(primaryAssignmentData.tip_amount) || 0;
+                              setMemberTipInput(curTip > 0 ? curTip.toFixed(2) : '');
+                              setShowMemberTipModal(true);
+                            }}
+                            className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                          >
+                            {memberTip > 0 ? 'Edit Tip' : 'Add Tip'}
+                          </button>
+                          {memberIncentive > 0 && (
+                            <span className="text-xs text-purple-600 font-medium">Incentive: ${memberIncentive.toFixed(2)}</span>
+                          )}
+                          <button
+                            onClick={() => {
+                              setIncentiveTargetMember({ ...primaryAssignmentData, name: getTeamMemberName(assignedMember) });
+                              const curIncentive = parseFloat(primaryAssignmentData.incentive_amount) || 0;
+                              setMemberIncentiveInput(curIncentive > 0 ? curIncentive.toFixed(2) : '');
+                              setShowMemberIncentiveModal(true);
+                            }}
+                            className="text-xs text-purple-600 hover:text-purple-700 font-medium"
+                          >
+                            {memberIncentive > 0 ? 'Edit Incentive' : 'Add Incentive'}
+                          </button>
+                        </div>
+                      );
+                    })()}
                   </div>
                 ) : (
                   canEditJobDetails(user) && (
-                    <button 
+                    <button
                       onClick={() => setShowAssignModal(true)}
                       className="text-sm text-blue-600 font-medium"
                     >
@@ -2724,6 +2948,15 @@ const JobDetails = () => {
                   </div>
                 )}
               </div>
+              <p className="text-xs text-gray-500 mt-0.5" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                Source:{' '}
+                <span className="font-medium text-gray-700">
+                  {job?.customer_source
+                    || job?.customer?.source
+                    || job?.customers?.source
+                    || 'No source'}
+                </span>
+              </p>
             </div>
 
             <div className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
@@ -3159,23 +3392,32 @@ const JobDetails = () => {
                 <div className="flex flex-row items-start space-x-4">
                   <RotateCw className="w-5 h-5 text-gray-400 mt-1 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <h3 style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-xs font-medium text-gray-600 mb-2">REPEATS</h3>
-                    <div className="bg-red-50 border border-red-200 rounded-full px-4 py-2 inline-block">
-                      <p style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-sm text-red-800">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-xs font-medium text-gray-600">REPEATS</h3>
+                      {canEditJobDetails(user) && (
+                        <button
+                          onClick={() => setShowEditRecurringModal(true)}
+                          className="text-blue-600 hover:text-blue-700 text-xs font-medium"
+                          style={{fontFamily: 'Montserrat', fontWeight: 500}}
+                        >
+                          Edit
+                        </button>
+                      )}
+                    </div>
+                    <div className="bg-blue-50 border border-blue-200 rounded-full px-4 py-2 inline-block">
+                      <p style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-sm text-blue-800">
                         {(() => {
                           const frequency = job.recurring_frequency || job.recurringFrequency || ''
                           const scheduledDate = job.scheduled_date ? new Date(job.scheduled_date) : null
-                          const formatted = formatRecurringFrequency(frequency, scheduledDate)
-                          console.log('🔍 Job Details - Recurring Frequency Debug:', {
-                            rawFrequency: frequency,
-                            isRecurring: job.is_recurring,
-                            scheduledDate: scheduledDate,
-                            formatted: formatted
-                          })
-                          return formatted
+                          return formatRecurringFrequency(frequency, scheduledDate)
                         })()}
                       </p>
                     </div>
+                    {job.recurring_end_date && (
+                      <p className="mt-1 text-xs text-gray-500" style={{fontFamily: 'Montserrat'}}>
+                        Ends: {new Date(job.recurring_end_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </p>
+                    )}
                     <button
                       onClick={() => navigate('/recurring')}
                       className="mt-2 text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center gap-1"
@@ -3470,80 +3712,6 @@ const JobDetails = () => {
 
           
 
-            {/* Team Assignment Modal */}
-            {assigning && (
-              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
-                <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[80vh] overflow-y-auto">
-                  <div className="p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-semibold text-gray-900">Assign Team Member</h3>
-                      <button
-                        onClick={() => {
-                          setAssigning(false);
-                          setSelectedTeamMember(null);
-                        }}
-                        className="text-gray-400 hover:text-gray-600"
-                      >
-                        <X className="w-5 h-5" />
-                      </button>
-                    </div>
-                    
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Select Team Member
-                        </label>
-                        <select
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                          value={selectedTeamMember || ''}
-                          onChange={(e) => setSelectedTeamMember(e.target.value)}
-                        >
-                          <option value="">Choose a team member...</option>
-                          {teamMembers.map((member) => (
-                            <option key={member.id} value={member.id}>
-                              {member.first_name} {member.last_name} ({member.email})
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      
-                      {teamMembers.length === 0 && (
-                        <div className="text-center py-4">
-                          <Users className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-                          <p className="text-gray-500 text-sm">No team members available</p>
-                          <p className="text-gray-400 text-xs">Add team members in the Team section first</p>
-                        </div>
-                      )}
-                      
-                      <div className="flex justify-end space-x-3 pt-4">
-                        <button
-                          onClick={() => {
-                            setAssigning(false);
-                            setSelectedTeamMember(null);
-                          }}
-                          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-200"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={() => {
-                            if (selectedTeamMember) {
-                              handleTeamAssignment();
-                              setAssigning(false);
-                              setSelectedTeamMember(null);
-                            }
-                          }}
-                          disabled={!selectedTeamMember}
-                          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          Assign Member
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* Invoice Section */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 sm:p-4 lg:p-6">
@@ -3552,7 +3720,7 @@ const JobDetails = () => {
                   <div className="flex items-center space-x-2 mb-2">
                     <h3 className="text-xl font-bold text-gray-900">Invoice</h3>
                     <span className={`px-2 py-1 text-xs font-bold rounded-sm ${
-                      job.invoice_status === 'paid' 
+                      isPaidOrFree 
                         ? 'bg-green-100 text-green-800' 
                         : job.invoice_status === 'invoiced' || job.invoice_status === 'sent'
                         ? 'bg-yellow-100 text-yellow-800'
@@ -3560,8 +3728,8 @@ const JobDetails = () => {
                         ? 'bg-blue-100 text-blue-800'
                         : 'bg-gray-100 text-gray-800'
                     }`}>
-                      {job.invoice_status === 'paid' 
-                        ? 'Paid' 
+                      {isPaidOrFree
+                        ? (displayServiceTotal === 0 ? 'Free' : 'Paid')
                         : job.invoice_status === 'invoiced' || job.invoice_status === 'sent'
                         ? 'Unpaid'
                         : job.invoice_status === 'draft'
@@ -3573,11 +3741,19 @@ const JobDetails = () => {
                 </div>
                 
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
-                  <button 
-                    onClick={() => setShowAddPaymentModal(true)}
+                  <button
+                    onClick={() => {
+                      setPaymentFormData({
+                        amount: (parseFloat(job?.total) || parseFloat(job?.service_price) || 0).toString(),
+                        paymentMethod: 'cash',
+                        paymentDate: new Date().toISOString().split('T')[0],
+                        notes: ''
+                      })
+                      setShowAddPaymentModal(true)
+                    }}
                     className="px-2 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center space-x-1 text-xs font-medium"
                   >
-                   
+
                     <span>Add Payment</span>
                     <ChevronDown className="w-4 h-4" />
                   </button>
@@ -3609,14 +3785,17 @@ const JobDetails = () => {
                 <div>
                   <p className="text-sm text-gray-600 mb-1">Amount paid</p>
                   <p className="text-lg font-semibold text-gray-900">
-                    ${job.total_paid_amount ? job.total_paid_amount.toFixed(2) : '0.00'}
+                    ${effectiveAmountPaid.toFixed(2)}
                   </p>
                 </div>
                 <div className="text-right">
                   <p className="text-sm text-gray-600 mb-1">Amount due</p>
-                  <p className={`text-lg font-semibold ${job.invoice_status === 'paid' ? 'text-green-600' : 'text-red-600 underline'}`}>
-                    ${job.invoice_status === 'paid' ? '0.00' : (job.total_invoice_amount ? job.total_invoice_amount.toFixed(2) : calculateTotalPrice().toFixed(2))}
+                  <p className={`text-lg font-semibold ${displayTotalDue <= 0 ? 'text-green-600' : 'text-red-600 underline'}`}>
+                    ${Math.max(0, displayTotalDue).toFixed(2)}
                   </p>
+                  {showCreditLine && displayCreditAmount > 0 && (
+                    <p className="text-sm font-semibold text-green-600 mt-0.5">Credit +${displayCreditAmount.toFixed(2)}</p>
+                  )}
                 </div>
                 </div>
 
@@ -3624,22 +3803,22 @@ const JobDetails = () => {
               <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
-                    <div className={`w-3 h-3 rounded-full ${job.invoice_status === 'paid' ? 'bg-green-500' : job.invoice_status === 'invoiced' || job.invoice_status === 'sent' ? 'bg-yellow-500' : 'bg-gray-300'}`}></div>
+                    <div className={`w-3 h-3 rounded-full ${isPaidOrFree ? 'bg-green-500' : job.invoice_status === 'invoiced' || job.invoice_status === 'sent' ? 'bg-yellow-500' : 'bg-gray-300'}`}></div>
                     <div>
                       <p className="text-sm font-medium text-gray-900">
-                        {job.invoice_status === 'paid' ? 'Payment Received' : 
+                        {isPaidOrFree ? 'Payment Received' : 
                          job.invoice_status === 'invoiced' || job.invoice_status === 'sent' ? 'Invoice Sent' : 
                          'No Invoice Sent'}
                       </p>
                       <p className="text-xs text-gray-500">
-                        {job.invoice_status === 'paid' ? 'Customer has paid the invoice' : 
+                        {isPaidOrFree ? (displayServiceTotal === 0 ? 'Free — no payment required' : 'Customer has paid the invoice') :
                          job.invoice_status === 'invoiced' || job.invoice_status === 'sent' ? 'Invoice sent to customer, awaiting payment' : 
                          'Invoice not yet sent to customer'}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
-                    {job.invoice_status === 'paid' && (
+                    {isPaidOrFree && (
                       <div className="flex items-center space-x-2 text-green-600">
                         <CheckCircle className="w-5 h-5" />
                         <span className="text-sm font-medium">Paid</span>
@@ -3705,31 +3884,12 @@ const JobDetails = () => {
                     );
                   })()}
                   
-                  {/* Discount */}
-                  {(() => {
-                    const discount = formData.discount !== undefined ? formData.discount : (parseFloat(job.discount) || 0);
-                    
-                    if (discount > 0) {
-                      return (
-                        <div className="flex justify-between items-center">
-                          <div>
-                            <p className="text-sm text-gray-600">Discount</p>
-                          </div>
-                          <span className="text-sm font-medium text-green-600">
-                            -${discount.toFixed(2)}
-                          </span>
-                        </div>
-                      );
-                    }
-                    return null;
-                  })()}
-                  
                   {/* Service Adjustment Price */}
                   {(() => {
                     const basePrice = parseFloat(job.services?.price) || 0;
                     const modifierPrice = calculateModifierPrice();
-                    const totalPrice = parseFloat(job.total) || 0;
-                    const serviceAdjustment = totalPrice - (basePrice + modifierPrice);
+                    const servicePriceVal = parseFloat(job.service_price) || parseFloat(job.total) || 0;
+                    const serviceAdjustment = servicePriceVal - (basePrice + modifierPrice);
                     
                     if (Math.abs(serviceAdjustment) > 0.01) {
                       return (
@@ -3746,17 +3906,8 @@ const JobDetails = () => {
                     return null;
                   })()}
                   
-                  {/* Total */}
-                  <div className="flex justify-between items-center pt-2 border-t border-gray-200">
-                    <div>
-                      <p className="text-sm font-semibold text-gray-900">Total</p>
-                    </div>
-                    <span className="text-sm font-semibold text-gray-900">
-                      ${calculateTotalPrice().toFixed(2)}
-                    </span>
-                  </div>
                 </div>
-                
+
                 <div className="mt-4 pt-4 border-t border-gray-200">
                   <button 
                     onClick={() => setShowEditServiceModal(true)}
@@ -3775,31 +3926,62 @@ const JobDetails = () => {
 
               {/* Summary Section - Only show if user has permission */}
               {canViewEditJobPrice(user) && (
-              <div className="space-y-4">
+              <div className="space-y-0">
                 <div className="flex justify-between items-center py-2 border-b border-gray-200">
                   <span className="text-sm text-gray-600">Subtotal</span>
-                  <span className="text-sm font-medium text-gray-900">${calculateTotalPrice().toFixed(2)}</span>
-                    </div>
-                
+                  <span className="text-sm font-medium text-gray-900">${subtotalDisplay.toFixed(2)}</span>
+                </div>
+                {jobDiscount > 0 && (
+                <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                  <span className="text-sm text-gray-600">Discount</span>
+                  <span className="text-sm font-medium text-red-600">-${jobDiscount.toFixed(2)}</span>
+                </div>
+                )}
                 <div className="flex justify-between items-center py-2 border-b border-gray-200">
                   <span className="text-sm text-gray-600">Total</span>
-                  <span className="text-sm font-medium text-gray-900">${calculateTotalPrice().toFixed(2)}</span>
-                    </div>
-                
+                  <span className="text-sm font-semibold text-gray-900">${totalAfterDiscount.toFixed(2)}</span>
+                </div>
+                {jobFees > 0 && (
+                <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                  <span className="text-sm text-gray-600">Fee</span>
+                  <span className="text-sm font-medium text-gray-900">${jobFees.toFixed(2)}</span>
+                </div>
+                )}
+                {jobTaxes > 0 && (
+                <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                  <span className="text-sm text-gray-600">Taxes</span>
+                  <span className="text-sm font-medium text-gray-900">${jobTaxes.toFixed(2)}</span>
+                </div>
+                )}
+
+                <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                  <span className="text-sm text-gray-600">Total due</span>
+                  <span className={`text-sm font-semibold ${displayTotalDue === 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    ${displayTotalDue.toFixed(2)}
+                  </span>
+                </div>
+
                 <div className="flex justify-between items-center py-2">
                   <span className="text-sm text-gray-600">Amount paid</span>
                   <span className="text-sm font-medium text-gray-900">
-                    ${job.total_paid_amount ? job.total_paid_amount.toFixed(2) : '0.00'}
+                    ${effectiveAmountPaid.toFixed(2)}
                   </span>
-                        </div>
-                
-                <div className="flex justify-between items-center py-2">
-                  <span className="text-sm text-gray-600">Total due</span>
-                  <span className={`text-sm font-medium ${job.invoice_status === 'paid' ? 'text-green-600' : 'text-gray-900'}`}>
-                    ${job.invoice_status === 'paid' ? '0.00' : (job.total_invoice_amount ? job.total_invoice_amount.toFixed(2) : calculateTotalPrice().toFixed(2))}
-                  </span>
-                  </div>
                 </div>
+
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-sm text-gray-600">Tip</span>
+                  <button type="button" onClick={() => { const curTip = parseFloat(job?.tip_amount) || 0; setFormData(prev => ({ ...prev, tipInput: curTip > 0 ? curTip.toFixed(2) : '' })); setShowTipModal(true); }} className={`text-sm font-medium ${displayTip > 0 ? 'text-green-600 hover:text-green-700' : 'text-blue-600 hover:text-blue-700'}`}>
+                    {displayTip > 0 ? `+$${displayTip.toFixed(2)}` : 'Add Tip'}
+                  </button>
+                </div>
+
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-sm text-gray-600">Incentives</span>
+                  <button type="button" onClick={() => { const curIncentive = parseFloat(job?.incentive_amount) || 0; setFormData(prev => ({ ...prev, incentiveInput: curIncentive > 0 ? curIncentive.toFixed(2) : '' })); setShowIncentiveModal(true); }} className={`text-sm font-medium ${displayIncentive > 0 ? 'text-purple-600 hover:text-purple-700' : 'text-purple-600 hover:text-purple-700'}`}>
+                    {displayIncentive > 0 ? `+$${displayIncentive.toFixed(2)}` : 'Add Incentive'}
+                  </button>
+                </div>
+              </div>
               )}
 
               {/* Payments Section - Only show if user has permission */}
@@ -3809,20 +3991,25 @@ const JobDetails = () => {
                 {paymentHistory && paymentHistory.length > 0 ? (
                   <div className="space-y-3">
                     {paymentHistory.map((payment, index) => (
-                      <div key={payment.id || index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                      <div key={payment.id || payment.transaction_id || index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
                             <span className="text-sm font-semibold text-gray-900">
                               ${parseFloat(payment.amount || 0).toFixed(2)}
                             </span>
+                            {parseFloat(payment.tip_amount || 0) > 0 && (
+                              <span className="text-xs font-medium text-green-700 bg-green-50 px-1.5 py-0.5 rounded">
+                                +${parseFloat(payment.tip_amount).toFixed(2)} tip
+                              </span>
+                            )}
                             <span className="text-xs text-gray-500 capitalize">
                               {payment.payment_method || 'cash'}
                             </span>
                           </div>
                           <div className="text-xs text-gray-500">
-                            {payment.created_at ? new Date(payment.created_at).toLocaleDateString('en-US', { 
-                              month: 'short', 
-                              day: 'numeric', 
+                            {payment.created_at ? new Date(payment.created_at).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
                               year: 'numeric',
                               hour: 'numeric',
                               minute: '2-digit'
@@ -3834,8 +4021,19 @@ const JobDetails = () => {
                             </div>
                           )}
                         </div>
-                        <div className="text-xs text-green-600 font-semibold">
-                          Completed
+                        <div className="flex flex-col items-end space-y-2">
+                          <span className="text-xs text-green-600 font-semibold">
+                            Completed
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => (payment.id || payment.transaction_id) && handleDeletePayment(payment.id || payment.transaction_id)}
+                            className="text-xs text-red-600 hover:text-red-800 flex items-center gap-1"
+                            title="Delete payment"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            Delete
+                          </button>
                         </div>
                       </div>
                     ))}
@@ -3869,7 +4067,8 @@ const JobDetails = () => {
                       firstName: job.customer_first_name || '',
                       lastName: job.customer_last_name || '',
                       email: job.customer_email || '',
-                      phone: job.customer_phone || ''
+                      phone: job.customer_phone || '',
+                      source: job.customer_source || ''
                     })
                     setShowEditCustomerModal(true)
                   }}
@@ -4102,6 +4301,36 @@ const JobDetails = () => {
                                           {memberEmail}
                                         </p>
                                       )}
+                                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                        {parseFloat(assignment.tip_amount) > 0 && (
+                                          <span className="text-xs text-green-600 font-medium">Tip: ${parseFloat(assignment.tip_amount).toFixed(2)}</span>
+                                        )}
+                                        <button
+                                          onClick={() => {
+                                            setTipTargetMember({ ...assignment, name: memberName });
+                                            const curTip = parseFloat(assignment.tip_amount) || 0;
+                                            setMemberTipInput(curTip > 0 ? curTip.toFixed(2) : '');
+                                            setShowMemberTipModal(true);
+                                          }}
+                                          className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                                        >
+                                          {parseFloat(assignment.tip_amount) > 0 ? 'Edit Tip' : 'Add Tip'}
+                                        </button>
+                                        {parseFloat(assignment.incentive_amount) > 0 && (
+                                          <span className="text-xs text-purple-600 font-medium">Incentive: ${parseFloat(assignment.incentive_amount).toFixed(2)}</span>
+                                        )}
+                                        <button
+                                          onClick={() => {
+                                            setIncentiveTargetMember({ ...assignment, name: memberName });
+                                            const curIncentive = parseFloat(assignment.incentive_amount) || 0;
+                                            setMemberIncentiveInput(curIncentive > 0 ? curIncentive.toFixed(2) : '');
+                                            setShowMemberIncentiveModal(true);
+                                          }}
+                                          className="text-xs text-purple-600 hover:text-purple-700 font-medium"
+                                        >
+                                          {parseFloat(assignment.incentive_amount) > 0 ? 'Edit Incentive' : 'Add Incentive'}
+                                        </button>
+                                      </div>
                                     </div>
                                   </div>
                                 );
@@ -4886,42 +5115,75 @@ const JobDetails = () => {
                     <div className="mt-6 space-y-3">
                       <div className="flex justify-between items-center py-2 border-b border-gray-200">
                         <span className="text-sm text-gray-600">Subtotal</span>
-                        <span className="text-sm font-medium text-gray-900">${calculateTotalPrice().toFixed(2)}</span>
+                        <span className="text-sm font-medium text-gray-900">${(parseFloat(formData.service_price) || parseFloat(job?.service_price) || 0).toFixed(2)}</span>
                       </div>
-                      <button 
-                        onClick={() => setShowDiscountModal(true)}
-                        className="text-sm text-blue-600 hover:text-blue-700"
-                      >
-                        Add Discount
-                      </button>
-                      <div className="flex justify-between items-center py-2">
-                        <span className="text-sm text-gray-600">Taxes</span>
-                        <span className="text-sm font-medium text-gray-900">$0.00</span>
-                      </div>
-                      <button 
-                        onClick={() => setShowTipModal(true)}
-                        className="text-sm text-blue-600 hover:text-blue-700"
-                      >
-                        Add tip
-                      </button>
+                      {parseFloat(job.discount || 0) > 0 ? (
+                        <div className="flex justify-between items-center py-2">
+                          <button onClick={() => setShowDiscountModal(true)} className="text-sm text-blue-600 hover:text-blue-700">Discount</button>
+                          <span className="text-sm font-medium text-red-600">-${parseFloat(job.discount).toFixed(2)}</span>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setShowDiscountModal(true)}
+                          className="text-sm text-blue-600 hover:text-blue-700"
+                        >
+                          Add Discount
+                        </button>
+                      )}
                       <div className="flex justify-between items-center py-2 border-t border-gray-200">
                         <span className="text-sm font-medium text-gray-900">Total</span>
-                        <span className="text-sm font-medium text-gray-900">${calculateTotalPrice().toFixed(2)}</span>
+                        <span className="text-sm font-medium text-gray-900">${Math.max(0, (parseFloat(formData.service_price) || parseFloat(job?.service_price) || 0) - (parseFloat(job?.discount) || 0)).toFixed(2)}</span>
+                      </div>
+                      {jobFees > 0 && (
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-sm text-gray-600">Fee</span>
+                        <span className="text-sm font-medium text-gray-900">${jobFees.toFixed(2)}</span>
+                      </div>
+                      )}
+                      {jobTaxes > 0 && (
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-sm text-gray-600">Taxes</span>
+                        <span className="text-sm font-medium text-gray-900">${jobTaxes.toFixed(2)}</span>
+                      </div>
+                      )}
+                      {(jobFees > 0 || jobTaxes > 0) && (
+                      <div className="flex justify-between items-center py-2 border-t border-gray-200">
+                        <span className="text-sm font-medium text-gray-900">Total due</span>
+                        <span className="text-sm font-medium text-gray-900">${getEditServiceModalTotal().toFixed(2)}</span>
+                      </div>
+                      )}
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-sm text-gray-600">Tip</span>
+                        <button
+                          onClick={() => { setError(''); const curTip = parseFloat(job?.tip_amount) || 0; setFormData(prev => ({ ...prev, tipInput: curTip > 0 ? curTip.toFixed(2) : '' })); setShowTipModal(true); }}
+                          className={`text-sm font-medium ${displayTip > 0 ? 'text-green-600 hover:text-green-700' : 'text-blue-600 hover:text-blue-700'}`}
+                        >
+                          {displayTip > 0 ? `+$${displayTip.toFixed(2)}` : 'Add Tip'}
+                        </button>
+                      </div>
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-sm text-gray-600">Incentives</span>
+                        <button
+                          onClick={() => { setError(''); const curIncentive = parseFloat(job?.incentive_amount) || 0; setFormData(prev => ({ ...prev, incentiveInput: curIncentive > 0 ? curIncentive.toFixed(2) : '' })); setShowIncentiveModal(true); }}
+                          className={`text-sm font-medium ${displayIncentive > 0 ? 'text-purple-600 hover:text-purple-700' : 'text-purple-600 hover:text-purple-700'}`}
+                        >
+                          {displayIncentive > 0 ? `+$${displayIncentive.toFixed(2)}` : 'Add Incentive'}
+                        </button>
                       </div>
                     </div>
                   </div>
-                  
+
                   {/* Summary Section */}
                       <div>
                     <h4 className="text-lg font-semibold text-gray-900 mb-4">Summary</h4>
                     <div className="space-y-4">
                       <div className="flex justify-between items-center py-2 border-b border-gray-200">
                         <span className="text-sm text-gray-600">Previous Total</span>
-                        <span className="text-sm font-medium text-gray-900">${calculateTotalPrice().toFixed(2)}</span>
+                        <span className="text-sm font-medium text-gray-900">${getEditServiceModalTotal().toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between items-center py-2 border-b border-gray-200">
                         <span className="text-sm text-gray-600">Updated Total</span>
-                        <span className="text-sm font-medium text-gray-900">${calculateTotalPrice().toFixed(2)}</span>
+                        <span className="text-sm font-medium text-gray-900">${getEditServiceModalTotal().toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between items-center py-2">
                         <span className="text-sm text-gray-600">Estimated duration</span>
@@ -5200,7 +5462,7 @@ const JobDetails = () => {
                     <div className="space-y-3">
                       <div className="flex justify-between">
                         <span className="text-sm text-gray-600">AMOUNT DUE</span>
-                        <span className="font-semibold">${calculateTotalPrice().toFixed(2)}</span>
+                        <span className="font-semibold">${displayServiceTotal.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-sm text-gray-600">DUE BY</span>
@@ -5243,22 +5505,52 @@ const JobDetails = () => {
                     <div className="space-y-2">
                       <div className="flex justify-between text-sm">
                         <span>Subtotal</span>
-                        <span>${calculateTotalPrice().toFixed(2)}</span>
+                        <span>${subtotalDisplay.toFixed(2)}</span>
                       </div>
+                      {jobDiscount > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span>Discount</span>
+                        <span className="text-red-600">-${jobDiscount.toFixed(2)}</span>
+                      </div>
+                      )}
                       <div className="flex justify-between text-sm">
                         <span>Total</span>
-                        <span>${calculateTotalPrice().toFixed(2)}</span>
+                        <span>${totalAfterDiscount.toFixed(2)}</span>
                       </div>
+                      {jobFees > 0 && (
                       <div className="flex justify-between text-sm">
-                        <span>Total Paid</span>
-                        <span>${job.total_paid_amount ? job.total_paid_amount.toFixed(2) : '0.00'}</span>
+                        <span>Fee</span>
+                        <span>${jobFees.toFixed(2)}</span>
                       </div>
+                      )}
+                      {jobTaxes > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span>Taxes</span>
+                        <span>${jobTaxes.toFixed(2)}</span>
+                      </div>
+                      )}
                       <div className="flex justify-between font-semibold border-t pt-2">
                         <span>Total Due</span>
-                        <span className={job.invoice_status === 'paid' ? 'text-green-600' : ''}>
-                          ${job.invoice_status === 'paid' ? '0.00' : (job.total_invoice_amount ? job.total_invoice_amount.toFixed(2) : calculateTotalPrice().toFixed(2))}
+                        <span className={isPaidOrFree ? 'text-green-600' : 'text-red-600'}>
+                          ${displayTotalDue.toFixed(2)}
                         </span>
                       </div>
+                      <div className="flex justify-between text-sm">
+                        <span>Amount Paid</span>
+                        <span>${effectiveAmountPaid.toFixed(2)}</span>
+                      </div>
+                      {displayTip > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span>Tip</span>
+                        <span className="text-green-600">+${displayTip.toFixed(2)}</span>
+                      </div>
+                      )}
+                      {displayIncentive > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span>Incentives</span>
+                        <span className="text-purple-600">+${displayIncentive.toFixed(2)}</span>
+                      </div>
+                      )}
                     </div>
                   </div>
 
@@ -5450,6 +5742,20 @@ const JobDetails = () => {
                     placeholder="Enter phone number"
                   />
                 </div>
+
+                <div>
+                  <label htmlFor="edit-source" className="block text-sm font-medium text-gray-700 mb-2">
+                    Source
+                  </label>
+                  <input
+                    type="text"
+                    id="edit-source"
+                    value={editCustomerData.source ?? ''}
+                    onChange={(e) => setEditCustomerData(prev => ({ ...prev, source: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="e.g. Website, Referral"
+                  />
+                </div>
                 
                 <div className="flex space-x-3 pt-4">
                   <button
@@ -5484,7 +5790,8 @@ const JobDetails = () => {
                           firstName: editCustomerData.firstName,
                           lastName: editCustomerData.lastName,
                           email: editCustomerData.email,
-                          phone: editCustomerData.phone
+                          phone: editCustomerData.phone,
+                          source: editCustomerData.source ?? ''
                         });
 
                         console.log('✅ Customer updated successfully:', response.data);
@@ -5495,7 +5802,8 @@ const JobDetails = () => {
                           customer_first_name: editCustomerData.firstName,
                           customer_last_name: editCustomerData.lastName,
                           customer_email: editCustomerData.email,
-                          customer_phone: editCustomerData.phone
+                          customer_phone: editCustomerData.phone,
+                          customer_source: editCustomerData.source ?? ''
                         }));
 
                         setSuccessMessage('Customer updated successfully!');
@@ -6233,6 +6541,9 @@ const JobDetails = () => {
                       <option value="check">Check</option>
                       <option value="credit_card">Credit Card</option>
                       <option value="bank_transfer">Bank Transfer</option>
+                      {customPaymentMethods.map(pm => (
+                        <option key={pm.id} value={pm.name}>{pm.name}</option>
+                      ))}
                       <option value="other">Other</option>
                     </select>
                   </div>
@@ -6241,10 +6552,25 @@ const JobDetails = () => {
                     <input
                       type="number"
                       step="0.01"
-                      value={paymentFormData.amount || (job ? (parseFloat(job.total) || parseFloat(job.service_price) || 0) : '')}
+                      value={paymentFormData.amount}
                       onChange={(e) => setPaymentFormData(prev => ({ ...prev, amount: e.target.value }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       placeholder="Enter amount"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Tip
+                      <span className="text-xs text-gray-400 font-normal ml-1">(goes to payroll, not revenue)</span>
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={paymentFormData.tipAmount}
+                      onChange={(e) => setPaymentFormData(prev => ({ ...prev, tipAmount: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="0.00"
                     />
                   </div>
                   <div>
@@ -6274,6 +6600,7 @@ const JobDetails = () => {
                       setShowAddPaymentModal(false)
                       setPaymentFormData({
                         amount: '',
+                        tipAmount: '',
                         paymentMethod: 'cash',
                         paymentDate: new Date().toISOString().split('T')[0],
                         notes: ''
@@ -6298,7 +6625,7 @@ const JobDetails = () => {
 
         {/* Discount Modal */}
         {showDiscountModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10000] p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
@@ -6317,39 +6644,62 @@ const JobDetails = () => {
                     <div className="flex items-center space-x-2">
                       <span className="text-sm text-gray-500">$</span>
                       <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={formData.discount !== undefined ? formData.discount : ""}
+                        type="text"
+                        inputMode="decimal"
+                        value={formData.discountInput || ''}
                         onChange={e => {
-                          const newDiscount = parseFloat(e.target.value) || 0;
-                          setFormData(prev => ({
-                            ...prev,
-                            discount: newDiscount
-                          }));
+                          const val = e.target.value
+                          if (val === '' || /^\d*\.?\d{0,2}$/.test(val)) {
+                            setFormData(prev => ({ ...prev, discountInput: val }))
+                          }
                         }}
                         className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         placeholder="0.00"
+                        autoFocus
                       />
                     </div>
                   </div>
-                  
+
                   <div className="flex space-x-3 pt-4">
                     <button
-                      onClick={() => setShowDiscountModal(false)}
+                      onClick={() => {
+                        setFormData(prev => ({ ...prev, discountInput: '' }))
+                        setShowDiscountModal(false)
+                      }}
                       className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
                     >
                       Cancel
                     </button>
                     <button
-                      onClick={() => {
-                        setSuccessMessage('Discount added successfully!')
-                        setTimeout(() => setSuccessMessage(""), 3000)
-                        setShowDiscountModal(false)
+                      onClick={async () => {
+                        const discountVal = parseFloat(formData.discountInput) || 0
+                        if (discountVal <= 0) {
+                          setError('Please enter a valid discount amount')
+                          setTimeout(() => setError(''), 3000)
+                          return
+                        }
+                        try {
+                          setLoading(true)
+                          const prevDiscount = parseFloat(job.discount || 0)
+                          const newDiscount = prevDiscount + discountVal
+                          await jobsAPI.update(job.id, { discount: newDiscount })
+                          setJob(prev => ({ ...prev, discount: newDiscount }))
+                          setFormData(prev => ({ ...prev, discount: newDiscount, discountInput: '' }))
+                          setSuccessMessage('Discount added successfully!')
+                          setTimeout(() => setSuccessMessage(''), 3000)
+                          setShowDiscountModal(false)
+                        } catch (err) {
+                          console.error('Error saving discount:', err)
+                          setError('Failed to save discount')
+                          setTimeout(() => setError(''), 3000)
+                        } finally {
+                          setLoading(false)
+                        }
                       }}
-                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                      disabled={loading}
+                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
                     >
-                      Add Discount
+                      {loading ? 'Saving...' : 'Add Discount'}
                     </button>
                   </div>
                 </div>
@@ -6360,11 +6710,11 @@ const JobDetails = () => {
 
         {/* Tip Modal */}
         {showTipModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10000] p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Add Tip</h3>
+                  <h3 className="text-lg font-semibold text-gray-900">{parseFloat(job?.tip_amount) > 0 ? 'Edit' : 'Add'} Tip</h3>
                   <button
                     onClick={() => setShowTipModal(false)}
                     className="text-gray-400 hover:text-gray-600"
@@ -6372,46 +6722,73 @@ const JobDetails = () => {
                     <X className="w-5 h-5" />
                   </button>
                 </div>
-                
+
                 <div className="space-y-4">
+                  {error && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                      <p className="text-sm text-red-800">{error}</p>
+                    </div>
+                  )}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Tip Amount</label>
                     <div className="flex items-center space-x-2">
                       <span className="text-sm text-gray-500">$</span>
                       <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={formData.tip || 0}
+                        type="text"
+                        inputMode="decimal"
+                        value={formData.tipInput ?? ''}
                         onChange={e => {
-                          const newTip = parseFloat(e.target.value) || 0;
-                          setFormData(prev => ({
-                            ...prev,
-                            tip: newTip
-                          }));
+                          const val = e.target.value
+                          if (val === '' || /^\d*\.?\d{0,2}$/.test(val)) {
+                            setFormData(prev => ({ ...prev, tipInput: val }))
+                          }
                         }}
                         className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         placeholder="0.00"
+                        autoFocus
                       />
                     </div>
                   </div>
-                  
+
                   <div className="flex space-x-3 pt-4">
                     <button
-                      onClick={() => setShowTipModal(false)}
+                      onClick={() => {
+                        setFormData(prev => ({ ...prev, tipInput: '' }))
+                        setShowTipModal(false)
+                      }}
                       className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
                     >
                       Cancel
                     </button>
                     <button
-                      onClick={() => {
-                        setSuccessMessage('Tip added successfully!')
-                        setTimeout(() => setSuccessMessage(""), 3000)
-                        setShowTipModal(false)
+                      onClick={async () => {
+                        const newTip = parseFloat(formData.tipInput) || 0
+                        if (newTip < 0) {
+                          setError('Please enter a valid tip amount')
+                          setTimeout(() => setError(''), 3000)
+                          return
+                        }
+                        try {
+                          setError('')
+                          setLoading(true)
+                          await jobsAPI.update(job.id, { tip_amount: newTip })
+                          setJob(prev => ({ ...prev, tip_amount: newTip }))
+                          setFormData(prev => ({ ...prev, tip: newTip, tipInput: '' }))
+                          setSuccessMessage(newTip > 0 ? 'Tip updated successfully!' : 'Tip removed!')
+                          setTimeout(() => setSuccessMessage(''), 3000)
+                          setShowTipModal(false)
+                        } catch (err) {
+                          console.error('Error saving tip:', err)
+                          setError('Failed to save tip')
+                          setTimeout(() => setError(''), 3000)
+                        } finally {
+                          setLoading(false)
+                        }
                       }}
-                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                      disabled={loading}
+                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
                     >
-                      Add Tip
+                      {loading ? 'Saving...' : 'Save Tip'}
                     </button>
                   </div>
                 </div>
@@ -6420,77 +6797,297 @@ const JobDetails = () => {
           </div>
         )}
 
-        {/* Team Assignment Modal - Desktop View */}
-        {showAssignModal && canEditJobDetails(user) && (
-          <div className="hidden lg:flex fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-[9999] p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Assign Team Member</h3>
-              <button
-                onClick={() => {
-                  setShowAssignModal(false)
-                  setSelectedTeamMember(null)
-                }}
-                  className="text-gray-400 hover:text-gray-600"
-              >
-                  <X className="w-5 h-5" />
-              </button>
-              </div>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Select Team Member
-                  </label>
-                  <select
-                    value={selectedTeamMember || ''}
-                    onChange={(e) => {
-                      console.log('Team member selected:', e.target.value)
-                      setSelectedTeamMember(e.target.value)
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="">Choose a team member...</option>
-                    {teamMembers.length > 0 ? teamMembers.map((member) => {
-                      console.log('Rendering team member:', member)
-                      return (
-                        <option key={member.id} value={member.id}>
-                          {member.first_name} {member.last_name} - {member.email}
-                        </option>
-                      )
-                    }) : (
-                      <option value="" disabled>No team members available</option>
-                    )}
-                  </select>
-                </div>
-                
-                <div className="flex space-x-3 pt-4">
-              <button
-                onClick={() => {
-                      setShowAssignModal(false)
-                      setSelectedTeamMember(null)
-                    }}
-                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-                  >
-                    Cancel
-                  </button>
+        {/* Job-Level Incentive Modal */}
+        {showIncentiveModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10000] p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">{parseFloat(job?.incentive_amount) > 0 ? 'Edit' : 'Add'} Incentive</h3>
                   <button
-                    onClick={() => {
-                      console.log('Assign button clicked!')
-                      console.log('selectedTeamMember:', selectedTeamMember)
-                      console.log('assigning:', assigning)
-                    handleTeamAssignment()
-                }}
-                disabled={!selectedTeamMember || assigning}
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                    {assigning ? 'Assigning...' : 'Assign'}
-              </button>
+                    onClick={() => setShowIncentiveModal(false)}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  {error && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                      <p className="text-sm text-red-800">{error}</p>
+                    </div>
+                  )}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Incentive Amount</label>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm text-gray-500">$</span>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={formData.incentiveInput ?? ''}
+                        onChange={e => {
+                          const val = e.target.value
+                          if (val === '' || /^\d*\.?\d{0,2}$/.test(val)) {
+                            setFormData(prev => ({ ...prev, incentiveInput: val }))
+                          }
+                        }}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                        placeholder="0.00"
+                        autoFocus
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex space-x-3 pt-4">
+                    <button
+                      onClick={() => {
+                        setFormData(prev => ({ ...prev, incentiveInput: '' }))
+                        setShowIncentiveModal(false)
+                      }}
+                      className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={async () => {
+                        const newIncentive = parseFloat(formData.incentiveInput) || 0
+                        if (newIncentive < 0) {
+                          setError('Please enter a valid incentive amount')
+                          setTimeout(() => setError(''), 3000)
+                          return
+                        }
+                        try {
+                          setError('')
+                          setLoading(true)
+                          await jobsAPI.update(job.id, { incentive_amount: newIncentive })
+                          setJob(prev => ({ ...prev, incentive_amount: newIncentive }))
+                          setFormData(prev => ({ ...prev, incentiveInput: '' }))
+                          setSuccessMessage(newIncentive > 0 ? 'Incentive updated successfully!' : 'Incentive removed!')
+                          setTimeout(() => setSuccessMessage(''), 3000)
+                          setShowIncentiveModal(false)
+                        } catch (err) {
+                          console.error('Error saving incentive:', err)
+                          setError('Failed to save incentive')
+                          setTimeout(() => setError(''), 3000)
+                        } finally {
+                          setLoading(false)
+                        }
+                      }}
+                      disabled={loading}
+                      className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
+                    >
+                      {loading ? 'Saving...' : 'Save Incentive'}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         )}
+
+        {/* Per-Member Tip Modal */}
+        {showMemberTipModal && tipTargetMember && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10000] p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    {parseFloat(tipTargetMember.tip_amount) > 0 ? 'Edit' : 'Add'} Tip for {tipTargetMember.name || tipTargetMember.first_name || 'Team Member'}
+                  </h3>
+                  <button
+                    onClick={() => { setShowMemberTipModal(false); setTipTargetMember(null); setMemberTipInput(''); }}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  {error && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                      <p className="text-sm text-red-800">{error}</p>
+                    </div>
+                  )}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Tip Amount</label>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm text-gray-500">$</span>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={memberTipInput}
+                        onChange={e => {
+                          const val = e.target.value;
+                          if (val === '' || /^\d*\.?\d{0,2}$/.test(val)) {
+                            setMemberTipInput(val);
+                          }
+                        }}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="0.00"
+                        autoFocus
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex space-x-3 pt-4">
+                    <button
+                      onClick={() => { setShowMemberTipModal(false); setTipTargetMember(null); setMemberTipInput(''); }}
+                      className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={async () => {
+                        const newTip = parseFloat(memberTipInput) || 0;
+                        if (newTip < 0) {
+                          setError('Please enter a valid tip amount');
+                          setTimeout(() => setError(''), 3000);
+                          return;
+                        }
+                        try {
+                          setError('');
+                          setLoading(true);
+                          const result = await jobsAPI.updateTeamMemberTip(job.id, tipTargetMember.team_member_id, newTip);
+                          setJob(prev => ({
+                            ...prev,
+                            tip_amount: result.jobTipTotal,
+                            team_assignments: (prev.team_assignments || []).map(ta =>
+                              ta.team_member_id === tipTargetMember.team_member_id
+                                ? { ...ta, tip_amount: newTip }
+                                : ta
+                            )
+                          }));
+                          setSuccessMessage(newTip > 0 ? `Tip updated for ${tipTargetMember.name || 'team member'}!` : 'Tip removed!');
+                          setTimeout(() => setSuccessMessage(''), 3000);
+                          setShowMemberTipModal(false);
+                          setTipTargetMember(null);
+                          setMemberTipInput('');
+                        } catch (err) {
+                          console.error('Error saving member tip:', err);
+                          setError('Failed to save tip');
+                          setTimeout(() => setError(''), 3000);
+                        } finally {
+                          setLoading(false);
+                        }
+                      }}
+                      disabled={loading}
+                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      {loading ? 'Saving...' : 'Save Tip'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Per-Member Incentive Modal */}
+        {showMemberIncentiveModal && incentiveTargetMember && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10000] p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    {parseFloat(incentiveTargetMember.incentive_amount) > 0 ? 'Edit' : 'Add'} Incentive for {incentiveTargetMember.name || incentiveTargetMember.first_name || 'Team Member'}
+                  </h3>
+                  <button
+                    onClick={() => { setShowMemberIncentiveModal(false); setIncentiveTargetMember(null); setMemberIncentiveInput(''); }}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  {error && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                      <p className="text-sm text-red-800">{error}</p>
+                    </div>
+                  )}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Incentive Amount</label>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm text-gray-500">$</span>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={memberIncentiveInput}
+                        onChange={e => {
+                          const val = e.target.value;
+                          if (val === '' || /^\d*\.?\d{0,2}$/.test(val)) {
+                            setMemberIncentiveInput(val);
+                          }
+                        }}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                        placeholder="0.00"
+                        autoFocus
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex space-x-3 pt-4">
+                    <button
+                      onClick={() => { setShowMemberIncentiveModal(false); setIncentiveTargetMember(null); setMemberIncentiveInput(''); }}
+                      className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={async () => {
+                        const newIncentive = parseFloat(memberIncentiveInput) || 0;
+                        if (newIncentive < 0) {
+                          setError('Please enter a valid incentive amount');
+                          setTimeout(() => setError(''), 3000);
+                          return;
+                        }
+                        try {
+                          setError('');
+                          setLoading(true);
+                          const result = await jobsAPI.updateTeamMemberIncentive(job.id, incentiveTargetMember.team_member_id, newIncentive);
+                          setJob(prev => ({
+                            ...prev,
+                            incentive_amount: result.jobIncentiveTotal,
+                            team_assignments: (prev.team_assignments || []).map(ta =>
+                              ta.team_member_id === incentiveTargetMember.team_member_id
+                                ? { ...ta, incentive_amount: newIncentive }
+                                : ta
+                            )
+                          }));
+                          setSuccessMessage(newIncentive > 0 ? `Incentive updated for ${incentiveTargetMember.name || 'team member'}!` : 'Incentive removed!');
+                          setTimeout(() => setSuccessMessage(''), 3000);
+                          setShowMemberIncentiveModal(false);
+                          setIncentiveTargetMember(null);
+                          setMemberIncentiveInput('');
+                        } catch (err) {
+                          console.error('Error saving member incentive:', err);
+                          setError('Failed to save incentive');
+                          setTimeout(() => setError(''), 3000);
+                        } finally {
+                          setLoading(false);
+                        }
+                      }}
+                      disabled={loading}
+                      className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
+                    >
+                      {loading ? 'Saving...' : 'Save Incentive'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Team Assignment Modal (AssignJobModal handles both desktop and mobile) */}
+        <AssignJobModal
+          job={job}
+          isOpen={showAssignModal && canEditJobDetails(user)}
+          onClose={() => setShowAssignModal(false)}
+          onAssign={handleAssignTeamMember}
+          companyDrivingTimeMinutes={companyDrivingTimeMinutes}
+        />
 
       {/* Modals - Rendered outside main container for proper z-index stacking */}
       {/* Edit Customer Modal - Mobile View */}
@@ -6564,6 +7161,20 @@ const JobDetails = () => {
                   placeholder="Enter phone number"
                 />
                   </div>
+
+              <div>
+                <label htmlFor="edit-source-mobile" className="block text-sm font-medium text-gray-700 mb-2">
+                  Source
+                </label>
+                <input
+                  type="text"
+                  id="edit-source-mobile"
+                  value={editCustomerData.source ?? ''}
+                  onChange={(e) => setEditCustomerData(prev => ({ ...prev, source: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="e.g. Website, Referral"
+                />
+              </div>
                   </div>
                   </div>
 
@@ -6595,7 +7206,8 @@ const JobDetails = () => {
                     firstName: editCustomerData.firstName,
                     lastName: editCustomerData.lastName,
                     email: editCustomerData.email,
-                    phone: editCustomerData.phone
+                    phone: editCustomerData.phone,
+                    source: editCustomerData.source ?? ''
                   });
 
                   console.log('✅ Customer updated successfully:', response.data);
@@ -6606,7 +7218,8 @@ const JobDetails = () => {
                     customer_first_name: editCustomerData.firstName,
                     customer_last_name: editCustomerData.lastName,
                     customer_email: editCustomerData.email,
-                    customer_phone: editCustomerData.phone
+                    customer_phone: editCustomerData.phone,
+                    customer_source: editCustomerData.source ?? ''
                   }));
 
                   setSuccessMessage('Customer updated successfully!');
@@ -6700,95 +7313,6 @@ const JobDetails = () => {
         </div>
       )}
 
-      {/* Team Assignment Modal - Mobile View */}
-      {showAssignModal && canEditJobDetails(user) && (
-        <div className="lg:hidden fixed inset-0 bg-white z-[99999] flex flex-col" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}>
-          {/* Mobile Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-            <button
-              onClick={() => {
-                setShowAssignModal(false)
-                setSelectedTeamMember(null)
-              }}
-              className="p-2 -ml-2"
-            >
-              <X className="w-5 h-5 text-gray-900" />
-            </button>
-            <h2 className="text-base font-semibold text-gray-900">Assign Job</h2>
-            <button
-              onClick={() => {
-                if (selectedTeamMember) {
-                  handleTeamAssignment()
-                }
-              }}
-              disabled={!selectedTeamMember || assigning}
-              className="px-4 py-1.5 bg-gray-200 text-gray-700 rounded-lg font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Assign
-            </button>
-          </div>
-
-          {/* Scrollable Content */}
-          <div className="flex-1 overflow-y-auto">
-            {/* Job Information Card */}
-            <div className="bg-white border-b border-gray-200 px-4 py-4">
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex-1">
-                  <h3 className="text-sm font-semibold text-gray-900 mb-1">
-                    {job.service_names && job.service_names.length > 1 
-                      ? `${job.service_names.length} Services` 
-                      : decodeHtmlEntities(job.service_name || 'Service')
-                    }
-                  </h3>
-                  <p className="text-xs text-gray-600">Job #{job.id || job.job_id}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Team Member Selection */}
-            <div className="px-4 py-4">
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                Select Team Member
-              </label>
-              <select
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                value={selectedTeamMember || ''}
-                onChange={(e) => setSelectedTeamMember(e.target.value)}
-              >
-                <option value="">Choose a team member...</option>
-                {teamMembers.map((member) => (
-                  <option key={member.id} value={member.id}>
-                    {member.first_name} {member.last_name} ({member.email})
-                  </option>
-                ))}
-              </select>
-              
-              {teamMembers.length === 0 && (
-                <div className="text-center py-8">
-                  <Users className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-                  <p className="text-gray-500 text-sm">No team members available</p>
-                  <p className="text-gray-400 text-xs mt-1">Add team members in the Team section first</p>
-                </div>
-                              )}
-                            </div>
-                          </div>
-
-          {/* Footer */}
-          <div className="border-t border-gray-200 px-4 py-3 space-y-2">
-            <button
-              onClick={() => {
-                if (selectedTeamMember) {
-                  handleTeamAssignment()
-                }
-              }}
-              disabled={!selectedTeamMember || assigning}
-              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {assigning ? 'Assigning...' : 'Assign'}
-                            </button>
-                          </div>
-                            </div>
-                          )}
 
       {/* Edit Job Requirements Modal - Mobile View */}
       {showEditJobRequirementsModal && canEditJobDetails(user) && (
@@ -7079,27 +7603,32 @@ const JobDetails = () => {
           onClose={() => setShowConvertToRecurringModal(false)}
           job={job}
           onConvert={async (data) => {
-            try {
-              setLoading(true);
-              setError(""); // Clear any previous errors
-              console.log('🔄 Converting job to recurring with data:', data);
-              const result = await jobsAPI.convertToRecurring(jobId, data);
-              console.log('✅ Convert to recurring result:', result);
-              setSuccessMessage('Job converted to recurring successfully!');
-              setTimeout(() => setSuccessMessage(""), 3000);
-              // Reload job data
-              const updatedJob = await jobsAPI.getById(jobId);
-              setJob(updatedJob.job || updatedJob);
-              setShowConvertToRecurringModal(false);
-            } catch (error) {
-              console.error('❌ Error converting job to recurring:', error);
-              console.error('❌ Error response:', error.response?.data);
-              const errorMessage = error.response?.data?.error || error.response?.data?.details || error.message || 'Failed to convert job to recurring';
-              setError(`Failed to convert job: ${errorMessage}`);
-              setTimeout(() => setError(""), 5000);
-            } finally {
-              setLoading(false);
-            }
+            console.log('🔄 Converting job to recurring with data:', data);
+            const result = await jobsAPI.convertToRecurring(jobId, data);
+            console.log('✅ Convert to recurring result:', result);
+            setSuccessMessage('Job converted to recurring successfully!');
+            setTimeout(() => setSuccessMessage(""), 3000);
+            // Reload job data
+            const updatedJob = await jobsAPI.getById(jobId);
+            setJob(updatedJob.job || updatedJob);
+          }}
+        />
+
+        {/* Edit Recurring Frequency Modal */}
+        <ConvertToRecurringModal
+          isOpen={showEditRecurringModal}
+          onClose={() => setShowEditRecurringModal(false)}
+          job={job}
+          mode="edit"
+          onConvert={async (data) => {
+            console.log('🔄 Updating recurring frequency with data:', data);
+            const result = await jobsAPI.updateRecurringFrequency(jobId, data);
+            console.log('✅ Update recurring frequency result:', result);
+            setSuccessMessage('Recurring frequency updated successfully!');
+            setTimeout(() => setSuccessMessage(""), 3000);
+            // Reload job data
+            const updatedJob = await jobsAPI.getById(jobId);
+            setJob(updatedJob.job || updatedJob);
           }}
         />
 
