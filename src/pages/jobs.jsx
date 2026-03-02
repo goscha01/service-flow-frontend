@@ -1261,8 +1261,8 @@ const ServiceFlowJobs = () => {
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex flex-col">
                                 <span style={{fontFamily: 'Montserrat', fontWeight: 500}} className="text-sm font-medium text-gray-900">
-                                  {job.customer_first_name && job.customer_last_name
-                                    ? `${job.customer_first_name} ${job.customer_last_name}`
+                                  {job.customer_first_name || job.customer_last_name
+                                    ? `${job.customer_first_name || ''} ${job.customer_last_name || ''}`.trim()
                                     : job.customer_email
                                     ? job.customer_email
                                     : 'Customer Name'

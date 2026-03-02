@@ -72,10 +72,19 @@ const Payroll = () => {
   const formatDate = (dateString) => {
     if (!dateString) return ''
     const date = new Date(dateString)
-    return date.toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'short', 
-      day: 'numeric' 
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    })
+  }
+
+  const formatShortDate = (dateString) => {
+    if (!dateString) return ''
+    const date = new Date(dateString)
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric'
     })
   }
 
@@ -326,191 +335,136 @@ const Payroll = () => {
                 </div>
               ) : (
                 <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Team Member
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Payment Method
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Jobs
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Hours Worked
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Hourly Salary
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Commission
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Tips
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Incentives
-                          </th>
-                          <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Total Salary
-                          </th>
+                  <table className="w-full divide-y divide-gray-200" style={{ tableLayout: 'fixed' }}>
+                    <colgroup>
+                      <col className="w-[22%]" />
+                      <col className="w-[13%]" />
+                      <col className="w-[5%]" />
+                      <col className="w-[8%]" />
+                      <col className="w-[10%]" />
+                      <col className="w-[10%]" />
+                      <col className="w-[8%]" />
+                      <col className="w-[10%]" />
+                      <col className="w-[12%]" />
+                    </colgroup>
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Team Member</th>
+                        <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pay Method</th>
+                        <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase">Jobs</th>
+                        <th className="px-2 py-3 text-right text-xs font-medium text-gray-500 uppercase">Hours</th>
+                        <th className="px-2 py-3 text-right text-xs font-medium text-gray-500 uppercase">Hourly</th>
+                        <th className="px-2 py-3 text-right text-xs font-medium text-gray-500 uppercase">Comm</th>
+                        <th className="px-2 py-3 text-right text-xs font-medium text-gray-500 uppercase">Tips</th>
+                        <th className="px-2 py-3 text-right text-xs font-medium text-gray-500 uppercase">Incentives</th>
+                        <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {filteredMembers.map((member) => {
+                        const isExpanded = expandedMembers.has(member.teamMember.id)
+                        return (
+                        <React.Fragment key={member.teamMember.id}>
+                        <tr className="hover:bg-gray-50 cursor-pointer" onClick={() => toggleExpanded(member.teamMember.id)}>
+                          <td className="px-3 py-3">
+                            <div className="flex items-center min-w-0">
+                              <div className="flex-shrink-0 h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
+                                <span className="text-blue-600 font-semibold text-xs">
+                                  {member.teamMember.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                                </span>
+                              </div>
+                              <div className="ml-2 min-w-0">
+                                <div className="text-sm font-medium text-gray-900 flex items-center gap-1 truncate">
+                                  {isExpanded ? <ChevronDown className="w-3 h-3 text-gray-400 flex-shrink-0" /> : <ChevronRight className="w-3 h-3 text-gray-400 flex-shrink-0" />}
+                                  <span className="truncate">{member.teamMember.name}</span>
+                                </div>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); toggleExpanded(member.teamMember.id) }}
+                                  className="text-xs text-blue-600 hover:text-blue-700"
+                                >
+                                  {isExpanded ? 'Hide' : 'Details'}
+                                </button>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-2 py-3 text-xs text-gray-700 truncate">
+                            {member.teamMember.commissionPercentage ? `${member.teamMember.commissionPercentage}%` : ''}
+                            {member.teamMember.hourlyRate && member.teamMember.commissionPercentage ? ' + ' : ''}
+                            {member.teamMember.hourlyRate ? `$${member.teamMember.hourlyRate}/hr` : ''}
+                            {!member.teamMember.hourlyRate && !member.teamMember.commissionPercentage && <span className="text-gray-400 italic">Not set</span>}
+                          </td>
+                          <td className="px-2 py-3 text-sm text-gray-900 text-center">{member.jobCount}</td>
+                          <td className="px-2 py-3 text-sm text-gray-900 text-right">{member.totalHours.toFixed(1)}</td>
+                          <td className="px-2 py-3 text-sm text-gray-900 text-right">{formatCurrency(member.hourlySalary || 0)}</td>
+                          <td className="px-2 py-3 text-sm text-gray-900 text-right">{formatCurrency(member.commissionSalary || 0)}</td>
+                          <td className="px-2 py-3 text-sm text-gray-900 text-right">{formatCurrency(member.totalTips || 0)}</td>
+                          <td className="px-2 py-3 text-sm text-gray-900 text-right">{formatCurrency(member.totalIncentives || 0)}</td>
+                          <td className="px-3 py-3 text-sm font-semibold text-gray-900 text-right">{formatCurrency(member.totalSalary)}</td>
                         </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {filteredMembers.map((member) => {
-                          const isExpanded = expandedMembers.has(member.teamMember.id)
-                          return (
-                          <React.Fragment key={member.teamMember.id}>
-                          <tr className="hover:bg-gray-50 cursor-pointer" onClick={() => toggleExpanded(member.teamMember.id)}>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex items-center">
-                                <div className="flex-shrink-0 h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                                  <span className="text-blue-600 font-semibold text-sm">
-                                    {member.teamMember.name.split(' ').map(n => n[0]).join('').toUpperCase()}
-                                  </span>
-                                </div>
-                                <div className="ml-4">
-                                  <div className="text-sm font-medium text-gray-900 flex items-center gap-1">
-                                    {isExpanded ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
-                                    {member.teamMember.name}
-                                  </div>
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); toggleExpanded(member.teamMember.id) }}
-                                    className="text-xs text-blue-600 hover:text-blue-700"
-                                  >
-                                    {isExpanded ? 'Hide Details' : 'View Details'}
-                                  </button>
-                                </div>
+                        {isExpanded && member.jobs && member.jobs.length > 0 && (
+                          <tr>
+                            <td colSpan="9" className="p-0">
+                              <div className="bg-gray-50 border-t border-b border-gray-100 px-3 py-2">
+                                <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Job Breakdown</p>
+                                <table className="w-full text-xs">
+                                  <thead>
+                                    <tr className="text-gray-500 uppercase tracking-wider">
+                                      <th className="text-left py-2 pr-4 font-medium">Date</th>
+                                      <th className="text-left py-2 pr-4 font-medium">Name</th>
+                                      <th className="text-left py-2 pr-4 font-medium">Status</th>
+                                      <th className="text-right py-2 pr-4 font-medium">Hours</th>
+                                      <th className="text-right py-2 pr-4 font-medium">Revenue</th>
+                                      <th className="text-right py-2 pr-4 font-medium">Hourly</th>
+                                      <th className="text-right py-2 pr-4 font-medium">Commission</th>
+                                      <th className="text-right py-2 pr-4 font-medium">Tips</th>
+                                      <th className="text-right py-2 font-medium">Incentives</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {[...member.jobs].sort((a, b) => new Date(b.scheduledDate) - new Date(a.scheduledDate)).map(job => (
+                                      <tr key={job.id} className="border-t border-gray-200 hover:bg-gray-100 cursor-pointer" onClick={(e) => { e.stopPropagation(); navigate(`/job/${job.id}`) }}>
+                                        <td className="py-2 pr-4 text-gray-700 whitespace-nowrap">{formatShortDate(job.scheduledDate)}</td>
+                                        <td className="py-2 pr-4 text-gray-900 font-medium">{job.customerName}</td>
+                                        <td className="py-2 pr-4">
+                                          <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
+                                            job.status === 'completed' ? 'bg-green-100 text-green-700' :
+                                            job.status === 'in-progress' ? 'bg-blue-100 text-blue-700' :
+                                            job.status === 'scheduled' ? 'bg-yellow-100 text-yellow-700' :
+                                            'bg-gray-100 text-gray-600'
+                                          }`}>
+                                            {job.status}
+                                          </span>
+                                        </td>
+                                        <td className="py-2 pr-4 text-right text-gray-700">{job.hours.toFixed(2)}</td>
+                                        <td className="py-2 pr-4 text-right text-gray-700">{formatCurrency(job.revenue)}</td>
+                                        <td className="py-2 pr-4 text-right text-gray-700">{formatCurrency(job.hourlySalary)}</td>
+                                        <td className="py-2 pr-4 text-right text-gray-700">{formatCurrency(job.commission)}</td>
+                                        <td className="py-2 pr-4 text-right text-gray-700">{job.tip > 0 ? formatCurrency(job.tip) : '-'}</td>
+                                        <td className="py-2 text-right text-gray-700">{job.incentive > 0 ? formatCurrency(job.incentive) : '-'}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
                               </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              <div className="space-y-1">
-                                {member.teamMember.hourlyRate && (
-                                  <div className="text-xs">
-                                    <span className="text-gray-500">Hourly:</span> {formatCurrency(member.teamMember.hourlyRate)}/hr
-                                  </div>
-                                )}
-                                {member.teamMember.commissionPercentage && (
-                                  <div className="text-xs">
-                                    <span className="text-gray-500">Commission:</span> {member.teamMember.commissionPercentage}%
-                                  </div>
-                                )}
-                                {!member.teamMember.hourlyRate && !member.teamMember.commissionPercentage && (
-                                  <div className="space-y-1">
-                                    <span className="text-gray-400 italic text-xs">Not set</span>
-                                    <div className="text-xs text-orange-600">
-                                      Set rate in team settings
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {member.jobCount}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {member.totalHours.toFixed(2)} hrs
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {formatCurrency(member.hourlySalary || 0)}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {formatCurrency(member.commissionSalary || 0)}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {formatCurrency(member.totalTips || 0)}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {formatCurrency(member.totalIncentives || 0)}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 text-right">
-                              {formatCurrency(member.totalSalary)}
                             </td>
                           </tr>
-                          {isExpanded && member.jobs && member.jobs.length > 0 && (
-                            <tr>
-                              <td colSpan="9" className="px-0 py-0">
-                                <div className="bg-gray-50 border-t border-b border-gray-200 px-6 py-3">
-                                  <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">Job Breakdown</h4>
-                                  <div className="overflow-x-auto">
-                                    <table className="min-w-full text-xs">
-                                      <thead>
-                                        <tr className="text-gray-500 uppercase">
-                                          <th className="text-left py-1 pr-4 font-medium">Date</th>
-                                          <th className="text-left py-1 pr-4 font-medium">Service</th>
-                                          <th className="text-left py-1 pr-4 font-medium">Status</th>
-                                          <th className="text-right py-1 pr-4 font-medium">Hours</th>
-                                          <th className="text-right py-1 pr-4 font-medium">Revenue</th>
-                                          <th className="text-right py-1 pr-4 font-medium">Hourly</th>
-                                          <th className="text-right py-1 pr-4 font-medium">Commission</th>
-                                          <th className="text-right py-1 pr-4 font-medium">Tip</th>
-                                          <th className="text-right py-1 font-medium">Incentive</th>
-                                        </tr>
-                                      </thead>
-                                      <tbody>
-                                        {member.jobs.map(job => (
-                                          <tr key={job.id} className="border-t border-gray-200 hover:bg-gray-100 cursor-pointer" onClick={(e) => { e.stopPropagation(); navigate(`/job/${job.id}`) }}>
-                                            <td className="py-2 pr-4 text-gray-700">{formatDate(job.scheduledDate)}</td>
-                                            <td className="py-2 pr-4 text-gray-900 font-medium">{job.serviceName}</td>
-                                            <td className="py-2 pr-4">
-                                              <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
-                                                job.status === 'completed' ? 'bg-green-100 text-green-700' :
-                                                job.status === 'in-progress' ? 'bg-blue-100 text-blue-700' :
-                                                job.status === 'scheduled' ? 'bg-yellow-100 text-yellow-700' :
-                                                'bg-gray-100 text-gray-600'
-                                              }`}>
-                                                {job.status}
-                                              </span>
-                                            </td>
-                                            <td className="py-2 pr-4 text-right text-gray-700">{job.hours.toFixed(2)}</td>
-                                            <td className="py-2 pr-4 text-right text-gray-700">{formatCurrency(job.revenue)}</td>
-                                            <td className="py-2 pr-4 text-right text-gray-700">{formatCurrency(job.hourlySalary)}</td>
-                                            <td className="py-2 pr-4 text-right text-gray-700">{formatCurrency(job.commission)}</td>
-                                            <td className="py-2 pr-4 text-right text-gray-700">{job.tip > 0 ? formatCurrency(job.tip) : '-'}</td>
-                                            <td className="py-2 text-right text-gray-700">{job.incentive > 0 ? formatCurrency(job.incentive) : '-'}</td>
-                                          </tr>
-                                        ))}
-                                      </tbody>
-                                    </table>
-                                  </div>
-                                </div>
-                              </td>
-                            </tr>
-                          )}
-                          </React.Fragment>
-                          )
-                        })}
-                      </tbody>
-                      <tfoot className="bg-gray-50">
-                        <tr>
-                          <td colSpan="3" className="px-6 py-4 text-sm font-semibold text-gray-900 text-right">
-                            Totals:
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                            {filteredSummary.totalHours.toFixed(2)} hrs
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                            {formatCurrency(filteredSummary.totalHourlySalary || 0)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                            {formatCurrency(filteredSummary.totalCommission || 0)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                            {formatCurrency(filteredSummary.totalTips || 0)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                            {formatCurrency(filteredSummary.totalIncentives || 0)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 text-right">
-                            {formatCurrency(filteredSummary.totalSalary)}
-                          </td>
-                        </tr>
-                      </tfoot>
-                    </table>
-                  </div>
+                        )}
+                        </React.Fragment>
+                        )
+                      })}
+                    </tbody>
+                    <tfoot className="bg-gray-50">
+                      <tr>
+                        <td colSpan="3" className="px-3 py-3 text-sm font-semibold text-gray-900 text-right">Totals:</td>
+                        <td className="px-2 py-3 text-sm font-semibold text-gray-900 text-right">{filteredSummary.totalHours.toFixed(1)}</td>
+                        <td className="px-2 py-3 text-sm font-semibold text-gray-900 text-right">{formatCurrency(filteredSummary.totalHourlySalary || 0)}</td>
+                        <td className="px-2 py-3 text-sm font-semibold text-gray-900 text-right">{formatCurrency(filteredSummary.totalCommission || 0)}</td>
+                        <td className="px-2 py-3 text-sm font-semibold text-gray-900 text-right">{formatCurrency(filteredSummary.totalTips || 0)}</td>
+                        <td className="px-2 py-3 text-sm font-semibold text-gray-900 text-right">{formatCurrency(filteredSummary.totalIncentives || 0)}</td>
+                        <td className="px-3 py-3 text-sm font-semibold text-gray-900 text-right">{formatCurrency(filteredSummary.totalSalary)}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
                 </div>
               )}
             </div>

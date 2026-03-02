@@ -77,6 +77,7 @@ import { decodeHtmlEntities } from "../utils/htmlUtils"
 import { formatRecurringFrequency } from "../utils/recurringUtils"
 import { getMemberDrivingTime } from "../utils/slotUtils"
 import ConvertToRecurringModal from "../components/convert-to-recurring-modal"
+import AssignJobModal from "../components/assign-job-modal"
 import DuplicateJobModal from "../components/duplicate-job-modal"
 import { 
   canViewCustomerContact, 
@@ -138,6 +139,7 @@ const JobDetails = () => {
   const [showAddPaymentModal, setShowAddPaymentModal] = useState(false)
   const [showDiscountModal, setShowDiscountModal] = useState(false)
   const [showTipModal, setShowTipModal] = useState(false)
+  const [showIncentiveModal, setShowIncentiveModal] = useState(false)
   const [showMemberTipModal, setShowMemberTipModal] = useState(false)
   const [tipTargetMember, setTipTargetMember] = useState(null)
   const [memberTipInput, setMemberTipInput] = useState('')
@@ -251,8 +253,6 @@ const JobDetails = () => {
   const [teamMembers, setTeamMembers] = useState([])
   const [customPaymentMethods, setCustomPaymentMethods] = useState([])
   const [companyDrivingTimeMinutes, setCompanyDrivingTimeMinutes] = useState(0)
-  const [assigning, setAssigning] = useState(false)
-  const [selectedTeamMember, setSelectedTeamMember] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [showDriveTime, setShowDriveTime] = useState(true)
   const [invoice, setInvoice] = useState(null)
@@ -476,99 +476,71 @@ const JobDetails = () => {
     }
   };
 
-  // Team assignment handler
-  const handleTeamAssignment = async () => {
-    console.log('handleTeamAssignment called')
-    console.log('selectedTeamMember:', selectedTeamMember)
-    console.log('job:', job)
-    console.log('teamMembers:', teamMembers)
-    
-    if (!selectedTeamMember || !job) {
-      console.error('No team member or job selected')
-      setError('Please select a team member')
-      return
-    }
-    
+  // Team assignment handler (multi-member via AssignJobModal)
+  const handleAssignTeamMember = async (teamMemberIds, forceBook = false) => {
+    if (!job) return
+
     try {
-      setAssigning(true)
       setError('')
-      
-      console.log('Assigning team member:', { jobId: job.id, teamMemberId: selectedTeamMember })
-      
-      // ✅ ACTUALLY CALL THE API TO SAVE THE ASSIGNMENT
-      await jobsAPI.assignToTeamMember(job.id, selectedTeamMember)
-      
-      // Find the team member details
-      const teamMember = teamMembers.find(member => 
-        member.id == selectedTeamMember || 
-        member.id === parseInt(selectedTeamMember) ||
-        member.id === selectedTeamMember.toString()
+
+      const memberIdsArray = Array.isArray(teamMemberIds) ? teamMemberIds : (teamMemberIds ? [teamMemberIds] : [])
+      const normalizedMemberIds = memberIdsArray.map(id => Number(id)).filter(id => id && !isNaN(id))
+
+      // Get current assignments to remove if needed
+      const currentAssignments = job.team_assignments || []
+      const currentMemberIds = new Set(
+        currentAssignments.map(ta => Number(ta.team_member_id)).filter(id => id)
       )
-      
-      if (teamMember) {
-        // Refresh job data from API to ensure we have the latest state with proper mapping
-        try {
-          const updatedJobData = await jobsAPI.getById(job.id)
-          if (updatedJobData) {
-            // Use mapJobData to ensure assigned_team_member is properly mapped
-            const mappedJobData = mapJobData(updatedJobData)
-            setJob(mappedJobData)
-          } else {
-            // Fallback: Update local state if API refresh fails
-        setJob(prev => ({ 
-          ...prev, 
-              assigned_team_member: {
-                id: teamMember.id,
-                first_name: teamMember.first_name,
-                last_name: teamMember.last_name,
-                email: teamMember.email
-              },
-              team_member_id: selectedTeamMember,
-              assigned_team_member_id: selectedTeamMember
-            }))
-          }
-        } catch (refreshError) {
-          console.error('Error refreshing job data:', refreshError)
-          // Fallback: Update local state if refresh fails
-          setJob(prev => ({ 
-            ...prev, 
-            assigned_team_member: {
-              id: teamMember.id,
-              first_name: teamMember.first_name,
-              last_name: teamMember.last_name,
-              email: teamMember.email
-            },
-            team_member_id: selectedTeamMember,
-            assigned_team_member_id: selectedTeamMember
-          }))
-        }
-          
-        setSuccessMessage(`Team member ${teamMember.first_name} ${teamMember.last_name} assigned successfully!`)
-          setTimeout(() => setSuccessMessage(''), 3000)
-          
-          setShowAssignModal(false)
-          setSelectedTeamMember('')
-        } else {
-          setError(`Team member not found. Selected: ${selectedTeamMember}, Available: ${teamMembers.map(m => m.id).join(', ')}`)
+      if (currentMemberIds.size === 0) {
+        const singleId = job.assigned_team_member_id || job.team_member_id
+        if (singleId) currentMemberIds.add(Number(singleId))
       }
-      
+
+      if (normalizedMemberIds.length > 0) {
+        const primaryMemberId = normalizedMemberIds[0]
+        await jobsAPI.assignMultipleTeamMembers(job.id, normalizedMemberIds, primaryMemberId, forceBook)
+      } else {
+        const removePromises = Array.from(currentMemberIds).map(memberId =>
+          jobsAPI.removeTeamMember(job.id, memberId)
+        )
+        await Promise.all(removePromises)
+      }
+
+      // Reload job data from API
+      const jobData = await jobsAPI.getById(job.id)
+      if (jobData) {
+        const mappedJobData = mapJobData(jobData)
+        setJob(mappedJobData)
+      }
+
+      const actionText = normalizedMemberIds.length === 0
+        ? 'All team members unassigned successfully!'
+        : normalizedMemberIds.length === 1
+        ? 'Team member assigned successfully!'
+        : `${normalizedMemberIds.length} team members assigned successfully!`
+
+      setSuccessMessage(actionText)
+      setTimeout(() => setSuccessMessage(''), 3000)
+      setShowAssignModal(false)
+
     } catch (error) {
+      if (error.response?.status === 409 && error.response?.data?.canForceBook) {
+        const conflicts = error.response.data.conflicts || []
+        const allWarnings = conflicts.flatMap(c => c.warnings.map(w => `${c.memberLabel}: ${w}`))
+        const warningText = allWarnings.length > 0 ? allWarnings.join('\n- ') : (error.response.data.error || 'Scheduling conflict')
+        const proceed = window.confirm(
+          `Scheduling conflicts detected:\n- ${warningText}\n\nDo you want to override and assign anyway?`
+        )
+        if (proceed) {
+          return handleAssignTeamMember(teamMemberIds, true)
+        }
+        return
+      }
       console.error('Error assigning team member:', error)
-      const errorMsg = error.response?.data?.error || error.response?.data?.message || error.message || 'Failed to assign team member'
-      setError(errorMsg)
+      setError(error.response?.data?.error || 'Failed to update team member assignments')
       setTimeout(() => setError(''), 5000)
-    } finally {
-      setAssigning(false)
     }
   }
-
-  // Debug team members when modal opens
-  useEffect(() => {
-    if (showAssignModal) {
-      console.log('Team Assignment Modal opened, teamMembers:', teamMembers)
-      console.log('teamMembers length:', teamMembers.length)
-    }
-  }, [showAssignModal, teamMembers])
 
   // Click outside handler for dropdowns
   useEffect(() => {
@@ -2488,19 +2460,21 @@ const JobDetails = () => {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Tip</span>
-                  {displayTip > 0 ? (
-                    <button onClick={() => setShowTipModal(true)} className="text-green-600 hover:text-green-700">+${displayTip.toFixed(2)}</button>
-                  ) : (
-                    <button onClick={() => setShowTipModal(true)} className="text-blue-600 hover:text-blue-700">Add Tip</button>
-                  )}
+                  <button
+                    onClick={() => { const curTip = parseFloat(job?.tip_amount) || 0; setFormData(prev => ({ ...prev, tipInput: curTip > 0 ? curTip.toFixed(2) : '' })); setShowTipModal(true); }}
+                    className={displayTip > 0 ? "text-green-600 hover:text-green-700" : "text-blue-600 hover:text-blue-700"}
+                  >
+                    {displayTip > 0 ? `+$${displayTip.toFixed(2)}` : 'Add Tip'}
+                  </button>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Incentives</span>
-                  {displayIncentive > 0 ? (
-                    <span className="text-purple-600">+${displayIncentive.toFixed(2)}</span>
-                  ) : (
-                    <span className="text-gray-400">$0.00</span>
-                  )}
+                  <button
+                    onClick={() => { const curIncentive = parseFloat(job?.incentive_amount) || 0; setFormData(prev => ({ ...prev, incentiveInput: curIncentive > 0 ? curIncentive.toFixed(2) : '' })); setShowIncentiveModal(true); }}
+                    className={displayIncentive > 0 ? "text-purple-600 hover:text-purple-700" : "text-purple-600 hover:text-purple-700"}
+                  >
+                    {displayIncentive > 0 ? `+$${displayIncentive.toFixed(2)}` : 'Add Incentive'}
+                  </button>
                 </div>
                 {showCreditLine && displayCreditAmount > 0 && (
                   <div className="flex justify-between text-sm">
@@ -2837,7 +2811,8 @@ const JobDetails = () => {
                           <button
                             onClick={() => {
                               setTipTargetMember({ ...primaryAssignmentData, name: getTeamMemberName(assignedMember) });
-                              setMemberTipInput('');
+                              const curTip = parseFloat(primaryAssignmentData.tip_amount) || 0;
+                              setMemberTipInput(curTip > 0 ? curTip.toFixed(2) : '');
                               setShowMemberTipModal(true);
                             }}
                             className="text-xs text-blue-600 hover:text-blue-700 font-medium"
@@ -2850,7 +2825,8 @@ const JobDetails = () => {
                           <button
                             onClick={() => {
                               setIncentiveTargetMember({ ...primaryAssignmentData, name: getTeamMemberName(assignedMember) });
-                              setMemberIncentiveInput('');
+                              const curIncentive = parseFloat(primaryAssignmentData.incentive_amount) || 0;
+                              setMemberIncentiveInput(curIncentive > 0 ? curIncentive.toFixed(2) : '');
                               setShowMemberIncentiveModal(true);
                             }}
                             className="text-xs text-purple-600 hover:text-purple-700 font-medium"
@@ -3736,80 +3712,6 @@ const JobDetails = () => {
 
           
 
-            {/* Team Assignment Modal */}
-            {assigning && (
-              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
-                <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[80vh] overflow-y-auto">
-                  <div className="p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-semibold text-gray-900">Assign Team Member</h3>
-                      <button
-                        onClick={() => {
-                          setAssigning(false);
-                          setSelectedTeamMember(null);
-                        }}
-                        className="text-gray-400 hover:text-gray-600"
-                      >
-                        <X className="w-5 h-5" />
-                      </button>
-                    </div>
-                    
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Select Team Member
-                        </label>
-                        <select
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                          value={selectedTeamMember || ''}
-                          onChange={(e) => setSelectedTeamMember(e.target.value)}
-                        >
-                          <option value="">Choose a team member...</option>
-                          {teamMembers.map((member) => (
-                            <option key={member.id} value={member.id}>
-                              {member.first_name} {member.last_name} ({member.email})
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      
-                      {teamMembers.length === 0 && (
-                        <div className="text-center py-4">
-                          <Users className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-                          <p className="text-gray-500 text-sm">No team members available</p>
-                          <p className="text-gray-400 text-xs">Add team members in the Team section first</p>
-                        </div>
-                      )}
-                      
-                      <div className="flex justify-end space-x-3 pt-4">
-                        <button
-                          onClick={() => {
-                            setAssigning(false);
-                            setSelectedTeamMember(null);
-                          }}
-                          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-200"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={() => {
-                            if (selectedTeamMember) {
-                              handleTeamAssignment();
-                              setAssigning(false);
-                              setSelectedTeamMember(null);
-                            }
-                          }}
-                          disabled={!selectedTeamMember}
-                          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          Assign Member
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* Invoice Section */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 sm:p-4 lg:p-6">
@@ -4066,39 +3968,19 @@ const JobDetails = () => {
                   </span>
                 </div>
 
-                {displayTip > 0 && (
                 <div className="flex justify-between items-center py-2">
                   <span className="text-sm text-gray-600">Tip</span>
-                  <span className="text-sm font-medium text-green-600">+${displayTip.toFixed(2)}</span>
+                  <button type="button" onClick={() => { const curTip = parseFloat(job?.tip_amount) || 0; setFormData(prev => ({ ...prev, tipInput: curTip > 0 ? curTip.toFixed(2) : '' })); setShowTipModal(true); }} className={`text-sm font-medium ${displayTip > 0 ? 'text-green-600 hover:text-green-700' : 'text-blue-600 hover:text-blue-700'}`}>
+                    {displayTip > 0 ? `+$${displayTip.toFixed(2)}` : 'Add Tip'}
+                  </button>
                 </div>
-                )}
-                {displayTip <= 0 && canEditJobDetails(user) && (
-                <div className="flex justify-between items-center py-2">
-                  <span className="text-sm text-gray-600">Tip</span>
-                  <button type="button" onClick={() => setShowTipModal(true)} className="text-sm text-blue-600 hover:text-blue-700">Add Tip</button>
-                </div>
-                )}
 
-                {displayIncentive > 0 && (
                 <div className="flex justify-between items-center py-2">
                   <span className="text-sm text-gray-600">Incentives</span>
-                  <span className="text-sm font-medium text-purple-600">+${displayIncentive.toFixed(2)}</span>
+                  <button type="button" onClick={() => { const curIncentive = parseFloat(job?.incentive_amount) || 0; setFormData(prev => ({ ...prev, incentiveInput: curIncentive > 0 ? curIncentive.toFixed(2) : '' })); setShowIncentiveModal(true); }} className={`text-sm font-medium ${displayIncentive > 0 ? 'text-purple-600 hover:text-purple-700' : 'text-purple-600 hover:text-purple-700'}`}>
+                    {displayIncentive > 0 ? `+$${displayIncentive.toFixed(2)}` : 'Add Incentive'}
+                  </button>
                 </div>
-                )}
-                {displayIncentive <= 0 && canEditJobDetails(user) && (
-                <div className="flex justify-between items-center py-2">
-                  <span className="text-sm text-gray-600">Incentives</span>
-                  <button type="button" onClick={() => {
-                    const firstAssignment = job?.team_assignments?.[0];
-                    if (firstAssignment) {
-                      const memberName = firstAssignment.first_name ? `${firstAssignment.first_name} ${firstAssignment.last_name || ''}`.trim() : 'Team Member';
-                      setIncentiveTargetMember({ ...firstAssignment, name: memberName });
-                      setMemberIncentiveInput('');
-                      setShowMemberIncentiveModal(true);
-                    }
-                  }} className="text-sm text-purple-600 hover:text-purple-700">Add Incentive</button>
-                </div>
-                )}
               </div>
               )}
 
@@ -4426,7 +4308,8 @@ const JobDetails = () => {
                                         <button
                                           onClick={() => {
                                             setTipTargetMember({ ...assignment, name: memberName });
-                                            setMemberTipInput('');
+                                            const curTip = parseFloat(assignment.tip_amount) || 0;
+                                            setMemberTipInput(curTip > 0 ? curTip.toFixed(2) : '');
                                             setShowMemberTipModal(true);
                                           }}
                                           className="text-xs text-blue-600 hover:text-blue-700 font-medium"
@@ -4439,7 +4322,8 @@ const JobDetails = () => {
                                         <button
                                           onClick={() => {
                                             setIncentiveTargetMember({ ...assignment, name: memberName });
-                                            setMemberIncentiveInput('');
+                                            const curIncentive = parseFloat(assignment.incentive_amount) || 0;
+                                            setMemberIncentiveInput(curIncentive > 0 ? curIncentive.toFixed(2) : '');
                                             setShowMemberIncentiveModal(true);
                                           }}
                                           className="text-xs text-purple-600 hover:text-purple-700 font-medium"
@@ -5270,41 +5154,21 @@ const JobDetails = () => {
                       )}
                       <div className="flex justify-between items-center py-2">
                         <span className="text-sm text-gray-600">Tip</span>
-                        {displayTip > 0 ? (
-                          <button onClick={() => { setError(''); setFormData(prev => ({ ...prev, tipInput: '' })); setShowTipModal(true); }} className="text-sm font-medium text-green-600 hover:text-green-700">+${displayTip.toFixed(2)}</button>
-                        ) : (
-                          <button
-                            onClick={() => {
-                              setError('')
-                              setFormData(prev => ({ ...prev, tipInput: '' }))
-                              setShowTipModal(true)
-                            }}
-                            className="text-sm text-blue-600 hover:text-blue-700"
-                          >
-                            Add Tip
-                          </button>
-                        )}
+                        <button
+                          onClick={() => { setError(''); const curTip = parseFloat(job?.tip_amount) || 0; setFormData(prev => ({ ...prev, tipInput: curTip > 0 ? curTip.toFixed(2) : '' })); setShowTipModal(true); }}
+                          className={`text-sm font-medium ${displayTip > 0 ? 'text-green-600 hover:text-green-700' : 'text-blue-600 hover:text-blue-700'}`}
+                        >
+                          {displayTip > 0 ? `+$${displayTip.toFixed(2)}` : 'Add Tip'}
+                        </button>
                       </div>
                       <div className="flex justify-between items-center py-2">
                         <span className="text-sm text-gray-600">Incentives</span>
-                        {displayIncentive > 0 ? (
-                          <span className="text-sm font-medium text-purple-600">+${displayIncentive.toFixed(2)}</span>
-                        ) : (
-                          <button
-                            onClick={() => {
-                              const firstAssignment = job?.team_assignments?.[0];
-                              if (firstAssignment) {
-                                const memberName = firstAssignment.first_name ? `${firstAssignment.first_name} ${firstAssignment.last_name || ''}`.trim() : 'Team Member';
-                                setIncentiveTargetMember({ ...firstAssignment, name: memberName });
-                                setMemberIncentiveInput('');
-                                setShowMemberIncentiveModal(true);
-                              }
-                            }}
-                            className="text-sm text-purple-600 hover:text-purple-700"
-                          >
-                            Add Incentive
-                          </button>
-                        )}
+                        <button
+                          onClick={() => { setError(''); const curIncentive = parseFloat(job?.incentive_amount) || 0; setFormData(prev => ({ ...prev, incentiveInput: curIncentive > 0 ? curIncentive.toFixed(2) : '' })); setShowIncentiveModal(true); }}
+                          className={`text-sm font-medium ${displayIncentive > 0 ? 'text-purple-600 hover:text-purple-700' : 'text-purple-600 hover:text-purple-700'}`}
+                        >
+                          {displayIncentive > 0 ? `+$${displayIncentive.toFixed(2)}` : 'Add Incentive'}
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -6850,7 +6714,7 @@ const JobDetails = () => {
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Add Tip</h3>
+                  <h3 className="text-lg font-semibold text-gray-900">{parseFloat(job?.tip_amount) > 0 ? 'Edit' : 'Add'} Tip</h3>
                   <button
                     onClick={() => setShowTipModal(false)}
                     className="text-gray-400 hover:text-gray-600"
@@ -6858,7 +6722,7 @@ const JobDetails = () => {
                     <X className="w-5 h-5" />
                   </button>
                 </div>
-                
+
                 <div className="space-y-4">
                   {error && (
                     <div className="bg-red-50 border border-red-200 rounded-lg p-3">
@@ -6872,7 +6736,7 @@ const JobDetails = () => {
                       <input
                         type="text"
                         inputMode="decimal"
-                        value={formData.tipInput || ''}
+                        value={formData.tipInput ?? ''}
                         onChange={e => {
                           const val = e.target.value
                           if (val === '' || /^\d*\.?\d{0,2}$/.test(val)) {
@@ -6898,8 +6762,8 @@ const JobDetails = () => {
                     </button>
                     <button
                       onClick={async () => {
-                        const tipVal = parseFloat(formData.tipInput) || 0
-                        if (tipVal <= 0) {
+                        const newTip = parseFloat(formData.tipInput) || 0
+                        if (newTip < 0) {
                           setError('Please enter a valid tip amount')
                           setTimeout(() => setError(''), 3000)
                           return
@@ -6907,12 +6771,10 @@ const JobDetails = () => {
                         try {
                           setError('')
                           setLoading(true)
-                          const prevTip = parseFloat(job.tip_amount || 0)
-                          const newTip = prevTip + tipVal
                           await jobsAPI.update(job.id, { tip_amount: newTip })
                           setJob(prev => ({ ...prev, tip_amount: newTip }))
                           setFormData(prev => ({ ...prev, tip: newTip, tipInput: '' }))
-                          setSuccessMessage('Tip added successfully!')
+                          setSuccessMessage(newTip > 0 ? 'Tip updated successfully!' : 'Tip removed!')
                           setTimeout(() => setSuccessMessage(''), 3000)
                           setShowTipModal(false)
                         } catch (err) {
@@ -6926,7 +6788,96 @@ const JobDetails = () => {
                       disabled={loading}
                       className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
                     >
-                      {loading ? 'Saving...' : 'Add Tip'}
+                      {loading ? 'Saving...' : 'Save Tip'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Job-Level Incentive Modal */}
+        {showIncentiveModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10000] p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">{parseFloat(job?.incentive_amount) > 0 ? 'Edit' : 'Add'} Incentive</h3>
+                  <button
+                    onClick={() => setShowIncentiveModal(false)}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  {error && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                      <p className="text-sm text-red-800">{error}</p>
+                    </div>
+                  )}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Incentive Amount</label>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm text-gray-500">$</span>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={formData.incentiveInput ?? ''}
+                        onChange={e => {
+                          const val = e.target.value
+                          if (val === '' || /^\d*\.?\d{0,2}$/.test(val)) {
+                            setFormData(prev => ({ ...prev, incentiveInput: val }))
+                          }
+                        }}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                        placeholder="0.00"
+                        autoFocus
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex space-x-3 pt-4">
+                    <button
+                      onClick={() => {
+                        setFormData(prev => ({ ...prev, incentiveInput: '' }))
+                        setShowIncentiveModal(false)
+                      }}
+                      className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={async () => {
+                        const newIncentive = parseFloat(formData.incentiveInput) || 0
+                        if (newIncentive < 0) {
+                          setError('Please enter a valid incentive amount')
+                          setTimeout(() => setError(''), 3000)
+                          return
+                        }
+                        try {
+                          setError('')
+                          setLoading(true)
+                          await jobsAPI.update(job.id, { incentive_amount: newIncentive })
+                          setJob(prev => ({ ...prev, incentive_amount: newIncentive }))
+                          setFormData(prev => ({ ...prev, incentiveInput: '' }))
+                          setSuccessMessage(newIncentive > 0 ? 'Incentive updated successfully!' : 'Incentive removed!')
+                          setTimeout(() => setSuccessMessage(''), 3000)
+                          setShowIncentiveModal(false)
+                        } catch (err) {
+                          console.error('Error saving incentive:', err)
+                          setError('Failed to save incentive')
+                          setTimeout(() => setError(''), 3000)
+                        } finally {
+                          setLoading(false)
+                        }
+                      }}
+                      disabled={loading}
+                      className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
+                    >
+                      {loading ? 'Saving...' : 'Save Incentive'}
                     </button>
                   </div>
                 </div>
@@ -6953,11 +6904,6 @@ const JobDetails = () => {
                 </div>
 
                 <div className="space-y-4">
-                  {parseFloat(tipTargetMember.tip_amount) > 0 && (
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                      <p className="text-sm text-green-800">Current tip: <span className="font-semibold">${parseFloat(tipTargetMember.tip_amount).toFixed(2)}</span></p>
-                    </div>
-                  )}
                   {error && (
                     <div className="bg-red-50 border border-red-200 rounded-lg p-3">
                       <p className="text-sm text-red-800">{error}</p>
@@ -6993,8 +6939,8 @@ const JobDetails = () => {
                     </button>
                     <button
                       onClick={async () => {
-                        const tipVal = parseFloat(memberTipInput) || 0;
-                        if (tipVal <= 0) {
+                        const newTip = parseFloat(memberTipInput) || 0;
+                        if (newTip < 0) {
                           setError('Please enter a valid tip amount');
                           setTimeout(() => setError(''), 3000);
                           return;
@@ -7002,10 +6948,7 @@ const JobDetails = () => {
                         try {
                           setError('');
                           setLoading(true);
-                          const prevTip = parseFloat(tipTargetMember.tip_amount) || 0;
-                          const newTip = prevTip + tipVal;
                           const result = await jobsAPI.updateTeamMemberTip(job.id, tipTargetMember.team_member_id, newTip);
-                          // Update local job state with new per-member tip and job-level tip total
                           setJob(prev => ({
                             ...prev,
                             tip_amount: result.jobTipTotal,
@@ -7015,7 +6958,7 @@ const JobDetails = () => {
                                 : ta
                             )
                           }));
-                          setSuccessMessage(`Tip added for ${tipTargetMember.name || 'team member'}!`);
+                          setSuccessMessage(newTip > 0 ? `Tip updated for ${tipTargetMember.name || 'team member'}!` : 'Tip removed!');
                           setTimeout(() => setSuccessMessage(''), 3000);
                           setShowMemberTipModal(false);
                           setTipTargetMember(null);
@@ -7031,7 +6974,7 @@ const JobDetails = () => {
                       disabled={loading}
                       className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
                     >
-                      {loading ? 'Saving...' : 'Add Tip'}
+                      {loading ? 'Saving...' : 'Save Tip'}
                     </button>
                   </div>
                 </div>
@@ -7058,11 +7001,6 @@ const JobDetails = () => {
                 </div>
 
                 <div className="space-y-4">
-                  {parseFloat(incentiveTargetMember.incentive_amount) > 0 && (
-                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
-                      <p className="text-sm text-purple-800">Current incentive: <span className="font-semibold">${parseFloat(incentiveTargetMember.incentive_amount).toFixed(2)}</span></p>
-                    </div>
-                  )}
                   {error && (
                     <div className="bg-red-50 border border-red-200 rounded-lg p-3">
                       <p className="text-sm text-red-800">{error}</p>
@@ -7098,8 +7036,8 @@ const JobDetails = () => {
                     </button>
                     <button
                       onClick={async () => {
-                        const incentiveVal = parseFloat(memberIncentiveInput) || 0;
-                        if (incentiveVal <= 0) {
+                        const newIncentive = parseFloat(memberIncentiveInput) || 0;
+                        if (newIncentive < 0) {
                           setError('Please enter a valid incentive amount');
                           setTimeout(() => setError(''), 3000);
                           return;
@@ -7107,10 +7045,7 @@ const JobDetails = () => {
                         try {
                           setError('');
                           setLoading(true);
-                          const prevIncentive = parseFloat(incentiveTargetMember.incentive_amount) || 0;
-                          const newIncentive = prevIncentive + incentiveVal;
                           const result = await jobsAPI.updateTeamMemberIncentive(job.id, incentiveTargetMember.team_member_id, newIncentive);
-                          // Update local job state with new per-member incentive and job-level incentive total
                           setJob(prev => ({
                             ...prev,
                             incentive_amount: result.jobIncentiveTotal,
@@ -7120,7 +7055,7 @@ const JobDetails = () => {
                                 : ta
                             )
                           }));
-                          setSuccessMessage(`Incentive added for ${incentiveTargetMember.name || 'team member'}!`);
+                          setSuccessMessage(newIncentive > 0 ? `Incentive updated for ${incentiveTargetMember.name || 'team member'}!` : 'Incentive removed!');
                           setTimeout(() => setSuccessMessage(''), 3000);
                           setShowMemberIncentiveModal(false);
                           setIncentiveTargetMember(null);
@@ -7136,7 +7071,7 @@ const JobDetails = () => {
                       disabled={loading}
                       className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
                     >
-                      {loading ? 'Saving...' : 'Add Incentive'}
+                      {loading ? 'Saving...' : 'Save Incentive'}
                     </button>
                   </div>
                 </div>
@@ -7145,77 +7080,14 @@ const JobDetails = () => {
           </div>
         )}
 
-        {/* Team Assignment Modal - Desktop View */}
-        {showAssignModal && canEditJobDetails(user) && (
-          <div className="hidden lg:flex fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-[9999] p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Assign Team Member</h3>
-              <button
-                onClick={() => {
-                  setShowAssignModal(false)
-                  setSelectedTeamMember(null)
-                }}
-                  className="text-gray-400 hover:text-gray-600"
-              >
-                  <X className="w-5 h-5" />
-              </button>
-              </div>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Select Team Member
-                  </label>
-                  <select
-                    value={selectedTeamMember || ''}
-                    onChange={(e) => {
-                      console.log('Team member selected:', e.target.value)
-                      setSelectedTeamMember(e.target.value)
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="">Choose a team member...</option>
-                    {teamMembers.length > 0 ? teamMembers.map((member) => {
-                      console.log('Rendering team member:', member)
-                      return (
-                        <option key={member.id} value={member.id}>
-                          {member.first_name} {member.last_name} - {member.email}
-                        </option>
-                      )
-                    }) : (
-                      <option value="" disabled>No team members available</option>
-                    )}
-                  </select>
-                </div>
-                
-                <div className="flex space-x-3 pt-4">
-              <button
-                onClick={() => {
-                      setShowAssignModal(false)
-                      setSelectedTeamMember(null)
-                    }}
-                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={() => {
-                      console.log('Assign button clicked!')
-                      console.log('selectedTeamMember:', selectedTeamMember)
-                      console.log('assigning:', assigning)
-                    handleTeamAssignment()
-                }}
-                disabled={!selectedTeamMember || assigning}
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                    {assigning ? 'Assigning...' : 'Assign'}
-              </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Team Assignment Modal (AssignJobModal handles both desktop and mobile) */}
+        <AssignJobModal
+          job={job}
+          isOpen={showAssignModal && canEditJobDetails(user)}
+          onClose={() => setShowAssignModal(false)}
+          onAssign={handleAssignTeamMember}
+          companyDrivingTimeMinutes={companyDrivingTimeMinutes}
+        />
 
       {/* Modals - Rendered outside main container for proper z-index stacking */}
       {/* Edit Customer Modal - Mobile View */}
@@ -7441,95 +7313,6 @@ const JobDetails = () => {
         </div>
       )}
 
-      {/* Team Assignment Modal - Mobile View */}
-      {showAssignModal && canEditJobDetails(user) && (
-        <div className="lg:hidden fixed inset-0 bg-white z-[99999] flex flex-col" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}>
-          {/* Mobile Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-            <button
-              onClick={() => {
-                setShowAssignModal(false)
-                setSelectedTeamMember(null)
-              }}
-              className="p-2 -ml-2"
-            >
-              <X className="w-5 h-5 text-gray-900" />
-            </button>
-            <h2 className="text-base font-semibold text-gray-900">Assign Job</h2>
-            <button
-              onClick={() => {
-                if (selectedTeamMember) {
-                  handleTeamAssignment()
-                }
-              }}
-              disabled={!selectedTeamMember || assigning}
-              className="px-4 py-1.5 bg-gray-200 text-gray-700 rounded-lg font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Assign
-            </button>
-          </div>
-
-          {/* Scrollable Content */}
-          <div className="flex-1 overflow-y-auto">
-            {/* Job Information Card */}
-            <div className="bg-white border-b border-gray-200 px-4 py-4">
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex-1">
-                  <h3 className="text-sm font-semibold text-gray-900 mb-1">
-                    {job.service_names && job.service_names.length > 1 
-                      ? `${job.service_names.length} Services` 
-                      : decodeHtmlEntities(job.service_name || 'Service')
-                    }
-                  </h3>
-                  <p className="text-xs text-gray-600">Job #{job.id || job.job_id}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Team Member Selection */}
-            <div className="px-4 py-4">
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                Select Team Member
-              </label>
-              <select
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                value={selectedTeamMember || ''}
-                onChange={(e) => setSelectedTeamMember(e.target.value)}
-              >
-                <option value="">Choose a team member...</option>
-                {teamMembers.map((member) => (
-                  <option key={member.id} value={member.id}>
-                    {member.first_name} {member.last_name} ({member.email})
-                  </option>
-                ))}
-              </select>
-              
-              {teamMembers.length === 0 && (
-                <div className="text-center py-8">
-                  <Users className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-                  <p className="text-gray-500 text-sm">No team members available</p>
-                  <p className="text-gray-400 text-xs mt-1">Add team members in the Team section first</p>
-                </div>
-                              )}
-                            </div>
-                          </div>
-
-          {/* Footer */}
-          <div className="border-t border-gray-200 px-4 py-3 space-y-2">
-            <button
-              onClick={() => {
-                if (selectedTeamMember) {
-                  handleTeamAssignment()
-                }
-              }}
-              disabled={!selectedTeamMember || assigning}
-              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {assigning ? 'Assigning...' : 'Assign'}
-                            </button>
-                          </div>
-                            </div>
-                          )}
 
       {/* Edit Job Requirements Modal - Mobile View */}
       {showEditJobRequirementsModal && canEditJobDetails(user) && (
