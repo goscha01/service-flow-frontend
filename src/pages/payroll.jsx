@@ -436,7 +436,11 @@ const Payroll = () => {
                                           </span>
                                         </td>
                                         <td className="py-2 pr-4 text-right text-gray-700">{job.hours.toFixed(2)}</td>
-                                        <td className="py-2 pr-4 text-right text-gray-700">{formatCurrency(job.revenue)}</td>
+                                        <td className="py-2 pr-4 text-right text-gray-700">
+                                          {job.memberCount > 1 && job.fullRevenue
+                                            ? <span>{formatCurrency(job.revenue)} <span className="text-gray-400 text-xs">({formatCurrency(job.fullRevenue)})</span></span>
+                                            : formatCurrency(job.revenue)}
+                                        </td>
                                         <td className="py-2 pr-4 text-right text-gray-700">{formatCurrency(job.hourlySalary)}</td>
                                         <td className="py-2 pr-4 text-right text-gray-700">{formatCurrency(job.commission)}</td>
                                         <td className="py-2 pr-4 text-right text-gray-700">{job.tip > 0 ? formatCurrency(job.tip) : '-'}</td>
