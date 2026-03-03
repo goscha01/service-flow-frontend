@@ -1073,23 +1073,6 @@ export const jobsAPI = {
     }
   },
 
-  updateTeamMemberTip: async (jobId, teamMemberId, tipAmount) => {
-    try {
-      const response = await api.put(`/jobs/${jobId}/team-tip`, { teamMemberId, tipAmount });
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
-  },
-
-  updateTeamMemberIncentive: async (jobId, teamMemberId, incentiveAmount) => {
-    try {
-      const response = await api.put(`/jobs/${jobId}/team-incentive`, { teamMemberId, incentiveAmount });
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
-  }
 };
 
 // Team Management API functions
