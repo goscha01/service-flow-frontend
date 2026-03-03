@@ -413,7 +413,7 @@ const Payroll = () => {
                                       <th className="text-left py-2 pr-4 font-medium">Name</th>
                                       <th className="text-left py-2 pr-4 font-medium">Status</th>
                                       <th className="text-right py-2 pr-4 font-medium">Hours</th>
-                                      <th className="text-right py-2 pr-4 font-medium">Revenue</th>
+                                      <th className="text-right py-2 pr-4 font-medium">Price</th>
                                       <th className="text-right py-2 pr-4 font-medium">Hourly</th>
                                       <th className="text-right py-2 pr-4 font-medium">Commission</th>
                                       <th className="text-right py-2 pr-4 font-medium">Tips</th>
