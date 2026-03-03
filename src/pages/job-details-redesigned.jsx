@@ -140,12 +140,6 @@ const JobDetails = () => {
   const [showDiscountModal, setShowDiscountModal] = useState(false)
   const [showTipModal, setShowTipModal] = useState(false)
   const [showIncentiveModal, setShowIncentiveModal] = useState(false)
-  const [showMemberTipModal, setShowMemberTipModal] = useState(false)
-  const [tipTargetMember, setTipTargetMember] = useState(null)
-  const [memberTipInput, setMemberTipInput] = useState('')
-  const [showMemberIncentiveModal, setShowMemberIncentiveModal] = useState(false)
-  const [incentiveTargetMember, setIncentiveTargetMember] = useState(null)
-  const [memberIncentiveInput, setMemberIncentiveInput] = useState('')
   const [includePaymentLink, setIncludePaymentLink] = useState(true)
   const [stripeConnected, setStripeConnected] = useState(false)
   const [manualEmail, setManualEmail] = useState('')
@@ -2740,9 +2734,6 @@ const JobDetails = () => {
                           : (assignment.team_member_id ? teamMembers.find(m => Number(m.id) === Number(assignment.team_member_id)) || member : member);
                         const drivingMin = fullMember ? getMemberDrivingTime(fullMember, companyDrivingTimeMinutes) : 0;
 
-                        const memberTip = parseFloat(assignment.tip_amount) || 0;
-                        const memberIncentive = parseFloat(assignment.incentive_amount) || 0;
-
                         return (
                           <div key={assignment.team_member_id || index} className="space-y-1">
                             <div className="flex items-center justify-between">
@@ -2777,34 +2768,6 @@ const JobDetails = () => {
                                 Travel time: {drivingMin} min before & after — blocks this cleaner's schedule
                               </p>
                             )}
-                            <div className="flex items-center gap-2 flex-wrap ml-10">
-                              {memberTip > 0 && (
-                                <span className="text-xs text-green-600 font-medium">Tip: ${memberTip.toFixed(2)}</span>
-                              )}
-                              <button
-                                onClick={() => {
-                                  setTipTargetMember({ ...assignment, name: memberName });
-                                  setMemberTipInput(memberTip > 0 ? memberTip.toFixed(2) : '');
-                                  setShowMemberTipModal(true);
-                                }}
-                                className="text-xs text-blue-600 hover:text-blue-700 font-medium"
-                              >
-                                {memberTip > 0 ? 'Edit Tip' : 'Add Tip'}
-                              </button>
-                              {memberIncentive > 0 && (
-                                <span className="text-xs text-purple-600 font-medium">Incentive: ${memberIncentive.toFixed(2)}</span>
-                              )}
-                              <button
-                                onClick={() => {
-                                  setIncentiveTargetMember({ ...assignment, name: memberName });
-                                  setMemberIncentiveInput(memberIncentive > 0 ? memberIncentive.toFixed(2) : '');
-                                  setShowMemberIncentiveModal(true);
-                                }}
-                                className="text-xs text-purple-600 hover:text-purple-700 font-medium"
-                              >
-                                {memberIncentive > 0 ? 'Edit Incentive' : 'Add Incentive'}
-                              </button>
-                            </div>
                           </div>
                         );
                       })}
@@ -4302,36 +4265,6 @@ const JobDetails = () => {
                                           {memberEmail}
                                         </p>
                                       )}
-                                      <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                        {parseFloat(assignment.tip_amount) > 0 && (
-                                          <span className="text-xs text-green-600 font-medium">Tip: ${parseFloat(assignment.tip_amount).toFixed(2)}</span>
-                                        )}
-                                        <button
-                                          onClick={() => {
-                                            setTipTargetMember({ ...assignment, name: memberName });
-                                            const curTip = parseFloat(assignment.tip_amount) || 0;
-                                            setMemberTipInput(curTip > 0 ? curTip.toFixed(2) : '');
-                                            setShowMemberTipModal(true);
-                                          }}
-                                          className="text-xs text-blue-600 hover:text-blue-700 font-medium"
-                                        >
-                                          {parseFloat(assignment.tip_amount) > 0 ? 'Edit Tip' : 'Add Tip'}
-                                        </button>
-                                        {parseFloat(assignment.incentive_amount) > 0 && (
-                                          <span className="text-xs text-purple-600 font-medium">Incentive: ${parseFloat(assignment.incentive_amount).toFixed(2)}</span>
-                                        )}
-                                        <button
-                                          onClick={() => {
-                                            setIncentiveTargetMember({ ...assignment, name: memberName });
-                                            const curIncentive = parseFloat(assignment.incentive_amount) || 0;
-                                            setMemberIncentiveInput(curIncentive > 0 ? curIncentive.toFixed(2) : '');
-                                            setShowMemberIncentiveModal(true);
-                                          }}
-                                          className="text-xs text-purple-600 hover:text-purple-700 font-medium"
-                                        >
-                                          {parseFloat(assignment.incentive_amount) > 0 ? 'Edit Incentive' : 'Add Incentive'}
-                                        </button>
-                                      </div>
                                     </div>
                                   </div>
                                 );
@@ -6887,199 +6820,7 @@ const JobDetails = () => {
           </div>
         )}
 
-        {/* Per-Member Tip Modal */}
-        {showMemberTipModal && tipTargetMember && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10000] p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    {parseFloat(tipTargetMember.tip_amount) > 0 ? 'Edit' : 'Add'} Tip for {tipTargetMember.name || tipTargetMember.first_name || 'Team Member'}
-                  </h3>
-                  <button
-                    onClick={() => { setShowMemberTipModal(false); setTipTargetMember(null); setMemberTipInput(''); }}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
 
-                <div className="space-y-4">
-                  {error && (
-                    <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                      <p className="text-sm text-red-800">{error}</p>
-                    </div>
-                  )}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Tip Amount</label>
-                    <div className="flex items-center space-x-2">
-                      <span className="text-sm text-gray-500">$</span>
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        value={memberTipInput}
-                        onChange={e => {
-                          const val = e.target.value;
-                          if (val === '' || /^\d*\.?\d{0,2}$/.test(val)) {
-                            setMemberTipInput(val);
-                          }
-                        }}
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="0.00"
-                        autoFocus
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex space-x-3 pt-4">
-                    <button
-                      onClick={() => { setShowMemberTipModal(false); setTipTargetMember(null); setMemberTipInput(''); }}
-                      className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={async () => {
-                        const newTip = parseFloat(memberTipInput) || 0;
-                        if (newTip < 0) {
-                          setError('Please enter a valid tip amount');
-                          setTimeout(() => setError(''), 3000);
-                          return;
-                        }
-                        try {
-                          setError('');
-                          setLoading(true);
-                          const result = await jobsAPI.updateTeamMemberTip(job.id, tipTargetMember.team_member_id, newTip);
-                          setJob(prev => ({
-                            ...prev,
-                            tip_amount: result.jobTipTotal,
-                            team_assignments: (prev.team_assignments || []).map(ta =>
-                              ta.team_member_id === tipTargetMember.team_member_id
-                                ? { ...ta, tip_amount: newTip }
-                                : ta
-                            )
-                          }));
-                          setSuccessMessage(newTip > 0 ? `Tip updated for ${tipTargetMember.name || 'team member'}!` : 'Tip removed!');
-                          setTimeout(() => setSuccessMessage(''), 3000);
-                          setShowMemberTipModal(false);
-                          setTipTargetMember(null);
-                          setMemberTipInput('');
-                        } catch (err) {
-                          console.error('Error saving member tip:', err);
-                          setError('Failed to save tip');
-                          setTimeout(() => setError(''), 3000);
-                        } finally {
-                          setLoading(false);
-                        }
-                      }}
-                      disabled={loading}
-                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                    >
-                      {loading ? 'Saving...' : 'Save Tip'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Per-Member Incentive Modal */}
-        {showMemberIncentiveModal && incentiveTargetMember && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10000] p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    {parseFloat(incentiveTargetMember.incentive_amount) > 0 ? 'Edit' : 'Add'} Incentive for {incentiveTargetMember.name || incentiveTargetMember.first_name || 'Team Member'}
-                  </h3>
-                  <button
-                    onClick={() => { setShowMemberIncentiveModal(false); setIncentiveTargetMember(null); setMemberIncentiveInput(''); }}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-
-                <div className="space-y-4">
-                  {error && (
-                    <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                      <p className="text-sm text-red-800">{error}</p>
-                    </div>
-                  )}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Incentive Amount</label>
-                    <div className="flex items-center space-x-2">
-                      <span className="text-sm text-gray-500">$</span>
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        value={memberIncentiveInput}
-                        onChange={e => {
-                          const val = e.target.value;
-                          if (val === '' || /^\d*\.?\d{0,2}$/.test(val)) {
-                            setMemberIncentiveInput(val);
-                          }
-                        }}
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                        placeholder="0.00"
-                        autoFocus
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex space-x-3 pt-4">
-                    <button
-                      onClick={() => { setShowMemberIncentiveModal(false); setIncentiveTargetMember(null); setMemberIncentiveInput(''); }}
-                      className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={async () => {
-                        const newIncentive = parseFloat(memberIncentiveInput) || 0;
-                        if (newIncentive < 0) {
-                          setError('Please enter a valid incentive amount');
-                          setTimeout(() => setError(''), 3000);
-                          return;
-                        }
-                        try {
-                          setError('');
-                          setLoading(true);
-                          const result = await jobsAPI.updateTeamMemberIncentive(job.id, incentiveTargetMember.team_member_id, newIncentive);
-                          setJob(prev => ({
-                            ...prev,
-                            incentive_amount: result.jobIncentiveTotal,
-                            team_assignments: (prev.team_assignments || []).map(ta =>
-                              ta.team_member_id === incentiveTargetMember.team_member_id
-                                ? { ...ta, incentive_amount: newIncentive }
-                                : ta
-                            )
-                          }));
-                          setSuccessMessage(newIncentive > 0 ? `Incentive updated for ${incentiveTargetMember.name || 'team member'}!` : 'Incentive removed!');
-                          setTimeout(() => setSuccessMessage(''), 3000);
-                          setShowMemberIncentiveModal(false);
-                          setIncentiveTargetMember(null);
-                          setMemberIncentiveInput('');
-                        } catch (err) {
-                          console.error('Error saving member incentive:', err);
-                          setError('Failed to save incentive');
-                          setTimeout(() => setError(''), 3000);
-                        } finally {
-                          setLoading(false);
-                        }
-                      }}
-                      disabled={loading}
-                      className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
-                    >
-                      {loading ? 'Saving...' : 'Save Incentive'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Team Assignment Modal (AssignJobModal handles both desktop and mobile) */}
         <AssignJobModal
