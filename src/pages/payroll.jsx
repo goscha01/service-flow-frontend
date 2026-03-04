@@ -417,11 +417,12 @@ const Payroll = () => {
                                       <th className="text-right py-2 pr-4 font-medium">Hourly</th>
                                       <th className="text-right py-2 pr-4 font-medium">Commission</th>
                                       <th className="text-right py-2 pr-4 font-medium">Tips</th>
-                                      <th className="text-right py-2 font-medium">Incentives</th>
+                                      <th className="text-right py-2 pr-4 font-medium">Incentives</th>
+                                      <th className="text-right py-2 font-medium">Total</th>
                                     </tr>
                                   </thead>
                                   <tbody>
-                                    {[...member.jobs].sort((a, b) => new Date(b.scheduledDate) - new Date(a.scheduledDate)).map(job => (
+                                    {[...member.jobs].sort((a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate)).map(job => (
                                       <tr key={job.id} className="border-t border-gray-200 hover:bg-gray-100 cursor-pointer" onClick={(e) => { e.stopPropagation(); navigate(`/job/${job.id}`) }}>
                                         <td className="py-2 pr-4 text-gray-700 whitespace-nowrap">{formatShortDate(job.scheduledDate)}</td>
                                         <td className="py-2 pr-4 text-gray-900 font-medium">{job.customerName}</td>
@@ -444,7 +445,8 @@ const Payroll = () => {
                                         <td className="py-2 pr-4 text-right text-gray-700">{formatCurrency(job.hourlySalary)}</td>
                                         <td className="py-2 pr-4 text-right text-gray-700">{formatCurrency(job.commission)}</td>
                                         <td className="py-2 pr-4 text-right text-gray-700">{job.tip > 0 ? formatCurrency(job.tip) : '-'}</td>
-                                        <td className="py-2 text-right text-gray-700">{job.incentive > 0 ? formatCurrency(job.incentive) : '-'}</td>
+                                        <td className="py-2 pr-4 text-right text-gray-700">{job.incentive > 0 ? formatCurrency(job.incentive) : '-'}</td>
+                                        <td className="py-2 text-right text-gray-900 font-medium">{formatCurrency((job.hourlySalary || 0) + (job.commission || 0) + (job.tip || 0) + (job.incentive || 0))}</td>
                                       </tr>
                                     ))}
                                   </tbody>
