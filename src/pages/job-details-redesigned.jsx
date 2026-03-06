@@ -746,7 +746,9 @@ const JobDetails = () => {
         customerId: job.customer_id || null,
         amount: parseFloat(paymentFormData.amount),
         tipAmount,
-        paymentMethod: paymentFormData.paymentMethod,
+        paymentMethod: paymentFormData.paymentMethod === 'other' && paymentFormData.customPaymentMethod?.trim()
+          ? paymentFormData.customPaymentMethod.trim()
+          : paymentFormData.paymentMethod,
         paymentDate: paymentFormData.paymentDate,
         notes: paymentFormData.notes || null
       }
@@ -762,6 +764,7 @@ const JobDetails = () => {
         amount: '',
         tipAmount: '',
         paymentMethod: 'cash',
+        customPaymentMethod: '',
         paymentDate: new Date().toISOString().split('T')[0],
         notes: ''
       })
@@ -5053,7 +5056,7 @@ const JobDetails = () => {
                       </div>
                       {parseFloat(job.discount || 0) > 0 ? (
                         <div className="flex justify-between items-center py-2">
-                          <button onClick={() => setShowDiscountModal(true)} className="text-sm text-blue-600 hover:text-blue-700">Discount</button>
+                          <button onClick={() => { setFormData(prev => ({ ...prev, discountInput: parseFloat(job.discount).toFixed(2) })); setShowDiscountModal(true); }} className="text-sm text-blue-600 hover:text-blue-700">Discount</button>
                           <span className="text-sm font-medium text-red-600">-${parseFloat(job.discount).toFixed(2)}</span>
                         </div>
                       ) : (
@@ -6480,6 +6483,16 @@ const JobDetails = () => {
                       ))}
                       <option value="other">Other</option>
                     </select>
+                    {paymentFormData.paymentMethod === 'other' && (
+                      <input
+                        type="text"
+                        value={paymentFormData.customPaymentMethod || ''}
+                        onChange={(e) => setPaymentFormData(prev => ({ ...prev, customPaymentMethod: e.target.value }))}
+                        className="w-full mt-2 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Enter payment method name"
+                        autoFocus
+                      />
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Amount</label>
@@ -6606,20 +6619,18 @@ const JobDetails = () => {
                     </button>
                     <button
                       onClick={async () => {
-                        const discountVal = parseFloat(formData.discountInput) || 0
-                        if (discountVal <= 0) {
+                        const discountVal = parseFloat(formData.discountInput)
+                        if (isNaN(discountVal) || discountVal < 0) {
                           setError('Please enter a valid discount amount')
                           setTimeout(() => setError(''), 3000)
                           return
                         }
                         try {
                           setLoading(true)
-                          const prevDiscount = parseFloat(job.discount || 0)
-                          const newDiscount = prevDiscount + discountVal
-                          await jobsAPI.update(job.id, { discount: newDiscount })
-                          setJob(prev => ({ ...prev, discount: newDiscount }))
-                          setFormData(prev => ({ ...prev, discount: newDiscount, discountInput: '' }))
-                          setSuccessMessage('Discount added successfully!')
+                          await jobsAPI.update(job.id, { discount: discountVal })
+                          setJob(prev => ({ ...prev, discount: discountVal }))
+                          setFormData(prev => ({ ...prev, discount: discountVal, discountInput: '' }))
+                          setSuccessMessage(discountVal > 0 ? 'Discount updated!' : 'Discount removed!')
                           setTimeout(() => setSuccessMessage(''), 3000)
                           setShowDiscountModal(false)
                         } catch (err) {
