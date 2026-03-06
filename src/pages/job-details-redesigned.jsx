@@ -759,6 +759,20 @@ const JobDetails = () => {
 
       console.log('✅ Payment recorded:', response.data)
 
+      // Auto-save custom payment method for reuse if "Other" was selected
+      if (paymentFormData.paymentMethod === 'other' && paymentFormData.customPaymentMethod?.trim()) {
+        const customName = paymentFormData.customPaymentMethod.trim()
+        const alreadyExists = customPaymentMethods.some(pm => pm.name.toLowerCase() === customName.toLowerCase())
+        if (!alreadyExists) {
+          try {
+            const newMethod = await paymentMethodsAPI.createPaymentMethod({ name: customName })
+            setCustomPaymentMethods(prev => [...prev, newMethod])
+          } catch (err) {
+            console.warn('Could not save custom payment method for reuse:', err)
+          }
+        }
+      }
+
       // Reset form
       setPaymentFormData({
         amount: '',
