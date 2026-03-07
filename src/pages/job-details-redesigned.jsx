@@ -1749,9 +1749,10 @@ const JobDetails = () => {
       
       setSuccessMessage('Service details updated successfully!')
       setTimeout(() => setSuccessMessage(""), 3000)
-      
+
       // Close the modal
       setShowEditServiceModal(false)
+      setShowDurationEditor(false)
       
       // Update the job state with new data immediately
       setJob(prev => ({
@@ -5001,26 +5002,39 @@ const JobDetails = () => {
                         </div>
                       </div>
                       <div className="p-4">
-                        <div className="py-3 border-b border-gray-100">
-                          <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between py-3 border-b border-gray-100">
                   <div>
                             <p className="font-medium text-gray-900">{decodeHtmlEntities(job.service_name || '')}</p>
                             <button
                               onClick={() => setShowDurationEditor(prev => !prev)}
-                              className="px-3 py-1 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 flex items-center space-x-2 text-sm font-medium mt-1"
+                              className="px-3 py-1 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 flex items-center space-x-2 text-sm font-medium"
                             >
                               <Edit className="w-4 h-4" />
                               <span>Edit</span>
                             </button>
+                            <button
+                              onClick={() => setShowDurationEditor(prev => !prev)}
+                              className="text-gray-600 hover:text-gray-700 text-sm ml-4"
+                            >
+                              {showDurationEditor ? 'Hide details' : 'Show details'} &gt;
+                            </button>
                           </div>
                           <div className="flex items-center space-x-2">
-                            <span className="text-sm font-medium text-gray-900">${(parseFloat(job.service_price) || 0).toFixed(2)}</span>
+                            <span className="text-sm font-medium text-gray-900">${(parseFloat(formData.service_price) || parseFloat(job.service_price) || 0).toFixed(2)}</span>
+                            <button
+                              onClick={() => setShowDurationEditor(true)}
+                              className="p-1 text-gray-400 hover:text-gray-600"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
                           </div>
-                          </div>
+                        </div>
 
-                          {/* Duration Editor */}
-                          {showDurationEditor && (
-                            <div className="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                        {/* Service Details Editor */}
+                        {showDurationEditor && (
+                          <div className="mt-3 p-4 bg-gray-50 rounded-lg border border-gray-200 space-y-4">
+                            {/* Duration */}
+                            <div>
                               <label className="block text-sm font-medium text-gray-700 mb-2">Duration</label>
                               <div className="flex items-center space-x-2">
                                 <div className="flex items-center space-x-1">
@@ -5054,8 +5068,68 @@ const JobDetails = () => {
                                 </div>
                               </div>
                             </div>
-                          )}
-                        </div>
+
+                            {/* Service Price (base price of the service itself) */}
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">Service Price</label>
+                              <div className="flex items-center space-x-2">
+                                <span className="text-sm text-gray-500">$</span>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={formData.service_price === 0 ? "" : formData.service_price}
+                                  onFocus={e => { if (e.target.value === "0" || e.target.value === "0.00") e.target.value = ""; }}
+                                  onChange={e => {
+                                    const newPrice = e.target.value === "" ? 0 : parseFloat(e.target.value) || 0;
+                                    setFormData(prev => ({ ...prev, service_price: newPrice }));
+                                  }}
+                                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                  placeholder="0.00"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Additional Fees */}
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">Additional Fees</label>
+                              <div className="flex items-center space-x-2">
+                                <span className="text-sm text-gray-500">$</span>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={formData.additional_fees === 0 ? "" : formData.additional_fees}
+                                  onFocus={e => { if (e.target.value === "0" || e.target.value === "0.00") e.target.value = ""; }}
+                                  onChange={e => {
+                                    const val = e.target.value === "" ? 0 : parseFloat(e.target.value) || 0;
+                                    setFormData(prev => ({ ...prev, additional_fees: val }));
+                                  }}
+                                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                  placeholder="0.00"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Taxes */}
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">Taxes</label>
+                              <div className="flex items-center space-x-2">
+                                <span className="text-sm text-gray-500">$</span>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={formData.taxes === 0 ? "" : formData.taxes}
+                                  onFocus={e => { if (e.target.value === "0" || e.target.value === "0.00") e.target.value = ""; }}
+                                  onChange={e => {
+                                    const val = e.target.value === "" ? 0 : parseFloat(e.target.value) || 0;
+                                    setFormData(prev => ({ ...prev, taxes: val }));
+                                  }}
+                                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                  placeholder="0.00"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        )}
                         
                         {/* Customize Price */}
                         <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
