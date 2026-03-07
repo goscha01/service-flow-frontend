@@ -130,6 +130,7 @@ const JobDetails = () => {
   const [showRescheduleModal, setShowRescheduleModal] = useState(false)
   const [showCancelModal, setShowCancelModal] = useState(false)
   const [showEditServiceModal, setShowEditServiceModal] = useState(false)
+  const [showDurationEditor, setShowDurationEditor] = useState(false)
   const [showEditAddressModal, setShowEditAddressModal] = useState(false)
   const [showConvertToRecurringModal, setShowConvertToRecurringModal] = useState(false)
   const [showEditRecurringModal, setShowEditRecurringModal] = useState(false)
@@ -1740,9 +1741,10 @@ const JobDetails = () => {
         service_price: formData.service_price,
         additional_fees: formData.additional_fees,
         taxes: formData.taxes,
-        discount: formData.discount
+        discount: formData.discount,
+        duration: formData.duration
       }
-      
+
       await jobsAPI.update(job.id, updatedJob)
       
       setSuccessMessage('Service details updated successfully!')
@@ -4943,6 +4945,7 @@ const JobDetails = () => {
                   <button
                     onClick={() => {
                       setShowEditServiceModal(false);
+                      setShowDurationEditor(false);
                         setOriginalJobData(null);
                       if (originalJobData) {
                         setJob(prev => ({
@@ -4998,24 +5001,60 @@ const JobDetails = () => {
                         </div>
                       </div>
                       <div className="p-4">
-                        <div className="flex items-center justify-between py-3 border-b border-gray-100">
+                        <div className="py-3 border-b border-gray-100">
+                          <div className="flex items-center justify-between">
                   <div>
                             <p className="font-medium text-gray-900">{decodeHtmlEntities(job.service_name || '')}</p>
-                            <button className="px-3 py-1 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 flex items-center space-x-2 text-sm font-medium">
+                            <button
+                              onClick={() => setShowDurationEditor(prev => !prev)}
+                              className="px-3 py-1 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 flex items-center space-x-2 text-sm font-medium mt-1"
+                            >
                               <Edit className="w-4 h-4" />
                               <span>Edit</span>
                             </button>
-                            <button className="text-gray-600 hover:text-gray-700 text-sm ml-4">Show details &gt;</button>
                           </div>
                           <div className="flex items-center space-x-2">
                             <span className="text-sm font-medium text-gray-900">${(parseFloat(job.service_price) || 0).toFixed(2)}</span>
-                            <button className="p-1 text-gray-400 hover:text-gray-600">
-                              <Edit className="w-4 h-4" />
-                            </button>
-                            <button className="p-1 text-gray-400 hover:text-red-600">
-                              <Trash2 className="w-4 h-4" />
-                            </button>
                           </div>
+                          </div>
+
+                          {/* Duration Editor */}
+                          {showDurationEditor && (
+                            <div className="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                              <label className="block text-sm font-medium text-gray-700 mb-2">Duration</label>
+                              <div className="flex items-center space-x-2">
+                                <div className="flex items-center space-x-1">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    value={Math.floor((formData.duration || 0) / 60)}
+                                    onChange={e => {
+                                      const hours = parseInt(e.target.value) || 0;
+                                      const currentMins = (formData.duration || 0) % 60;
+                                      setFormData(prev => ({ ...prev, duration: hours * 60 + currentMins }));
+                                    }}
+                                    className="w-16 px-2 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center"
+                                  />
+                                  <span className="text-sm text-gray-600">hrs</span>
+                                </div>
+                                <div className="flex items-center space-x-1">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="59"
+                                    value={(formData.duration || 0) % 60}
+                                    onChange={e => {
+                                      const mins = Math.min(59, parseInt(e.target.value) || 0);
+                                      const currentHours = Math.floor((formData.duration || 0) / 60);
+                                      setFormData(prev => ({ ...prev, duration: currentHours * 60 + mins }));
+                                    }}
+                                    className="w-16 px-2 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center"
+                                  />
+                                  <span className="text-sm text-gray-600">min</span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
                         
                         {/* Customize Price */}
@@ -5138,7 +5177,7 @@ const JobDetails = () => {
                       </div>
                       <div className="flex justify-between items-center py-2">
                         <span className="text-sm text-gray-600">Estimated duration</span>
-                        <span className="text-sm font-medium text-gray-900">{formatDuration(job.duration || 0)}</span>
+                        <span className="text-sm font-medium text-gray-900">{formatDuration(formData.duration || job.duration || 0)}</span>
                       </div>
                     </div>
                   </div>
