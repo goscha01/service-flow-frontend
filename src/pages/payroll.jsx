@@ -96,6 +96,8 @@ const Payroll = () => {
   const filteredSummary = payrollData ? (selectedMemberId === 'all' ? payrollData.summary : {
     totalTeamMembers: filteredMembers.length,
     totalHours: parseFloat(filteredMembers.reduce((s, m) => s + (m.totalHours || 0), 0).toFixed(2)),
+    totalScheduledHours: parseFloat(filteredMembers.reduce((s, m) => s + (m.scheduledHours || 0), 0).toFixed(2)),
+    totalScheduledHourlySalary: parseFloat(filteredMembers.reduce((s, m) => s + (m.scheduledHourlySalary || 0), 0).toFixed(2)),
     totalHourlySalary: parseFloat(filteredMembers.reduce((s, m) => s + (m.hourlySalary || 0), 0).toFixed(2)),
     totalCommission: parseFloat(filteredMembers.reduce((s, m) => s + (m.commissionSalary || 0), 0).toFixed(2)),
     totalTips: parseFloat(filteredMembers.reduce((s, m) => s + (m.totalTips || 0), 0).toFixed(2)),
@@ -119,19 +121,21 @@ const Payroll = () => {
     if (!payrollData) return
 
     // Create CSV content
-    let csv = 'Team Member,Job Count,Hours Worked,Hourly Rate,Commission %,Hourly Salary,Commission,Tips,Incentives,Total Salary,Payment Method\n'
+    let csv = 'Team Member,Job Count,Hours Worked,Sched Hours,Hourly Rate,Commission %,Hourly Salary,Sched Salary,Commission,Tips,Incentives,Total Salary,Payment Method\n'
 
     filteredMembers.forEach(member => {
       const hourlyRate = member.teamMember.hourlyRate ? formatCurrency(member.teamMember.hourlyRate) : 'N/A'
       const commissionPct = member.teamMember.commissionPercentage ? `${member.teamMember.commissionPercentage}%` : 'N/A'
       const paymentMethod = member.paymentMethod || 'none'
-      csv += `"${member.teamMember.name}",${member.jobCount},${member.totalHours},${hourlyRate},${commissionPct},${formatCurrency(member.hourlySalary || 0)},${formatCurrency(member.commissionSalary || 0)},${formatCurrency(member.totalTips || 0)},${formatCurrency(member.totalIncentives || 0)},${formatCurrency(member.totalSalary)},${paymentMethod}\n`
+      csv += `"${member.teamMember.name}",${member.jobCount},${member.totalHours},${member.scheduledHours || 0},${hourlyRate},${commissionPct},${formatCurrency(member.hourlySalary || 0)},${formatCurrency(member.scheduledHourlySalary || 0)},${formatCurrency(member.commissionSalary || 0)},${formatCurrency(member.totalTips || 0)},${formatCurrency(member.totalIncentives || 0)},${formatCurrency(member.totalSalary)},${paymentMethod}\n`
     })
 
     csv += `\nSummary\n`
     csv += `Total Team Members,${filteredSummary.totalTeamMembers}\n`
     csv += `Total Hours,${filteredSummary.totalHours}\n`
+    csv += `Total Scheduled Hours,${filteredSummary.totalScheduledHours || 0}\n`
     csv += `Total Hourly Salary,${formatCurrency(filteredSummary.totalHourlySalary || 0)}\n`
+    csv += `Total Scheduled Salary,${formatCurrency(filteredSummary.totalScheduledHourlySalary || 0)}\n`
     csv += `Total Commission,${formatCurrency(filteredSummary.totalCommission || 0)}\n`
     csv += `Total Tips,${formatCurrency(filteredSummary.totalTips || 0)}\n`
     csv += `Total Incentives,${formatCurrency(filteredSummary.totalIncentives || 0)}\n`
@@ -265,7 +269,7 @@ const Payroll = () => {
             <div className={`transition-opacity duration-200 ${refreshing ? 'opacity-50 pointer-events-none' : ''}`}>
               <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">Summary</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
                   <div className="bg-gray-50 rounded-lg p-4">
                     <div className="flex items-center space-x-2 mb-2">
                       <Users className="w-5 h-5 text-gray-400" />
@@ -276,9 +280,16 @@ const Payroll = () => {
                   <div className="bg-gray-50 rounded-lg p-4">
                     <div className="flex items-center space-x-2 mb-2">
                       <Clock className="w-5 h-5 text-gray-400" />
-                      <span className="text-sm text-gray-600">Total Hours</span>
+                      <span className="text-sm text-gray-600">Job Hours</span>
                     </div>
                     <p className="text-2xl font-bold text-gray-900">{filteredSummary.totalHours.toFixed(2)}</p>
+                  </div>
+                  <div className="bg-indigo-50 rounded-lg p-4">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <Calendar className="w-5 h-5 text-indigo-400" />
+                      <span className="text-sm text-indigo-600">Sched Hours</span>
+                    </div>
+                    <p className="text-2xl font-bold text-indigo-900">{(filteredSummary.totalScheduledHours || 0).toFixed(2)}</p>
                   </div>
                   <div className="bg-blue-50 rounded-lg p-4">
                     <div className="flex items-center space-x-2 mb-2">
@@ -337,15 +348,16 @@ const Payroll = () => {
                 <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
                   <table className="w-full divide-y divide-gray-200" style={{ tableLayout: 'fixed' }}>
                     <colgroup>
-                      <col className="w-[22%]" />
-                      <col className="w-[13%]" />
-                      <col className="w-[5%]" />
-                      <col className="w-[8%]" />
-                      <col className="w-[10%]" />
-                      <col className="w-[10%]" />
-                      <col className="w-[8%]" />
-                      <col className="w-[10%]" />
+                      <col className="w-[20%]" />
                       <col className="w-[12%]" />
+                      <col className="w-[4%]" />
+                      <col className="w-[7%]" />
+                      <col className="w-[7%]" />
+                      <col className="w-[9%]" />
+                      <col className="w-[9%]" />
+                      <col className="w-[8%]" />
+                      <col className="w-[9%]" />
+                      <col className="w-[11%]" />
                     </colgroup>
                     <thead className="bg-gray-50">
                       <tr>
@@ -353,6 +365,7 @@ const Payroll = () => {
                         <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pay Method</th>
                         <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase">Jobs</th>
                         <th className="px-2 py-3 text-right text-xs font-medium text-gray-500 uppercase">Hours</th>
+                        <th className="px-2 py-3 text-right text-xs font-medium text-gray-500 uppercase">Sched</th>
                         <th className="px-2 py-3 text-right text-xs font-medium text-gray-500 uppercase">Hourly</th>
                         <th className="px-2 py-3 text-right text-xs font-medium text-gray-500 uppercase">Comm</th>
                         <th className="px-2 py-3 text-right text-xs font-medium text-gray-500 uppercase">Tips</th>
@@ -395,6 +408,7 @@ const Payroll = () => {
                           </td>
                           <td className="px-2 py-3 text-sm text-gray-900 text-center">{member.jobCount}</td>
                           <td className="px-2 py-3 text-sm text-gray-900 text-right">{member.totalHours.toFixed(1)}</td>
+                          <td className="px-2 py-3 text-sm text-indigo-700 text-right">{(member.scheduledHours || 0).toFixed(1)}</td>
                           <td className="px-2 py-3 text-sm text-gray-900 text-right">{formatCurrency(member.hourlySalary || 0)}</td>
                           <td className="px-2 py-3 text-sm text-gray-900 text-right">{formatCurrency(member.commissionSalary || 0)}</td>
                           <td className="px-2 py-3 text-sm text-gray-900 text-right">{formatCurrency(member.totalTips || 0)}</td>
@@ -403,7 +417,7 @@ const Payroll = () => {
                         </tr>
                         {isExpanded && member.jobs && member.jobs.length > 0 && (
                           <tr>
-                            <td colSpan="9" className="p-0">
+                            <td colSpan="10" className="p-0">
                               <div className="bg-gray-50 border-t border-b border-gray-100 px-3 py-2">
                                 <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Job Breakdown</p>
                                 <table className="w-full text-xs">
@@ -463,6 +477,7 @@ const Payroll = () => {
                       <tr>
                         <td colSpan="3" className="px-3 py-3 text-sm font-semibold text-gray-900 text-right">Totals:</td>
                         <td className="px-2 py-3 text-sm font-semibold text-gray-900 text-right">{filteredSummary.totalHours.toFixed(1)}</td>
+                        <td className="px-2 py-3 text-sm font-semibold text-indigo-700 text-right">{(filteredSummary.totalScheduledHours || 0).toFixed(1)}</td>
                         <td className="px-2 py-3 text-sm font-semibold text-gray-900 text-right">{formatCurrency(filteredSummary.totalHourlySalary || 0)}</td>
                         <td className="px-2 py-3 text-sm font-semibold text-gray-900 text-right">{formatCurrency(filteredSummary.totalCommission || 0)}</td>
                         <td className="px-2 py-3 text-sm font-semibold text-gray-900 text-right">{formatCurrency(filteredSummary.totalTips || 0)}</td>
