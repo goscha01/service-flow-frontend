@@ -2,14 +2,18 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
-import { ChevronLeft, MapPin, ChevronRight, Check, X } from "lucide-react"
+import { ChevronLeft, MapPin, ChevronRight, Check, X, Calendar, Trash2 } from "lucide-react"
 import TimeslotTemplateModal from "../../components/timeslot-template-modal"
+import DateOverrideModal from "../../components/date-override-modal"
 import { availabilityAPI, teamAPI } from "../../services/api"
 import { useAuth } from "../../context/AuthContext"
 import { isWorker } from "../../utils/roleUtils"
 
 const Availability = () => {
   const [isTimeslotTemplateModalOpen, setIsTimeslotTemplateModalOpen] = useState(false)
+  const [editingTemplateIndex, setEditingTemplateIndex] = useState(null)
+  const [showDateOverrideModal, setShowDateOverrideModal] = useState(false)
+  const [editingOverrideIndex, setEditingOverrideIndex] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState({ type: '', text: '' })
@@ -31,7 +35,9 @@ const Availability = () => {
       saturday: { start: '09:00', end: '17:00', enabled: false },
       sunday: { start: '09:00', end: '17:00', enabled: false }
     },
-    timeslotTemplates: []
+    drivingTime: 0,
+    timeslotTemplates: [],
+    dateOverrides: []
   })
 
   // Business hours editor state
@@ -55,6 +61,9 @@ const Availability = () => {
       
       let availability
       let businessHours = null
+      let loadedTimeslotTemplates = []
+      let loadedDrivingTime = 0
+      let loadedDateOverrides = []
       
       // Workers should load their own team member availability
       if (isWorker(user) && user?.teamMemberId) {
@@ -111,6 +120,9 @@ const Availability = () => {
             }
           })
         }
+        loadedTimeslotTemplates = availData?.timeslotTemplates || []
+        loadedDrivingTime = availData?.drivingTime ?? 0
+        loadedDateOverrides = availData?.customAvailability || []
       } else {
         // Account owners/managers load their own availability
         availability = await availabilityAPI.getAvailability(user.id)
@@ -128,6 +140,10 @@ const Availability = () => {
             businessHours = null
           }
         }
+        loadedTimeslotTemplates = availability?.timeslotTemplates || availability?.timeslot_templates || []
+        const bh = availability?.businessHours || availability?.business_hours
+        loadedDrivingTime = (typeof bh === 'object' && bh?.drivingTime != null) ? bh.drivingTime : 0
+        loadedDateOverrides = availability?.customAvailability || (typeof bh === 'object' ? bh?.customAvailability : null) || []
       }
       
       // If no business hours, use defaults
@@ -164,7 +180,9 @@ const Availability = () => {
       
       setAvailabilityData({
         businessHours: normalizedBusinessHours,
-        timeslotTemplates: availability?.timeslotTemplates || availability?.timeslot_templates || []
+        drivingTime: loadedDrivingTime ?? (businessHours?.drivingTime || 0),
+        timeslotTemplates: loadedTimeslotTemplates,
+        dateOverrides: loadedDateOverrides
       })
     } catch (error) {
       console.error('❌ Error loading availability data:', error)
@@ -186,7 +204,9 @@ const Availability = () => {
           saturday: { start: '09:00', end: '17:00', enabled: false },
           sunday: { start: '09:00', end: '17:00', enabled: false }
         },
-        timeslotTemplates: []
+        drivingTime: 0,
+        timeslotTemplates: [],
+        dateOverrides: []
       })
       
       // Show more detailed error message
@@ -223,24 +243,195 @@ const Availability = () => {
   const handleSaveTimeslotTemplate = async (template) => {
     try {
       setSaving(true)
-      const updatedTemplates = [...availabilityData.timeslotTemplates, template]
-      await availabilityAPI.updateAvailability({
-        userId: user.id,
-        businessHours: availabilityData.businessHours,
+
+      let updatedTemplates
+      if (editingTemplateIndex !== null) {
+        updatedTemplates = [...availabilityData.timeslotTemplates]
+        updatedTemplates[editingTemplateIndex] = template
+      } else {
+        updatedTemplates = [...availabilityData.timeslotTemplates, template]
+      }
+
+      const newDrivingTime = template.drivingTime ?? availabilityData.drivingTime ?? 0
+
+      if (isWorker(user) && user?.teamMemberId) {
+        // Team members: save templates to their own team member availability (not user/owner)
+        const currentAvailability = await teamAPI.getAvailability(user.teamMemberId)
+        let availData = currentAvailability?.availability
+        if (typeof availData === 'string') {
+          try {
+            availData = JSON.parse(availData)
+          } catch (e) {
+            availData = { workingHours: {}, customAvailability: [] }
+          }
+        }
+        if (!availData) availData = { workingHours: {}, customAvailability: [] }
+        if (!availData.workingHours) availData.workingHours = {}
+        // Merge current businessHours from UI into workingHours so we don't lose them
+        const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+        days.forEach(day => {
+          const h = availabilityData.businessHours[day]
+          if (h?.enabled) {
+            availData.workingHours[day] = {
+              available: true,
+              timeSlots: [{ start: h.start || '09:00', end: h.end || '17:00' }]
+            }
+          } else {
+            availData.workingHours[day] = { available: false, timeSlots: [] }
+          }
+        })
+        availData.timeslotTemplates = updatedTemplates
+        availData.drivingTime = newDrivingTime
+        await teamAPI.updateAvailability(user.teamMemberId, availData)
+      } else {
+        // Account owners: save to user_availability
+        await availabilityAPI.updateAvailability({
+          userId: user.id,
+          businessHours: { ...availabilityData.businessHours, drivingTime: newDrivingTime },
+          timeslotTemplates: updatedTemplates
+        })
+      }
+
+      setAvailabilityData(prev => ({
+        ...prev,
+        drivingTime: newDrivingTime,
         timeslotTemplates: updatedTemplates
-      })
-      
+      }))
+
+      setMessage({ type: 'success', text: editingTemplateIndex !== null ? 'Template updated successfully!' : 'Timeslot template saved successfully!' })
+      setTimeout(() => setMessage({ type: '', text: '' }), 3000)
+      setIsTimeslotTemplateModalOpen(false)
+      setEditingTemplateIndex(null)
+    } catch (error) {
+      console.error('Error saving timeslot template:', error)
+      setMessage({ type: 'error', text: error.response?.data?.error || 'Failed to save timeslot template' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDeleteTimeslotTemplate = async (indexToDelete) => {
+    try {
+      setSaving(true)
+      const updatedTemplates = availabilityData.timeslotTemplates.filter((_, i) => i !== indexToDelete)
+
+      if (isWorker(user) && user?.teamMemberId) {
+        const currentAvailability = await teamAPI.getAvailability(user.teamMemberId)
+        let availData = currentAvailability?.availability
+        if (typeof availData === 'string') {
+          try {
+            availData = JSON.parse(availData)
+          } catch (e) {
+            availData = { workingHours: {}, customAvailability: [] }
+          }
+        }
+        if (!availData) availData = { workingHours: {}, customAvailability: [] }
+        availData.timeslotTemplates = updatedTemplates
+        if (availabilityData.drivingTime != null) availData.drivingTime = availabilityData.drivingTime
+        await teamAPI.updateAvailability(user.teamMemberId, availData)
+      } else {
+        await availabilityAPI.updateAvailability({
+          userId: user.id,
+          businessHours: { ...availabilityData.businessHours, drivingTime: availabilityData.drivingTime || 0 },
+          timeslotTemplates: updatedTemplates
+        })
+      }
+
       setAvailabilityData(prev => ({
         ...prev,
         timeslotTemplates: updatedTemplates
       }))
-      
-      setMessage({ type: 'success', text: 'Timeslot template saved successfully!' })
+
+      setMessage({ type: 'success', text: 'Template deleted successfully!' })
       setTimeout(() => setMessage({ type: '', text: '' }), 3000)
-      setIsTimeslotTemplateModalOpen(false)
     } catch (error) {
-      console.error('Error saving timeslot template:', error)
-      setMessage({ type: 'error', text: error.response?.data?.error || 'Failed to save timeslot template' })
+      console.error('Error deleting timeslot template:', error)
+      setMessage({ type: 'error', text: error.response?.data?.error || 'Failed to delete timeslot template' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleEditTemplate = (index) => {
+    setEditingTemplateIndex(index)
+    setIsTimeslotTemplateModalOpen(true)
+  }
+
+  const handleSaveDateOverride = async (overrideData) => {
+    try {
+      setSaving(true)
+
+      let updatedOverrides
+      if (editingOverrideIndex !== null) {
+        updatedOverrides = [...availabilityData.dateOverrides]
+        updatedOverrides[editingOverrideIndex] = overrideData
+      } else {
+        updatedOverrides = [...availabilityData.dateOverrides, overrideData]
+      }
+
+      // Sort by date
+      updatedOverrides.sort((a, b) => a.date.localeCompare(b.date))
+
+      if (isWorker(user) && user?.teamMemberId) {
+        const currentAvailability = await teamAPI.getAvailability(user.teamMemberId)
+        let availData = currentAvailability?.availability
+        if (typeof availData === 'string') {
+          try { availData = JSON.parse(availData) } catch (e) { availData = { workingHours: {}, customAvailability: [] } }
+        }
+        if (!availData) availData = { workingHours: {}, customAvailability: [] }
+        availData.customAvailability = updatedOverrides
+        await teamAPI.updateAvailability(user.teamMemberId, availData)
+      } else {
+        await availabilityAPI.updateAvailability({
+          userId: user.id,
+          businessHours: { ...availabilityData.businessHours, drivingTime: availabilityData.drivingTime || 0 },
+          timeslotTemplates: availabilityData.timeslotTemplates,
+          customAvailability: updatedOverrides
+        })
+      }
+
+      setAvailabilityData(prev => ({ ...prev, dateOverrides: updatedOverrides }))
+      setMessage({ type: 'success', text: editingOverrideIndex !== null ? 'Date override updated!' : 'Date override added!' })
+      setTimeout(() => setMessage({ type: '', text: '' }), 3000)
+      setShowDateOverrideModal(false)
+      setEditingOverrideIndex(null)
+    } catch (error) {
+      console.error('Error saving date override:', error)
+      setMessage({ type: 'error', text: error.response?.data?.error || 'Failed to save date override' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDeleteDateOverride = async (indexToDelete) => {
+    try {
+      setSaving(true)
+      const updatedOverrides = availabilityData.dateOverrides.filter((_, i) => i !== indexToDelete)
+
+      if (isWorker(user) && user?.teamMemberId) {
+        const currentAvailability = await teamAPI.getAvailability(user.teamMemberId)
+        let availData = currentAvailability?.availability
+        if (typeof availData === 'string') {
+          try { availData = JSON.parse(availData) } catch (e) { availData = { workingHours: {}, customAvailability: [] } }
+        }
+        if (!availData) availData = { workingHours: {}, customAvailability: [] }
+        availData.customAvailability = updatedOverrides
+        await teamAPI.updateAvailability(user.teamMemberId, availData)
+      } else {
+        await availabilityAPI.updateAvailability({
+          userId: user.id,
+          businessHours: { ...availabilityData.businessHours, drivingTime: availabilityData.drivingTime || 0 },
+          timeslotTemplates: availabilityData.timeslotTemplates,
+          customAvailability: updatedOverrides
+        })
+      }
+
+      setAvailabilityData(prev => ({ ...prev, dateOverrides: updatedOverrides }))
+      setMessage({ type: 'success', text: 'Date override deleted!' })
+      setTimeout(() => setMessage({ type: '', text: '' }), 3000)
+    } catch (error) {
+      console.error('Error deleting date override:', error)
+      setMessage({ type: 'error', text: error.response?.data?.error || 'Failed to delete date override' })
     } finally {
       setSaving(false)
     }
@@ -303,8 +494,8 @@ const Availability = () => {
         // Update availability with new workingHours
         availData.workingHours = workingHours
         
-        // Save to team member availability
-        await teamAPI.updateAvailability(user.teamMemberId, JSON.stringify(availData))
+        // Save to team member availability (pass object so backend stringifies once)
+        await teamAPI.updateAvailability(user.teamMemberId, availData)
         
         console.log('✅ Worker availability saved successfully')
         setMessage({ type: 'success', text: 'Availability hours saved successfully!' })
@@ -312,7 +503,7 @@ const Availability = () => {
         // Account owners/managers save to their own availability
         const response = await availabilityAPI.updateAvailability({
           userId: user.id,
-          businessHours: availabilityData.businessHours,
+          businessHours: { ...availabilityData.businessHours, drivingTime: availabilityData.drivingTime || 0 },
           timeslotTemplates: availabilityData.timeslotTemplates
         })
         
@@ -479,14 +670,90 @@ const Availability = () => {
               )}
             </div>
 
-            {/* Timeslot Templates */}
+            {/* Date Overrides */}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-900">Date Overrides</h2>
+                  <p className="text-gray-600 mt-1">
+                    Set specific dates as unavailable (vacations, holidays) or override your regular hours for certain days.
+                  </p>
+                </div>
+              </div>
+
+              {availabilityData.dateOverrides.length === 0 ? (
+                <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
+                  <Calendar className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500 mb-4">No date overrides set</p>
+                  <button
+                    onClick={() => { setEditingOverrideIndex(null); setShowDateOverrideModal(true) }}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700"
+                  >
+                    Add Date Override
+                  </button>
+                </div>
+              ) : (
+                <div className="bg-white rounded-lg border border-gray-200 p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-medium text-gray-900">Date Overrides</h3>
+                    <button
+                      onClick={() => { setEditingOverrideIndex(null); setShowDateOverrideModal(true) }}
+                      className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700"
+                    >
+                      Add Override
+                    </button>
+                  </div>
+                  <div className="space-y-3">
+                    {availabilityData.dateOverrides.map((override, index) => (
+                      <div key={index} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-3 h-3 rounded-full ${override.available ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                          <div>
+                            <p className="font-medium text-gray-900">
+                              {new Date(override.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                            </p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              {override.label && (
+                                <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">{override.label}</span>
+                              )}
+                              <span className={`text-xs ${override.available ? 'text-green-600' : 'text-red-600'}`}>
+                                {override.available
+                                  ? (override.hours?.length > 0
+                                    ? override.hours.map(h => `${h.start} - ${h.end}`).join(', ')
+                                    : 'Custom hours (regular)')
+                                  : 'Unavailable'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => { setEditingOverrideIndex(index); setShowDateOverrideModal(true) }}
+                            className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteDateOverride(index)}
+                            className="text-red-500 hover:text-red-700 p-1"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Timeslot Templates - for both account owners and team members (team members save to their own availability) */}
             <div>
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h2 className="text-xl font-semibold text-gray-900">Timeslot Templates</h2>
                   <p className="text-gray-600 mt-1">
-                    You can override your default hours of operation and timeslot settings for specific services using
-                    timeslot templates. <button className="text-blue-600 hover:text-blue-700">Learn more</button>
+                    Override your default hours of operation, timeslot settings, and driving time for specific services.
                   </p>
                 </div>
               </div>
@@ -494,8 +761,8 @@ const Availability = () => {
               {availabilityData.timeslotTemplates.length === 0 ? (
               <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
                 <p className="text-gray-500 mb-4">No timeslot templates created yet</p>
-                <button 
-                  onClick={() => setIsTimeslotTemplateModalOpen(true)}
+                <button
+                  onClick={() => { setEditingTemplateIndex(null); setIsTimeslotTemplateModalOpen(true) }}
                   className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700"
                 >
                   New Timeslot Template
@@ -505,8 +772,8 @@ const Availability = () => {
                 <div className="bg-white rounded-lg border border-gray-200 p-6">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-medium text-gray-900">Timeslot Templates</h3>
-                    <button 
-                      onClick={() => setIsTimeslotTemplateModalOpen(true)}
+                    <button
+                      onClick={() => { setEditingTemplateIndex(null); setIsTimeslotTemplateModalOpen(true) }}
                       className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700"
                     >
                       New Template
@@ -514,14 +781,38 @@ const Availability = () => {
                   </div>
                   <div className="space-y-3">
                     {availabilityData.timeslotTemplates.map((template, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
-                        <div>
-                          <h4 className="font-medium text-gray-900">{template.name}</h4>
-                          <p className="text-sm text-gray-600">{template.description}</p>
+                      <div key={index} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                        <div className="flex-1">
+                          <h4 className="font-medium text-gray-900">
+                            {template.name || `Template ${index + 1}`}
+                          </h4>
+                          {template.description && (
+                            <p className="text-sm text-gray-600">{template.description}</p>
+                          )}
+                          <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
+                            <span>{template.timeslotType || 'Arrival windows'}</span>
+                            {template.arrivalWindowLength && (
+                              <span>{template.arrivalWindowLength >= 60 ? `${template.arrivalWindowLength / 60}h` : `${template.arrivalWindowLength}m`} window</span>
+                            )}
+                            {(template.drivingTime > 0) && (
+                              <span className="text-amber-600">{template.drivingTime} min interval</span>
+                            )}
+                          </div>
                         </div>
-                        <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">
-                          Edit
-                        </button>
+                        <div className="flex items-center space-x-3">
+                          <button
+                            onClick={() => handleEditTemplate(index)}
+                            className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteTimeslotTemplate(index)}
+                            className="text-red-600 hover:text-red-700 text-sm font-medium"
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -531,10 +822,18 @@ const Availability = () => {
           </div>
         </div>
 
-      <TimeslotTemplateModal 
+      <TimeslotTemplateModal
         isOpen={isTimeslotTemplateModalOpen}
-        onClose={() => setIsTimeslotTemplateModalOpen(false)}
+        onClose={() => { setIsTimeslotTemplateModalOpen(false); setEditingTemplateIndex(null) }}
         onSave={handleSaveTimeslotTemplate}
+        existingTemplate={editingTemplateIndex !== null ? availabilityData.timeslotTemplates[editingTemplateIndex] : null}
+      />
+
+      <DateOverrideModal
+        isOpen={showDateOverrideModal}
+        onClose={() => { setShowDateOverrideModal(false); setEditingOverrideIndex(null) }}
+        onSave={handleSaveDateOverride}
+        existingOverride={editingOverrideIndex !== null ? availabilityData.dateOverrides[editingOverrideIndex] : null}
       />
     </div>
   )

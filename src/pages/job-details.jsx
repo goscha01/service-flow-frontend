@@ -167,24 +167,22 @@ const JobDetails = () => {
         service_modifiers: job.service_modifiers
       });
       
-      const servicePrice = job.service_price || 0;
-      const discount = job.discount || 0;
-      const additionalFees = job.additional_fees || 0;
-      const taxes = job.taxes || 0;
+      // Use initial base price (service_price) for the customize field — not job.total
+      const servicePrice = parseFloat(job.service_price) || 0;
+      const discount = parseFloat(job.discount) || 0;
+      const additionalFees = parseFloat(job.additional_fees) || 0;
+      const taxes = parseFloat(job.taxes) || 0;
       const modifierPrice = calculateModifierPrice();
       const calculatedTotal = servicePrice + modifierPrice + additionalFees + taxes - discount;
-      
-      // Use the backend total as the default value for the input
-      const totalPrice = parseFloat(job.total) || 0;
       
       setFormData(prev => ({
         ...prev,
         service_name: job.service_name || "",
         bathroom_count: job.bathroom_count || "",
         duration: job.duration || job.estimated_duration || 0,
-        service_price: totalPrice, // Set backend total as default
+        service_price: servicePrice,
         modifier_price: modifierPrice,
-        discount: discount > 0 ? discount : undefined, // Only set if discount exists
+        discount: discount > 0 ? discount : undefined,
         additional_fees: additionalFees,
         taxes: taxes,
         tip: 0,
@@ -1311,29 +1309,12 @@ const JobDetails = () => {
     }
   }
 
-  // Use backend-calculated total as source of truth
+  // Backend stores job.total as (subtotal - discount), so do not subtract discount again. Tip is separate.
   const calculateTotalPrice = () => {
     try {
-      // Use backend-calculated total from job data
-      const baseTotal = parseFloat(job.total) || 0;
-      const tip = formData.tip || 0;
-      const calculatedTotal = baseTotal + tip;
-      
-      console.log('💰 Price calculation:', {
-        jobTotal: job.total,
-        baseTotal,
-        tip,
-        calculatedTotal,
-        jobData: {
-          service_price: job.service_price,
-          additional_fees: job.additional_fees,
-          taxes: job.taxes,
-          discount: job.discount,
-          total: job.total
-        }
-      });
-      
-      return calculatedTotal;
+      const jobPrice = parseFloat(job.total) || 0; // already includes - discount
+      const tip = parseFloat(job?.tip_amount) || 0;
+      return jobPrice + tip;
     } catch (error) {
       console.error('Error getting total price:', error);
       return 0;
@@ -2115,25 +2096,6 @@ const JobDetails = () => {
                     );
                   })()}
                   
-                  {/* Discount */}
-                  {(() => {
-                    const discount = formData.discount !== undefined ? formData.discount : (parseFloat(job.discount) || 0);
-                    
-                    if (discount > 0) {
-                      return (
-                        <div className="flex justify-between items-center">
-                          <div>
-                            <p className="text-sm text-gray-600">Discount</p>
-                          </div>
-                          <span className="text-sm font-medium text-green-600">
-                            -${discount.toFixed(2)}
-                          </span>
-                        </div>
-                      );
-                    }
-                    return null;
-                  })()}
-                  
                   {/* Service Adjustment Price */}
                   {(() => {
                     const basePrice = parseFloat(job.services?.price) || 0;
@@ -2156,19 +2118,19 @@ const JobDetails = () => {
                     return null;
                   })()}
                   
-                  {/* Total */}
+                  {/* Total (job price only — tips/discounts shown in summary below) */}
                   <div className="flex justify-between items-center pt-2 border-t border-gray-200">
                     <div>
                       <p className="text-sm font-semibold text-gray-900">Total</p>
                     </div>
                     <span className="text-sm font-semibold text-gray-900">
-                      ${calculateTotalPrice().toFixed(2)}
+                      ${(parseFloat(job?.total) || 0).toFixed(2)}
                     </span>
                   </div>
                 </div>
-                
+
                 <div className="mt-4 pt-4 border-t border-gray-200">
-                  <button 
+                  <button
                     onClick={() => setShowEditServiceModal(true)}
                     className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center"
                   >
@@ -2179,31 +2141,42 @@ const JobDetails = () => {
               </div>
 
               {/* Summary Section */}
-              <div className="space-y-4">
+              <div className="space-y-0">
                 <div className="flex justify-between items-center py-2 border-b border-gray-200">
                   <span className="text-sm text-gray-600">Subtotal</span>
-                  <span className="text-sm font-medium text-gray-900">${calculateTotalPrice().toFixed(2)}</span>
-                    </div>
-                
+                  <span className="text-sm font-medium text-gray-900">${((parseFloat(job?.total) || 0) + (parseFloat(job?.discount) || 0)).toFixed(2)}</span>
+                </div>
+                {parseFloat(job.discount || 0) > 0 && (
+                  <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                    <span className="text-sm text-gray-600">Discount</span>
+                    <span className="text-sm font-medium text-red-600">-${parseFloat(job.discount).toFixed(2)}</span>
+                  </div>
+                )}
+                {parseFloat(job?.tip_amount || 0) > 0 && (
+                  <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                    <span className="text-sm text-gray-600">Tip</span>
+                    <span className="text-sm font-medium text-green-600">+${parseFloat(job.tip_amount).toFixed(2)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between items-center py-2 border-b border-gray-200">
                   <span className="text-sm text-gray-600">Total</span>
-                  <span className="text-sm font-medium text-gray-900">${calculateTotalPrice().toFixed(2)}</span>
-                    </div>
-                
+                  <span className="text-sm font-semibold text-gray-900">${calculateTotalPrice().toFixed(2)}</span>
+                </div>
+
                 <div className="flex justify-between items-center py-2">
                   <span className="text-sm text-gray-600">Amount paid</span>
                   <span className="text-sm font-medium text-gray-900">
                     ${job.total_paid_amount ? job.total_paid_amount.toFixed(2) : '0.00'}
                   </span>
-                        </div>
-                
+                </div>
+
                 <div className="flex justify-between items-center py-2">
                   <span className="text-sm text-gray-600">Total due</span>
                   <span className={`text-sm font-medium ${job.invoice_status === 'paid' ? 'text-green-600' : 'text-gray-900'}`}>
                     ${job.invoice_status === 'paid' ? '0.00' : (job.total_invoice_amount ? job.total_invoice_amount.toFixed(2) : calculateTotalPrice().toFixed(2))}
                   </span>
-                  </div>
                 </div>
+              </div>
 
               {/* Payments Section */}
               <div className="mt-8">
@@ -3064,24 +3037,38 @@ const JobDetails = () => {
                     <div className="mt-6 space-y-3">
                       <div className="flex justify-between items-center py-2 border-b border-gray-200">
                         <span className="text-sm text-gray-600">Subtotal</span>
-                        <span className="text-sm font-medium text-gray-900">${calculateTotalPrice().toFixed(2)}</span>
+                        <span className="text-sm font-medium text-gray-900">${(parseFloat(formData.service_price) || parseFloat(job?.service_price) || 0).toFixed(2)}</span>
                       </div>
-                      <button 
-                        onClick={() => setShowDiscountModal(true)}
-                        className="text-sm text-blue-600 hover:text-blue-700"
-                      >
-                        Add Discount
-                      </button>
+                      {parseFloat(job.discount || 0) > 0 ? (
+                        <div className="flex justify-between items-center py-2">
+                          <button onClick={() => setShowDiscountModal(true)} className="text-sm text-blue-600 hover:text-blue-700">Discount</button>
+                          <span className="text-sm font-medium text-red-600">-${parseFloat(job.discount).toFixed(2)}</span>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setShowDiscountModal(true)}
+                          className="text-sm text-blue-600 hover:text-blue-700"
+                        >
+                          Add Discount
+                        </button>
+                      )}
                       <div className="flex justify-between items-center py-2">
                         <span className="text-sm text-gray-600">Taxes</span>
                         <span className="text-sm font-medium text-gray-900">$0.00</span>
                       </div>
-                      <button 
-                        onClick={() => setShowTipModal(true)}
-                        className="text-sm text-blue-600 hover:text-blue-700"
-                      >
-                        Add tip
-                      </button>
+                      {parseFloat(job.tip_amount || 0) > 0 ? (
+                        <div className="flex justify-between items-center py-2">
+                          <button onClick={() => setShowTipModal(true)} className="text-sm text-blue-600 hover:text-blue-700">Tip</button>
+                          <span className="text-sm font-medium text-green-600">+${parseFloat(job.tip_amount).toFixed(2)}</span>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setShowTipModal(true)}
+                          className="text-sm text-blue-600 hover:text-blue-700"
+                        >
+                          Add tip
+                        </button>
+                      )}
                       <div className="flex justify-between items-center py-2 border-t border-gray-200">
                         <span className="text-sm font-medium text-gray-900">Total</span>
                         <span className="text-sm font-medium text-gray-900">${calculateTotalPrice().toFixed(2)}</span>
@@ -3421,9 +3408,21 @@ const JobDetails = () => {
                     <div className="space-y-2">
                       <div className="flex justify-between text-sm">
                         <span>Subtotal</span>
-                        <span>${calculateTotalPrice().toFixed(2)}</span>
+                        <span>${((parseFloat(job?.total) || 0) + (parseFloat(job?.discount) || 0)).toFixed(2)}</span>
                       </div>
+                      {parseFloat(job?.discount || 0) > 0 && (
                       <div className="flex justify-between text-sm">
+                        <span>Discount</span>
+                        <span className="text-red-600">-${parseFloat(job.discount).toFixed(2)}</span>
+                      </div>
+                      )}
+                      {parseFloat(job?.tip_amount || 0) > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span>Tip</span>
+                        <span className="text-green-600">+${parseFloat(job.tip_amount).toFixed(2)}</span>
+                      </div>
+                      )}
+                      <div className="flex justify-between text-sm font-semibold">
                         <span>Total</span>
                         <span>${calculateTotalPrice().toFixed(2)}</span>
                       </div>
@@ -4348,7 +4347,7 @@ const JobDetails = () => {
 
         {/* Discount Modal */}
         {showDiscountModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10000] p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
@@ -4367,39 +4366,62 @@ const JobDetails = () => {
                     <div className="flex items-center space-x-2">
                       <span className="text-sm text-gray-500">$</span>
                       <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={formData.discount !== undefined ? formData.discount : ""}
+                        type="text"
+                        inputMode="decimal"
+                        value={formData.discountInput || ''}
                         onChange={e => {
-                          const newDiscount = parseFloat(e.target.value) || 0;
-                          setFormData(prev => ({
-                            ...prev,
-                            discount: newDiscount
-                          }));
+                          const val = e.target.value
+                          if (val === '' || /^\d*\.?\d{0,2}$/.test(val)) {
+                            setFormData(prev => ({ ...prev, discountInput: val }))
+                          }
                         }}
                         className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         placeholder="0.00"
+                        autoFocus
                       />
                     </div>
                   </div>
-                  
+
                   <div className="flex space-x-3 pt-4">
                     <button
-                      onClick={() => setShowDiscountModal(false)}
+                      onClick={() => {
+                        setFormData(prev => ({ ...prev, discountInput: '' }))
+                        setShowDiscountModal(false)
+                      }}
                       className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
                     >
                       Cancel
                     </button>
                     <button
-                      onClick={() => {
-                        setSuccessMessage('Discount added successfully!')
-                        setTimeout(() => setSuccessMessage(""), 3000)
-                        setShowDiscountModal(false)
+                      onClick={async () => {
+                        const discountVal = parseFloat(formData.discountInput) || 0
+                        if (discountVal <= 0) {
+                          setError('Please enter a valid discount amount')
+                          setTimeout(() => setError(''), 3000)
+                          return
+                        }
+                        try {
+                          setLoading(true)
+                          const prevDiscount = parseFloat(job.discount || 0)
+                          const newDiscount = prevDiscount + discountVal
+                          await jobsAPI.update(job.id, { discount: newDiscount })
+                          setJob(prev => ({ ...prev, discount: newDiscount }))
+                          setFormData(prev => ({ ...prev, discount: newDiscount, discountInput: '' }))
+                          setSuccessMessage('Discount added successfully!')
+                          setTimeout(() => setSuccessMessage(''), 3000)
+                          setShowDiscountModal(false)
+                        } catch (err) {
+                          console.error('Error saving discount:', err)
+                          setError('Failed to save discount')
+                          setTimeout(() => setError(''), 3000)
+                        } finally {
+                          setLoading(false)
+                        }
                       }}
-                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                      disabled={loading}
+                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
                     >
-                      Add Discount
+                      {loading ? 'Saving...' : 'Add Discount'}
                     </button>
                   </div>
                 </div>
@@ -4410,7 +4432,7 @@ const JobDetails = () => {
 
         {/* Tip Modal */}
         {showTipModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10000] p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
@@ -4429,39 +4451,62 @@ const JobDetails = () => {
                     <div className="flex items-center space-x-2">
                       <span className="text-sm text-gray-500">$</span>
                       <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={formData.tip || 0}
+                        type="text"
+                        inputMode="decimal"
+                        value={formData.tipInput || ''}
                         onChange={e => {
-                          const newTip = parseFloat(e.target.value) || 0;
-                          setFormData(prev => ({
-                            ...prev,
-                            tip: newTip
-                          }));
+                          const val = e.target.value
+                          if (val === '' || /^\d*\.?\d{0,2}$/.test(val)) {
+                            setFormData(prev => ({ ...prev, tipInput: val }))
+                          }
                         }}
                         className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         placeholder="0.00"
+                        autoFocus
                       />
                     </div>
                   </div>
-                  
+
                   <div className="flex space-x-3 pt-4">
                     <button
-                      onClick={() => setShowTipModal(false)}
+                      onClick={() => {
+                        setFormData(prev => ({ ...prev, tipInput: '' }))
+                        setShowTipModal(false)
+                      }}
                       className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
                     >
                       Cancel
                     </button>
                     <button
-                      onClick={() => {
-                        setSuccessMessage('Tip added successfully!')
-                        setTimeout(() => setSuccessMessage(""), 3000)
-                        setShowTipModal(false)
+                      onClick={async () => {
+                        const tipVal = parseFloat(formData.tipInput) || 0
+                        if (tipVal <= 0) {
+                          setError('Please enter a valid tip amount')
+                          setTimeout(() => setError(''), 3000)
+                          return
+                        }
+                        try {
+                          setLoading(true)
+                          const prevTip = parseFloat(job.tip_amount || 0)
+                          const newTip = prevTip + tipVal
+                          await jobsAPI.update(job.id, { tip_amount: newTip })
+                          setJob(prev => ({ ...prev, tip_amount: newTip }))
+                          setFormData(prev => ({ ...prev, tip: newTip, tipInput: '' }))
+                          setSuccessMessage('Tip added successfully!')
+                          setTimeout(() => setSuccessMessage(''), 3000)
+                          setShowTipModal(false)
+                        } catch (err) {
+                          console.error('Error saving tip:', err)
+                          setError('Failed to save tip')
+                          setTimeout(() => setError(''), 3000)
+                        } finally {
+                          setLoading(false)
+                        }
                       }}
-                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                      disabled={loading}
+                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
                     >
-                      Add Tip
+                      {loading ? 'Saving...' : 'Add Tip'}
                     </button>
                   </div>
                 </div>

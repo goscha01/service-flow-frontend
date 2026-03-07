@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-redeclare */
 "use client"
 
 import * as React from "react"

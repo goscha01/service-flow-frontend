@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
 import Sidebar from "../components/sidebar-collapsible"
-import { teamAPI, territoriesAPI, availabilityAPI, invoicesAPI, notificationAPI, notificationSettingsAPI } from "../services/api"
+import { teamAPI, territoriesAPI, availabilityAPI, invoicesAPI, notificationAPI, notificationSettingsAPI, paymentMethodsAPI } from "../services/api"
 import api, { stripeAPI } from "../services/api"
 import { 
   Plus, 
@@ -23,8 +23,11 @@ import {
   Filter,
   AlertTriangle,
   CheckCircle,
+  CheckCheck,
   Play,
   XCircle,
+  Circle,
+  CircleDot,
   Phone, Mail, NotepadText,
   RotateCw,
   Image,
@@ -32,6 +35,7 @@ import {
   FileText,
   User as UserIcon,
   CreditCard,
+  Trash2,
   Target,
   Home,
   Briefcase,
@@ -84,6 +88,7 @@ const ServiceFlowSchedule = () => {
   const [activeTab, setActiveTab] = useState('jobs') // jobs, availability
   const [availabilityMonth, setAvailabilityMonth] = useState(new Date()) // Current month for availability view
   const [userBusinessHours, setUserBusinessHours] = useState(null) // User's business hours from backend (Company Working Time)
+  const [drivingTimeMinutes, setDrivingTimeMinutes] = useState(0) // Driving time buffer in minutes (from settings)
   const [isLoadingAvailability, setIsLoadingAvailability] = useState(false)
   const [teamMemberAvailability, setTeamMemberAvailability] = useState({}) // Store team member personal availability
   const [jobs, setJobs] = useState([])
@@ -160,8 +165,11 @@ const ServiceFlowSchedule = () => {
   const [stripeConnected, setStripeConnected] = useState(false)
   const [manualEmail, setManualEmail] = useState('')
   const [paymentHistory, setPaymentHistory] = useState([])
+  const [customPaymentMethods, setCustomPaymentMethods] = useState([])
   const [paymentFormData, setPaymentFormData] = useState({
     amount: '',
+    tipAmount: '',
+    discount: '',
     paymentMethod: 'cash',
     paymentDate: new Date().toISOString().split('T')[0],
     notes: ''
@@ -225,7 +233,7 @@ const ServiceFlowSchedule = () => {
     }
   }, [showSendInvoiceModal])
 
-  // Fetch payment history when job is selected and invoice is expanded
+  // Fetch payment history when invoice is expanded (refresh)
   useEffect(() => {
     const fetchPaymentHistory = async () => {
       if (selectedJobDetails?.id && invoiceExpanded) {
@@ -234,7 +242,7 @@ const ServiceFlowSchedule = () => {
           if (response.data) {
             const transactions = response.data.transactions || []
             const totalPaid = response.data.totalPaid || transactions.reduce((sum, tx) => sum + parseFloat(tx.amount || 0), 0)
-            
+
             setPaymentHistory(transactions)
             // Update selectedJobDetails with payment info
             setSelectedJobDetails(prev => ({
@@ -266,25 +274,52 @@ const ServiceFlowSchedule = () => {
         return
       }
       
+      const tipAmount = parseFloat(paymentFormData.tipAmount) || 0
+      const discountAmount = parseFloat(paymentFormData.discount) || 0
+
       const paymentData = {
         jobId: selectedJobDetails.id,
         invoiceId: selectedJobDetails.invoice_id || null,
         customerId: selectedJobDetails.customer_id || null,
         amount: parseFloat(paymentFormData.amount),
+        tipAmount,
+        discount: discountAmount,
         paymentMethod: paymentFormData.paymentMethod,
         paymentDate: paymentFormData.paymentDate,
         notes: paymentFormData.notes || null
       }
-      
+
       console.log('💳 Recording payment:', paymentData)
-      
+
       const response = await api.post('/transactions/record-payment', paymentData)
-      
+
       console.log('✅ Payment recorded:', response.data)
-      
+
+      // Update tip and discount on local job state
+      const jobUpdates = {}
+      if (tipAmount > 0) {
+        const prevTip = parseFloat(selectedJobDetails.tip_amount || 0)
+        jobUpdates.tip_amount = prevTip + tipAmount
+      }
+      if (discountAmount > 0) {
+        const prevDiscount = parseFloat(selectedJobDetails.discount || 0)
+        jobUpdates.discount = prevDiscount + discountAmount
+      }
+      if (Object.keys(jobUpdates).length > 0) {
+        setSelectedJobDetails(prev => ({ ...prev, ...jobUpdates }))
+        setJobs(prevJobs => prevJobs.map(job =>
+          job.id === selectedJobDetails.id ? { ...job, ...jobUpdates } : job
+        ))
+        setFilteredJobs(prevFilteredJobs => prevFilteredJobs.map(job =>
+          job.id === selectedJobDetails.id ? { ...job, ...jobUpdates } : job
+        ))
+      }
+
       // Reset form
       setPaymentFormData({
         amount: '',
+        tipAmount: '',
+        discount: '',
         paymentMethod: 'cash',
         paymentDate: new Date().toISOString().split('T')[0],
         notes: ''
@@ -292,28 +327,37 @@ const ServiceFlowSchedule = () => {
       
       // Refresh payment history
       const historyResponse = await api.get(`/transactions/job/${selectedJobDetails.id}`)
+      let newTotalPaid = 0
+      const jobTotal = parseFloat(selectedJobDetails?.total ?? selectedJobDetails?.total_amount ?? selectedJobDetails?.price) || 0
+      const jobTip = parseFloat(selectedJobDetails?.tip_amount || 0) || 0
+      const expectedTotal = jobTotal + jobTip
       if (historyResponse.data) {
         const transactions = historyResponse.data.transactions || []
-        const totalPaid = historyResponse.data.totalPaid || transactions.reduce((sum, tx) => sum + parseFloat(tx.amount || 0), 0)
-        
+        newTotalPaid = historyResponse.data.totalPaid ?? transactions.reduce((sum, tx) => sum + parseFloat(tx.amount || 0), 0)
+        const totalTips = historyResponse.data.totalTips ?? transactions.reduce((sum, tx) => sum + parseFloat(tx.tip_amount || 0), 0)
+        const isFullyPaid = newTotalPaid >= expectedTotal - 0.01
         setPaymentHistory(transactions)
-        
-        // Update selectedJobDetails with payment info
         setSelectedJobDetails(prev => ({
           ...prev,
-          total_paid_amount: totalPaid,
-          invoice_paid_amount: totalPaid
+          total_paid_amount: newTotalPaid,
+          invoice_paid_amount: newTotalPaid,
+          tip_amount: totalTips,
+          invoice_status: isFullyPaid ? 'paid' : (jobTotal > 0 ? 'invoiced' : prev?.invoice_status || 'draft'),
+          payment_status: isFullyPaid ? 'paid' : 'pending'
         }))
       }
-      
-      // Refresh job data
-      const jobData = await jobsAPI.getById(selectedJobDetails.id)
-      const mappedJobData = normalizeCustomerData(jobData)
-      setSelectedJobDetails(prev => ({
-        ...mappedJobData,
-        total_paid_amount: prev.total_paid_amount || mappedJobData.total_paid_amount || 0,
-        invoice_paid_amount: prev.invoice_paid_amount || mappedJobData.invoice_paid_amount || 0
-      }))
+      const isFullyPaid = newTotalPaid >= expectedTotal - 0.01
+      const jobId = selectedJobDetails.id
+      setJobs(prevJobs => prevJobs.map(job =>
+        job.id === jobId
+          ? {
+              ...job,
+              total_paid_amount: newTotalPaid,
+              invoice_status: isFullyPaid ? 'paid' : (jobTotal > 0 ? 'invoiced' : job.invoice_status || 'draft'),
+              payment_status: isFullyPaid ? 'paid' : 'pending'
+            }
+          : job
+      ))
       
       setSuccessMessage('Payment recorded successfully!')
       setTimeout(() => setSuccessMessage(''), 3000)
@@ -321,6 +365,59 @@ const ServiceFlowSchedule = () => {
     } catch (error) {
       console.error('Error recording payment:', error)
       setErrorMessage(error.response?.data?.error || 'Failed to record payment')
+      setTimeout(() => setErrorMessage(''), 3000)
+    } finally {
+      setIsUpdatingJob(false)
+    }
+  }
+
+  // Delete a recorded payment
+  const handleDeletePayment = async (paymentId) => {
+    if (!selectedJobDetails?.id || !paymentId) return
+    if (!window.confirm('Are you sure you want to delete this payment? This will update the amount paid for this job.')) {
+      return
+    }
+    try {
+      setIsUpdatingJob(true)
+      setErrorMessage('')
+      await api.delete(`/transactions/${paymentId}`)
+      const historyResponse = await api.get(`/transactions/job/${selectedJobDetails.id}`)
+      let newTotalPaid = 0
+      const jobTotal = parseFloat(selectedJobDetails?.total ?? selectedJobDetails?.total_amount ?? selectedJobDetails?.price) || 0
+      const jobTip = parseFloat(selectedJobDetails?.tip_amount || 0) || 0
+      const expectedTotal = jobTotal + jobTip
+      if (historyResponse.data) {
+        const transactions = historyResponse.data.transactions || []
+        newTotalPaid = historyResponse.data.totalPaid ?? transactions.reduce((sum, tx) => sum + parseFloat(tx.amount || 0), 0)
+        const totalTips = historyResponse.data.totalTips ?? transactions.reduce((sum, tx) => sum + parseFloat(tx.tip_amount || 0), 0)
+        const isFullyPaid = newTotalPaid >= expectedTotal - 0.01
+        setPaymentHistory(transactions)
+        setSelectedJobDetails(prev => ({
+          ...prev,
+          total_paid_amount: newTotalPaid,
+          invoice_paid_amount: newTotalPaid,
+          tip_amount: totalTips,
+          invoice_status: isFullyPaid ? 'paid' : (jobTotal > 0 ? 'invoiced' : prev?.invoice_status || 'draft'),
+          payment_status: isFullyPaid ? 'paid' : 'pending'
+        }))
+      }
+      const isFullyPaid = newTotalPaid >= expectedTotal - 0.01
+      const jobId = selectedJobDetails.id
+      setJobs(prevJobs => prevJobs.map(job =>
+        job.id === jobId
+          ? {
+              ...job,
+              total_paid_amount: newTotalPaid,
+              invoice_status: isFullyPaid ? 'paid' : (jobTotal > 0 ? 'invoiced' : job.invoice_status || 'draft'),
+              payment_status: isFullyPaid ? 'paid' : 'pending'
+            }
+          : job
+      ))
+      setSuccessMessage('Payment deleted successfully!')
+      setTimeout(() => setSuccessMessage(''), 3000)
+    } catch (error) {
+      console.error('Error deleting payment:', error)
+      setErrorMessage(error.response?.data?.error || 'Failed to delete payment')
       setTimeout(() => setErrorMessage(''), 3000)
     } finally {
       setIsUpdatingJob(false)
@@ -593,7 +690,15 @@ const ServiceFlowSchedule = () => {
       setTerritories([])
     }
   }, [user?.id])
-    
+
+  useEffect(() => {
+    if (user?.id) {
+      paymentMethodsAPI.getPaymentMethods().then(methods => {
+        setCustomPaymentMethods(methods || [])
+      }).catch(() => setCustomPaymentMethods([]))
+    }
+  }, [user?.id])
+
     // Helper function to check if a job is assigned to a team member ID
     // IMPORTANT: Checks ALL assignments, not just primary assignee
   // This handles jobs with multiple team members (team_assignments array)
@@ -660,7 +765,48 @@ const ServiceFlowSchedule = () => {
 
   const applyFilters = useCallback(() => {
     let filtered = [...jobs]
-    
+
+    // Date range filter: ensure filteredJobs matches current view's date range
+    // This prevents stale month data showing on day view map during view transitions
+    const formatDateLocal = (date) => {
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      return `${year}-${month}-${day}`
+    }
+
+    const normalizedDate = new Date(selectedDate)
+    normalizedDate.setHours(0, 0, 0, 0)
+
+    let startDateStr, endDateStr
+    if (viewMode === 'day') {
+      startDateStr = formatDateLocal(normalizedDate)
+      endDateStr = startDateStr
+    } else if (viewMode === 'week') {
+      const startOfWeek = new Date(normalizedDate)
+      startOfWeek.setDate(normalizedDate.getDate() - normalizedDate.getDay())
+      const endOfWeek = new Date(startOfWeek)
+      endOfWeek.setDate(startOfWeek.getDate() + 6)
+      startDateStr = formatDateLocal(startOfWeek)
+      endDateStr = formatDateLocal(endOfWeek)
+    } else {
+      startDateStr = formatDateLocal(new Date(normalizedDate.getFullYear(), normalizedDate.getMonth(), 1))
+      endDateStr = formatDateLocal(new Date(normalizedDate.getFullYear(), normalizedDate.getMonth() + 1, 0))
+    }
+
+    filtered = filtered.filter(job => {
+      if (!job.scheduled_date) return false
+      let jobDateStr = ''
+      if (job.scheduled_date.includes('T')) {
+        jobDateStr = job.scheduled_date.split('T')[0]
+      } else if (job.scheduled_date.includes(' ')) {
+        jobDateStr = job.scheduled_date.split(' ')[0]
+      } else {
+        jobDateStr = job.scheduled_date
+      }
+      return jobDateStr >= startDateStr && jobDateStr <= endDateStr
+    })
+
     // 🔒 WORKER RESTRICTION: Workers can only see jobs assigned to them
     // Schedulers, Managers, and Account Owners can see ALL jobs (no filtering by assignment)
     if (isWorker(user) && user?.teamMemberId) {
@@ -765,7 +911,7 @@ const ServiceFlowSchedule = () => {
     // If recurringFilter === 'all', show all jobs
     
     setFilteredJobs(filtered)
-  }, [jobs, selectedFilter, statusFilter, timeRangeFilter, territoryFilter, recurringFilter, user, isJobAssignedTo])
+  }, [jobs, selectedDate, viewMode, selectedFilter, statusFilter, timeRangeFilter, territoryFilter, recurringFilter, user, isJobAssignedTo])
   
   // Apply filters whenever jobs or filter values change
   useEffect(() => {
@@ -783,10 +929,11 @@ const ServiceFlowSchedule = () => {
       
       if (businessHours) {
         // Parse if it's a string
-        const parsedHours = typeof businessHours === 'string' 
-          ? JSON.parse(businessHours) 
+        const parsedHours = typeof businessHours === 'string'
+          ? JSON.parse(businessHours)
           : businessHours
         setUserBusinessHours(parsedHours)
+        setDrivingTimeMinutes(parsedHours.drivingTime || 0)
       } else {
         // Default business hours
         setUserBusinessHours({
@@ -798,6 +945,7 @@ const ServiceFlowSchedule = () => {
           saturday: { enabled: false, start: '09:00', end: '18:00' },
           sunday: { enabled: false, start: '09:00', end: '18:00' }
         })
+        setDrivingTimeMinutes(0)
       }
     } catch (error) {
       console.error('Error fetching user availability:', error)
@@ -811,6 +959,7 @@ const ServiceFlowSchedule = () => {
         saturday: { enabled: false, start: '09:00', end: '18:00' },
         sunday: { enabled: false, start: '09:00', end: '18:00' }
       })
+      setDrivingTimeMinutes(0)
     } finally {
       setIsLoadingAvailability(false)
     }
@@ -877,21 +1026,11 @@ const ServiceFlowSchedule = () => {
     })
   }
 
-  // Get duration from job object - checks all possible fields
+  // Get duration from job object - checks all possible fields. Always returns minutes.
+  // If the stored value is in hours (e.g. 3 for 3h), normalize to minutes so "late" uses correct end time.
   const getJobDuration = (job) => {
     if (!job) return 0;
     
-    // Debug: Log the job to see what fields are available
-    // console.log('Job duration fields:', { 
-    //   service_duration: job.service_duration,
-    //   duration: job.duration,
-    //   estimated_duration: job.estimated_duration,
-    //   service: job.service,
-    //   services: job.services
-    // });
-    
-    // Check all possible duration fields in order of priority
-    // Try estimated_duration first as it's often the most accurate
     let duration = job.estimated_duration || 
                    job.service_duration || 
                    job.duration ||
@@ -899,11 +1038,13 @@ const ServiceFlowSchedule = () => {
                    (job.services && (job.services.duration || job.services.service_duration || job.services.estimated_duration)) ||
                    0;
     
-    // Parse to integer, defaulting radix to 10
     duration = parseInt(duration, 10);
-    
-    // If duration is 0 or invalid, return 0 (don't use NaN)
-    return isNaN(duration) ? 0 : duration;
+    if (isNaN(duration) || duration < 0) return 0;
+    // Values 1–24 are commonly hours (e.g. 3 = 3h). Convert to minutes so end-time and display are correct.
+    if (duration >= 1 && duration <= 24) {
+      duration = duration * 60;
+    }
+    return duration;
   }
 
   // Format duration for display (compact format: "5h 30m" or "5h" or "30m")
@@ -926,14 +1067,17 @@ const ServiceFlowSchedule = () => {
     if (!status) return 'scheduled'
     const normalized = status.toLowerCase().trim()
     // Map variations to standard statuses
-    if (normalized === 'in-prog' || normalized === 'in_progress' || normalized === 'started' || normalized === 'enroute') {
+    if (normalized === 'in-progress' || normalized === 'in-prog' || normalized === 'in_progress' || normalized === 'inprogress' || normalized === 'started' || normalized === 'enroute') {
       return 'in_progress'
     }
-    if (normalized === 'completed' || normalized === 'done' || normalized === 'finished') {
+    if (normalized === 'completed' || normalized === 'complete' || normalized === 'done' || normalized === 'finished') {
       return 'completed'
     }
     if (normalized === 'cancelled' || normalized === 'canceled') {
       return 'cancelled'
+    }
+    if (normalized === 'pending') {
+      return 'pending'
     }
     if (normalized === 'confirmed' || normalized === 'scheduled') {
       return normalized
@@ -941,22 +1085,42 @@ const ServiceFlowSchedule = () => {
     return normalized
   }
 
-  // Format status for display
+  // Job is "past" only when the scheduled END time (start + duration) has passed — not when start time has passed.
+  // e.g. 5pm job with 2h duration is late only after 7pm, not at 5:01pm.
   const isJobPast = (job) => {
     if (!job.scheduled_date) return false
-    const scheduledDate = new Date(job.scheduled_date)
+    let startDate
+    const raw = String(job.scheduled_date)
+    if (raw.includes(' ')) {
+      const [datePart, timePart] = raw.split(' ')
+      const [hours, minutes] = (timePart || '').split(':').map(Number)
+      startDate = new Date(datePart)
+      startDate.setHours(hours || 0, minutes || 0, 0, 0)
+    } else if (raw.includes('T')) {
+      const [datePart, timePart] = raw.split('T')
+      const [hours, minutes] = (timePart || '').split(':').map(Number)
+      startDate = new Date(datePart)
+      startDate.setHours(hours || 0, minutes || 0, 0, 0)
+    } else {
+      startDate = new Date(job.scheduled_date)
+    }
+    const durationMin = getJobDuration(job) || 60
+    const endDate = new Date(startDate.getTime() + durationMin * 60 * 1000)
     const now = new Date()
-    return scheduledDate < now
+    return now > endDate
   }
 
   const formatStatus = (status, job = null) => {
-    // If job is past scheduled time and not completed, show "Late"
-    if (job && isJobPast(job) && status !== 'completed' && status !== 'cancelled') {
+    // If job is past scheduled end time (start + duration) and not completed/cancelled/in-progress, show "Late"
+    // A job that is in_progress is NOT late until it exceeds its duration
+    const norm = normalizeStatus(status)
+    if (job && isJobPast(job) && norm !== 'completed' && norm !== 'cancelled' && norm !== 'in_progress') {
       return 'Late'
     }
     
     const normalized = normalizeStatus(status)
     const statusMap = {
+      'pending': 'Pending',
       'scheduled': 'Scheduled',
       'confirmed': 'Confirmed',
       'in_progress': 'In Progress',
@@ -966,17 +1130,43 @@ const ServiceFlowSchedule = () => {
     return statusMap[normalized] || status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')
   }
 
+  // Get status icon for compact views (week/month calendar cards)
+  const getStatusIcon = (status, job = null) => {
+    // Late override — but in-progress jobs aren't late until they exceed their duration
+    const normSt = normalizeStatus(status)
+    if (job && isJobPast(job) && normSt !== 'completed' && normSt !== 'cancelled' && normSt !== 'in_progress') {
+      return <Clock className="w-3 h-3 text-orange-500 flex-shrink-0" />
+    }
+    const normalized = normalizeStatus(status)
+    switch (normalized) {
+      case 'completed':
+        return <CheckCheck className="w-3 h-3 text-green-600 flex-shrink-0" />
+      case 'in_progress':
+        return <CircleDot className="w-3 h-3 text-purple-600 flex-shrink-0" />
+      case 'confirmed':
+        return <CheckCircle className="w-3 h-3 text-green-600 flex-shrink-0" />
+      case 'cancelled':
+        return <XCircle className="w-3 h-3 text-red-500 flex-shrink-0" />
+      case 'pending':
+        return <Circle className="w-3 h-3 text-yellow-500 flex-shrink-0" />
+      case 'scheduled':
+      default:
+        return <Circle className="w-3 h-3 text-blue-500 flex-shrink-0" />
+    }
+  }
+
   // Get status color
   const getStatusColor = (status, job = null) => {
-    // If job is past scheduled time and not completed, show orange for "Late"
-    if (job && isJobPast(job) && status !== 'completed' && status !== 'cancelled') {
+    // If job is past scheduled end time and not completed/cancelled/in-progress, show orange for "Late"
+    const normStatus = normalizeStatus(status)
+    if (job && isJobPast(job) && normStatus !== 'completed' && normStatus !== 'cancelled' && normStatus !== 'in_progress') {
       return 'bg-orange-100 text-orange-800 border-orange-200'
     }
     
     const normalized = normalizeStatus(status)
     const colorMap = {
+      'pending': 'bg-yellow-100 text-yellow-800 border-yellow-200',
       'scheduled': 'bg-blue-100 text-blue-800 border-blue-200',
-      'scheduled': 'bg-yellow-100 text-yellow-800 border-yellow-200',
       'confirmed': 'bg-green-100 text-green-800 border-green-200',
       'in_progress': 'bg-purple-100 text-purple-800 border-purple-200',
       'completed': 'bg-gray-100 text-gray-800 border-gray-200',
@@ -1142,7 +1332,9 @@ const ServiceFlowSchedule = () => {
   const getBusinessHours = () => {
     // First, try to use user's business hours from backend
     if (userBusinessHours) {
-      return userBusinessHours
+      // Strip drivingTime so it's not treated as a day entry
+      const { drivingTime: _drivingTime, ...hours } = userBusinessHours
+      return hours
     }
 
     // If territory is selected and has business hours, use that
@@ -1184,6 +1376,22 @@ const ServiceFlowSchedule = () => {
     const hours = Math.floor(minutes / 60)
     const mins = minutes % 60
     return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`
+  }
+
+  // Helper to merge overlapping time ranges (used for driving + job blocks)
+  const mergeTimeRanges = (ranges) => {
+    if (ranges.length <= 1) return ranges
+    const sorted = [...ranges].sort((a, b) => a.start - b.start)
+    const merged = [{ ...sorted[0] }]
+    for (let i = 1; i < sorted.length; i++) {
+      const last = merged[merged.length - 1]
+      if (sorted[i].start <= last.end) {
+        last.end = Math.max(last.end, sorted[i].end)
+      } else {
+        merged.push({ ...sorted[i] })
+      }
+    }
+    return merged
   }
 
   // Check if a day has jobs scheduled
@@ -1277,6 +1485,28 @@ const ServiceFlowSchedule = () => {
     // If selectedFilter === 'all', show all jobs (no additional filtering)
 
     return filteredJobs
+  }
+
+  // Helper to get a team member's individual driving time (in minutes)
+  // Per-member drivingTime in availability JSONB overrides company default.
+  // Company default (drivingTimeMinutes) is used when member has no drivingTime set.
+  const getMemberDrivingTime = (memberId) => {
+    const member = teamMembers.find(m => m.id === memberId)
+    if (!member) return drivingTimeMinutes || 0
+
+    try {
+      const avail = member.availability
+        ? (typeof member.availability === 'string' ? JSON.parse(member.availability) : member.availability)
+        : null
+      if (avail && avail.drivingTime !== undefined && avail.drivingTime !== null) {
+        return parseInt(avail.drivingTime) || 0
+      }
+    } catch (e) {
+      // ignore parse errors
+    }
+
+    // No per-member driving time — use company-level driving time
+    return drivingTimeMinutes || 0
   }
 
   // Helper to get Personal Cleaner Availability (#3) for a specific day
@@ -1422,11 +1652,12 @@ const ServiceFlowSchedule = () => {
     // STEP 5: Subtract Cleaner Job Schedule (#2) from the intersection
     // Scheduled jobs always block time, even if the cleaner is "available"
     const formatTime = (time24) => {
-      const [hours] = time24.split(':')
-      const hour = parseInt(hours)
+      const parts = time24.split(':')
+      const hour = parseInt(parts[0], 10)
+      const min = parts[1] ? parseInt(parts[1], 10) : 0
       const ampm = hour >= 12 ? 'PM' : 'AM'
       const hour12 = hour % 12 || 12
-      return `${hour12} ${ampm}`
+      return min ? `${hour12}:${String(min).padStart(2, '0')} ${ampm}` : `${hour12} ${ampm}`
     }
     
     // Extract job time ranges (Job Schedule #1 for each job in Cleaner Job Schedule #2)
@@ -1473,30 +1704,55 @@ const ServiceFlowSchedule = () => {
       return null
     }).filter(Boolean)
     
-    // Subtract job time ranges from intersection time slots
+    // STEP 5b: Compute driving time slots (travel buffer BEFORE AND AFTER each job)
+    const drivingTime = getMemberDrivingTime(memberId)
+    let drivingTimeRanges = []
+    if (drivingTime > 0 && jobTimeRanges.length > 0) {
+      const intersectionStart = timeToMinutes(intersectionTimeSlots[0]?.start || '00:00')
+      const intersectionEnd = timeToMinutes(intersectionTimeSlots[intersectionTimeSlots.length - 1]?.end || '23:59')
+      const sortedJobs = [...jobTimeRanges].sort((a, b) => a.start - b.start)
+      sortedJobs.forEach(job => {
+        // Driving buffer BEFORE each job
+        const drivingStartBefore = Math.max(job.start - drivingTime, intersectionStart)
+        if (drivingStartBefore < job.start) {
+          drivingTimeRanges.push({ start: drivingStartBefore, end: job.start })
+        }
+        // Driving buffer AFTER each job
+        const drivingEndAfter = Math.min(job.end + drivingTime, intersectionEnd)
+        if (drivingEndAfter > job.end) {
+          drivingTimeRanges.push({ start: job.end, end: drivingEndAfter })
+        }
+      })
+      drivingTimeRanges = mergeTimeRanges(drivingTimeRanges)
+    }
+
+    // Combine jobs + driving into unified blocked set
+    const allBlocked = mergeTimeRanges([...jobTimeRanges, ...drivingTimeRanges])
+
+    // Subtract all blocked ranges from intersection time slots
     // This gives us Cleaner Job Availability (#5) - the final bookable time slots
     let remainingHours = []
-    
-    if (jobTimeRanges.length > 0) {
+
+    if (allBlocked.length > 0) {
       intersectionTimeSlots.forEach(availSlot => {
         const availStart = timeToMinutes(availSlot.start)
         const availEnd = timeToMinutes(availSlot.end)
         let currentStart = availStart
-        
-        const sortedJobRanges = jobTimeRanges
-          .filter(jobRange => jobRange.start < availEnd && jobRange.end > availStart)
+
+        const relevantBlocked = allBlocked
+          .filter(range => range.start < availEnd && range.end > availStart)
           .sort((a, b) => a.start - b.start)
-        
-        sortedJobRanges.forEach((jobRange) => {
-          if (currentStart < jobRange.start) {
+
+        relevantBlocked.forEach((blockedRange) => {
+          if (currentStart < blockedRange.start) {
             remainingHours.push({
               start: minutesToTime(currentStart),
-              end: minutesToTime(jobRange.start)
+              end: minutesToTime(blockedRange.start)
             })
           }
-          currentStart = Math.max(currentStart, jobRange.end)
+          currentStart = Math.max(currentStart, blockedRange.end)
         })
-        
+
         if (currentStart < availEnd) {
           remainingHours.push({
             start: minutesToTime(currentStart),
@@ -1505,31 +1761,91 @@ const ServiceFlowSchedule = () => {
         }
       })
     } else {
-      // No jobs scheduled - intersection time slots are fully available
+      // No jobs or driving time - intersection time slots are fully available
       remainingHours = intersectionTimeSlots.map(slot => ({
         start: slot.start,
         end: slot.end
       }))
     }
-    
-    if (remainingHours.length > 0) {
-      const formattedSlots = remainingHours.map(slot => 
+
+    // Compute display-friendly driving slots (driving time NOT overlapping with jobs)
+    let displayDrivingSlots = []
+    if (drivingTime > 0 && drivingTimeRanges.length > 0) {
+      drivingTimeRanges.forEach(dSlot => {
+        intersectionTimeSlots.forEach(iSlot => {
+          const iStart = timeToMinutes(iSlot.start)
+          const iEnd = timeToMinutes(iSlot.end)
+          const clippedStart = Math.max(dSlot.start, iStart)
+          const clippedEnd = Math.min(dSlot.end, iEnd)
+          if (clippedStart < clippedEnd) {
+            // Subtract job overlaps from this driving slot
+            let currentStart = clippedStart
+            const overlappingJobs = jobTimeRanges
+              .filter(j => j.start < clippedEnd && j.end > clippedStart)
+              .sort((a, b) => a.start - b.start)
+            overlappingJobs.forEach(job => {
+              if (currentStart < job.start) {
+                displayDrivingSlots.push({ start: minutesToTime(currentStart), end: minutesToTime(job.start) })
+              }
+              currentStart = Math.max(currentStart, job.end)
+            })
+            if (currentStart < clippedEnd) {
+              displayDrivingSlots.push({ start: minutesToTime(currentStart), end: minutesToTime(clippedEnd) })
+            }
+          }
+        })
+      })
+    }
+
+    // Compute busy slots (job time) for display
+    const busySlots = jobTimeRanges.map(r => ({ start: minutesToTime(r.start), end: minutesToTime(r.end) }))
+
+    // Compute totals
+    const totalAvailable = remainingHours.reduce((sum, slot) => sum + (timeToMinutes(slot.end) - timeToMinutes(slot.start)), 0)
+    const totalBusy = jobTimeRanges.reduce((sum, r) => sum + (r.end - r.start), 0)
+    const totalDriving = displayDrivingSlots.reduce((sum, slot) => sum + (timeToMinutes(slot.end) - timeToMinutes(slot.start)), 0)
+
+    // Only show slots with positive duration (exclude "9 AM - 9 AM" etc.)
+    const validSlots = remainingHours.filter(slot => timeToMinutes(slot.start) < timeToMinutes(slot.end))
+    if (validSlots.length > 0) {
+      const formattedSlots = validSlots.map(slot =>
         `${formatTime(slot.start)} - ${formatTime(slot.end)}`
       ).join(', ')
+      // Build freeSpots for this individual member
+      const member = teamMembers.find(m => Number(m.id) === memberId)
+      const memberLabel = member ? `${member.first_name} ${member.last_name?.[0] || ''}`.trim() : `Member ${memberId}`
+      const freeSpots = validSlots.map(slot => ({
+        start: slot.start,
+        end: slot.end,
+        memberCount: 1,
+        members: [memberLabel]
+      }))
       return {
         isOpen: true,
         hours: formattedSlots,
         jobCount: dayJobs.length,
         hasJobs: dayJobs.length > 0,
-        availableSlots: remainingHours
+        availableSlots: validSlots,
+        freeSpots,
+        busySlots,
+        drivingSlots: displayDrivingSlots,
+        totalAvailable,
+        totalBusy,
+        totalDriving
       }
     } else {
       return {
-        isOpen: false,
-        hours: null,
+        isOpen: dayJobs.length === 0,
+        hours: dayJobs.length === 0 ? null : null,
         jobCount: dayJobs.length,
-        hasJobs: true,
-        availableSlots: []
+        hasJobs: dayJobs.length > 0,
+        availableSlots: [],
+        freeSpots: [],
+        busySlots,
+        drivingSlots: displayDrivingSlots,
+        totalAvailable: 0,
+        totalBusy,
+        totalDriving
       }
     }
   }
@@ -1542,19 +1858,24 @@ const ServiceFlowSchedule = () => {
     // If in availability tab and "all-team-members" is selected, aggregate availability for ALL team members
     if (activeTab === 'availability' && selectedFilter === 'all-team-members') {
       if (teamMembers.length === 0) {
-        return { isOpen: false, hours: null, jobCount: 0, availableSlots: [] }
+        return { isOpen: false, hours: null, jobCount: 0, availableSlots: [], freeSpots: [], drivingSlots: [], totalDriving: 0, totalBusy: 0, totalAvailable: 0 }
       }
-      
+
       // Aggregate availability for all team members
       // Combine all available time slots from all team members
       // Each member's availability already has their jobs subtracted by getDayAvailabilityForMember
       const allAvailableSlots = []
+      const allDrivingSlots = []
+      const memberSlotsMap = new Map() // memberId -> { name, slots }
       let totalJobCount = 0
-      
+      let aggregateTotalDriving = 0
+      let aggregateTotalBusy = 0
+      let aggregateTotalAvailable = 0
+
       console.log(`👥 All Team Members availability calculation for ${date.toDateString()}:`)
       console.log(`  - Total team members: ${teamMembers.length}`)
       console.log(`  - Total jobs in state: ${jobs.length}`)
-      
+
       teamMembers.filter(m => m.status === 'active').forEach(member => {
         const memberAvailability = getDayAvailabilityForMember(date, Number(member.id))
         console.log(`  - Member ${member.first_name} ${member.last_name} (ID: ${member.id}):`)
@@ -1562,68 +1883,101 @@ const ServiceFlowSchedule = () => {
         console.log(`    - Available slots: ${memberAvailability.availableSlots?.length || 0}`)
         if (memberAvailability.availableSlots && memberAvailability.availableSlots.length > 0) {
           allAvailableSlots.push(...memberAvailability.availableSlots)
+          memberSlotsMap.set(Number(member.id), {
+            name: `${member.first_name} ${member.last_name?.[0] || ''}`.trim(),
+            slots: memberAvailability.availableSlots
+          })
+        }
+        if (memberAvailability.drivingSlots && memberAvailability.drivingSlots.length > 0) {
+          allDrivingSlots.push(...memberAvailability.drivingSlots)
         }
         totalJobCount += memberAvailability.jobCount || 0
+        aggregateTotalDriving += memberAvailability.totalDriving || 0
+        aggregateTotalBusy += memberAvailability.totalBusy || 0
+        aggregateTotalAvailable += memberAvailability.totalAvailable || 0
       })
-      
+
       console.log(`  - Total jobs across all members: ${totalJobCount}`)
       console.log(`  - Total available slots before merging: ${allAvailableSlots.length}`)
       
       // Merge overlapping time slots to show combined availability
       if (allAvailableSlots.length === 0) {
-        return { isOpen: false, hours: null, jobCount: totalJobCount, availableSlots: [] }
+        return { isOpen: false, hours: null, jobCount: totalJobCount, availableSlots: [], freeSpots: [], drivingSlots: allDrivingSlots, totalDriving: aggregateTotalDriving, totalBusy: aggregateTotalBusy, totalAvailable: 0 }
       }
-      
+
       // Sort slots by start time
-      const sortedSlots = allAvailableSlots.sort((a, b) => 
+      const sortedSlots = allAvailableSlots.sort((a, b) =>
         timeToMinutes(a.start) - timeToMinutes(b.start)
       )
-      
+
       // Merge overlapping or adjacent slots
       const mergedSlots = []
       let currentSlot = { ...sortedSlots[0] }
-      
+
       for (let i = 1; i < sortedSlots.length; i++) {
         const nextSlot = sortedSlots[i]
         const currentEnd = timeToMinutes(currentSlot.end)
         const nextStart = timeToMinutes(nextSlot.start)
-        
+
         if (nextStart <= currentEnd) {
-          // Slots overlap or are adjacent - merge them
           const nextEnd = timeToMinutes(nextSlot.end)
           if (nextEnd > currentEnd) {
             currentSlot.end = nextSlot.end
           }
         } else {
-          // No overlap - save current slot and start a new one
           mergedSlots.push(currentSlot)
           currentSlot = { ...nextSlot }
         }
       }
       mergedSlots.push(currentSlot)
-      
-      // Format the merged slots for display
+
+      // Only include slots with positive duration (exclude "9 AM - 9 AM" etc.)
+      const validMergedSlots = mergedSlots.filter(slot => timeToMinutes(slot.start) < timeToMinutes(slot.end))
+
+      // Build freeSpots: for each merged slot, find which members are available
+      const freeSpots = validMergedSlots.map(slot => {
+        const slotStart = timeToMinutes(slot.start)
+        const slotEnd = timeToMinutes(slot.end)
+        const availableMembers = []
+        memberSlotsMap.forEach((memberData, memberId) => {
+          const hasOverlap = memberData.slots.some(ms => {
+            const msStart = timeToMinutes(ms.start)
+            const msEnd = timeToMinutes(ms.end)
+            return msStart < slotEnd && msEnd > slotStart
+          })
+          if (hasOverlap) availableMembers.push(memberData.name)
+        })
+        return { start: slot.start, end: slot.end, memberCount: availableMembers.length, members: availableMembers }
+      })
+
+      // Format the merged slots for display (include minutes so 9:30 shows correctly)
       const formatTime = (time24) => {
-        const [hours] = time24.split(':')
-        const hour = parseInt(hours)
+        const parts = time24.split(':')
+        const hour = parseInt(parts[0], 10)
+        const min = parts[1] ? parseInt(parts[1], 10) : 0
         const ampm = hour >= 12 ? 'PM' : 'AM'
         const hour12 = hour % 12 || 12
-        return `${hour12} ${ampm}`
+        return min ? `${hour12}:${String(min).padStart(2, '0')} ${ampm}` : `${hour12} ${ampm}`
       }
-      
-      const formattedSlots = mergedSlots.map(slot => 
+
+      const formattedSlots = validMergedSlots.map(slot =>
         `${formatTime(slot.start)} - ${formatTime(slot.end)}`
       ).join(', ')
-      
+
       return {
-        isOpen: true,
-        hours: formattedSlots,
+        isOpen: validMergedSlots.length > 0,
+        hours: validMergedSlots.length > 0 ? formattedSlots : null,
         jobCount: totalJobCount,
         hasJobs: totalJobCount > 0,
-        availableSlots: mergedSlots
+        availableSlots: validMergedSlots,
+        freeSpots,
+        drivingSlots: allDrivingSlots,
+        totalDriving: aggregateTotalDriving,
+        totalBusy: aggregateTotalBusy,
+        totalAvailable: aggregateTotalAvailable
       }
     }
-    
+
     // If in availability tab and a territory is selected, aggregate availability for all team members in that territory
     if (activeTab === 'availability' && territoryFilter && territoryFilter !== 'all') {
       const territoryId = Number(territoryFilter)
@@ -1654,20 +2008,23 @@ const ServiceFlowSchedule = () => {
         )
         
         if (territoryTeamMembers.length === 0) {
-          return { isOpen: false, hours: null, jobCount: 0, availableSlots: [] }
+          return { isOpen: false, hours: null, jobCount: 0, availableSlots: [], freeSpots: [], drivingSlots: [], totalDriving: 0, totalBusy: 0, totalAvailable: 0 }
         }
-        
+
         // Aggregate availability for all team members in the territory
-        // Combine all available time slots from all team members
-        // Each member's availability already has their jobs subtracted by getDayAvailabilityForMember
         const allAvailableSlots = []
+        const allDrivingSlots = []
+        const memberSlotsMap = new Map()
         let totalJobCount = 0
-        
+        let aggregateTotalDriving = 0
+        let aggregateTotalBusy = 0
+        let aggregateTotalAvailable = 0
+
         console.log(`🌍 Territory availability calculation for ${date.toDateString()}:`)
         console.log(`  - Territory: ${territory.name} (ID: ${territoryId})`)
         console.log(`  - Team members in territory: ${territoryTeamMembers.length}`)
         console.log(`  - Total jobs in state: ${jobs.length}`)
-        
+
         territoryTeamMembers.forEach(member => {
           const memberAvailability = getDayAvailabilityForMember(date, Number(member.id))
           console.log(`  - Member ${member.first_name} ${member.last_name} (ID: ${member.id}):`)
@@ -1675,69 +2032,102 @@ const ServiceFlowSchedule = () => {
           console.log(`    - Available slots: ${memberAvailability.availableSlots?.length || 0}`)
           if (memberAvailability.availableSlots && memberAvailability.availableSlots.length > 0) {
             allAvailableSlots.push(...memberAvailability.availableSlots)
+            memberSlotsMap.set(Number(member.id), {
+              name: `${member.first_name} ${member.last_name?.[0] || ''}`.trim(),
+              slots: memberAvailability.availableSlots
+            })
+          }
+          if (memberAvailability.drivingSlots && memberAvailability.drivingSlots.length > 0) {
+            allDrivingSlots.push(...memberAvailability.drivingSlots)
           }
           totalJobCount += memberAvailability.jobCount || 0
+          aggregateTotalDriving += memberAvailability.totalDriving || 0
+          aggregateTotalBusy += memberAvailability.totalBusy || 0
+          aggregateTotalAvailable += memberAvailability.totalAvailable || 0
         })
-        
+
         console.log(`  - Total jobs across all members: ${totalJobCount}`)
         console.log(`  - Total available slots before merging: ${allAvailableSlots.length}`)
         
         // Merge overlapping time slots to show combined availability
         if (allAvailableSlots.length === 0) {
-          return { isOpen: false, hours: null, jobCount: totalJobCount, availableSlots: [] }
+          return { isOpen: false, hours: null, jobCount: totalJobCount, availableSlots: [], freeSpots: [], drivingSlots: allDrivingSlots, totalDriving: aggregateTotalDriving, totalBusy: aggregateTotalBusy, totalAvailable: 0 }
         }
-        
+
         // Sort slots by start time
-        const sortedSlots = allAvailableSlots.sort((a, b) => 
+        const sortedSlots = allAvailableSlots.sort((a, b) =>
           timeToMinutes(a.start) - timeToMinutes(b.start)
         )
-        
+
         // Merge overlapping or adjacent slots
         const mergedSlots = []
         let currentSlot = { ...sortedSlots[0] }
-        
+
         for (let i = 1; i < sortedSlots.length; i++) {
           const nextSlot = sortedSlots[i]
           const currentEnd = timeToMinutes(currentSlot.end)
           const nextStart = timeToMinutes(nextSlot.start)
-          
+
           if (nextStart <= currentEnd) {
-            // Slots overlap or are adjacent - merge them
             const nextEnd = timeToMinutes(nextSlot.end)
             if (nextEnd > currentEnd) {
               currentSlot.end = nextSlot.end
             }
           } else {
-            // No overlap - save current slot and start a new one
             mergedSlots.push(currentSlot)
             currentSlot = { ...nextSlot }
           }
         }
         mergedSlots.push(currentSlot)
-        
-        // Format the merged slots for display
+
+        // Only include slots with positive duration (exclude "9 AM - 9 AM" etc.)
+        const validMergedSlots = mergedSlots.filter(slot => timeToMinutes(slot.start) < timeToMinutes(slot.end))
+
+        // Build freeSpots with member info
+        const freeSpots = validMergedSlots.map(slot => {
+          const slotStart = timeToMinutes(slot.start)
+          const slotEnd = timeToMinutes(slot.end)
+          const availableMembers = []
+          memberSlotsMap.forEach((memberData, memberId) => {
+            const hasOverlap = memberData.slots.some(ms => {
+              const msStart = timeToMinutes(ms.start)
+              const msEnd = timeToMinutes(ms.end)
+              return msStart < slotEnd && msEnd > slotStart
+            })
+            if (hasOverlap) availableMembers.push(memberData.name)
+          })
+          return { start: slot.start, end: slot.end, memberCount: availableMembers.length, members: availableMembers }
+        })
+
+        // Format the merged slots for display (include minutes so 9:30, 1:30 show correctly)
         const formatTime = (time24) => {
-          const [hours] = time24.split(':')
-          const hour = parseInt(hours)
+          const parts = time24.split(':')
+          const hour = parseInt(parts[0], 10)
+          const min = parts[1] ? parseInt(parts[1], 10) : 0
           const ampm = hour >= 12 ? 'PM' : 'AM'
           const hour12 = hour % 12 || 12
-          return `${hour12} ${ampm}`
+          return min ? `${hour12}:${String(min).padStart(2, '0')} ${ampm}` : `${hour12} ${ampm}`
         }
-        
-        const formattedSlots = mergedSlots.map(slot => 
+
+        const formattedSlots = validMergedSlots.map(slot =>
           `${formatTime(slot.start)} - ${formatTime(slot.end)}`
         ).join(', ')
-        
+
         return {
-          isOpen: true,
-          hours: formattedSlots,
+          isOpen: validMergedSlots.length > 0,
+          hours: validMergedSlots.length > 0 ? formattedSlots : null,
           jobCount: totalJobCount,
           hasJobs: totalJobCount > 0,
-          availableSlots: mergedSlots
+          availableSlots: validMergedSlots,
+          freeSpots,
+          drivingSlots: allDrivingSlots,
+          totalDriving: aggregateTotalDriving,
+          totalBusy: aggregateTotalBusy,
+          totalAvailable: aggregateTotalAvailable
         }
       }
     }
-    
+
     // If in availability tab and a specific team member is selected, use the member-specific calculation
     if (activeTab === 'availability' && selectedFilter && selectedFilter !== 'all' && selectedFilter !== 'unassigned' && selectedFilter !== 'all-team-members') {
       const memberId = Number(selectedFilter)
@@ -1750,16 +2140,17 @@ const ServiceFlowSchedule = () => {
     const dayHours = hours[dayOfWeek] || { enabled: false, start: '09:00', end: '18:00' }
     
     if (!dayHours.enabled) {
-      return { isOpen: false, hours: null, jobCount: dayJobs.length, availableSlots: [] }
+      return { isOpen: false, hours: null, jobCount: dayJobs.length, availableSlots: [], freeSpots: [], drivingSlots: [], totalDriving: 0, totalBusy: 0, totalAvailable: 0 }
     }
 
-    // Format hours (e.g., "09:00" -> "9 AM", "18:00" -> "6 PM")
+    // Format hours (e.g., "09:00" -> "9 AM", "09:30" -> "9:30 AM", "13:30" -> "1:30 PM")
     const formatTime = (time24) => {
-      const [hours] = time24.split(':')
-      const hour = parseInt(hours)
+      const parts = time24.split(':')
+      const hour = parseInt(parts[0], 10)
+      const min = parts[1] ? parseInt(parts[1], 10) : 0
       const ampm = hour >= 12 ? 'PM' : 'AM'
       const hour12 = hour % 12 || 12
-      return `${hour12} ${ampm}`
+      return min ? `${hour12}:${String(min).padStart(2, '0')} ${ampm}` : `${hour12} ${ampm}`
     }
 
     // In availability tab, ALWAYS calculate available time slots by subtracting jobs
@@ -1887,9 +2278,10 @@ const ServiceFlowSchedule = () => {
         }))
       }
 
-      // Format available slots for display
-      if (remainingHours.length > 0) {
-        const formattedSlots = remainingHours.map(slot => 
+      // Only include slots with positive duration (exclude "9 AM - 9 AM" etc.)
+      const validRemainingHours = remainingHours.filter(slot => timeToMinutes(slot.start) < timeToMinutes(slot.end))
+      if (validRemainingHours.length > 0) {
+        const formattedSlots = validRemainingHours.map(slot => 
           `${formatTime(slot.start)} - ${formatTime(slot.end)}`
         ).join(', ')
         console.log(`  ✅ FINAL Available slots: ${formattedSlots}`)
@@ -1898,7 +2290,12 @@ const ServiceFlowSchedule = () => {
           hours: formattedSlots,
           jobCount: dayJobs.length,
           hasJobs: dayJobs.length > 0,
-          availableSlots: remainingHours
+          availableSlots: validRemainingHours,
+          freeSpots: [],
+          drivingSlots: [],
+          totalDriving: 0,
+          totalBusy: 0,
+          totalAvailable: 0
         }
       } else {
         // All time is booked
@@ -1908,12 +2305,33 @@ const ServiceFlowSchedule = () => {
           hours: null,
           jobCount: dayJobs.length,
           hasJobs: true,
-          availableSlots: []
+          availableSlots: [],
+          freeSpots: [],
+          drivingSlots: [],
+          totalDriving: 0,
+          totalBusy: 0,
+          totalAvailable: 0
         }
       }
     }
 
-    // Default (for Jobs tab): show full business hours
+    // Default (for Jobs tab): show full business hours (skip zero-duration "9 AM - 9 AM")
+    const dayStartMin = timeToMinutes(dayHours.start)
+    const dayEndMin = timeToMinutes(dayHours.end)
+    if (dayStartMin >= dayEndMin) {
+      return {
+        isOpen: false,
+        hours: null,
+        jobCount: dayJobs.length,
+        hasJobs: dayJobs.length > 0,
+        availableSlots: [],
+        freeSpots: [],
+        drivingSlots: [],
+        totalDriving: 0,
+        totalBusy: 0,
+        totalAvailable: 0
+      }
+    }
     return {
       isOpen: true,
       hours: `${formatTime(dayHours.start)} - ${formatTime(dayHours.end)}`,
@@ -1922,7 +2340,12 @@ const ServiceFlowSchedule = () => {
       availableSlots: [{
         start: dayHours.start,
         end: dayHours.end
-      }]
+      }],
+      freeSpots: [],
+      drivingSlots: [],
+      totalDriving: 0,
+      totalBusy: 0,
+      totalAvailable: 0
     }
   }
 
@@ -2031,21 +2454,37 @@ const ServiceFlowSchedule = () => {
         
         // Merge with team member info if available
         const memberId = normalizedJob.assigned_team_member_id || normalizedJob.team_member_id
+        let finalJobData = jobWithParsedHistory
         if (memberId && teamMembers.length > 0) {
           const member = teamMembers.find(m => m.id === memberId)
           if (member) {
-            setSelectedJobDetails({
+            finalJobData = {
               ...jobWithParsedHistory,
               team_member_first_name: member.first_name,
               team_member_last_name: member.last_name
-            })
-          } else {
-            setSelectedJobDetails(jobWithParsedHistory)
+            }
           }
-        } else {
-          setSelectedJobDetails(jobWithParsedHistory)
         }
-        
+
+        // Fetch payment history immediately so amounts are accurate
+        try {
+          const paymentResponse = await api.get(`/transactions/job/${job.id}`)
+          if (paymentResponse.data) {
+            const transactions = paymentResponse.data.transactions || []
+            const totalPaid = paymentResponse.data.totalPaid || transactions.reduce((sum, tx) => sum + parseFloat(tx.amount || 0), 0)
+            setPaymentHistory(transactions)
+            finalJobData = {
+              ...finalJobData,
+              total_paid_amount: totalPaid,
+              invoice_paid_amount: totalPaid
+            }
+          }
+        } catch (err) {
+          console.error('Error fetching payment history:', err)
+        }
+
+        setSelectedJobDetails(finalJobData)
+
         // Load customer notification preferences and global settings
         const customerId = normalizedJob.customer_id || job.customer_id
         if (customerId && user?.id) {
@@ -2310,12 +2749,13 @@ const ServiceFlowSchedule = () => {
     }
   }
 
-  // Calculate total price for invoice
+  // job.total from backend is already (subtotal - discount). Tip is separate. Do not subtract discount again.
   const calculateTotalPrice = () => {
     if (!selectedJobDetails) return 0
     try {
-      const baseTotal = parseFloat(selectedJobDetails.total || selectedJobDetails.service_price || selectedJobDetails.price || 0)
-      return baseTotal
+      const jobPrice = parseFloat(selectedJobDetails.total || selectedJobDetails.service_price || selectedJobDetails.price || 0)
+      const tip = parseFloat(selectedJobDetails.tip_amount || 0) || 0
+      return jobPrice + tip
     } catch (error) {
       console.error('Error calculating total price:', error)
       return 0
@@ -2349,9 +2789,14 @@ const ServiceFlowSchedule = () => {
           year: 'numeric' 
         })
     const serviceAddress = selectedJobDetails.customer_address || selectedJobDetails.address || 'Address not provided'
-    const subtotal = calculateTotalPrice()
+    // job.total is already (base - discount) from backend. Subtotal = base (before discount) for display.
+    const totalAfterDiscount = parseFloat(selectedJobDetails.total || selectedJobDetails.service_price || selectedJobDetails.price || 0)
+    const tip = parseFloat(selectedJobDetails.tip_amount || 0)
+    const discount = parseFloat(selectedJobDetails.discount || 0)
+    const subtotal = totalAfterDiscount + discount // base price before discount
+    const grandTotal = totalAfterDiscount + tip
     const totalPaid = selectedJobDetails.invoice_paid_amount || selectedJobDetails.amount_paid || 0
-    const totalDue = subtotal - totalPaid
+    const totalDue = grandTotal - totalPaid
     // Check both invoice_status and payment_status for 'paid'
     const isPaid = selectedJobDetails.invoice_status === 'paid' || selectedJobDetails.payment_status === 'paid'
     const status = isPaid ? 'Paid' : 
@@ -2610,9 +3055,17 @@ const ServiceFlowSchedule = () => {
               <span class="label">Subtotal</span>
               <span class="value">$${subtotal.toFixed(2)}</span>
             </div>
+            ${discount > 0 ? `<div class="totals-row">
+              <span class="label">Discount</span>
+              <span class="value" style="color: #dc2626;">-$${discount.toFixed(2)}</span>
+            </div>` : ''}
+            ${tip > 0 ? `<div class="totals-row">
+              <span class="label">Tip</span>
+              <span class="value" style="color: #16a34a;">+$${tip.toFixed(2)}</span>
+            </div>` : ''}
             <div class="totals-row">
               <span class="label">Total</span>
-              <span class="value">$${subtotal.toFixed(2)}</span>
+              <span class="value">$${grandTotal.toFixed(2)}</span>
             </div>
             <div class="totals-row">
               <span class="label">Amount Paid</span>
@@ -2834,7 +3287,8 @@ const ServiceFlowSchedule = () => {
 
   const handleReschedule = () => {
     if (!selectedJobDetails) return
-    
+    setErrorMessage('')
+
     // Parse the current scheduled date and time without timezone conversion
     let currentDate = ''
     let currentTime = ''
@@ -2881,6 +3335,66 @@ const ServiceFlowSchedule = () => {
 
   const handleCancelJob = () => {
     setShowCancelModal(true)
+  }
+
+  const handleOpenEditServiceModal = () => {
+    if (!selectedJobDetails) return
+    setEditFormData(prev => ({
+      ...prev,
+      service_price: selectedJobDetails.service_price || selectedJobDetails.price || selectedJobDetails.total || 0,
+      discount: selectedJobDetails.discount || 0,
+      additional_fees: selectedJobDetails.additional_fees || 0,
+      taxes: selectedJobDetails.taxes || 0
+    }))
+    setShowEditServiceModal(true)
+  }
+
+  const handleSaveServicePricing = async () => {
+    if (!selectedJobDetails) return
+
+    try {
+      setIsUpdatingJob(true)
+      setErrorMessage('')
+
+      const servicePrice = parseFloat(editFormData.service_price) || 0
+      const discount = parseFloat(editFormData.discount) || 0
+      const additionalFees = parseFloat(editFormData.additional_fees) || 0
+      const taxes = parseFloat(editFormData.taxes) || 0
+      const total = servicePrice - discount + additionalFees + taxes
+
+      const updateData = {
+        service_price: servicePrice,
+        price: servicePrice,
+        discount,
+        additional_fees: additionalFees,
+        taxes,
+        total
+      }
+
+      await jobsAPI.update(selectedJobDetails.id, updateData)
+
+      // Update local state so the UI reflects changes immediately
+      setSelectedJobDetails(prev => ({
+        ...prev,
+        ...updateData
+      }))
+      setJobs(prevJobs => prevJobs.map(job =>
+        job.id === selectedJobDetails.id ? { ...job, ...updateData } : job
+      ))
+      setFilteredJobs(prevFilteredJobs => prevFilteredJobs.map(job =>
+        job.id === selectedJobDetails.id ? { ...job, ...updateData } : job
+      ))
+
+      setSuccessMessage('Service & pricing updated successfully!')
+      setTimeout(() => setSuccessMessage(''), 3000)
+      setShowEditServiceModal(false)
+    } catch (error) {
+      console.error('Error updating service pricing:', error)
+      setErrorMessage(error.response?.data?.error || 'Failed to update service & pricing')
+      setTimeout(() => setErrorMessage(''), 5000)
+    } finally {
+      setIsUpdatingJob(false)
+    }
   }
 
   const handleSaveCustomer = async () => {
@@ -3047,59 +3561,76 @@ const ServiceFlowSchedule = () => {
     }
   }
 
-  const handleSaveReschedule = async () => {
+  const handleSaveReschedule = async (forceBook = false) => {
     if (!selectedJobDetails) return
-    
+    if (!editFormData.scheduled_date || !editFormData.scheduled_time) {
+      setErrorMessage('Please select both date and time.')
+      setTimeout(() => setErrorMessage(''), 3000)
+      return
+    }
+
     try {
       setIsUpdatingJob(true)
       setErrorMessage('')
-      
-      const newDateTime = `${editFormData.scheduled_date}T${editFormData.scheduled_time}:00`
-      
-      console.log('Rescheduling with data:', {
-        scheduledDate: newDateTime
-      }) // Debug log
-      
-      // Use the correct field name that the API expects
+
+      // Send date and time separately so backend builds "YYYY-MM-DD HH:MM:SS" for scheduled_date
       const updateData = {
-        scheduledDate: newDateTime
+        scheduledDate: editFormData.scheduled_date,
+        scheduledTime: editFormData.scheduled_time.includes(':') ? editFormData.scheduled_time.substring(0, 5) : editFormData.scheduled_time,
+        forceBook
       }
-      
+
       await jobsAPI.update(selectedJobDetails.id, updateData)
-      
+
+      // Match backend format "YYYY-MM-DD HH:MM:SS" for local state
+      const timePart = editFormData.scheduled_time.length >= 5 ? editFormData.scheduled_time.substring(0, 5) : editFormData.scheduled_time
+      const newDateTime = `${editFormData.scheduled_date} ${timePart}:00`
+
       // Invalidate cache since job was rescheduled
       invalidateJobsCache()
-      
+
       // Update local state
       setSelectedJobDetails(prev => ({
         ...prev,
         scheduled_date: newDateTime
       }))
-      
+
       // Update the job in the main jobs list
-      setJobs(prevJobs => prevJobs.map(job => 
-        job.id === selectedJobDetails.id ? { 
-          ...job, 
+      setJobs(prevJobs => prevJobs.map(job =>
+        job.id === selectedJobDetails.id ? {
+          ...job,
           scheduled_date: newDateTime
         } : job
       ))
-      
+
       // Update filtered jobs as well
-      setFilteredJobs(prevFilteredJobs => prevFilteredJobs.map(job => 
-        job.id === selectedJobDetails.id ? { 
-          ...job, 
+      setFilteredJobs(prevFilteredJobs => prevFilteredJobs.map(job =>
+        job.id === selectedJobDetails.id ? {
+          ...job,
           scheduled_date: newDateTime
         } : job
       ))
-      
+
       setSuccessMessage('Job rescheduled successfully!')
       setTimeout(() => setSuccessMessage(''), 3000)
       setShowRescheduleModal(false)
-      
+
     } catch (error) {
+      // Handle 409 conflict — offer force-book option
+      if (error.response?.status === 409 && error.response?.data?.canForceBook) {
+        const warnings = error.response.data.warnings || []
+        const warningText = warnings.join('\n- ')
+        const proceed = window.confirm(
+          `Scheduling conflict detected:\n- ${warningText}\n\nDo you want to override and reschedule anyway?`
+        )
+        if (proceed) {
+          return handleSaveReschedule(true)
+        }
+        return
+      }
       console.error('Error rescheduling job:', error)
-      setErrorMessage('Failed to reschedule job')
-      setTimeout(() => setErrorMessage(''), 3000)
+      setErrorMessage(error.response?.data?.error || 'Failed to reschedule job')
+      setTimeout(() => setErrorMessage(''), 5000)
     } finally {
       setIsUpdatingJob(false)
     }
@@ -3204,19 +3735,19 @@ const ServiceFlowSchedule = () => {
     }
   }
 
-  const handleAssignTeamMember = async (teamMemberIds) => {
+  const handleAssignTeamMember = async (teamMemberIds, forceBook = false) => {
     if (!selectedJobDetails) return
-    
+
     try {
       setIsUpdatingJob(true)
       setErrorMessage('')
-      
+
       // teamMemberIds is now an array of selected member IDs
       const memberIdsArray = Array.isArray(teamMemberIds) ? teamMemberIds : (teamMemberIds ? [teamMemberIds] : [])
-      
+
       // Convert all IDs to numbers for consistency
       const normalizedMemberIds = memberIdsArray.map(id => Number(id)).filter(id => id && !isNaN(id))
-      
+
       // Get current assignments to remove if needed
       const currentAssignments = selectedJobDetails.team_assignments || []
       const currentMemberIds = new Set(
@@ -3229,25 +3760,25 @@ const ServiceFlowSchedule = () => {
           currentMemberIds.add(Number(singleId))
         }
       }
-      
+
       if (normalizedMemberIds.length > 0) {
         // Assign multiple members (or single member) - this replaces all existing assignments
         const primaryMemberId = normalizedMemberIds[0]
-        await jobsAPI.assignMultipleTeamMembers(selectedJobDetails.id, normalizedMemberIds, primaryMemberId)
+        await jobsAPI.assignMultipleTeamMembers(selectedJobDetails.id, normalizedMemberIds, primaryMemberId, forceBook)
       } else {
         // If no members selected, remove all assignments one by one
         // The backend assign-multiple endpoint doesn't accept empty arrays
-        const removePromises = Array.from(currentMemberIds).map(memberId => 
+        const removePromises = Array.from(currentMemberIds).map(memberId =>
           jobsAPI.removeTeamMember(selectedJobDetails.id, memberId)
         )
         await Promise.all(removePromises)
       }
-      
+
       // Reload job data from API to get the latest state
       const jobData = await jobsAPI.getById(selectedJobDetails.id)
       // Normalize customer data to ensure flat fields are preserved
       const normalizedJob = normalizeCustomerData(jobData)
-      
+
       // Ensure team_assignments is properly structured
       if (!normalizedJob.team_assignments || !Array.isArray(normalizedJob.team_assignments)) {
         // If team_assignments is missing, try to construct it from other fields
@@ -3261,38 +3792,51 @@ const ServiceFlowSchedule = () => {
         }
         normalizedJob.team_assignments = assignments
       }
-      
+
       // Update selected job details with fresh data, preserving payment amounts
       setSelectedJobDetails(prev => ({
         ...normalizedJob,
         total_paid_amount: prev.total_paid_amount || normalizedJob.total_paid_amount || 0,
         invoice_paid_amount: prev.invoice_paid_amount || normalizedJob.invoice_paid_amount || 0
       }))
-      
+
       // Update the job in the main jobs list
-      setJobs(prevJobs => prevJobs.map(job => 
+      setJobs(prevJobs => prevJobs.map(job =>
         job.id === selectedJobDetails.id ? normalizedJob : job
       ))
-      
+
       // Update filtered jobs as well
-      setFilteredJobs(prevFilteredJobs => prevFilteredJobs.map(job => 
+      setFilteredJobs(prevFilteredJobs => prevFilteredJobs.map(job =>
         job.id === selectedJobDetails.id ? normalizedJob : job
       ))
-      
-      const actionText = memberIdsArray.length === 0 
-        ? 'All team members unassigned successfully!' 
-        : memberIdsArray.length === 1 
-        ? 'Team member assigned successfully!' 
+
+      const actionText = memberIdsArray.length === 0
+        ? 'All team members unassigned successfully!'
+        : memberIdsArray.length === 1
+        ? 'Team member assigned successfully!'
         : `${memberIdsArray.length} team members assigned successfully!`
-      
+
       setSuccessMessage(actionText)
       setTimeout(() => setSuccessMessage(''), 3000)
       setShowAssignModal(false)
-      
+
     } catch (error) {
+      // Handle 409 conflict — offer force-book option
+      if (error.response?.status === 409 && error.response?.data?.canForceBook) {
+        const conflicts = error.response.data.conflicts || []
+        const allWarnings = conflicts.flatMap(c => c.warnings.map(w => `${c.memberLabel}: ${w}`))
+        const warningText = allWarnings.length > 0 ? allWarnings.join('\n- ') : (error.response.data.error || 'Scheduling conflict')
+        const proceed = window.confirm(
+          `Scheduling conflicts detected:\n- ${warningText}\n\nDo you want to override and assign anyway?`
+        )
+        if (proceed) {
+          return handleAssignTeamMember(teamMemberIds, true)
+        }
+        return
+      }
       console.error('Error assigning team member:', error)
-      setErrorMessage('Failed to update team member assignments')
-      setTimeout(() => setErrorMessage(''), 3000)
+      setErrorMessage(error.response?.data?.error || 'Failed to update team member assignments')
+      setTimeout(() => setErrorMessage(''), 5000)
     } finally {
       setIsUpdatingJob(false)
     }
@@ -3929,22 +4473,6 @@ const ServiceFlowSchedule = () => {
                 jobDate = new Date(job.scheduled_date)
               }
               
-              const timeString = jobDate.toLocaleTimeString('en-US', { 
-                hour: 'numeric', 
-                minute: '2-digit',
-                hour12: true 
-              })
-              
-              // Duration is in minutes, ensure it's a number - check all possible duration fields
-              const duration = getJobDuration(job);
-              const endTime = new Date(jobDate.getTime() + duration * 60000);
-              const endTimeString = endTime.toLocaleTimeString('en-US', { 
-                hour: 'numeric', 
-                minute: '2-digit',
-                hour12: true 
-              });
-              const durationFormatted = formatDuration(duration);
-              
               const customerName = getCustomerName(job) || 'Customer'
               const serviceName = job.service_name || job.service_type || 'Service'
               
@@ -3958,22 +4486,36 @@ const ServiceFlowSchedule = () => {
               
               const cityStateZip = [city, state, zip].filter(Boolean).join(', ')
               const fullLocation = cityStateZip ? `${cityStateZip}, ${country}` : country
+              const isRecurring = job.is_recurring === true || job.is_recurring === 'true' || job.is_recurring === 1 || job.is_recurring === '1'
+              const timeStr = jobDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+              const durationMin = getJobDuration(job)
+              const durationStr = formatDuration(durationMin)
+              const endDate = durationMin ? new Date(jobDate.getTime() + durationMin * 60 * 1000) : null
+              const endStr = endDate ? endDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : null
 
               return (
                 <div
                   key={job.id}
                   onClick={() => navigate(`/job/${job.id}`)}
-                  className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 flex items-start space-x-2 sm:space-x-3 cursor-pointer active:bg-gray-50 hover:shadow-md transition-all touch-manipulation w-full max-w-full overflow-hidden"
+                  className="relative bg-white rounded-lg border border-gray-200 p-3 sm:p-4 flex items-start space-x-2 sm:space-x-3 cursor-pointer active:bg-gray-50 hover:shadow-md transition-all touch-manipulation w-full max-w-full overflow-hidden"
                 >
+                  {isRecurring && (
+                    <span className="absolute bottom-1 right-1 inline-flex items-center justify-center w-3 h-3 rounded-full bg-blue-100 text-blue-700 text-[7px] font-bold flex-shrink-0 z-10" title="Recurring Job">
+                      R
+                    </span>
+                  )}
                   {/* Status Indicator Circle */}
                   <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-blue-600 flex-shrink-0 mt-1.5 sm:mt-1" />
                   
                   <div className="flex-1 min-w-0 overflow-hidden">
-                    {/* Time with Duration */}
-                    <div className="text-[10px] sm:text-[11px] font-semibold text-gray-900 mb-1 truncate">
-                      {timeString} - {endTimeString}{durationFormatted && ` ${durationFormatted}`}
+                    {/* Time and Duration (e.g. 10:00 AM - 1:00 PM 3h) */}
+                    <div className="text-xs sm:text-sm text-gray-500 mb-1 flex items-center gap-2 flex-wrap">
+                      {endStr && durationStr ? (
+                        <span>{timeStr} - {endStr} {durationStr}</span>
+                      ) : (
+                        <span>{timeStr}{durationStr ? ` ${durationStr}` : ''}</span>
+                      )}
                     </div>
-                    
                     {/* Customer Name and Service */}
                     <div className="text-sm sm:text-base font-medium text-gray-900 mb-1.5">
                       <span className="break-words">{customerName}</span>
@@ -4176,7 +4718,7 @@ const ServiceFlowSchedule = () => {
                       disabled={isEditing}
                       type="button"
                     >
-                      <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center flex-shrink-0">
+                      <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: member.color || '#2563EB' }}>
                     <span className="text-white text-[8px] font-semibold">
                       {member.first_name?.charAt(0)}{member.last_name?.charAt(0)}
                     </span>
@@ -4966,25 +5508,180 @@ const ServiceFlowSchedule = () => {
           {/* Availability View */}
           {activeTab === 'availability' ? (
             <div className="w-full h-full flex flex-col bg-gray-50">
-              {/* All Team Members Table View - Show when "all" is selected */}
-              {selectedFilter === 'all' && viewMode === 'week' && (
+              {/* All Team Members - Day View: cards like schedule (cleaner name + availability) */}
+              {(selectedFilter === 'all' || selectedFilter === 'all-team-members') && viewMode === 'day' && (
                 <div className="flex-1 overflow-auto px-4 py-4 lg:px-6">
+                  <div className="border-b border-gray-200 pb-2 mb-2">
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      {selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                    </h3>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                    {teamMembers.filter(m => m.status === 'active').map((member) => {
+                      const memberColor = member.color || '#2563EB'
+                      const availability = getDayAvailabilityForMember(selectedDate, member.id)
+                      const memberName = `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'Cleaner'
+                      return (
+                        <div
+                          key={member.id}
+                          onClick={() => setSelectedFilter(member.id.toString())}
+                          className="bg-white rounded-md p-2 text-xs cursor-pointer hover:shadow-md transition-all border border-gray-200"
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                              <Clock className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
+                              <span className="font-medium text-gray-900 truncate text-[10px]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                                {availability.hours || 'Closed'}
+                              </span>
+                            </div>
+                            <div
+                              className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-medium flex-shrink-0"
+                              style={{ backgroundColor: memberColor }}
+                              title={memberName}
+                            >
+                              {member.first_name?.charAt(0) || member.last_name?.charAt(0) || 'T'}
+                            </div>
+                          </div>
+                          <div className="truncate font-medium text-[10px] text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                            {memberName}
+                          </div>
+                          {availability.isOpen && (availability.totalAvailable > 0 || availability.totalBusy > 0 || availability.totalDriving > 0) && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {availability.totalAvailable > 0 && (
+                                <span className="text-[9px] font-medium text-green-700 bg-green-50 px-1 py-0.5 rounded">{formatDuration(availability.totalAvailable)} free</span>
+                              )}
+                              {availability.totalBusy > 0 && (
+                                <span className="text-[9px] font-medium text-orange-600 bg-orange-50 px-1 py-0.5 rounded">{formatDuration(availability.totalBusy)} busy</span>
+                              )}
+                              {availability.totalDriving > 0 && (
+                                <span className="text-[9px] font-medium text-amber-600 bg-amber-50 px-1 py-0.5 rounded">{formatDuration(availability.totalDriving)} travel</span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* All Team Members - Month View: same as schedule - one card per cleaner per day */}
+              {(selectedFilter === 'all' || selectedFilter === 'all-team-members') && viewMode === 'month' && (
+                <div className="flex-1 overflow-auto">
+                  <div className="grid grid-cols-7 divide-x divide-gray-200 h-full">
+                    {/* Days of Week Header */}
+                    {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map((day) => (
+                      <div key={day} className="text-center text-xs border-[0.5px] border-gray-200 font-medium text-gray-600 py-3">
+                        {day}
+                      </div>
+                    ))}
+
+                    {/* Calendar Days - each cell shows one card per cleaner (like schedule job cards) */}
+                    {generateAvailabilityCalendarDays(selectedDate).map((day, index) => {
+                      const isCurrentMonth = day.getMonth() === selectedDate.getMonth()
+                      const isSelected = day.toDateString() === selectedDate.toDateString()
+                      const isToday = day.toDateString() === new Date().toDateString()
+                      const activeMembers = teamMembers.filter(m => m.status === 'active')
+                      const dayKey = `${day.getFullYear()}-${day.getMonth()}-${day.getDate()}`
+                      const isExpanded = expandedDays.has(dayKey)
+                      const showMembers = isExpanded ? activeMembers : activeMembers.slice(0, 2)
+                      const hasMore = activeMembers.length > 2
+
+                      return (
+                        <div
+                          key={index}
+                          className={`border p-1 min-h-[100px] cursor-pointer transition-colors ${
+                            !isCurrentMonth
+                              ? 'bg-gray-50 text-gray-400 border-gray-100'
+                              : isSelected
+                              ? 'border-blue-500 bg-blue-50'
+                              : isToday
+                                ? 'border-blue-300 bg-blue-50/50'
+                                : 'border-gray-200 bg-white hover:bg-gray-50'
+                          }`}
+                          onClick={() => handleDateChange(day)}
+                        >
+                          <div className={`text-md text-right font-medium mb-1 ${
+                            isSelected && isCurrentMonth ? 'text-blue-900 font-semibold' : ''
+                          }`}>{day.getDate()}</div>
+                          {isCurrentMonth && showMembers.map((member) => {
+                            const availability = getDayAvailabilityForMember(day, member.id)
+                            if (!availability.isOpen) return null
+                            const memberColor = member.color || '#2563EB'
+                            const memberName = `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'Cleaner'
+                            return (
+                              <div
+                                key={member.id}
+                                className="bg-white rounded-md p-1.5 mb-1 text-xs border border-gray-200 cursor-pointer hover:shadow-md transition-all"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setSelectedFilter(member.id.toString())
+                                }}
+                              >
+                                <div className="flex items-center justify-between mb-0.5">
+                                  <div className="flex items-center gap-0.5 flex-1 min-w-0">
+                                    <Clock className="w-3 h-3 text-gray-500 flex-shrink-0" />
+                                    <span className="font-medium text-gray-900 truncate text-[9px]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                                      {availability.hours || ''}
+                                    </span>
+                                  </div>
+                                  <div
+                                    className="w-4 h-4 rounded-full flex items-center justify-center text-white text-[8px] font-medium flex-shrink-0"
+                                    style={{ backgroundColor: memberColor }}
+                                    title={memberName}
+                                  >
+                                    {member.first_name?.charAt(0) || member.last_name?.charAt(0) || 'T'}
+                                  </div>
+                                </div>
+                                <div className="truncate font-medium text-[10px] text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                                  {memberName}
+                                </div>
+                              </div>
+                            )
+                          })}
+                          {isCurrentMonth && hasMore && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                toggleDayExpansion(dayKey)
+                              }}
+                              className="text-xs text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                            >
+                              {isExpanded ? 'Show less' : `+${activeMembers.length - 2} more`}
+                            </button>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* All Team Members Table View - Week View */}
+              {(selectedFilter === 'all' || selectedFilter === 'all-team-members') && viewMode === 'week' && (
+                <div className="flex-1 overflow-auto px-2 py-3 lg:px-4">
                   <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                     <div className="overflow-x-auto">
-                      <table className="w-full min-w-[800px]">
+                      <table className="w-full" style={{ tableLayout: 'fixed' }}>
+                        <colgroup>
+                          <col style={{ width: '160px', minWidth: '140px' }} />
+                          {getWeekDays().map((_, idx) => (
+                            <col key={idx} style={{ minWidth: '130px' }} />
+                          ))}
+                        </colgroup>
                         <thead className="bg-gray-50 border-b border-gray-200">
                           <tr>
-                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider sticky left-0 bg-gray-50 z-10 border-r border-gray-200">
+                            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider sticky left-0 bg-gray-50 z-10 border-r border-gray-200">
                               Team Member
                             </th>
                             {getWeekDays().map((date, idx) => {
                               const isToday = date.toDateString() === new Date().toDateString()
                               return (
-                                <th key={idx} className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[200px]">
+                                <th key={idx} className="px-2 py-2 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
                                   <div className={`${isToday ? 'text-blue-600 font-bold' : ''}`}>
                                     {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()]}
                                   </div>
-                                  <div className={`text-sm mt-1 ${isToday ? 'text-blue-600 font-bold' : 'text-gray-900'}`}>
+                                  <div className={`text-sm mt-0.5 ${isToday ? 'text-blue-600 font-bold' : 'text-gray-900'}`}>
                                     {date.getDate()}/{date.getMonth() + 1}
                                   </div>
                                 </th>
@@ -4997,20 +5694,20 @@ const ServiceFlowSchedule = () => {
                             const memberColor = member.color || '#2563EB'
                             return (
                               <tr key={member.id} className="hover:bg-gray-50">
-                                <td className="px-4 py-4 whitespace-nowrap sticky left-0 bg-white z-10 border-r border-gray-200">
-                                  <div className="flex items-center space-x-3">
+                                <td className="px-3 py-3 whitespace-nowrap sticky left-0 bg-white z-10 border-r border-gray-200">
+                                  <div className="flex items-center space-x-2">
                                     <div
-                                      className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm flex-shrink-0"
+                                      className="w-8 h-8 rounded-full flex items-center justify-center text-white font-semibold text-xs flex-shrink-0"
                                       style={{ backgroundColor: memberColor }}
                                     >
                                       {member.first_name?.charAt(0) || member.last_name?.charAt(0) || 'T'}
                                     </div>
-                                    <div>
-                                      <div className="text-sm font-medium text-gray-900">
+                                    <div className="min-w-0">
+                                      <div className="text-xs font-medium text-gray-900 truncate">
                                         {member.first_name} {member.last_name}
                                       </div>
                                       {member.territory && (
-                                        <div className="text-xs text-gray-500">{member.territory}</div>
+                                        <div className="text-[10px] text-gray-500 truncate">{member.territory}</div>
                                       )}
                                     </div>
                                   </div>
@@ -5032,32 +5729,44 @@ const ServiceFlowSchedule = () => {
                                     return isJobAssignedTo(job, member.id.toString())
                                   })
                                   const isToday = date.toDateString() === new Date().toDateString()
-                                  
+
                                   return (
-                                    <td 
-                                      key={dateIdx} 
-                                      className={`px-4 py-4 align-top ${isToday ? 'bg-blue-50' : ''}`}
+                                    <td
+                                      key={dateIdx}
+                                      className={`px-2 py-2 align-top ${isToday ? 'bg-blue-50/50' : ''}`}
                                     >
-                                      <div className="space-y-2">
+                                      <div className="space-y-1.5">
                                         {/* Availability */}
-                                        <div className={`p-2 rounded text-xs ${
+                                        <div className={`p-1.5 rounded text-[11px] ${
                                           availability.isOpen
                                             ? 'bg-green-50 text-green-800 border border-green-200'
-                                            : 'bg-gray-100 text-gray-600 border border-gray-200'
+                                            : 'bg-gray-100 text-gray-500 border border-gray-200'
                                         }`}>
-                                          <div className="font-medium mb-1">Availability</div>
-                                          <div className="text-xs">{availability.hours || 'Closed'}</div>
+                                          <div className="font-medium truncate">{availability.hours || 'Closed'}</div>
+                                          {availability.isOpen && (availability.totalAvailable > 0 || availability.totalBusy > 0 || availability.totalDriving > 0) && (
+                                            <div className="flex flex-wrap gap-x-1.5 gap-y-0.5 mt-0.5">
+                                              {availability.totalAvailable > 0 && (
+                                                <span className="text-[10px] text-green-700">{formatDuration(availability.totalAvailable)} free</span>
+                                              )}
+                                              {availability.totalBusy > 0 && (
+                                                <span className="text-[10px] text-orange-600">{formatDuration(availability.totalBusy)} busy</span>
+                                              )}
+                                              {availability.totalDriving > 0 && (
+                                                <span className="text-[10px] text-amber-600">{formatDuration(availability.totalDriving)} travel</span>
+                                              )}
+                                            </div>
+                                          )}
                                         </div>
-                                        
+
                                         {/* Jobs */}
                                         {dayJobs.length > 0 && (
                                           <div className="space-y-1">
-                                            <div className="text-xs font-medium text-gray-700 mb-1">
-                                              Jobs ({dayJobs.length})
+                                            <div className="text-[10px] font-medium text-gray-600">
+                                              {dayJobs.length} job{dayJobs.length !== 1 ? 's' : ''}
                                             </div>
-                                            {dayJobs.slice(0, 3).map((job) => {
+                                            {dayJobs.slice(0, 2).map((job) => {
                                               const isRecurring = job.is_recurring === true || job.is_recurring === 'true' || job.is_recurring === 1 || job.is_recurring === '1'
-                                              
+
                                               return (
                                               <div
                                                 key={job.id}
@@ -5065,31 +5774,21 @@ const ServiceFlowSchedule = () => {
                                                   setSelectedJobDetails(job)
                                                   setShowJobDetails(true)
                                                 }}
-                                                className="p-2 rounded text-xs bg-blue-50 text-blue-800 border border-blue-200 cursor-pointer hover:bg-blue-100 transition-colors relative"
+                                                className="p-1.5 rounded text-[11px] bg-blue-50 text-blue-800 border border-blue-200 cursor-pointer hover:bg-blue-100 transition-colors relative"
                                                 style={{ borderLeftColor: memberColor, borderLeftWidth: '3px' }}
                                               >
                                                 {isRecurring && (
-                                                  <span className="absolute bottom-1 right-1 inline-flex items-center justify-center w-3 h-3 rounded-full bg-blue-200 text-blue-800 text-[7px] font-bold flex-shrink-0 z-10" title="Recurring Job">
+                                                  <span className="absolute bottom-0.5 right-0.5 inline-flex items-center justify-center w-3 h-3 rounded-full bg-blue-200 text-blue-800 text-[7px] font-bold flex-shrink-0 z-10" title="Recurring Job">
                                                     R
                                                   </span>
                                                 )}
                                                 <div className="font-medium truncate">{job.service_name || 'Service'}</div>
-                                                {job.scheduled_date && (
-                                                  <div className="text-xs opacity-75">
-                                                    {new Date(job.scheduled_date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
-                                                  </div>
-                                                )}
-                                                {job.customer_first_name && (
-                                                  <div className="text-xs opacity-75 truncate">
-                                                    {job.customer_first_name} {job.customer_last_name}
-                                                  </div>
-                                                )}
                                               </div>
                                               )
                                             })}
-                                            {dayJobs.length > 3 && (
-                                              <div className="text-xs text-blue-600 text-center">
-                                                +{dayJobs.length - 3} more
+                                            {dayJobs.length > 2 && (
+                                              <div className="text-[10px] text-blue-600 text-center">
+                                                +{dayJobs.length - 2} more
                                               </div>
                                             )}
                                           </div>
@@ -5109,7 +5808,7 @@ const ServiceFlowSchedule = () => {
               )}
               
               {/* Single Team Member View - Show when a specific member is selected */}
-              {selectedFilter !== 'all' && (
+              {selectedFilter !== 'all' && selectedFilter !== 'all-team-members' && (
               <>
               {/* Day View */}
               {viewMode === 'day' && (
@@ -5126,8 +5825,8 @@ const ServiceFlowSchedule = () => {
                         return (
                           <div className="space-y-4">
                             <div className={`p-4 rounded-lg border ${
-                              availability.isOpen 
-                                ? 'bg-green-50 border-green-200' 
+                              availability.isOpen
+                                ? 'bg-green-50 border-green-200'
                                 : 'bg-gray-50 border-gray-200'
                             }`}>
                               <div className="flex items-center justify-between mb-2">
@@ -5146,6 +5845,49 @@ const ServiceFlowSchedule = () => {
                                 <div className="text-sm text-gray-700">
                                   <span className="font-medium">Hours: </span>
                                   {availability.hours}
+                                </div>
+                              )}
+                              {/* Time breakdown: Available / Busy / Driving */}
+                              {availability.isOpen && (availability.totalAvailable > 0 || availability.totalBusy > 0 || availability.totalDriving > 0) && (
+                                <div className="flex flex-wrap gap-3 mt-3 pt-3 border-t border-green-200">
+                                  {availability.totalAvailable > 0 && (
+                                    <div className="flex items-center gap-1.5">
+                                      <div className="w-2.5 h-2.5 rounded-full bg-green-500"></div>
+                                      <span className="text-xs font-medium text-green-700">{formatDuration(availability.totalAvailable)} available</span>
+                                    </div>
+                                  )}
+                                  {availability.totalBusy > 0 && (
+                                    <div className="flex items-center gap-1.5">
+                                      <div className="w-2.5 h-2.5 rounded-full bg-orange-500"></div>
+                                      <span className="text-xs font-medium text-orange-700">{formatDuration(availability.totalBusy)} busy</span>
+                                    </div>
+                                  )}
+                                  {availability.totalDriving > 0 && (
+                                    <div className="flex items-center gap-1.5">
+                                      <div className="w-2.5 h-2.5 rounded-full bg-amber-500"></div>
+                                      <span className="text-xs font-medium text-amber-700">{formatDuration(availability.totalDriving)} travel</span>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                              {/* Free spot cards */}
+                              {availability.freeSpots && availability.freeSpots.length > 0 && (
+                                <div className="mt-4">
+                                  <h4 className="text-sm font-medium text-green-700 mb-2">Available Slots</h4>
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    {availability.freeSpots.map((spot, si) => {
+                                      const fmtT = (t) => { const [h, m] = t.split(':'); const hr = parseInt(h); const ampm = hr >= 12 ? 'PM' : 'AM'; const h12 = hr > 12 ? hr - 12 : hr || 12; return `${h12}:${m || '00'} ${ampm}` }
+                                      return (
+                                        <div key={si} className="px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
+                                          <div className="text-sm font-medium text-green-800">{fmtT(spot.start)} - {fmtT(spot.end)}</div>
+                                          <div className="text-xs text-green-600 mt-0.5">{spot.memberCount} cleaner{spot.memberCount !== 1 ? 's' : ''} available</div>
+                                          {spot.members && spot.members.length > 0 && (
+                                            <div className="text-xs text-green-500 mt-0.5">{spot.members.slice(0, 3).join(', ')}{spot.members.length > 3 ? ` +${spot.members.length - 3}` : ''}</div>
+                                          )}
+                                        </div>
+                                      )
+                                    })}
+                                  </div>
                                 </div>
                               )}
                             </div>
@@ -5204,9 +5946,34 @@ const ServiceFlowSchedule = () => {
                                 {availability.hours && (
                                   <div className="text-xs text-gray-600">{availability.hours}</div>
                                 )}
-                                {availability.hasJobs && (
-                                  <div className="text-xs font-medium text-orange-600 mt-1">
-                                    {availability.jobCount} job{availability.jobCount !== 1 ? 's' : ''}
+                                {(availability.totalAvailable > 0 || availability.totalBusy > 0 || availability.totalDriving > 0) && (
+                                  <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-1">
+                                    {availability.totalAvailable > 0 && (
+                                      <span className="text-xs font-medium text-green-700">{formatDuration(availability.totalAvailable)} free</span>
+                                    )}
+                                    {availability.totalBusy > 0 && (
+                                      <span className="text-xs font-medium text-orange-600">{formatDuration(availability.totalBusy)} busy</span>
+                                    )}
+                                    {availability.totalDriving > 0 && (
+                                      <span className="text-xs font-medium text-amber-600">{formatDuration(availability.totalDriving)} travel</span>
+                                    )}
+                                  </div>
+                                )}
+                                {/* Free spot cards */}
+                                {availability.freeSpots && availability.freeSpots.length > 0 && (
+                                  <div className="mt-2 space-y-1">
+                                    {availability.freeSpots.slice(0, 4).map((spot, si) => {
+                                      const fmtT = (t) => { const [h, m] = t.split(':'); const hr = parseInt(h); return `${hr > 12 ? hr - 12 : hr || 12}:${m || '00'}${hr >= 12 ? 'p' : 'a'}` }
+                                      return (
+                                        <div key={si} className="px-2 py-1 bg-green-50 border border-green-200 rounded text-[10px] text-green-800 leading-tight">
+                                          <div className="font-medium">{fmtT(spot.start)} - {fmtT(spot.end)}</div>
+                                          <div className="text-green-600">{spot.memberCount} cleaner{spot.memberCount !== 1 ? 's' : ''} free</div>
+                                        </div>
+                                      )
+                                    })}
+                                    {availability.freeSpots.length > 4 && (
+                                      <div className="text-[10px] text-green-600 text-center">+{availability.freeSpots.length - 4} more slots</div>
+                                    )}
                                   </div>
                                 )}
                               </div>
@@ -5271,9 +6038,34 @@ const ServiceFlowSchedule = () => {
                               {availability.hours && (
                               <div className="text-xs text-gray-600 mb-1">{availability.hours}</div>
                               )}
-                              {availability.hasJobs && (
-                                <div className="text-xs font-medium text-orange-600 mt-1">
-                                  {availability.jobCount} job{availability.jobCount !== 1 ? 's' : ''}
+                              {(availability.totalAvailable > 0 || availability.totalBusy > 0 || availability.totalDriving > 0) && (
+                                <div className="flex flex-wrap gap-x-1 gap-y-0.5 mt-0.5">
+                                  {availability.totalAvailable > 0 && (
+                                    <span className="text-[10px] font-medium text-green-700">{formatDuration(availability.totalAvailable)} free</span>
+                                  )}
+                                  {availability.totalBusy > 0 && (
+                                    <span className="text-[10px] font-medium text-orange-600">{formatDuration(availability.totalBusy)} busy</span>
+                                  )}
+                                  {availability.totalDriving > 0 && (
+                                    <span className="text-[10px] font-medium text-amber-600">{formatDuration(availability.totalDriving)} travel</span>
+                                  )}
+                                </div>
+                              )}
+                              {/* Free spot cards */}
+                              {availability.freeSpots && availability.freeSpots.length > 0 && (
+                                <div className="mt-1 space-y-0.5">
+                                  {availability.freeSpots.slice(0, 3).map((spot, si) => {
+                                    const fmtT = (t) => { const [h, m] = t.split(':'); const hr = parseInt(h, 10); const min = m ? parseInt(m, 10) : 0; const suffix = hr >= 12 ? 'p' : 'a'; const h12 = hr > 12 ? hr - 12 : hr || 12; return min ? `${h12}:${String(min).padStart(2, '0')}${suffix}` : `${h12}${suffix}` }
+                                    return (
+                                      <div key={si} className="px-1.5 py-0.5 bg-green-50 border border-green-200 rounded text-[10px] text-green-800 leading-tight">
+                                        <span className="font-medium">{fmtT(spot.start)}-{fmtT(spot.end)}</span>
+                                        <span className="text-green-600 ml-1">({spot.memberCount} free)</span>
+                                      </div>
+                                    )
+                                  })}
+                                  {availability.freeSpots.length > 3 && (
+                                    <div className="text-[10px] text-green-600">+{availability.freeSpots.length - 3} more</div>
+                                  )}
                                 </div>
                               )}
                             </>
@@ -5351,6 +6143,23 @@ const ServiceFlowSchedule = () => {
                         }`}  style={{fontFamily: 'Montserrat', fontWeight: 700}}>
                           {day.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
                         </div>
+                        {(() => {
+                          const weekDayAvailability = getDayAvailability(day)
+                          return weekDayAvailability.freeSpots && weekDayAvailability.freeSpots.length > 0 ? (
+                            weekDayAvailability.freeSpots.slice(0, 2).map((spot, si) => {
+                              const fmtT = (t) => { const [h, m] = t.split(':'); const hr = parseInt(h, 10); const min = m ? parseInt(m, 10) : 0; const suffix = hr >= 12 ? 'p' : 'a'; const h12 = hr > 12 ? hr - 12 : hr || 12; return min ? `${h12}:${String(min).padStart(2, '0')}${suffix}` : `${h12}${suffix}` }
+                              return (
+                                <div key={`free-${si}`} className="bg-green-50 rounded-md m-2 p-2 mb-1 text-xs border border-green-200">
+                                  <div className="flex items-center gap-1">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+                                    <span className="font-medium text-green-800 text-[9px]">{fmtT(spot.start)}-{fmtT(spot.end)}</span>
+                                  </div>
+                                  <div className="text-[9px] text-green-600 mt-0.5">{spot.memberCount} free</div>
+                                </div>
+                              )
+                            })
+                          ) : null
+                        })()}
                         {dayJobs.map((job, jobIndex) => {
                           const statusDisplay = formatStatus(job.status, job)
                           // Parse scheduled_date correctly - it's stored as string "YYYY-MM-DD HH:MM:SS"
@@ -5364,28 +6173,20 @@ const ServiceFlowSchedule = () => {
                           } else {
                             jobTime = new Date(job.scheduled_date);
                           }
-                          
-                          // Duration is in minutes, ensure it's a number - check all possible duration fields
-                          const duration = getJobDuration(job);
-                          
-                          // Calculate end time
-                          const endTime = new Date(jobTime.getTime() + duration * 60000);
-                          
-                          // Format times
-                          const timeString = jobTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
-                          const endTimeString = endTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
-                          const durationFormatted = formatDuration(duration)
-                          const assignedTeamMember = teamMembers.find(m => m.id === job.assigned_team_member_id || m.id === job.team_member_id)
-                          const teamMemberName = assignedTeamMember ? (assignedTeamMember.name || `${assignedTeamMember.first_name || ''} ${assignedTeamMember.last_name || ''}`.trim()) : null
+
                           const customerName = getCustomerName(job) || 'Customer'
+                          const timeStr = jobTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+                          const durationStr = formatDuration(getJobDuration(job))
                           const territory = territories.find(t => t.id === job.territory_id)
                           const territoryName = territory?.name || null
                           
                           const isRecurring = job.is_recurring === true || job.is_recurring === 'true' || job.is_recurring === 1 || job.is_recurring === '1'
                           
+                          const statusColor = getStatusColor(job.status, job)
+
                           return (
-                            <div 
-                              key={jobIndex} 
+                            <div
+                              key={jobIndex}
                               className="bg-white rounded-md m-2 p-2 mb-1 text-xs cursor-pointer hover:shadow-md transition-all border border-gray-200 relative"
                               onClick={(e) => {
                                 e.stopPropagation()
@@ -5397,17 +6198,16 @@ const ServiceFlowSchedule = () => {
                                   R
                                 </span>
                               )}
-                              <div className="flex items-center justify-between mb-1">
-                                <div className="font-medium text-gray-900 truncate text-[9px]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
-                                  {timeString} - {endTimeString}{durationFormatted && ` ${durationFormatted}`}
-                                </div>
-                                {territoryName && (
-                                  <span className="text-[10px] text-blue-600 font-medium truncate max-w-[60px]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
-                                    {territoryName}
-                                  </span>
-                                )}
+                              <div className="flex items-center gap-1 mb-1">
+                                {getStatusIcon(job.status, job)}
+                                <span className="font-medium text-gray-900 truncate text-[9px]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                                  {timeStr}{durationStr ? ` ${durationStr}` : ''}
+                                </span>
                               </div>
-                              <div 
+                              {territoryName && (
+                                <div className="text-[9px] text-gray-500 truncate mb-0.5">{territoryName}</div>
+                              )}
+                              <div
                                 className="truncate font-medium cursor-pointer hover:text-blue-600 transition-colors text-gray-700 mb-1 inline-block"
                                 onClick={(e) => handleCustomerClick(e, job.customer_id || job.customer?.id || job.customers?.id)}
                                 style={{ fontFamily: 'Montserrat', fontWeight: 500, maxWidth: '100%' }}
@@ -5447,8 +6247,8 @@ const ServiceFlowSchedule = () => {
                                           return (
                                             <div 
                                               key={member.id || idx}
-                                              className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-white text-[10px] font-medium flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity border border-white"
-                                              style={{ marginLeft: idx > 0 ? '-4px' : '0' }}
+                                              className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-medium flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity border border-white"
+                                              style={{ marginLeft: idx > 0 ? '-4px' : '0', backgroundColor: member.color || '#2563EB' }}
                                               onClick={(e) => {
                                                 e.stopPropagation();
                                                 handleTeamMemberClick(e, member.id);
@@ -5559,17 +6359,6 @@ const ServiceFlowSchedule = () => {
                             jobTime = new Date(job.scheduled_date);
                           }
                           
-                          // Duration is in minutes, ensure it's a number - check all possible duration fields
-                          const duration = getJobDuration(job);
-                          
-                          // Calculate end time
-                          const endTime = new Date(jobTime.getTime() + duration * 60000);
-                          
-                          // Format times
-                          const timeString = jobTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
-                          const endTimeString = endTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
-                          const durationFormatted = formatDuration(duration)
-                          
                           // Get all assigned team members from team_assignments array
                           const teamAssignments = job.team_assignments || [];
                           let assignedTeamMembers = [];
@@ -5596,6 +6385,8 @@ const ServiceFlowSchedule = () => {
                           const customerName = getCustomerName(job) || 'Customer'
                           const territory = territories.find(t => t.id === job.territory_id)
                           const territoryName = territory?.name || null
+                          const timeStr = jobTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+                          const durationStr = formatDuration(getJobDuration(job))
                           
                           const isRecurring = job.is_recurring === true || job.is_recurring === 'true' || job.is_recurring === 1 || job.is_recurring === '1'
                           
@@ -5614,8 +6405,11 @@ const ServiceFlowSchedule = () => {
                                 </span>
                               )}
                               <div className="flex items-center justify-between mb-0.5">
-                                <div className="font-medium text-gray-900 truncate text-[9px]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
-                                  {timeString} - {endTimeString}{durationFormatted && ` ${durationFormatted}`}
+                                <div className="flex items-center gap-0.5 flex-1 min-w-0">
+                                  {getStatusIcon(job.status, job)}
+                                  <span className="font-medium text-gray-900 truncate text-[9px]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                                    {timeStr}{durationStr ? ` ${durationStr}` : ''}
+                                  </span>
                                 </div>
                                 <div className="flex items-center space-x-0.5">
                                   {assignedTeamMembers.length > 0 ? (
@@ -5625,8 +6419,8 @@ const ServiceFlowSchedule = () => {
                                         return (
                                     <div 
                                             key={member.id || idx}
-                                            className="w-4 h-4 rounded-full bg-blue-500 flex items-center justify-center text-white text-[8px] font-medium flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity border border-white"
-                                            style={{ marginLeft: idx > 0 ? '-4px' : '0' }}
+                                            className="w-4 h-4 rounded-full flex items-center justify-center text-white text-[8px] font-medium flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity border border-white"
+                                            style={{ marginLeft: idx > 0 ? '-4px' : '0', backgroundColor: member.color || '#2563EB' }}
                                             onClick={(e) => {
                                               e.stopPropagation();
                                               handleTeamMemberClick(e, member.id);
@@ -5683,6 +6477,26 @@ const ServiceFlowSchedule = () => {
                             {isExpanded ? 'Show less' : `+${dayJobs.length - 2} more`}
                           </button>
                         )}
+                        {/* Free spot cards */}
+                        {(() => {
+                          const monthDayAvail = getDayAvailability(day)
+                          return monthDayAvail.freeSpots && monthDayAvail.freeSpots.length > 0 && isCurrentMonth ? (
+                            <div className="mt-0.5">
+                              {monthDayAvail.freeSpots.slice(0, 2).map((spot, si) => {
+                                const fmtT = (t) => { const [h, m] = t.split(':'); const hr = parseInt(h, 10); const min = m ? parseInt(m, 10) : 0; const suffix = hr >= 12 ? 'p' : 'a'; const h12 = hr > 12 ? hr - 12 : hr || 12; return min ? `${h12}:${String(min).padStart(2, '0')}${suffix}` : `${h12}${suffix}` }
+                                return (
+                                  <div key={`free-${si}`} className="px-1 py-0.5 mb-0.5 bg-green-50 border border-green-200 rounded text-[9px] text-green-800 leading-tight">
+                                    <span className="font-medium">{fmtT(spot.start)}-{fmtT(spot.end)}</span>
+                                    <span className="text-green-600 ml-0.5">({spot.memberCount} free)</span>
+                                  </div>
+                                )
+                              })}
+                              {monthDayAvail.freeSpots.length > 2 && (
+                                <div className="text-[9px] text-green-600">+{monthDayAvail.freeSpots.length - 2} more</div>
+                              )}
+                            </div>
+                          ) : null
+                        })()}
                       </div>
                     )
                   })}
@@ -5708,21 +6522,6 @@ const ServiceFlowSchedule = () => {
                 jobDate = new Date(job.scheduled_date);
               }
               
-              const timeString = jobDate.toLocaleTimeString('en-US', { 
-                hour: 'numeric', 
-                minute: '2-digit',
-                hour12: true 
-              })
-              
-              // Duration is in minutes, ensure it's a number - check all possible duration fields
-              const duration = getJobDuration(job);
-              const endTime = new Date(jobDate.getTime() + duration * 60000)
-              const endTimeString = endTime.toLocaleTimeString('en-US', { 
-                hour: 'numeric', 
-                minute: '2-digit',
-                hour12: true 
-              })
-              const durationFormatted = formatDuration(duration)
               const serviceName = job.service_name || job.service_type || 'Service'
               const customerName = getCustomerName(job) || 'Customer'
               const customerEmail = job.customer_email || job.customer?.email || job.customers?.email || ''
@@ -5755,6 +6554,11 @@ const ServiceFlowSchedule = () => {
               const statusColor = getStatusColor(job.status, job)
               const territory = territories.find(t => t.id === job.territory_id)
               const territoryName = territory?.name || null
+              const timeStr = jobDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+              const durationMin = getJobDuration(job)
+              const durationStr = formatDuration(durationMin)
+              const endDate = durationMin ? new Date(jobDate.getTime() + durationMin * 60 * 1000) : null
+              const endStr = endDate ? endDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : null
               
               return (
                 <div key={job.id} className="bg-white rounded-lg border border-gray-200 p-2 sm:p-2 relative mb-4 last:mb-0 cursor-pointer hover:shadow-md transition-shadow" onClick={() => handleJobClick(job)}>
@@ -5767,8 +6571,13 @@ const ServiceFlowSchedule = () => {
                   
 
                   <div className="space-x-1 space-y-0.5">
-                  <div className="flex items-center gap-1 pl-1">
+                  <div className="flex items-center gap-1 pl-1 flex-wrap">
                     <h3 className="text-[10px] sm:text-[10px] font-semibold text-gray-500">JOB #{job.id}</h3>
+                    {(timeStr || durationStr) && (
+                      <span className="text-[10px] text-gray-500">
+                        {endStr && durationStr ? `${timeStr} - ${endStr} ${durationStr}` : `${timeStr || ''}${timeStr && durationStr ? ' · ' : ''}${durationStr}`}
+                      </span>
+                    )}
                     {(job.is_recurring === true || job.is_recurring === 'true' || job.is_recurring === 1 || job.is_recurring === '1') && (
                       <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-100 text-blue-700 text-[8px] font-bold" title="Recurring Job">
                         R
@@ -5776,14 +6585,8 @@ const ServiceFlowSchedule = () => {
                     )}
                   </div>
                      
-                    {/* Time and Duration */}
+                    {/* Service and Team */}
                     <div className="flex flex-col sm:flex-row sm:items-center space-y-1 sm:space-y-0 sm:space-x-3">
-                      <div className="flex items-center space-x-2">
-                        <Clock className="w-3 h-3 text-gray-400" />
-                        <span className="text-[9px] sm:text-[9px] font-medium text-gray-900">
-                          {timeString} - {endTimeString}{durationFormatted && ` ${durationFormatted}`}
-                        </span>
-                      </div>
                         <div className="flex items-center justify-between">
                       {/* Team Member Avatars - Multiple */}
                       {assignedTeamMembers.length > 0 ? (
@@ -5793,8 +6596,8 @@ const ServiceFlowSchedule = () => {
                             return (
                               <div 
                                 key={member.id || idx}
-                                className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-medium flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity border border-white"
-                                style={{ marginLeft: idx > 0 ? '-4px' : '0' }}
+                                className="w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-medium flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity border border-white"
+                                style={{ marginLeft: idx > 0 ? '-4px' : '0', backgroundColor: member.color || '#2563EB' }}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleTeamMemberClick(e, member.id);
@@ -5884,6 +6687,42 @@ const ServiceFlowSchedule = () => {
               )
             })}
 
+            {/* Free spot cards (day view - job tab) */}
+            {(() => {
+              const dayAvail = getDayAvailability(selectedDate)
+              return dayAvail.freeSpots && dayAvail.freeSpots.length > 0 ? (
+                <div className="mt-4">
+                  <h4 className="text-sm font-medium text-green-700 mb-2 flex items-center gap-1.5">
+                    <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                    Available Slots
+                  </h4>
+                  <div className="space-y-2">
+                    {dayAvail.freeSpots.map((spot, si) => {
+                      const fmtT = (t) => { const [h, m] = t.split(':'); const hr = parseInt(h); const ampm = hr >= 12 ? 'PM' : 'AM'; const h12 = hr > 12 ? hr - 12 : hr || 12; return `${h12}:${m || '00'} ${ampm}` }
+                      return (
+                        <div key={si} className="bg-green-50 rounded-lg border border-green-200 p-3">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-sm font-semibold text-green-800">{fmtT(spot.start)} - {fmtT(spot.end)}</span>
+                            <span className="text-xs font-medium text-green-600 bg-green-100 px-2 py-0.5 rounded-full">{spot.memberCount} available</span>
+                          </div>
+                          {spot.members && spot.members.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {spot.members.slice(0, 5).map((name, ni) => (
+                                <span key={ni} className="text-xs text-green-700 bg-green-100 px-1.5 py-0.5 rounded">{name}</span>
+                              ))}
+                              {spot.members.length > 5 && (
+                                <span className="text-xs text-green-600">+{spot.members.length - 5} more</span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              ) : null
+            })()}
+
             {/* Empty state when no jobs (only in day view) */}
             {filteredJobs.length === 0 && !isLoading && (
               <div className="flex-1 flex items-center justify-center">
@@ -5907,9 +6746,10 @@ const ServiceFlowSchedule = () => {
             {/* Map Container - Hidden on mobile */}
             <div className="hidden lg:block h-[calc(100vh-100px)] relative">
               {filteredJobs.length > 0 ? (
-                <JobsMap 
-                  jobs={filteredJobs} 
-                  mapType={mapView === 'roadmap' ? 'roadmap' : 'satellite'} 
+                <JobsMap
+                  jobs={filteredJobs}
+                  teamMembers={teamMembers}
+                  mapType={mapView === 'roadmap' ? 'roadmap' : 'satellite'}
                 />
               ) : (
                 <div className="h-full flex items-center justify-center bg-gray-50">
@@ -5974,6 +6814,15 @@ const ServiceFlowSchedule = () => {
                       </span>
                     </h2>
                     <p className="text-sm text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Job #{selectedJobDetails.id}</p>
+                    <p className="text-xs text-gray-500 mt-0.5" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                      Source:{' '}
+                      <span className="font-medium text-gray-700">
+                        {selectedJobDetails.customer_source
+                          || selectedJobDetails.customer?.source
+                          || selectedJobDetails.customers?.source
+                          || 'No source'}
+                      </span>
+                    </p>
                   </div>
                  
                 </div>
@@ -6339,13 +7188,35 @@ const ServiceFlowSchedule = () => {
                         return `${startTimeString} - ${endTimeString}`;
                       })()}
                     </p>
+                    {(() => {
+                      const teamAssignments = selectedJobDetails.team_assignments || [];
+                      let assignedMemberIds = [];
+                      if (teamAssignments.length > 0) {
+                        assignedMemberIds = teamAssignments.map(ta => ta.team_member_id).filter(Boolean);
+                      }
+                      if (assignedMemberIds.length === 0) {
+                        const singleId = selectedJobDetails.assigned_team_member_id || selectedJobDetails.team_member_id;
+                        if (singleId) assignedMemberIds = [singleId];
+                      }
+                      const jobDrivingTime = assignedMemberIds.length > 0
+                        ? Math.max(...assignedMemberIds.map(id => getMemberDrivingTime(id)))
+                        : 0;
+                      if (jobDrivingTime <= 0) return null;
+                      const duration = getJobDuration(selectedJobDetails);
+                      const blockedTotal = duration + (jobDrivingTime * 2);
+                      return (
+                        <p className="text-xs text-amber-600 mt-0.5" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                          +{jobDrivingTime}min travel before & after ({formatDuration(blockedTotal)} blocked)
+                        </p>
+                      );
+                    })()}
                   </div>
                   <p className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
-                    {new Date(selectedJobDetails.scheduled_date).toLocaleDateString('en-US', { 
-                      weekday: 'long', 
-                      month: 'short', 
-                      day: 'numeric', 
-                      year: 'numeric' 
+                    {new Date(selectedJobDetails.scheduled_date).toLocaleDateString('en-US', {
+                      weekday: 'long',
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric'
                     })}
                   </p>
                 </div>
@@ -6524,13 +7395,13 @@ const ServiceFlowSchedule = () => {
                     <div className="flex items-start justify-between">
                       <div>
                         <p className="text-lg font-bold text-gray-900 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
-                          ${(selectedJobDetails.invoice_paid_amount || selectedJobDetails.amount_paid || 0).toFixed(2)}
+                          ${(selectedJobDetails.total_paid_amount || selectedJobDetails.invoice_paid_amount || selectedJobDetails.amount_paid || 0).toFixed(2)}
                         </p>
                         <p className="text-xs text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Amount paid</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-lg font-bold text-gray-900 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
-                          ${((selectedJobDetails.total || selectedJobDetails.price || selectedJobDetails.service_price || 0) - (selectedJobDetails.invoice_paid_amount || selectedJobDetails.amount_paid || 0)).toFixed(2)}
+                        <p className={`text-lg font-bold mb-1 ${Math.max(0, (selectedJobDetails.total || 0) - (selectedJobDetails.total_paid_amount || selectedJobDetails.invoice_paid_amount || selectedJobDetails.amount_paid || 0)) <= 0 ? 'text-green-600' : 'text-red-600'}`} style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
+                          ${Math.max(0, (selectedJobDetails.total || 0) - (selectedJobDetails.total_paid_amount || selectedJobDetails.invoice_paid_amount || selectedJobDetails.amount_paid || 0)).toFixed(2)}
                         </p>
                         <p className="text-xs text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Amount due</p>
                       </div>
@@ -6559,7 +7430,7 @@ const ServiceFlowSchedule = () => {
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
-                              setShowEditServiceModal(true)
+                              handleOpenEditServiceModal()
                             }}
                             className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1 mt-2"
                             style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
@@ -6571,32 +7442,89 @@ const ServiceFlowSchedule = () => {
                       </div>
 
                       {/* Financial Breakdown */}
+                      {(() => {
+                        const sjTotal = parseFloat(selectedJobDetails.total) || 0;
+                        const sjDiscount = parseFloat(selectedJobDetails.discount) || 0;
+                        const sjFees = parseFloat(selectedJobDetails.additional_fees) || 0;
+                        const sjTaxes = parseFloat(selectedJobDetails.taxes) || 0;
+                        const sjServicePrice = parseFloat(selectedJobDetails.service_price) || sjTotal + sjDiscount;
+                        const sjSubtotal = sjServicePrice;
+                        const sjTotalAfterDiscount = sjSubtotal - sjDiscount;
+                        const sjTotalDue = sjTotalAfterDiscount + sjFees + sjTaxes;
+                        const sjAmountPaid = parseFloat(selectedJobDetails.total_paid_amount || selectedJobDetails.invoice_paid_amount || selectedJobDetails.amount_paid || 0);
+                        const sjTipStored = parseFloat(selectedJobDetails.tip_amount) || 0;
+                        const sjDerivedTip = Math.max(0, sjAmountPaid - sjTotalDue);
+                        const sjDisplayTip = sjDerivedTip > 0 ? sjDerivedTip : sjTipStored;
+                        const sjBalance = Math.max(0, sjTotalDue - sjAmountPaid);
+                        return (
                       <div className="space-y-2 pt-4 border-t border-gray-200">
                         <div className="flex justify-between items-center">
                           <span className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Subtotal</span>
                           <span className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
-                            ${(selectedJobDetails.service_price || selectedJobDetails.price || selectedJobDetails.total || 0).toFixed(2)}
+                            ${sjSubtotal.toFixed(2)}
                           </span>
                         </div>
+                        {sjDiscount > 0 && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Discount</span>
+                            <span className="text-sm font-medium text-red-600" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                              -${sjDiscount.toFixed(2)}
+                            </span>
+                          </div>
+                        )}
                         <div className="flex justify-between items-center pt-2 border-t border-gray-200">
                           <span className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>Total</span>
                           <span className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
-                            ${(selectedJobDetails.service_price || selectedJobDetails.price || selectedJobDetails.total || 0).toFixed(2)}
+                            ${sjTotalAfterDiscount.toFixed(2)}
+                          </span>
+                        </div>
+                        {sjFees > 0 && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Fee</span>
+                            <span className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                              ${sjFees.toFixed(2)}
+                            </span>
+                          </div>
+                        )}
+                        {sjTaxes > 0 && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Taxes</span>
+                            <span className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                              ${sjTaxes.toFixed(2)}
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex justify-between items-center pt-2 border-t border-gray-200">
+                          <span className="text-sm font-bold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Total due</span>
+                          <span className={`text-sm font-bold ${sjBalance === 0 ? 'text-green-600' : 'text-red-600'}`} style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
+                            ${sjBalance.toFixed(2)}
                           </span>
                         </div>
                         <div className="flex justify-between items-center pt-2">
                           <span className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Amount paid</span>
                           <span className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
-                            ${(selectedJobDetails.invoice_paid_amount || selectedJobDetails.amount_paid || 0).toFixed(2)}
+                            ${sjAmountPaid.toFixed(2)}
                           </span>
                         </div>
-                        <div className="flex justify-between items-center pt-2 border-t border-gray-200">
-                          <span className="text-sm font-bold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Total due</span>
-                          <span className="text-sm font-bold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
-                            ${((selectedJobDetails.total || selectedJobDetails.price || selectedJobDetails.service_price || 0) - (selectedJobDetails.invoice_paid_amount || selectedJobDetails.amount_paid || 0)).toFixed(2)}
-                          </span>
-                        </div>
+                        {sjDisplayTip > 0 && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Tip</span>
+                            <span className="text-sm font-medium text-green-600" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                              +${sjDisplayTip.toFixed(2)}
+                            </span>
+                          </div>
+                        )}
+                        {parseFloat(selectedJobDetails.incentive_amount || 0) > 0 && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Incentives</span>
+                            <span className="text-sm font-medium text-purple-600" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                              +${parseFloat(selectedJobDetails.incentive_amount).toFixed(2)}
+                            </span>
+                          </div>
+                        )}
                       </div>
+                        );
+                      })()}
 
                       {/* Payments Section */}
                       {canProcessPayments(user) && (
@@ -6605,12 +7533,17 @@ const ServiceFlowSchedule = () => {
                           {paymentHistory && paymentHistory.length > 0 ? (
                             <div className="space-y-3">
                               {paymentHistory.map((payment, index) => (
-                                <div key={payment.id || index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                                <div key={payment.id || payment.transaction_id || index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
                                   <div className="flex-1">
                                     <div className="flex items-center gap-2 mb-1">
                                       <span className="text-sm font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                                         ${parseFloat(payment.amount || 0).toFixed(2)}
                                       </span>
+                                      {parseFloat(payment.tip_amount || 0) > 0 && (
+                                        <span className="text-xs font-medium text-green-700 bg-green-50 px-1.5 py-0.5 rounded" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                                          +${parseFloat(payment.tip_amount).toFixed(2)} tip
+                                        </span>
+                                      )}
                                       <span className="text-xs text-gray-500 capitalize" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                                         {payment.payment_method || 'cash'}
                                       </span>
@@ -6630,8 +7563,20 @@ const ServiceFlowSchedule = () => {
                                       </div>
                                     )}
                                   </div>
-                                  <div className="text-xs text-green-600 font-semibold" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
-                                    Completed
+                                  <div className="flex flex-col items-end gap-2">
+                                    <span className="text-xs text-green-600 font-semibold" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                                      Completed
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => (payment.id || payment.transaction_id) && handleDeletePayment(payment.id || payment.transaction_id)}
+                                      className="text-xs text-red-600 hover:text-red-800 flex items-center gap-1"
+                                      title="Delete payment"
+                                      style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                      Delete
+                                    </button>
                                   </div>
                                 </div>
                               ))}
@@ -7754,6 +8699,11 @@ const ServiceFlowSchedule = () => {
             </div>
 
             <div className="space-y-4">
+              {errorMessage && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                  <p className="text-sm text-red-800">{errorMessage}</p>
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
                 <input
@@ -7782,7 +8732,7 @@ const ServiceFlowSchedule = () => {
                   Cancel
                 </button>
                 <button
-                  onClick={handleSaveReschedule}
+                  onClick={() => handleSaveReschedule()}
                   disabled={isUpdatingJob}
                   className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
                 >
@@ -7801,6 +8751,7 @@ const ServiceFlowSchedule = () => {
           isOpen={showAssignModal}
           onClose={() => setShowAssignModal(false)}
           onAssign={handleAssignTeamMember}
+          companyDrivingTimeMinutes={drivingTimeMinutes}
         />
       )}
 
@@ -8055,6 +9006,110 @@ const ServiceFlowSchedule = () => {
         </div>
       )}
 
+      {/* Edit Service & Pricing Modal */}
+      {showEditServiceModal && selectedJobDetails && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[9999] flex items-center justify-center">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Edit Service & Pricing</h3>
+              <button
+                onClick={() => setShowEditServiceModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-full"
+              >
+                <X className="w-5 h-5 text-gray-600" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Service</label>
+                <p className="text-sm text-gray-900 font-medium bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">
+                  {selectedJobDetails.service_name || selectedJobDetails.service_type || 'Service'}
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Service Price ($)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={editFormData.service_price || ''}
+                  onChange={(e) => setEditFormData(prev => ({ ...prev, service_price: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="0.00"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Discount ($)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={editFormData.discount || ''}
+                  onChange={(e) => setEditFormData(prev => ({ ...prev, discount: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="0.00"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Additional Fees ($)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={editFormData.additional_fees || ''}
+                  onChange={(e) => setEditFormData(prev => ({ ...prev, additional_fees: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="0.00"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Taxes ($)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={editFormData.taxes || ''}
+                  onChange={(e) => setEditFormData(prev => ({ ...prev, taxes: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="0.00"
+                />
+              </div>
+
+              {/* Preview total */}
+              <div className="pt-3 border-t border-gray-200">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-gray-700">Estimated Total</span>
+                  <span className="text-sm font-bold text-gray-900">
+                    ${((parseFloat(editFormData.service_price) || 0) + (parseFloat(editFormData.additional_fees) || 0) + (parseFloat(editFormData.taxes) || 0) - (parseFloat(editFormData.discount) || 0)).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end space-x-3 pt-2">
+                <button
+                  onClick={() => setShowEditServiceModal(false)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveServicePricing}
+                  disabled={isUpdatingJob}
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
+                >
+                  {isUpdatingJob ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Send Invoice Modal */}
       {showSendInvoiceModal && selectedJobDetails && (
         <div className="fixed inset-0 bg-white z-[9999] flex flex-col">
@@ -8171,8 +9226,26 @@ const ServiceFlowSchedule = () => {
                 <div className="space-y-2 mt-4">
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Subtotal</span>
-                    <span className="text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>${calculateTotalPrice().toFixed(2)}</span>
+                    <span className="text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>${(parseFloat(selectedJobDetails.total || selectedJobDetails.service_price || selectedJobDetails.price || 0)).toFixed(2)}</span>
                   </div>
+                  {parseFloat(selectedJobDetails.discount || 0) > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Discount</span>
+                      <span className="text-red-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>-${parseFloat(selectedJobDetails.discount).toFixed(2)}</span>
+                    </div>
+                  )}
+                  {parseFloat(selectedJobDetails.tip_amount || 0) > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Tip</span>
+                      <span className="text-green-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>+${parseFloat(selectedJobDetails.tip_amount).toFixed(2)}</span>
+                    </div>
+                  )}
+                  {parseFloat(selectedJobDetails.incentive_amount || 0) > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Incentives</span>
+                      <span className="text-purple-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>+${parseFloat(selectedJobDetails.incentive_amount).toFixed(2)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Total</span>
                     <span className="text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>${calculateTotalPrice().toFixed(2)}</span>
@@ -8256,6 +9329,9 @@ const ServiceFlowSchedule = () => {
                     <option value="check">Check</option>
                     <option value="credit_card">Credit Card</option>
                     <option value="bank_transfer">Bank Transfer</option>
+                    {customPaymentMethods.map(pm => (
+                      <option key={pm.id} value={pm.name}>{pm.name}</option>
+                    ))}
                     <option value="other">Other</option>
                   </select>
                 </div>
@@ -8268,6 +9344,38 @@ const ServiceFlowSchedule = () => {
                     onChange={(e) => setPaymentFormData(prev => ({ ...prev, amount: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     placeholder="Enter amount"
+                    style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                    Discount
+                    <span className="text-xs text-gray-400 font-normal ml-1">(reduces amount owed)</span>
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={paymentFormData.discount}
+                    onChange={(e) => setPaymentFormData(prev => ({ ...prev, discount: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="0.00"
+                    style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                    Tip
+                    <span className="text-xs text-gray-400 font-normal ml-1">(goes to payroll, not revenue)</span>
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={paymentFormData.tipAmount}
+                    onChange={(e) => setPaymentFormData(prev => ({ ...prev, tipAmount: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="0.00"
                     style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                   />
                 </div>
@@ -8300,6 +9408,8 @@ const ServiceFlowSchedule = () => {
                     setShowAddPaymentModal(false)
                     setPaymentFormData({
                       amount: '',
+                      tipAmount: '',
+                      discount: '',
                       paymentMethod: 'cash',
                       paymentDate: new Date().toISOString().split('T')[0],
                       notes: ''
