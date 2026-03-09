@@ -121,16 +121,18 @@ const Payroll = () => {
     if (!payrollData) return
 
     // Create CSV content
-    let csv = 'Team Member,Job Count,Hours Worked,Sched Hours,Hourly Rate,Commission %,Hourly Salary,Sched Salary,Commission,Tips,Incentives,Total Salary,Payment Method\n'
+    let csv = 'Team Member,Role,Job Count,Hours Worked,Sched Hours,Hourly Rate,Commission %,Commission Revenue Base,Hourly Salary,Sched Salary,Commission,Tips,Incentives,Total Salary,Payment Method\n'
 
     filteredMembers.forEach(member => {
       const hourlyRate = member.teamMember.hourlyRate ? formatCurrency(member.teamMember.hourlyRate) : 'N/A'
       const commissionPct = member.teamMember.commissionPercentage ? `${member.teamMember.commissionPercentage}%` : 'N/A'
       const paymentMethod = member.paymentMethod || 'none'
-      csv += `"${member.teamMember.name}",${member.jobCount},${member.totalHours},${member.scheduledHours || 0},${hourlyRate},${commissionPct},${formatCurrency(member.hourlySalary || 0)},${formatCurrency(member.scheduledHourlySalary || 0)},${formatCurrency(member.commissionSalary || 0)},${formatCurrency(member.totalTips || 0)},${formatCurrency(member.totalIncentives || 0)},${formatCurrency(member.totalSalary)},${paymentMethod}\n`
+      const role = member.teamMember.role || 'Service Provider'
+      csv += `"${member.teamMember.name}","${role}",${member.jobCount},${member.totalHours},${member.scheduledHours || 0},${hourlyRate},${commissionPct},${formatCurrency(member.commissionRevenueBase || 0)},${formatCurrency(member.hourlySalary || 0)},${formatCurrency(member.scheduledHourlySalary || 0)},${formatCurrency(member.commissionSalary || 0)},${formatCurrency(member.totalTips || 0)},${formatCurrency(member.totalIncentives || 0)},${formatCurrency(member.totalSalary)},${paymentMethod}\n`
     })
 
     csv += `\nSummary\n`
+    csv += `Total Business Revenue,${formatCurrency(payrollData?.totalBusinessRevenue || 0)}\n`
     csv += `Total Team Members,${filteredSummary.totalTeamMembers}\n`
     csv += `Total Hours,${filteredSummary.totalHours}\n`
     csv += `Total Scheduled Hours,${filteredSummary.totalScheduledHours || 0}\n`
@@ -390,6 +392,11 @@ const Payroll = () => {
                                 <div className="text-sm font-medium text-gray-900 flex items-center gap-1 truncate">
                                   {isExpanded ? <ChevronDown className="w-3 h-3 text-gray-400 flex-shrink-0" /> : <ChevronRight className="w-3 h-3 text-gray-400 flex-shrink-0" />}
                                   <span className="truncate">{member.teamMember.name}</span>
+                                  {member.isManagerOrOwner && (
+                                    <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded-full flex-shrink-0">
+                                      {member.teamMember.role}
+                                    </span>
+                                  )}
                                 </div>
                                 <button
                                   onClick={(e) => { e.stopPropagation(); toggleExpanded(member.teamMember.id) }}
@@ -410,11 +417,35 @@ const Payroll = () => {
                           <td className="px-2 py-3 text-sm text-gray-900 text-right">{member.totalHours.toFixed(1)}</td>
                           <td className="px-2 py-3 text-sm text-indigo-700 text-right">{(member.scheduledHours || 0).toFixed(1)}</td>
                           <td className="px-2 py-3 text-sm text-gray-900 text-right">{formatCurrency(member.hourlySalary || 0)}</td>
-                          <td className="px-2 py-3 text-sm text-gray-900 text-right">{formatCurrency(member.commissionSalary || 0)}</td>
+                          <td className="px-2 py-3 text-sm text-gray-900 text-right" title={member.isManagerOrOwner && member.commissionRevenueBase ? `From total revenue: ${formatCurrency(member.commissionRevenueBase)}` : ''}>
+                            {formatCurrency(member.commissionSalary || 0)}
+                            {member.isManagerOrOwner && member.commissionSalary > 0 && (
+                              <div className="text-[10px] text-purple-600">rev: {formatCurrency(member.commissionRevenueBase || 0)}</div>
+                            )}
+                          </td>
                           <td className="px-2 py-3 text-sm text-gray-900 text-right">{formatCurrency(member.totalTips || 0)}</td>
                           <td className="px-2 py-3 text-sm text-gray-900 text-right">{formatCurrency(member.totalIncentives || 0)}</td>
                           <td className="px-3 py-3 text-sm font-semibold text-gray-900 text-right">{formatCurrency(member.totalSalary)}</td>
                         </tr>
+                        {isExpanded && member.isManagerOrOwner && member.commissionSalary > 0 && (
+                          <tr>
+                            <td colSpan="10" className="p-0">
+                              <div className="bg-purple-50 border-t border-b border-purple-100 px-4 py-3">
+                                <p className="text-xs font-semibold text-purple-700 uppercase mb-1">Commission Summary</p>
+                                <p className="text-sm text-gray-700">
+                                  Total business revenue for period: <span className="font-semibold">{formatCurrency(payrollData?.totalBusinessRevenue || 0)}</span>
+                                  {' '}&times; {member.teamMember.commissionPercentage}% = <span className="font-semibold text-purple-700">{formatCurrency(member.commissionSalary)}</span>
+                                </p>
+                                {member.scheduledHours > 0 && member.teamMember.hourlyRate && (
+                                  <p className="text-sm text-gray-700 mt-1">
+                                    Scheduled hours: <span className="font-semibold">{member.scheduledHours.toFixed(1)}h</span>
+                                    {' '}&times; ${member.teamMember.hourlyRate}/hr = <span className="font-semibold">{formatCurrency(member.scheduledHourlySalary || 0)}</span>
+                                  </p>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
                         {isExpanded && member.jobs && member.jobs.length > 0 && (
                           <tr>
                             <td colSpan="10" className="p-0">
