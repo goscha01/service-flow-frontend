@@ -427,20 +427,111 @@ const Payroll = () => {
                           <td className="px-2 py-3 text-sm text-gray-900 text-right">{formatCurrency(member.totalIncentives || 0)}</td>
                           <td className="px-3 py-3 text-sm font-semibold text-gray-900 text-right">{formatCurrency(member.totalSalary)}</td>
                         </tr>
-                        {isExpanded && member.isManagerOrOwner && member.commissionSalary > 0 && (
+                        {isExpanded && member.isManagerOrOwner && (
                           <tr>
                             <td colSpan="10" className="p-0">
                               <div className="bg-purple-50 border-t border-b border-purple-100 px-4 py-3">
-                                <p className="text-xs font-semibold text-purple-700 uppercase mb-1">Commission Summary</p>
-                                <p className="text-sm text-gray-700">
-                                  Total business revenue for period: <span className="font-semibold">{formatCurrency(payrollData?.totalBusinessRevenue || 0)}</span>
-                                  {' '}&times; {member.teamMember.commissionPercentage}% = <span className="font-semibold text-purple-700">{formatCurrency(member.commissionSalary)}</span>
-                                </p>
-                                {member.scheduledHours > 0 && member.teamMember.hourlyRate && (
-                                  <p className="text-sm text-gray-700 mt-1">
-                                    Scheduled hours: <span className="font-semibold">{member.scheduledHours.toFixed(1)}h</span>
-                                    {' '}&times; ${member.teamMember.hourlyRate}/hr = <span className="font-semibold">{formatCurrency(member.scheduledHourlySalary || 0)}</span>
-                                  </p>
+                                <p className="text-xs font-semibold text-purple-700 uppercase mb-2">Pay Breakdown</p>
+                                <table className="w-full text-sm">
+                                  <thead>
+                                    <tr className="text-xs text-purple-600 uppercase tracking-wider">
+                                      <th className="text-left py-1.5 pr-4 font-medium">Component</th>
+                                      <th className="text-right py-1.5 pr-4 font-medium">Base</th>
+                                      <th className="text-right py-1.5 pr-4 font-medium">Rate</th>
+                                      <th className="text-right py-1.5 font-medium">Amount</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-purple-100">
+                                    {member.teamMember.commissionPercentage > 0 && (
+                                      <tr>
+                                        <td className="py-2 pr-4 text-gray-700">Commission</td>
+                                        <td className="py-2 pr-4 text-right text-gray-700">
+                                          Total revenue: {formatCurrency(payrollData?.totalBusinessRevenue || 0)}
+                                        </td>
+                                        <td className="py-2 pr-4 text-right text-gray-700">{member.teamMember.commissionPercentage}%</td>
+                                        <td className="py-2 text-right font-semibold text-purple-700">{formatCurrency(member.commissionSalary)}</td>
+                                      </tr>
+                                    )}
+                                    {member.teamMember.hourlyRate > 0 && (
+                                      <tr>
+                                        <td className="py-2 pr-4 text-gray-700">Hourly (Scheduled)</td>
+                                        <td className="py-2 pr-4 text-right text-gray-700">
+                                          {(member.scheduledHours || 0).toFixed(1)} scheduled hrs
+                                        </td>
+                                        <td className="py-2 pr-4 text-right text-gray-700">${member.teamMember.hourlyRate}/hr</td>
+                                        <td className="py-2 text-right font-semibold text-purple-700">{formatCurrency(member.hourlySalary || 0)}</td>
+                                      </tr>
+                                    )}
+                                    {(member.totalTips || 0) > 0 && (
+                                      <tr>
+                                        <td className="py-2 pr-4 text-gray-700">Tips</td>
+                                        <td className="py-2 pr-4 text-right text-gray-500">—</td>
+                                        <td className="py-2 pr-4 text-right text-gray-500">—</td>
+                                        <td className="py-2 text-right font-semibold text-purple-700">{formatCurrency(member.totalTips)}</td>
+                                      </tr>
+                                    )}
+                                    {(member.totalIncentives || 0) > 0 && (
+                                      <tr>
+                                        <td className="py-2 pr-4 text-gray-700">Incentives</td>
+                                        <td className="py-2 pr-4 text-right text-gray-500">—</td>
+                                        <td className="py-2 pr-4 text-right text-gray-500">—</td>
+                                        <td className="py-2 text-right font-semibold text-purple-700">{formatCurrency(member.totalIncentives)}</td>
+                                      </tr>
+                                    )}
+                                  </tbody>
+                                  <tfoot>
+                                    <tr className="border-t-2 border-purple-200">
+                                      <td colSpan="3" className="py-2 pr-4 text-right font-semibold text-gray-900">Total Pay</td>
+                                      <td className="py-2 text-right font-bold text-purple-800 text-base">{formatCurrency(member.totalSalary)}</td>
+                                    </tr>
+                                  </tfoot>
+                                </table>
+                                {/* Revenue Jobs Breakdown */}
+                                {member.revenueJobs && member.revenueJobs.length > 0 && (
+                                  <div className="mt-3 border-t border-purple-200 pt-3">
+                                    <p className="text-xs font-semibold text-purple-600 uppercase mb-2">
+                                      Revenue Jobs ({member.revenueJobs.length} jobs = {formatCurrency(payrollData?.totalBusinessRevenue || 0)})
+                                    </p>
+                                    <div className="max-h-64 overflow-y-auto">
+                                      <table className="w-full text-xs">
+                                        <thead className="sticky top-0 bg-purple-50">
+                                          <tr className="text-purple-500 uppercase tracking-wider">
+                                            <th className="text-left py-1.5 pr-3 font-medium">Date</th>
+                                            <th className="text-left py-1.5 pr-3 font-medium">Service</th>
+                                            <th className="text-left py-1.5 pr-3 font-medium">Customer</th>
+                                            <th className="text-left py-1.5 pr-3 font-medium">Status</th>
+                                            <th className="text-right py-1.5 font-medium">Price</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-purple-100">
+                                          {member.revenueJobs.map(rj => (
+                                            <tr key={rj.id} className="hover:bg-purple-100 cursor-pointer" onClick={(e) => { e.stopPropagation(); navigate(`/job/${rj.id}`) }}>
+                                              <td className="py-1.5 pr-3 text-gray-700 whitespace-nowrap">{formatShortDate(rj.scheduledDate)}</td>
+                                              <td className="py-1.5 pr-3 text-gray-900 font-medium truncate max-w-[150px]">{rj.serviceName}</td>
+                                              <td className="py-1.5 pr-3 text-gray-700 truncate max-w-[120px]">{rj.customerName}</td>
+                                              <td className="py-1.5 pr-3">
+                                                <span className={`inline-block px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
+                                                  rj.status === 'completed' ? 'bg-green-100 text-green-700' :
+                                                  rj.status === 'in-progress' ? 'bg-blue-100 text-blue-700' :
+                                                  rj.status === 'scheduled' ? 'bg-yellow-100 text-yellow-700' :
+                                                  'bg-gray-100 text-gray-600'
+                                                }`}>
+                                                  {rj.status}
+                                                </span>
+                                              </td>
+                                              <td className="py-1.5 text-right text-gray-900 font-medium">{formatCurrency(rj.revenue)}</td>
+                                            </tr>
+                                          ))}
+                                        </tbody>
+                                        <tfoot>
+                                          <tr className="border-t border-purple-200 bg-purple-50">
+                                            <td colSpan="4" className="py-1.5 text-right font-semibold text-purple-700">Total Revenue</td>
+                                            <td className="py-1.5 text-right font-bold text-purple-800">{formatCurrency(payrollData?.totalBusinessRevenue || 0)}</td>
+                                          </tr>
+                                        </tfoot>
+                                      </table>
+                                    </div>
+                                  </div>
                                 )}
                               </div>
                             </td>
