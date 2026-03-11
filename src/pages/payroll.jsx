@@ -500,7 +500,9 @@ const Payroll = () => {
                                             <th className="text-left py-1.5 pr-3 font-medium">Service</th>
                                             <th className="text-left py-1.5 pr-3 font-medium">Customer</th>
                                             <th className="text-left py-1.5 pr-3 font-medium">Status</th>
-                                            <th className="text-right py-1.5 font-medium">Price</th>
+                                            <th className="text-right py-1.5 pr-3 font-medium">Gross</th>
+                                            <th className="text-right py-1.5 pr-3 font-medium">Tax</th>
+                                            <th className="text-right py-1.5 font-medium">Revenue</th>
                                           </tr>
                                         </thead>
                                         <tbody className="divide-y divide-purple-100">
@@ -519,13 +521,15 @@ const Payroll = () => {
                                                   {rj.status}
                                                 </span>
                                               </td>
+                                              <td className="py-1.5 pr-3 text-right text-gray-500">{formatCurrency(rj.grossPrice || 0)}</td>
+                                              <td className="py-1.5 pr-3 text-right text-red-500">{rj.taxes > 0 ? `-${formatCurrency(rj.taxes)}` : '-'}</td>
                                               <td className="py-1.5 text-right text-gray-900 font-medium">{formatCurrency(rj.revenue)}</td>
                                             </tr>
                                           ))}
                                         </tbody>
                                         <tfoot>
                                           <tr className="border-t border-purple-200 bg-purple-50">
-                                            <td colSpan="4" className="py-1.5 text-right font-semibold text-purple-700">Total Revenue</td>
+                                            <td colSpan="6" className="py-1.5 text-right font-semibold text-purple-700">Total Revenue</td>
                                             <td className="py-1.5 text-right font-bold text-purple-800">{formatCurrency(payrollData?.totalBusinessRevenue || 0)}</td>
                                           </tr>
                                         </tfoot>
