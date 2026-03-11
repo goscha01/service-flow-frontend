@@ -248,7 +248,6 @@ export const calculateNextRecurringDate = (frequency, currentDate) => {
   // Handle bi-weekly (special case)
   if (freq === 'biweekly' || freq === 'bi-weekly') {
     // Try to preserve the weekday
-    const currentDayIndex = baseDate.getDay()
     nextDate.setDate(nextDate.getDate() + 14)
     
     // If weekday is specified in a format like "biweekly-friday", use that

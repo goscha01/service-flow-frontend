@@ -103,7 +103,7 @@ export default function SignupForm() {
     }
   }
 
-  const validateForm = () => {
+  const validateForm = () => { // eslint-disable-line no-unused-vars
     const newErrors = {}
     
     if (!formData.email.trim()) {

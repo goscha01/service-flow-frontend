@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react"
-import { Plus, ChevronLeft, ChevronRight, Calendar, Grid3X3, MapPin, Clock, DollarSign, User, Filter, AlertTriangle, RefreshCw, Map, BarChart3, Users, UserX, CheckCircle, PlayCircle, XCircle } from "lucide-react"
-import Sidebar from "../components/sidebar"
+import { Plus, ChevronLeft, ChevronRight, Calendar, MapPin, Clock, DollarSign, User, Filter, AlertTriangle, RefreshCw, Map, Users } from "lucide-react"
 import ScheduleSidebar from "../components/schedule-sidebar"
 import { useNavigate } from "react-router-dom"
 
@@ -10,8 +9,6 @@ import { jobsAPI, teamAPI } from "../services/api"
 
 const ServiceFlowSchedule = () => {
   const { user } = useAuth()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [activeFilter, setActiveFilter] = useState("all")
   const [currentView, setCurrentView] = useState("day") // day, week, month
   const [currentDate, setCurrentDate] = useState(new Date()) // Current date
   const [allJobs, setAllJobs] = useState([]) // Store ALL jobs
@@ -37,8 +34,7 @@ const ServiceFlowSchedule = () => {
   const [selectedTeamMemberId, setSelectedTeamMemberId] = useState(null) // null = all team members
   const navigate = useNavigate()
 
-  // Request cancellation and navigation timeout
-  const abortControllerRef = useRef(null)
+  // Navigation timeout
   const navigationTimeoutRef = useRef(null)
   const silentRefreshIntervalRef = useRef(null)
   const calendarRef = useRef(null)
@@ -81,14 +77,14 @@ const ServiceFlowSchedule = () => {
     } else if (!currentUser) {
       navigate('/signin')
     }
-  }, [currentUser, navigate])
+  }, [currentUser, navigate]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Separate useEffect for filtering jobs when view/date/filters change
   useEffect(() => {
     if (allJobs.length > 0) {
       filterJobsForCurrentView()
     }
-  }, [allJobs, currentView, currentDate, filters])
+  }, [allJobs, currentView, currentDate, filters]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Handle clicking outside calendar picker to close it
   useEffect(() => {
@@ -208,7 +204,7 @@ const ServiceFlowSchedule = () => {
   }, [currentView, currentDate, teamMembers.length])
 
   // Get unique territories from team members
-  const getTerritories = () => {
+  const getTerritories = () => { // eslint-disable-line no-unused-vars
     const territories = new Set()
     teamMembers.forEach(member => {
       if (member.territory) {
@@ -317,7 +313,7 @@ const ServiceFlowSchedule = () => {
           const jobTeamMemberId = job.team_member_id
           const filterTeamMemberId = filters.teamMember
           console.log(`🔍 Comparing job team_member_id: ${jobTeamMemberId} (${typeof jobTeamMemberId}) with filter: ${filterTeamMemberId} (${typeof filterTeamMemberId})`)
-          return jobTeamMemberId == filterTeamMemberId
+          return String(jobTeamMemberId) === String(filterTeamMemberId)
         })
         console.log(`🔍 After team member filter (${filters.teamMember}):`, filteredJobs.length)
       }
@@ -327,8 +323,8 @@ const ServiceFlowSchedule = () => {
     if (filters.territory !== "all") {
       filteredJobs = filteredJobs.filter(job => {
         // Check if job has territory_id or if team member has territory
-        const teamMember = teamMembers.find(tm => tm.id == job.team_member_id)
-        return job.territory_id == filters.territory || 
+        const teamMember = teamMembers.find(tm => String(tm.id) === String(job.team_member_id))
+        return String(job.territory_id) === String(filters.territory) ||
                (teamMember && teamMember.territory === filters.territory)
       })
       console.log(`🔍 After territory filter (${filters.territory}):`, filteredJobs.length)
@@ -545,7 +541,6 @@ const ServiceFlowSchedule = () => {
     const month = currentDate.getMonth()
     
     const firstDay = new Date(year, month, 1)
-    const lastDay = new Date(year, month + 1, 0)
     const startDate = new Date(firstDay)
     startDate.setDate(firstDay.getDate() - firstDay.getDay())
     
@@ -604,7 +599,7 @@ const ServiceFlowSchedule = () => {
     navigate(`/job/${job.id}`)
   }
 
-  const handleViewCustomer = (customerId) => {
+  const handleViewCustomer = (customerId) => { // eslint-disable-line no-unused-vars
     navigate(`/customer/${customerId}`)
   }
 
@@ -1116,7 +1111,6 @@ const ServiceFlowSchedule = () => {
     
     const generateDaysArray = () => {
       const firstDay = new Date(year, month, 1)
-      const lastDay = new Date(year, month + 1, 0)
       const startDate = new Date(firstDay)
       startDate.setDate(firstDay.getDate() - firstDay.getDay())
       
@@ -1357,7 +1351,7 @@ const ServiceFlowSchedule = () => {
                             const dateStr = date.toISOString().split('T')[0]
                             const availability = getAvailabilityDisplay(member.id, dateStr)
                             const dayJobs = getJobsForDate(date).filter(job => 
-                              job.team_member_id == member.id
+                              String(job.team_member_id) === String(member.id)
                             )
                             const isToday = date.toDateString() === new Date().toDateString()
                             
@@ -1669,7 +1663,8 @@ const ServiceFlowSchedule = () => {
                       <span className="absolute -top-1 -right-1 w-3 h-3 bg-blue-600 rounded-full"></span>
                     )}
                   </button>
-                  
+                  )}
+
                   <div className="flex items-center space-x-1 sm:space-x-2">
                     <button
                       onClick={() => setCurrentView("day")}

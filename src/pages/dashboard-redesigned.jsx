@@ -99,6 +99,7 @@ const DashboardRedesigned = () => {
 
   // Store today's jobs for the map
   const [todayJobsList, setTodayJobsList] = useState([])
+  const [teamMembersList, setTeamMembersList] = useState([])
   const [mapView, setMapView] = useState('map')
 
   // Setup section state
@@ -507,6 +508,7 @@ const DashboardRedesigned = () => {
       } catch (teamError) {
         teamMembers = []
       }
+      setTeamMembersList(teamMembers)
 
       // Fetch territories data
       let territoriesList = []
@@ -992,7 +994,7 @@ const DashboardRedesigned = () => {
                       </div>
                       <div className="ml-3 flex-1">
                         <h3 className="text-sm font-medium text-red-800">{error}</h3>
-                        <p className="mt-1 text-sm text-red-700">
+                        <p className="mt-1 text-sm text-red-600">
                           Please check your connection and try refreshing the page.
                         </p>
                       </div>
@@ -1229,9 +1231,10 @@ const DashboardRedesigned = () => {
                         </button>
                       </div>
                       {dashboardData.todayJobs > 0 ? (
-                        <JobsMap 
-                          jobs={todayJobsList} 
-                          mapType={mapView === 'map' ? 'roadmap' : 'satellite'} 
+                        <JobsMap
+                          jobs={todayJobsList}
+                          teamMembers={teamMembersList}
+                          mapType={mapView === 'map' ? 'roadmap' : 'satellite'}
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center bg-gray-50">

@@ -259,7 +259,38 @@ const TeamMemberDetails = () => {
             
             if (parsedAvailability && typeof parsedAvailability === 'object') {
               if (parsedAvailability.workingHours) {
-                setWorkingHours(parsedAvailability.workingHours)
+                // Normalize: ensure days with legacy "hours" string get a timeSlots array so they display and save correctly
+                const normalized = { ...parsedAvailability.workingHours }
+                const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+                days.forEach(day => {
+                  const d = normalized[day]
+                  if (d && d.available && (d.hours || d.timeSlots?.length)) {
+                    if (!d.timeSlots || d.timeSlots.length === 0) {
+                      // Legacy format: convert "9:00 AM - 6:00 PM" to one timeSlot
+                      const hoursStr = d.hours || ''
+                      const match = hoursStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?\s*-\s*(\d{1,2}):(\d{2})\s*(AM|PM)?/i)
+                      if (match) {
+                        let sh = parseInt(match[1], 10), eh = parseInt(match[4], 10)
+                        if (match[3]?.toUpperCase() === 'PM' && sh !== 12) sh += 12
+                        if (match[3]?.toUpperCase() === 'AM' && sh === 12) sh = 0
+                        if (match[6]?.toUpperCase() === 'PM' && eh !== 12) eh += 12
+                        if (match[6]?.toUpperCase() === 'AM' && eh === 12) eh = 0
+                        normalized[day] = {
+                          ...d,
+                          timeSlots: [{
+                            id: d.id ?? Date.now() + day.length,
+                            start: `${String(sh).padStart(2, '0')}:${match[2]}`,
+                            end: `${String(eh).padStart(2, '0')}:${match[5]}`,
+                            enabled: true
+                          }]
+                        }
+                      } else {
+                        normalized[day] = { ...d, timeSlots: [{ id: Date.now(), start: '09:00', end: '17:00', enabled: true }] }
+                      }
+                    }
+                  }
+                })
+                setWorkingHours(normalized)
               }
               if (parsedAvailability.customAvailability !== undefined) {
                 setCustomAvailability(parsedAvailability.customAvailability || [])
@@ -374,15 +405,13 @@ const TeamMemberDetails = () => {
         ...editFormData,
         color: editFormData.color || '#2563EB',
         territories: JSON.stringify(territories.map(t => typeof t === 'object' ? t.id : t)),
-        availability: JSON.stringify({
-          workingHours,
-          customAvailability
-        }),
         permissions: JSON.stringify(settings)
       }
       
       console.log('Saving team member with data:', updateData)
       await teamAPI.update(memberId, updateData)
+      // Save availability via dedicated endpoint so timeSlots persist correctly
+      await teamAPI.updateAvailability(memberId, { workingHours, customAvailability })
       
       // Refresh data
       await fetchTeamMemberDetails()
@@ -618,15 +647,8 @@ const TeamMemberDetails = () => {
       
       setSavingHours(true)
       
-      const updateData = {
-        availability: JSON.stringify({
-          workingHours,
-          customAvailability
-        })
-      }
-      
-      console.log('Saving recurring hours:', updateData)
-      await teamAPI.update(memberId, updateData)
+      console.log('Saving recurring hours via updateAvailability')
+      await teamAPI.updateAvailability(memberId, { workingHours, customAvailability })
       
       // Refresh team member data
       await fetchTeamMemberDetails()
@@ -649,15 +671,8 @@ const TeamMemberDetails = () => {
       
       setSavingCustomAvailability(true)
       
-      const updateData = {
-        availability: JSON.stringify({
-          workingHours,
-          customAvailability
-        })
-      }
-      
-      console.log('Saving custom availability:', updateData)
-      await teamAPI.update(memberId, updateData)
+      console.log('Saving custom availability via updateAvailability')
+      await teamAPI.updateAvailability(memberId, { workingHours, customAvailability })
       
       // Refresh team member data
       await fetchTeamMemberDetails()
@@ -679,15 +694,8 @@ const TeamMemberDetails = () => {
       
       setSavingDay(day)
       
-      const updateData = {
-        availability: JSON.stringify({
-          workingHours,
-          customAvailability
-        })
-      }
-      
-      console.log(`Saving ${day} availability:`, updateData)
-      await teamAPI.update(memberId, updateData)
+      console.log(`Saving ${day} availability via updateAvailability`)
+      await teamAPI.updateAvailability(memberId, { workingHours, customAvailability })
       
       // Refresh team member data
       await fetchTeamMemberDetails()
@@ -726,20 +734,14 @@ const TeamMemberDetails = () => {
       setCustomAvailability(prev => [...prev, availabilityItem])
     }
     
-    // Save to backend
+    // Save to backend via dedicated availability endpoint
     try {
       setSavingCustomAvailability(true)
       
-      const updateData = {
-        availability: JSON.stringify({
-          workingHours,
-          customAvailability: existingIndex >= 0 
-            ? customAvailability.map((item, index) => index === existingIndex ? availabilityItem : item)
-            : [...customAvailability, availabilityItem]
-        })
-      }
-      
-      await teamAPI.update(memberId, updateData)
+      const updatedCustom = existingIndex >= 0
+        ? customAvailability.map((item, index) => index === existingIndex ? availabilityItem : item)
+        : [...customAvailability, availabilityItem]
+      await teamAPI.updateAvailability(memberId, { workingHours, customAvailability: updatedCustom })
       
       // Refresh team member data
       await fetchTeamMemberDetails()
@@ -759,15 +761,8 @@ const TeamMemberDetails = () => {
       const updatedCustomAvailability = customAvailability.filter(item => item.id !== id)
       setCustomAvailability(updatedCustomAvailability)
       
-      // Save to backend
-      const updateData = {
-        availability: JSON.stringify({
-          workingHours,
-          customAvailability: updatedCustomAvailability
-        })
-      }
-      
-      await teamAPI.update(memberId, updateData)
+      // Save to backend via dedicated availability endpoint
+      await teamAPI.updateAvailability(memberId, { workingHours, customAvailability: updatedCustomAvailability })
       
       // Refresh team member data
       await fetchTeamMemberDetails()

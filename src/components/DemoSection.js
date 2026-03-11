@@ -46,7 +46,7 @@ export default function DemoSection() {
     }
 
     return () => observer.disconnect()
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const startCardRotation = () => {
     const interval = setInterval(() => {
@@ -109,7 +109,6 @@ export default function DemoSection() {
           <div className="relative">
             <div className="relative w-full h-96 perspective-1000">
               {cards.map((card, index) => {
-                const isActive = index === currentCard
                 const offset = index - currentCard
 
                 return (

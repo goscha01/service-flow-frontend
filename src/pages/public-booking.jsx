@@ -54,6 +54,7 @@ const PublicBooking = () => {
   const [validatingCoupon, setValidatingCoupon] = useState(false)
   const [availableServices, setAvailableServices] = useState([])
   const [availableSlots, setAvailableSlots] = useState([])
+  const [loadingSlots, setLoadingSlots] = useState(false)
   const [intakeAnswers, setIntakeAnswers] = useState({})
   const [selectedServiceQuestions, setSelectedServiceQuestions] = useState([])
   const [serviceModifiers, setServiceModifiers] = useState({})
@@ -131,6 +132,71 @@ const PublicBooking = () => {
 
   const handleModifiersChange = (modifiers) => {
     setServiceModifiers(modifiers)
+  }
+
+  // Fetch available time slots when date changes
+  const fetchAvailableSlots = async (date) => {
+    if (!date || !settings?.userId) return
+
+    setLoadingSlots(true)
+    setAvailableSlots([])
+    setFormData(prev => ({ ...prev, time: "" }))
+
+    try {
+      // Calculate total duration including modifiers
+      const selectedService = availableServices.find(s => String(s.id) === String(formData.service))
+      let totalDuration = selectedService?.duration || 120
+
+      // Add modifier durations
+      if (serviceModifiers && selectedService?.modifiers) {
+        try {
+          const mods = typeof selectedService.modifiers === 'string'
+            ? JSON.parse(selectedService.modifiers)
+            : selectedService.modifiers
+          if (Array.isArray(mods)) {
+            mods.forEach(mod => {
+              const selection = serviceModifiers[mod.id]
+              if (!selection) return
+              if (mod.options && Array.isArray(mod.options)) {
+                mod.options.forEach(opt => {
+                  if (mod.selectionType === 'quantity' && selection[opt.id]) {
+                    totalDuration += (parseInt(opt.duration) || 0) * parseInt(selection[opt.id])
+                  } else if (mod.selectionType === 'multi' && selection[opt.id]) {
+                    totalDuration += parseInt(opt.duration) || 0
+                  } else if (mod.selectionType === 'single' && selection === opt.id) {
+                    totalDuration += parseInt(opt.duration) || 0
+                  }
+                })
+              }
+            })
+          }
+        } catch (e) {
+          // Ignore modifier parsing errors
+        }
+      }
+
+      const response = await publicApi.get('/public/availability', {
+        params: {
+          userId: settings.userId,
+          date,
+          serviceId: formData.service || undefined,
+          duration: totalDuration,
+          customerAddress: formData.address || undefined
+        }
+      })
+
+      // Use the new slots format if available, fall back to legacy
+      if (response.data.slots && Array.isArray(response.data.slots)) {
+        setAvailableSlots(response.data.slots)
+      } else if (response.data.availableSlots && Array.isArray(response.data.availableSlots)) {
+        setAvailableSlots(response.data.availableSlots.map(time => ({ time, endTime: null, availableWorkers: 1 })))
+      }
+    } catch (err) {
+      console.error('Error fetching available slots:', err)
+      setAvailableSlots([])
+    } finally {
+      setLoadingSlots(false)
+    }
   }
 
   const handleNextStep = () => {
@@ -546,35 +612,61 @@ const PublicBooking = () => {
               {currentStep === 5 && (
                 <div>
                   <h3 className="text-xl font-semibold mb-4">Select Date & Time</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
                       <input
                         type="date"
                         value={formData.date}
-                        onChange={(e) => handleInputChange('date', e.target.value)}
+                        min={new Date().toISOString().split('T')[0]}
+                        onChange={(e) => {
+                          handleInputChange('date', e.target.value)
+                          fetchAvailableSlots(e.target.value)
+                        }}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:outline-none"
                         style={{ '--tw-ring-color': settings?.branding?.primaryColor || '#4CAF50' }}
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Time</label>
-                      <select
-                        value={formData.time}
-                        onChange={(e) => handleInputChange('time', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:outline-none"
-                        style={{ '--tw-ring-color': settings?.branding?.primaryColor || '#4CAF50' }}
-                      >
-                        <option value="">Select time</option>
-                        <option value="09:00">9:00 AM</option>
-                        <option value="10:00">10:00 AM</option>
-                        <option value="11:00">11:00 AM</option>
-                        <option value="12:00">12:00 PM</option>
-                        <option value="13:00">1:00 PM</option>
-                        <option value="14:00">2:00 PM</option>
-                        <option value="15:00">3:00 PM</option>
-                        <option value="16:00">4:00 PM</option>
-                      </select>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Available Times</label>
+                      {!formData.date ? (
+                        <p className="text-gray-500 text-sm">Please select a date first</p>
+                      ) : loadingSlots ? (
+                        <div className="flex items-center space-x-2 text-gray-500">
+                          <div className="animate-spin h-4 w-4 border-2 border-gray-300 border-t-blue-600 rounded-full"></div>
+                          <span className="text-sm">Loading available times...</span>
+                        </div>
+                      ) : availableSlots.length === 0 ? (
+                        <p className="text-red-500 text-sm">No available times for this date. Please try another date.</p>
+                      ) : (
+                        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                          {availableSlots.map((slot) => {
+                            const time = typeof slot === 'string' ? slot : slot.time
+                            const hour = parseInt(time.split(':')[0])
+                            const minute = time.split(':')[1]
+                            const ampm = hour >= 12 ? 'PM' : 'AM'
+                            const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour
+                            const displayTime = `${displayHour}:${minute} ${ampm}`
+                            const isSelected = formData.time === time
+
+                            return (
+                              <button
+                                key={time}
+                                type="button"
+                                onClick={() => handleInputChange('time', time)}
+                                className={`px-3 py-2 text-sm rounded-lg border transition-colors ${
+                                  isSelected
+                                    ? 'text-white border-transparent'
+                                    : 'border-gray-300 text-gray-700 hover:border-gray-400 hover:bg-gray-50'
+                                }`}
+                                style={isSelected ? { backgroundColor: settings?.branding?.primaryColor || '#4CAF50' } : {}}
+                              >
+                                {displayTime}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="flex space-x-4 mt-6">
