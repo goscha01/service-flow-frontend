@@ -1,10 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(done)",
-      "Bash(git add:*)",
-      "Bash(git commit:*)",
-      "Bash(git push:*)"
+      "Bash(xargs grep -l \"demo\")",
+      "Bash(xargs grep -l \"phoneNumber\\\\|phone_number\")",
+      "Bash(xargs grep -l \"api.*intercept\\\\|intercept.*demo\")",
+      "Bash(xargs grep -l \"mock.*phone\\\\|demo.*data\\\\|fake.*phone\\\\|sample.*phone\")",
+      "Bash(xargs grep -l \"DemoPageWrapper\\\\|demoPageWrapper\")"
     ]
   }
 }
