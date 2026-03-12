@@ -9,6 +9,7 @@ const JobsMap = ({ jobs, teamMembers = [], mapType = 'roadmap' }) => {
   const geocodeCacheRef = useRef({}) // Cache geocoded addresses
   const [useEmbedAPI, setUseEmbedAPI] = useState(false) // Only use Embed API on actual script load failures
   const [mapReady, setMapReady] = useState(false) // Track when map is fully ready for markers
+  const [markersPlaced, setMarkersPlaced] = useState(false) // Track when markers are placed to avoid default view flash
   
   // Helper: get cleaner/team member names from a job
   const getCleanerNames = (job) => {
@@ -288,6 +289,7 @@ const JobsMap = ({ jobs, teamMembers = [], mapType = 'roadmap' }) => {
             : window.google.maps.MapTypeId.ROADMAP
         )
       }
+      setMarkersPlaced(true)
       return
     }
 
@@ -702,6 +704,7 @@ const JobsMap = ({ jobs, teamMembers = [], mapType = 'roadmap' }) => {
         mapInstanceRef.current.setZoom(14)
       }
     }
+    setMarkersPlaced(true)
   }
 
   const geocodeAndAddMarkers = async (jobsWithAddresses, map) => {
@@ -985,11 +988,17 @@ const JobsMap = ({ jobs, teamMembers = [], mapType = 'roadmap' }) => {
         .gm-style-iw + button,
         .gm-style-iw-tc { display: none !important; }
       `}</style>
-      {/* Map container - always mounted, never unmounted */}
-      <div 
-        ref={mapRef} 
-        className="w-full h-full" 
-        style={{ display: 'block' }}
+      {/* Loading indicator while map is initializing and placing markers */}
+      {!markersPlaced && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-50 z-10">
+          <div className="text-sm text-gray-500">Loading map...</div>
+        </div>
+      )}
+      {/* Map container - always mounted, hidden until markers are placed */}
+      <div
+        ref={mapRef}
+        className="w-full h-full"
+        style={{ display: 'block', opacity: markersPlaced ? 1 : 0 }}
       />
       
       {/* Embed API fallback - overlay iframe on top if needed */}
