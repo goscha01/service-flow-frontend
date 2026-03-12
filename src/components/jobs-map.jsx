@@ -588,6 +588,7 @@ const JobsMap = ({ jobs, teamMembers = [], mapType = 'roadmap' }) => {
         map: mapInstanceRef.current,
             title: customerName || decodeHtmlEntities(job.service_name || '') || `Job ${job.id}`,
             icon: getPinIcon(),
+            label: null,
             animation: window.google.maps.Animation.DROP
           })
 
@@ -771,6 +772,7 @@ const JobsMap = ({ jobs, teamMembers = [], mapType = 'roadmap' }) => {
         map: mapInstanceRef.current,
               title: customerName || decodeHtmlEntities(job.service_name || '') || `Job ${job.id}`,
               icon: getPinIcon(),
+              label: null,
               animation: window.google.maps.Animation.DROP
             })
 
