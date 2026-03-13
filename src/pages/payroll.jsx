@@ -74,6 +74,8 @@ const Payroll = () => {
   const [balancesLoading, setBalancesLoading] = useState(false)
   const [backfillLoading, setBackfillLoading] = useState(false)
   const [backfillResult, setBackfillResult] = useState(null)
+  const [backfillPreview, setBackfillPreview] = useState(null)
+  const [backfillProgress, setBackfillProgress] = useState(0)
 
   // ── Ledger entries tab state ──
   const [entries, setEntries] = useState([])
@@ -288,14 +290,40 @@ const Payroll = () => {
     } catch (err) { console.error('Error fetching batch detail:', err) }
   }
 
-  const handleBackfill = async () => {
-    if (!window.confirm('Create ledger entries for all existing completed jobs that don\'t have them yet?')) return
+  const handleBackfillPreview = async () => {
     setBackfillLoading(true)
+    setBackfillResult(null)
+    setBackfillProgress(0)
+    try {
+      const preview = await ledgerAPI.backfill({ dryRun: true })
+      setBackfillPreview(preview)
+    } catch (err) { alert(err.response?.data?.error || 'Failed to check backfill status') }
+    finally { setBackfillLoading(false) }
+  }
+
+  const handleBackfillRun = async () => {
+    setBackfillLoading(true)
+    setBackfillProgress(0)
+    setBackfillPreview(null)
+    const totalToProcess = backfillPreview?.would_process || 0
+    // Simulate progress during processing
+    const interval = setInterval(() => {
+      setBackfillProgress(prev => {
+        if (prev >= 90) { clearInterval(interval); return 90 }
+        return prev + Math.max(1, Math.round(90 / Math.max(totalToProcess, 10)))
+      })
+    }, 500)
     try {
       const result = await ledgerAPI.backfill({ dryRun: false })
-      setBackfillResult(result); fetchBalances()
-    } catch (err) { alert(err.response?.data?.error || 'Backfill failed') }
-    finally { setBackfillLoading(false) }
+      clearInterval(interval)
+      setBackfillProgress(100)
+      setBackfillResult(result)
+      fetchBalances()
+    } catch (err) {
+      clearInterval(interval)
+      setBackfillProgress(0)
+      alert(err.response?.data?.error || 'Backfill failed')
+    } finally { setBackfillLoading(false) }
   }
 
   const handleExport = () => {
@@ -841,23 +869,77 @@ const Payroll = () => {
                   <div className="text-2xl font-bold text-gray-900">{balances.length}</div>
                   <div className="text-xs text-gray-400 mt-1">With ledger activity</div>
                 </div>
-                <div className="bg-white rounded-xl p-5 border shadow-sm flex items-center justify-between">
-                  <div>
-                    <div className="text-sm text-gray-500 mb-1">Backfill</div>
-                    <div className="text-xs text-gray-400">Create ledger for past jobs</div>
+                <div className="bg-white rounded-xl p-5 border shadow-sm">
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <div className="text-sm text-gray-500 mb-1">Backfill</div>
+                      <div className="text-xs text-gray-400">Create ledger for past completed jobs</div>
+                    </div>
+                    {!backfillPreview && !backfillResult && (
+                      <button onClick={handleBackfillPreview} disabled={backfillLoading}
+                        className="px-3 py-2 text-xs bg-gray-800 text-white rounded-lg hover:bg-gray-900 disabled:opacity-50">
+                        {backfillLoading ? 'Checking...' : 'Check'}
+                      </button>
+                    )}
                   </div>
-                  <button onClick={handleBackfill} disabled={backfillLoading}
-                    className="px-3 py-2 text-xs bg-gray-800 text-white rounded-lg hover:bg-gray-900 disabled:opacity-50">
-                    {backfillLoading ? 'Processing...' : 'Run Backfill'}
-                  </button>
+
+                  {/* Preview result */}
+                  {backfillPreview && !backfillResult && (
+                    <div className="mt-3 pt-3 border-t">
+                      <div className="text-sm text-gray-700 mb-2">
+                        <span className="font-semibold">{backfillPreview.would_process}</span> jobs to process
+                        <span className="text-gray-400 ml-2">({backfillPreview.already_have_entries} already have entries)</span>
+                      </div>
+                      {backfillPreview.would_process > 0 ? (
+                        <div className="flex gap-2">
+                          <button onClick={handleBackfillRun} disabled={backfillLoading}
+                            className="px-3 py-2 text-xs bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50">
+                            {backfillLoading ? 'Processing...' : `Process ${backfillPreview.would_process} jobs`}
+                          </button>
+                          <button onClick={() => setBackfillPreview(null)}
+                            className="px-3 py-2 text-xs border rounded-lg hover:bg-gray-50">Cancel</button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <Check size={14} className="text-green-600" />
+                          <span className="text-sm text-green-700">All jobs already have ledger entries</span>
+                          <button onClick={() => setBackfillPreview(null)}
+                            className="ml-2 px-2 py-1 text-xs border rounded hover:bg-gray-50">Dismiss</button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Progress bar */}
+                  {backfillLoading && backfillProgress > 0 && (
+                    <div className="mt-3 pt-3 border-t">
+                      <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+                        <span>Processing jobs...</span>
+                        <span>{backfillProgress}%</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2.5">
+                        <div className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+                          style={{ width: `${backfillProgress}%` }}></div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Result */}
+                  {backfillResult && (
+                    <div className="mt-3 pt-3 border-t">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Check size={14} className="text-green-600" />
+                        <span className="text-sm font-medium text-green-700">Backfill complete</span>
+                      </div>
+                      <div className="text-xs text-gray-600">
+                        {backfillResult.processed} processed, {backfillResult.already_had_entries} already had entries{backfillResult.errors > 0 && `, ${backfillResult.errors} errors`}
+                      </div>
+                      <button onClick={() => { setBackfillResult(null); setBackfillProgress(0) }}
+                        className="mt-2 px-2 py-1 text-xs border rounded hover:bg-gray-50">Dismiss</button>
+                    </div>
+                  )}
                 </div>
               </div>
-
-              {backfillResult && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-sm">
-                  Backfill complete: {backfillResult.processed} jobs processed, {backfillResult.already_had_entries} already had entries, {backfillResult.errors || 0} errors
-                </div>
-              )}
 
               {/* Cleaner Balances Table */}
               <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
