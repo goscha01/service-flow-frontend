@@ -914,15 +914,15 @@ const LeadsPipeline = () => {
       </div>
       
       {/* Pipeline Board */}
-      <div className="w-full px-2 sm:px-3 lg:px-4 py-4 sm:py-6 pb-20 lg:pb-6 overflow-x-hidden flex-1">
-        <div className="flex space-x-1.5 sm:space-x-2 pb-4" style={{ minHeight: '400px' }}>
+      <div className="w-full px-2 sm:px-3 lg:px-4 py-4 sm:py-6 pb-20 lg:pb-6 overflow-x-auto flex-1">
+        <div className="flex gap-1.5 sm:gap-2 pb-4" style={{ minHeight: '400px', minWidth: pipeline.stages && pipeline.stages.length > 4 ? `${pipeline.stages.length * 170}px` : 'auto' }}>
           {pipeline.stages && pipeline.stages.map((stage) => {
             const stageLeads = getLeadsForStage(stage.id);
-            
+
             return (
               <div
                 key={stage.id}
-                className="flex-shrink-0 w-[160px] sm:w-[170px] lg:w-[180px] bg-gray-100 rounded-lg p-2"
+                className="flex-1 min-w-[150px] bg-gray-100 rounded-lg p-2"
                 onDragOver={handleDragOver}
                 onDrop={() => handleDrop(stage.id)}
               >

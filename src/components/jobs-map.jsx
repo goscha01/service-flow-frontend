@@ -987,6 +987,15 @@ const JobsMap = ({ jobs, teamMembers = [], mapType = 'roadmap' }) => {
       <style>{`
         .gm-style-iw + button,
         .gm-style-iw-tc { display: none !important; }
+        .gm-style-iw.gm-style-iw-c {
+          padding: 0 !important;
+          border-radius: 8px !important;
+          box-shadow: 0 2px 7px 1px rgba(0,0,0,0.3) !important;
+        }
+        .gm-style-iw-d {
+          overflow: hidden !important;
+          max-height: none !important;
+        }
       `}</style>
       {/* Loading indicator while map is initializing and placing markers */}
       {!markersPlaced && (
