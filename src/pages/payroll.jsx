@@ -382,6 +382,30 @@ const Payroll = () => {
     } finally { setBackfillLoading(false) }
   }
 
+  const handleBackfillReset = async () => {
+    if (!window.confirm('This will delete all existing ledger entries (except payouts) and re-create them with correct manager salary calculations. Continue?')) return
+    setBackfillLoading(true)
+    setBackfillProgress(0)
+    setBackfillPreview(null)
+    const interval = setInterval(() => {
+      setBackfillProgress(prev => {
+        if (prev >= 90) { clearInterval(interval); return 90 }
+        return prev + 1
+      })
+    }, 800)
+    try {
+      const result = await ledgerAPI.backfill({ dryRun: false, resetExisting: true })
+      clearInterval(interval)
+      setBackfillProgress(100)
+      setBackfillResult(result)
+      fetchBalances()
+    } catch (err) {
+      clearInterval(interval)
+      setBackfillProgress(0)
+      alert(err.response?.data?.error || 'Backfill reset failed')
+    } finally { setBackfillLoading(false) }
+  }
+
   const handleExport = () => {
     if (!payrollData) return
     let csv = 'Team Member,Role,Job Count,Hours Worked,Sched Hours,Hourly Rate,Commission %,Commission Revenue Base,Hourly Salary,Sched Salary,Commission,Tips,Incentives,Total Salary,Payment Method\n'
@@ -963,20 +987,31 @@ const Payroll = () => {
                       <div className="text-sm text-gray-700 mb-2">
                         <span className="font-semibold">{backfillPreview.would_process}</span> jobs to process
                         <span className="text-gray-400 ml-2">({backfillPreview.already_have_entries} already have entries)</span>
+                        {backfillPreview.managers_with_salary > 0 && (
+                          <span className="text-purple-600 ml-2">+ {backfillPreview.managers_with_salary} manager(s) daily salary</span>
+                        )}
                       </div>
-                      {backfillPreview.would_process > 0 ? (
-                        <div className="flex gap-2">
+                      {backfillPreview.would_process > 0 || backfillPreview.managers_with_salary > 0 ? (
+                        <div className="flex gap-2 flex-wrap">
                           <button onClick={handleBackfillRun} disabled={backfillLoading}
                             className="px-3 py-2 text-xs bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50">
                             {backfillLoading ? 'Processing...' : `Process ${backfillPreview.would_process} jobs`}
+                          </button>
+                          <button onClick={() => { setBackfillPreview(null); handleBackfillReset() }} disabled={backfillLoading}
+                            className="px-3 py-2 text-xs bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50">
+                            {backfillLoading ? 'Processing...' : 'Reset & Re-backfill All'}
                           </button>
                           <button onClick={() => setBackfillPreview(null)}
                             className="px-3 py-2 text-xs border rounded-lg hover:bg-gray-50">Cancel</button>
                         </div>
                       ) : (
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <Check size={14} className="text-green-600" />
                           <span className="text-sm text-green-700">All jobs already have ledger entries</span>
+                          <button onClick={() => { setBackfillPreview(null); handleBackfillReset() }} disabled={backfillLoading}
+                            className="px-3 py-2 text-xs bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50">
+                            Reset & Re-backfill All
+                          </button>
                           <button onClick={() => setBackfillPreview(null)}
                             className="ml-2 px-2 py-1 text-xs border rounded hover:bg-gray-50">Dismiss</button>
                         </div>
@@ -1006,7 +1041,8 @@ const Payroll = () => {
                         <span className="text-sm font-medium text-green-700">Backfill complete</span>
                       </div>
                       <div className="text-xs text-gray-600">
-                        {backfillResult.processed} processed, {backfillResult.already_had_entries} already had entries{backfillResult.errors > 0 && `, ${backfillResult.errors} errors`}
+                        {backfillResult.processed} jobs processed, {backfillResult.already_had_entries || 0} already had entries{backfillResult.errors > 0 && `, ${backfillResult.errors} errors`}
+                        {backfillResult.manager_salary_entries > 0 && `, ${backfillResult.manager_salary_entries} manager salary entries created`}
                       </div>
                       <button onClick={() => { setBackfillResult(null); setBackfillProgress(0) }}
                         className="mt-2 px-2 py-1 text-xs border rounded hover:bg-gray-50">Dismiss</button>
