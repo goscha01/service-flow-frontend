@@ -2544,8 +2544,8 @@ export const leadsAPI = {
 // Cleaner Ledger API
 export const ledgerAPI = {
   // Get all cleaners' balance summary
-  getBalances: async () => {
-    const response = await api.get('/ledger/balances');
+  getBalances: async (params = {}) => {
+    const response = await api.get('/ledger/balances', { params });
     return response.data;
   },
 
