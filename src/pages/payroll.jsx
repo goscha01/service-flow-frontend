@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom"
 import {
   ChevronLeft, Calendar, DollarSign, Clock, Users, Download, Filter,
   AlertCircle, ChevronDown, ChevronRight, Plus, Minus, CreditCard,
-  Check, X, ArrowUpDown, BookOpen, Banknote
+  Check, X, ArrowUpDown, BookOpen, Banknote, ClipboardCopy
 } from "lucide-react"
 import { payrollAPI, ledgerAPI, teamAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
@@ -130,6 +130,49 @@ const Payroll = () => {
   const [cashAmount, setCashAmount] = useState('')
   const [cashJobId, setCashJobId] = useState('')
   const [cashNote, setCashNote] = useState('')
+
+  const [copiedPayroll, setCopiedPayroll] = useState(false)
+  const [copiedBalances, setCopiedBalances] = useState(false)
+
+  const copyPayrollTable = () => {
+    if (!payrollData?.teamMembers) return
+    const header = ['Name', 'Role', 'Pay Method', 'Jobs', 'Hours', 'Sched Hours', 'Hourly Salary', 'Commission', 'Tips', 'Incentives', 'Total Salary'].join('\t')
+    const rows = (payrollData.teamMembers || []).map(m => [
+      m.teamMember.name,
+      m.teamMember.role || '',
+      [m.teamMember.commissionPercentage ? `${m.teamMember.commissionPercentage}%` : '', m.teamMember.hourlyRate ? `$${m.teamMember.hourlyRate}/hr` : ''].filter(Boolean).join(' + ') || 'Not set',
+      m.jobCount,
+      m.totalHours.toFixed(1),
+      (m.scheduledHours || 0).toFixed(1),
+      (m.hourlySalary || 0).toFixed(2),
+      (m.commissionSalary || 0).toFixed(2),
+      (m.totalTips || 0).toFixed(2),
+      (m.totalIncentives || 0).toFixed(2),
+      (m.totalSalary || 0).toFixed(2)
+    ].join('\t'))
+    navigator.clipboard.writeText([header, ...rows].join('\n'))
+    setCopiedPayroll(true)
+    setTimeout(() => setCopiedPayroll(false), 2000)
+  }
+
+  const copyBalancesTable = () => {
+    if (!balances.length) return
+    const header = ['Name', 'Role', 'Jobs', 'Balance', 'Earnings', 'Tips', 'Cash Offset', 'Adjustments', 'Schedule'].join('\t')
+    const rows = balances.map(b => [
+      b.name || `ID ${b.team_member_id}`,
+      b.role || '',
+      b.job_count || 0,
+      (b.current_balance || 0).toFixed(2),
+      (b.unpaid_earnings || 0).toFixed(2),
+      (b.unpaid_tips || 0).toFixed(2),
+      (b.unpaid_cash_offsets || 0).toFixed(2),
+      (b.unpaid_adjustments || 0).toFixed(2),
+      b.payout_schedule || 'manual'
+    ].join('\t'))
+    navigator.clipboard.writeText([header, ...rows].join('\n'))
+    setCopiedBalances(true)
+    setTimeout(() => setCopiedBalances(false), 2000)
+  }
 
   // ── Data fetchers ──
 
@@ -602,6 +645,15 @@ const Payroll = () => {
                 </div>
 
                 {/* Team Members Table */}
+                {filteredMembers.length > 0 && (
+                  <div className="flex justify-end mb-2">
+                    <button onClick={copyPayrollTable}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 bg-white border rounded-lg hover:bg-gray-50">
+                      <ClipboardCopy size={13} />
+                      {copiedPayroll ? 'Copied!' : 'Copy Table'}
+                    </button>
+                  </div>
+                )}
                 {filteredMembers.length === 0 ? (
                   <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
                     <Users className="w-12 h-12 text-gray-300 mx-auto mb-4" />
@@ -995,8 +1047,15 @@ const Payroll = () => {
 
               {/* Cleaner Balances Table */}
               <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
-                <div className="px-5 py-4 border-b">
+                <div className="px-5 py-4 border-b flex items-center justify-between">
                   <h2 className="text-lg font-semibold text-gray-900">Cleaner Balances</h2>
+                  {balances.length > 0 && (
+                    <button onClick={copyBalancesTable}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-50 border rounded-lg hover:bg-gray-100">
+                      <ClipboardCopy size={13} />
+                      {copiedBalances ? 'Copied!' : 'Copy Table'}
+                    </button>
+                  )}
                 </div>
                 {balancesLoading ? (
                   <div className="p-8 text-center text-gray-400">Loading...</div>
