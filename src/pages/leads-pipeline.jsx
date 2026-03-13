@@ -20,7 +20,8 @@ import {
   MapPin,
   Home,
   Loader2,
-  Briefcase
+  Briefcase,
+  ChevronDown
 } from 'lucide-react';
 import { leadsAPI, teamAPI, servicesAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -47,7 +48,8 @@ const LeadsPipeline = () => {
   const [editingTask, setEditingTask] = useState(null);
   const [taskFilter, setTaskFilter] = useState('all'); // 'all', 'pending', 'completed', 'overdue'
   const [showConvertLeadModal, setShowConvertLeadModal] = useState(false);
-  
+  const [expandedStages, setExpandedStages] = useState({}); // For mobile accordion view
+
   // Modal states
   const [showCreateLeadModal, setShowCreateLeadModal] = useState(false);
   const [showEditLeadModal, setShowEditLeadModal] = useState(false);
@@ -913,21 +915,22 @@ const LeadsPipeline = () => {
         </div>
       </div>
       
-      {/* Pipeline Board */}
-      <div className="w-full px-2 sm:px-3 lg:px-4 py-4 sm:py-6 pb-20 lg:pb-6 overflow-x-auto flex-1">
-        <div className="flex gap-1.5 sm:gap-2 pb-4" style={{ minHeight: '400px', minWidth: pipeline.stages && pipeline.stages.length > 4 ? `${pipeline.stages.length * 170}px` : 'auto' }}>
+      {/* Pipeline Board - Desktop: horizontal flex, Tablet: horizontal scroll, Mobile: vertical accordion */}
+      {/* Desktop & Tablet: horizontal layout */}
+      <div className="hidden sm:block w-full px-2 sm:px-3 lg:px-4 py-4 sm:py-6 pb-20 lg:pb-6 overflow-x-auto flex-1">
+        <div className="flex gap-2 pb-4" style={{ minHeight: '400px', minWidth: pipeline.stages && pipeline.stages.length > 0 ? `${pipeline.stages.length * 200}px` : 'auto' }}>
           {pipeline.stages && pipeline.stages.map((stage) => {
             const stageLeads = getLeadsForStage(stage.id);
 
             return (
               <div
                 key={stage.id}
-                className="flex-1 min-w-[150px] bg-gray-100 rounded-lg p-2"
+                className="flex-1 min-w-[180px] bg-gray-100 rounded-lg p-2"
                 onDragOver={handleDragOver}
                 onDrop={() => handleDrop(stage.id)}
               >
                 {/* Stage Header */}
-                <div 
+                <div
                   className="flex items-center justify-between mb-2 p-2 rounded-lg text-white font-semibold text-sm"
                   style={{ backgroundColor: stage.color }}
                 >
@@ -945,7 +948,7 @@ const LeadsPipeline = () => {
                     <X className="w-3 h-3" />
                   </button>
                 </div>
-                
+
                 {/* Leads in Stage */}
                 <div className="space-y-2">
                   {stageLeads.map((lead) => (
@@ -973,7 +976,7 @@ const LeadsPipeline = () => {
                         </div>
                         <GripVertical className="w-3 h-3 text-gray-400 flex-shrink-0 ml-1" />
                       </div>
-                      
+
                       <div className="space-y-0.5 text-xs text-gray-600">
                         {lead.email && (
                           <div className="flex items-center truncate">
@@ -994,7 +997,7 @@ const LeadsPipeline = () => {
                           </div>
                         )}
                       </div>
-                      
+
                       {lead.source && (
                         <div className="mt-1.5">
                           <span className="text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded truncate inline-block max-w-full">
@@ -1004,7 +1007,7 @@ const LeadsPipeline = () => {
                       )}
                     </div>
                   ))}
-                  
+
                   {stageLeads.length === 0 && (
                     <div className="text-center py-8 text-gray-400 text-sm">
                       No leads in this stage
@@ -1015,6 +1018,115 @@ const LeadsPipeline = () => {
             );
           })}
         </div>
+      </div>
+
+      {/* Mobile: vertical accordion layout */}
+      <div className="sm:hidden w-full px-2 py-3 pb-20 flex-1 space-y-2">
+        {pipeline.stages && pipeline.stages.map((stage) => {
+          const stageLeads = getLeadsForStage(stage.id);
+          const isExpanded = expandedStages[stage.id];
+
+          return (
+            <div
+              key={stage.id}
+              className="bg-gray-100 rounded-lg overflow-hidden"
+              onDragOver={handleDragOver}
+              onDrop={() => handleDrop(stage.id)}
+            >
+              {/* Stage Header - tap to expand/collapse */}
+              <button
+                onClick={() => setExpandedStages(prev => ({ ...prev, [stage.id]: !prev[stage.id] }))}
+                className="w-full flex items-center justify-between p-3 text-white font-semibold text-sm"
+                style={{ backgroundColor: stage.color }}
+              >
+                <div className="flex items-center space-x-2 min-w-0 flex-1">
+                  <span className="truncate">{stage.name}</span>
+                  <span className="bg-white bg-opacity-30 px-2 py-0.5 rounded text-xs flex-shrink-0 font-semibold">
+                    {stageLeads.length}
+                  </span>
+                </div>
+                <div className="flex items-center space-x-2 flex-shrink-0">
+                  <span
+                    onClick={(e) => { e.stopPropagation(); handleDeleteStage(stage.id); }}
+                    className="text-white hover:text-gray-200"
+                    title="Delete stage"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </span>
+                  <ChevronDown className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                </div>
+              </button>
+
+              {/* Leads - shown when expanded */}
+              {isExpanded && (
+                <div className="p-2 space-y-2">
+                  {stageLeads.map((lead) => (
+                    <div
+                      key={lead.id}
+                      draggable
+                      onDragStart={() => handleDragStart(lead, stage)}
+                      onClick={() => {
+                        setSelectedLead(lead);
+                        setShowLeadDetailsModal(true);
+                      }}
+                      className="bg-white rounded-lg p-3 shadow-sm hover:shadow-md cursor-pointer transition-shadow"
+                    >
+                      <div className="flex items-start justify-between mb-1">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-sm text-gray-900 truncate">
+                            {lead.first_name} {lead.last_name}
+                          </h3>
+                          {lead.company && (
+                            <p className="text-xs text-gray-600 flex items-center mt-0.5 truncate">
+                              <Building className="w-3 h-3 mr-1 flex-shrink-0" />
+                              <span className="truncate">{lead.company}</span>
+                            </p>
+                          )}
+                        </div>
+                        <GripVertical className="w-3 h-3 text-gray-400 flex-shrink-0 ml-1" />
+                      </div>
+
+                      <div className="space-y-0.5 text-xs text-gray-600">
+                        {lead.email && (
+                          <div className="flex items-center truncate">
+                            <Mail className="w-3 h-3 mr-1 flex-shrink-0" />
+                            <span className="truncate">{lead.email}</span>
+                          </div>
+                        )}
+                        {lead.phone && (
+                          <div className="flex items-center truncate">
+                            <Phone className="w-3 h-3 mr-1 flex-shrink-0" />
+                            <span className="truncate">{formatPhoneNumber(lead.phone)}</span>
+                          </div>
+                        )}
+                        {lead.value && (
+                          <div className="flex items-center font-semibold text-green-600">
+                            <DollarSign className="w-3 h-3 mr-1 flex-shrink-0" />
+                            ${parseFloat(lead.value).toFixed(2)}
+                          </div>
+                        )}
+                      </div>
+
+                      {lead.source && (
+                        <div className="mt-1.5">
+                          <span className="text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded truncate inline-block max-w-full">
+                            {lead.source}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+
+                  {stageLeads.length === 0 && (
+                    <div className="text-center py-6 text-gray-400 text-sm">
+                      No leads in this stage
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
       
       {/* Create Lead Modal */}
