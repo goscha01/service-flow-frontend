@@ -23,6 +23,7 @@ import {
   X,
   Target,
   Receipt,
+  BookOpen,
 } from "lucide-react"
 
 const Sidebar = ({ isOpen, onClose, forceCollapsed = false }) => {
@@ -45,6 +46,7 @@ const Sidebar = ({ isOpen, onClose, forceCollapsed = false }) => {
     { icon: CreditCard, label: "Payments", path: "/payments", hidden: true },
     { icon: UserCheck, label: "Team", path: "/team" },
     { icon: Receipt, label: "Payroll", path: "/payroll" },
+    { icon: BookOpen, label: "Ledger", path: "/ledger" },
     { icon: Tag, label: "Coupons", path: "/coupons", hidden: true },
     { icon: BarChart3, label: "Analytics", path: "/analytics", hidden: true },
     { icon: Globe, label: "Online Booking", path: "/online-booking", hidden: true },

@@ -2541,4 +2541,93 @@ export const leadsAPI = {
   }
 };
 
-export default api; 
+// Cleaner Ledger API
+export const ledgerAPI = {
+  // Get all cleaners' balance summary
+  getBalances: async () => {
+    const response = await api.get('/ledger/balances');
+    return response.data;
+  },
+
+  // Get single cleaner balance
+  getBalance: async (teamMemberId) => {
+    const response = await api.get(`/ledger/balance/${teamMemberId}`);
+    return response.data;
+  },
+
+  // Get ledger entries with filters
+  getEntries: async (params = {}) => {
+    const query = new URLSearchParams();
+    if (params.teamMemberId) query.append('teamMemberId', params.teamMemberId);
+    if (params.startDate) query.append('startDate', params.startDate);
+    if (params.endDate) query.append('endDate', params.endDate);
+    if (params.type) query.append('type', params.type);
+    if (params.payoutStatus) query.append('payoutStatus', params.payoutStatus);
+    if (params.jobId) query.append('jobId', params.jobId);
+    if (params.page) query.append('page', params.page);
+    if (params.limit) query.append('limit', params.limit);
+    const response = await api.get(`/ledger/entries?${query}`);
+    return response.data;
+  },
+
+  // Create manual adjustment
+  createAdjustment: async (data) => {
+    const response = await api.post('/ledger/adjustment', data);
+    return response.data;
+  },
+
+  // Record cash collected
+  recordCashCollected: async (data) => {
+    const response = await api.post('/ledger/cash-collected', data);
+    return response.data;
+  },
+
+  // Create payout batch
+  createPayoutBatch: async (data) => {
+    const response = await api.post('/ledger/payout-batch', data);
+    return response.data;
+  },
+
+  // Mark payout batch as paid
+  markBatchPaid: async (batchId, note) => {
+    const response = await api.patch(`/ledger/payout-batch/${batchId}/pay`, { note });
+    return response.data;
+  },
+
+  // Cancel payout batch
+  cancelBatch: async (batchId) => {
+    const response = await api.patch(`/ledger/payout-batch/${batchId}/cancel`);
+    return response.data;
+  },
+
+  // Get payout batches list
+  getPayoutBatches: async (params = {}) => {
+    const query = new URLSearchParams();
+    if (params.teamMemberId) query.append('teamMemberId', params.teamMemberId);
+    if (params.status) query.append('status', params.status);
+    if (params.page) query.append('page', params.page);
+    if (params.limit) query.append('limit', params.limit);
+    const response = await api.get(`/ledger/payout-batches?${query}`);
+    return response.data;
+  },
+
+  // Get payout batch detail
+  getPayoutBatch: async (batchId) => {
+    const response = await api.get(`/ledger/payout-batch/${batchId}`);
+    return response.data;
+  },
+
+  // Backfill ledger for existing completed jobs
+  backfill: async (data) => {
+    const response = await api.post('/ledger/backfill', data, { timeout: 120000 });
+    return response.data;
+  },
+
+  // Update payout preferences
+  updatePayoutPreferences: async (teamMemberId, data) => {
+    const response = await api.patch(`/team-members/${teamMemberId}/payout-preferences`, data);
+    return response.data;
+  }
+};
+
+export default api;
