@@ -1040,6 +1040,18 @@ const Payroll = () => {
                           </tr>
                         ))}
                       </tbody>
+                      <tfoot className="bg-gray-100 font-semibold text-sm">
+                        <tr>
+                          <td className="px-4 py-3 text-left">Totals</td>
+                          <td className="px-4 py-3 text-center">{balances.reduce((s, b) => s + (b.job_count || 0), 0)}</td>
+                          <td className="px-4 py-3 text-right">{formatCurrency(balances.reduce((s, b) => s + (b.current_balance || 0), 0))}</td>
+                          <td className="px-4 py-3 text-right hidden sm:table-cell">{formatCurrency(balances.reduce((s, b) => s + (b.unpaid_earnings || 0), 0))}</td>
+                          <td className="px-4 py-3 text-right hidden sm:table-cell">{formatCurrency(balances.reduce((s, b) => s + (b.unpaid_tips || 0), 0))}</td>
+                          <td className="px-4 py-3 text-right hidden md:table-cell">{formatCurrency(balances.reduce((s, b) => s + (b.unpaid_cash_offsets || 0), 0))}</td>
+                          <td className="px-4 py-3 text-right hidden md:table-cell">{formatCurrency(balances.reduce((s, b) => s + (b.unpaid_adjustments || 0), 0))}</td>
+                          <td className="px-4 py-3"></td>
+                        </tr>
+                      </tfoot>
                     </table>
                   </div>
                 )}
