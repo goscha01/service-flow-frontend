@@ -36,7 +36,6 @@ import TeamMemberDetails from "./pages/team-member-details"
 import TeamAvailabilityCalendar from "./pages/team-availability-calendar"
 import UnifiedCalendar from "./pages/unified-calendar"
 import Payroll from "./pages/payroll"
-import CleanerLedger from "./pages/cleaner-ledger"
 import StaffLocationsMap from "./pages/staff-locations-map"
 import AddTeamMember from "./pages/add-team-member"
 import ServiceDetails from "./pages/service-details"
@@ -147,7 +146,6 @@ root.render(
       <Route path="/team-availability" element={<ProtectedRoute><TeamAvailabilityCalendar /></ProtectedRoute>} />
       <Route path="/calendar" element={<ProtectedRoute><UnifiedCalendar /></ProtectedRoute>} />
       <Route path="/payroll" element={<ProtectedRoute><Payroll /></ProtectedRoute>} />
-      <Route path="/ledger" element={<ProtectedRoute><CleanerLedger /></ProtectedRoute>} />
       <Route path="/staff-locations" element={<ProtectedRoute><StaffLocationsMap /></ProtectedRoute>} />
       <Route path="/services" element={<ServiceFlowServices />} />
       <Route path="/services/:serviceId" element={<ServiceDetails />} />
