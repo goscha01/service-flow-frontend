@@ -62,6 +62,7 @@ const Payroll = () => {
   const [refreshing, setRefreshing] = useState(false)
   const [payrollData, setPayrollData] = useState(null)
   const [error, setError] = useState("")
+  const [payrollAllTime, setPayrollAllTime] = useState(false)
   const [startDate, setStartDate] = useState(() => {
     const date = new Date(); date.setDate(1); return toLocalDateString(date)
   })
@@ -72,6 +73,11 @@ const Payroll = () => {
   // ── Balances tab state ──
   const [balances, setBalances] = useState([])
   const [balancesLoading, setBalancesLoading] = useState(false)
+  const [balancesAllTime, setBalancesAllTime] = useState(true)
+  const [balancesStartDate, setBalancesStartDate] = useState(() => {
+    const d = new Date(); d.setDate(1); return toLocalDateString(d)
+  })
+  const [balancesEndDate, setBalancesEndDate] = useState(() => toLocalDateString(new Date()))
   const [backfillLoading, setBackfillLoading] = useState(false)
   const [backfillResult, setBackfillResult] = useState(null)
   const [backfillPreview, setBackfillPreview] = useState(null)
@@ -133,7 +139,9 @@ const Payroll = () => {
       if (!payrollData) setLoading(true)
       else setRefreshing(true)
       setError("")
-      const data = await payrollAPI.getPayroll(startDate, endDate)
+      const data = payrollAllTime
+        ? await payrollAPI.getPayroll('', '')
+        : await payrollAPI.getPayroll(startDate, endDate)
       setPayrollData(data)
     } catch (err) {
       console.error('Error fetching payroll data:', err)
@@ -157,14 +165,19 @@ const Payroll = () => {
   const fetchBalances = useCallback(async () => {
     try {
       setBalancesLoading(true)
-      const data = await ledgerAPI.getBalances()
+      const params = {}
+      if (!balancesAllTime) {
+        if (balancesStartDate) params.startDate = balancesStartDate
+        if (balancesEndDate) params.endDate = balancesEndDate
+      }
+      const data = await ledgerAPI.getBalances(params)
       setBalances(data || [])
     } catch (err) {
       console.error('Error fetching balances:', err)
     } finally {
       setBalancesLoading(false)
     }
-  }, [])
+  }, [balancesAllTime, balancesStartDate, balancesEndDate])
 
   const fetchEntries = useCallback(async () => {
     try {
@@ -486,16 +499,25 @@ const Payroll = () => {
                     <span className="text-sm font-medium text-gray-700">Filters:</span>
                   </div>
                   <div className="flex flex-wrap items-center gap-3">
-                    <div className="flex items-center space-x-2">
-                      <label className="text-sm text-gray-600">From:</label>
-                      <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
-                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <label className="text-sm text-gray-600">To:</label>
-                      <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
-                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                    </div>
+                    <label className="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer">
+                      <input type="checkbox" checked={payrollAllTime} onChange={(e) => setPayrollAllTime(e.target.checked)}
+                        className="rounded border-gray-300" />
+                      All Time
+                    </label>
+                    {!payrollAllTime && (
+                      <>
+                        <div className="flex items-center space-x-2">
+                          <label className="text-sm text-gray-600">From:</label>
+                          <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
+                            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <label className="text-sm text-gray-600">To:</label>
+                          <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
+                            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        </div>
+                      </>
+                    )}
                     <div className="flex items-center space-x-2">
                       <label className="text-sm text-gray-600">Member:</label>
                       <select value={selectedMemberId} onChange={(e) => setSelectedMemberId(e.target.value)}
@@ -941,6 +963,36 @@ const Payroll = () => {
                 </div>
               </div>
 
+              {/* Date Filter */}
+              <div className="bg-white rounded-xl border shadow-sm p-4 mb-4">
+                <div className="flex flex-wrap gap-3 items-center">
+                  <Filter size={14} className="text-gray-400" />
+                  <label className="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer">
+                    <input type="checkbox" checked={balancesAllTime} onChange={(e) => setBalancesAllTime(e.target.checked)}
+                      className="rounded border-gray-300" />
+                    All Time
+                  </label>
+                  {!balancesAllTime && (
+                    <>
+                      <div className="flex items-center space-x-2">
+                        <label className="text-sm text-gray-600">From:</label>
+                        <input type="date" value={balancesStartDate} onChange={(e) => setBalancesStartDate(e.target.value)}
+                          className="border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <label className="text-sm text-gray-600">To:</label>
+                        <input type="date" value={balancesEndDate} onChange={(e) => setBalancesEndDate(e.target.value)}
+                          className="border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                      </div>
+                    </>
+                  )}
+                  <button onClick={fetchBalances} disabled={balancesLoading}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+                    Apply
+                  </button>
+                </div>
+              </div>
+
               {/* Cleaner Balances Table */}
               <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
                 <div className="px-5 py-4 border-b">
@@ -959,6 +1011,7 @@ const Payroll = () => {
                       <thead className="bg-gray-50 text-gray-600 text-xs uppercase">
                         <tr>
                           <th className="px-4 py-3 text-left">Cleaner</th>
+                          <th className="px-4 py-3 text-center">Jobs</th>
                           <th className="px-4 py-3 text-right">Balance</th>
                           <th className="px-4 py-3 text-right hidden sm:table-cell">Earnings</th>
                           <th className="px-4 py-3 text-right hidden sm:table-cell">Tips</th>
@@ -971,6 +1024,7 @@ const Payroll = () => {
                         {balances.map(b => (
                           <tr key={b.team_member_id} className="hover:bg-gray-50">
                             <td className="px-4 py-3 font-medium text-gray-900">{b.name || `ID ${b.team_member_id}`}</td>
+                            <td className="px-4 py-3 text-center text-gray-600">{b.job_count || 0}</td>
                             <td className={`px-4 py-3 text-right font-semibold ${b.current_balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                               {formatCurrency(b.current_balance)}
                             </td>
