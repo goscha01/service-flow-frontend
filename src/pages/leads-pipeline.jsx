@@ -918,14 +918,15 @@ const LeadsPipeline = () => {
       {/* Pipeline Board - Desktop: horizontal flex, Tablet: horizontal scroll, Mobile: vertical accordion */}
       {/* Desktop & Tablet: horizontal layout */}
       <div className="hidden sm:block w-full px-2 sm:px-3 lg:px-4 py-4 sm:py-6 pb-20 lg:pb-6 overflow-x-auto flex-1">
-        <div className="flex gap-2 pb-4" style={{ minHeight: '400px', minWidth: pipeline.stages && pipeline.stages.length > 0 ? `${pipeline.stages.length * 200}px` : 'auto' }}>
+        <div className="flex gap-2 pb-4" style={{ minHeight: '400px' }}>
           {pipeline.stages && pipeline.stages.map((stage) => {
             const stageLeads = getLeadsForStage(stage.id);
 
             return (
               <div
                 key={stage.id}
-                className="flex-1 min-w-[180px] bg-gray-100 rounded-lg p-2"
+                className="flex-shrink-0 bg-gray-100 rounded-lg p-2"
+                style={{ width: `max(180px, calc((100% - ${(pipeline.stages.length - 1) * 8}px) / ${pipeline.stages.length}))` }}
                 onDragOver={handleDragOver}
                 onDrop={() => handleDrop(stage.id)}
               >
