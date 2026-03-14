@@ -1042,7 +1042,13 @@ const Payroll = () => {
                           {backfillPhase === 'manager_salary' ? 'Creating manager salary entries...' :
                            backfillTotal > 0 ? `Processing jobs: ${backfillProcessed} / ${backfillTotal}` : 'Starting...'}
                         </span>
-                        <span>{backfillProgress}%</span>
+                        <div className="flex items-center gap-2">
+                          <span>{backfillProgress}%</span>
+                          <button onClick={async () => { try { await ledgerAPI.cancelBackfill() } catch {} }}
+                            className="px-2 py-0.5 text-xs text-red-600 border border-red-300 rounded hover:bg-red-50">
+                            Cancel
+                          </button>
+                        </div>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2.5">
                         <div className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
