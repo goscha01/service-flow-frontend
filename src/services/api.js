@@ -2629,6 +2629,12 @@ export const ledgerAPI = {
     return response.data;
   },
 
+  // Cancel running backfill
+  cancelBackfill: async () => {
+    const response = await api.post('/ledger/backfill/cancel');
+    return response.data;
+  },
+
   // Update payout preferences
   updatePayoutPreferences: async (teamMemberId, data) => {
     const response = await api.patch(`/team-members/${teamMemberId}/payout-preferences`, data);
