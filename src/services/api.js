@@ -2619,7 +2619,13 @@ export const ledgerAPI = {
 
   // Backfill ledger for existing completed jobs
   backfill: async (data) => {
-    const response = await api.post('/ledger/backfill', data, { timeout: 120000 });
+    const response = await api.post('/ledger/backfill', data, { timeout: 600000 });
+    return response.data;
+  },
+
+  // Poll backfill progress
+  getBackfillProgress: async () => {
+    const response = await api.get('/ledger/backfill/progress');
     return response.data;
   },
 

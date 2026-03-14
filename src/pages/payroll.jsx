@@ -82,6 +82,9 @@ const Payroll = () => {
   const [backfillResult, setBackfillResult] = useState(null)
   const [backfillPreview, setBackfillPreview] = useState(null)
   const [backfillProgress, setBackfillProgress] = useState(0)
+  const [backfillProcessed, setBackfillProcessed] = useState(0)
+  const [backfillTotal, setBackfillTotal] = useState(0)
+  const [backfillPhase, setBackfillPhase] = useState('')
 
   // ── Ledger entries tab state ──
   const [entries, setEntries] = useState([])
@@ -357,18 +360,32 @@ const Payroll = () => {
     finally { setBackfillLoading(false) }
   }
 
+  const startBackfillPolling = () => {
+    const interval = setInterval(async () => {
+      try {
+        const progress = await ledgerAPI.getBackfillProgress()
+        if (progress.status === 'processing') {
+          setBackfillProcessed(progress.processed || 0)
+          setBackfillTotal(progress.total || 0)
+          setBackfillPhase(progress.phase || 'jobs')
+          const pct = progress.total > 0 ? Math.round((progress.processed / progress.total) * 100) : 0
+          setBackfillProgress(progress.phase === 'manager_salary' ? Math.max(pct, 95) : pct)
+        } else if (progress.status === 'complete' || progress.status === 'error') {
+          clearInterval(interval)
+        }
+      } catch { /* ignore polling errors */ }
+    }, 1500)
+    return interval
+  }
+
   const handleBackfillRun = async () => {
     setBackfillLoading(true)
     setBackfillProgress(0)
+    setBackfillProcessed(0)
+    setBackfillTotal(backfillPreview?.would_process || 0)
+    setBackfillPhase('jobs')
     setBackfillPreview(null)
-    const totalToProcess = backfillPreview?.would_process || 0
-    // Simulate progress during processing
-    const interval = setInterval(() => {
-      setBackfillProgress(prev => {
-        if (prev >= 90) { clearInterval(interval); return 90 }
-        return prev + Math.max(1, Math.round(90 / Math.max(totalToProcess, 10)))
-      })
-    }, 500)
+    const interval = startBackfillPolling()
     try {
       const result = await ledgerAPI.backfill({ dryRun: false })
       clearInterval(interval)
@@ -386,13 +403,11 @@ const Payroll = () => {
     if (!window.confirm('This will delete all existing ledger entries (except payouts) and re-create them with correct manager salary calculations. Continue?')) return
     setBackfillLoading(true)
     setBackfillProgress(0)
+    setBackfillProcessed(0)
+    setBackfillTotal(0)
+    setBackfillPhase('jobs')
     setBackfillPreview(null)
-    const interval = setInterval(() => {
-      setBackfillProgress(prev => {
-        if (prev >= 90) { clearInterval(interval); return 90 }
-        return prev + 1
-      })
-    }, 800)
+    const interval = startBackfillPolling()
     try {
       const result = await ledgerAPI.backfill({ dryRun: false, resetExisting: true })
       clearInterval(interval)
@@ -1020,15 +1035,18 @@ const Payroll = () => {
                   )}
 
                   {/* Progress bar */}
-                  {backfillLoading && backfillProgress > 0 && (
+                  {backfillLoading && (
                     <div className="mt-3 pt-3 border-t">
                       <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
-                        <span>Processing jobs...</span>
+                        <span>
+                          {backfillPhase === 'manager_salary' ? 'Creating manager salary entries...' :
+                           backfillTotal > 0 ? `Processing jobs: ${backfillProcessed} / ${backfillTotal}` : 'Starting...'}
+                        </span>
                         <span>{backfillProgress}%</span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2.5">
                         <div className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
-                          style={{ width: `${backfillProgress}%` }}></div>
+                          style={{ width: `${Math.max(backfillProgress, 2)}%` }}></div>
                       </div>
                     </div>
                   )}
