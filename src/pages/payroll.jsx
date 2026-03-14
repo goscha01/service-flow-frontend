@@ -476,6 +476,7 @@ const Payroll = () => {
     totalTips: parseFloat(filteredMembers.reduce((s, m) => s + (m.totalTips || 0), 0).toFixed(2)),
     totalIncentives: parseFloat(filteredMembers.reduce((s, m) => s + (m.totalIncentives || 0), 0).toFixed(2)),
     totalSalary: parseFloat(filteredMembers.reduce((s, m) => s + (m.totalSalary || 0), 0).toFixed(2)),
+    totalJobCount: filteredMembers.reduce((s, m) => s + (m.jobCount || 0), 0),
   }) : null
 
   const totalUnpaidBalance = balances.reduce((sum, b) => sum + (b.current_balance || 0), 0)
@@ -624,13 +625,20 @@ const Payroll = () => {
                 {/* Summary */}
                 <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
                   <h2 className="text-lg font-semibold text-gray-900 mb-4">Summary</h2>
-                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-9 gap-4">
                     <div className="bg-gray-50 rounded-lg p-4">
                       <div className="flex items-center space-x-2 mb-2">
                         <Users className="w-5 h-5 text-gray-400" />
                         <span className="text-sm text-gray-600">Team Members</span>
                       </div>
                       <p className="text-2xl font-bold text-gray-900">{filteredSummary.totalTeamMembers}</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <Calendar className="w-5 h-5 text-gray-400" />
+                        <span className="text-sm text-gray-600">Total Jobs</span>
+                      </div>
+                      <p className="text-2xl font-bold text-gray-900">{filteredSummary.totalJobCount || 0}</p>
                     </div>
                     <div className="bg-gray-50 rounded-lg p-4">
                       <div className="flex items-center space-x-2 mb-2">
@@ -949,7 +957,8 @@ const Payroll = () => {
                       </tbody>
                       <tfoot className="bg-gray-50">
                         <tr>
-                          <td colSpan="3" className="px-3 py-3 text-sm font-semibold text-gray-900 text-right">Totals:</td>
+                          <td colSpan="2" className="px-3 py-3 text-sm font-semibold text-gray-900 text-right">Totals:</td>
+                          <td className="px-2 py-3 text-sm font-semibold text-gray-900 text-center">{filteredSummary.totalJobCount || 0}</td>
                           <td className="px-2 py-3 text-sm font-semibold text-gray-900 text-right">{filteredSummary.totalHours.toFixed(1)}</td>
                           <td className="px-2 py-3 text-sm font-semibold text-indigo-700 text-right">{(filteredSummary.totalScheduledHours || 0).toFixed(1)}</td>
                           <td className="px-2 py-3 text-sm font-semibold text-gray-900 text-right">{formatCurrency(filteredSummary.totalHourlySalary || 0)}</td>
