@@ -475,18 +475,22 @@ const ImportJobsPage = () => {
         const cleanedServiceName = extractFirstServiceName(rawServiceName);
         // If service name is invalid (only contains pattern), set to empty string
         job.serviceName = cleanedServiceName === null ? '' : cleanedServiceName;
-        // pretax_total_number is the service price before tax, price_number is total with tax
+        // sub_total_number is the Subtotal on the job card (revenue), price_number is total with tax
+        const subTotal = parseFloat(rawData['sub_total_number']) || 0;
         const pretaxTotal = parseFloat(rawData['pretax_total_number']) || 0;
         const priceTotal = parseFloat(rawData['price_number']) || 0;
-        job.servicePrice = pretaxTotal > 0 ? String(pretaxTotal) : (rawData['price_number'] || '');
+        // servicePrice = sub_total_number (Subtotal on job card = revenue)
+        job.servicePrice = subTotal > 0 ? String(subTotal) : (pretaxTotal > 0 ? String(pretaxTotal) : (rawData['price_number'] || ''));
         job.price = rawData['price_number'] || rawData['pretax_total_number'] || '';
         job.total = rawData['price_number'] || rawData['pretax_total_number'] || '';
-        // Calculate tax as difference between total price and pre-tax amount
-        const calculatedTax = (priceTotal > 0 && pretaxTotal > 0 && priceTotal > pretaxTotal) ? (priceTotal - pretaxTotal) : 0;
+        // Calculate tax as difference between total price and sub_total
+        const baseForTax = subTotal > 0 ? subTotal : pretaxTotal;
+        const calculatedTax = (priceTotal > 0 && baseForTax > 0 && priceTotal > baseForTax) ? (priceTotal - baseForTax) : 0;
         job.taxes = calculatedTax > 0 ? String(parseFloat(calculatedTax.toFixed(2))) : (rawData['tax_total_number'] || '0');
-        console.log(`Row ${i + 1}: 💰 Tax calc: pretax=${pretaxTotal}, price=${priceTotal}, calculatedTax=${calculatedTax}, job.taxes="${job.taxes}", job.servicePrice="${job.servicePrice}"`);
+        console.log(`Row ${i + 1}: 💰 Tax calc: subTotal=${subTotal}, pretax=${pretaxTotal}, price=${priceTotal}, calculatedTax=${calculatedTax}, job.servicePrice="${job.servicePrice}"`);
         job.subTotal = rawData['sub_total_number'] || '';
-        job.tip = rawData['tip_number'] || '';
+        // tip_number = tip amount on the job
+        job.tipAmount = rawData['tip_number'] || '';
         
         // Parse duration from seconds to minutes
         const durationSeconds = rawData['service_duration_inseconds_number'];

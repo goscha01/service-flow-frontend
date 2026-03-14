@@ -105,6 +105,10 @@ const Payroll = () => {
   const [expandedBatch, setExpandedBatch] = useState(null)
   const [batchDetail, setBatchDetail] = useState(null)
 
+  // ── Migration state ──
+  const [migrationLoading, setMigrationLoading] = useState(false)
+  const [migrationResult, setMigrationResult] = useState(null)
+
   // ── Shared state ──
   const [teamMembers, setTeamMembers] = useState([])
 
@@ -420,6 +424,65 @@ const Payroll = () => {
       setBackfillProgress(0)
       alert(err.response?.data?.error || 'Backfill reset failed')
     } finally { setBackfillLoading(false) }
+  }
+
+  const handleCsvMigration = async () => {
+    // Open file picker for CSV
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.csv'
+    input.onchange = async (e) => {
+      const file = e.target.files[0]
+      if (!file) return
+      setMigrationLoading(true)
+      setMigrationResult(null)
+      try {
+        const text = await file.text()
+        const lines = text.split('\n')
+        const headers = lines[0].split(',').map(h => h.trim().replace(/^"/, '').replace(/"$/, ''))
+        const idIdx = headers.indexOf('_id')
+        const subTotalIdx = headers.indexOf('sub_total_number')
+        const tipIdx = headers.indexOf('tip_number')
+        if (idIdx === -1 || subTotalIdx === -1) {
+          alert('CSV must contain _id and sub_total_number columns')
+          setMigrationLoading(false)
+          return
+        }
+        // Parse CSV rows - handle quoted fields
+        const csvData = []
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i].trim()
+          if (!line) continue
+          // Simple CSV parse handling quoted fields
+          const fields = []
+          let field = ''
+          let inQuotes = false
+          for (let c = 0; c < line.length; c++) {
+            if (line[c] === '"') { inQuotes = !inQuotes }
+            else if (line[c] === ',' && !inQuotes) { fields.push(field.trim()); field = '' }
+            else { field += line[c] }
+          }
+          fields.push(field.trim())
+          const id = fields[idIdx] || ''
+          if (!id) continue
+          csvData.push({
+            _id: id,
+            sub_total_number: fields[subTotalIdx] || '0',
+            tip_number: tipIdx >= 0 ? (fields[tipIdx] || '0') : '0'
+          })
+        }
+        console.log(`Parsed ${csvData.length} rows from CSV for migration`)
+        const result = await ledgerAPI.migrateCsvFields(csvData, false)
+        setMigrationResult(result)
+        // Re-fetch data after migration
+        fetchBalances()
+      } catch (err) {
+        alert(err.response?.data?.error || err.message || 'Migration failed')
+      } finally {
+        setMigrationLoading(false)
+      }
+    }
+    input.click()
   }
 
   const handleExport = () => {
@@ -1082,6 +1145,24 @@ const Payroll = () => {
                         className="mt-2 px-2 py-1 text-xs border rounded hover:bg-gray-50">Dismiss</button>
                     </div>
                   )}
+
+                  {/* CSV Migration */}
+                  <div className="mt-3 pt-3 border-t">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button onClick={handleCsvMigration} disabled={migrationLoading}
+                        className="px-3 py-2 text-xs bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50">
+                        {migrationLoading ? 'Migrating...' : 'Migrate CSV (fix service_price & tips)'}
+                      </button>
+                      <span className="text-xs text-gray-400">Upload CSV to update service_price from sub_total_number</span>
+                    </div>
+                    {migrationResult && (
+                      <div className="mt-2 text-xs text-gray-600 bg-purple-50 p-2 rounded">
+                        <p><strong>Migration complete:</strong> {migrationResult.matched} matched, {migrationResult.updated} updated, {migrationResult.servicePriceChanges} price changes, {migrationResult.tipChanges} tip changes</p>
+                        <button onClick={() => setMigrationResult(null)}
+                          className="mt-1 px-2 py-0.5 text-xs border rounded hover:bg-gray-50">Dismiss</button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 

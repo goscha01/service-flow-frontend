@@ -787,7 +787,11 @@ const UnifiedImportJobsPage = () => {
         job.total = rawData['pretax_total_number'] || rawData['price_number'] || '';
         job.subTotal = rawData['sub_total_number'] || '';
         job.taxTotal = rawData['tax_total_number'] || '';
-        job.tip = rawData['tip_number'] || '';
+        // servicePrice = sub_total_number (Subtotal on job card = revenue)
+        const subTotal = parseFloat(rawData['sub_total_number']) || 0;
+        const pretaxTotal = parseFloat(rawData['pretax_total_number']) || 0;
+        job.servicePrice = subTotal > 0 ? String(subTotal) : (pretaxTotal > 0 ? String(pretaxTotal) : (rawData['price_number'] || ''));
+        job.tipAmount = rawData['tip_number'] || '';
         
         const durationSeconds = rawData['service_duration_inseconds_number'];
         job.duration = durationSeconds ? secondsToMinutes(durationSeconds) : '';
