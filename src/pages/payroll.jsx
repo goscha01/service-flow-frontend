@@ -87,6 +87,11 @@ const Payroll = () => {
   const [backfillTotal, setBackfillTotal] = useState(0)
   const [backfillPhase, setBackfillPhase] = useState('')
 
+  // ── Bulk mark paid state ──
+  const [bulkPaidDate, setBulkPaidDate] = useState(() => toLocalDateString(new Date()))
+  const [bulkPaidLoading, setBulkPaidLoading] = useState(false)
+  const [bulkPaidResult, setBulkPaidResult] = useState(null)
+
   // ── Ledger entries tab state ──
   const [entries, setEntries] = useState([])
   const [entriesTotal, setEntriesTotal] = useState(0)
@@ -428,6 +433,20 @@ const Payroll = () => {
       setBackfillProgress(0)
       alert(err.response?.data?.error || 'Backfill reset failed')
     } finally { setBackfillLoading(false) }
+  }
+
+  const handleBulkMarkPaid = async () => {
+    if (!bulkPaidDate) return alert('Please select a cutoff date')
+    if (!window.confirm(`Mark ALL unpaid ledger entries up to ${bulkPaidDate} as paid for all team members? This will create payout batches and zero out their balances for that period.`)) return
+    setBulkPaidLoading(true)
+    setBulkPaidResult(null)
+    try {
+      const result = await ledgerAPI.bulkMarkPaid(bulkPaidDate, `Bulk paid up to ${bulkPaidDate}`)
+      setBulkPaidResult(result)
+      fetchBalances()
+    } catch (err) {
+      alert(err.response?.data?.error || 'Bulk mark paid failed')
+    } finally { setBulkPaidLoading(false) }
   }
 
   const handleExport = () => {
@@ -987,7 +1006,7 @@ const Payroll = () => {
           {activeTab === 'balances' && (
             <div>
               {/* Summary Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                 <div className="bg-white rounded-xl p-5 border shadow-sm">
                   <div className="text-sm text-gray-500 mb-1">Total Unpaid Balance</div>
                   <div className={`text-2xl font-bold ${totalUnpaidBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
@@ -1091,6 +1110,31 @@ const Payroll = () => {
                     </div>
                   )}
 
+                </div>
+                <div className="bg-white rounded-xl p-5 border shadow-sm">
+                  <div className="text-sm text-gray-500 mb-1">Bulk Mark Paid</div>
+                  <div className="text-xs text-gray-400 mb-3">Mark all entries as paid up to a date</div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <input type="date" value={bulkPaidDate} onChange={(e) => setBulkPaidDate(e.target.value)}
+                      className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm flex-1" />
+                  </div>
+                  <button onClick={handleBulkMarkPaid} disabled={bulkPaidLoading}
+                    className="w-full px-3 py-2 text-xs bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 font-medium">
+                    {bulkPaidLoading ? 'Processing...' : 'Mark All Paid'}
+                  </button>
+                  {bulkPaidResult && (
+                    <div className="mt-3 pt-3 border-t">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Check size={14} className="text-green-600" />
+                        <span className="text-sm font-medium text-green-700">Done</span>
+                      </div>
+                      <div className="text-xs text-gray-600">
+                        {bulkPaidResult.batches_created} payout batches created, {bulkPaidResult.total_entries_marked} entries marked paid
+                      </div>
+                      <button onClick={() => setBulkPaidResult(null)}
+                        className="mt-2 px-2 py-1 text-xs border rounded hover:bg-gray-50">Dismiss</button>
+                    </div>
+                  )}
                 </div>
               </div>
 
