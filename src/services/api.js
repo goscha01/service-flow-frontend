@@ -2635,6 +2635,12 @@ export const ledgerAPI = {
     return response.data;
   },
 
+  // Migrate CSV fields (service_price from sub_total_number, tip_amount from tip_number)
+  migrateCsvFields: async (csvData, dryRun = false) => {
+    const response = await api.post('/jobs/migrate-csv-fields', { csvData, dryRun }, { timeout: 600000 });
+    return response.data;
+  },
+
   // Update payout preferences
   updatePayoutPreferences: async (teamMemberId, data) => {
     const response = await api.patch(`/team-members/${teamMemberId}/payout-preferences`, data);
