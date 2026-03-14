@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import { ChevronLeft, ChevronRight, Calendar, Clock, Users, Filter, Edit, X, Check, AlertCircle } from "lucide-react"
-import { teamAPI, jobsAPI } from "../services/api"
+import { teamAPI, jobsAPI, availabilityAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
 import { getImageUrl } from "../utils/imageUtils"
 
@@ -22,6 +22,7 @@ const TeamAvailabilityCalendar = () => {
   const [filterStatus, setFilterStatus] = useState("all") // all, active, inactive
   const [message, setMessage] = useState({ type: '', text: '' })
   const [calendarView, setCalendarView] = useState("remaining") // "base" or "remaining"
+  const [companyDrivingTime, setCompanyDrivingTime] = useState(60) // Default 60 minutes (1 hour)
 
   const currentMonth = currentDate.getMonth()
   const currentYear = currentDate.getFullYear()
@@ -52,6 +53,19 @@ const TeamAvailabilityCalendar = () => {
     
     return days
   }, [currentMonth, currentYear])
+
+  // Fetch company driving time from settings
+  useEffect(() => {
+    if (!user?.id) return
+    availabilityAPI.getAvailability(user.id).then((data) => {
+      const hours = data?.businessHours || data?.business_hours
+      const parsed = typeof hours === 'string' ? (() => { try { return JSON.parse(hours) } catch (e) { return null } })() : hours
+      if (parsed && parsed.drivingTime !== undefined && parsed.drivingTime !== null) {
+        const v = parseInt(parsed.drivingTime, 10)
+        if (Number.isFinite(v)) setCompanyDrivingTime(v)
+      }
+    }).catch(() => {})
+  }, [user?.id])
 
   // Fetch team members
   const fetchTeamMembers = useCallback(async () => {
@@ -92,8 +106,23 @@ const TeamAvailabilityCalendar = () => {
     return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`
   }
 
-  // Calculate remaining availability by subtracting assigned jobs from base availability
-  const calculateRemainingAvailability = (baseHours, assignedJobs) => {
+  // Get per-member driving time, falling back to company default
+  const getMemberDrivingTime = (member) => {
+    if (!member) return companyDrivingTime
+    try {
+      const avail = member.availability
+        ? (typeof member.availability === 'string' ? JSON.parse(member.availability) : member.availability)
+        : null
+      if (avail && avail.drivingTime !== undefined && avail.drivingTime !== null) {
+        const v = parseInt(avail.drivingTime, 10)
+        if (Number.isFinite(v)) return v
+      }
+    } catch (e) { /* ignore */ }
+    return companyDrivingTime
+  }
+
+  // Calculate remaining availability by subtracting assigned jobs + driving lag from base availability
+  const calculateRemainingAvailability = (baseHours, assignedJobs, drivingTimeMinutes = 0) => {
     if (!baseHours || baseHours.length === 0) return []
     if (!assignedJobs || assignedJobs.length === 0) return baseHours
 
@@ -107,7 +136,7 @@ const TeamAvailabilityCalendar = () => {
     const jobRanges = assignedJobs.map(job => {
       // Extract time from scheduled_time or scheduled_date
       let jobTime = '09:00' // Default
-      
+
       // First try scheduled_time field
       if (job.scheduled_time) {
         // scheduled_time might be "09:00" or "09:00:00" or a full datetime
@@ -139,7 +168,7 @@ const TeamAvailabilityCalendar = () => {
           }
         }
       }
-      
+
       const jobStartMinutes = timeToMinutes(jobTime)
       const duration = job.duration || 60 // Default 60 minutes
       return {
@@ -148,30 +177,53 @@ const TeamAvailabilityCalendar = () => {
       }
     })
 
-    // Calculate remaining slots
+    // Build driving time ranges (buffer before and after each job)
+    const driving = typeof drivingTimeMinutes === 'number' && drivingTimeMinutes > 0 ? drivingTimeMinutes : 0
+    let drivingTimeRanges = []
+    if (driving > 0 && jobRanges.length > 0) {
+      const overallStart = Math.min(...baseRanges.map(r => r.start))
+      const overallEnd = Math.max(...baseRanges.map(r => r.end))
+      jobRanges.forEach(jr => {
+        drivingTimeRanges.push({ start: Math.max(jr.start - driving, overallStart), end: jr.start })
+        drivingTimeRanges.push({ start: jr.end, end: Math.min(jr.end + driving, overallEnd) })
+      })
+    }
+
+    // Merge all blocked ranges (jobs + driving buffers)
+    const allBlocked = [...jobRanges, ...drivingTimeRanges]
+      .sort((a, b) => a.start - b.start)
+    const mergedBlocked = []
+    allBlocked.forEach(range => {
+      if (mergedBlocked.length === 0) {
+        mergedBlocked.push({ ...range })
+      } else {
+        const prev = mergedBlocked[mergedBlocked.length - 1]
+        if (range.start <= prev.end) {
+          prev.end = Math.max(prev.end, range.end)
+        } else {
+          mergedBlocked.push({ ...range })
+        }
+      }
+    })
+
+    // Subtract blocked ranges from base availability
     const remainingRanges = []
-    
     baseRanges.forEach(baseRange => {
       let currentStart = baseRange.start
-      
-      // Sort job ranges by start time for this day
-      const dayJobs = jobRanges
-        .filter(job => job.start >= baseRange.start && job.end <= baseRange.end)
+      const relevant = mergedBlocked
+        .filter(b => b.start < baseRange.end && b.end > baseRange.start)
         .sort((a, b) => a.start - b.start)
-      
-      dayJobs.forEach(jobRange => {
-        // If there's a gap before this job, add it as available
-        if (currentStart < jobRange.start) {
+
+      relevant.forEach(blocked => {
+        if (currentStart < blocked.start) {
           remainingRanges.push({
             start: currentStart,
-            end: jobRange.start
+            end: blocked.start
           })
         }
-        // Move current start to after this job
-        currentStart = Math.max(currentStart, jobRange.end)
+        currentStart = Math.max(currentStart, blocked.end)
       })
-      
-      // If there's remaining time after all jobs, add it
+
       if (currentStart < baseRange.end) {
         remainingRanges.push({
           start: currentStart,
@@ -260,21 +312,28 @@ const TeamAvailabilityCalendar = () => {
           
           // Use backend-calculated base and remaining availability if available
           if (availability?.baseAvailability && Object.keys(availability.baseAvailability).length > 0) {
-            // Backend has already calculated everything
-            console.log(`[Calendar] Using backend-calculated availability for member ${memberId}`)
+            // Backend provides base availability; recalculate remaining with driving lag on frontend
+            console.log(`[Calendar] Using backend base availability for member ${memberId}`)
+            const member = members.find(m => m.id === memberId || Number(m.id) === memberId)
+            const drivingTime = getMemberDrivingTime(member)
             Object.keys(availability.baseAvailability).forEach(dateStr => {
               const baseData = availability.baseAvailability[dateStr]
-              const remainingHours = availability.remainingAvailability?.[dateStr] || []
-              
+              const baseHours = baseData.hours || []
+
               // Get jobs assigned for this day
               const dayJobs = assignedJobs.filter(job => {
                 const jobDate = new Date(job.scheduled_date || job.scheduledDate)
                 return jobDate.toISOString().split('T')[0] === dateStr
               })
-              
+
+              // Recalculate remaining availability with driving lag
+              const remainingHours = baseData.available && baseHours.length > 0
+                ? calculateRemainingAvailability(baseHours, dayJobs, drivingTime)
+                : []
+
               processedData[memberId][dateStr] = {
                 available: baseData.available,
-                hours: baseData.hours || [],
+                hours: baseHours,
                 remainingHours: remainingHours,
                 assignedJobs: dayJobs
               }
@@ -377,9 +436,11 @@ const TeamAvailabilityCalendar = () => {
               
               dayData.assignedJobs = dayJobs
               
-              // Calculate remaining availability
+              // Calculate remaining availability (including driving lag)
               if (dayData.available && baseHours.length > 0) {
-                dayData.remainingHours = calculateRemainingAvailability(baseHours, dayJobs)
+                const member = members.find(m => m.id === memberId || Number(m.id) === memberId)
+                const drivingTime = getMemberDrivingTime(member)
+                dayData.remainingHours = calculateRemainingAvailability(baseHours, dayJobs, drivingTime)
               }
               
               processedData[memberId][dateStr] = dayData
