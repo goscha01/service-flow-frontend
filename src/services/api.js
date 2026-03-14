@@ -2600,6 +2600,12 @@ export const ledgerAPI = {
     return response.data;
   },
 
+  // Bulk mark all unpaid entries as paid up to a cutoff date
+  bulkMarkPaid: async (cutoffDate, note) => {
+    const response = await api.post('/ledger/bulk-mark-paid', { cutoffDate, note });
+    return response.data;
+  },
+
   // Get payout batches list
   getPayoutBatches: async (params = {}) => {
     const query = new URLSearchParams();
