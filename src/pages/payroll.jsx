@@ -72,6 +72,7 @@ const Payroll = () => {
 
   // ── Balances tab state ──
   const [balances, setBalances] = useState([])
+  const [balancesTotalUniqueJobs, setBalancesTotalUniqueJobs] = useState(0)
   const [balancesLoading, setBalancesLoading] = useState(false)
   const [balancesAllTime, setBalancesAllTime] = useState(true)
   const [balancesStartDate, setBalancesStartDate] = useState(() => {
@@ -218,7 +219,14 @@ const Payroll = () => {
         if (balancesEndDate) params.endDate = balancesEndDate
       }
       const data = await ledgerAPI.getBalances(params)
-      setBalances(data || [])
+      // Handle both old format (array) and new format ({ balances, totalUniqueJobs })
+      if (Array.isArray(data)) {
+        setBalances(data)
+        setBalancesTotalUniqueJobs(0)
+      } else {
+        setBalances(data.balances || [])
+        setBalancesTotalUniqueJobs(data.totalUniqueJobs || 0)
+      }
     } catch (err) {
       console.error('Error fetching balances:', err)
     } finally {
@@ -1175,7 +1183,7 @@ const Payroll = () => {
                       <tfoot className="bg-gray-100 font-semibold text-sm">
                         <tr>
                           <td className="px-4 py-3 text-left">Totals</td>
-                          <td className="px-4 py-3 text-center">{balances.reduce((s, b) => s + (b.job_count || 0), 0)}</td>
+                          <td className="px-4 py-3 text-center">{balancesTotalUniqueJobs || balances.reduce((s, b) => s + (b.job_count || 0), 0)}</td>
                           <td className="px-4 py-3 text-right">{formatCurrency(balances.reduce((s, b) => s + (b.current_balance || 0), 0))}</td>
                           <td className="px-4 py-3 text-right hidden sm:table-cell">{formatCurrency(balances.reduce((s, b) => s + (b.unpaid_earnings || 0), 0))}</td>
                           <td className="px-4 py-3 text-right hidden sm:table-cell">{formatCurrency(balances.reduce((s, b) => s + (b.unpaid_tips || 0), 0))}</td>
