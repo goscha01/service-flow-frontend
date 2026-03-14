@@ -160,7 +160,7 @@ const Payroll = () => {
 
   const copyBalancesTable = () => {
     if (!balances.length) return
-    const header = ['Name', 'Role', 'Jobs', 'Balance', 'Earnings', 'Tips', 'Cash Offset', 'Adjustments', 'Schedule'].join('\t')
+    const header = ['Name', 'Role', 'Jobs', 'Balance', 'Earnings', 'Tips', 'Incentives', 'Cash Offset', 'Adjustments', 'Schedule'].join('\t')
     const rows = balances.map(b => [
       b.name || `ID ${b.team_member_id}`,
       b.role || '',
@@ -168,6 +168,7 @@ const Payroll = () => {
       (b.current_balance || 0).toFixed(2),
       (b.unpaid_earnings || 0).toFixed(2),
       (b.unpaid_tips || 0).toFixed(2),
+      (b.unpaid_incentives || 0).toFixed(2),
       (b.unpaid_cash_offsets || 0).toFixed(2),
       (b.unpaid_adjustments || 0).toFixed(2),
       b.payout_schedule || 'manual'
@@ -1134,6 +1135,7 @@ const Payroll = () => {
                           <th className="px-4 py-3 text-right">Balance</th>
                           <th className="px-4 py-3 text-right hidden sm:table-cell">Earnings</th>
                           <th className="px-4 py-3 text-right hidden sm:table-cell">Tips</th>
+                          <th className="px-4 py-3 text-right hidden sm:table-cell">Incentives</th>
                           <th className="px-4 py-3 text-right hidden md:table-cell">Cash Offset</th>
                           <th className="px-4 py-3 text-right hidden md:table-cell">Adjustments</th>
                           <th className="px-4 py-3 text-center">Schedule</th>
@@ -1149,6 +1151,7 @@ const Payroll = () => {
                             </td>
                             <td className="px-4 py-3 text-right hidden sm:table-cell text-gray-600">{formatCurrency(b.unpaid_earnings)}</td>
                             <td className="px-4 py-3 text-right hidden sm:table-cell text-gray-600">{formatCurrency(b.unpaid_tips)}</td>
+                            <td className="px-4 py-3 text-right hidden sm:table-cell text-gray-600">{formatCurrency(b.unpaid_incentives)}</td>
                             <td className="px-4 py-3 text-right hidden md:table-cell text-gray-600">{formatCurrency(b.unpaid_cash_offsets)}</td>
                             <td className="px-4 py-3 text-right hidden md:table-cell text-gray-600">{formatCurrency(b.unpaid_adjustments)}</td>
                             <td className="px-4 py-3 text-center">
@@ -1166,6 +1169,7 @@ const Payroll = () => {
                           <td className="px-4 py-3 text-right">{formatCurrency(balances.reduce((s, b) => s + (b.current_balance || 0), 0))}</td>
                           <td className="px-4 py-3 text-right hidden sm:table-cell">{formatCurrency(balances.reduce((s, b) => s + (b.unpaid_earnings || 0), 0))}</td>
                           <td className="px-4 py-3 text-right hidden sm:table-cell">{formatCurrency(balances.reduce((s, b) => s + (b.unpaid_tips || 0), 0))}</td>
+                          <td className="px-4 py-3 text-right hidden sm:table-cell">{formatCurrency(balances.reduce((s, b) => s + (b.unpaid_incentives || 0), 0))}</td>
                           <td className="px-4 py-3 text-right hidden md:table-cell">{formatCurrency(balances.reduce((s, b) => s + (b.unpaid_cash_offsets || 0), 0))}</td>
                           <td className="px-4 py-3 text-right hidden md:table-cell">{formatCurrency(balances.reduce((s, b) => s + (b.unpaid_adjustments || 0), 0))}</td>
                           <td className="px-4 py-3"></td>
