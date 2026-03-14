@@ -76,6 +76,7 @@ import { formatDateLocal } from "../utils/dateUtils"
 import { decodeHtmlEntities } from "../utils/htmlUtils"
 import { formatRecurringFrequency } from "../utils/recurringUtils"
 import { getMemberDrivingTime } from "../utils/slotUtils"
+import { calculateJobTotal, resolveDiscount } from "../utils/priceUtils"
 import ConvertToRecurringModal from "../components/convert-to-recurring-modal"
 import AssignJobModal from "../components/assign-job-modal"
 import DuplicateJobModal from "../components/duplicate-job-modal"
@@ -225,7 +226,7 @@ const JobDetails = () => {
       const additionalFees = parseFloat(job.additional_fees) || 0;
       const taxes = parseFloat(job.taxes) || 0;
       const modifierPrice = calculateModifierPrice();
-      const calculatedTotal = servicePrice + modifierPrice + additionalFees + taxes - discount;
+      const calculatedTotal = calculateJobTotal({ servicePrice: servicePrice + modifierPrice, discount, additionalFees, taxes });
       
       setFormData(prev => ({
         ...prev,
@@ -1857,13 +1858,12 @@ const JobDetails = () => {
 
   // Helper function to calculate total price consistently
   const calculateTotalPriceHelper = (servicePrice, modifierPrice, additionalFees, taxes, discount) => {
-    const basePrice = parseFloat(servicePrice) || 0;
-    const modPrice = parseFloat(modifierPrice) || 0;
-    const addFees = parseFloat(additionalFees) || 0;
-    const taxAmount = parseFloat(taxes) || 0;
-    const discAmount = parseFloat(discount) || 0;
-    
-    return basePrice + modPrice + addFees + taxAmount - discAmount;
+    return calculateJobTotal({
+      servicePrice: (parseFloat(servicePrice) || 0) + (parseFloat(modifierPrice) || 0),
+      discount,
+      additionalFees,
+      taxes
+    });
   };
 
   // Calculate total modifier price
@@ -1927,11 +1927,12 @@ const JobDetails = () => {
 
   // Edit Service modal: total from visible breakdown (Subtotal - Discount + Fee + Taxes, no tip)
   const getEditServiceModalTotal = () => {
-    const subtotal = parseFloat(formData.service_price) || parseFloat(job?.service_price) || 0;
-    const discount = parseFloat(job?.discount) || 0;
-    const fees = parseFloat(job?.additional_fees) || 0;
-    const taxes = parseFloat(job?.taxes) || 0;
-    return Math.max(0, subtotal - discount + fees + taxes);
+    return Math.max(0, calculateJobTotal({
+      servicePrice: parseFloat(formData.service_price) || parseFloat(job?.service_price) || 0,
+      discount: job?.discount,
+      additionalFees: job?.additional_fees,
+      taxes: job?.taxes
+    }));
   }
 
   // $0 jobs are considered free -- show as paid (no amount due)
@@ -1945,7 +1946,7 @@ const JobDetails = () => {
   // Breakdown: Subtotal (service_price) → Discount → Total → Fee → Taxes → Total due
   const subtotalDisplay = parseFloat(job?.service_price) || (jobTotal + jobDiscount - jobFees - jobTaxes);
   const totalAfterDiscount = subtotalDisplay - jobDiscount;
-  const totalDueAmount = totalAfterDiscount + jobFees + jobTaxes;
+  const totalDueAmount = calculateJobTotal({ servicePrice: subtotalDisplay, discount: jobDiscount, additionalFees: jobFees, taxes: jobTaxes });
   const displayServiceTotal = totalDueAmount;                           // alias for backward compat
 
   const effectiveAmountPaid = parseFloat(job?.total_paid_amount) || 0;
@@ -6763,7 +6764,7 @@ const JobDetails = () => {
                     </div>
                     {(formData.discountMode || 'fixed') === 'percentage' && formData.discountInput && (
                       <p className="text-sm text-gray-500 mt-1">
-                        = ${Math.ceil(((parseFloat(job?.total || 0) + parseFloat(job?.discount || 0)) * (parseFloat(formData.discountInput) || 0)) / 100).toFixed(2)} discount
+                        = ${resolveDiscount(formData.discountInput, 'percentage', (parseFloat(job?.total || 0) + parseFloat(job?.discount || 0))).toFixed(2)} discount
                       </p>
                     )}
                   </div>
@@ -6786,13 +6787,8 @@ const JobDetails = () => {
                           setTimeout(() => setError(''), 3000)
                           return
                         }
-                        let discountDollars
-                        if ((formData.discountMode || 'fixed') === 'percentage') {
-                          const subtotal = (parseFloat(job?.total || 0) + parseFloat(job?.discount || 0))
-                          discountDollars = Math.ceil((subtotal * inputVal) / 100)
-                        } else {
-                          discountDollars = inputVal
-                        }
+                        const discountSubtotal = (parseFloat(job?.total || 0) + parseFloat(job?.discount || 0))
+                        const discountDollars = resolveDiscount(inputVal, formData.discountMode || 'fixed', discountSubtotal)
                         try {
                           setLoading(true)
                           await jobsAPI.update(job.id, { discount: discountDollars })
