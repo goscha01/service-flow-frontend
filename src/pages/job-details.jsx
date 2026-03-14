@@ -66,6 +66,7 @@ import IntakeQuestionsForm from "../components/intake-questions-form"
 import { formatPhoneNumber } from "../utils/phoneFormatter"
 import { formatDateLocal } from "../utils/dateUtils"
 import { decodeHtmlEntities } from "../utils/htmlUtils"
+import { resolveDiscount } from "../utils/priceUtils"
 
 const JobDetails = () => {
   const { jobId } = useParams();
@@ -4411,7 +4412,7 @@ const JobDetails = () => {
                     </div>
                     {(formData.discountMode || 'fixed') === 'percentage' && formData.discountInput && (
                       <p className="text-sm text-gray-500 mt-1">
-                        = ${Math.ceil(((parseFloat(job?.total || 0) + parseFloat(job?.discount || 0)) * (parseFloat(formData.discountInput) || 0)) / 100).toFixed(2)} discount
+                        = ${resolveDiscount(formData.discountInput, 'percentage', (parseFloat(job?.total || 0) + parseFloat(job?.discount || 0))).toFixed(2)} discount
                       </p>
                     )}
                   </div>
@@ -4434,13 +4435,8 @@ const JobDetails = () => {
                           setTimeout(() => setError(''), 3000)
                           return
                         }
-                        let discountDollars
-                        if ((formData.discountMode || 'fixed') === 'percentage') {
-                          const subtotal = (parseFloat(job?.total || 0) + parseFloat(job?.discount || 0))
-                          discountDollars = Math.ceil((subtotal * inputVal) / 100)
-                        } else {
-                          discountDollars = inputVal
-                        }
+                        const discountSubtotal = (parseFloat(job?.total || 0) + parseFloat(job?.discount || 0))
+                        const discountDollars = resolveDiscount(inputVal, formData.discountMode || 'fixed', discountSubtotal)
                         try {
                           setLoading(true)
                           const prevDiscount = parseFloat(job.discount || 0)

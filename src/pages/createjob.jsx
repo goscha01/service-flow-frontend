@@ -80,6 +80,7 @@ import { formatDateLocal, formatDateDisplay, parseLocalDate } from '../utils/dat
 import { formatPhoneNumber } from '../utils/phoneFormatter';
 import { formatRecurringFrequency } from '../utils/recurringUtils';
 import { decodeHtmlEntities } from '../utils/htmlUtils';
+import { calculateJobTotal, resolveDiscount } from '../utils/priceUtils';
 
 
 export default function CreateJobPage() {
@@ -878,22 +879,13 @@ export default function CreateJobPage() {
   useEffect(() => {
     if (selectedServices.length > 0) {
       const subtotal = calculateTotalPrice();
-      let discountAmount = 0;
-      const discountValue = parseFloat(formData.discount) || 0;
-      
-      // Calculate discount based on type
-      if (discountValue > 0) {
-        if (discountType === 'percentage') {
-          discountAmount = Math.ceil((subtotal * discountValue) / 100);
-        } else {
-          discountAmount = discountValue;
-        }
-      }
-      
-      const additionalFees = parseFloat(formData.additionalFees) || 0;
-      const taxes = parseFloat(formData.taxes) || 0;
-      
-      const total = subtotal - discountAmount + additionalFees + taxes;
+      const discountAmount = resolveDiscount(formData.discount, discountType, subtotal);
+      const total = calculateJobTotal({
+        servicePrice: subtotal,
+        discount: discountAmount,
+        additionalFees: formData.additionalFees,
+        taxes: formData.taxes
+      });
       
       console.log('🔧 EFFECT: Updating prices - Subtotal:', subtotal, 'Discount:', discountAmount, 'Total:', total);
       
@@ -1395,13 +1387,7 @@ export default function CreateJobPage() {
         workers: parseInt(formData.workers) || 0,
         skillsRequired: parseInt(formData.skillsRequired) || 0,
         price: parseFloat(calculateTotalPrice() || 0),
-        discount: (() => {
-          const dv = parseFloat(formData.discount) || 0
-          if (discountType === 'percentage' && dv > 0) {
-            return Math.ceil((parseFloat(calculateTotalPrice() || 0) * dv) / 100)
-          }
-          return dv
-        })(),
+        discount: resolveDiscount(formData.discount, discountType, calculateTotalPrice()),
         additionalFees: parseFloat(formData.additionalFees) || 0,
         taxes: parseFloat(formData.taxes) || 0,
         total: parseFloat(formData.total || 0),
@@ -3192,13 +3178,7 @@ setIntakeQuestionAnswers(answers);
                                 Discount ({discountType === 'percentage' ? `${formData.discount}%` : `$${formData.discount}`})
                             </button>
                               <span className="text-base text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
-                                -${(() => {
-                                  const subtotal = parseFloat(calculateTotalPrice()) || 0;
-                                  if (discountType === 'percentage') {
-                                    return Math.ceil((subtotal * formData.discount) / 100).toFixed(2);
-                                  }
-                                  return parseFloat(formData.discount).toFixed(2);
-                                })()}
+                                -${resolveDiscount(formData.discount, discountType, calculateTotalPrice()).toFixed(2)}
                               </span>
                           </div>
                           ) : (
