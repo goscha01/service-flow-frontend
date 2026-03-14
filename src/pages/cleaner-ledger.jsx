@@ -24,6 +24,7 @@ const TYPE_LABELS = {
   tip: 'Tip',
   incentive: 'Incentive',
   cash_collected: 'Cash Collected',
+  cash_to_company: 'Cash to Company',
   adjustment: 'Adjustment',
   payout: 'Payout'
 }
@@ -33,6 +34,7 @@ const TYPE_COLORS = {
   tip: 'bg-blue-100 text-blue-800',
   incentive: 'bg-purple-100 text-purple-800',
   cash_collected: 'bg-orange-100 text-orange-800',
+  cash_to_company: 'bg-cyan-100 text-cyan-800',
   adjustment: 'bg-yellow-100 text-yellow-800',
   payout: 'bg-gray-100 text-gray-800'
 }

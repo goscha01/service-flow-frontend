@@ -24,6 +24,7 @@ const TYPE_LABELS = {
   tip: 'Tip',
   incentive: 'Incentive',
   cash_collected: 'Cash Collected',
+  cash_to_company: 'Cash to Company',
   adjustment: 'Adjustment',
   payout: 'Payout'
 }
@@ -33,6 +34,7 @@ const TYPE_COLORS = {
   tip: 'bg-blue-100 text-blue-800',
   incentive: 'bg-purple-100 text-purple-800',
   cash_collected: 'bg-orange-100 text-orange-800',
+  cash_to_company: 'bg-cyan-100 text-cyan-800',
   adjustment: 'bg-yellow-100 text-yellow-800',
   payout: 'bg-gray-100 text-gray-800'
 }
@@ -87,10 +89,8 @@ const Payroll = () => {
   const [backfillTotal, setBackfillTotal] = useState(0)
   const [backfillPhase, setBackfillPhase] = useState('')
 
-  // ── Bulk mark paid state ──
-  const [bulkPaidDate, setBulkPaidDate] = useState(() => toLocalDateString(new Date()))
-  const [bulkPaidLoading, setBulkPaidLoading] = useState(false)
-  const [bulkPaidResult, setBulkPaidResult] = useState(null)
+  // ── Cash modal type state ──
+  const [cashType, setCashType] = useState('paid_in_cash') // 'paid_in_cash' or 'cash_to_company'
 
   // ── Ledger entries tab state ──
   const [entries, setEntries] = useState([])
@@ -318,9 +318,13 @@ const Payroll = () => {
     }
     setModalLoading(true); setModalError('')
     try {
-      await ledgerAPI.recordCashCollected({ teamMemberId: cashTeamMember, amount: parseFloat(cashAmount), note: cashNote || undefined, jobId: cashJobId || undefined })
+      if (cashType === 'cash_to_company') {
+        await ledgerAPI.recordCashToCompany({ teamMemberId: cashTeamMember, amount: parseFloat(cashAmount), note: cashNote || undefined, jobId: cashJobId || undefined })
+      } else {
+        await ledgerAPI.recordCashCollected({ teamMemberId: cashTeamMember, amount: parseFloat(cashAmount), note: cashNote || undefined, jobId: cashJobId || undefined })
+      }
       setShowCashModal(false)
-      setCashTeamMember(''); setCashAmount(''); setCashNote(''); setCashJobId('')
+      setCashTeamMember(''); setCashAmount(''); setCashNote(''); setCashJobId(''); setCashType('paid_in_cash')
       if (activeTab === 'balances') fetchBalances()
       if (activeTab === 'ledger') fetchEntries()
     } catch (err) {
@@ -433,20 +437,6 @@ const Payroll = () => {
       setBackfillProgress(0)
       alert(err.response?.data?.error || 'Backfill reset failed')
     } finally { setBackfillLoading(false) }
-  }
-
-  const handleBulkMarkPaid = async () => {
-    if (!bulkPaidDate) return alert('Please select a cutoff date')
-    if (!window.confirm(`Mark ALL unpaid ledger entries up to ${bulkPaidDate} as paid for all team members? This will create payout batches and zero out their balances for that period.`)) return
-    setBulkPaidLoading(true)
-    setBulkPaidResult(null)
-    try {
-      const result = await ledgerAPI.bulkMarkPaid(bulkPaidDate, `Bulk paid up to ${bulkPaidDate}`)
-      setBulkPaidResult(result)
-      fetchBalances()
-    } catch (err) {
-      alert(err.response?.data?.error || 'Bulk mark paid failed')
-    } finally { setBulkPaidLoading(false) }
   }
 
   const handleExport = () => {
@@ -1006,7 +996,7 @@ const Payroll = () => {
           {activeTab === 'balances' && (
             <div>
               {/* Summary Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
                 <div className="bg-white rounded-xl p-5 border shadow-sm">
                   <div className="text-sm text-gray-500 mb-1">Total Unpaid Balance</div>
                   <div className={`text-2xl font-bold ${totalUnpaidBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
@@ -1110,31 +1100,6 @@ const Payroll = () => {
                     </div>
                   )}
 
-                </div>
-                <div className="bg-white rounded-xl p-5 border shadow-sm">
-                  <div className="text-sm text-gray-500 mb-1">Bulk Mark Paid</div>
-                  <div className="text-xs text-gray-400 mb-3">Mark all entries as paid up to a date</div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <input type="date" value={bulkPaidDate} onChange={(e) => setBulkPaidDate(e.target.value)}
-                      className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm flex-1" />
-                  </div>
-                  <button onClick={handleBulkMarkPaid} disabled={bulkPaidLoading}
-                    className="w-full px-3 py-2 text-xs bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 font-medium">
-                    {bulkPaidLoading ? 'Processing...' : 'Mark All Paid'}
-                  </button>
-                  {bulkPaidResult && (
-                    <div className="mt-3 pt-3 border-t">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Check size={14} className="text-green-600" />
-                        <span className="text-sm font-medium text-green-700">Done</span>
-                      </div>
-                      <div className="text-xs text-gray-600">
-                        {bulkPaidResult.batches_created} payout batches created, {bulkPaidResult.total_entries_marked} entries marked paid
-                      </div>
-                      <button onClick={() => setBulkPaidResult(null)}
-                        className="mt-2 px-2 py-1 text-xs border rounded hover:bg-gray-50">Dismiss</button>
-                    </div>
-                  )}
                 </div>
               </div>
 
@@ -1369,8 +1334,12 @@ const Payroll = () => {
           {activeTab === 'payouts' && (
             <div>
               <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
-                <div className="px-5 py-4 border-b">
+                <div className="px-5 py-4 border-b flex items-center justify-between">
                   <h2 className="text-lg font-semibold text-gray-900">Payout Batches</h2>
+                  <button onClick={() => { setShowPayoutModal(true); setModalError('') }}
+                    className="px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-1">
+                    <Plus size={16} /> Create Payout
+                  </button>
                 </div>
                 {batchesLoading ? (
                   <div className="p-8 text-center text-gray-400">Loading...</div>
@@ -1526,10 +1495,32 @@ const Payroll = () => {
       {showCashModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">Record Cash Collected</h3>
-            <p className="text-xs text-gray-500 mb-3">Record cash the cleaner collected directly from the customer. This reduces their payout balance.</p>
+            <h3 className="text-lg font-bold text-gray-900 mb-4">Record Cash</h3>
             {modalError && <div className="text-sm text-red-600 bg-red-50 p-2 rounded mb-3">{modalError}</div>}
             <div className="space-y-3">
+              <div>
+                <label className="text-sm text-gray-600 mb-1 block">Cash Type *</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button onClick={() => setCashType('paid_in_cash')}
+                    className={`px-3 py-2.5 text-sm rounded-lg border-2 transition-colors ${
+                      cashType === 'paid_in_cash'
+                        ? 'border-orange-500 bg-orange-50 text-orange-700 font-medium'
+                        : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}>
+                    <div className="font-medium">Paid in Cash</div>
+                    <div className="text-xs mt-0.5 opacity-75">Reduces salary owed</div>
+                  </button>
+                  <button onClick={() => setCashType('cash_to_company')}
+                    className={`px-3 py-2.5 text-sm rounded-lg border-2 transition-colors ${
+                      cashType === 'cash_to_company'
+                        ? 'border-blue-500 bg-blue-50 text-blue-700 font-medium'
+                        : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}>
+                    <div className="font-medium">Cash to Company</div>
+                    <div className="text-xs mt-0.5 opacity-75">Cashflow record only</div>
+                  </button>
+                </div>
+              </div>
               <div>
                 <label className="text-sm text-gray-600 mb-1 block">Team Member *</label>
                 <select value={cashTeamMember} onChange={e => setCashTeamMember(e.target.value)}
@@ -1541,7 +1532,7 @@ const Payroll = () => {
                 </select>
               </div>
               <div>
-                <label className="text-sm text-gray-600 mb-1 block">Amount Collected *</label>
+                <label className="text-sm text-gray-600 mb-1 block">Amount *</label>
                 <input type="number" step="0.01" value={cashAmount} onChange={e => setCashAmount(e.target.value)}
                   className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="0.00" />
               </div>
@@ -1555,11 +1546,23 @@ const Payroll = () => {
                 <input type="text" value={cashNote} onChange={e => setCashNote(e.target.value)}
                   className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="Optional note" />
               </div>
+              {cashType === 'paid_in_cash' && (
+                <div className="bg-orange-50 rounded-lg p-3 text-xs text-orange-700">
+                  This will reduce the cleaner's payout balance by the entered amount.
+                </div>
+              )}
+              {cashType === 'cash_to_company' && (
+                <div className="bg-blue-50 rounded-lg p-3 text-xs text-blue-700">
+                  This records cash delivered to the company. It does not affect the cleaner's salary balance.
+                </div>
+              )}
             </div>
             <div className="flex justify-end gap-2 mt-5">
-              <button onClick={() => setShowCashModal(false)} className="px-4 py-2 text-sm border rounded-lg hover:bg-gray-50">Cancel</button>
+              <button onClick={() => { setShowCashModal(false); setCashType('paid_in_cash') }} className="px-4 py-2 text-sm border rounded-lg hover:bg-gray-50">Cancel</button>
               <button onClick={handleRecordCash} disabled={modalLoading}
-                className="px-4 py-2 text-sm bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50">
+                className={`px-4 py-2 text-sm text-white rounded-lg disabled:opacity-50 ${
+                  cashType === 'cash_to_company' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-orange-500 hover:bg-orange-600'
+                }`}>
                 {modalLoading ? 'Recording...' : 'Record Cash'}
               </button>
             </div>

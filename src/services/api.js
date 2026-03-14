@@ -2582,6 +2582,12 @@ export const ledgerAPI = {
     return response.data;
   },
 
+  // Record cash delivered to company (no salary impact)
+  recordCashToCompany: async (data) => {
+    const response = await api.post('/ledger/cash-to-company', data);
+    return response.data;
+  },
+
   // Create payout batch
   createPayoutBatch: async (data) => {
     const response = await api.post('/ledger/payout-batch', data);
