@@ -4359,12 +4359,40 @@ const JobDetails = () => {
                     <X className="w-5 h-5" />
                   </button>
                 </div>
-                
+
                 <div className="space-y-4">
+                  {/* Discount Type Toggle */}
+                  <div className="inline-flex rounded-lg border-2 border-blue-500 overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, discountMode: 'fixed' }))}
+                      className={`px-6 py-2 text-base font-semibold transition-colors ${
+                        (formData.discountMode || 'fixed') === 'fixed'
+                          ? 'bg-blue-500 text-white'
+                          : 'bg-white text-blue-500 hover:bg-blue-50'
+                      }`}
+                    >
+                      $
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, discountMode: 'percentage' }))}
+                      className={`px-6 py-2 text-base font-semibold transition-colors ${
+                        (formData.discountMode || 'fixed') === 'percentage'
+                          ? 'bg-blue-500 text-white'
+                          : 'bg-white text-blue-500 hover:bg-blue-50'
+                      }`}
+                    >
+                      %
+                    </button>
+                  </div>
+
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Discount Amount</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {(formData.discountMode || 'fixed') === 'percentage' ? 'Discount Percentage' : 'Discount Amount'}
+                    </label>
                     <div className="flex items-center space-x-2">
-                      <span className="text-sm text-gray-500">$</span>
+                      <span className="text-sm text-gray-500">{(formData.discountMode || 'fixed') === 'percentage' ? '%' : '$'}</span>
                       <input
                         type="text"
                         inputMode="decimal"
@@ -4372,20 +4400,26 @@ const JobDetails = () => {
                         onChange={e => {
                           const val = e.target.value
                           if (val === '' || /^\d*\.?\d{0,2}$/.test(val)) {
+                            if ((formData.discountMode || 'fixed') === 'percentage' && parseFloat(val) > 100) return
                             setFormData(prev => ({ ...prev, discountInput: val }))
                           }
                         }}
                         className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="0.00"
+                        placeholder={`${(formData.discountMode || 'fixed') === 'percentage' ? '0' : '0.00'}`}
                         autoFocus
                       />
                     </div>
+                    {(formData.discountMode || 'fixed') === 'percentage' && formData.discountInput && (
+                      <p className="text-sm text-gray-500 mt-1">
+                        = ${Math.ceil(((parseFloat(job?.total || 0) + parseFloat(job?.discount || 0)) * (parseFloat(formData.discountInput) || 0)) / 100).toFixed(2)} discount
+                      </p>
+                    )}
                   </div>
 
                   <div className="flex space-x-3 pt-4">
                     <button
                       onClick={() => {
-                        setFormData(prev => ({ ...prev, discountInput: '' }))
+                        setFormData(prev => ({ ...prev, discountInput: '', discountMode: 'fixed' }))
                         setShowDiscountModal(false)
                       }}
                       className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
@@ -4394,19 +4428,26 @@ const JobDetails = () => {
                     </button>
                     <button
                       onClick={async () => {
-                        const discountVal = parseFloat(formData.discountInput) || 0
-                        if (discountVal <= 0) {
+                        const inputVal = parseFloat(formData.discountInput) || 0
+                        if (inputVal <= 0) {
                           setError('Please enter a valid discount amount')
                           setTimeout(() => setError(''), 3000)
                           return
                         }
+                        let discountDollars
+                        if ((formData.discountMode || 'fixed') === 'percentage') {
+                          const subtotal = (parseFloat(job?.total || 0) + parseFloat(job?.discount || 0))
+                          discountDollars = Math.ceil((subtotal * inputVal) / 100)
+                        } else {
+                          discountDollars = inputVal
+                        }
                         try {
                           setLoading(true)
                           const prevDiscount = parseFloat(job.discount || 0)
-                          const newDiscount = prevDiscount + discountVal
+                          const newDiscount = prevDiscount + discountDollars
                           await jobsAPI.update(job.id, { discount: newDiscount })
                           setJob(prev => ({ ...prev, discount: newDiscount }))
-                          setFormData(prev => ({ ...prev, discount: newDiscount, discountInput: '' }))
+                          setFormData(prev => ({ ...prev, discount: newDiscount, discountInput: '', discountMode: 'fixed' }))
                           setSuccessMessage('Discount added successfully!')
                           setTimeout(() => setSuccessMessage(''), 3000)
                           setShowDiscountModal(false)
