@@ -884,7 +884,7 @@ export default function CreateJobPage() {
       // Calculate discount based on type
       if (discountValue > 0) {
         if (discountType === 'percentage') {
-          discountAmount = (subtotal * discountValue) / 100;
+          discountAmount = Math.ceil((subtotal * discountValue) / 100);
         } else {
           discountAmount = discountValue;
         }
@@ -1395,10 +1395,16 @@ export default function CreateJobPage() {
         workers: parseInt(formData.workers) || 0,
         skillsRequired: parseInt(formData.skillsRequired) || 0,
         price: parseFloat(calculateTotalPrice() || 0),
-        discount: parseFloat(formData.discount) || 0,
+        discount: (() => {
+          const dv = parseFloat(formData.discount) || 0
+          if (discountType === 'percentage' && dv > 0) {
+            return Math.ceil((parseFloat(calculateTotalPrice() || 0) * dv) / 100)
+          }
+          return dv
+        })(),
         additionalFees: parseFloat(formData.additionalFees) || 0,
         taxes: parseFloat(formData.taxes) || 0,
-        total: parseFloat(calculateTotalPrice() || 0),
+        total: parseFloat(formData.total || 0),
         paymentMethod: formData.paymentMethod,
         territory: formData.territory,
         territoryId: formData.territoryId || detectedTerritory?.id || null,
@@ -3189,7 +3195,7 @@ setIntakeQuestionAnswers(answers);
                                 -${(() => {
                                   const subtotal = parseFloat(calculateTotalPrice()) || 0;
                                   if (discountType === 'percentage') {
-                                    return ((subtotal * formData.discount) / 100).toFixed(2);
+                                    return Math.ceil((subtotal * formData.discount) / 100).toFixed(2);
                                   }
                                   return parseFloat(formData.discount).toFixed(2);
                                 })()}
@@ -3858,6 +3864,7 @@ setIntakeQuestionAnswers(answers);
         onSave={handleSaveDiscount}
         currentDiscount={formData.discount}
         currentDiscountType={discountType}
+        subtotal={parseFloat(calculateTotalPrice()) || 0}
       />
       
       <ServiceSelectionModal

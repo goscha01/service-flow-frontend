@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 
-const DiscountModal = ({ isOpen, onClose, onSave, currentDiscount = 0, currentDiscountType = 'fixed' }) => {
+const DiscountModal = ({ isOpen, onClose, onSave, currentDiscount = 0, currentDiscountType = 'fixed', subtotal = 0 }) => {
   const [discountType, setDiscountType] = useState(currentDiscountType); // 'fixed' or 'percentage'
   const [discountValue, setDiscountValue] = useState(currentDiscount);
 
@@ -91,6 +91,11 @@ const DiscountModal = ({ isOpen, onClose, onSave, currentDiscount = 0, currentDi
           />
           {discountType === 'percentage' && discountValue > 100 && (
             <p className="text-sm text-red-600 mt-1">Percentage cannot exceed 100%</p>
+          )}
+          {discountType === 'percentage' && subtotal > 0 && discountValue > 0 && discountValue <= 100 && (
+            <p className="text-sm text-gray-500 mt-1">
+              = ${Math.ceil((subtotal * (parseFloat(discountValue) || 0)) / 100).toFixed(2)} discount
+            </p>
           )}
         </div>
 
