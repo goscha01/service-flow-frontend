@@ -302,7 +302,12 @@ const ServiceFlowJobs = () => {
         }
       }
       // else: search is active, statusFilter and dateFilter stay empty to show all matching results
-      
+
+      // "Soonest" sort: if no date filter is set, show from today onward
+      if (filters.sortBy === 'scheduled_date' && filters.sortOrder === 'ASC' && !dateFilter && !filters.search) {
+        dateFilter = "future"
+      }
+
       // Call jobsAPI with individual parameters
       const response = await jobsAPI.getAll(
         user.id,
