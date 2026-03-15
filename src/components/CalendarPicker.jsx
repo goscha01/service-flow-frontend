@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react"
-import { ChevronLeft, ChevronRight, X, Clock } from "lucide-react"
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, X, Clock } from "lucide-react"
 import { jobsAPI } from "../services/api"
 
 const CalendarPicker = ({ 
@@ -425,21 +425,49 @@ const CalendarPicker = ({
           <div className={`flex-1 p-6 ${!isSimpleDatePicker ? 'border-r border-gray-200' : ''}`}>
             {/* Month Navigation */}
             <div className="flex items-center justify-between mb-6">
-              <button
-                onClick={() => navigateMonth(-1)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <ChevronLeft className="w-5 h-5 text-gray-600" />
-              </button>
+              <div className="flex items-center">
+                <button
+                  onClick={() => setCurrentDate(prev => {
+                    const d = new Date(prev)
+                    d.setFullYear(d.getFullYear() - 1)
+                    return d
+                  })}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="Previous year"
+                >
+                  <ChevronsLeft className="w-5 h-5 text-gray-600" />
+                </button>
+                <button
+                  onClick={() => navigateMonth(-1)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="Previous month"
+                >
+                  <ChevronLeft className="w-5 h-5 text-gray-600" />
+                </button>
+              </div>
               <h2 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                 {currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
               </h2>
-              <button
-                onClick={() => navigateMonth(1)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <ChevronRight className="w-5 h-5 text-gray-600" />
-              </button>
+              <div className="flex items-center">
+                <button
+                  onClick={() => navigateMonth(1)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="Next month"
+                >
+                  <ChevronRight className="w-5 h-5 text-gray-600" />
+                </button>
+                <button
+                  onClick={() => setCurrentDate(prev => {
+                    const d = new Date(prev)
+                    d.setFullYear(d.getFullYear() + 1)
+                    return d
+                  })}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="Next year"
+                >
+                  <ChevronsRight className="w-5 h-5 text-gray-600" />
+                </button>
+              </div>
             </div>
 
             {/* Calendar Grid */}

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
-import { ChevronLeft, ChevronRight, Settings, RefreshCw, Clock, User, X, Plus, Trash2, RotateCw, Calendar } from "lucide-react"
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Settings, RefreshCw, Clock, User, X, Plus, Trash2, RotateCw, Calendar } from "lucide-react"
 import { availabilityAPI, teamAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
 import { getImageUrl } from "../utils/imageUtils"
@@ -838,23 +838,43 @@ const WorkerAvailability = () => {
         {/* Month Navigation */}
         <div className="bg-white border-b border-gray-200 px-4 py-4">
           <div className="flex items-center justify-between">
-            <button
-              onClick={handlePreviousMonth}
-              className="p-2 text-gray-600 hover:text-gray-900"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-            
+            <div className="flex items-center">
+              <button
+                onClick={() => setCurrentDate(new Date(currentYear - 1, currentMonth, 1))}
+                className="p-2 text-gray-600 hover:text-gray-900"
+                title="Previous year"
+              >
+                <ChevronsLeft className="w-5 h-5" />
+              </button>
+              <button
+                onClick={handlePreviousMonth}
+                className="p-2 text-gray-600 hover:text-gray-900"
+                title="Previous month"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+            </div>
+
             <h2 className="text-lg font-semibold text-gray-900">
               {monthNames[currentMonth]} {currentYear}
             </h2>
-            
-            <button
-              onClick={handleNextMonth}
-              className="p-2 text-gray-600 hover:text-gray-900"
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
+
+            <div className="flex items-center">
+              <button
+                onClick={handleNextMonth}
+                className="p-2 text-gray-600 hover:text-gray-900"
+                title="Next month"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => setCurrentDate(new Date(currentYear + 1, currentMonth, 1))}
+                className="p-2 text-gray-600 hover:text-gray-900"
+                title="Next year"
+              >
+                <ChevronsRight className="w-5 h-5" />
+              </button>
+            </div>
           </div>
         </div>
         

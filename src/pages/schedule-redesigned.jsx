@@ -14,8 +14,10 @@ import {
   User, 
   Users,
   UserX,
-  ChevronLeft, 
+  ChevronLeft,
   ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   ChevronDown, 
   Maximize2,
   MessageCircle,
@@ -4229,8 +4231,21 @@ const ServiceFlowSchedule = () => {
             <div className="flex items-center justify-between px-4 pb-3">
               <div className="flex items-center bg-gray-200 rounded-full px-3 py-1.5">
                 <button
+                  onClick={() => {
+                    const newMonth = new Date(availabilityMonth)
+                    newMonth.setFullYear(newMonth.getFullYear() - 1)
+                    setAvailabilityMonth(newMonth)
+                    setSelectedDate(new Date(newMonth.getFullYear(), newMonth.getMonth(), 1))
+                  }}
+                  className="p-1 hover:bg-gray-300 rounded-full transition-colors"
+                  title="Previous year"
+                >
+                  <ChevronsLeft className="w-4 h-4 text-gray-700" />
+                </button>
+                <button
                   onClick={() => navigateAvailabilityMonth(-1)}
                   className="p-1 hover:bg-gray-300 rounded-full transition-colors"
+                  title="Previous month"
                 >
                   <ChevronLeft className="w-4 h-4 text-gray-700" />
                 </button>
@@ -4240,8 +4255,21 @@ const ServiceFlowSchedule = () => {
                 <button
                   onClick={() => navigateAvailabilityMonth(1)}
                   className="p-1 hover:bg-gray-300 rounded-full transition-colors"
+                  title="Next month"
                 >
                   <ChevronRight className="w-4 h-4 text-gray-700" />
+                </button>
+                <button
+                  onClick={() => {
+                    const newMonth = new Date(availabilityMonth)
+                    newMonth.setFullYear(newMonth.getFullYear() + 1)
+                    setAvailabilityMonth(newMonth)
+                    setSelectedDate(new Date(newMonth.getFullYear(), newMonth.getMonth(), 1))
+                  }}
+                  className="p-1 hover:bg-gray-300 rounded-full transition-colors"
+                  title="Next year"
+                >
+                  <ChevronsRight className="w-4 h-4 text-gray-700" />
                 </button>
               </div>
             </div>
@@ -4268,31 +4296,61 @@ const ServiceFlowSchedule = () => {
               >
               <div className="grid grid-cols-7 gap-1">
                 <div className="col-span-7 flex items-center justify-between mb-2">
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      const newDate = new Date(selectedDate)
-                      newDate.setMonth(newDate.getMonth() - 1)
-                      setSelectedDate(newDate)
-                    }}
-                    className="p-1 hover:bg-gray-100 rounded"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        const newDate = new Date(selectedDate)
+                        newDate.setFullYear(newDate.getFullYear() - 1)
+                        setSelectedDate(newDate)
+                      }}
+                      className="p-1 hover:bg-gray-100 rounded"
+                      title="Previous year"
+                    >
+                      <ChevronsLeft className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        const newDate = new Date(selectedDate)
+                        newDate.setMonth(newDate.getMonth() - 1)
+                        setSelectedDate(newDate)
+                      }}
+                      className="p-1 hover:bg-gray-100 rounded"
+                      title="Previous month"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                  </div>
                   <span className="text-sm font-medium">
                     {selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
                   </span>
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      const newDate = new Date(selectedDate)
-                      newDate.setMonth(newDate.getMonth() + 1)
-                      setSelectedDate(newDate)
-                    }}
-                    className="p-1 hover:bg-gray-100 rounded"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        const newDate = new Date(selectedDate)
+                        newDate.setMonth(newDate.getMonth() + 1)
+                        setSelectedDate(newDate)
+                      }}
+                      className="p-1 hover:bg-gray-100 rounded"
+                      title="Next month"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        const newDate = new Date(selectedDate)
+                        newDate.setFullYear(newDate.getFullYear() + 1)
+                        setSelectedDate(newDate)
+                      }}
+                      className="p-1 hover:bg-gray-100 rounded"
+                      title="Next year"
+                    >
+                      <ChevronsRight className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
                 {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(day => (
                   <div key={day} className="text-xs font-medium text-gray-500 text-center py-1">
@@ -5122,29 +5180,57 @@ const ServiceFlowSchedule = () => {
                       <div className="grid grid-cols-7 gap-1">
                         {/* Calendar Header */}
                         <div className="col-span-7 flex items-center justify-between mb-2">
-                          <button 
-                            onClick={() => {
-                              const newDate = new Date(selectedDate)
-                              newDate.setMonth(newDate.getMonth() - 1)
-                              setSelectedDate(newDate)
-                            }}
-                            className="p-1 hover:bg-gray-100 rounded"
-                          >
-                            <ChevronLeft className="w-4 h-4" />
-                          </button>
+                          <div className="flex items-center">
+                            <button
+                              onClick={() => {
+                                const newDate = new Date(selectedDate)
+                                newDate.setFullYear(newDate.getFullYear() - 1)
+                                setSelectedDate(newDate)
+                              }}
+                              className="p-1 hover:bg-gray-100 rounded"
+                              title="Previous year"
+                            >
+                              <ChevronsLeft className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                const newDate = new Date(selectedDate)
+                                newDate.setMonth(newDate.getMonth() - 1)
+                                setSelectedDate(newDate)
+                              }}
+                              className="p-1 hover:bg-gray-100 rounded"
+                              title="Previous month"
+                            >
+                              <ChevronLeft className="w-4 h-4" />
+                            </button>
+                          </div>
                           <span className="text-sm font-medium">
                             {selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-                </span>
-                <button
-                            onClick={() => {
-                              const newDate = new Date(selectedDate)
-                              newDate.setMonth(newDate.getMonth() + 1)
-                              setSelectedDate(newDate)
-                            }}
-                            className="p-1 hover:bg-gray-100 rounded"
-                          >
-                            <ChevronRight className="w-4 h-4" />
-                          </button>
+                          </span>
+                          <div className="flex items-center">
+                            <button
+                              onClick={() => {
+                                const newDate = new Date(selectedDate)
+                                newDate.setMonth(newDate.getMonth() + 1)
+                                setSelectedDate(newDate)
+                              }}
+                              className="p-1 hover:bg-gray-100 rounded"
+                              title="Next month"
+                            >
+                              <ChevronRight className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                const newDate = new Date(selectedDate)
+                                newDate.setFullYear(newDate.getFullYear() + 1)
+                                setSelectedDate(newDate)
+                              }}
+                              className="p-1 hover:bg-gray-100 rounded"
+                              title="Next year"
+                            >
+                              <ChevronsRight className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
 
                         {/* Day Headers */}
@@ -5276,29 +5362,57 @@ const ServiceFlowSchedule = () => {
                       <div className="grid grid-cols-7 gap-1">
                         {/* Calendar Header */}
                         <div className="col-span-7 flex items-center justify-between mb-2">
-                          <button 
-                            onClick={() => {
-                              const newDate = new Date(selectedDate)
-                              newDate.setMonth(newDate.getMonth() - 1)
-                              setSelectedDate(newDate)
-                            }}
-                            className="p-1 hover:bg-gray-100 rounded"
-                          >
-                            <ChevronLeft className="w-4 h-4" />
-                          </button>
+                          <div className="flex items-center">
+                            <button
+                              onClick={() => {
+                                const newDate = new Date(selectedDate)
+                                newDate.setFullYear(newDate.getFullYear() - 1)
+                                setSelectedDate(newDate)
+                              }}
+                              className="p-1 hover:bg-gray-100 rounded"
+                              title="Previous year"
+                            >
+                              <ChevronsLeft className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                const newDate = new Date(selectedDate)
+                                newDate.setMonth(newDate.getMonth() - 1)
+                                setSelectedDate(newDate)
+                              }}
+                              className="p-1 hover:bg-gray-100 rounded"
+                              title="Previous month"
+                            >
+                              <ChevronLeft className="w-4 h-4" />
+                            </button>
+                          </div>
                           <span className="text-sm font-medium">
                             {selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
                           </span>
-                          <button 
-                            onClick={() => {
-                              const newDate = new Date(selectedDate)
-                              newDate.setMonth(newDate.getMonth() + 1)
-                              setSelectedDate(newDate)
-                            }}
-                            className="p-1 hover:bg-gray-100 rounded"
-                          >
-                            <ChevronRight className="w-4 h-4" />
-                          </button>
+                          <div className="flex items-center">
+                            <button
+                              onClick={() => {
+                                const newDate = new Date(selectedDate)
+                                newDate.setMonth(newDate.getMonth() + 1)
+                                setSelectedDate(newDate)
+                              }}
+                              className="p-1 hover:bg-gray-100 rounded"
+                              title="Next month"
+                            >
+                              <ChevronRight className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                const newDate = new Date(selectedDate)
+                                newDate.setFullYear(newDate.getFullYear() + 1)
+                                setSelectedDate(newDate)
+                              }}
+                              className="p-1 hover:bg-gray-100 rounded"
+                              title="Next year"
+                            >
+                              <ChevronsRight className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
 
                         {/* Day Headers */}
