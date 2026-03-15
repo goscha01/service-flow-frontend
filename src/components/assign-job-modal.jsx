@@ -24,7 +24,8 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign, companyDrivingTimeMinu
   // Determine if this is a past job (scheduled before today)
   const isPastJob = useMemo(() => {
     if (!job?.scheduled_date) return false
-    const jobDate = new Date(String(job.scheduled_date).split('T')[0] + 'T00:00:00')
+    const dateStr = String(job.scheduled_date).split('T')[0].split(' ')[0]
+    const jobDate = new Date(dateStr + 'T00:00:00')
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     return jobDate < today
