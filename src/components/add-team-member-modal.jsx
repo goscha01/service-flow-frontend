@@ -24,6 +24,7 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
     territories: [],
     hourlyRate: null,
     commissionPercentage: null,
+    salaryStartDate: new Date().toISOString().split('T')[0],
     availability: {
       monday: { start: "09:00", end: "17:00", available: true },
       tuesday: { start: "09:00", end: "17:00", available: true },
@@ -115,6 +116,7 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
         territories: parsedTerritories,
         hourlyRate: member.hourly_rate || null,
         commissionPercentage: member.commission_percentage || null,
+        salaryStartDate: member.salary_start_date || (member.created_at ? member.created_at.split('T')[0] : new Date().toISOString().split('T')[0]),
         availability: parsedAvailability,
         permissions: (() => {
           // When editing, use ONLY the saved permissions - no defaults
@@ -159,6 +161,7 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
         territories: [],
         hourlyRate: null,
         commissionPercentage: null,
+        salaryStartDate: new Date().toISOString().split('T')[0],
         availability: {
           monday: { start: "09:00", end: "17:00", available: true },
           tuesday: { start: "09:00", end: "17:00", available: true },
@@ -414,6 +417,7 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
         territories: formData.territories,
         hourlyRate: formData.hourlyRate || null,
         commissionPercentage: formData.commissionPercentage || null,
+        salaryStartDate: formData.salaryStartDate || null,
         permissions: typeof formData.permissions === 'string' 
           ? formData.permissions 
           : JSON.stringify(formData.permissions || {}),
@@ -652,6 +656,24 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
                   </div>
                   <p className="mt-1 text-xs text-gray-500">
                     Commission = Job Revenue × Commission %
+                  </p>
+                </div>
+
+                {/* Salary Start Date - shown for all roles */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Salary Start Date
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.salaryStartDate || ''}
+                    onChange={(e) => handleInputChange('salaryStartDate', e.target.value || null)}
+                    className="w-full text-xs px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    {formData.role === 'manager' || formData.role === 'scheduler'
+                      ? 'Scheduled salary will be calculated from this date'
+                      : 'Date from which salary calculations begin'}
                   </p>
                 </div>
 
