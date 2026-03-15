@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { X, UserPlus, Edit, Calendar, DollarSign, Tag, MapPin, Search, CheckCircle, AlertCircle } from "lucide-react"
+import { X, UserPlus, Edit, Calendar, DollarSign, Tag, MapPin, Search, CheckCircle, AlertCircle, Plus, Trash2, Clock } from "lucide-react"
 import { teamAPI, territoriesAPI } from "../services/api"
 import AddressValidation from "./address-validation"
 import AddressAutocomplete from "./address-autocomplete"
@@ -54,6 +54,20 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
   const [territories, setTerritories] = useState([])
   const [loadingTerritories, setLoadingTerritories] = useState(false)
   const [fullNameInput, setFullNameInput] = useState("") // Local state for full name input to preserve spaces
+  const [payRates, setPayRates] = useState([])
+  const [showAddRate, setShowAddRate] = useState(false)
+  const [newRate, setNewRate] = useState({ hourlyRate: '', commissionPercentage: '', effectiveFrom: '', note: '' })
+
+  // Load pay rate history when editing
+  useEffect(() => {
+    if (isOpen && member && isEditing && member.id) {
+      teamAPI.getPayRates(member.id).then(data => {
+        setPayRates(data.payRates || [])
+      }).catch(err => console.error('Error loading pay rates:', err))
+    } else if (isOpen && !isEditing) {
+      setPayRates([])
+    }
+  }, [isOpen, isEditing, member?.id])
 
   useEffect(() => {
     if (isOpen && member && isEditing) {
@@ -700,6 +714,162 @@ const AddTeamMemberModal = ({ isOpen, onClose, onSuccess, userId, member = null,
                   </div>
                 )}
               </div>
+
+              {/* Pay Rate History - only show when editing */}
+              {isEditing && member?.id && (
+                <div className="mt-4 border-t border-gray-100 pt-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-sm font-medium text-gray-700 flex items-center">
+                      <Clock className="w-3.5 h-3.5 mr-1.5 text-gray-500" />
+                      Pay Rate History
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddRate(!showAddRate)}
+                      className="text-xs text-blue-600 hover:text-blue-700 flex items-center"
+                    >
+                      <Plus className="w-3 h-3 mr-0.5" />
+                      Add Rate Change
+                    </button>
+                  </div>
+
+                  {showAddRate && (
+                    <div className="p-3 bg-gray-50 rounded-lg mb-2 space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-xs text-gray-600 mb-0.5">Hourly Rate</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={newRate.hourlyRate}
+                            onChange={(e) => setNewRate(prev => ({ ...prev, hourlyRate: e.target.value }))}
+                            className="w-full text-xs px-2 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            placeholder="$0.00"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-600 mb-0.5">Commission %</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            max="100"
+                            value={newRate.commissionPercentage}
+                            onChange={(e) => setNewRate(prev => ({ ...prev, commissionPercentage: e.target.value }))}
+                            className="w-full text-xs px-2 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            placeholder="0%"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-0.5">Effective From</label>
+                        <input
+                          type="date"
+                          value={newRate.effectiveFrom}
+                          onChange={(e) => setNewRate(prev => ({ ...prev, effectiveFrom: e.target.value }))}
+                          className="w-full text-xs px-2 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-0.5">Note (optional)</label>
+                        <input
+                          type="text"
+                          value={newRate.note}
+                          onChange={(e) => setNewRate(prev => ({ ...prev, note: e.target.value }))}
+                          className="w-full text-xs px-2 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          placeholder="e.g. Rate increase, promotion"
+                        />
+                      </div>
+                      <div className="flex justify-end gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => { setShowAddRate(false); setNewRate({ hourlyRate: '', commissionPercentage: '', effectiveFrom: '', note: '' }) }}
+                          className="text-xs px-3 py-1 text-gray-600 hover:text-gray-800"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (!newRate.effectiveFrom) return
+                            try {
+                              await teamAPI.addPayRate(member.id, {
+                                hourlyRate: newRate.hourlyRate ? parseFloat(newRate.hourlyRate) : null,
+                                commissionPercentage: newRate.commissionPercentage ? parseFloat(newRate.commissionPercentage) : null,
+                                effectiveFrom: newRate.effectiveFrom,
+                                note: newRate.note || null
+                              })
+                              const data = await teamAPI.getPayRates(member.id)
+                              setPayRates(data.payRates || [])
+                              setShowAddRate(false)
+                              setNewRate({ hourlyRate: '', commissionPercentage: '', effectiveFrom: '', note: '' })
+                              // Update current form values to match latest rate
+                              const latest = (data.payRates || [])[0]
+                              if (latest) {
+                                handleInputChange('hourlyRate', latest.hourly_rate ? parseFloat(latest.hourly_rate) : null)
+                                handleInputChange('commissionPercentage', latest.commission_percentage ? parseFloat(latest.commission_percentage) : null)
+                              }
+                            } catch (err) {
+                              console.error('Error adding pay rate:', err)
+                            }
+                          }}
+                          className="text-xs px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+                          disabled={!newRate.effectiveFrom}
+                        >
+                          Save
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {payRates.length > 0 ? (
+                    <div className="space-y-1">
+                      {payRates.map((rate, idx) => (
+                        <div key={rate.id} className={`flex items-center justify-between p-2 rounded text-xs ${idx === 0 ? 'bg-blue-50 border border-blue-200' : 'bg-gray-50'}`}>
+                          <div>
+                            <span className="font-medium text-gray-900">
+                              {rate.hourly_rate ? `$${parseFloat(rate.hourly_rate).toFixed(2)}/hr` : ''}
+                              {rate.hourly_rate && rate.commission_percentage ? ' + ' : ''}
+                              {rate.commission_percentage ? `${parseFloat(rate.commission_percentage)}%` : ''}
+                              {!rate.hourly_rate && !rate.commission_percentage ? 'No pay' : ''}
+                            </span>
+                            <span className="text-gray-500 ml-2">
+                              from {new Date(rate.effective_from + 'T00:00:00').toLocaleDateString()}
+                            </span>
+                            {idx === 0 && <span className="ml-1.5 text-blue-600 font-medium">(current)</span>}
+                            {rate.note && <span className="text-gray-400 ml-1.5">— {rate.note}</span>}
+                          </div>
+                          {payRates.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                try {
+                                  await teamAPI.deletePayRate(member.id, rate.id)
+                                  const data = await teamAPI.getPayRates(member.id)
+                                  setPayRates(data.payRates || [])
+                                  const latest = (data.payRates || [])[0]
+                                  if (latest) {
+                                    handleInputChange('hourlyRate', latest.hourly_rate ? parseFloat(latest.hourly_rate) : null)
+                                    handleInputChange('commissionPercentage', latest.commission_percentage ? parseFloat(latest.commission_percentage) : null)
+                                  }
+                                } catch (err) {
+                                  console.error('Error deleting pay rate:', err)
+                                }
+                              }}
+                              className="text-gray-400 hover:text-red-500 p-0.5"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-400">No rate history yet. Current rate will be used for all periods.</p>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* User Role and Permissions */}
