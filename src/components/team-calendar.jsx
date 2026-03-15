@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { ChevronLeft, ChevronRight, Calendar, Clock, User } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Calendar, Clock, User } from 'lucide-react'
 import { teamAPI } from '../services/api'
 
 const TeamCalendar = ({ userId, onDateClick, selectedDate }) => {
@@ -85,21 +85,37 @@ const TeamCalendar = ({ userId, onDateClick, selectedDate }) => {
           <Calendar className="w-5 h-5 text-gray-400" />
           <h3 className="text-lg font-semibold text-gray-900">Team Calendar</h3>
         </div>
-        <div className="flex items-center space-x-2">
-          <button 
+        <div className="flex items-center space-x-1">
+          <button
+            onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear() - 1, prev.getMonth()))}
+            className="p-2 hover:bg-gray-100 rounded-lg"
+            title="Previous year"
+          >
+            <ChevronsLeft className="w-4 h-4" />
+          </button>
+          <button
             onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1))}
             className="p-2 hover:bg-gray-100 rounded-lg"
+            title="Previous month"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
           <h4 className="text-lg font-medium min-w-[200px] text-center">
             {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
           </h4>
-          <button 
+          <button
             onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1))}
             className="p-2 hover:bg-gray-100 rounded-lg"
+            title="Next month"
           >
             <ChevronRight className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear() + 1, prev.getMonth()))}
+            className="p-2 hover:bg-gray-100 rounded-lg"
+            title="Next year"
+          >
+            <ChevronsRight className="w-4 h-4" />
           </button>
         </div>
       </div>

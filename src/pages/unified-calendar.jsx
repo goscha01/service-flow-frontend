@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { useNavigate } from "react-router-dom"
-import { ChevronLeft, ChevronRight, Calendar, CalendarDays, Clock, Users, Filter, Edit, X, Check, CheckCircle, AlertCircle, List, Grid, Phone, Mail, DollarSign } from "lucide-react"
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Calendar, CalendarDays, Clock, Users, Filter, Edit, X, Check, CheckCircle, AlertCircle, List, Grid, Phone, Mail, DollarSign } from "lucide-react"
 import { teamAPI, jobsAPI, leadsAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
 import { getImageUrl } from "../utils/imageUtils"
@@ -1951,8 +1951,20 @@ const UnifiedCalendar = () => {
                     <div className="flex items-center space-x-2 relative">
                       <div className="flex items-center bg-gray-200 rounded-full px-3 py-1.5">
               <button
+                onClick={() => {
+                  const newDate = new Date(currentDate)
+                  newDate.setFullYear(newDate.getFullYear() - 1)
+                  setCurrentDate(newDate)
+                }}
+                className="p-1 hover:bg-gray-300 rounded-full transition-colors"
+                title="Previous year"
+              >
+                <ChevronsLeft className="w-4 h-4 text-gray-700" />
+              </button>
+              <button
                 onClick={handlePreviousMonth}
                           className="p-1 hover:bg-gray-300 rounded-full transition-colors"
+                          title="Previous month"
               >
                           <ChevronLeft className="w-4 h-4 text-gray-700" />
               </button>
@@ -1960,7 +1972,7 @@ const UnifiedCalendar = () => {
                           onClick={() => setShowCalendarPicker(!showCalendarPicker)}
                           className="text-sm font-semibold text-gray-900 mx-3 hover:text-blue-600 transition-colors cursor-pointer min-w-[140px] text-center"
                         >
-                          {calendarView === 'day' 
+                          {calendarView === 'day'
                             ? currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
                             : calendarView === 'week'
                             ? `Week of ${getWeekStartDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
@@ -1970,9 +1982,21 @@ const UnifiedCalendar = () => {
                         <button
                           onClick={handleNextMonth}
                           className="p-1 hover:bg-gray-300 rounded-full transition-colors"
+                          title="Next month"
                         >
                           <ChevronRight className="w-4 h-4 text-gray-700" />
                         </button>
+              <button
+                onClick={() => {
+                  const newDate = new Date(currentDate)
+                  newDate.setFullYear(newDate.getFullYear() + 1)
+                  setCurrentDate(newDate)
+                }}
+                className="p-1 hover:bg-gray-300 rounded-full transition-colors"
+                title="Next year"
+              >
+                <ChevronsRight className="w-4 h-4 text-gray-700" />
+              </button>
                       </div>
 
                       {/* Calendar Picker Popup */}
@@ -1981,29 +2005,57 @@ const UnifiedCalendar = () => {
                           <div className="grid grid-cols-7 gap-1">
                             {/* Calendar Header */}
                             <div className="col-span-7 flex items-center justify-between mb-2">
-                              <button 
-                                onClick={() => {
-                                  const newDate = new Date(currentDate)
-                                  newDate.setMonth(newDate.getMonth() - 1)
-                                  setCurrentDate(newDate)
-                                }}
-                                className="p-1 hover:bg-gray-100 rounded"
-                              >
-                                <ChevronLeft className="w-4 h-4" />
-                              </button>
+                              <div className="flex items-center">
+                                <button
+                                  onClick={() => {
+                                    const newDate = new Date(currentDate)
+                                    newDate.setFullYear(newDate.getFullYear() - 1)
+                                    setCurrentDate(newDate)
+                                  }}
+                                  className="p-1 hover:bg-gray-100 rounded"
+                                  title="Previous year"
+                                >
+                                  <ChevronsLeft className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    const newDate = new Date(currentDate)
+                                    newDate.setMonth(newDate.getMonth() - 1)
+                                    setCurrentDate(newDate)
+                                  }}
+                                  className="p-1 hover:bg-gray-100 rounded"
+                                  title="Previous month"
+                                >
+                                  <ChevronLeft className="w-4 h-4" />
+                                </button>
+                              </div>
                               <span className="text-sm font-medium">
                                 {currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
                               </span>
-                              <button 
-                                onClick={() => {
-                                  const newDate = new Date(currentDate)
-                                  newDate.setMonth(newDate.getMonth() + 1)
-                                  setCurrentDate(newDate)
-                                }}
-                                className="p-1 hover:bg-gray-100 rounded"
-                              >
-                                <ChevronRight className="w-4 h-4" />
-                              </button>
+                              <div className="flex items-center">
+                                <button
+                                  onClick={() => {
+                                    const newDate = new Date(currentDate)
+                                    newDate.setMonth(newDate.getMonth() + 1)
+                                    setCurrentDate(newDate)
+                                  }}
+                                  className="p-1 hover:bg-gray-100 rounded"
+                                  title="Next month"
+                                >
+                                  <ChevronRight className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    const newDate = new Date(currentDate)
+                                    newDate.setFullYear(newDate.getFullYear() + 1)
+                                    setCurrentDate(newDate)
+                                  }}
+                                  className="p-1 hover:bg-gray-100 rounded"
+                                  title="Next year"
+                                >
+                                  <ChevronsRight className="w-4 h-4" />
+                                </button>
+                              </div>
                             </div>
 
                             {/* Day Headers */}
