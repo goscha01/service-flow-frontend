@@ -19,6 +19,16 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign, companyDrivingTimeMinu
   const [expandedSchedules, setExpandedSchedules] = useState({})
   const [allSkills, setAllSkills] = useState([])
   const [companyDrivingTime, setCompanyDrivingTime] = useState(companyDrivingTimeMinutes ?? null)
+  const [includeInactive, setIncludeInactive] = useState(false)
+
+  // Determine if this is a past job (scheduled before today)
+  const isPastJob = useMemo(() => {
+    if (!job?.scheduled_date) return false
+    const jobDate = new Date(String(job.scheduled_date).split('T')[0] + 'T00:00:00')
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    return jobDate < today
+  }, [job?.scheduled_date])
 
   // Fetch company driving time when modal opens (for fallback when member has no per-member driving time)
   useEffect(() => {
@@ -71,6 +81,13 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign, companyDrivingTimeMinu
     }
   }, [isOpen, job])
 
+  // Re-fetch when includeInactive changes
+  useEffect(() => {
+    if (isOpen && job) {
+      fetchTeamMembers()
+    }
+  }, [includeInactive])
+
   // Fetch availability for all members when modal opens
   useEffect(() => {
     if (isOpen && job && teamMembers.length > 0) {
@@ -82,18 +99,18 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign, companyDrivingTimeMinu
     try {
       setLoading(true)
       const response = await teamAPI.getAll(user.id, {
-        status: 'active',
+        status: includeInactive ? undefined : 'active',
         page: 1,
         limit: 100
       })
-      
+
       // Normalize the response
       const teamMembersData = normalizeAPIResponse(response, 'teamMembers') || []
-      
+
       // Filter to only service providers (workers, schedulers, managers, account owner)
-      const providers = teamMembersData.filter(member => 
-        (member.is_service_provider || member.role === 'owner' || member.role === 'account owner') && 
-        member.status === 'active'
+      const providers = teamMembersData.filter(member =>
+        (member.is_service_provider || member.role === 'owner' || member.role === 'account owner') &&
+        (includeInactive || member.status === 'active')
       )
       
       // Log for debugging
@@ -571,17 +588,19 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign, companyDrivingTimeMinu
     const assignedMemberIds = new Set(assignedMembers.map(m => m.id))
 
     // Show: assigned members always; others when they have availability (free time) for this job.
-    // Until availability has been fetched for at least one member, show all (avoids showing only assigned due to load race).
-    const availabilityLoaded = Object.keys(memberAvailability).length > 0
-    filtered = filtered.filter(member => {
-      const isAssigned = assignedMemberIds.has(member.id)
-      if (isAssigned) return true // Always show assigned members
+    // For past jobs, skip availability filtering — show all members so they can be retroactively assigned.
+    if (!isPastJob) {
+      const availabilityLoaded = Object.keys(memberAvailability).length > 0
+      filtered = filtered.filter(member => {
+        const isAssigned = assignedMemberIds.has(member.id)
+        if (isAssigned) return true // Always show assigned members
 
-      if (!availabilityLoaded) return true // Show all until fetch completes so list isn't only assigned
-      const availability = memberAvailability[member.id]
-      if (availability == null) return true // This member's data not ready yet
-      return availability.available === true // Only show members with free time for this job
-    })
+        if (!availabilityLoaded) return true // Show all until fetch completes so list isn't only assigned
+        const availability = memberAvailability[member.id]
+        if (availability == null) return true // This member's data not ready yet
+        return availability.available === true // Only show members with free time for this job
+      })
+    }
 
     // Merge assigned members that might not be in filtered list
     const filteredIds = new Set(filtered.map(m => m.id))
@@ -592,7 +611,7 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign, companyDrivingTimeMinu
     })
 
     return filtered
-  }, [teamMembers, searchQuery, selectedSkill, memberAvailability, currentlyAssignedIds])
+  }, [teamMembers, searchQuery, selectedSkill, memberAvailability, currentlyAssignedIds, isPastJob])
 
   const handleAssign = async () => {
     try {
@@ -870,6 +889,19 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign, companyDrivingTimeMinu
               </select>
               <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
             </div>
+
+            {/* Include deactivated checkbox */}
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={includeInactive}
+                onChange={(e) => setIncludeInactive(e.target.checked)}
+                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+              />
+              <span className="text-xs text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                Include deactivated members
+              </span>
+            </label>
           </div>
 
           {/* Available Providers Section */}
