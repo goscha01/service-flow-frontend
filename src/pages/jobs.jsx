@@ -135,6 +135,7 @@ const ServiceFlowJobs = () => {
       case 'sort':
         if (filters.sortBy === 'scheduled_date' && filters.sortOrder === 'ASC') return 'Sort by: Soonest'
         if (filters.sortBy === 'scheduled_date' && filters.sortOrder === 'DESC') return 'Sort by: Recent'
+        if (filters.sortBy === 'created_at' && filters.sortOrder === 'ASC') return 'Sort by: Oldest'
         if (filters.sortBy === 'total_amount' && filters.sortOrder === 'DESC') return 'Sort by: Highest Amount'
         if (filters.sortBy === 'total_amount' && filters.sortOrder === 'ASC') return 'Sort by: Lowest Amount'
         return 'Sort by: Soonest'
@@ -1154,6 +1155,15 @@ const ServiceFlowJobs = () => {
                     </button>
                     <button
                       onClick={() => {
+                        setFilters(prev => ({ ...prev, sortBy: 'created_at', sortOrder: 'ASC' }))
+                        setOpenDropdown(null)
+                      }}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${filters.sortBy === 'created_at' && filters.sortOrder === 'ASC' ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
+                    >
+                      Sort by: Oldest
+                    </button>
+                    <button
+                      onClick={() => {
                         setFilters(prev => ({ ...prev, sortBy: 'total_amount', sortOrder: 'DESC' }))
                         setOpenDropdown(null)
                       }}
@@ -1765,6 +1775,26 @@ const ServiceFlowJobs = () => {
                       </div>
                     )}
                     {!(filters.sortBy === 'scheduled_date' && filters.sortOrder === 'ASC') && (
+                      <div className="w-5 h-5 rounded-full border-2 border-gray-300"></div>
+                    )}
+                  </button>
+
+                  {/* Oldest */}
+                  <button
+                    onClick={() => {
+                      setFilters(prev => ({ ...prev, sortBy: 'created_at', sortOrder: 'ASC' }))
+                    }}
+                    className="w-full flex items-center justify-between py-3 px-2 hover:bg-gray-50 rounded-lg transition-colors"
+                  >
+                    <span className="text-sm font-medium text-gray-900" style={{fontFamily: 'Montserrat', fontWeight: 500}}>
+                      Oldest
+                    </span>
+                    {filters.sortBy === 'created_at' && filters.sortOrder === 'ASC' && (
+                      <div className="w-5 h-5 rounded-full border-2 border-blue-600 flex items-center justify-center">
+                        <div className="w-3 h-3 bg-blue-600 rounded-full"></div>
+                      </div>
+                    )}
+                    {!(filters.sortBy === 'created_at' && filters.sortOrder === 'ASC') && (
                       <div className="w-5 h-5 rounded-full border-2 border-gray-300"></div>
                     )}
                   </button>
