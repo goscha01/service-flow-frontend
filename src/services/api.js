@@ -1184,6 +1184,27 @@ export const teamAPI = {
     }
   },
 
+  // Pay rate history
+  getPayRates: async (teamMemberId) => {
+    const response = await api.get(`/team-members/${teamMemberId}/pay-rates`);
+    return response.data;
+  },
+
+  addPayRate: async (teamMemberId, rateData) => {
+    const response = await api.post(`/team-members/${teamMemberId}/pay-rates`, rateData);
+    return response.data;
+  },
+
+  updatePayRate: async (teamMemberId, rateId, rateData) => {
+    const response = await api.put(`/team-members/${teamMemberId}/pay-rates/${rateId}`, rateData);
+    return response.data;
+  },
+
+  deletePayRate: async (teamMemberId, rateId) => {
+    const response = await api.delete(`/team-members/${teamMemberId}/pay-rates/${rateId}`);
+    return response.data;
+  },
+
   getAnalytics: async (userId, startDate, endDate) => {
     try {
       const params = new URLSearchParams({ userId });
