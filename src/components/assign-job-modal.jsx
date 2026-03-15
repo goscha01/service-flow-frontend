@@ -89,12 +89,12 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign, companyDrivingTimeMinu
     }
   }, [includeInactive])
 
-  // Fetch availability for all members when modal opens
+  // Fetch availability for all members when modal opens (skip for past jobs — all members shown)
   useEffect(() => {
-    if (isOpen && job && teamMembers.length > 0) {
+    if (isOpen && job && teamMembers.length > 0 && !isPastJob) {
       fetchMemberAvailability()
     }
-  }, [isOpen, job, teamMembers])
+  }, [isOpen, job, teamMembers, isPastJob])
 
   const fetchTeamMembers = async () => {
     try {
