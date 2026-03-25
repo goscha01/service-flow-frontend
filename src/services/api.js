@@ -114,9 +114,12 @@ api.interceptors.response.use(
     }
     
     // Only retry on network errors (ERR_NETWORK, ERR_FAILED, timeout, Railway cold start)
-    if (error.code === 'ERR_NETWORK' || error.message === 'Network Error' || error.code === 'ECONNABORTED' || 
-        error.message?.includes('Failed to fetch') || error.message?.includes('CORS') || 
-        error.message?.includes('preflight')) {
+    // Skip retries for non-critical endpoints that already handle errors gracefully
+    const nonCriticalPaths = ['/notification-settings', '/twilio/phone-numbers'];
+    const isNonCritical = nonCriticalPaths.some(p => config.url?.includes(p));
+    if (!isNonCritical && (error.code === 'ERR_NETWORK' || error.message === 'Network Error' || error.code === 'ECONNABORTED' ||
+        error.message?.includes('Failed to fetch') || error.message?.includes('CORS') ||
+        error.message?.includes('preflight'))) {
       config.__retryCount = (config.__retryCount || 0) + 1;
       
       console.log(`🔄 Retrying request (attempt ${config.__retryCount}/3):`, config.url);
