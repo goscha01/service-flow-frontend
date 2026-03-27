@@ -410,7 +410,7 @@ const Payroll = () => {
   }, [])
 
   // ── Load payout settings and apply date range ──
-  const loadPayoutSettings = useCallback(() => {
+  const loadPayoutSettings = useCallback((activeRange) => {
     if (!user?.id) return
     api.get('/user/payout-settings').then(res => {
       const d = res.data || {}
@@ -418,7 +418,10 @@ const Payroll = () => {
       const day = d.pay_period_start_day ?? 1
       setPayoutFrequency(freq)
       setPayoutStartDay(day)
-      const range = getQuickRange('this_period', freq, day)
+      // Recalculate using the currently active quick range (not always 'this_period')
+      const rangeId = activeRange || payrollQuickRange || 'this_period'
+      if (rangeId === 'custom') { fetchPayrollData(); return }
+      const range = getQuickRange(rangeId, freq, day)
       if (range) {
         setStartDate(range.start)
         setEndDate(range.end)
@@ -434,7 +437,7 @@ const Payroll = () => {
     }).catch(() => {
       fetchPayrollData()
     })
-  }, [user?.id])
+  }, [user?.id, payrollQuickRange])
 
   // ── Initial load ──
   useEffect(() => {
