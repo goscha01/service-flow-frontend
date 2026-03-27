@@ -836,7 +836,7 @@ const Payroll = () => {
                   <div className="flex items-center justify-between mb-4">
                     <h2 className="text-lg font-semibold text-[var(--sf-text-primary)]">Summary</h2>
                     <span className="text-sm text-[var(--sf-text-muted)]">
-                      {payrollAllTime ? 'All Time' : `${new Date(startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} — ${new Date(endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`}
+                      {payrollAllTime ? 'All Time' : `${new Date(startDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} — ${new Date(endDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`}
                     </span>
                   </div>
                   <div className="grid grid-cols-3 md:grid-cols-5 xl:grid-cols-9 gap-2">
