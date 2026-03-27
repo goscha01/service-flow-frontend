@@ -158,7 +158,7 @@ const MobileBottomNav = ({ teamMembers = [] }) => {
 
   return (
     <>
-      <div className="lg:hidden fixed-bottom-nav bg-white border-t pb-4 border-gray-200 z-[100] shadow-lg" style={{ bottom: `calc(env(safe-area-inset-bottom, 0px) + 8px)` }}>
+      <div className="lg:hidden fixed-bottom-nav bg-white border-t pb-4 border-[var(--sf-border-light)] z-[100] shadow-lg" style={{ bottom: `calc(env(safe-area-inset-bottom, 0px) + 8px)` }}>
         <div className="flex items-center justify-around py-3.5 px-2 safe-area-bottom">
           {bottomNavItems.map((item) => {
             const Icon = item.icon
@@ -170,12 +170,12 @@ const MobileBottomNav = ({ teamMembers = [] }) => {
                 onClick={() => handleNavigation(item.path)}
                 className={`flex flex-col items-center space-y-1.5 px-2 py-1.5 flex-1 transition-colors ${
                   active 
-                    ? 'text-blue-600' 
-                    : 'text-gray-600 hover:text-gray-900'
+                    ? 'text-[var(--sf-blue-500)]' 
+                    : 'text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]'
                 }`}
               >
-                <Icon className={`w-6 h-6 ${active ? 'text-blue-600' : ''}`} />
-                <span className={`text-xs font-medium ${active ? 'text-blue-600' : 'text-gray-600'}`}>
+                <Icon className={`w-6 h-6 ${active ? 'text-[var(--sf-blue-500)]' : ''}`} />
+                <span className={`text-xs font-medium ${active ? 'text-[var(--sf-blue-500)]' : 'text-[var(--sf-text-secondary)]'}`}>
                   {item.label}
                 </span>
               </button>
@@ -188,12 +188,12 @@ const MobileBottomNav = ({ teamMembers = [] }) => {
               onClick={() => setShowMoreOverlay(true)}
               className={`flex flex-col items-center space-y-1.5 px-2 py-1.5 flex-1 transition-colors ${
                 showMoreOverlay
-                  ? 'text-blue-600' 
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'text-[var(--sf-blue-500)]' 
+                  : 'text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]'
               }`}
             >
-              <Menu className={`w-6 h-6 ${showMoreOverlay ? 'text-blue-600' : ''}`} />
-              <span className={`text-xs font-medium ${showMoreOverlay ? 'text-blue-600' : 'text-gray-600'}`}>
+              <Menu className={`w-6 h-6 ${showMoreOverlay ? 'text-[var(--sf-blue-500)]' : ''}`} />
+              <span className={`text-xs font-medium ${showMoreOverlay ? 'text-[var(--sf-blue-500)]' : 'text-[var(--sf-text-secondary)]'}`}>
                 More
               </span>
             </button>
@@ -211,7 +211,7 @@ const MobileBottomNav = ({ teamMembers = [] }) => {
       {/* More Overlay - Mobile Only */}
       {showMoreOverlay && (
         <div 
-          className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-[9999] flex items-end justify-center"
+          className="lg:hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex items-end justify-center"
           onClick={() => setShowMoreOverlay(false)}
         >
           <div 
@@ -220,22 +220,22 @@ const MobileBottomNav = ({ teamMembers = [] }) => {
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 sticky top-0 bg-white z-10">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--sf-border-light)] sticky top-0 bg-white z-10">
               <div className="flex items-center space-x-3">
                 <img src="/logo.svg" alt="zenbooker" className="h-6" />
               </div>
               <button
                 onClick={() => setShowMoreOverlay(false)}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                className="p-2 hover:bg-[var(--sf-bg-hover)] rounded-full transition-colors"
               >
-                <X className="w-5 h-5 text-gray-600" />
+                <X className="w-5 h-5 text-[var(--sf-text-secondary)]" />
               </button>
             </div>
             
             {/* Account Section - Only show for non-workers */}
             {!isWorkerUser && (
               <div 
-                className="px-6 py-4 border-b border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors"
+                className="px-6 py-4 border-b border-[var(--sf-border-light)] cursor-pointer hover:bg-[var(--sf-bg-hover)] transition-colors"
                 onClick={() => {
                   navigate('/settings/account')
                   setShowMoreOverlay(false)
@@ -265,13 +265,13 @@ const MobileBottomNav = ({ teamMembers = [] }) => {
                       </span>
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-900">
+                      <p className="text-sm font-medium text-[var(--sf-text-primary)]">
                         {user?.business_name || user?.businessName || user?.email || 'Business'}
                       </p>
-                      <p className="text-xs text-gray-500">Account Settings</p>
+                      <p className="text-xs text-[var(--sf-text-muted)]">Account Settings</p>
                     </div>
                   </div>
-                  <ChevronRight className="w-5 h-5 text-gray-400" />
+                  <ChevronRight className="w-5 h-5 text-[var(--sf-text-muted)]" />
                 </div>
               </div>
             )}
@@ -283,23 +283,23 @@ const MobileBottomNav = ({ teamMembers = [] }) => {
                 <>
                   <button
                     onClick={() => handleNavigation('/availability')}
-                    className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors text-left"
+                    className="w-full flex items-center justify-between px-6 py-4 hover:bg-[var(--sf-bg-hover)] transition-colors text-left"
                   >
                     <div className="flex items-center space-x-3">
-                      <Clock className="w-5 h-5 text-gray-600" />
-                      <span className="text-sm font-medium text-gray-900">Availability</span>
+                      <Clock className="w-5 h-5 text-[var(--sf-text-secondary)]" />
+                      <span className="text-sm font-medium text-[var(--sf-text-primary)]">Availability</span>
                     </div>
-                    <ChevronRight className="w-5 h-5 text-gray-400" />
+                    <ChevronRight className="w-5 h-5 text-[var(--sf-text-muted)]" />
                   </button>
                   <button
                     onClick={() => handleNavigation('/settings')}
-                    className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors text-left"
+                    className="w-full flex items-center justify-between px-6 py-4 hover:bg-[var(--sf-bg-hover)] transition-colors text-left"
                   >
                     <div className="flex items-center space-x-3">
-                      <Settings className="w-5 h-5 text-gray-600" />
-                      <span className="text-sm font-medium text-gray-900">Settings</span>
+                      <Settings className="w-5 h-5 text-[var(--sf-text-secondary)]" />
+                      <span className="text-sm font-medium text-[var(--sf-text-primary)]">Settings</span>
                     </div>
-                    <ChevronRight className="w-5 h-5 text-gray-400" />
+                    <ChevronRight className="w-5 h-5 text-[var(--sf-text-muted)]" />
                   </button>
                 </>
               ) : (
@@ -310,26 +310,26 @@ const MobileBottomNav = ({ teamMembers = [] }) => {
                       <button
                         key={index}
                         onClick={() => handleNavigation(item.path)}
-                        className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors text-left"
+                        className="w-full flex items-center justify-between px-6 py-4 hover:bg-[var(--sf-bg-hover)] transition-colors text-left"
                       >
                         <div className="flex items-center space-x-3">
-                          <Icon className="w-5 h-5 text-gray-600" />
-                          <span className="text-sm font-medium text-gray-900">{item.label}</span>
+                          <Icon className="w-5 h-5 text-[var(--sf-text-secondary)]" />
+                          <span className="text-sm font-medium text-[var(--sf-text-primary)]">{item.label}</span>
                         </div>
-                        <ChevronRight className="w-5 h-5 text-gray-400" />
+                        <ChevronRight className="w-5 h-5 text-[var(--sf-text-muted)]" />
                       </button>
                     )
                   })}
                   {/* Availability for all users - use mobile view */}
                   <button
                     onClick={() => handleNavigation('/availability')}
-                    className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors text-left"
+                    className="w-full flex items-center justify-between px-6 py-4 hover:bg-[var(--sf-bg-hover)] transition-colors text-left"
                   >
                     <div className="flex items-center space-x-3">
-                      <Clock className="w-5 h-5 text-gray-600" />
-                      <span className="text-sm font-medium text-gray-900">Availability</span>
+                      <Clock className="w-5 h-5 text-[var(--sf-text-secondary)]" />
+                      <span className="text-sm font-medium text-[var(--sf-text-primary)]">Availability</span>
                     </div>
-                    <ChevronRight className="w-5 h-5 text-gray-400" />
+                    <ChevronRight className="w-5 h-5 text-[var(--sf-text-muted)]" />
                   </button>
                 </>
               )}
@@ -337,13 +337,13 @@ const MobileBottomNav = ({ teamMembers = [] }) => {
               {/* Sign Out Button - Show for all users */}
               <button
                 onClick={handleSignOut}
-                className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors text-left border-t border-gray-200 mt-2"
+                className="w-full flex items-center justify-between px-6 py-4 hover:bg-[var(--sf-bg-hover)] transition-colors text-left border-t border-[var(--sf-border-light)] mt-2"
               >
                 <div className="flex items-center space-x-3">
                   <LogOut className="w-5 h-5 text-red-600" />
                   <span className="text-sm font-medium text-red-600">Sign Out</span>
                 </div>
-                <ChevronRight className="w-5 h-5 text-gray-400" />
+                <ChevronRight className="w-5 h-5 text-[var(--sf-text-muted)]" />
               </button>
             </div>
           </div>

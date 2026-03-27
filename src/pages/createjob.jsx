@@ -238,7 +238,7 @@ export default function CreateJobPage() {
   // Status options
   const statusOptions = [
     { key: 'pending', label: 'Pending', color: 'bg-yellow-400' },
-    { key: 'confirmed', label: 'Confirmed', color: 'bg-blue-400' },
+    { key: 'confirmed', label: 'Confirmed', color: 'bg-[var(--sf-blue-500)]' },
     { key: 'in-progress', label: 'In Progress', color: 'bg-orange-400' },
     { key: 'completed', label: 'Completed', color: 'bg-green-400' },
     { key: 'cancelled', label: 'Cancelled', color: 'bg-red-400' }
@@ -246,8 +246,8 @@ export default function CreateJobPage() {
 
   // Priority options
   const priorityOptions = [
-    { key: 'low', label: 'Low', color: 'bg-gray-400' },
-    { key: 'normal', label: 'Normal', color: 'bg-blue-400' },
+    { key: 'low', label: 'Low', color: 'bg-[var(--sf-text-muted)]' },
+    { key: 'normal', label: 'Normal', color: 'bg-[var(--sf-blue-500)]' },
     { key: 'high', label: 'High', color: 'bg-orange-400' },
     { key: 'urgent', label: 'Urgent', color: 'bg-red-400' }
   ];
@@ -2256,27 +2256,27 @@ setIntakeQuestionAnswers(answers);
   // Show loading if user is not available or still loading
   if (authLoading || !user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-[var(--sf-bg-page)]">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
+          <p className="text-[var(--sf-text-secondary)]">Loading...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[var(--sf-bg-page)]">
         {/* Header */}
-        <div className="bg-white border-b border-gray-200 py-4 px-5 lg:px-40 xl:px-44 2xl:px-48">
+        <div className="bg-white border-b border-[var(--sf-border-light)] py-4 px-5 lg:px-40 xl:px-44 2xl:px-48">
           <div className="flex items-center justify-between max-w-7xl mx-auto">
-            <h1 style={{fontFamily: 'Montserrat', fontWeight: 700}} className="text-lg sm:text-xl font-semibold text-gray-900">Create Job</h1>
+            <h1 style={{fontFamily: 'Montserrat', fontWeight: 700}} className="text-lg sm:text-xl font-semibold text-[var(--sf-text-primary)]">Create Job</h1>
             <div className="flex items-center space-x-3">
               <button
                 type="button"
                 onClick={() => navigate('/jobs')}
                 style={{fontFamily: 'Montserrat', fontWeight: 500}}
-                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium"
+                className="px-4 py-2 border border-[var(--sf-border-light)] text-[var(--sf-text-primary)] rounded-lg hover:bg-[var(--sf-bg-page)] font-medium"
               >
                 Cancel
               </button>
@@ -2285,10 +2285,10 @@ setIntakeQuestionAnswers(answers);
                 form="create-job-form"
                 style={{fontFamily: 'Montserrat', fontWeight: 500}}
                 disabled={loading || !selectedCustomer || selectedServices.length === 0}
-                className={`px-4 py-2 rounded-lg font-medium ${
+                className={`px-4 py-2 rounded-lg font-medium sf-btn-primary ${
                   loading || !selectedCustomer || selectedServices.length === 0
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                    ? 'bg-[var(--sf-border-light)] text-[var(--sf-text-muted)] cursor-not-allowed'
+                    : 'bg-[var(--sf-blue-500)] text-white hover:bg-[var(--sf-blue-600)]'
                 }`}
               >
                 {loading ? 'Scheduling...' : 'Schedule Job'}
@@ -2318,14 +2318,14 @@ setIntakeQuestionAnswers(answers);
           {!customerSelected && (
             <div className="space-y-4">
               {/* Customer Section */}
-              <div className="bg-white rounded-lg border border-gray-200 p-5">
+              <div className="bg-white rounded-xl shadow-sm border border-[var(--sf-border-light)] p-5">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Customer</h2>
+                  <h2 className="text-lg font-semibold text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Customer</h2>
                   <div className="flex items-center space-x-3">
                     <button
                       type="button"
                       onClick={() => setShowLeadsModal(true)}
-                      className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                      className="text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] text-sm font-medium"
                       style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                     >
                       Leads
@@ -2336,7 +2336,7 @@ setIntakeQuestionAnswers(answers);
                         setEditingCustomer(null);
                         setIsCustomerModalOpen(true);
                       }}
-                      className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                      className="text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] text-sm font-medium"
                       style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                     >
                       New Customer
@@ -2344,7 +2344,7 @@ setIntakeQuestionAnswers(answers);
                   </div>
                   </div>
                 <div className="relative" ref={customerDropdownRef}>
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[var(--sf-text-muted)]" />
                     <input
                       type="text"
                       value={customerSearch}
@@ -2360,7 +2360,7 @@ setIntakeQuestionAnswers(answers);
                       }
                     }}
                     placeholder="Search customers"
-                    className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                    className="w-full pl-10 pr-4 py-3 bg-[var(--sf-bg-page)] border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] outline-none"
                     style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                   />
                   {showCustomerDropdown && (filteredCustomers.length > 0 || filteredLeads.length > 0) && (
@@ -2369,7 +2369,7 @@ setIntakeQuestionAnswers(answers);
                           className="fixed inset-0 z-40" 
                           onClick={() => setShowCustomerDropdown(false)}
                         />
-                      <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                      <div className="absolute z-50 w-full mt-1 bg-white border border-[var(--sf-border-light)] rounded-lg shadow-lg max-h-60 overflow-y-auto">
                         {/* Customers Section */}
                         {filteredCustomers.length > 0 && (
                           <>
@@ -2384,15 +2384,15 @@ setIntakeQuestionAnswers(answers);
                                   setCustomerSelected(true);
                                   setJobselected(true);
                                 }}
-                                className="w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
+                                className="w-full text-left px-4 py-3 hover:bg-[var(--sf-bg-page)] border-b border-[var(--sf-border-light)] last:border-b-0"
                               >
-                                <p className="font-medium text-gray-900">{customer.first_name} {customer.last_name}</p>
-                                <p className="text-sm text-gray-600">{customer.email || 'No email address'}</p>
+                                <p className="font-medium text-[var(--sf-text-primary)]">{customer.first_name} {customer.last_name}</p>
+                                <p className="text-sm text-[var(--sf-text-secondary)]">{customer.email || 'No email address'}</p>
                               </button>
                             ))}
                             {filteredLeads.length > 0 && (
-                              <div className="px-4 py-2 bg-gray-50 border-t border-b border-gray-200">
-                                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Leads</p>
+                              <div className="px-4 py-2 bg-[var(--sf-bg-page)] border-t border-b border-[var(--sf-border-light)]">
+                                <p className="text-xs font-semibold text-[var(--sf-text-muted)] uppercase tracking-wide">Leads</p>
                               </div>
                             )}
                           </>
@@ -2407,14 +2407,14 @@ setIntakeQuestionAnswers(answers);
                               setShowCustomerDropdown(false);
                               setCustomerSearch('');
                             }}
-                            className="w-full text-left px-4 py-3 hover:bg-blue-50 border-b border-gray-100 last:border-b-0"
+                            className="w-full text-left px-4 py-3 hover:bg-[var(--sf-blue-50)] border-b border-[var(--sf-border-light)] last:border-b-0"
                           >
                             <div className="flex items-center justify-between">
                               <div>
-                                <p className="font-medium text-gray-900">{lead.first_name} {lead.last_name}</p>
-                                <p className="text-sm text-gray-600">{lead.email || 'No email address'}</p>
+                                <p className="font-medium text-[var(--sf-text-primary)]">{lead.first_name} {lead.last_name}</p>
+                                <p className="text-sm text-[var(--sf-text-secondary)]">{lead.email || 'No email address'}</p>
                               </div>
-                              <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-700 rounded-full">
+                              <span className="px-2 py-1 text-xs font-medium bg-[var(--sf-blue-50)] text-[var(--sf-blue-500)] rounded-full">
                                 Lead
                               </span>
                             </div>
@@ -2427,13 +2427,13 @@ setIntakeQuestionAnswers(answers);
               </div>
 
               {/* Services Section - Disabled */}
-              <div className="bg-gray-100 rounded-lg p-5">
-                <h2 className="text-lg font-semibold text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Services</h2>
+              <div className="bg-[var(--sf-bg-page)] rounded-lg p-5">
+                <h2 className="text-lg font-semibold text-[var(--sf-text-muted)]" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Services</h2>
               </div>
 
               {/* Schedule Section - Disabled */}
-              <div className="bg-gray-100 rounded-lg p-5">
-                <h2 className="text-lg font-semibold text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Schedule</h2>
+              <div className="bg-[var(--sf-bg-page)] rounded-lg p-5">
+                <h2 className="text-lg font-semibold text-[var(--sf-text-muted)]" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Schedule</h2>
               </div>
             </div>
           )}
@@ -2443,14 +2443,14 @@ setIntakeQuestionAnswers(answers);
               {/* Left Column - Services and Schedule */}
               <div className="lg:col-span-2 space-y-6 min-w-0">
                 {/* Services Section */}
-            <div className="bg-white rounded-lg border border-gray-200">
-                  <div className="px-6 py-4 border-b border-gray-200">
+            <div className="bg-white rounded-xl shadow-sm border border-[var(--sf-border-light)]">
+                  <div className="px-6 py-4 border-b border-[var(--sf-border-light)]">
                 <div className="flex items-center justify-between">
-                      <h2 className="text-lg font-bold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Services</h2>
+                      <h2 className="text-lg font-bold text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Services</h2>
                   <button
                     type="button"
                         onClick={() => setShowCreateServiceModal(true)}
-                        className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                        className="text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] text-sm font-medium"
                         style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                   >
                         Add Custom Service or Item
@@ -2461,20 +2461,20 @@ setIntakeQuestionAnswers(answers);
                     {/* Service Search */}
                     <div className="flex gap-3">
                   <div className="relative flex-1">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[var(--sf-text-muted)]" />
                     <input
                       type="text"
                         placeholder="Search services"
                         value={serviceSearch}
                         onChange={(e) => setServiceSearch(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                        className="w-full pl-10 pr-4 py-2.5 bg-[var(--sf-bg-page)] border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] text-sm"
                         style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                       />
                     </div>
                       <button
                         type="button"
                       onClick={() => setShowServiceSelectionModal(true)}
-                      className="px-5 py-2.5 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium text-sm"
+                      className="px-5 py-2.5 bg-white border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)] font-medium text-sm"
                       style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                       >
                       Browse Services
@@ -2485,9 +2485,9 @@ setIntakeQuestionAnswers(answers);
                     {selectedServices.length > 0 && (
                       <div className="space-y-0">
                         {/* Service List Header */}
-                        <div className="flex items-center justify-between py-3 border-b border-gray-200">
-                          <span className="text-xs font-bold text-gray-900 uppercase tracking-wide" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Service</span>
-                          <span className="text-xs font-bold text-gray-900 uppercase tracking-wide" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Price</span>
+                        <div className="flex items-center justify-between py-3 border-b border-[var(--sf-border-light)]">
+                          <span className="text-xs font-bold text-[var(--sf-text-primary)] uppercase tracking-wide" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Service</span>
+                          <span className="text-xs font-bold text-[var(--sf-text-primary)] uppercase tracking-wide" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Price</span>
                         </div>
                         
                         {/* Service Items */}
@@ -2540,7 +2540,7 @@ setIntakeQuestionAnswers(answers);
                           }
                           
                           return (
-                          <div key={service.id} className="py-4 border-b border-gray-200">
+                          <div key={service.id} className="py-4 border-b border-[var(--sf-border-light)]">
                             <div className="flex items-start justify-between mb-2">
                               <div className="flex-1">
                                 <button
@@ -2554,10 +2554,10 @@ setIntakeQuestionAnswers(answers);
                                   }}
                                   className="text-left"
                                 >
-                                  <div className="text-sm font-semibold text-blue-600 hover:text-blue-700 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                                  <div className="text-sm font-semibold text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                                     {decodeHtmlEntities(service.name || '')}
                                   </div>
-                                  <div className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                                  <div className="text-xs text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] flex items-center gap-1" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                                     Show details {isExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
                                   </div>
                                 </button>
@@ -2567,7 +2567,7 @@ setIntakeQuestionAnswers(answers);
                                 {editingServiceDurationId === service.id ? (
                                   // Duration editing mode
                                   <div className="flex items-center gap-2">
-                                    <div className="flex items-center gap-1 border border-gray-300 rounded px-2 py-1 bg-white">
+                                    <div className="flex items-center gap-1 border border-[var(--sf-border-light)] rounded px-2 py-1 bg-white">
                                       <input
                                         type="number"
                                         min="0"
@@ -2577,7 +2577,7 @@ setIntakeQuestionAnswers(answers);
                                         placeholder="0"
                                         style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                                       />
-                                      <span className="text-xs text-gray-500">h</span>
+                                      <span className="text-xs text-[var(--sf-text-muted)]">h</span>
                                       <input
                                         type="number"
                                         min="0"
@@ -2588,7 +2588,7 @@ setIntakeQuestionAnswers(answers);
                                         placeholder="0"
                                         style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                                       />
-                                      <span className="text-xs text-gray-500">m</span>
+                                      <span className="text-xs text-[var(--sf-text-muted)]">m</span>
                                     </div>
                                     <button
                                       type="button"
@@ -2603,7 +2603,7 @@ setIntakeQuestionAnswers(answers);
                                         setEditingServiceDurationHours('');
                                         setEditingServiceDurationMinutes('');
                                       }}
-                                      className="text-xs px-2 py-1 text-blue-600 hover:text-blue-700 font-medium"
+                                      className="text-xs px-2 py-1 text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] font-medium"
                                       style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                                     >
                                       Save
@@ -2615,7 +2615,7 @@ setIntakeQuestionAnswers(answers);
                                         setEditingServiceDurationHours('');
                                         setEditingServiceDurationMinutes('');
                                       }}
-                                      className="text-xs px-2 py-1 text-gray-600 hover:text-gray-700 font-medium"
+                                      className="text-xs px-2 py-1 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] font-medium"
                                       style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                                     >
                                       Cancel
@@ -2624,8 +2624,8 @@ setIntakeQuestionAnswers(answers);
                                 ) : (
                                   // Duration display mode
                                   <div className="flex items-center gap-1">
-                                    <Clock className="w-4 h-4 text-gray-400" />
-                                    <span className="text-sm font-medium text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                                    <Clock className="w-4 h-4 text-[var(--sf-text-muted)]" />
+                                    <span className="text-sm font-medium text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                                       {(() => {
                                         const duration = service.duration || 0;
                                         const hours = Math.floor(duration / 60);
@@ -2649,7 +2649,7 @@ setIntakeQuestionAnswers(answers);
                                         setEditingServiceDurationHours(hours.toString());
                                         setEditingServiceDurationMinutes(mins.toString());
                                       }}
-                                      className="text-gray-400 hover:text-blue-600 transition-colors ml-1"
+                                      className="text-[var(--sf-text-muted)] hover:text-[var(--sf-blue-500)] transition-colors ml-1"
                                       title="Edit duration"
                                     >
                                       <Edit3 className="w-3 h-3" />
@@ -2661,7 +2661,7 @@ setIntakeQuestionAnswers(answers);
                                 {editingServicePriceId === service.id ? (
                                   // Price editing mode
                                   <div className="flex items-center gap-2">
-                                    <span className="text-sm text-gray-500">$</span>
+                                    <span className="text-sm text-[var(--sf-text-muted)]">$</span>
                                     <input
                                       type="number"
                                       step="0.01"
@@ -2684,7 +2684,7 @@ setIntakeQuestionAnswers(answers);
                                         }
                                       }}
                                       autoFocus
-                                      className="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                      className="w-20 px-2 py-1 text-sm border border-[var(--sf-border-light)] rounded focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                                       style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                                     />
                                     <button
@@ -2697,7 +2697,7 @@ setIntakeQuestionAnswers(answers);
                                         setEditingServicePriceId(null);
                                         setEditingServicePriceValue('');
                                       }}
-                                      className="text-xs px-2 py-1 text-blue-600 hover:text-blue-700 font-medium"
+                                      className="text-xs px-2 py-1 text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] font-medium"
                                       style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                                     >
                                       Save
@@ -2708,7 +2708,7 @@ setIntakeQuestionAnswers(answers);
                                         setEditingServicePriceId(null);
                                         setEditingServicePriceValue('');
                                       }}
-                                      className="text-xs px-2 py-1 text-gray-600 hover:text-gray-700 font-medium"
+                                      className="text-xs px-2 py-1 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] font-medium"
                                       style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                                     >
                                       Cancel
@@ -2717,7 +2717,7 @@ setIntakeQuestionAnswers(answers);
                                 ) : (
                                   // Display mode
                                   <>
-                                <span className="text-base font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                                <span className="text-base font-medium text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                                   ${parseFloat(service.price || 0).toFixed(2)}
                                 </span>
                                     <button
@@ -2726,7 +2726,7 @@ setIntakeQuestionAnswers(answers);
                                         setEditingServicePriceId(service.id);
                                         setEditingServicePriceValue(parseFloat(service.price || 0).toFixed(2));
                                       }}
-                                      className="text-gray-400 hover:text-blue-600 transition-colors"
+                                      className="text-[var(--sf-text-muted)] hover:text-[var(--sf-blue-500)] transition-colors"
                                       title="Edit price"
                                     >
                                       <Edit3 className="w-4 h-4" />
@@ -2763,7 +2763,7 @@ setIntakeQuestionAnswers(answers);
                                     setSelectedService(service);
                                     setShowServiceCustomizationPopup(true);
                                   }}
-                                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                                  className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] transition-colors"
                                   title="Edit service details"
                                 >
                                   <Edit className="w-4 h-4" />
@@ -2771,7 +2771,7 @@ setIntakeQuestionAnswers(answers);
                                 <button
                                   type="button"
                                   onClick={() => removeService(service.id)}
-                                  className="text-gray-400 hover:text-red-600 transition-colors"
+                                  className="text-[var(--sf-text-muted)] hover:text-red-600 transition-colors"
                                   title="Remove service"
                                 >
                                   <Trash2 className="w-5 h-5" />
@@ -2781,14 +2781,14 @@ setIntakeQuestionAnswers(answers);
                             
                             {/* Expanded Details */}
                             {isExpanded && (
-                              <div className="mt-4 space-y-4 bg-gray-50 -mx-6 px-6 py-4 rounded-lg">
+                              <div className="mt-4 space-y-4 bg-[var(--sf-bg-page)] -mx-6 px-6 py-4 rounded-lg">
                                 {/* Customize Duration Section */}
-                                <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                                  <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                                <div className="mt-4 p-3 bg-[var(--sf-blue-50)] rounded-lg border border-[var(--sf-blue-500)]/20">
+                                  <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                                     Customize duration
                                   </label>
                                   <div className="flex items-center space-x-2">
-                                    <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2 bg-white">
+                                    <div className="flex items-center gap-2 border border-[var(--sf-border-light)] rounded-lg px-3 py-2 bg-white">
                                       <input
                                         type="number"
                                         min="0"
@@ -2807,9 +2807,9 @@ setIntakeQuestionAnswers(answers);
                                         className="w-16 px-2 py-1 text-sm border-0 focus:ring-0 text-center"
                                         style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                                       />
-                                      <span className="text-sm text-gray-500">hours</span>
+                                      <span className="text-sm text-[var(--sf-text-muted)]">hours</span>
                                     </div>
-                                    <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2 bg-white">
+                                    <div className="flex items-center gap-2 border border-[var(--sf-border-light)] rounded-lg px-3 py-2 bg-white">
                                       <input
                                         type="number"
                                         min="0"
@@ -2829,7 +2829,7 @@ setIntakeQuestionAnswers(answers);
                                         className="w-16 px-2 py-1 text-sm border-0 focus:ring-0 text-center"
                                         style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                                       />
-                                      <span className="text-sm text-gray-500">minutes</span>
+                                      <span className="text-sm text-[var(--sf-text-muted)]">minutes</span>
                                     </div>
                                   </div>
                                   <div className="flex space-x-2 mt-2">
@@ -2851,12 +2851,12 @@ setIntakeQuestionAnswers(answers);
                                 </div>
                                 
                                 {/* Customize Price Section */}
-                                <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-                                  <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                                <div className="p-3 bg-[var(--sf-blue-50)] rounded-lg border border-[var(--sf-blue-500)]/20">
+                                  <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                                     Customize price
                                   </label>
                                   <div className="flex items-center space-x-2">
-                                    <span className="text-sm text-gray-500">$</span>
+                                    <span className="text-sm text-[var(--sf-text-muted)]">$</span>
                                     <input
                                       type="number"
                                       step="0.01"
@@ -2873,7 +2873,7 @@ setIntakeQuestionAnswers(answers);
                                           e.target.value = "";
                                         }
                                       }}
-                                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                      className="flex-1 px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                                       placeholder="0.00"
                                       style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                                     />
@@ -2899,7 +2899,7 @@ setIntakeQuestionAnswers(answers);
                                 {/* Service Modifiers */}
                                 {hasModifiers && (
                                   <div>
-                                    <h4 className="text-sm font-bold text-gray-900 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
+                                    <h4 className="text-sm font-bold text-[var(--sf-text-primary)] mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
                                       Select Your Items
                                     </h4>
                                     <div className="space-y-1">
@@ -2984,7 +2984,7 @@ setIntakeQuestionAnswers(answers);
                                         return (
                                           <div key={modifier.id} className="mb-3">
                                             {/* Modifier name as heading */}
-                                            <div className="text-sm font-bold text-gray-900 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
+                                            <div className="text-sm font-bold text-[var(--sf-text-primary)] mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
                                               {modifier.name || modifier.title}
                           </div>
                                             
@@ -3003,13 +3003,13 @@ setIntakeQuestionAnswers(answers);
                                               }
                                               
                                               return (
-                                                <div key={idx} className="text-sm text-gray-600 mb-1 flex items-center justify-between" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                                                <div key={idx} className="text-sm text-[var(--sf-text-secondary)] mb-1 flex items-center justify-between" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                                                   <span>
                                                     {option.quantity && `${option.quantity}x `}
                                                     {option.displayName}
                                                   </span>
                                                   {optionPrice > 0 && (
-                                                    <span className="text-gray-500 ml-2">
+                                                    <span className="text-[var(--sf-text-muted)] ml-2">
                                                       ${optionPrice.toFixed(2)}
                                                       {option.quantity && option.quantity > 1 && ` (${(optionPrice * option.quantity).toFixed(2)} total)`}
                                                     </span>
@@ -3059,7 +3059,7 @@ setIntakeQuestionAnswers(answers);
                                       
                                       return (
                                         <div key={questionId}>
-                                          <div className="text-sm font-bold text-gray-900 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
+                                          <div className="text-sm font-bold text-[var(--sf-text-primary)] mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
                                             {question.question || question.label || question.text}
                                           </div>
                                           
@@ -3073,13 +3073,13 @@ setIntakeQuestionAnswers(answers);
                                                     return answer.map((color, idx) => (
                                                       <div 
                                                         key={idx}
-                                                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-gray-300"
+                                                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[var(--sf-border-light)]"
                                                       >
                                                         <div 
-                                                          className="w-5 h-5 rounded-full border border-gray-300 shadow-sm"
+                                                          className="w-5 h-5 rounded-full border border-[var(--sf-border-light)] shadow-sm"
                                                           style={{ backgroundColor: color }}
                                                         />
-                                                        <span className="text-sm text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                                                        <span className="text-sm text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                                                           {color}
                                                         </span>
                                                       </div>
@@ -3091,13 +3091,13 @@ setIntakeQuestionAnswers(answers);
                                                     return colors.map((color, idx) => (
                                                       <div 
                                                         key={idx}
-                                                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-gray-300"
+                                                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[var(--sf-border-light)]"
                                                       >
                                                         <div 
-                                                          className="w-5 h-5 rounded-full border border-gray-300 shadow-sm"
+                                                          className="w-5 h-5 rounded-full border border-[var(--sf-border-light)] shadow-sm"
                                                           style={{ backgroundColor: color }}
                                                         />
-                                                        <span className="text-sm text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                                                        <span className="text-sm text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                                                           {color}
                                                         </span>
                                                       </div>
@@ -3106,12 +3106,12 @@ setIntakeQuestionAnswers(answers);
                                                   // Handle single color
                                                   else {
                                                     return (
-                                                      <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-gray-300">
+                                                      <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[var(--sf-border-light)]">
                                                         <div 
-                                                          className="w-5 h-5 rounded-full border border-gray-300 shadow-sm"
+                                                          className="w-5 h-5 rounded-full border border-[var(--sf-border-light)] shadow-sm"
                                                           style={{ backgroundColor: answer }}
                                                         />
-                                                        <span className="text-sm text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                                                        <span className="text-sm text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                                                           {answer}
                                                         </span>
                                                       </div>
@@ -3125,19 +3125,19 @@ setIntakeQuestionAnswers(answers);
                                                 <img 
                                                   src={answer} 
                                                   alt="Selected"
-                                                  className="w-20 h-20 object-cover rounded border border-gray-200"
+                                                  className="w-20 h-20 object-cover rounded border border-[var(--sf-border-light)]"
                                                   onError={(e) => {
                                                     e.target.style.display = 'none';
                                                     e.target.nextSibling.style.display = 'flex';
                                                   }}
                                                 />
-                                                <div className="hidden w-20 h-20 bg-gray-100 rounded border border-gray-200 items-center justify-center text-xs text-gray-400">
+                                                <div className="hidden w-20 h-20 bg-[var(--sf-bg-page)] rounded border border-[var(--sf-border-light)] items-center justify-center text-xs text-[var(--sf-text-muted)]">
                                                   No image
                                                 </div>
                                               </div>
                                             ) : (
                                               // Display text (can be array or string)
-                                              <div className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                                              <div className="text-sm text-[var(--sf-text-secondary)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                                                 {Array.isArray(answer) ? answer.join(', ') : answer}
                                               </div>
                                             )
@@ -3150,7 +3150,7 @@ setIntakeQuestionAnswers(answers);
                                 
                                 {/* Show message only if expanded but no customizations */}
                                 {!hasModifiers && !hasIntakeQuestions && (
-                                  <div className="text-sm text-gray-500 text-center py-4" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                                  <div className="text-sm text-[var(--sf-text-muted)] text-center py-4" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                                     No customizations for this service
                                   </div>
                                 )}
@@ -3163,8 +3163,8 @@ setIntakeQuestionAnswers(answers);
                         {/* Pricing Summary */}
                         <div className="pt-4 space-y-3">
                           <div className="flex justify-between items-center">
-                            <span className="text-sm text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Subtotal</span>
-                            <span className="text-base text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>${(parseFloat(calculateTotalPrice()) || 0).toFixed(2)}</span>
+                            <span className="text-sm text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Subtotal</span>
+                            <span className="text-base text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>${(parseFloat(calculateTotalPrice()) || 0).toFixed(2)}</span>
                           </div>
                           
                           {formData.discount > 0 ? (
@@ -3172,12 +3172,12 @@ setIntakeQuestionAnswers(answers);
                             <button
                               type="button"
                                 onClick={() => setShowDiscountModal(true)}
-                                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                                className="text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] font-medium"
                                 style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                             >
                                 Discount ({discountType === 'percentage' ? `${formData.discount}%` : `$${formData.discount}`})
                             </button>
-                              <span className="text-base text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                              <span className="text-base text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                                 -${resolveDiscount(formData.discount, discountType, calculateTotalPrice()).toFixed(2)}
                               </span>
                           </div>
@@ -3185,7 +3185,7 @@ setIntakeQuestionAnswers(answers);
                             <button
                               type="button"
                               onClick={() => setShowDiscountModal(true)}
-                              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                              className="text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] font-medium"
                               style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                             >
                               Add Discount
@@ -3195,7 +3195,7 @@ setIntakeQuestionAnswers(answers);
                             <button
                               type="button"
                               onClick={() => {/* Add fee modal */}}
-                            className="text-sm text-blue-600 hover:text-blue-700 font-medium block"
+                            className="text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] font-medium block"
                             style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                             >
                               Add Fee
@@ -3203,15 +3203,15 @@ setIntakeQuestionAnswers(answers);
                           
                           <div className="flex justify-between items-center">
                             <div className="flex items-center gap-1.5">
-                              <span className="text-sm text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Taxes</span>
-                              <Info className="w-4 h-4 text-gray-400" />
+                              <span className="text-sm text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Taxes</span>
+                              <Info className="w-4 h-4 text-[var(--sf-text-muted)]" />
                           </div>
-                            <span className="text-base text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>${(formData.taxes || 0).toFixed(2)}</span>
+                            <span className="text-base text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>${(formData.taxes || 0).toFixed(2)}</span>
                             </div>
                           
-                          <div className="pt-3 border-t border-gray-200 flex justify-between items-center">
-                            <span className="text-sm font-bold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Total</span>
-                            <span className="text-base font-bold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>${(parseFloat(formData.total) || 0).toFixed(2)}</span>
+                          <div className="pt-3 border-t border-[var(--sf-border-light)] flex justify-between items-center">
+                            <span className="text-sm font-bold text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Total</span>
+                            <span className="text-base font-bold text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>${(parseFloat(formData.total) || 0).toFixed(2)}</span>
                           </div>
                         </div>
                       </div>
@@ -3221,10 +3221,10 @@ setIntakeQuestionAnswers(answers);
 
                 {/* Schedule Section - Only show if service is selected */}
                 {selectedServices.length > 0 && (
-              <div className="bg-white rounded-lg border border-gray-200">
-                  <div className="px-5 py-4 border-b border-gray-200">
+              <div className="bg-white rounded-xl shadow-sm border border-[var(--sf-border-light)]">
+                  <div className="px-5 py-4 border-b border-[var(--sf-border-light)]">
                     <div className="flex items-center justify-between flex-wrap gap-3">
-                      <h2 className="text-lg font-bold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Schedule</h2>
+                      <h2 className="text-lg font-bold text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Schedule</h2>
                       <div className="flex items-center gap-2">
                         <div className="relative">
                       <select
@@ -3242,7 +3242,7 @@ setIntakeQuestionAnswers(answers);
                             setFormData(prev => ({ ...prev, duration: hours * 60 + mins }));
                           }
                         }}
-                            className="pl-8 pr-10 py-1.5 text-sm border border-gray-300 rounded-md bg-gray-50 appearance-none focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            className="pl-8 pr-10 py-1.5 text-sm border border-[var(--sf-border-light)] rounded-md bg-[var(--sf-bg-page)] appearance-none focus:outline-none focus:ring-1 focus:ring-[var(--sf-blue-500)]"
                             style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                       >
                             {(() => {
@@ -3293,15 +3293,15 @@ setIntakeQuestionAnswers(answers);
                               return options;
                             })()}
                       </select>
-                          <Clock className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
-                          <ChevronDown className="absolute right-2.5 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                          <Clock className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-[var(--sf-text-muted)] pointer-events-none" />
+                          <ChevronDown className="absolute right-2.5 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-[var(--sf-text-muted)] pointer-events-none" />
                         </div>
                         
                         <div className="relative">
                       <select
                         value={formData.workers || 1}
                         onChange={(e) => setFormData(prev => ({ ...prev, workers: parseInt(e.target.value) }))}
-                            className="pl-8 pr-10 py-1.5 text-sm border border-gray-300 rounded-md bg-gray-50 appearance-none focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            className="pl-8 pr-10 py-1.5 text-sm border border-[var(--sf-border-light)] rounded-md bg-[var(--sf-bg-page)] appearance-none focus:outline-none focus:ring-1 focus:ring-[var(--sf-blue-500)]"
                             style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                       >
                         <option value="1">1 worker</option>
@@ -3309,23 +3309,23 @@ setIntakeQuestionAnswers(answers);
                         <option value="3">3 workers</option>
                         <option value="4">4 workers</option>
                       </select>
-                          <Users className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
-                          <ChevronDown className="absolute right-2.5 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                          <Users className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-[var(--sf-text-muted)] pointer-events-none" />
+                          <ChevronDown className="absolute right-2.5 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-[var(--sf-text-muted)] pointer-events-none" />
                         </div>
                         
                         <div className="relative">
                       <select
                         value={formData.skillsRequired || 0}
                         onChange={(e) => setFormData(prev => ({ ...prev, skillsRequired: parseInt(e.target.value) }))}
-                            className="pl-8 pr-10 py-1.5 text-sm border border-gray-300 rounded-md bg-gray-50 appearance-none focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            className="pl-8 pr-10 py-1.5 text-sm border border-[var(--sf-border-light)] rounded-md bg-[var(--sf-bg-page)] appearance-none focus:outline-none focus:ring-1 focus:ring-[var(--sf-blue-500)]"
                             style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                       >
                         <option value="0">0 skills required</option>
                         <option value="1">1 skill required</option>
                         <option value="2">2 skills required</option>
                       </select>
-                          <Target className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
-                          <ChevronDown className="absolute right-2.5 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                          <Target className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-[var(--sf-text-muted)] pointer-events-none" />
+                          <ChevronDown className="absolute right-2.5 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-[var(--sf-text-muted)] pointer-events-none" />
                         </div>
                       </div>
                     </div>
@@ -3333,14 +3333,14 @@ setIntakeQuestionAnswers(answers);
                       
                   <div className="px-5 py-4 space-y-4">
                     {/* Job Type Tabs */}
-                    <div className="bg-gray-100 p-1 rounded-lg flex gap-1">
+                    <div className="bg-[var(--sf-bg-page)] p-1 rounded-lg flex gap-1">
                         <button
                           type="button"
                         onClick={() => setFormData(prev => ({ ...prev, scheduleType: 'one-time', recurringJob: false }))}
                         className={`flex-1 px-6 py-2.5 rounded-md text-sm font-medium transition-all ${
                           formData.scheduleType === 'one-time'
-                            ? 'bg-white text-blue-600 shadow-sm'
-                            : 'text-gray-600 hover:text-gray-900'
+                            ? 'bg-white text-[var(--sf-blue-500)] shadow-sm'
+                            : 'text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]'
                         }`}
                         style={{ fontFamily: 'Montserrat', fontWeight: formData.scheduleType === 'one-time' ? 600 : 400 }}
                       >
@@ -3351,8 +3351,8 @@ setIntakeQuestionAnswers(answers);
                         onClick={() => setFormData(prev => ({ ...prev, scheduleType: 'recurring', recurringJob: true }))}
                         className={`flex-1 px-6 py-2.5 rounded-md text-sm font-medium transition-all ${
                           formData.scheduleType === 'recurring'
-                            ? 'bg-white text-blue-600 shadow-sm'
-                            : 'text-gray-600 hover:text-gray-900'
+                            ? 'bg-white text-[var(--sf-blue-500)] shadow-sm'
+                            : 'text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]'
                         }`}
                         style={{ fontFamily: 'Montserrat', fontWeight: formData.scheduleType === 'recurring' ? 600 : 400 }}
                       >
@@ -3369,14 +3369,14 @@ setIntakeQuestionAnswers(answers);
                           name="scheduling-option"
                           checked={!formData.letCustomerSchedule}
                           onChange={() => setFormData(prev => ({ ...prev, letCustomerSchedule: false }))}
-                            className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                            className="w-4 h-4 text-[var(--sf-blue-500)] border-[var(--sf-border-light)] focus:ring-[var(--sf-blue-500)]"
                         />
                         </div>
                         <div className="flex-1">
-                          <div className="font-bold text-sm text-gray-900 mb-4" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Schedule Now</div>
+                          <div className="font-bold text-sm text-[var(--sf-text-primary)] mb-4" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Schedule Now</div>
                           <div className="flex gap-3 items-center mb-1">
                             <div className="relative flex-1">
-                              <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                              <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[var(--sf-text-muted)]" />
                               <input
                                 type="text"
                                 placeholder="Select a date & time"
@@ -3391,14 +3391,14 @@ setIntakeQuestionAnswers(answers);
                                 }
                                 onClick={() => setShowDatePicker(true)}
                                 readOnly
-                                className="w-full pl-10 pr-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white cursor-pointer"
+                                className="w-full pl-10 pr-3 py-2.5 text-sm border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] bg-white cursor-pointer"
                                 style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                               />
                         </div>
                             <button
                               type="button"
                             onClick={() => setShowDatePicker(true)}
-                              className="px-4 py-2.5 text-sm text-white bg-blue-500 hover:bg-blue-600 rounded-lg font-medium whitespace-nowrap transition-colors"
+                              className="px-4 py-2.5 text-sm text-white bg-[var(--sf-blue-500)] hover:bg-[var(--sf-blue-500)] rounded-lg font-medium whitespace-nowrap transition-colors"
                               style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                             >
                             Find a Time
@@ -3412,35 +3412,35 @@ setIntakeQuestionAnswers(answers);
                       
                       {/* REPEATS Section - Only show when Recurring Job is selected */}
                       {formData.scheduleType === 'recurring' && (
-                        <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+                        <div className="flex items-center justify-between pt-4 border-t border-[var(--sf-border-light)]">
                           <div className="flex items-center gap-2">
-                            <RotateCw className="w-5 h-5 text-gray-400" />
-                            <span className="text-sm font-medium text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                            <RotateCw className="w-5 h-5 text-[var(--sf-text-muted)]" />
+                            <span className="text-sm font-medium text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                               REPEATS
                             </span>
                           </div>
                           <button
                             type="button"
                             onClick={() => setShowRecurringModal(true)}
-                            className="flex items-center gap-2 text-sm hover:text-gray-900 transition-colors"
+                            className="flex items-center gap-2 text-sm hover:text-[var(--sf-text-primary)] transition-colors"
                             style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                           >
-                            <span className={formData.recurringFrequency ? 'text-gray-900' : 'text-gray-500'}>
+                            <span className={formData.recurringFrequency ? 'text-[var(--sf-text-primary)]' : 'text-[var(--sf-text-muted)]'}>
                               {formatRecurringFrequency(formData.recurringFrequency || '', formData.scheduledDate ? new Date(formData.scheduledDate) : null)}
                             </span>
-                            <ChevronRight className="w-4 h-4 text-gray-400" />
+                            <ChevronRight className="w-4 h-4 text-[var(--sf-text-muted)]" />
                           </button>
                         </div>
                       )}
 
                     {/* Assigned Section */}
-                    <div className="pt-5 border-t border-gray-200">
-                      <div className="text-xs font-bold text-gray-900 uppercase tracking-wider mb-4" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Assigned</div>
+                    <div className="pt-5 border-t border-[var(--sf-border-light)]">
+                      <div className="text-xs font-bold text-[var(--sf-text-primary)] uppercase tracking-wider mb-4" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Assigned</div>
                       
                         <button
                           type="button"
                         onClick={() => setShowTeamDropdown(true)}
-                        className="inline-flex items-center gap-2 px-3 py-1.5 mb-4 text-sm text-blue-600 hover:text-blue-700 border border-blue-600 hover:border-blue-700 rounded-full font-medium transition-colors"
+                        className="inline-flex items-center gap-2 px-3 py-1.5 mb-4 text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] border border-blue-600 hover:border-blue-700 rounded-full font-medium transition-colors"
                         style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                         >
                         <Plus className="w-4 h-4" />
@@ -3451,12 +3451,12 @@ setIntakeQuestionAnswers(answers);
                       {selectedTeamMembers.length > 0 && (
                         <div className="mb-4 space-y-2">
                           {selectedTeamMembers.map((member) => (
-                            <div key={member.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                            <div key={member.id} className="flex items-center justify-between p-2 bg-[var(--sf-bg-page)] rounded-lg">
                               <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-xs font-medium">
+                                <div className="w-8 h-8 bg-[var(--sf-blue-500)] rounded-full flex items-center justify-center text-white text-xs font-medium">
                                   {member.first_name?.[0]}{member.last_name?.[0]}
                                 </div>
-                                <span className="text-sm text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                                <span className="text-sm text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                                   {member.first_name} {member.last_name}
                                 </span>
                               </div>
@@ -3481,15 +3481,15 @@ setIntakeQuestionAnswers(answers);
                       
               {/* Right Column - Customer Details */}
               <div className="lg:col-span-1 space-y-0 min-w-0">
-                <div className="bg-white rounded-lg border border-gray-200">
+                <div className="bg-white rounded-xl shadow-sm border border-[var(--sf-border-light)]">
                   {/* Customer Header */}
-                  <div className="p-5 border-b border-gray-200">
+                  <div className="p-5 border-b border-[var(--sf-border-light)]">
                           <div className="flex items-center justify-between">
-                      <h2 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Customer</h2>
+                      <h2 className="text-lg font-semibold text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Customer</h2>
                             <button
                               type="button"
                           onClick={() => setShowCustomerDropdown(true)}
-                        className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                        className="text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] font-medium"
                         style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                             >
                           Change
@@ -3499,14 +3499,14 @@ setIntakeQuestionAnswers(answers);
                   {selectedCustomer && (
                     <>
                       {/* Customer Info */}
-                      <div className="p-5 border-b border-gray-200">
+                      <div className="p-5 border-b border-[var(--sf-border-light)]">
                         <div className="flex items-start gap-3">
                           <div className="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center text-white font-medium flex-shrink-0">
                           {selectedCustomer.first_name?.[0]}{selectedCustomer.last_name?.[0]}
                         </div>
                         <div className="flex-1">
                             <div className="flex items-center gap-2">
-                              <h3 className="font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                              <h3 className="font-medium text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                               {selectedCustomer.first_name} {selectedCustomer.last_name}
                               </h3>
                                 <button
@@ -3515,47 +3515,47 @@ setIntakeQuestionAnswers(answers);
                                   setEditingCustomer(selectedCustomer);
                                   setIsCustomerModalOpen(true);
                                 }}
-                              className="text-sm text-blue-600 hover:text-blue-700"
+                              className="text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)]"
                                 style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                                 >
                               Edit
                                 </button>
                             </div>
-                              <p className="mt-1 text-xs text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
-                                Source: <span className="font-medium text-gray-700">{selectedCustomer.source || 'No source'}</span>
+                              <p className="mt-1 text-xs text-[var(--sf-text-muted)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                                Source: <span className="font-medium text-[var(--sf-text-primary)]">{selectedCustomer.source || 'No source'}</span>
                               </p>
                               </div>
                           </div>
                     </div>
 
                       {/* Contact Info Section */}
-                      <div className="border-b border-gray-200">
+                      <div className="border-b border-[var(--sf-border-light)]">
                         <button
                           type="button"
                           onClick={() => setExpandedCustomerSections(prev => ({ ...prev, contact: !prev.contact }))}
-                          className="w-full px-5 py-3 hover:bg-gray-50 transition-colors text-left"
+                          className="w-full px-5 py-3 hover:bg-[var(--sf-bg-page)] transition-colors text-left"
                         >
                           <div className="flex items-center justify-between">
-                            <span className="text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Contact Info</span>
-                            <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform ${expandedCustomerSections.contact ? 'rotate-90' : ''}`} />
+                            <span className="text-xs font-medium text-[var(--sf-text-muted)] uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Contact Info</span>
+                            <ChevronRight className={`w-4 h-4 text-[var(--sf-text-muted)] transition-transform ${expandedCustomerSections.contact ? 'rotate-90' : ''}`} />
                           </div>
                         </button>
                         {expandedCustomerSections.contact && (
                           <div className="px-5 pb-3 space-y-2">
                         {selectedCustomer.email && (
                               <div className="flex items-center gap-2">
-                            <Mail className="w-4 h-4 text-gray-400" />
-                                <span className="text-sm text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{selectedCustomer.email}</span>
+                            <Mail className="w-4 h-4 text-[var(--sf-text-muted)]" />
+                                <span className="text-sm text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{selectedCustomer.email}</span>
                     </div>
                         )}
                         {selectedCustomer.phone && (
                               <div className="flex items-center gap-2">
-                            <Phone className="w-4 h-4 text-gray-400" />
-                                <span className="text-sm text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{formatPhoneNumber(selectedCustomer.phone)}</span>
+                            <Phone className="w-4 h-4 text-[var(--sf-text-muted)]" />
+                                <span className="text-sm text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{formatPhoneNumber(selectedCustomer.phone)}</span>
                 </div>
               )}
                         {!selectedCustomer.email && !selectedCustomer.phone && (
-                              <p className="text-sm text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>No contact information available</p>
+                              <p className="text-sm text-[var(--sf-text-muted)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>No contact information available</p>
                             )}
                           </div>
               )}
@@ -3565,24 +3565,24 @@ setIntakeQuestionAnswers(answers);
                 <button
                   type="button"
                         onClick={() => expandedSections.notes = !expandedSections.notes}
-                        className="w-full px-5 py-3 border-b border-gray-200 hover:bg-gray-50 transition-colors"
+                        className="w-full px-5 py-3 border-b border-[var(--sf-border-light)] hover:bg-[var(--sf-bg-page)] transition-colors"
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <span className="text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Notes</span>
-                            <span className="text-xs text-gray-400" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{selectedCustomer.notes_count || 0}</span>
+                            <span className="text-xs font-medium text-[var(--sf-text-muted)] uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Notes</span>
+                            <span className="text-xs text-[var(--sf-text-muted)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{selectedCustomer.notes_count || 0}</span>
                           </div>
-                          <ChevronRight className="w-4 h-4 text-gray-400" />
+                          <ChevronRight className="w-4 h-4 text-[var(--sf-text-muted)]" />
                         </div>
                 </button>
                       
                       {/* Notification Preferences */}
-                      <div className="px-5 py-3 border-b border-gray-200">
+                      <div className="px-5 py-3 border-b border-[var(--sf-border-light)]">
                         <div className="flex items-center justify-between mb-3">
-                          <span className="text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Notification Preferences</span>
+                          <span className="text-xs font-medium text-[var(--sf-text-muted)] uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Notification Preferences</span>
                 <button
                   type="button"
-                            className="text-sm text-blue-600 hover:text-blue-700"
+                            className="text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)]"
                             style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                         >
                             Email
@@ -3590,7 +3590,7 @@ setIntakeQuestionAnswers(answers);
               </div>
                         <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                            <span className="text-sm text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Emails</span>
+                            <span className="text-sm text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Emails</span>
                               <label className="relative inline-flex items-center cursor-pointer">
                         <input
                           type="checkbox"
@@ -3601,11 +3601,11 @@ setIntakeQuestionAnswers(answers);
                           }))}
                                   className="sr-only peer"
                         />
-                              <div className="w-10 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                              <div className="w-10 h-6 bg-[var(--sf-border-light)] peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[var(--sf-blue-500)]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
                         </label>
                 </div>
                             <div className="flex items-center justify-between">
-                            <span className="text-sm text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Text messages</span>
+                            <span className="text-sm text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Text messages</span>
                               <label className="relative inline-flex items-center cursor-pointer">
                         <input
                           type="checkbox"
@@ -3616,7 +3616,7 @@ setIntakeQuestionAnswers(answers);
                           }))}
                                   className="sr-only peer"
                         />
-                              <div className="w-10 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gray-200"></div>
+                              <div className="w-10 h-6 bg-[var(--sf-border-light)] peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[var(--sf-blue-500)]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--sf-border-light)]"></div>
                         </label>
               </div>
                     </div>
@@ -3626,7 +3626,7 @@ setIntakeQuestionAnswers(answers);
                   {/* Service Address with Map */}
                   {formData.serviceAddress.street && (
                     <>
-                      <div className="h-40 bg-gray-100 relative">
+                      <div className="h-40 bg-[var(--sf-bg-page)] relative">
                         <iframe
                           title="Service Address Map"
                           width="100%"
@@ -3640,56 +3640,56 @@ setIntakeQuestionAnswers(answers);
                           )}&zoom=16&maptype=roadmap`}
                         />
                       </div>
-                      <div className="px-5 py-3 border-b border-gray-200">
+                      <div className="px-5 py-3 border-b border-[var(--sf-border-light)]">
                         <div className="flex items-center justify-between mb-2">
-                          <span className="text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Service Address</span>
+                          <span className="text-xs font-medium text-[var(--sf-text-muted)] uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Service Address</span>
                           <button
                             type="button"
                             onClick={() => setShowAddressModal(true)}
-                            className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                            className="text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] font-medium"
                             style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                           >
                             Edit
                           </button>
                     </div>
                         <div>
-                          <p className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>{formData.serviceAddress.street}</p>
-                          <p className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{formData.serviceAddress.city}</p>
+                          <p className="text-sm font-medium text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>{formData.serviceAddress.street}</p>
+                          <p className="text-sm text-[var(--sf-text-secondary)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{formData.serviceAddress.city}</p>
                           </div>
                         </div>
                     </>
                   )}
                   
                   {/* Territory */}
-                  <div className="px-5 py-3 border-b border-gray-200">
+                  <div className="px-5 py-3 border-b border-[var(--sf-border-light)]">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Territory</span>
+                      <span className="text-xs font-medium text-[var(--sf-text-muted)] uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Territory</span>
                       <button
                         type="button"
                         onClick={() => setShowTerritoryModal(true)}
-                        className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                        className="text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] font-medium"
                         style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                       >
                         Edit
                       </button>
                     </div>
-                    <p className="text-sm text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                    <p className="text-sm text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                       {detectedTerritory?.name || formData.territory || (
-                        <span className="text-gray-400 italic">Unassigned</span>
+                        <span className="text-[var(--sf-text-muted)] italic">Unassigned</span>
                       )}
                     </p>
                   </div>
 
                   {/* Payment Method */}
-                  <div className="px-5 py-3 border-b border-gray-200">
+                  <div className="px-5 py-3 border-b border-[var(--sf-border-light)]">
                     <div className="mb-2">
-                      <span className="text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Payment Method</span>
+                      <span className="text-xs font-medium text-[var(--sf-text-muted)] uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Payment Method</span>
                     </div>
-                    <p className="text-sm text-gray-600 mb-3" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Attach a credit or debit card to charge at a later time when the job is complete.</p>
+                    <p className="text-sm text-[var(--sf-text-secondary)] mb-3" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Attach a credit or debit card to charge at a later time when the job is complete.</p>
                   <button
                     type="button"
                       onClick={() => setShowPaymentModal(true)}
-                      className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 font-medium"
+                      className="flex items-center gap-2 text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] font-medium"
                       style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                   >
                       <Plus className="w-4 h-4" />
@@ -3721,14 +3721,14 @@ setIntakeQuestionAnswers(answers);
       {/* Leads Modal */}
       {showLeadsModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] flex flex-col">
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between p-6 border-b border-[var(--sf-border-light)]">
+              <h2 className="text-xl font-semibold text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                 Select a Lead
               </h2>
               <button
                 onClick={() => setShowLeadsModal(false)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -3737,7 +3737,7 @@ setIntakeQuestionAnswers(answers);
             <div className="flex-1 overflow-y-auto p-6">
               {leads.length === 0 ? (
                 <div className="text-center py-12">
-                  <p className="text-gray-500">No leads available</p>
+                  <p className="text-[var(--sf-text-muted)]">No leads available</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -3749,33 +3749,33 @@ setIntakeQuestionAnswers(answers);
                         await handleLeadSelect(lead);
                         setShowLeadsModal(false);
                       }}
-                      className="w-full text-left px-4 py-3 bg-white border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-colors"
+                      className="w-full text-left px-4 py-3 bg-white border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-blue-50)] hover:border-blue-300 transition-colors"
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
-                          <p className="font-medium text-gray-900">{lead.first_name} {lead.last_name}</p>
+                          <p className="font-medium text-[var(--sf-text-primary)]">{lead.first_name} {lead.last_name}</p>
                           <div className="flex items-center space-x-4 mt-1">
                             {lead.email && (
-                              <p className="text-sm text-gray-600 flex items-center">
+                              <p className="text-sm text-[var(--sf-text-secondary)] flex items-center">
                                 <Mail className="w-4 h-4 mr-1" />
                                 {lead.email}
                               </p>
                             )}
                             {lead.phone && (
-                              <p className="text-sm text-gray-600 flex items-center">
+                              <p className="text-sm text-[var(--sf-text-secondary)] flex items-center">
                                 <Phone className="w-4 h-4 mr-1" />
                                 {formatPhoneNumber(lead.phone)}
                               </p>
                             )}
                           </div>
                           {lead.company && (
-                            <p className="text-sm text-gray-500 mt-1 flex items-center">
+                            <p className="text-sm text-[var(--sf-text-muted)] mt-1 flex items-center">
                               <Building className="w-4 h-4 mr-1" />
                               {lead.company}
                             </p>
                           )}
                         </div>
-                        <span className="px-3 py-1 text-xs font-medium bg-blue-100 text-blue-700 rounded-full ml-4">
+                        <span className="px-3 py-1 text-xs font-medium bg-[var(--sf-blue-50)] text-[var(--sf-blue-500)] rounded-full ml-4">
                           Lead
                         </span>
                       </div>
@@ -3911,14 +3911,14 @@ setIntakeQuestionAnswers(answers);
           onClick={() => setShowTeamDropdown(false)}
         >
           <div 
-            className="bg-white rounded-lg shadow-xl max-w-md w-full p-6"
+            className="bg-white rounded-xl shadow-xl max-w-md w-full p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Assign Team Member</h3>
+              <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Assign Team Member</h3>
               <button
                 onClick={() => setShowTeamDropdown(false)}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -3927,9 +3927,9 @@ setIntakeQuestionAnswers(answers);
             <div className="space-y-4">
               {teamMembers.length === 0 ? (
                 <div className="text-center py-8">
-                  <Users className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-                  <p className="text-gray-500 text-sm mb-1">No team members available</p>
-                  <p className="text-gray-400 text-xs">Add team members in the Team section first</p>
+                  <Users className="w-12 h-12 text-[var(--sf-text-muted)] mx-auto mb-2" />
+                  <p className="text-[var(--sf-text-muted)] text-sm mb-1">No team members available</p>
+                  <p className="text-[var(--sf-text-muted)] text-xs">Add team members in the Team section first</p>
                 </div>
               ) : (
                 <>
@@ -3943,23 +3943,23 @@ setIntakeQuestionAnswers(answers);
                           onClick={() => handleMultipleTeamMemberSelect(member)}
                           className={`w-full flex items-center space-x-3 p-3 rounded-lg transition-colors ${
                             isSelected 
-                              ? 'bg-blue-50 border-2 border-blue-600' 
-                              : 'bg-gray-50 hover:bg-gray-100 border-2 border-transparent'
+                              ? 'bg-[var(--sf-blue-50)] border-2 border-[var(--sf-blue-500)]' 
+                              : 'bg-[var(--sf-bg-page)] hover:bg-[var(--sf-bg-hover)] border-2 border-transparent'
                           }`}
                         >
-                          <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-medium flex-shrink-0">
+                          <div className="w-10 h-10 bg-[var(--sf-blue-500)] rounded-full flex items-center justify-center text-white font-medium flex-shrink-0">
                             {member.first_name?.[0]}{member.last_name?.[0]}
                           </div>
                           <div className="flex-1 text-left">
-                            <p className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                            <p className="text-sm font-medium text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                               {member.first_name} {member.last_name}
                             </p>
-                            <p className="text-xs text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                            <p className="text-xs text-[var(--sf-text-muted)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                               {member.email}
                             </p>
                           </div>
                           {isSelected && (
-                            <CheckCircle className="w-5 h-5 text-blue-600" />
+                            <CheckCircle className="w-5 h-5 text-[var(--sf-blue-500)]" />
                           )}
                         </button>
                       );
@@ -3967,9 +3967,9 @@ setIntakeQuestionAnswers(answers);
                   </div>
                   
                   {selectedTeamMembers.length > 0 && (
-                    <div className="pt-4 border-t border-gray-200">
+                    <div className="pt-4 border-t border-[var(--sf-border-light)]">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                        <span className="text-sm text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                           {selectedTeamMembers.length} member{selectedTeamMembers.length !== 1 ? 's' : ''} selected
                         </span>
                         <button
@@ -3986,11 +3986,11 @@ setIntakeQuestionAnswers(answers);
                 </>
               )}
               
-              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-gray-200">
+              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-[var(--sf-border-light)]">
                 <button
                   type="button"
                   onClick={() => setShowTeamDropdown(false)}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
+                  className="px-4 py-2 border border-[var(--sf-border-light)] text-[var(--sf-text-primary)] rounded-lg hover:bg-[var(--sf-bg-page)] font-medium transition-colors"
                   style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                 >
                   Done

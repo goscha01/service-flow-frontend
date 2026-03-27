@@ -43,11 +43,11 @@ const TerritoryAdjustmentModal = ({ isOpen, onClose, onSave }) => {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg w-full max-w-md mx-4">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">Add Territory Adjustment Rule</h2>
+        <div className="flex items-center justify-between p-6 border-b border-[var(--sf-border-light)]">
+          <h2 className="text-lg font-semibold text-[var(--sf-text-primary)]">Add Territory Adjustment Rule</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
+            className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
           >
             <X className="w-5 h-5" />
           </button>
@@ -57,13 +57,13 @@ const TerritoryAdjustmentModal = ({ isOpen, onClose, onSave }) => {
         <div className="p-6 space-y-6">
           {/* Territory Selection */}
           <div>
-            <label className="block text-sm font-medium text-gray-900 mb-2">
+            <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
               Territory
             </label>
             <select
               value={selectedTerritory}
               onChange={(e) => setSelectedTerritory(e.target.value)}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full border border-[var(--sf-border-light)] rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
             >
               <option value="">Select a territory</option>
               {territories.map((territory) => (
@@ -76,7 +76,7 @@ const TerritoryAdjustmentModal = ({ isOpen, onClose, onSave }) => {
 
           {/* Adjustment Type */}
           <div>
-            <label className="block text-sm font-medium text-gray-900 mb-2">
+            <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
               Adjustment Type
             </label>
             <div className="flex space-x-4">
@@ -88,7 +88,7 @@ const TerritoryAdjustmentModal = ({ isOpen, onClose, onSave }) => {
                   onChange={(e) => setAdjustmentType(e.target.value)}
                   className="mr-2"
                 />
-                <span className="text-sm text-gray-700">Percentage</span>
+                <span className="text-sm text-[var(--sf-text-primary)]">Percentage</span>
               </label>
               <label className="flex items-center">
                 <input
@@ -98,20 +98,20 @@ const TerritoryAdjustmentModal = ({ isOpen, onClose, onSave }) => {
                   onChange={(e) => setAdjustmentType(e.target.value)}
                   className="mr-2"
                 />
-                <span className="text-sm text-gray-700">Fixed Amount</span>
+                <span className="text-sm text-[var(--sf-text-primary)]">Fixed Amount</span>
               </label>
             </div>
           </div>
 
           {/* Operation */}
           <div>
-            <label className="block text-sm font-medium text-gray-900 mb-2">
+            <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
               Operation
             </label>
             <select
               value={operation}
               onChange={(e) => setOperation(e.target.value)}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full border border-[var(--sf-border-light)] rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
             >
               <option value="increase">Increase price</option>
               <option value="decrease">Decrease price</option>
@@ -120,12 +120,12 @@ const TerritoryAdjustmentModal = ({ isOpen, onClose, onSave }) => {
 
           {/* Adjustment Value */}
           <div>
-            <label className="block text-sm font-medium text-gray-900 mb-2">
+            <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
               {adjustmentType === "percentage" ? "Percentage" : "Amount"}
             </label>
             <div className="relative">
               {adjustmentType === "fixed" && (
-                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">
+                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--sf-text-muted)]">
                   $
                 </span>
               )}
@@ -133,7 +133,7 @@ const TerritoryAdjustmentModal = ({ isOpen, onClose, onSave }) => {
                 type="number"
                 value={adjustmentValue}
                 onChange={(e) => setAdjustmentValue(e.target.value)}
-                className={`w-full border border-gray-300 rounded-md py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                className={`w-full border border-[var(--sf-border-light)] rounded-md py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] ${
                   adjustmentType === "fixed" ? "pl-8 pr-3" : "px-3"
                 }`}
                 placeholder={adjustmentType === "percentage" ? "10" : "25.00"}
@@ -141,12 +141,12 @@ const TerritoryAdjustmentModal = ({ isOpen, onClose, onSave }) => {
                 step={adjustmentType === "percentage" ? "1" : "0.01"}
               />
               {adjustmentType === "percentage" && (
-                <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500">
+                <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-[var(--sf-text-muted)]">
                   %
                 </span>
               )}
             </div>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-[var(--sf-text-muted)] mt-1">
               {adjustmentType === "percentage" 
                 ? `${operation === "increase" ? "Increase" : "Decrease"} the base price by this percentage`
                 : `${operation === "increase" ? "Add" : "Subtract"} this amount to/from the base price`
@@ -156,13 +156,13 @@ const TerritoryAdjustmentModal = ({ isOpen, onClose, onSave }) => {
 
           {/* Preview */}
           {selectedTerritory && adjustmentValue && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="bg-[var(--sf-blue-50)] border border-blue-200 rounded-lg p-4">
               <h4 className="text-sm font-medium text-blue-900 mb-1">Preview</h4>
-              <p className="text-sm text-blue-700">
+              <p className="text-sm text-[var(--sf-blue-500)]">
                 {operation === "increase" ? "Increase" : "Decrease"} price in {selectedTerritory} by{" "}
                 {adjustmentType === "percentage" ? `${adjustmentValue}%` : `$${adjustmentValue}`}
               </p>
-              <p className="text-xs text-blue-600 mt-1">
+              <p className="text-xs text-[var(--sf-blue-500)] mt-1">
                 Base price $120.00 → {" "}
                 {adjustmentType === "percentage" 
                   ? operation === "increase"
@@ -178,17 +178,17 @@ const TerritoryAdjustmentModal = ({ isOpen, onClose, onSave }) => {
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end space-x-3 p-6 border-t border-gray-200">
+        <div className="flex justify-end space-x-3 p-6 border-t border-[var(--sf-border-light)]">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-4 py-2 text-sm font-medium text-[var(--sf-text-primary)] bg-white border border-[var(--sf-border-light)] rounded-md hover:bg-[var(--sf-bg-page)] focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)]"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
             disabled={!selectedTerritory || !adjustmentValue}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-300 disabled:cursor-not-allowed"
+            className="px-4 py-2 text-sm font-medium text-white bg-[var(--sf-blue-500)] rounded-md hover:bg-[var(--sf-blue-600)] focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] disabled:bg-gray-300 disabled:cursor-not-allowed"
           >
             Add Rule
           </button>

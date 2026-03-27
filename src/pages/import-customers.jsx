@@ -447,12 +447,12 @@ const ImportCustomersPage = () => {
 
   if (importResult) {
     return (
-      <div className="min-h-screen bg-gray-50 py-8">
+      <div className="min-h-screen bg-[var(--sf-bg-page)] py-8">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center py-12">
             <CheckCircle className="w-16 h-16 text-green-600 mx-auto mb-6" />
-            <h1 className="text-3xl font-bold text-gray-900 mb-4">Import Complete!</h1>
-            <p className="text-lg text-gray-600 mb-8">
+            <h1 className="text-3xl font-bold text-[var(--sf-text-primary)] mb-4">Import Complete!</h1>
+            <p className="text-lg text-[var(--sf-text-secondary)] mb-8">
               Your customer data has been successfully imported.
             </p>
             
@@ -481,7 +481,7 @@ const ImportCustomersPage = () => {
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link
                 to="/customers"
-                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center"
+                className="px-6 py-3 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] transition-colors flex items-center justify-center"
               >
                 View Customers
               </Link>
@@ -504,28 +504,28 @@ const ImportCustomersPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[var(--sf-bg-page)]">
       {/* Fixed Progress Bar Overlay */}
       {isImporting && (
         <div className="fixed top-0 left-0 right-0 z-50 bg-white border-b-2 border-blue-200 shadow-lg">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
              <div className="flex items-center justify-between mb-2">
                <div className="flex items-center space-x-3">
-                 <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
-                 <span className="text-lg font-semibold text-gray-900">Importing Customers...</span>
+                 <Loader2 className="w-5 h-5 text-[var(--sf-blue-500)] animate-spin" />
+                 <span className="text-lg font-semibold text-[var(--sf-text-primary)]">Importing Customers...</span>
                  {importProgress.batchInfo && (
-                   <span className="text-sm text-blue-600">
+                   <span className="text-sm text-[var(--sf-blue-500)]">
                      (Batch {importProgress.batchInfo.current}/{importProgress.batchInfo.total})
                    </span>
                  )}
                </div>
-               <span className="text-lg font-semibold text-blue-600">
+               <span className="text-lg font-semibold text-[var(--sf-blue-500)]">
                  {importProgress.current} / {importProgress.total} ({importProgress.percentage}%)
                </span>
              </div>
             <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
               <div
-                className="bg-blue-600 h-3 rounded-full transition-all duration-300 ease-out"
+                className="bg-[var(--sf-blue-500)] h-3 rounded-full transition-all duration-300 ease-out"
                 style={{ width: `${importProgress.percentage}%` }}
               />
             </div>
@@ -539,14 +539,14 @@ const ImportCustomersPage = () => {
           <div className="flex items-center mb-4">
             <Link
               to="/customers"
-              className="flex items-center text-gray-600 hover:text-gray-800 transition-colors mr-4"
+              className="flex items-center text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] transition-colors mr-4"
             >
               <ArrowLeft className="w-5 h-5 mr-2" />
               Back to Customers
             </Link>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900">Import Customers</h1>
-          <p className="text-gray-600 mt-2">
+          <h1 className="text-3xl font-bold text-[var(--sf-text-primary)]">Import Customers</h1>
+          <p className="text-[var(--sf-text-secondary)] mt-2">
             Import your customer data from a CSV file into Serviceflow.
           </p>
         </div>
@@ -554,22 +554,22 @@ const ImportCustomersPage = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Instructions */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 sticky top-8">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">How to Import</h2>
+            <div className="bg-white rounded-xl shadow-sm border border-[var(--sf-border-light)] p-6 sticky top-8">
+              <h2 className="text-lg font-semibold text-[var(--sf-text-primary)] mb-4">How to Import</h2>
               
               <div className="space-y-6">
                 <div className="flex items-start space-x-3">
-                  <div className="flex-shrink-0 w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-semibold">
+                  <div className="flex-shrink-0 w-8 h-8 bg-blue-100 text-[var(--sf-blue-500)] rounded-full flex items-center justify-center text-sm font-semibold">
                     1
                   </div>
                   <div>
-                    <h3 className="font-medium text-gray-900">Download Template</h3>
-                    <p className="text-sm text-gray-600 mt-1">
+                    <h3 className="font-medium text-[var(--sf-text-primary)]">Download Template</h3>
+                    <p className="text-sm text-[var(--sf-text-secondary)] mt-1">
                       Get our CSV template to see the correct format.
                     </p>
                     <button
                       onClick={downloadTemplate}
-                      className="mt-2 inline-flex items-center text-sm text-blue-600 hover:text-blue-700"
+                      className="mt-2 inline-flex items-center text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)]"
                     >
                       <Download className="w-4 h-4 mr-1" />
                       Download Template
@@ -578,36 +578,36 @@ const ImportCustomersPage = () => {
                 </div>
 
                 <div className="flex items-start space-x-3">
-                  <div className="flex-shrink-0 w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-semibold">
+                  <div className="flex-shrink-0 w-8 h-8 bg-blue-100 text-[var(--sf-blue-500)] rounded-full flex items-center justify-center text-sm font-semibold">
                     2
                   </div>
                   <div>
-                    <h3 className="font-medium text-gray-900">Fill Template</h3>
-                    <p className="text-sm text-gray-600 mt-1">
+                    <h3 className="font-medium text-[var(--sf-text-primary)]">Fill Template</h3>
+                    <p className="text-sm text-[var(--sf-text-secondary)] mt-1">
                       Add your customer data to the template file.
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-start space-x-3">
-                  <div className="flex-shrink-0 w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-semibold">
+                  <div className="flex-shrink-0 w-8 h-8 bg-blue-100 text-[var(--sf-blue-500)] rounded-full flex items-center justify-center text-sm font-semibold">
                     3
                   </div>
                   <div>
-                    <h3 className="font-medium text-gray-900">Upload & Preview</h3>
-                    <p className="text-sm text-gray-600 mt-1">
+                    <h3 className="font-medium text-[var(--sf-text-primary)]">Upload & Preview</h3>
+                    <p className="text-sm text-[var(--sf-text-secondary)] mt-1">
                       Upload your CSV file and review the data.
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-start space-x-3">
-                  <div className="flex-shrink-0 w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-semibold">
+                  <div className="flex-shrink-0 w-8 h-8 bg-blue-100 text-[var(--sf-blue-500)] rounded-full flex items-center justify-center text-sm font-semibold">
                     4
                   </div>
                   <div>
-                    <h3 className="font-medium text-gray-900">Import Data</h3>
-                    <p className="text-sm text-gray-600 mt-1">
+                    <h3 className="font-medium text-[var(--sf-text-primary)]">Import Data</h3>
+                    <p className="text-sm text-[var(--sf-text-secondary)] mt-1">
                       Confirm the import to add customers to Serviceflow.
                     </p>
                   </div>
@@ -628,15 +628,15 @@ const ImportCustomersPage = () => {
 
           {/* Main Content */}
           <div className="lg:col-span-2">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="bg-white rounded-xl shadow-sm border border-[var(--sf-border-light)] p-6">
               {/* File Upload */}
               <div className="mb-8">
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">Upload CSV File</h2>
+                <h2 className="text-xl font-semibold text-[var(--sf-text-primary)] mb-4">Upload CSV File</h2>
                 
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gray-400 transition-colors">
-                  <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">Choose CSV file</h3>
-                  <p className="text-gray-600 mb-4">
+                <div className="border-2 border-dashed border-[var(--sf-border-light)] rounded-lg p-8 text-center hover:border-gray-400 transition-colors">
+                  <Upload className="w-12 h-12 text-[var(--sf-text-muted)] mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-[var(--sf-text-primary)] mb-2">Choose CSV file</h3>
+                  <p className="text-[var(--sf-text-secondary)] mb-4">
                     Select a CSV file with your customer data
                   </p>
                   
@@ -650,14 +650,14 @@ const ImportCustomersPage = () => {
                   />
                   <label
                     htmlFor="file-upload"
-                    className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer transition-colors"
+                    className="inline-flex items-center px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] cursor-pointer transition-colors"
                   >
                     <Upload className="w-4 h-4 mr-2" />
                     Choose File
                   </label>
                   
                   {selectedFile && (
-                    <p className="mt-4 text-sm text-gray-600">
+                    <p className="mt-4 text-sm text-[var(--sf-text-secondary)]">
                       Selected: {selectedFile.name}
                     </p>
                   )}
@@ -678,44 +678,44 @@ const ImportCustomersPage = () => {
               {showPreview && previewData && (
                 <div className="mb-8">
                   <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-xl font-semibold text-gray-900">Data Preview</h2>
+                    <h2 className="text-xl font-semibold text-[var(--sf-text-primary)]">Data Preview</h2>
                     <div className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
                       {previewData.length} customers
                     </div>
                   </div>
                   
-                  <p className="text-sm text-gray-600 mb-6">
+                  <p className="text-sm text-[var(--sf-text-secondary)] mb-6">
                     Review the data below before importing. Only customers with valid first and last names will be imported.
                   </p>
                   
-                  <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                  <div className="bg-white border border-[var(--sf-border-light)] rounded-lg overflow-hidden">
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
-                        <thead className="bg-gray-50 border-b border-gray-200">
+                        <thead className="bg-[var(--sf-bg-page)] border-b border-[var(--sf-border-light)]">
                           <tr>
-                            <th className="px-4 py-3 text-left font-semibold text-gray-700 min-w-[100px]">First Name</th>
-                            <th className="px-4 py-3 text-left font-semibold text-gray-700 min-w-[100px]">Last Name</th>
-                            <th className="px-4 py-3 text-left font-semibold text-gray-700 min-w-[150px]">Email</th>
-                            <th className="px-4 py-3 text-left font-semibold text-gray-700 min-w-[120px]">Phone</th>
-                            <th className="px-4 py-3 text-left font-semibold text-gray-700 min-w-[200px]">Address</th>
-                            <th className="px-4 py-3 text-left font-semibold text-gray-700 min-w-[100px]">City</th>
-                            <th className="px-4 py-3 text-left font-semibold text-gray-700 min-w-[80px]">State</th>
-                            <th className="px-4 py-3 text-left font-semibold text-gray-700 min-w-[100px]">Zip Code</th>
+                            <th className="px-4 py-3 text-left font-semibold text-[var(--sf-text-primary)] min-w-[100px]">First Name</th>
+                            <th className="px-4 py-3 text-left font-semibold text-[var(--sf-text-primary)] min-w-[100px]">Last Name</th>
+                            <th className="px-4 py-3 text-left font-semibold text-[var(--sf-text-primary)] min-w-[150px]">Email</th>
+                            <th className="px-4 py-3 text-left font-semibold text-[var(--sf-text-primary)] min-w-[120px]">Phone</th>
+                            <th className="px-4 py-3 text-left font-semibold text-[var(--sf-text-primary)] min-w-[200px]">Address</th>
+                            <th className="px-4 py-3 text-left font-semibold text-[var(--sf-text-primary)] min-w-[100px]">City</th>
+                            <th className="px-4 py-3 text-left font-semibold text-[var(--sf-text-primary)] min-w-[80px]">State</th>
+                            <th className="px-4 py-3 text-left font-semibold text-[var(--sf-text-primary)] min-w-[100px]">Zip Code</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                           {previewData.slice(0, 20).map((customer, index) => (
-                            <tr key={index} className="hover:bg-gray-50 transition-colors">
-                              <td className="px-4 py-3 text-gray-900 font-medium">{customer.firstName || '-'}</td>
-                              <td className="px-4 py-3 text-gray-900 font-medium">{customer.lastName || '-'}</td>
-                              <td className="px-4 py-3 text-gray-700">{customer.email || '-'}</td>
-                              <td className="px-4 py-3 text-gray-700">{customer.phone || '-'}</td>
-                              <td className="px-4 py-3 text-gray-700 max-w-[200px] truncate" title={customer.address || ''}>
+                            <tr key={index} className="hover:bg-[var(--sf-bg-page)] transition-colors">
+                              <td className="px-4 py-3 text-[var(--sf-text-primary)] font-medium">{customer.firstName || '-'}</td>
+                              <td className="px-4 py-3 text-[var(--sf-text-primary)] font-medium">{customer.lastName || '-'}</td>
+                              <td className="px-4 py-3 text-[var(--sf-text-primary)]">{customer.email || '-'}</td>
+                              <td className="px-4 py-3 text-[var(--sf-text-primary)]">{customer.phone || '-'}</td>
+                              <td className="px-4 py-3 text-[var(--sf-text-primary)] max-w-[200px] truncate" title={customer.address || ''}>
                                 {customer.address || '-'}
                               </td>
-                              <td className="px-4 py-3 text-gray-700">{customer.city || '-'}</td>
-                              <td className="px-4 py-3 text-gray-700">{customer.state || '-'}</td>
-                              <td className="px-4 py-3 text-gray-700">{customer.zipCode || '-'}</td>
+                              <td className="px-4 py-3 text-[var(--sf-text-primary)]">{customer.city || '-'}</td>
+                              <td className="px-4 py-3 text-[var(--sf-text-primary)]">{customer.state || '-'}</td>
+                              <td className="px-4 py-3 text-[var(--sf-text-primary)]">{customer.zipCode || '-'}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -723,8 +723,8 @@ const ImportCustomersPage = () => {
                     </div>
                     
                     {previewData.length > 20 && (
-                      <div className="px-4 py-3 bg-gray-50 border-t border-gray-200">
-                        <div className="flex items-center justify-center text-sm text-gray-600">
+                      <div className="px-4 py-3 bg-[var(--sf-bg-page)] border-t border-[var(--sf-border-light)]">
+                        <div className="flex items-center justify-center text-sm text-[var(--sf-text-secondary)]">
                           <span className="bg-gray-200 rounded-full px-3 py-1">
                             ... and {previewData.length - 20} more customers
                           </span>
@@ -741,19 +741,19 @@ const ImportCustomersPage = () => {
                         setSelectedFile(null);
                         document.getElementById('file-upload').value = '';
                       }}
-                      className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
+                      className="px-4 py-2 text-sm font-medium text-[var(--sf-text-primary)] bg-white border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-page)] focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
                     >
                       Choose Different File
                     </button>
                     
                     <div className="flex items-center space-x-4">
-                      <div className="text-sm text-gray-600">
+                      <div className="text-sm text-[var(--sf-text-secondary)]">
                         <span className="font-medium">{previewData.length}</span> customers ready to import
                       </div>
                       <button
                         onClick={handleImport}
                         disabled={isImporting}
-                        className="px-6 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 transition-colors"
+                        className="px-6 py-2 text-sm font-medium text-white bg-[var(--sf-blue-500)] rounded-lg hover:bg-[var(--sf-blue-600)] focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 transition-colors"
                       >
                         {isImporting ? (
                           <>
@@ -772,24 +772,24 @@ const ImportCustomersPage = () => {
                   
                   {/* Progress Bar */}
                   {isImporting && (
-                    <div className="mt-6 bg-blue-50 border-2 border-blue-200 rounded-lg p-6 shadow-lg">
+                    <div className="mt-6 bg-[var(--sf-blue-50)] border-2 border-blue-200 rounded-lg p-6 shadow-lg">
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center space-x-2">
-                          <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
-                          <span className="text-base font-semibold text-gray-900">Importing Customers</span>
+                          <Loader2 className="w-5 h-5 text-[var(--sf-blue-500)] animate-spin" />
+                          <span className="text-base font-semibold text-[var(--sf-text-primary)]">Importing Customers</span>
                           {importProgress.batchInfo && (
-                            <span className="text-sm text-blue-600 ml-2">
+                            <span className="text-sm text-[var(--sf-blue-500)] ml-2">
                               (Batch {importProgress.batchInfo.current}/{importProgress.batchInfo.total})
                             </span>
                           )}
                         </div>
-                        <span className="text-base font-semibold text-blue-600">
+                        <span className="text-base font-semibold text-[var(--sf-blue-500)]">
                           {importProgress.current} / {importProgress.total} ({importProgress.percentage}%)
                         </span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden shadow-inner">
                         <div
-                          className="bg-blue-600 h-4 rounded-full transition-all duration-300 ease-out flex items-center justify-end pr-2"
+                          className="bg-[var(--sf-blue-500)] h-4 rounded-full transition-all duration-300 ease-out flex items-center justify-end pr-2"
                           style={{ width: `${importProgress.percentage}%` }}
                         >
                           {importProgress.percentage > 10 && (
@@ -799,7 +799,7 @@ const ImportCustomersPage = () => {
                           )}
                         </div>
                       </div>
-                      <p className="text-sm text-gray-600 mt-3 font-medium">
+                      <p className="text-sm text-[var(--sf-text-secondary)] mt-3 font-medium">
                         {importProgress.batchInfo 
                           ? `Processing in batches to ensure reliability. Batch ${importProgress.batchInfo.current} of ${importProgress.batchInfo.total}...`
                           : 'Please wait while we import your customers. This may take a few moments...'

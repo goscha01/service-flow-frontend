@@ -950,11 +950,11 @@ const ServiceFlowDashboard = () => {
   // Show loading state while backend is waking up
   if (isWakingUp) {
     return (
-      <div className="flex h-screen bg-gray-50 items-center justify-center">
+      <div className="flex h-screen bg-[var(--sf-bg-page)] items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Connecting to server...</h2>
-          <p className="text-gray-600">Please wait while we wake up the backend</p>
+          <h2 className="text-xl font-semibold text-[var(--sf-text-primary)] mb-2">Connecting to server...</h2>
+          <p className="text-[var(--sf-text-secondary)]">Please wait while we wake up the backend</p>
         </div>
       </div>
     );
@@ -962,7 +962,7 @@ const ServiceFlowDashboard = () => {
 
   return (
     <>
-      <div className="flex h-screen bg-gray-50 overflow-hidden">
+      <div className="flex h-screen bg-[var(--sf-bg-page)] overflow-hidden">
 
         {/* Customer Modal */}
         <CustomerModal
@@ -988,11 +988,11 @@ const ServiceFlowDashboard = () => {
         </div>
 
         {/* Desktop Header */}
-        <div className="hidden lg:block bg-white border-b border-gray-200 px-2 sm:px-4 md:px-6 lg:px-8 py-5">
+        <div className="hidden lg:block bg-white border-b border-[var(--sf-border-light)] px-2 sm:px-4 md:px-6 lg:px-8 py-5">
           <div className="max-w-7xl mx-auto flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-display font-semibold text-gray-900">{getGreeting()}, {getUserDisplayName()}.</h1>
-              <p className="text-sm text-gray-600 mt-1">Here's how your business is doing today.</p>
+              <h1 className="text-2xl font-display font-semibold text-[var(--sf-text-primary)]">{getGreeting()}, {getUserDisplayName()}.</h1>
+              <p className="text-sm text-[var(--sf-text-secondary)] mt-1">Here's how your business is doing today.</p>
             </div>
             <div className="relative" ref={newMenuRef}>
               <button
@@ -1009,7 +1009,7 @@ const ServiceFlowDashboard = () => {
                 <Plus className="w-4 h-4" />
               </button>
               {showNewMenu && (
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-[var(--sf-border-light)] py-1 z-50">
                   {newOptions.map((option, index) => (
                     <div
                       key={index}
@@ -1022,11 +1022,11 @@ const ServiceFlowDashboard = () => {
                         handleNewOptionClick(option)
                       }}
                       onKeyDown={(e) => e.key === 'Enter' && handleNewOptionClick(option)}
-                      className="w-full px-4 py-3 hover:bg-gray-50 cursor-pointer select-none active:bg-gray-100 border-b border-gray-100 last:border-0"
+                      className="w-full px-4 py-3 hover:bg-[var(--sf-bg-page)] cursor-pointer select-none active:bg-[var(--sf-bg-page)] border-b border-[var(--sf-border-light)] last:border-0"
                     >
                       <div className="flex items-center space-x-3">
-                        <option.icon className="w-4 h-4 text-gray-500" />
-                        <span className="text-sm text-gray-700">{option.title}</span>
+                        <option.icon className="w-4 h-4 text-[var(--sf-text-muted)]" />
+                        <span className="text-sm text-[var(--sf-text-primary)]">{option.title}</span>
                       </div>
                     </div>
                   ))}
@@ -1037,11 +1037,11 @@ const ServiceFlowDashboard = () => {
         </div>
 
         {/* Mobile Header Content */}
-        <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-4">
+        <div className="lg:hidden bg-white border-b border-[var(--sf-border-light)] px-4 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-xl font-display font-semibold text-gray-900">{getGreeting()}, {getUserDisplayName()}.</h1>
-              <p className="text-sm text-gray-600 mt-1">Here's how your business is doing today.</p>
+              <h1 className="text-xl font-display font-semibold text-[var(--sf-text-primary)]">{getGreeting()}, {getUserDisplayName()}.</h1>
+              <p className="text-sm text-[var(--sf-text-secondary)] mt-1">Here's how your business is doing today.</p>
             </div>
             <div className="relative" ref={newMenuRef}>
               <button
@@ -1058,7 +1058,7 @@ const ServiceFlowDashboard = () => {
                 <span>New</span>
               </button>
               {showNewMenu && (
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-[var(--sf-border-light)] py-1 z-50">
                   {newOptions.map((option, index) => (
                     <div
                       key={index}
@@ -1071,11 +1071,11 @@ const ServiceFlowDashboard = () => {
                         handleNewOptionClick(option)
                       }}
                       onKeyDown={(e) => e.key === 'Enter' && handleNewOptionClick(option)}
-                      className="w-full px-4 py-3 hover:bg-gray-50 cursor-pointer select-none active:bg-gray-100 border-b border-gray-100 last:border-0"
+                      className="w-full px-4 py-3 hover:bg-[var(--sf-bg-page)] cursor-pointer select-none active:bg-[var(--sf-bg-page)] border-b border-[var(--sf-border-light)] last:border-0"
                     >
                       <div className="flex items-center space-x-3">
-                        <option.icon className="w-4 h-4 text-gray-500" />
-                        <span className="text-sm text-gray-700">{option.title}</span>
+                        <option.icon className="w-4 h-4 text-[var(--sf-text-muted)]" />
+                        <span className="text-sm text-[var(--sf-text-primary)]">{option.title}</span>
                       </div>
                     </div>
                   ))}
@@ -1121,11 +1121,11 @@ const ServiceFlowDashboard = () => {
                (dashboardData?.totalServices === 0) && 
                (dashboardData?.totalJobs === 0) && 
                (dashboardData?.totalTeamMembers === 0) && (
-                <div className="bg-white rounded-xl border border-gray-200 p-4 lg:p-6 shadow-sm hover:shadow-md transition-shadow duration-200">
+                <div className="bg-white rounded-xl border border-[var(--sf-border-light)] p-4 lg:p-6 shadow-sm hover:shadow-md transition-shadow duration-200">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center space-x-3">
-                      <h2 className="text-lg font-display font-semibold text-gray-900">Finish setting up your account</h2>
-                      <span className="text-sm text-gray-500">{setupTasks.filter(task => !task.hidden).filter(task => task.completed).length}/{setupTasks.filter(task => !task.hidden).length} completed</span>
+                      <h2 className="text-lg font-display font-semibold text-[var(--sf-text-primary)]">Finish setting up your account</h2>
+                      <span className="text-sm text-[var(--sf-text-muted)]">{setupTasks.filter(task => !task.hidden).filter(task => task.completed).length}/{setupTasks.filter(task => !task.hidden).length} completed</span>
                     </div>
                     <div className="flex items-center space-x-2">
                       <button
@@ -1133,7 +1133,7 @@ const ServiceFlowDashboard = () => {
                           console.log('🧪 Manual setup section dismissal')
                           dismissSetupSection()
                         }}
-                        className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition-colors"
+                        className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] p-1 rounded-full hover:bg-[var(--sf-bg-hover)] transition-colors"
                         title="Hide setup section permanently"
                       >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1145,7 +1145,7 @@ const ServiceFlowDashboard = () => {
                   
                   {/* Progress Bar */}
                   <div className="mb-6">
-                    <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
+                    <div className="flex items-center justify-between text-sm text-[var(--sf-text-secondary)] mb-2">
                       <span>Setup Progress</span>
                       <span>{Math.round((setupTasks.filter(task => !task.hidden).filter(task => task.completed).length / setupTasks.filter(task => !task.hidden).length) * 100)}%</span>
                     </div>
@@ -1162,7 +1162,7 @@ const ServiceFlowDashboard = () => {
                   <div className="space-y-3 lg:space-y-4">
                     {setupTasks.filter(task => !task.hidden).map((task, index) => (
                       <Link to={task.link} key={index}>
-                        <div className="flex items-start space-x-4 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors duration-200 group relative">
+                        <div className="flex items-start space-x-4 p-4 border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-page)] transition-colors duration-200 group relative">
                           <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${task.completed ? 'bg-green-50' : 'bg-primary-50'}`}>
                             {task.completed ? (
                               <Check className="w-4 h-4 text-green-600" />
@@ -1171,10 +1171,10 @@ const ServiceFlowDashboard = () => {
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <h3 className="text-sm font-medium text-gray-900">{task.title}</h3>
-                            <p className="text-sm text-gray-600 mt-1">{task.description}</p>
+                            <h3 className="text-sm font-medium text-[var(--sf-text-primary)]">{task.title}</h3>
+                            <p className="text-sm text-[var(--sf-text-secondary)] mt-1">{task.description}</p>
                           </div>
-                          <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-primary-600 transition-colors duration-200" />
+                          <ArrowRight className="w-5 h-5 text-[var(--sf-text-muted)] group-hover:text-primary-600 transition-colors duration-200" />
                         </div>
                       </Link>
                     ))}
@@ -1183,14 +1183,14 @@ const ServiceFlowDashboard = () => {
               )}
 
               {/* Today Section */}
-              <div className="bg-white rounded-xl border border-gray-200 p-4 lg:p-6 shadow-sm hover:shadow-md transition-shadow duration-200">
+              <div className="bg-white rounded-xl border border-[var(--sf-border-light)] p-4 lg:p-6 shadow-sm hover:shadow-md transition-shadow duration-200">
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-6 space-y-4 lg:space-y-0">
                   <div className="flex items-center space-x-3">
-                    <h2 className="text-lg font-display font-semibold text-gray-900">Today</h2>
+                    <h2 className="text-lg font-display font-semibold text-[var(--sf-text-primary)]">Today</h2>
                     <div className="relative">
                       <button
                         onClick={() => setShowDatePicker(!showDatePicker)}
-                        className="flex items-center space-x-2 text-sm text-gray-500 bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full transition-colors cursor-pointer"
+                        className="flex items-center space-x-2 text-sm text-[var(--sf-text-muted)] bg-[var(--sf-bg-page)] hover:bg-gray-200 px-3 py-1 rounded-full transition-colors cursor-pointer"
                       >
                         <Calendar className="w-4 h-4" />
                         <span>{(() => {
@@ -1215,7 +1215,7 @@ const ServiceFlowDashboard = () => {
                     {selectedDate !== getTodayString() && (
                       <button
                         onClick={resetToToday}
-                        className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded border border-gray-200 hover:bg-gray-50 transition-colors"
+                        className="text-xs text-[var(--sf-text-muted)] hover:text-[var(--sf-text-primary)] px-2 py-1 rounded border border-[var(--sf-border-light)] hover:bg-[var(--sf-bg-page)] transition-colors"
                       >
                         Today
                       </button>
@@ -1226,7 +1226,7 @@ const ServiceFlowDashboard = () => {
                         fetchDashboardData()
                       }}
                       disabled={isLoading}
-                      className="p-2 text-gray-400 hover:text-gray-600 disabled:opacity-50"
+                      className="p-2 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] disabled:opacity-50"
                       title="Force refresh dashboard data (clears cache)"
                     >
                       <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
@@ -1237,35 +1237,35 @@ const ServiceFlowDashboard = () => {
 
                 <div className="grid grid-cols-3 gap-6 lg:flex lg:items-center lg:space-x-12">
                     <div className="text-center">
-                      <div className="text-xl lg:text-2xl font-bold text-gray-900">{dashboardData.todayJobs}</div>
-                      <div className="text-gray-600 text-sm mt-1">Jobs</div>
+                      <div className="text-xl lg:text-2xl font-bold text-[var(--sf-text-primary)]">{dashboardData.todayJobs}</div>
+                      <div className="text-[var(--sf-text-secondary)] text-sm mt-1">Jobs</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-xl lg:text-2xl font-bold text-gray-900">{Math.floor(dashboardData.todayDuration / 60)}h {dashboardData.todayDuration % 60}m</div>
-                      <div className="text-gray-600 text-sm mt-1">Duration</div>
+                      <div className="text-xl lg:text-2xl font-bold text-[var(--sf-text-primary)]">{Math.floor(dashboardData.todayDuration / 60)}h {dashboardData.todayDuration % 60}m</div>
+                      <div className="text-[var(--sf-text-secondary)] text-sm mt-1">Duration</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-xl lg:text-2xl font-bold text-gray-900">${dashboardData.todayEarnings}</div>
-                      <div className="text-gray-600 text-sm mt-1">Earnings</div>
+                      <div className="text-xl lg:text-2xl font-bold text-[var(--sf-text-primary)]">${dashboardData.todayEarnings}</div>
+                      <div className="text-[var(--sf-text-secondary)] text-sm mt-1">Earnings</div>
                     </div>
                   </div>
                 </div>
 
                 {/* Today's Jobs Map */}
-                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-                  <div className="flex items-center justify-between p-4 border-b border-gray-200">
-                    <h3 className="text-lg font-semibold text-gray-900">
+                <div className="bg-white rounded-xl border border-[var(--sf-border-light)] overflow-hidden shadow-sm">
+                  <div className="flex items-center justify-between p-4 border-b border-[var(--sf-border-light)]">
+                    <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">
                       {selectedDate === getTodayString() ? "Today's Jobs Map" : `${parseLocalDate(selectedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} Jobs Map`}
                     </h3>
                     <div className="flex items-center space-x-2">
-                      <span className="text-sm text-gray-500">{dashboardData.todayJobs} jobs</span>
-                    <div className="flex bg-gray-100 rounded-lg p-1">
+                      <span className="text-sm text-[var(--sf-text-muted)]">{dashboardData.todayJobs} jobs</span>
+                    <div className="flex bg-[var(--sf-bg-page)] rounded-lg p-1">
                         <button 
                           onClick={() => setMapView('map')}
                           className={`px-3 py-1 font-medium rounded-md shadow-sm text-sm transition-colors ${
                             mapView === 'map' 
-                              ? 'bg-white text-gray-900' 
-                              : 'text-gray-600 hover:text-gray-900'
+                              ? 'bg-white text-[var(--sf-text-primary)]' 
+                              : 'text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]'
                           }`}
                         >
                           Map
@@ -1274,8 +1274,8 @@ const ServiceFlowDashboard = () => {
                           onClick={() => setMapView('satellite')}
                           className={`px-3 py-1 font-medium rounded-md shadow-sm text-sm transition-colors ${
                             mapView === 'satellite' 
-                              ? 'bg-white text-gray-900' 
-                              : 'text-gray-600 hover:text-gray-900'
+                              ? 'bg-white text-[var(--sf-text-primary)]' 
+                              : 'text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]'
                           }`}
                         >
                           Satellite
@@ -1304,7 +1304,7 @@ const ServiceFlowDashboard = () => {
                             
                             {/* Job Legend Overlay */}
                             <div className="absolute top-4 left-4 bg-white rounded-lg shadow-lg p-3 max-w-xs">
-                              <h4 className="text-sm font-semibold text-gray-900 mb-2">
+                              <h4 className="text-sm font-semibold text-[var(--sf-text-primary)] mb-2">
                                 {selectedDate === getTodayString() ? "Today's Jobs" : `${parseLocalDate(selectedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} Jobs`}
                               </h4>
                               <div className="space-y-2 max-h-32 overflow-y-auto">
@@ -1318,20 +1318,20 @@ const ServiceFlowDashboard = () => {
                                     <div key={job.id || index} className="flex items-center space-x-2 text-xs">
                                       <div className={`w-4 h-4 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 ${
                                         markerColor === 'green' ? 'bg-green-500' :
-                                        markerColor === 'blue' ? 'bg-blue-500' :
+                                        markerColor === 'blue' ? 'bg-[var(--sf-blue-500)]' :
                                         markerColor === 'yellow' ? 'bg-yellow-500' : 'bg-red-500'
                                       }`}>
                                         {markerLabel}
                                       </div>
                                       <div className="min-w-0 flex-1">
-                                        <p className="font-medium text-gray-900 truncate">
+                                        <p className="font-medium text-[var(--sf-text-primary)] truncate">
                                           {decodeHtmlEntities(job.service_name || 'Service')}
                                         </p>
-                                        <p className="text-gray-500 truncate">
+                                        <p className="text-[var(--sf-text-muted)] truncate">
                                           {job.customer_first_name} {job.customer_last_name}
                                         </p>
                                         {job.customer_address && (
-                                          <p className="text-gray-400 truncate text-xs">
+                                          <p className="text-[var(--sf-text-muted)] truncate text-xs">
                                             📍 {job.customer_address}
                                           </p>
                                         )}
@@ -1359,7 +1359,7 @@ const ServiceFlowDashboard = () => {
                             
                             {/* Job Legend Overlay */}
                             <div className="absolute top-4 left-4 bg-white rounded-lg shadow-lg p-3 max-w-xs">
-                              <h4 className="text-sm font-semibold text-gray-900 mb-2">
+                              <h4 className="text-sm font-semibold text-[var(--sf-text-primary)] mb-2">
                                 {selectedDate === getTodayString() ? "Today's Jobs" : `${parseLocalDate(selectedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} Jobs`}
                               </h4>
                               <div className="space-y-2 max-h-32 overflow-y-auto">
@@ -1373,20 +1373,20 @@ const ServiceFlowDashboard = () => {
                                     <div key={job.id || index} className="flex items-center space-x-2 text-xs">
                                       <div className={`w-4 h-4 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 ${
                                         markerColor === 'green' ? 'bg-green-500' :
-                                        markerColor === 'blue' ? 'bg-blue-500' :
+                                        markerColor === 'blue' ? 'bg-[var(--sf-blue-500)]' :
                                         markerColor === 'yellow' ? 'bg-yellow-500' : 'bg-red-500'
                                       }`}>
                                         {markerLabel}
                                       </div>
                                       <div className="min-w-0 flex-1">
-                                        <p className="font-medium text-gray-900 truncate">
+                                        <p className="font-medium text-[var(--sf-text-primary)] truncate">
                                           {decodeHtmlEntities(job.service_name || 'Service')}
                                         </p>
-                                        <p className="text-gray-500 truncate">
+                                        <p className="text-[var(--sf-text-muted)] truncate">
                                           {job.customer_first_name} {job.customer_last_name}
                                         </p>
                                         {job.customer_address && (
-                                          <p className="text-gray-400 truncate text-xs">
+                                          <p className="text-[var(--sf-text-muted)] truncate text-xs">
                                             📍 {job.customer_address}
                                           </p>
                                         )}
@@ -1415,10 +1415,10 @@ const ServiceFlowDashboard = () => {
                         
                         {/* No Jobs Overlay */}
                         <div className="absolute top-4 left-4 bg-white rounded-lg shadow-lg p-3 max-w-xs">
-                          <h4 className="text-sm font-semibold text-gray-900 mb-2">
+                          <h4 className="text-sm font-semibold text-[var(--sf-text-primary)] mb-2">
                             {selectedDate === getTodayString() ? "No jobs today" : `No jobs on ${parseLocalDate(selectedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
                           </h4>
-                          <p className="text-gray-600 text-sm">Create your first job to get started</p>
+                          <p className="text-[var(--sf-text-secondary)] text-sm">Create your first job to get started</p>
                         </div>
                       </div>
                     )}
@@ -1427,11 +1427,11 @@ const ServiceFlowDashboard = () => {
               </div>
 
               {/* Overview Section */}
-              <div className="bg-white rounded-xl border border-gray-200 p-4 lg:p-6 shadow-sm hover:shadow-md transition-shadow duration-200 mt-12">
+              <div className="bg-white rounded-xl border border-[var(--sf-border-light)] p-4 lg:p-6 shadow-sm hover:shadow-md transition-shadow duration-200 mt-12">
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-6 space-y-2 lg:space-y-0">
                   <div className="flex items-center space-x-3">
-                    <h2 className="text-lg font-display font-semibold text-gray-900">Overview</h2>
-                    <span className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+                    <h2 className="text-lg font-display font-semibold text-[var(--sf-text-primary)]">Overview</h2>
+                    <span className="text-sm text-[var(--sf-text-muted)] bg-[var(--sf-bg-page)] px-3 py-1 rounded-full">
                       {dateRange === 'custom' 
                         ? `${new Date(customDateRange.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(customDateRange.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
                         : `${new Date(Date.now() - ((dateRange - 1) * 24 * 60 * 60 * 1000)).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - Today`
@@ -1450,7 +1450,7 @@ const ServiceFlowDashboard = () => {
                           setShowCustomDatePicker(false)
                         }
                       }}
-                      className="form-select rounded-lg border-gray-200 text-sm text-gray-600 hover:text-gray-900 transition-colors duration-200 cursor-pointer"
+                      className="form-select rounded-lg border-[var(--sf-border-light)] text-sm text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] transition-colors duration-200 cursor-pointer"
                     >
                       <option value="7">Last 7 days</option>
                       <option value="30">Last 30 days</option>
@@ -1462,7 +1462,7 @@ const ServiceFlowDashboard = () => {
                     {dateRange === 'custom' && (
                       <button
                         onClick={resetDateRange}
-                        className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded border border-gray-200 hover:bg-gray-50 transition-colors"
+                        className="text-xs text-[var(--sf-text-muted)] hover:text-[var(--sf-text-primary)] px-2 py-1 rounded border border-[var(--sf-border-light)] hover:bg-[var(--sf-bg-page)] transition-colors"
                       >
                         Reset
                       </button>
@@ -1472,31 +1472,31 @@ const ServiceFlowDashboard = () => {
 
                 {/* Custom Date Range Picker */}
                 {showCustomDatePicker && (
-                  <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                  <div className="mb-6 p-4 bg-[var(--sf-bg-page)] rounded-lg border border-[var(--sf-border-light)]">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 space-y-2 sm:space-y-0">
                       <div className="flex items-center space-x-2">
-                        <Calendar className="w-4 h-4 text-gray-500" />
-                        <span className="text-sm font-medium text-gray-700">Select Date Range:</span>
+                        <Calendar className="w-4 h-4 text-[var(--sf-text-muted)]" />
+                        <span className="text-sm font-medium text-[var(--sf-text-primary)]">Select Date Range:</span>
                       </div>
                       
                       <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
                         <div className="flex items-center space-x-2">
-                          <label className="text-sm text-gray-600">From:</label>
+                          <label className="text-sm text-[var(--sf-text-secondary)]">From:</label>
                           <input
                             type="date"
                             value={customDateRange.startDate}
                             onChange={(e) => setCustomDateRange(prev => ({ ...prev, startDate: e.target.value }))}
-                            className="px-3 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="px-3 py-1 border border-[var(--sf-border-light)] rounded text-sm focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                           />
                         </div>
                         
                         <div className="flex items-center space-x-2">
-                          <label className="text-sm text-gray-600">To:</label>
+                          <label className="text-sm text-[var(--sf-text-secondary)]">To:</label>
                           <input
                             type="date"
                             value={customDateRange.endDate}
                             onChange={(e) => setCustomDateRange(prev => ({ ...prev, endDate: e.target.value }))}
-                            className="px-3 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="px-3 py-1 border border-[var(--sf-border-light)] rounded text-sm focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                           />
                         </div>
                         
@@ -1504,14 +1504,14 @@ const ServiceFlowDashboard = () => {
                           <button
                             onClick={handleCustomDateRange}
                             disabled={!customDateRange.startDate || !customDateRange.endDate}
-                            className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                            className="px-3 py-1 bg-[var(--sf-blue-500)] text-white text-sm rounded hover:bg-[var(--sf-blue-600)] disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
                           >
                             Apply
                           </button>
                           
                           <button
                             onClick={() => setShowCustomDatePicker(false)}
-                            className="px-3 py-1 bg-gray-200 text-gray-700 text-sm rounded hover:bg-gray-300 transition-colors"
+                            className="px-3 py-1 bg-gray-200 text-[var(--sf-text-primary)] text-sm rounded hover:bg-gray-300 transition-colors"
                           >
                             Cancel
                           </button>
@@ -1526,7 +1526,7 @@ const ServiceFlowDashboard = () => {
                   <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                       <CardTitle className="text-sm font-medium">New jobs</CardTitle>
-                      <Info className="h-4 w-4 text-gray-400" />
+                      <Info className="h-4 w-4 text-[var(--sf-text-muted)]" />
                     </CardHeader>
                     <CardContent>
                       {isLoading ? (
@@ -1536,10 +1536,10 @@ const ServiceFlowDashboard = () => {
                         </div>
                       ) : (
                         <>
-                          <div className="text-3xl font-bold text-gray-900">{dashboardData.newJobs}</div>
+                          <div className="text-3xl font-bold text-[var(--sf-text-primary)]">{dashboardData.newJobs}</div>
                           <div className="flex items-center space-x-2 mt-2">
                             <Progress value={dashboardData.totalJobs > 0 ? (dashboardData.newJobs / dashboardData.totalJobs) * 100 : 0} className="flex-1" />
-                            <span className="text-xs text-gray-500">7 days</span>
+                            <span className="text-xs text-[var(--sf-text-muted)]">7 days</span>
                           </div>
                         </>
                       )}
@@ -1550,7 +1550,7 @@ const ServiceFlowDashboard = () => {
                   <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                       <CardTitle className="text-sm font-medium">Jobs</CardTitle>
-                      <Info className="h-4 w-4 text-gray-400" />
+                      <Info className="h-4 w-4 text-[var(--sf-text-muted)]" />
                     </CardHeader>
                     <CardContent>
                       {isLoading ? (
@@ -1560,16 +1560,16 @@ const ServiceFlowDashboard = () => {
                         </div>
                       ) : dashboardData.totalJobs > 0 ? (
                         <>
-                          <div className="text-3xl font-bold text-gray-900">{dashboardData.totalJobs}</div>
+                          <div className="text-3xl font-bold text-[var(--sf-text-primary)]">{dashboardData.totalJobs}</div>
                           <div className="flex items-center space-x-2 mt-2">
                             <Progress value={100} className="flex-1" />
-                            <span className="text-xs text-gray-500">Total</span>
+                            <span className="text-xs text-[var(--sf-text-muted)]">Total</span>
                           </div>
                         </>
                       ) : (
                         <div className="text-center py-4">
-                          <p className="text-gray-900 font-medium">No data to display</p>
-                          <p className="text-gray-600 text-sm mt-1">
+                          <p className="text-[var(--sf-text-primary)] font-medium">No data to display</p>
+                          <p className="text-[var(--sf-text-secondary)] text-sm mt-1">
                             Try changing the date range filter at the top of the page
                           </p>
                         </div>
@@ -1581,13 +1581,13 @@ const ServiceFlowDashboard = () => {
                   <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                       <CardTitle className="text-sm font-medium">New recurring bookings</CardTitle>
-                      <Info className="h-4 w-4 text-gray-400" />
+                      <Info className="h-4 w-4 text-[var(--sf-text-muted)]" />
                     </CardHeader>
                     <CardContent>
-                      <div className="text-3xl font-bold text-gray-900">{dashboardData.newRecurringBookings}</div>
+                      <div className="text-3xl font-bold text-[var(--sf-text-primary)]">{dashboardData.newRecurringBookings}</div>
                       <div className="flex items-center space-x-2 mt-2">
                         <Progress value={dashboardData.recurringBookings > 0 ? (dashboardData.newRecurringBookings / dashboardData.recurringBookings) * 100 : 0} className="flex-1" />
-                        <span className="text-xs text-gray-500">7 days</span>
+                        <span className="text-xs text-[var(--sf-text-muted)]">7 days</span>
                       </div>
                     </CardContent>
                   </Card>
@@ -1596,21 +1596,21 @@ const ServiceFlowDashboard = () => {
                   <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                       <CardTitle className="text-sm font-medium">Recurring bookings</CardTitle>
-                      <Info className="h-4 w-4 text-gray-400" />
+                      <Info className="h-4 w-4 text-[var(--sf-text-muted)]" />
                     </CardHeader>
                     <CardContent>
                       {dashboardData.recurringBookings > 0 ? (
                         <>
-                          <div className="text-3xl font-bold text-gray-900">{dashboardData.recurringBookings}</div>
+                          <div className="text-3xl font-bold text-[var(--sf-text-primary)]">{dashboardData.recurringBookings}</div>
                           <div className="flex items-center space-x-2 mt-2">
                             <Progress value={100} className="flex-1" />
-                            <span className="text-xs text-gray-500">Total</span>
+                            <span className="text-xs text-[var(--sf-text-muted)]">Total</span>
                           </div>
                         </>
                       ) : (
                         <div className="text-center py-4">
-                          <p className="text-gray-900 font-medium">No data to display</p>
-                          <p className="text-gray-600 text-sm mt-1">
+                          <p className="text-[var(--sf-text-primary)] font-medium">No data to display</p>
+                          <p className="text-[var(--sf-text-secondary)] text-sm mt-1">
                             Try changing the date range filter at the top of the page
                           </p>
                         </div>
@@ -1622,13 +1622,13 @@ const ServiceFlowDashboard = () => {
                   <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                       <CardTitle className="text-sm font-medium">Job value</CardTitle>
-                      <Info className="h-4 w-4 text-gray-400" title="Average value per job (total revenue ÷ number of jobs)" />
+                      <Info className="h-4 w-4 text-[var(--sf-text-muted)]" title="Average value per job (total revenue ÷ number of jobs)" />
                     </CardHeader>
                     <CardContent>
-                      <div className="text-3xl font-bold text-gray-900">${dashboardData.jobValue}</div>
+                      <div className="text-3xl font-bold text-[var(--sf-text-primary)]">${dashboardData.jobValue}</div>
                       <div className="flex items-center space-x-2 mt-2">
                         <Progress value={Math.min((dashboardData.jobValue / dashboardData.maxJobValue) * 100, 100)} className="flex-1" />
-                        <span className="text-xs text-gray-500">Avg</span>
+                        <span className="text-xs text-[var(--sf-text-muted)]">Avg</span>
                       </div>
                     </CardContent>
                   </Card>
@@ -1637,50 +1637,50 @@ const ServiceFlowDashboard = () => {
                   <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                       <CardTitle className="text-sm font-medium">Payments collected</CardTitle>
-                      <Info className="h-4 w-4 text-gray-400" title="Total value of all jobs in the selected time period" />
+                      <Info className="h-4 w-4 text-[var(--sf-text-muted)]" title="Total value of all jobs in the selected time period" />
                     </CardHeader>
                     <CardContent>
-                      <div className="text-3xl font-bold text-gray-900">${dashboardData.totalRevenue}</div>
+                      <div className="text-3xl font-bold text-[var(--sf-text-primary)]">${dashboardData.totalRevenue}</div>
                       <div className="flex items-center space-x-2 mt-2">
                         <Progress value={Math.min((dashboardData.totalRevenue / dashboardData.maxRevenue) * 100, 100)} className="flex-1" />
-                        <span className="text-xs text-gray-500">Total</span>
+                        <span className="text-xs text-[var(--sf-text-muted)]">Total</span>
                       </div>
                     </CardContent>
                   </Card>
                 </div>
 
                 {/* Rating Section */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8 pt-8 border-t border-gray-200">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8 pt-8 border-t border-[var(--sf-border-light)]">
                   {/* Average feedback rating */}
                   <div className="space-y-6">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-2">
                         <Star className="w-5 h-5 text-primary-600" />
-                        <h3 className="text-sm font-medium text-gray-900">Average feedback rating</h3>
+                        <h3 className="text-sm font-medium text-[var(--sf-text-primary)]">Average feedback rating</h3>
                       </div>
-                      <Info className="w-4 h-4 text-gray-400 hover:text-gray-600 cursor-help transition-colors duration-200" />
+                      <Info className="w-4 h-4 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] cursor-help transition-colors duration-200" />
                     </div>
                     <div className="flex items-center space-x-3">
-                      <span className="text-3xl font-bold text-gray-900">0.0</span>
+                      <span className="text-3xl font-bold text-[var(--sf-text-primary)]">0.0</span>
                       <div className="flex space-x-1">
                         {[1, 2, 3, 4, 5].map((star) => (
                           <Star key={star} className="w-5 h-5 text-gray-300" />
                         ))}
                       </div>
                     </div>
-                    <div className="space-y-4 p-4 bg-gray-50 rounded-xl">
+                    <div className="space-y-4 p-4 bg-[var(--sf-bg-page)] rounded-xl">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-gray-900">Total ratings</span>
-                        <span className="text-2xl font-bold text-gray-900">0</span>
+                        <span className="text-sm font-medium text-[var(--sf-text-primary)]">Total ratings</span>
+                        <span className="text-2xl font-bold text-[var(--sf-text-primary)]">0</span>
                       </div>
                     </div>
-                    <div className="space-y-4 p-4 bg-gray-50 rounded-xl">
+                    <div className="space-y-4 p-4 bg-[var(--sf-bg-page)] rounded-xl">
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium text-gray-900">Recent ratings</span>
+                        <span className="text-sm font-medium text-[var(--sf-text-primary)]">Recent ratings</span>
                       </div>
                       <div className="text-center py-4">
-                        <p className="text-gray-900 font-medium">No data to display</p>
-                        <p className="text-gray-600 text-sm mt-1">Try changing the date range filter</p>
+                        <p className="text-[var(--sf-text-primary)] font-medium">No data to display</p>
+                        <p className="text-[var(--sf-text-secondary)] text-sm mt-1">Try changing the date range filter</p>
                       </div>
                     </div>
                   </div>
@@ -1690,21 +1690,21 @@ const ServiceFlowDashboard = () => {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-2">
                         <BarChart2 className="w-5 h-5 text-primary-600" />
-                        <h3 className="text-sm font-medium text-gray-900">Rating breakdown</h3>
+                        <h3 className="text-sm font-medium text-[var(--sf-text-primary)]">Rating breakdown</h3>
                       </div>
-                      <Info className="w-4 h-4 text-gray-400 hover:text-gray-600 cursor-help transition-colors duration-200" />
+                      <Info className="w-4 h-4 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] cursor-help transition-colors duration-200" />
                     </div>
                     <div className="space-y-3">
                       {ratingBreakdown.map((rating) => (
                         <div key={rating.stars} className="flex items-center space-x-4">
                           <div className="flex items-center space-x-1 w-20">
-                            <span className="text-sm font-medium text-gray-900">{rating.stars}</span>
-                            <Star className="w-4 h-4 text-gray-400" />
+                            <span className="text-sm font-medium text-[var(--sf-text-primary)]">{rating.stars}</span>
+                            <Star className="w-4 h-4 text-[var(--sf-text-muted)]" />
                           </div>
                           <div className="flex-1 bg-gray-200 rounded-full h-2 overflow-hidden">
                             <div className="bg-primary-600 h-2 rounded-full" style={{ width: "0%" }}></div>
                           </div>
-                          <span className="text-sm font-medium text-gray-900 w-8 text-right">{rating.count}</span>
+                          <span className="text-sm font-medium text-[var(--sf-text-primary)] w-8 text-right">{rating.count}</span>
                         </div>
                       ))}
                     </div>
@@ -1712,21 +1712,21 @@ const ServiceFlowDashboard = () => {
                 </div>
 
                 {/* Service territory performance */}
-                <div className="mt-8 pt-8 border-t border-gray-200">
+                <div className="mt-8 pt-8 border-t border-[var(--sf-border-light)]">
                   <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-6 space-y-2 lg:space-y-0">
                     <div className="flex items-center space-x-2">
                       <MapPin className="w-5 h-5 text-primary-600" />
-                      <h3 className="text-sm font-medium text-gray-900">Service territory performance</h3>
-                      <Info className="w-4 h-4 text-gray-400 hover:text-gray-600 cursor-help transition-colors duration-200" />
+                      <h3 className="text-sm font-medium text-[var(--sf-text-primary)]">Service territory performance</h3>
+                      <Info className="w-4 h-4 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] cursor-help transition-colors duration-200" />
                     </div>
-                    <div className="flex space-x-6 text-sm text-gray-600">
+                    <div className="flex space-x-6 text-sm text-[var(--sf-text-secondary)]">
                       <span>Number of jobs</span>
                       <span>Job value</span>
                     </div>
                   </div>
-                  <div className="text-center py-12 bg-gray-50 rounded-xl">
-                    <p className="text-gray-900 font-medium">No data to display</p>
-                    <p className="text-gray-600 text-sm mt-1">
+                  <div className="text-center py-12 bg-[var(--sf-bg-page)] rounded-xl">
+                    <p className="text-[var(--sf-text-primary)] font-medium">No data to display</p>
+                    <p className="text-[var(--sf-text-secondary)] text-sm mt-1">
                       Enable service territories to see a breakdown of job data by location
                     </p>
                   </div>

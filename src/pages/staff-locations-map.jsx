@@ -180,21 +180,21 @@ const StaffLocationsMap = () => {
 
   if (loading) {
     return (
-      <div className="flex h-screen bg-gray-50">
+      <div className="flex h-screen bg-[var(--sf-bg-page)]">
         <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
-            <RefreshCw className="w-8 h-8 text-blue-600 animate-spin mx-auto mb-4" />
+            <RefreshCw className="w-8 h-8 text-[var(--sf-blue-500)] animate-spin mx-auto mb-4" />
             {globallyHidden ? (
               <div className="text-center">
                 <EyeOff className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-                <p className="text-gray-600 font-medium">Staff Locations Hidden</p>
-                <p className="text-sm text-gray-500 mt-1">
+                <p className="text-[var(--sf-text-secondary)] font-medium">Staff Locations Hidden</p>
+                <p className="text-sm text-[var(--sf-text-muted)] mt-1">
                   Staff locations are currently hidden globally. Contact your administrator to enable them.
                 </p>
               </div>
             ) : (
-              <p className="text-gray-600">Loading staff locations...</p>
+              <p className="text-[var(--sf-text-secondary)]">Loading staff locations...</p>
             )}
           </div>
         </div>
@@ -203,7 +203,7 @@ const StaffLocationsMap = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col lg:flex-row pb-20 lg:pb-0">
+    <div className="min-h-screen bg-[var(--sf-bg-page)] flex flex-col lg:flex-row pb-20 lg:pb-0">
       {/* Desktop Sidebar */}
       <div className="hidden lg:block">
         <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
@@ -211,19 +211,19 @@ const StaffLocationsMap = () => {
       
       <div className="flex-1 flex flex-col overflow-hidden lg:ml-52">
         {/* Header */}
-        <div className="bg-white border-b border-gray-200 sticky top-0 z-10 flex-shrink-0 px-4 py-3 sm:px-6">
+        <div className="bg-white border-b border-[var(--sf-border-light)] sticky top-0 z-10 flex-shrink-0 px-4 py-3 sm:px-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
             <div className="flex items-center justify-between w-full">
               <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
                 <button
                   onClick={() => navigate('/team')}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
+                  className="p-2 hover:bg-[var(--sf-bg-hover)] rounded-lg transition-colors flex-shrink-0"
                 >
-                  <Navigation className="w-5 h-5 text-gray-600" />
+                  <Navigation className="w-5 h-5 text-[var(--sf-text-secondary)]" />
                 </button>
                 <div className="min-w-0">
-                  <h1 className="text-lg sm:text-xl font-semibold text-gray-900 truncate">Staff Locations</h1>
-                  <p className="text-xs sm:text-sm text-gray-500">Real-time location tracking</p>
+                  <h1 className="text-lg sm:text-xl font-semibold text-[var(--sf-text-primary)] truncate">Staff Locations</h1>
+                  <p className="text-xs sm:text-sm text-[var(--sf-text-muted)]">Real-time location tracking</p>
                 </div>
               </div>
               
@@ -231,9 +231,9 @@ const StaffLocationsMap = () => {
                 {/* Mobile: Show staff list toggle */}
                 <button
                   onClick={() => setShowStaffList(!showStaffList)}
-                  className="lg:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  className="lg:hidden p-2 hover:bg-[var(--sf-bg-hover)] rounded-lg transition-colors"
                 >
-                  <Users className="w-5 h-5 text-gray-600" />
+                  <Users className="w-5 h-5 text-[var(--sf-text-secondary)]" />
                 </button>
                 
                 <button
@@ -246,7 +246,7 @@ const StaffLocationsMap = () => {
                 
                 <button
                   onClick={fetchLocations}
-                  className="px-3 py-2 bg-blue-600 text-white rounded-lg text-xs sm:text-sm font-medium hover:bg-blue-700 flex items-center space-x-1.5"
+                  className="px-3 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg text-xs sm:text-sm font-medium hover:bg-[var(--sf-blue-600)] flex items-center space-x-1.5"
                 >
                   <RefreshCw className="w-4 h-4" />
                   <span className="hidden sm:inline">Refresh</span>
@@ -257,16 +257,16 @@ const StaffLocationsMap = () => {
                     type="checkbox"
                     checked={autoRefresh}
                     onChange={(e) => setAutoRefresh(e.target.checked)}
-                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                    className="w-4 h-4 text-[var(--sf-blue-500)] rounded focus:ring-[var(--sf-blue-500)]"
                   />
-                  <span className="text-xs text-gray-700">Auto (30s)</span>
+                  <span className="text-xs text-[var(--sf-text-primary)]">Auto (30s)</span>
                 </label>
               </div>
             </div>
           </div>
 
           {lastUpdated && (
-            <div className="mt-2 text-xs text-gray-500 flex items-center space-x-1">
+            <div className="mt-2 text-xs text-[var(--sf-text-muted)] flex items-center space-x-1">
               <Clock className="w-3 h-3" />
               <span>Last updated: {formatTime(lastUpdated)}</span>
             </div>
@@ -301,8 +301,8 @@ const StaffLocationsMap = () => {
             {/* Location Count Badge */}
             <div className="absolute top-4 right-4 bg-white rounded-lg shadow-lg px-3 py-2 z-10">
               <div className="flex items-center space-x-2">
-                <Users className="w-4 h-4 text-blue-600" />
-                <span className="text-xs sm:text-sm font-medium text-gray-900">
+                <Users className="w-4 h-4 text-[var(--sf-blue-500)]" />
+                <span className="text-xs sm:text-sm font-medium text-[var(--sf-text-primary)]">
                   {locations.length} {locations.length === 1 ? 'staff' : 'staff'}
                 </span>
               </div>
@@ -310,14 +310,14 @@ const StaffLocationsMap = () => {
           </div>
 
           {/* Sidebar - Staff List - Desktop: Always visible, Mobile: Slide in/out */}
-          <div className={`bg-white border-l border-gray-200 overflow-y-auto transition-all duration-300 ${
+          <div className={`bg-white border-l border-[var(--sf-border-light)] overflow-y-auto transition-all duration-300 ${
             showStaffList 
               ? 'absolute lg:relative right-0 w-full sm:w-80 z-20' 
               : 'hidden lg:block lg:w-80'
           }`}>
-            <div className="p-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">Staff Locations</h2>
-              <p className="text-xs text-gray-500 mt-1">
+            <div className="p-4 border-b border-[var(--sf-border-light)]">
+              <h2 className="text-lg font-semibold text-[var(--sf-text-primary)]">Staff Locations</h2>
+              <p className="text-xs text-[var(--sf-text-muted)] mt-1">
                 {locations.length === 0 
                   ? 'No staff locations available'
                   : `${locations.length} ${locations.length === 1 ? 'location' : 'locations'} found`
@@ -330,23 +330,23 @@ const StaffLocationsMap = () => {
                 {globallyHidden ? (
                   <>
                     <EyeOff className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                    <p className="text-sm text-gray-500 mb-2 font-medium">Staff Locations Hidden</p>
-                    <p className="text-xs text-gray-400">
+                    <p className="text-sm text-[var(--sf-text-muted)] mb-2 font-medium">Staff Locations Hidden</p>
+                    <p className="text-xs text-[var(--sf-text-muted)]">
                       Staff locations are currently hidden globally. Contact your administrator to enable them.
                     </p>
                   </>
                 ) : (
                   <>
                     <MapPin className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                    <p className="text-sm text-gray-500 mb-2">No staff locations found</p>
-                    <p className="text-xs text-gray-400">
+                    <p className="text-sm text-[var(--sf-text-muted)] mb-2">No staff locations found</p>
+                    <p className="text-xs text-[var(--sf-text-muted)]">
                       Staff locations will appear here once they start sharing their location.
                     </p>
                   </>
                 )}
               </div>
             ) : (
-              <div className="divide-y divide-gray-200">
+              <div className="divide-y divide-[var(--sf-border-light)]">
                 {locations.map((location) => {
                   const member = location.team_members
                   const memberName = member ? `${member.first_name} ${member.last_name}` : 'Unknown'
@@ -355,8 +355,8 @@ const StaffLocationsMap = () => {
                   return (
                     <div
                       key={location.id}
-                      className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors ${
-                        selectedMember === location.team_member_id ? 'bg-blue-50 border-l-4 border-blue-600' : ''
+                      className={`p-4 hover:bg-[var(--sf-bg-page)] cursor-pointer transition-colors ${
+                        selectedMember === location.team_member_id ? 'bg-[var(--sf-blue-50)] border-l-4 border-blue-600' : ''
                       }`}
                       onClick={() => {
                         setSelectedMember(location.team_member_id)
@@ -374,7 +374,7 @@ const StaffLocationsMap = () => {
                             />
                           ) : (
                             <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                              <span className="text-blue-600 font-semibold text-sm">{initials}</span>
+                              <span className="text-[var(--sf-blue-500)] font-semibold text-sm">{initials}</span>
                             </div>
                           )}
                         </div>
@@ -382,22 +382,22 @@ const StaffLocationsMap = () => {
                         {/* Info */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between">
-                            <h3 className="text-sm font-medium text-gray-900 truncate">
+                            <h3 className="text-sm font-medium text-[var(--sf-text-primary)] truncate">
                               {memberName}
                             </h3>
-                            <span className="text-xs text-gray-400">
+                            <span className="text-xs text-[var(--sf-text-muted)]">
                               {formatTime(location.recorded_at)}
                             </span>
                           </div>
                           
                           {location.address && (
-                            <p className="text-xs text-gray-500 mt-1 truncate">
+                            <p className="text-xs text-[var(--sf-text-muted)] mt-1 truncate">
                               {location.address}
                             </p>
                           )}
                           
                           <div className="flex items-center space-x-2 mt-2">
-                            <span className="text-xs text-gray-400">
+                            <span className="text-xs text-[var(--sf-text-muted)]">
                               {parseFloat(location.latitude).toFixed(6)}, {parseFloat(location.longitude).toFixed(6)}
                             </span>
                             {location.source && (
@@ -405,8 +405,8 @@ const StaffLocationsMap = () => {
                                 location.source === 'gps' 
                                   ? 'bg-green-100 text-green-700'
                                   : location.source === 'scheduled'
-                                    ? 'bg-blue-100 text-blue-700'
-                                    : 'bg-gray-100 text-gray-700'
+                                    ? 'bg-blue-100 text-[var(--sf-blue-500)]'
+                                    : 'bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)]'
                               }`}>
                                 {location.source}
                               </span>
@@ -414,7 +414,7 @@ const StaffLocationsMap = () => {
                           </div>
 
                           {location.jobs && location.jobs.length > 0 && (
-                            <div className="mt-2 text-xs text-gray-500">
+                            <div className="mt-2 text-xs text-[var(--sf-text-muted)]">
                               <span className="font-medium">Job:</span> {location.jobs[0].service_name || 'N/A'}
                             </div>
                           )}
@@ -436,15 +436,15 @@ const StaffLocationsMap = () => {
       {showLocationModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 flex-shrink-0">
-              <h2 className="text-lg sm:text-xl font-bold text-gray-900">Record Staff Location</h2>
+            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-[var(--sf-border-light)] flex-shrink-0">
+              <h2 className="text-lg sm:text-xl font-bold text-[var(--sf-text-primary)]">Record Staff Location</h2>
               <button
                 onClick={() => {
                   setShowLocationModal(false)
                   setLocationFormData({ teamMemberId: '', latitude: '', longitude: '', address: '', source: 'manual' })
                   setError('')
                 }}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -453,14 +453,14 @@ const StaffLocationsMap = () => {
             <div className="overflow-y-auto flex-1 p-4 sm:p-6">
               <form onSubmit={handleRecordLocation} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                     Team Member *
                   </label>
                   <select
                     required
                     value={locationFormData.teamMemberId}
                     onChange={(e) => setLocationFormData({ ...locationFormData, teamMemberId: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                   >
                     <option value="">Select a team member...</option>
                     {teamMembers.map((member) => (
@@ -473,7 +473,7 @@ const StaffLocationsMap = () => {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                       Latitude *
                     </label>
                     <input
@@ -482,12 +482,12 @@ const StaffLocationsMap = () => {
                       required
                       value={locationFormData.latitude}
                       onChange={(e) => setLocationFormData({ ...locationFormData, latitude: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                       placeholder="e.g., 40.7128"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                       Longitude *
                     </label>
                     <input
@@ -496,7 +496,7 @@ const StaffLocationsMap = () => {
                       required
                       value={locationFormData.longitude}
                       onChange={(e) => setLocationFormData({ ...locationFormData, longitude: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                       placeholder="e.g., -74.0060"
                     />
                   </div>
@@ -505,33 +505,33 @@ const StaffLocationsMap = () => {
                 <button
                   type="button"
                   onClick={getCurrentLocation}
-                  className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm font-medium flex items-center justify-center space-x-2"
+                  className="w-full px-4 py-2 bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)] rounded-lg hover:bg-gray-200 text-sm font-medium flex items-center justify-center space-x-2"
                 >
                   <MapPin className="w-4 h-4" />
                   <span>Use Current Location</span>
                 </button>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                     Address (Optional)
                   </label>
                   <input
                     type="text"
                     value={locationFormData.address}
                     onChange={(e) => setLocationFormData({ ...locationFormData, address: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                     placeholder="e.g., 123 Main St, City, State"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                     Source
                   </label>
                   <select
                     value={locationFormData.source}
                     onChange={(e) => setLocationFormData({ ...locationFormData, source: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                   >
                     <option value="manual">Manual Entry</option>
                     <option value="gps">GPS</option>
@@ -539,7 +539,7 @@ const StaffLocationsMap = () => {
                   </select>
                 </div>
 
-                <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 pt-4 border-t border-gray-200 mt-4">
+                <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 pt-4 border-t border-[var(--sf-border-light)] mt-4">
                   <button
                     type="button"
                     onClick={() => {
@@ -547,13 +547,13 @@ const StaffLocationsMap = () => {
                       setLocationFormData({ teamMemberId: '', latitude: '', longitude: '', address: '', source: 'manual' })
                       setError('')
                     }}
-                    className="w-full sm:w-auto px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                    className="w-full sm:w-auto px-4 py-2 text-[var(--sf-text-primary)] bg-[var(--sf-bg-page)] rounded-lg hover:bg-gray-200"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    className="w-full sm:w-auto px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)]"
                   >
                     Record Location
                   </button>

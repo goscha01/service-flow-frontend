@@ -181,22 +181,22 @@ const Developers = () => {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen bg-[var(--sf-bg-page)] overflow-hidden">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="flex-1 flex flex-col min-w-0">
 
         {/* Header */}
-        <div className="bg-white border-b border-gray-200 px-6 py-4">
+        <div className="bg-white border-b border-[var(--sf-border-light)] px-6 py-4">
           <div className="flex items-center space-x-4">
             <button
               onClick={() => navigate("/settings")}
-              className="flex items-center space-x-2 text-gray-600 hover:text-gray-900"
+              className="flex items-center space-x-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]"
             >
               <ChevronLeft className="w-5 h-5" />
               <span className="text-sm">Settings</span>
             </button>
-            <h1 className="text-2xl font-semibold text-gray-900">Developers</h1>
+            <h1 className="text-2xl font-semibold text-[var(--sf-text-primary)]">Developers</h1>
           </div>
         </div>
 
@@ -205,23 +205,23 @@ const Developers = () => {
           <div className="max-w-6xl mx-auto p-6 space-y-12">
             {/* Webhooks Section */}
             <div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Webhooks</h2>
-              <p className="text-gray-600 mb-6">
+              <h2 className="text-xl font-semibold text-[var(--sf-text-primary)] mb-4">Webhooks</h2>
+              <p className="text-[var(--sf-text-secondary)] mb-6">
                 Use webhooks to subscribe to events that happen inside of your Serviceflow account.
               </p>
-              <button className="text-blue-600 hover:text-blue-700 font-medium text-sm mb-8">
+              <button className="text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] font-medium text-sm mb-8">
                 Learn more about using webhooks
               </button>
 
-              <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
-                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <Link2 className="w-8 h-8 text-gray-400" />
+              <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-12 text-center">
+                <div className="w-16 h-16 bg-[var(--sf-bg-page)] rounded-full flex items-center justify-center mx-auto mb-6">
+                  <Link2 className="w-8 h-8 text-[var(--sf-text-muted)]" />
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-4">Create your first webhook</h3>
-                <p className="text-gray-600 mb-8 max-w-md mx-auto">
+                <h3 className="text-xl font-semibold text-[var(--sf-text-primary)] mb-4">Create your first webhook</h3>
+                <p className="text-[var(--sf-text-secondary)] mb-8 max-w-md mx-auto">
                   Receive job details in real-time when something happens in Serviceflow.
                 </p>
-                <button className="bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700">
+                <button className="bg-[var(--sf-blue-500)] text-white px-6 py-3 rounded-lg font-medium hover:bg-[var(--sf-blue-600)]">
                   Create a Webhook
                 </button>
               </div>
@@ -231,18 +231,18 @@ const Developers = () => {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <div>
                 <div className="flex items-center space-x-2 mb-4">
-                  <h2 className="text-xl font-semibold text-gray-900">API</h2>
+                  <h2 className="text-xl font-semibold text-[var(--sf-text-primary)]">API</h2>
                   <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded font-medium">BETA</span>
                 </div>
-                <p className="text-gray-600 mb-6">
+                <p className="text-[var(--sf-text-secondary)] mb-6">
                   Use the Serviceflow API to access your account data, like jobs and customers.
                 </p>
 
                 <div className="space-y-4">
-                  <button className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 mr-4">
+                  <button className="bg-[var(--sf-blue-500)] text-white px-4 py-2 rounded-lg font-medium hover:bg-[var(--sf-blue-600)] mr-4">
                     Create API Key
                   </button>
-                  <button className="text-blue-600 hover:text-blue-700 font-medium">View Documentation</button>
+                  <button className="text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] font-medium">View Documentation</button>
                 </div>
               </div>
 
@@ -262,27 +262,27 @@ const Developers = () => {
             </div>
             
             {/* Imported Jobs Management Section */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h2 className="text-xl font-semibold text-gray-900 mb-2">Imported Jobs</h2>
-                  <p className="text-gray-600 text-sm">
+                  <h2 className="text-xl font-semibold text-[var(--sf-text-primary)] mb-2">Imported Jobs</h2>
+                  <p className="text-[var(--sf-text-secondary)] text-sm">
                     Manage jobs that were imported from external sources (CSV, Google Sheets, etc.)
                   </p>
                 </div>
               </div>
               
               {/* Date Range Filter */}
-              <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="mt-4 p-4 bg-[var(--sf-blue-50)] rounded-lg border border-blue-200">
                 <div className="flex items-center space-x-2 mb-3">
                   <input
                     type="checkbox"
                     id="useDateRange"
                     checked={useDateRange}
                     onChange={(e) => setUseDateRange(e.target.checked)}
-                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    className="w-4 h-4 text-[var(--sf-blue-500)] border-[var(--sf-border-light)] rounded focus:ring-[var(--sf-blue-500)]"
                   />
-                  <label htmlFor="useDateRange" className="text-sm font-medium text-gray-900 flex items-center space-x-2">
+                  <label htmlFor="useDateRange" className="text-sm font-medium text-[var(--sf-text-primary)] flex items-center space-x-2">
                     <Calendar className="w-4 h-4" />
                     <span>Filter by date range</span>
                   </label>
@@ -291,18 +291,18 @@ const Developers = () => {
                 {useDateRange && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                      <label className="block text-xs font-medium text-[var(--sf-text-primary)] mb-1">
                         Start Date
                       </label>
                       <input
                         type="date"
                         value={startDate}
                         onChange={(e) => setStartDate(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg text-sm focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                      <label className="block text-xs font-medium text-[var(--sf-text-primary)] mb-1">
                         End Date
                       </label>
                       <div className="flex space-x-2">
@@ -311,12 +311,12 @@ const Developers = () => {
                           value={endDate}
                           onChange={(e) => setEndDate(e.target.value)}
                           min={startDate || undefined}
-                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="flex-1 px-3 py-2 border border-[var(--sf-border-light)] rounded-lg text-sm focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                         />
                         {(startDate || endDate) && (
                           <button
                             onClick={handleClearDateRange}
-                            className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50"
+                            className="px-3 py-2 text-sm text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-page)]"
                           >
                             Clear
                           </button>
@@ -327,18 +327,18 @@ const Developers = () => {
                 )}
               </div>
               
-              <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <div className="mt-6 p-4 bg-[var(--sf-bg-page)] rounded-lg border border-[var(--sf-border-light)]">
                 <div className="flex items-center justify-between flex-col sm:flex-row gap-4">
                   <div>
-                    <p className="text-sm font-medium text-gray-900">
+                    <p className="text-sm font-medium text-[var(--sf-text-primary)]">
                       {loadingCount ? 'Loading...' : `${importedJobsCount.toLocaleString()} imported job(s) found`}
                       {useDateRange && (startDate || endDate) && (
-                        <span className="text-xs text-gray-500 ml-2">
+                        <span className="text-xs text-[var(--sf-text-muted)] ml-2">
                           ({startDate || 'any'} to {endDate || 'any'})
                         </span>
                       )}
                     </p>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-[var(--sf-text-muted)] mt-1">
                       Jobs tagged with "imported" or "import" will be deleted
                       {useDateRange && (startDate || endDate) && ' within the selected date range'}
                     </p>
@@ -358,10 +358,10 @@ const Developers = () => {
             </div>
             
             {/* Delete All Data Section */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-6">
               <div className="mb-4">
-                <h2 className="text-xl font-semibold text-gray-900 mb-2">Delete All Data</h2>
-                <p className="text-gray-600 text-sm">
+                <h2 className="text-xl font-semibold text-[var(--sf-text-primary)] mb-2">Delete All Data</h2>
+                <p className="text-[var(--sf-text-secondary)] text-sm">
                   Permanently delete all records. These actions cannot be undone.
                 </p>
               </div>
@@ -372,10 +372,10 @@ const Developers = () => {
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center space-x-2">
                       <Users className="w-5 h-5 text-red-600" />
-                      <h3 className="text-sm font-semibold text-gray-900">Delete All Customers</h3>
+                      <h3 className="text-sm font-semibold text-[var(--sf-text-primary)]">Delete All Customers</h3>
                     </div>
                   </div>
-                  <p className="text-xs text-gray-600 mb-3">
+                  <p className="text-xs text-[var(--sf-text-secondary)] mb-3">
                     Permanently delete all customer records and associated data.
                   </p>
                   <button
@@ -393,10 +393,10 @@ const Developers = () => {
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center space-x-2">
                       <Briefcase className="w-5 h-5 text-red-600" />
-                      <h3 className="text-sm font-semibold text-gray-900">Delete All Jobs</h3>
+                      <h3 className="text-sm font-semibold text-[var(--sf-text-primary)]">Delete All Jobs</h3>
                     </div>
                   </div>
-                  <p className="text-xs text-gray-600 mb-3">
+                  <p className="text-xs text-[var(--sf-text-secondary)] mb-3">
                     Permanently delete all job records and associated data.
                   </p>
                   <button
@@ -414,10 +414,10 @@ const Developers = () => {
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center space-x-2">
                       <UserCheck className="w-5 h-5 text-red-600" />
-                      <h3 className="text-sm font-semibold text-gray-900">Delete All Team Members</h3>
+                      <h3 className="text-sm font-semibold text-[var(--sf-text-primary)]">Delete All Team Members</h3>
                     </div>
                   </div>
-                  <p className="text-xs text-gray-600 mb-3">
+                  <p className="text-xs text-[var(--sf-text-secondary)] mb-3">
                     Permanently delete all team members (except account owners).
                   </p>
                   <button
@@ -435,10 +435,10 @@ const Developers = () => {
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center space-x-2">
                       <MapPin className="w-5 h-5 text-red-600" />
-                      <h3 className="text-sm font-semibold text-gray-900">Delete All Territories</h3>
+                      <h3 className="text-sm font-semibold text-[var(--sf-text-primary)]">Delete All Territories</h3>
                     </div>
                   </div>
-                  <p className="text-xs text-gray-600 mb-3">
+                  <p className="text-xs text-[var(--sf-text-secondary)] mb-3">
                     Permanently delete all territory records.
                   </p>
                   <button
@@ -467,15 +467,15 @@ const Developers = () => {
                   <AlertTriangle className="w-6 h-6 text-red-600" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete All Customers?</h3>
-                  <p className="text-sm text-gray-600 mb-4">
+                  <h3 className="text-lg font-semibold text-[var(--sf-text-primary)] mb-2">Delete All Customers?</h3>
+                  <p className="text-sm text-[var(--sf-text-secondary)] mb-4">
                     This will permanently delete all customers and all associated data. This action cannot be undone.
                   </p>
                   <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
                     <button
                       onClick={() => setShowDeleteCustomersConfirm(false)}
                       disabled={deletingCustomers}
-                      className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium disabled:opacity-50"
+                      className="flex-1 px-4 py-2 text-[var(--sf-text-primary)] bg-[var(--sf-bg-page)] rounded-lg hover:bg-gray-200 font-medium disabled:opacity-50"
                     >
                       Cancel
                     </button>
@@ -517,15 +517,15 @@ const Developers = () => {
                   <AlertTriangle className="w-6 h-6 text-red-600" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete All Jobs?</h3>
-                  <p className="text-sm text-gray-600 mb-4">
+                  <h3 className="text-lg font-semibold text-[var(--sf-text-primary)] mb-2">Delete All Jobs?</h3>
+                  <p className="text-sm text-[var(--sf-text-secondary)] mb-4">
                     This will permanently delete all jobs and all associated data. This action cannot be undone.
                   </p>
                   <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
                     <button
                       onClick={() => setShowDeleteJobsConfirm(false)}
                       disabled={deletingJobs}
-                      className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium disabled:opacity-50"
+                      className="flex-1 px-4 py-2 text-[var(--sf-text-primary)] bg-[var(--sf-bg-page)] rounded-lg hover:bg-gray-200 font-medium disabled:opacity-50"
                     >
                       Cancel
                     </button>
@@ -567,15 +567,15 @@ const Developers = () => {
                   <AlertTriangle className="w-6 h-6 text-red-600" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete All Team Members?</h3>
-                  <p className="text-sm text-gray-600 mb-4">
+                  <h3 className="text-lg font-semibold text-[var(--sf-text-primary)] mb-2">Delete All Team Members?</h3>
+                  <p className="text-sm text-[var(--sf-text-secondary)] mb-4">
                     This will permanently delete all team members (except account owners) and all associated data. This action cannot be undone.
                   </p>
                   <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
                     <button
                       onClick={() => setShowDeleteTeamConfirm(false)}
                       disabled={deletingTeam}
-                      className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium disabled:opacity-50"
+                      className="flex-1 px-4 py-2 text-[var(--sf-text-primary)] bg-[var(--sf-bg-page)] rounded-lg hover:bg-gray-200 font-medium disabled:opacity-50"
                     >
                       Cancel
                     </button>
@@ -617,15 +617,15 @@ const Developers = () => {
                   <AlertTriangle className="w-6 h-6 text-red-600" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete All Territories?</h3>
-                  <p className="text-sm text-gray-600 mb-4">
+                  <h3 className="text-lg font-semibold text-[var(--sf-text-primary)] mb-2">Delete All Territories?</h3>
+                  <p className="text-sm text-[var(--sf-text-secondary)] mb-4">
                     This will permanently delete all territories and all associated data. This action cannot be undone.
                   </p>
                   <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
                     <button
                       onClick={() => setShowDeleteTerritoriesConfirm(false)}
                       disabled={deletingTerritories}
-                      className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium disabled:opacity-50"
+                      className="flex-1 px-4 py-2 text-[var(--sf-text-primary)] bg-[var(--sf-bg-page)] rounded-lg hover:bg-gray-200 font-medium disabled:opacity-50"
                     >
                       Cancel
                     </button>
@@ -667,10 +667,10 @@ const Developers = () => {
                   <AlertTriangle className="w-6 h-6 text-red-600" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  <h3 className="text-lg font-semibold text-[var(--sf-text-primary)] mb-2">
                     Delete {useDateRange && (startDate || endDate) ? 'Filtered' : 'All'} Imported Jobs?
                   </h3>
-                  <p className="text-sm text-gray-600 mb-4">
+                  <p className="text-sm text-[var(--sf-text-secondary)] mb-4">
                     {deleting ? (
                       <>
                         Deleting <strong>{importedJobsCount.toLocaleString()} imported job(s)</strong>
@@ -692,13 +692,13 @@ const Developers = () => {
                   
                   {deleting && deleteProgress.total > 0 && (
                     <div className="mb-4">
-                      <div className="flex justify-between text-xs text-gray-600 mb-1">
+                      <div className="flex justify-between text-xs text-[var(--sf-text-secondary)] mb-1">
                         <span>Deleting jobs...</span>
                         <span>{deleteProgress.deleted > 0 ? `${deleteProgress.deleted.toLocaleString()} / ${deleteProgress.total.toLocaleString()}` : 'Processing...'}</span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2">
                         <div 
-                          className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                          className="bg-[var(--sf-blue-500)] h-2 rounded-full transition-all duration-300"
                           style={{ 
                             width: deleteProgress.deleted > 0 
                               ? `${Math.min((deleteProgress.deleted / deleteProgress.total) * 100, 100)}%` 
@@ -706,7 +706,7 @@ const Developers = () => {
                           }}
                         ></div>
                       </div>
-                      <p className="text-xs text-gray-500 mt-2">
+                      <p className="text-xs text-[var(--sf-text-muted)] mt-2">
                         Please wait while jobs are being deleted. Do not close this window.
                       </p>
                     </div>
@@ -716,7 +716,7 @@ const Developers = () => {
                     <button
                       onClick={() => setShowDeleteConfirm(false)}
                       disabled={deleting}
-                      className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium disabled:opacity-50"
+                      className="flex-1 px-4 py-2 text-[var(--sf-text-primary)] bg-[var(--sf-bg-page)] rounded-lg hover:bg-gray-200 font-medium disabled:opacity-50"
                     >
                       Cancel
                     </button>

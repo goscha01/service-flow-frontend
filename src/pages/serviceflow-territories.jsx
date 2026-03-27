@@ -88,9 +88,9 @@ const ServiceFlowTerritories = () => {
   const getStatusColor = (status) => {
     switch (status) {
       case 'active': return 'bg-green-500 text-white'
-      case 'inactive': return 'bg-gray-100 text-gray-700'
+      case 'inactive': return 'bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)]'
       case 'archived': return 'bg-red-100 text-red-700'
-      default: return 'bg-gray-100 text-gray-700'
+      default: return 'bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)]'
     }
   }
 
@@ -156,7 +156,7 @@ const ServiceFlowTerritories = () => {
   if (authLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        <Loader2 className="w-8 h-8 animate-spin text-[var(--sf-blue-500)]" />
       </div>
     )
   }
@@ -165,7 +165,7 @@ const ServiceFlowTerritories = () => {
   const disabledCount = territories.filter(t => t.status === 'inactive').length
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-[var(--sf-bg-page)]">
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Mobile Header */}
         <MobileHeader pageTitle="Territories" />
@@ -174,13 +174,13 @@ const ServiceFlowTerritories = () => {
           <div className="px-5 lg:px-40 xl:px-44 2xl:px-48 py-4 sm:py-6 lg:py-8">
             {/* Header */}
             <div className="mb-6">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Service Territories</h1>
-              <p className="text-gray-600 text-sm mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+              <h1 className="text-3xl font-bold text-[var(--sf-text-primary)] mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Service Territories</h1>
+              <p className="text-[var(--sf-text-secondary)] text-sm mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                 Manage the geographic areas where you provide services and do work. You can create multiple service territories with unique hours, services, and service providers.{' '}
-                <a href="#" className="text-blue-600 hover:text-blue-700 underline">Learn more</a>
+                <a href="#" className="text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] underline">Learn more</a>
               </p>
-              <p className="text-gray-600 text-sm" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
-                You are currently using <span className="font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>{activeCount} of 2</span> service territories available on your plan.
+              <p className="text-[var(--sf-text-secondary)] text-sm" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                You are currently using <span className="font-medium text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>{activeCount} of 2</span> service territories available on your plan.
               </p>
             </div>
 
@@ -188,7 +188,7 @@ const ServiceFlowTerritories = () => {
             <div className="mb-6 flex flex-wrap items-center justify-end gap-3">
               <button
                 onClick={handleCreateTerritory}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 flex items-center gap-2"
+                className="px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg text-sm font-medium hover:bg-[var(--sf-blue-600)] flex items-center gap-2"
                 style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
               >
                 <Plus className="w-4 h-4" />
@@ -215,20 +215,20 @@ const ServiceFlowTerritories = () => {
 
                 {/* Territories List */}
                 {loading ? (
-                  <div className="flex items-center justify-center py-12 bg-white border border-gray-200 rounded-lg">
-                    <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+                  <div className="flex items-center justify-center py-12 bg-white border border-[var(--sf-border-light)] rounded-lg">
+                    <Loader2 className="w-8 h-8 animate-spin text-[var(--sf-blue-500)]" />
                   </div>
                 ) : territories.length === 0 ? (
-                  <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
-                    <MapPin className="mx-auto h-12 w-12 text-gray-400" />
-                    <h3 className="mt-2 text-sm font-medium text-gray-900">No territories found</h3>
-                    <p className="mt-1 text-sm text-gray-500">
+                  <div className="bg-white border border-[var(--sf-border-light)] rounded-lg p-8 text-center">
+                    <MapPin className="mx-auto h-12 w-12 text-[var(--sf-text-muted)]" />
+                    <h3 className="mt-2 text-sm font-medium text-[var(--sf-text-primary)]">No territories found</h3>
+                    <p className="mt-1 text-sm text-[var(--sf-text-muted)]">
                       Get started by creating your first service territory.
                     </p>
                     <div className="mt-6">
                       <button
                         onClick={handleCreateTerritory}
-                        className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700"
+                        className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-[var(--sf-blue-500)] hover:bg-[var(--sf-blue-600)]"
                       >
                         <Plus className="w-4 h-4 mr-2" />
                         New Territory
@@ -240,7 +240,7 @@ const ServiceFlowTerritories = () => {
                     {territories.map((territory) => (
                       <div
                         key={territory.id}
-                        className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow"
+                        className="bg-white border border-[var(--sf-border-light)] rounded-lg overflow-hidden hover:shadow-md transition-shadow"
                       >
                         {/* Map Section - Reduced Height */}
                         <div className="w-full relative" style={{ height: '200px' }}>
@@ -253,10 +253,10 @@ const ServiceFlowTerritories = () => {
                           <div className="absolute top-2 right-2 flex gap-2 z-10">
                             <button
                               onClick={(e) => handleEditTerritory(e, territory)}
-                              className="p-2 bg-white rounded-lg shadow-md hover:bg-gray-50 transition-colors"
+                              className="p-2 bg-white rounded-lg shadow-md hover:bg-[var(--sf-bg-page)] transition-colors"
                               title="Edit territory"
                             >
-                              <Edit className="w-4 h-4 text-gray-700" />
+                              <Edit className="w-4 h-4 text-[var(--sf-text-primary)]" />
                             </button>
                           </div>
                         </div>
@@ -266,7 +266,7 @@ const ServiceFlowTerritories = () => {
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-2">
                               <h3 
-                                className="text-lg font-bold text-gray-900 cursor-pointer hover:text-blue-600 transition-colors" 
+                                className="text-lg font-bold text-[var(--sf-text-primary)] cursor-pointer hover:text-[var(--sf-blue-500)] transition-colors" 
                                 style={{ fontFamily: 'Montserrat', fontWeight: 700 }}
                                 onClick={() => handleTerritoryClick(territory)}
                               >
@@ -277,57 +277,57 @@ const ServiceFlowTerritories = () => {
                             </span>
                             </div>
                           </div>
-                          <p className="text-xs text-gray-600 mb-4" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{territory.location || `${territory.name}`}</p>
+                          <p className="text-xs text-[var(--sf-text-secondary)] mb-4" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{territory.location || `${territory.name}`}</p>
 
                           {/* Territory Attributes - Compact Grid */}
                           <div className="grid grid-cols-2 gap-3">
                             <div className="flex items-center gap-2">
-                              <MapPin className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                              <MapPin className="w-3.5 h-3.5 text-[var(--sf-text-muted)] flex-shrink-0" />
                               <div className="min-w-0">
-                                <div className="text-xs text-gray-500 uppercase" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Area</div>
-                                <div className="text-sm text-gray-900 truncate" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{territory.radius_miles || 30} mi</div>
+                                <div className="text-xs text-[var(--sf-text-muted)] uppercase" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Area</div>
+                                <div className="text-sm text-[var(--sf-text-primary)] truncate" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{territory.radius_miles || 30} mi</div>
                               </div>
                             </div>
 
                             <div className="flex items-center gap-2">
-                              <Globe className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                              <Globe className="w-3.5 h-3.5 text-[var(--sf-text-muted)] flex-shrink-0" />
                               <div className="min-w-0">
-                                <div className="text-xs text-gray-500 uppercase" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Timezone</div>
-                                <div className="text-sm text-gray-900 truncate" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{territory.timezone?.split('/').pop() || 'Default'}</div>
+                                <div className="text-xs text-[var(--sf-text-muted)] uppercase" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Timezone</div>
+                                <div className="text-sm text-[var(--sf-text-primary)] truncate" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{territory.timezone?.split('/').pop() || 'Default'}</div>
                               </div>
                             </div>
 
                             <div className="flex items-center gap-2">
-                              <Calendar className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                              <Calendar className="w-3.5 h-3.5 text-[var(--sf-text-muted)] flex-shrink-0" />
                               <div className="min-w-0">
-                                <div className="text-xs text-gray-500 uppercase" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Booking</div>
+                                <div className="text-xs text-[var(--sf-text-muted)] uppercase" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Booking</div>
                                 <div className="flex items-center gap-1.5">
                                   <span className="inline-block w-1.5 h-1.5 bg-green-500 rounded-full"></span>
-                                  <span className="text-sm text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>On</span>
+                                  <span className="text-sm text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>On</span>
                               </div>
                               </div>
                             </div>
 
                               <div className="flex items-center gap-2">
-                              <Users className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                              <Users className="w-3.5 h-3.5 text-[var(--sf-text-muted)] flex-shrink-0" />
                               <div className="min-w-0">
-                                <div className="text-xs text-gray-500 uppercase" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Providers</div>
+                                <div className="text-xs text-[var(--sf-text-muted)] uppercase" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Providers</div>
                                 <div className="flex items-center gap-1.5">
                                 {territory.team_members && territory.team_members.length > 0 ? (
                                   <>
                                       <div className="flex -space-x-1.5">
                                       {territory.team_members.slice(0, 3).map((member, idx) => (
-                                          <div key={idx} className="w-5 h-5 rounded-full bg-green-300 border-2 border-white flex items-center justify-center text-xs font-medium text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                                          <div key={idx} className="w-5 h-5 rounded-full bg-green-300 border-2 border-white flex items-center justify-center text-xs font-medium text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                                           {member.initials || member.first_name?.[0] || 'A'}
                                         </div>
                                       ))}
                                     </div>
                                     {territory.team_members.length > 3 && (
-                                        <span className="text-xs text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>+{territory.team_members.length - 3}</span>
+                                        <span className="text-xs text-[var(--sf-text-secondary)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>+{territory.team_members.length - 3}</span>
                                     )}
                                   </>
                                 ) : (
-                                    <span className="text-sm text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>0</span>
+                                    <span className="text-sm text-[var(--sf-text-muted)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>0</span>
                                 )}
                               </div>
                               </div>

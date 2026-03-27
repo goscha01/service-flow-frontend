@@ -999,8 +999,8 @@ const JobsMap = ({ jobs, teamMembers = [], mapType = 'roadmap' }) => {
       `}</style>
       {/* Loading indicator while map is initializing and placing markers */}
       {!markersPlaced && (
-        <div className="absolute inset-0 flex items-center justify-center bg-gray-50 z-10">
-          <div className="text-sm text-gray-500">Loading map...</div>
+        <div className="absolute inset-0 flex items-center justify-center bg-[var(--sf-bg-page)] z-10">
+          <div className="text-sm text-[var(--sf-text-muted)]">Loading map...</div>
         </div>
       )}
       {/* Map container - always mounted, hidden until markers are placed */}

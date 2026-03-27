@@ -45,13 +45,13 @@ const ConvertLeadModal = ({
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[99999] p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col">
-        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 flex-shrink-0">
-          <h2 className="text-lg sm:text-xl font-bold text-gray-900">
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-[var(--sf-border-light)] flex-shrink-0">
+          <h2 className="text-lg sm:text-xl font-bold text-[var(--sf-text-primary)]">
             Convert Lead to Customer
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
+            className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
             disabled={loading}
           >
             <X className="w-5 h-5" />
@@ -61,35 +61,35 @@ const ConvertLeadModal = ({
         <div className="overflow-y-auto flex-1 p-4 sm:p-6">
           {/* Lead Information Preview */}
           <div className="mb-6">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">Lead Information</h3>
-            <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+            <h3 className="text-sm font-semibold text-[var(--sf-text-primary)] mb-3">Lead Information</h3>
+            <div className="bg-[var(--sf-bg-page)] rounded-lg p-4 space-y-3">
               <div className="flex items-center space-x-2">
-                <User className="w-4 h-4 text-gray-500" />
-                <span className="text-gray-900 font-medium">
+                <User className="w-4 h-4 text-[var(--sf-text-muted)]" />
+                <span className="text-[var(--sf-text-primary)] font-medium">
                   {lead.first_name} {lead.last_name}
                 </span>
               </div>
               {lead.email && (
-                <div className="flex items-center space-x-2 text-sm text-gray-600">
+                <div className="flex items-center space-x-2 text-sm text-[var(--sf-text-secondary)]">
                   <span className="font-medium">Email:</span>
                   <span>{lead.email}</span>
                 </div>
               )}
               {lead.phone && (
-                <div className="flex items-center space-x-2 text-sm text-gray-600">
+                <div className="flex items-center space-x-2 text-sm text-[var(--sf-text-secondary)]">
                   <span className="font-medium">Phone:</span>
                   <span>{lead.phone}</span>
                 </div>
               )}
               {lead.company && (
-                <div className="flex items-center space-x-2 text-sm text-gray-600">
+                <div className="flex items-center space-x-2 text-sm text-[var(--sf-text-secondary)]">
                   <span className="font-medium">Company:</span>
                   <span>{lead.company}</span>
                 </div>
               )}
               {lead.value && (
-                <div className="flex items-center space-x-2 text-sm text-gray-600">
-                  <DollarSign className="w-4 h-4 text-gray-500" />
+                <div className="flex items-center space-x-2 text-sm text-[var(--sf-text-secondary)]">
+                  <DollarSign className="w-4 h-4 text-[var(--sf-text-muted)]" />
                   <span className="font-medium">Estimated Value:</span>
                   <span className="text-green-600 font-semibold">
                     ${parseFloat(lead.value).toFixed(2)}
@@ -101,20 +101,20 @@ const ConvertLeadModal = ({
           
           {/* Conversion Options */}
           <div className="mb-6">
-            <div className="flex items-start space-x-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-start space-x-3 p-4 bg-[var(--sf-blue-50)] border border-blue-200 rounded-lg">
               <input
                 type="checkbox"
                 id="createJob"
                 checked={createJob}
                 onChange={(e) => setCreateJob(e.target.checked)}
-                className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                className="mt-1 w-4 h-4 text-[var(--sf-blue-500)] border-[var(--sf-border-light)] rounded focus:ring-[var(--sf-blue-500)]"
                 disabled={loading}
               />
               <div className="flex-1">
-                <label htmlFor="createJob" className="text-sm font-medium text-gray-900 cursor-pointer">
+                <label htmlFor="createJob" className="text-sm font-medium text-[var(--sf-text-primary)] cursor-pointer">
                   Create job for this customer
                 </label>
-                <p className="text-xs text-gray-600 mt-1">
+                <p className="text-xs text-[var(--sf-text-secondary)] mt-1">
                   You'll be taken to the create job page with this customer pre-selected
                 </p>
               </div>
@@ -140,11 +140,11 @@ const ConvertLeadModal = ({
           </div>
         </div>
         
-        <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 p-4 sm:p-6 border-t border-gray-200 flex-shrink-0">
+        <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 p-4 sm:p-6 border-t border-[var(--sf-border-light)] flex-shrink-0">
           <button
             type="button"
             onClick={onClose}
-            className="w-full sm:w-auto px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+            className="w-full sm:w-auto px-4 py-2 text-[var(--sf-text-primary)] bg-[var(--sf-bg-page)] rounded-lg hover:bg-gray-200"
             disabled={loading}
           >
             Cancel

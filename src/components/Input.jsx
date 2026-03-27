@@ -13,14 +13,14 @@ const Input = ({
     lg: "px-4 py-3 text-base"
   };
   
-  const baseClasses = "w-full border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200";
+  const baseClasses = "w-full border border-[var(--sf-border-light)] rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] transition-colors duration-200";
   const errorClasses = error ? "border-red-300 focus:ring-red-500 focus:border-red-500" : "";
   const combinedClasses = `${baseClasses} ${sizes[size]} ${errorClasses} ${className}`.trim();
   
   return (
     <div className="w-full">
       {label && (
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
           {label}
         </label>
       )}

@@ -30,11 +30,11 @@ const TestAPI = () => {
         <div>
           <button 
             onClick={testStripeConnection}
-            className="px-4 py-2 bg-blue-500 text-white rounded"
+            className="px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded"
           >
             Test Stripe Connection
           </button>
-          <pre className="mt-2 p-2 bg-gray-100 rounded">
+          <pre className="mt-2 p-2 bg-[var(--sf-bg-page)] rounded">
             {JSON.stringify(results.stripe, null, 2)}
           </pre>
         </div>
@@ -46,7 +46,7 @@ const TestAPI = () => {
           >
             Test Twilio Connection
           </button>
-          <pre className="mt-2 p-2 bg-gray-100 rounded">
+          <pre className="mt-2 p-2 bg-[var(--sf-bg-page)] rounded">
             {JSON.stringify(results.twilio, null, 2)}
           </pre>
         </div>

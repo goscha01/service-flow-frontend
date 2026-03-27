@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
 import Sidebar from "../components/sidebar-collapsible"
-import { teamAPI, territoriesAPI, availabilityAPI, invoicesAPI, notificationAPI, notificationSettingsAPI, paymentMethodsAPI } from "../services/api"
+import { teamAPI, territoriesAPI, availabilityAPI, invoicesAPI, notificationAPI, notificationSettingsAPI, paymentMethodsAPI, paymentSettingsAPI } from "../services/api"
 import api, { stripeAPI } from "../services/api"
 import { 
   Plus, 
@@ -168,6 +168,7 @@ const ServiceFlowSchedule = () => {
   const [manualEmail, setManualEmail] = useState('')
   const [paymentHistory, setPaymentHistory] = useState([])
   const [customPaymentMethods, setCustomPaymentMethods] = useState([])
+  const [tipSettings, setTipSettings] = useState({ tipCalculationMode: 'automatic', paymentTypeFees: {} })
   const [paymentFormData, setPaymentFormData] = useState({
     amount: '',
     tipAmount: '',
@@ -276,7 +277,16 @@ const ServiceFlowSchedule = () => {
         return
       }
       
-      const tipAmount = parseFloat(paymentFormData.tipAmount) || 0
+      let tipAmount = parseFloat(paymentFormData.tipAmount) || 0
+      if (tipSettings.tipCalculationMode === 'automatic') {
+        const paidAmount = parseFloat(paymentFormData.amount) || 0
+        const totalDue = parseFloat(selectedJobDetails?.total ?? selectedJobDetails?.total_amount ?? selectedJobDetails?.price) || 0
+        const alreadyPaid = parseFloat(selectedJobDetails?.total_paid_amount || 0)
+        const remaining = Math.max(0, totalDue - alreadyPaid)
+        const feePercent = tipSettings.paymentTypeFees?.[paymentFormData.paymentMethod] || 0
+        const fee = paidAmount * (feePercent / 100)
+        tipAmount = Math.max(0, paidAmount - remaining - fee)
+      }
       const discountAmount = parseFloat(paymentFormData.discount) || 0
 
       const paymentData = {
@@ -698,6 +708,9 @@ const ServiceFlowSchedule = () => {
       paymentMethodsAPI.getPaymentMethods().then(methods => {
         setCustomPaymentMethods(methods || [])
       }).catch(() => setCustomPaymentMethods([]))
+      paymentSettingsAPI.getPaymentSettings().then(s => {
+        setTipSettings({ tipCalculationMode: s.tipCalculationMode || 'automatic', paymentTypeFees: s.paymentTypeFees || {} })
+      }).catch(() => {})
     }
   }, [user?.id])
 
@@ -5152,26 +5165,44 @@ const ServiceFlowSchedule = () => {
           {activeTab === 'availability' ? (
             /* Availability View Header */
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
-              {/* Left side - Date navigation */}
+              {/* Left side - Date navigation (Figma: Today | Month Year ▼ | ◀ ▶) */}
               <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
-                <div className="flex items-center space-x-2 relative bg-gray-100 rounded-full p-1">
-                <button
-                    onClick={() => navigateDate(-1)}
-                    className=" hover:text-blue-600 rounded"
-                >
-                    <ChevronLeft className="w-6 h-6" />
-                </button>
-                  <button 
-                    onClick={() => setShowCalendar(!showCalendar)}
-                    className="text-xs sm:text-sm font-medium hover:text-blue-600 text-gray-900 min-w-[120px] sm:min-w-[140px] text-center shadow-sm bg-white rounded-full px-3 py-2 transition-colors"
+                <div className="flex items-center gap-4 relative">
+                  {/* Today button */}
+                  <button
+                    onClick={() => {
+                      const today = new Date()
+                      today.setHours(0, 0, 0, 0)
+                      setSelectedDate(today)
+                      setDateUpdateKey(prev => prev + 1)
+                    }}
+                    className="schedule-nav-btn schedule-nav-today px-3 py-1.5 text-xs font-medium text-[#2D2E2E] bg-white border border-[#DCE0E4] hover:bg-gray-50 transition-colors"
+                    style={{ boxShadow: '0px 1px 2px 0px rgba(13,13,18,0.06)' }}
                   >
-                    {formatDate(selectedDate)}
+                    Today
                   </button>
-                  <button 
-                    onClick={() => navigateDate(1)}
-                    className=" hover:text-blue-600 rounded"
+                  {/* Month Year dropdown */}
+                  <button
+                    onClick={() => setShowCalendar(!showCalendar)}
+                    className="schedule-nav-btn schedule-nav-month flex items-center gap-4 px-1 text-sm font-medium text-[#2D2E2E] hover:text-blue-600 transition-colors"
                   >
-                    <ChevronRight className="w-6 h-6" />
+                    <span>{selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</span>
+                    <ChevronDown className="w-4 h-4 text-[#747677]" />
+                  </button>
+                  {/* Circular nav arrows */}
+                  <button
+                    onClick={() => navigateDate(-1)}
+                    className="schedule-nav-btn schedule-nav-arrow w-8 h-8 flex items-center justify-center bg-white border border-[#DCE0E4] hover:bg-gray-50 transition-colors"
+                    style={{ boxShadow: '0px 1px 2px 0px rgba(13,13,18,0.06)' }}
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => navigateDate(1)}
+                    className="schedule-nav-btn schedule-nav-arrow w-8 h-8 flex items-center justify-center bg-white border border-[#DCE0E4] hover:bg-gray-50 transition-colors"
+                    style={{ boxShadow: '0px 1px 2px 0px rgba(13,13,18,0.06)' }}
+                  >
+                    <ChevronRight className="w-4 h-4" />
                   </button>
 
                   {/* Calendar Popup */}
@@ -5334,26 +5365,44 @@ const ServiceFlowSchedule = () => {
           ) : ( 
             /* Jobs View Header */
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
-              {/* Left side - Date navigation */}
+              {/* Left side - Date navigation (Figma: Today | Month Year ▼ | ◀ ▶) */}
               <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
-                <div className="flex items-center space-x-2 relative bg-gray-100 rounded-full p-1">
-                  <button 
-                    onClick={() => navigateDate(-1)}
-                    className=" hover:text-blue-600 rounded"
+                <div className="flex items-center gap-4 relative">
+                  {/* Today button */}
+                  <button
+                    onClick={() => {
+                      const today = new Date()
+                      today.setHours(0, 0, 0, 0)
+                      setSelectedDate(today)
+                      setDateUpdateKey(prev => prev + 1)
+                    }}
+                    className="schedule-nav-btn schedule-nav-today px-3 py-1.5 text-xs font-medium text-[#2D2E2E] bg-white border border-[#DCE0E4] hover:bg-gray-50 transition-colors"
+                    style={{ boxShadow: '0px 1px 2px 0px rgba(13,13,18,0.06)' }}
                   >
-                    <ChevronLeft className="w-6 h-6" />
+                    Today
                   </button>
-                  <button 
+                  {/* Month Year dropdown */}
+                  <button
                     onClick={() => setShowCalendar(!showCalendar)}
-                    className="text-xs sm:text-sm font-medium hover:text-blue-600 text-gray-900 min-w-[120px] sm:min-w-[140px] text-center shadow-sm bg-white rounded-full px-3 py-2 transition-colors"
+                    className="schedule-nav-btn schedule-nav-month flex items-center gap-4 px-1 text-sm font-medium text-[#2D2E2E] hover:text-blue-600 transition-colors"
                   >
-                    {formatDate(selectedDate)}
+                    <span>{selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</span>
+                    <ChevronDown className="w-4 h-4 text-[#747677]" />
                   </button>
-                <button 
-                    onClick={() => navigateDate(1)}
-                    className=" hover:text-blue-600 rounded"
+                  {/* Circular nav arrows */}
+                  <button
+                    onClick={() => navigateDate(-1)}
+                    className="schedule-nav-btn schedule-nav-arrow w-8 h-8 flex items-center justify-center bg-white border border-[#DCE0E4] hover:bg-gray-50 transition-colors"
+                    style={{ boxShadow: '0px 1px 2px 0px rgba(13,13,18,0.06)' }}
                   >
-                    <ChevronRight className="w-6 h-6" />
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => navigateDate(1)}
+                    className="schedule-nav-btn schedule-nav-arrow w-8 h-8 flex items-center justify-center bg-white border border-[#DCE0E4] hover:bg-gray-50 transition-colors"
+                    style={{ boxShadow: '0px 1px 2px 0px rgba(13,13,18,0.06)' }}
+                  >
+                    <ChevronRight className="w-4 h-4" />
                   </button>
 
                   {/* Calendar Popup */}
@@ -5682,16 +5731,16 @@ const ServiceFlowSchedule = () => {
               {/* All Team Members - Month View: same as schedule - one card per cleaner per day */}
               {(selectedFilter === 'all' || selectedFilter === 'all-team-members') && viewMode === 'month' && (
                 <div className="flex-1 overflow-auto">
-                  <div className="grid grid-cols-7 divide-x divide-gray-200 h-full">
+                  <div className="grid grid-cols-7 schedule-grid h-full border border-[#EDF1F5] rounded-xl overflow-hidden">
                     {/* Days of Week Header */}
-                    {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map((day) => (
-                      <div key={day} className="text-center text-xs border-[0.5px] border-gray-200 font-medium text-gray-600 py-3">
+                    {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, i) => (
+                      <div key={day} className={`text-left text-sm font-medium text-[#595A5B] py-2.5 px-3 bg-[#F9FAFB] ${i > 0 ? 'border-l border-[#EDF1F5]' : ''}`}>
                         {day}
                       </div>
                     ))}
 
                     {/* Calendar Days - each cell shows one card per cleaner (like schedule job cards) */}
-                    {generateAvailabilityCalendarDays(selectedDate).map((day, index) => {
+                    {generateAvailabilityCalendarDays(selectedDate).map((day, index, arr) => {
                       const isCurrentMonth = day.getMonth() === selectedDate.getMonth()
                       const isSelected = day.toDateString() === selectedDate.toDateString()
                       const isToday = day.toDateString() === new Date().toDateString()
@@ -5700,24 +5749,31 @@ const ServiceFlowSchedule = () => {
                       const isExpanded = expandedDays.has(dayKey)
                       const showMembers = isExpanded ? activeMembers : activeMembers.slice(0, 2)
                       const hasMore = activeMembers.length > 2
+                      const colIndex = index % 7
 
                       return (
                         <div
                           key={index}
-                          className={`border p-1 min-h-[100px] cursor-pointer transition-colors ${
+                          className={`border-t border-[#EDF1F5] ${colIndex > 0 ? 'border-l' : ''} p-2 min-h-[100px] cursor-pointer transition-colors ${
                             !isCurrentMonth
-                              ? 'bg-gray-50 text-gray-400 border-gray-100'
+                              ? 'bg-white'
                               : isSelected
-                              ? 'border-blue-500 bg-blue-50'
-                              : isToday
-                                ? 'border-blue-300 bg-blue-50/50'
-                                : 'border-gray-200 bg-white hover:bg-gray-50'
+                              ? 'bg-blue-50'
+                              : 'bg-white hover:bg-gray-50'
                           }`}
                           onClick={() => handleDateChange(day)}
                         >
-                          <div className={`text-md text-right font-medium mb-1 ${
-                            isSelected && isCurrentMonth ? 'text-blue-900 font-semibold' : ''
-                          }`}>{day.getDate()}</div>
+                          <div className="mb-1">
+                            {isToday && isCurrentMonth ? (
+                              <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#2970FF] text-white text-sm font-medium">
+                                {day.getDate()}
+                              </span>
+                            ) : (
+                              <span className={`text-sm font-medium ${!isCurrentMonth ? 'text-[#A6A9AC]' : isSelected ? 'text-blue-900' : 'text-[#2D2E2E]'}`}>
+                                {day.getDate()}
+                              </span>
+                            )}
+                          </div>
                           {isCurrentMonth && showMembers.map((member) => {
                             const availability = getDayAvailabilityForMember(day, member.id)
                             if (!availability.isOpen) return null
@@ -5726,7 +5782,8 @@ const ServiceFlowSchedule = () => {
                             return (
                               <div
                                 key={member.id}
-                                className="bg-white rounded-md p-1.5 mb-1 text-xs border border-gray-200 cursor-pointer hover:shadow-md transition-all"
+                                className="schedule-card bg-white p-1.5 mb-1 text-xs cursor-pointer hover:shadow-md transition-all"
+                                style={{ borderRadius: '4px', border: `0.5px solid ${memberColor}` }}
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   setSelectedFilter(member.id.toString())
@@ -6016,60 +6073,60 @@ const ServiceFlowSchedule = () => {
               {/* Week View */}
               {viewMode === 'week' && (
                 <div className="flex-1 overflow-auto px-4 py-4 lg:px-6">
-                  <div className="min-w-max w-full">
+                  <div className="min-w-max w-full border border-[#EDF1F5] rounded-xl overflow-hidden">
                     {/* Day Headers */}
-                    <div className="grid grid-cols-7 gap-2 mb-2">
+                    <div className="grid grid-cols-7 schedule-grid">
                       {getWeekDays().map((date, idx) => (
-                        <div key={idx} className="p-2 text-center">
-                          <div className="text-xs font-medium text-gray-500">
+                        <div key={idx} className={`p-2 text-left px-3 bg-[#F9FAFB] ${idx > 0 ? 'border-l border-[#EDF1F5]' : ''}`}>
+                          <div className="text-sm font-medium text-[#595A5B]">
                             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()]}
                           </div>
-                          <div className={`text-lg font-semibold mt-1 ${
-                            date.toDateString() === new Date().toDateString()
-                              ? 'text-blue-600'
-                              : 'text-gray-900'
-                          }`}>
-                            {date.getDate()}
+                          <div className="mt-1">
+                            {date.toDateString() === new Date().toDateString() ? (
+                              <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#2970FF] text-white text-sm font-medium">
+                                {date.getDate()}
+                              </span>
+                            ) : (
+                              <span className="text-lg font-semibold text-[#2D2E2E]">{date.getDate()}</span>
+                            )}
                           </div>
                         </div>
                       ))}
                     </div>
-                    
+
                     {/* Week Days */}
-                    <div className="grid grid-cols-7 gap-2">
+                    <div className="grid grid-cols-7 schedule-grid">
                       {getWeekDays().map((date, idx) => {
                         const availability = getDayAvailability(date)
                         const isToday = date.toDateString() === new Date().toDateString()
                         const isSelected = date.toDateString() === selectedDate.toDateString()
-                        
+
                         return (
                           <div
                             key={idx}
-                            className={`border rounded-lg p-3 min-h-[200px] cursor-pointer transition-colors ${
+                            className={`border-t border-[#EDF1F5] ${idx > 0 ? 'border-l' : ''} p-3 min-h-[200px] cursor-pointer transition-colors ${
                               isSelected
-                                ? 'bg-blue-50 border-blue-500 ring-2 ring-blue-500'
-                                : isToday
-                                  ? 'bg-white border-blue-500 ring-2 ring-blue-500'
-                                  : 'bg-white border-gray-200'
+                                ? 'bg-blue-50'
+                                : 'bg-white hover:bg-gray-50'
                             }`}
                             onClick={() => handleDateChange(date)}
                           >
                             {availability.isOpen ? (
                               <div className="space-y-2">
-                                <div className="text-xs font-medium text-green-600">Open</div>
+                                <div className="text-xs font-medium text-[#16B364]">Open</div>
                                 {availability.hours && (
-                                  <div className="text-xs text-gray-600">{availability.hours}</div>
+                                  <div className="text-xs text-[#595A5B]">{availability.hours}</div>
                                 )}
                                 {(availability.totalAvailable > 0 || availability.totalBusy > 0 || availability.totalDriving > 0) && (
                                   <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-1">
                                     {availability.totalAvailable > 0 && (
-                                      <span className="text-xs font-medium text-green-700">{formatDuration(availability.totalAvailable)} free</span>
+                                      <span className="text-xs font-medium text-[#16B364]">{formatDuration(availability.totalAvailable)} free</span>
                                     )}
                                     {availability.totalBusy > 0 && (
-                                      <span className="text-xs font-medium text-orange-600">{formatDuration(availability.totalBusy)} busy</span>
+                                      <span className="text-xs font-medium text-[#FF9502]">{formatDuration(availability.totalBusy)} busy</span>
                                     )}
                                     {availability.totalDriving > 0 && (
-                                      <span className="text-xs font-medium text-amber-600">{formatDuration(availability.totalDriving)} travel</span>
+                                      <span className="text-xs font-medium text-[#FFB856]">{formatDuration(availability.totalDriving)} travel</span>
                                     )}
                                   </div>
                                 )}
@@ -6079,21 +6136,21 @@ const ServiceFlowSchedule = () => {
                                     {availability.freeSpots.slice(0, 4).map((spot, si) => {
                                       const fmtT = (t) => { const [h, m] = t.split(':'); const hr = parseInt(h); return `${hr > 12 ? hr - 12 : hr || 12}:${m || '00'}${hr >= 12 ? 'p' : 'a'}` }
                                       return (
-                                        <div key={si} className="px-2 py-1 bg-green-50 border border-green-200 rounded text-[10px] text-green-800 leading-tight">
+                                        <div key={si} className="schedule-card px-2 py-1 bg-white text-[10px] text-[#16B364] leading-tight" style={{ borderRadius: '4px', border: '0.5px solid #16B364' }}>
                                           <div className="font-medium">{fmtT(spot.start)} - {fmtT(spot.end)}</div>
-                                          <div className="text-green-600">{spot.memberCount} cleaner{spot.memberCount !== 1 ? 's' : ''} free</div>
+                                          <div>{spot.memberCount} cleaner{spot.memberCount !== 1 ? 's' : ''} free</div>
                                         </div>
                                       )
                                     })}
                                     {availability.freeSpots.length > 4 && (
-                                      <div className="text-[10px] text-green-600 text-center">+{availability.freeSpots.length - 4} more slots</div>
+                                      <div className="text-[10px] text-[#16B364] text-center">+{availability.freeSpots.length - 4} more slots</div>
                                     )}
                                   </div>
                                 )}
                               </div>
                             ) : (
                               <div className="text-center py-4">
-                                <div className="text-xs text-gray-500 font-medium">Closed</div>
+                                <div className="text-xs text-[#A6A9AC] font-medium">Closed</div>
                               </div>
                             )}
                           </div>
@@ -6107,44 +6164,51 @@ const ServiceFlowSchedule = () => {
               {/* Month View */}
               {viewMode === 'month' && (
                 <div className="flex-1 overflow-auto">
-                  <div className="grid grid-cols-7 divide-x divide-gray-200 h-full">
+                  <div className="grid grid-cols-7 schedule-grid h-full border border-[#EDF1F5] rounded-xl overflow-hidden">
                     {/* Days of Week Header */}
-                    {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map((day) => (
-                      <div key={day} className="text-center text-xs border-[0.5px] border-gray-200 font-medium text-gray-600 py-3">
+                    {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, i) => (
+                      <div key={day} className={`text-left text-sm font-medium text-[#595A5B] py-2.5 px-3 bg-[#F9FAFB] ${i > 0 ? 'border-l border-[#EDF1F5]' : ''}`}>
                         {day}
                       </div>
                     ))}
-                    
+
                     {/* Calendar Days */}
-                    {generateAvailabilityCalendarDays(selectedDate).map((day, index) => {
+                    {generateAvailabilityCalendarDays(selectedDate).map((day, index, arr) => {
                       const isCurrentMonth = day.getMonth() === selectedDate.getMonth()
                       const availability = getDayAvailability(day)
                       const isSelected = day.toDateString() === selectedDate.toDateString()
                       const isToday = day.toDateString() === new Date().toDateString()
+                      const colIndex = index % 7
 
                       return (
                         <div
                           key={index}
-                          className={`border p-2 min-h-[120px] cursor-pointer transition-colors ${
-                            !isCurrentMonth 
-                              ? 'bg-gray-50 text-gray-400 border-gray-100' 
-                              : isSelected 
-                              ? 'border-blue-500 bg-blue-50' 
-                                : isToday 
-                                  ? 'border-blue-300 bg-blue-50/50' 
-                              : availability.isOpen 
-                                    ? 'border-gray-200 bg-white hover:bg-gray-50'
-                                    : 'border-gray-200 bg-gray-50'
+                          className={`border-t border-[#EDF1F5] ${colIndex > 0 ? 'border-l' : ''} p-2 min-h-[120px] cursor-pointer transition-colors ${
+                            !isCurrentMonth
+                              ? 'bg-white'
+                              : isSelected
+                              ? 'bg-blue-50'
+                                : isToday
+                                  ? 'bg-white'
+                              : availability.isOpen
+                                    ? 'bg-white hover:bg-gray-50'
+                                    : 'bg-gray-50'
                           }`}
                           onClick={() => handleDateChange(day)}
                           style={!isCurrentMonth ? {} : !availability.isOpen && !isSelected ? {
                             backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(0,0,0,.05) 7px, rgba(0,0,0,.05) 9px)'
                           } : {}}
                         >
-                          <div className={`text-sm font-semibold mb-1 ${
-                            isSelected && isCurrentMonth ? 'text-blue-900' : ''
-                          }`}>
-                            {day.getDate()}
+                          <div className="mb-1">
+                            {isToday && isCurrentMonth ? (
+                              <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#2970FF] text-white text-sm font-medium">
+                                {day.getDate()}
+                              </span>
+                            ) : (
+                              <span className={`text-sm font-medium ${!isCurrentMonth ? 'text-[#A6A9AC]' : isSelected ? 'text-blue-900' : 'text-[#2D2E2E]'}`}>
+                                {day.getDate()}
+                              </span>
+                            )}
                           </div>
                           {isCurrentMonth && availability.isOpen ? (
                             <>
@@ -6171,9 +6235,9 @@ const ServiceFlowSchedule = () => {
                                   {availability.freeSpots.slice(0, 3).map((spot, si) => {
                                     const fmtT = (t) => { const [h, m] = t.split(':'); const hr = parseInt(h, 10); const min = m ? parseInt(m, 10) : 0; const suffix = hr >= 12 ? 'p' : 'a'; const h12 = hr > 12 ? hr - 12 : hr || 12; return min ? `${h12}:${String(min).padStart(2, '0')}${suffix}` : `${h12}${suffix}` }
                                     return (
-                                      <div key={si} className="px-1.5 py-0.5 bg-green-50 border border-green-200 rounded text-[10px] text-green-800 leading-tight">
+                                      <div key={si} className="schedule-card px-1 py-1 bg-white text-[10px] text-[#16B364] leading-tight" style={{ borderRadius: '4px', border: '0.5px solid #16B364' }}>
                                         <span className="font-medium">{fmtT(spot.start)}-{fmtT(spot.end)}</span>
-                                        <span className="text-green-600 ml-1">({spot.memberCount} free)</span>
+                                        <span className="ml-1">({spot.memberCount} free)</span>
                                       </div>
                                     )
                                   })}
@@ -6221,7 +6285,7 @@ const ServiceFlowSchedule = () => {
             {/* Calendar Grid Views */}
             {viewMode === 'week' && (
               <div className="h-[calc(100vh-200px)]">
-               <div className="grid grid-cols-7 divide-x divide-gray-200 h-full">
+               <div className="grid grid-cols-7 schedule-grid h-full border border-[#EDF1F5] rounded-xl overflow-hidden">
                   {getWeekDays().map((day, index) => {
                     const dayJobs = filteredJobs.filter(job => {
                       if (!job.scheduled_date) return false
@@ -6236,26 +6300,30 @@ const ServiceFlowSchedule = () => {
                       const dayString = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`
                       return jobDateString === dayString
                     })
-                    
+
                     const isToday = day.toDateString() === new Date().toDateString()
                     const isSelected = day.toDateString() === selectedDate.toDateString()
-                    
+
                     return (
-                      <div 
-                        key={index} 
-                        className={` min-h-[120px] cursor-pointer transition-colors ${
-                          isSelected 
-                            ? 'border-blue-500 bg-blue-50' 
-                            : isToday 
-                              ? 'border-blue-300 bg-blue-50/50' 
-                              : 'border-gray-200 bg-white hover:bg-gray-50'
+                      <div
+                        key={index}
+                        className={`${index > 0 ? 'border-l border-[#EDF1F5]' : ''} min-h-[120px] cursor-pointer transition-colors ${
+                          isSelected
+                            ? 'bg-blue-50'
+                            : 'bg-white hover:bg-gray-50'
                         }`}
                         onClick={() => handleDayClick(day)}
                       >
-                        <div className={`text-xs p-3 border-b border-gray-200 font-medium mb-2 uppercase text-center ${
-                          isSelected ? 'text-blue-900 font-semibold' : 'text-gray-600'
-                        }`}  style={{fontFamily: 'Montserrat', fontWeight: 700}}>
-                          {day.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                        <div className={`text-xs p-3 border-b border-[#EDF1F5] bg-[#F9FAFB] font-medium mb-2 text-left ${
+                          isSelected ? 'text-blue-900 font-semibold' : 'text-[#595A5B]'
+                        }`} style={{fontFamily: 'Montserrat', fontWeight: 700}}>
+                          {isToday ? (
+                            <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-[#2970FF] text-white text-xs font-medium">
+                              {day.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                            </span>
+                          ) : (
+                            day.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+                          )}
                         </div>
                         {(() => {
                           const weekDayAvailability = getDayAvailability(day)
@@ -6263,12 +6331,12 @@ const ServiceFlowSchedule = () => {
                             weekDayAvailability.freeSpots.slice(0, 2).map((spot, si) => {
                               const fmtT = (t) => { const [h, m] = t.split(':'); const hr = parseInt(h, 10); const min = m ? parseInt(m, 10) : 0; const suffix = hr >= 12 ? 'p' : 'a'; const h12 = hr > 12 ? hr - 12 : hr || 12; return min ? `${h12}:${String(min).padStart(2, '0')}${suffix}` : `${h12}${suffix}` }
                               return (
-                                <div key={`free-${si}`} className="bg-green-50 rounded-md m-2 p-2 mb-1 text-xs border border-green-200">
+                                <div key={`free-${si}`} className="schedule-card bg-white m-2 p-2 mb-1 text-xs" style={{ borderRadius: '4px', border: '0.5px solid #16B364' }}>
                                   <div className="flex items-center gap-1">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
-                                    <span className="font-medium text-green-800 text-[9px]">{fmtT(spot.start)}-{fmtT(spot.end)}</span>
+                                    <div className="w-1.5 h-1.5 rounded-full bg-[#16B364]"></div>
+                                    <span className="font-medium text-[#16B364] text-[9px]">{fmtT(spot.start)}-{fmtT(spot.end)}</span>
                                   </div>
-                                  <div className="text-[9px] text-green-600 mt-0.5">{spot.memberCount} free</div>
+                                  <div className="text-[9px] text-[#16B364] mt-0.5">{spot.memberCount} free</div>
                                 </div>
                               )
                             })
@@ -6301,7 +6369,8 @@ const ServiceFlowSchedule = () => {
                           return (
                             <div
                               key={jobIndex}
-                              className="bg-white rounded-md m-2 p-2 mb-1 text-xs cursor-pointer hover:shadow-md transition-all border border-gray-200 relative"
+                              className="schedule-card bg-white m-2 p-2 mb-1 text-xs cursor-pointer hover:shadow-md transition-all relative"
+                              style={{ borderRadius: '4px', border: `0.5px solid ${statusColor || '#2970FF'}` }}
                               onClick={(e) => {
                                 e.stopPropagation()
                                 handleJobClick(job)
@@ -6314,15 +6383,15 @@ const ServiceFlowSchedule = () => {
                               )}
                               <div className="flex items-center gap-1 mb-1">
                                 {getStatusIcon(job.status, job)}
-                                <span className="font-medium text-gray-900 truncate text-[9px]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                                <span className="font-medium text-[#2D2E2E] truncate text-[9px]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                                   {timeStr}{durationStr ? ` ${durationStr}` : ''}
                                 </span>
                               </div>
                               {territoryName && (
-                                <div className="text-[9px] text-gray-500 truncate mb-0.5">{territoryName}</div>
+                                <div className="text-[9px] text-[#595A5B] truncate mb-0.5">{territoryName}</div>
                               )}
                               <div
-                                className="truncate font-medium cursor-pointer hover:text-blue-600 transition-colors text-gray-700 mb-1 inline-block"
+                                className="truncate font-medium cursor-pointer hover:text-blue-600 transition-colors text-[#2D2E2E] mb-1 inline-block"
                                 onClick={(e) => handleCustomerClick(e, job.customer_id || job.customer?.id || job.customers?.id)}
                                 style={{ fontFamily: 'Montserrat', fontWeight: 500, maxWidth: '100%' }}
                               >
@@ -6412,16 +6481,16 @@ const ServiceFlowSchedule = () => {
             )}
 
             {viewMode === 'month' && (
-              <div className=" ">
-                <div className="grid grid-cols-7">
-                  {/* Month header */}
-                  {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map(day => (
-                    <div key={day} className="text-center text-xs border-[0.5px] border-gray-200 font-medium text-gray-600 py-3">
+              <div className="border border-[#EDF1F5] rounded-xl overflow-hidden">
+                <div className="grid grid-cols-7 schedule-grid">
+                  {/* Month header - continuous strip */}
+                  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, i) => (
+                    <div key={day} className={`text-left text-sm font-medium text-[#595A5B] py-2.5 px-3 bg-[#F9FAFB] ${i > 0 ? 'border-l border-[#EDF1F5]' : ''}`}>
                       {day}
                     </div>
                   ))}
                   {/* Month days */}
-                  {getMonthDays().map((day, index) => {
+                  {getMonthDays().map((day, index, arr) => {
                     const dayJobs = filteredJobs.filter(job => {
                       if (!job.scheduled_date) return false
                       let jobDateString = ''
@@ -6435,31 +6504,38 @@ const ServiceFlowSchedule = () => {
                       const dayString = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`
                       return jobDateString === dayString
                     })
-                    
+
                     const dayKey = `${day.getFullYear()}-${day.getMonth()}-${day.getDate()}`
                     const isExpanded = expandedDays.has(dayKey)
                     const showJobs = isExpanded ? dayJobs : dayJobs.slice(0, 2)
                     const isToday = day.toDateString() === new Date().toDateString()
                     const isSelected = day.toDateString() === selectedDate.toDateString()
                     const isCurrentMonth = day.getMonth() === selectedDate.getMonth()
-                    
+                    const colIndex = index % 7
+
                     return (
-                      <div 
-                        key={index} 
-                        className={`border p-1 min-h-[100px] cursor-pointer transition-colors ${
-                          !isCurrentMonth 
-                            ? 'bg-gray-50 text-gray-400 border-gray-100' 
-                            : isSelected 
-                              ? 'border-blue-500 bg-blue-50' 
-                              : isToday 
-                                ? 'border-blue-300 bg-blue-50/50' 
-                                : 'border-gray-200 bg-white hover:bg-gray-50'
+                      <div
+                        key={index}
+                        className={`border-t border-[#EDF1F5] ${colIndex > 0 ? 'border-l' : ''} p-2 min-h-[100px] cursor-pointer transition-colors ${
+                          !isCurrentMonth
+                            ? 'bg-white'
+                            : isSelected
+                              ? 'bg-blue-50'
+                              : 'bg-white hover:bg-gray-50'
                         }`}
                         onClick={() => handleDayClick(day)}
                       >
-                        <div className={`text-md text-right right-3 font-medium mb-1 ${
-                          isSelected && isCurrentMonth ? 'text-blue-900 font-semibold' : ''
-                        }`}>{day.getDate()}</div>
+                        <div className="mb-1">
+                          {isToday && isCurrentMonth ? (
+                            <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#2970FF] text-white text-sm font-medium">
+                              {day.getDate()}
+                            </span>
+                          ) : (
+                            <span className={`text-sm font-medium ${!isCurrentMonth ? 'text-[#A6A9AC]' : isSelected ? 'text-blue-900' : 'text-[#2D2E2E]'}`}>
+                              {day.getDate()}
+                            </span>
+                          )}
+                        </div>
                         {showJobs.map((job, jobIndex) => {
                           // Parse scheduled_date correctly - it's stored as string "YYYY-MM-DD HH:MM:SS"
                           let jobTime;
@@ -6505,9 +6581,10 @@ const ServiceFlowSchedule = () => {
                           const isRecurring = job.is_recurring === true || job.is_recurring === 'true' || job.is_recurring === 1 || job.is_recurring === '1'
                           
                           return (
-                            <div 
-                              key={jobIndex} 
-                              className="bg-white rounded-md p-1.5 mb-1 text-xs cursor-pointer hover:shadow-md transition-all border border-gray-200 relative"
+                            <div
+                              key={jobIndex}
+                              className="schedule-card bg-white p-1.5 mb-1 text-xs cursor-pointer hover:shadow-md transition-all relative"
+                              style={{ borderRadius: '4px', border: `0.5px solid ${assignedTeamMembers[0]?.color || '#2970FF'}` }}
                               onClick={(e) => {
                                 e.stopPropagation()
                                 handleJobClick(job)
@@ -9480,18 +9557,41 @@ const ServiceFlowSchedule = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                     Tip
-                    <span className="text-xs text-gray-400 font-normal ml-1">(goes to payroll, not revenue)</span>
+                    <span className="text-xs text-gray-400 font-normal ml-1">
+                      ({tipSettings.tipCalculationMode === 'automatic' ? 'auto-calculated' : 'manual'} — goes to payroll, not revenue)
+                    </span>
                   </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={paymentFormData.tipAmount}
-                    onChange={(e) => setPaymentFormData(prev => ({ ...prev, tipAmount: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="0.00"
-                    style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
-                  />
+                  {tipSettings.tipCalculationMode === 'automatic' ? (
+                    (() => {
+                      const paidAmount = parseFloat(paymentFormData.amount) || 0
+                      const totalDue = parseFloat(selectedJobDetails?.total ?? selectedJobDetails?.total_amount ?? selectedJobDetails?.price) || 0
+                      const alreadyPaid = parseFloat(selectedJobDetails?.total_paid_amount || 0)
+                      const remaining = Math.max(0, totalDue - alreadyPaid)
+                      const feePercent = tipSettings.paymentTypeFees?.[paymentFormData.paymentMethod] || 0
+                      const fee = paidAmount * (feePercent / 100)
+                      const autoTip = Math.max(0, paidAmount - remaining - fee)
+                      return (
+                        <div>
+                          <div className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-700 text-sm" style={{ fontFamily: 'Montserrat' }}>
+                            ${autoTip.toFixed(2)}
+                            {feePercent > 0 && <span className="text-xs text-gray-400 ml-2">(fee: {feePercent}% = ${fee.toFixed(2)})</span>}
+                          </div>
+                          <input type="hidden" value={autoTip.toFixed(2)} />
+                        </div>
+                      )
+                    })()
+                  ) : (
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={paymentFormData.tipAmount}
+                      onChange={(e) => setPaymentFormData(prev => ({ ...prev, tipAmount: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="0.00"
+                      style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
+                    />
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>Payment Date</label>

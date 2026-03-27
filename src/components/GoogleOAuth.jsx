@@ -137,7 +137,7 @@ const GoogleOAuth = ({ onSuccess, onError, buttonText = 'signin_with' }) => {
         {isLoading && (
           <div className="mt-2 flex items-center justify-center">
             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-            <span className="ml-2 text-sm text-gray-600">Signing in...</span>
+            <span className="ml-2 text-sm text-[var(--sf-text-secondary)]">Signing in...</span>
           </div>
         )}
       </div>

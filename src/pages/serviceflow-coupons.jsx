@@ -117,7 +117,7 @@ const ServiceFlowCoupons = () => {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen bg-[var(--sf-bg-page)] overflow-hidden">
       {/* Main Sidebar */}
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} activePage="coupons" />
 
@@ -126,23 +126,23 @@ const ServiceFlowCoupons = () => {
         {/* Mobile Header */}
 
         {/* Desktop Header */}
-        <div className="hidden lg:flex bg-white border-b border-gray-200 px-6 py-4 items-center justify-between">
-          <h1 className="text-2xl font-semibold text-gray-900">Coupons</h1>
+        <div className="hidden lg:flex bg-white border-b border-[var(--sf-border-light)] px-6 py-4 items-center justify-between">
+          <h1 className="text-2xl font-semibold text-[var(--sf-text-primary)]">Coupons</h1>
           <button
             onClick={() => navigate("/coupons/create")}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+            className="bg-[var(--sf-blue-500)] text-white px-4 py-2 rounded-lg font-medium hover:bg-[var(--sf-blue-600)] transition-colors"
           >
             Create Coupon
           </button>
         </div>
 
         {/* Mobile Header Content */}
-        <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-4">
+        <div className="lg:hidden bg-white border-b border-[var(--sf-border-light)] px-4 py-4">
           <div className="flex items-center justify-between">
-            <h1 className="text-xl font-semibold text-gray-900">Coupons</h1>
+            <h1 className="text-xl font-semibold text-[var(--sf-text-primary)]">Coupons</h1>
             <button
               onClick={() => navigate("/coupons/create")}
-              className="bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+              className="bg-[var(--sf-blue-500)] text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-[var(--sf-blue-600)] transition-colors"
             >
               Create Coupon
             </button>
@@ -154,30 +154,30 @@ const ServiceFlowCoupons = () => {
           {loading ? (
             <div className="flex items-center justify-center h-full">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-              <span className="ml-2 text-gray-600">Loading coupons...</span>
+              <span className="ml-2 text-[var(--sf-text-secondary)]">Loading coupons...</span>
             </div>
           ) : error ? (
             <div className="text-center py-8">
               <div className="text-red-600 mb-4">{error}</div>
               <button 
                 onClick={loadCoupons}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+                className="bg-[var(--sf-blue-500)] text-white px-4 py-2 rounded-lg hover:bg-[var(--sf-blue-600)]"
               >
                 Try Again
               </button>
             </div>
           ) : coupons.length === 0 ? (
             <div className="text-center py-8">
-              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <Tag className="w-8 h-8 text-gray-400" />
+              <div className="w-16 h-16 bg-[var(--sf-bg-page)] rounded-full flex items-center justify-center mx-auto mb-6">
+                <Tag className="w-8 h-8 text-[var(--sf-text-muted)]" />
               </div>
-              <h3 className="text-2xl font-semibold text-gray-900 mb-4">Create your first coupon</h3>
-              <p className="text-gray-600 mb-8 leading-relaxed">
+              <h3 className="text-2xl font-semibold text-[var(--sf-text-primary)] mb-4">Create your first coupon</h3>
+              <p className="text-[var(--sf-text-secondary)] mb-8 leading-relaxed">
                 Boost sales and reward your loyal customers with shareable coupon codes.
               </p>
               <button 
                 onClick={() => navigate("/coupons/create")}
-                className="bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                className="bg-[var(--sf-blue-500)] text-white px-6 py-3 rounded-lg font-medium hover:bg-[var(--sf-blue-600)] transition-colors"
               >
                 Create Coupon
               </button>
@@ -185,19 +185,19 @@ const ServiceFlowCoupons = () => {
           ) : (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-medium text-gray-900">
+                <h2 className="text-lg font-medium text-[var(--sf-text-primary)]">
                   {coupons.length} coupon{coupons.length !== 1 ? 's' : ''}
                 </h2>
               </div>
               
               <div className="grid gap-4">
                 {coupons.map((coupon) => (
-                  <div key={coupon.id} className="bg-white rounded-lg border border-gray-200 p-6">
+                  <div key={coupon.id} className="bg-white rounded-lg border border-[var(--sf-border-light)] p-6">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center space-x-3 mb-3">
                           <div className="flex items-center space-x-2">
-                            <span className="text-lg font-semibold text-gray-900">{coupon.code}</span>
+                            <span className="text-lg font-semibold text-[var(--sf-text-primary)]">{coupon.code}</span>
                             {isActive(coupon) ? (
                               <CheckCircle className="w-5 h-5 text-green-500" />
                             ) : (
@@ -215,31 +215,31 @@ const ServiceFlowCoupons = () => {
                         
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                           <div>
-                            <span className="text-sm font-medium text-gray-500">Discount</span>
-                            <p className="text-lg font-semibold text-gray-900">
+                            <span className="text-sm font-medium text-[var(--sf-text-muted)]">Discount</span>
+                            <p className="text-lg font-semibold text-[var(--sf-text-primary)]">
                               {formatDiscount(coupon.discount_type, coupon.discount_amount)}
                             </p>
                           </div>
                           
                           <div>
-                            <span className="text-sm font-medium text-gray-500">Applies to</span>
-                            <p className="text-sm text-gray-900">
+                            <span className="text-sm font-medium text-[var(--sf-text-muted)]">Applies to</span>
+                            <p className="text-sm text-[var(--sf-text-primary)]">
                               {coupon.application_type === 'all' ? 'All services' : 'Specific services'}
                             </p>
                           </div>
                           
                           <div>
-                            <span className="text-sm font-medium text-gray-500">Usage</span>
-                            <p className="text-sm text-gray-900">
+                            <span className="text-sm font-medium text-[var(--sf-text-muted)]">Usage</span>
+                            <p className="text-sm text-[var(--sf-text-primary)]">
                               {coupon.current_uses || 0} used
                               {coupon.limit_total_uses && coupon.total_uses_limit && (
-                                <span className="text-gray-500"> / {coupon.total_uses_limit}</span>
+                                <span className="text-[var(--sf-text-muted)]"> / {coupon.total_uses_limit}</span>
                               )}
                             </p>
                           </div>
                         </div>
                         
-                        <div className="flex items-center space-x-4 text-sm text-gray-500">
+                        <div className="flex items-center space-x-4 text-sm text-[var(--sf-text-muted)]">
                           {coupon.expiration_date && (
                             <div className="flex items-center space-x-1">
                               <Calendar className="w-4 h-4" />
@@ -262,7 +262,7 @@ const ServiceFlowCoupons = () => {
                       <div className="flex items-center space-x-2 ml-4">
                         <button
                           onClick={() => copyToClipboard(coupon.code)}
-                          className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                          className="p-2 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] transition-colors"
                           title="Copy code"
                         >
                           {copiedCode === coupon.code ? (
@@ -273,14 +273,14 @@ const ServiceFlowCoupons = () => {
                         </button>
                         <button
                           onClick={() => navigate(`/coupons/edit/${coupon.id}`)}
-                          className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
+                          className="p-2 text-[var(--sf-text-muted)] hover:text-[var(--sf-blue-500)] transition-colors"
                           title="Edit coupon"
                         >
                           <Edit className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => deleteCoupon(coupon.id)}
-                          className="p-2 text-gray-400 hover:text-red-600 transition-colors"
+                          className="p-2 text-[var(--sf-text-muted)] hover:text-red-600 transition-colors"
                           title="Delete coupon"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -299,14 +299,14 @@ const ServiceFlowCoupons = () => {
       {deleteConfirm.show && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Delete Coupon</h3>
-            <p className="text-gray-600 mb-6">
+            <h3 className="text-lg font-semibold text-[var(--sf-text-primary)] mb-4">Delete Coupon</h3>
+            <p className="text-[var(--sf-text-secondary)] mb-6">
               Are you sure you want to delete this coupon? This action cannot be undone.
             </p>
             <div className="flex space-x-3">
               <button
                 onClick={cancelDelete}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                className="flex-1 px-4 py-2 border border-[var(--sf-border-light)] rounded-lg text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-page)]"
               >
                 Cancel
               </button>

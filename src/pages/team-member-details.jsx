@@ -832,14 +832,14 @@ const TeamMemberDetails = () => {
   const getDayColor = (day) => {
     const colors = {
       sunday: 'bg-red-50 border-red-200',
-      monday: 'bg-blue-50 border-blue-200',
+      monday: 'bg-[var(--sf-blue-50)] border-blue-200',
       tuesday: 'bg-green-50 border-green-200',
       wednesday: 'bg-yellow-50 border-yellow-200',
       thursday: 'bg-purple-50 border-purple-200',
       friday: 'bg-pink-50 border-pink-200',
       saturday: 'bg-indigo-50 border-indigo-200'
     }
-    return colors[day.toLowerCase()] || 'bg-gray-50 border-gray-200'
+    return colors[day.toLowerCase()] || 'bg-[var(--sf-bg-page)] border-[var(--sf-border-light)]'
   }
 
   const handleSaveSettings = async (newSettings) => {
@@ -980,12 +980,12 @@ const TeamMemberDetails = () => {
 
   if (loading) {
     return (
-      <div className="flex h-screen bg-gray-50">
+      <div className="flex h-screen bg-[var(--sf-bg-page)]">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <div className="flex-1 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading team member details...</p>
+          <p className="text-[var(--sf-text-secondary)]">Loading team member details...</p>
           </div>
         </div>
       </div>
@@ -994,7 +994,7 @@ const TeamMemberDetails = () => {
 
   if (error) {
     return (
-      <div className="flex h-screen bg-gray-50">
+      <div className="flex h-screen bg-[var(--sf-bg-page)]">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <div className="flex-1 flex items-center justify-center">
         <div className="text-center">
@@ -1002,7 +1002,7 @@ const TeamMemberDetails = () => {
             <p className="text-red-600 mb-4">{error}</p>
           <button 
             onClick={() => navigate('/team')}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)]"
           >
             Back to Team
           </button>
@@ -1014,15 +1014,15 @@ const TeamMemberDetails = () => {
 
   if (!teamMember) {
     return (
-      <div className="flex h-screen bg-gray-50">
+      <div className="flex h-screen bg-[var(--sf-bg-page)]">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <div className="flex-1 flex items-center justify-center">
         <div className="text-center">
-            <XCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-600 mb-4">Team member not found</p>
+            <XCircle className="w-12 h-12 text-[var(--sf-text-muted)] mx-auto mb-4" />
+            <p className="text-[var(--sf-text-secondary)] mb-4">Team member not found</p>
           <button 
             onClick={() => navigate('/team')}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)]"
           >
             Back to Team
           </button>
@@ -1034,7 +1034,7 @@ const TeamMemberDetails = () => {
 
   return (
     <>
-   <div className="flex h-screen bg-gray-50 overflow-hidden">
+   <div className="flex h-screen bg-[var(--sf-bg-page)] overflow-hidden">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
         {/* Notification Display */}
@@ -1055,17 +1055,17 @@ const TeamMemberDetails = () => {
           </div>
         )}
 
-        <div className="flex-1 overflow-auto bg-gray-50">
+        <div className="flex-1 overflow-auto bg-[var(--sf-bg-page)]">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
 
             {/* Main Content */}
             <div className="space-y-4 sm:space-y-6">
               {/* Profile Header Card with Map */}
-              <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
+              <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-4 sm:p-6">
                 <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-4 sm:mb-6 gap-4">
             <button
               onClick={() => navigate("/team")}
-                    className="flex items-center text-sm text-gray-600 hover:text-gray-900 self-start"
+                    className="flex items-center text-sm text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] self-start"
             >
               <ChevronLeft className="w-4 h-4 mr-1" />
               All Team Members
@@ -1073,7 +1073,7 @@ const TeamMemberDetails = () => {
                   <div className="flex items-center space-x-2 sm:space-x-3">
                     <button
                       onClick={handleEditMember}
-                      className="px-3 sm:px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                      className="px-3 sm:px-4 py-2 text-sm font-medium text-[var(--sf-text-primary)] bg-white border border-[var(--sf-border-light)] rounded-md hover:bg-[var(--sf-bg-page)]"
                     >
                       Edit
                     </button>
@@ -1115,10 +1115,10 @@ const TeamMemberDetails = () => {
                     )}
                     </div>
                   <div className="flex-1 w-full text-center sm:text-left">
-                    <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 mb-1">
+                    <h1 className="text-xl sm:text-2xl font-semibold text-[var(--sf-text-primary)] mb-1">
                         {decodeHtmlEntities(teamMember?.first_name || 'First')} {decodeHtmlEntities(teamMember?.last_name || 'Last')}
                       </h1>
-                    <p className="text-sm text-gray-600 mb-4 sm:mb-6">
+                    <p className="text-sm text-[var(--sf-text-secondary)] mb-4 sm:mb-6">
                         {teamMember?.role === 'account owner' || teamMember?.role === 'owner' || teamMember?.role === 'admin' 
                           ? 'Account Owner' 
                           : teamMember?.role === 'manager' 
@@ -1143,7 +1143,7 @@ const TeamMemberDetails = () => {
                       <span className="text-sm font-medium">{notification.message}</span>
                       <button
                         onClick={() => setNotification(null)}
-                        className="text-gray-400 hover:text-gray-600"
+                        className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
                       >
                         <X className="w-4 h-4" />
                       </button>
@@ -1154,26 +1154,26 @@ const TeamMemberDetails = () => {
                 {/* Contact Information Grid */}
                 <div className="mt-4 sm:mt-6 space-y-3">
                   <div className="flex flex-col sm:grid sm:grid-cols-3 gap-2 sm:gap-4 py-2">
-                    <span className="text-sm text-gray-600 font-medium sm:font-normal">Mobile phone</span>
-                    <span className="text-sm text-gray-900 sm:col-span-2">{teamMember?.phone || 'No phone number'}</span>
+                    <span className="text-sm text-[var(--sf-text-secondary)] font-medium sm:font-normal">Mobile phone</span>
+                    <span className="text-sm text-[var(--sf-text-primary)] sm:col-span-2">{teamMember?.phone || 'No phone number'}</span>
                   </div>
                   <div className="flex flex-col sm:grid sm:grid-cols-3 gap-2 sm:gap-4 py-2">
-                    <span className="text-sm text-gray-600 font-medium sm:font-normal">Email</span>
-                    <span className="text-sm text-gray-900 sm:col-span-2 break-words">{teamMember?.email || 'No email'}</span>
+                    <span className="text-sm text-[var(--sf-text-secondary)] font-medium sm:font-normal">Email</span>
+                    <span className="text-sm text-[var(--sf-text-primary)] sm:col-span-2 break-words">{teamMember?.email || 'No email'}</span>
                   </div>
                   <div className="flex flex-col sm:grid sm:grid-cols-3 gap-2 sm:gap-4 py-2">
-                    <span className="text-sm text-gray-600 font-medium sm:font-normal">Address</span>
-                    <span className="text-sm text-gray-900 sm:col-span-2">
+                    <span className="text-sm text-[var(--sf-text-secondary)] font-medium sm:font-normal">Address</span>
+                    <span className="text-sm text-[var(--sf-text-primary)] sm:col-span-2">
                       {teamMember?.location || 'No address on file'}
                       {teamMember?.city && teamMember?.state && (
-                        <span className="block text-gray-600">
+                        <span className="block text-[var(--sf-text-secondary)]">
                           {teamMember.city}, {teamMember.state} {teamMember.zip_code}
                         </span>
                       )}
                     </span>
                   </div>
                   <div className="flex flex-col sm:grid sm:grid-cols-3 gap-2 sm:gap-4 py-2">
-                    <span className="text-sm text-gray-600 font-medium sm:font-normal">Status</span>
+                    <span className="text-sm text-[var(--sf-text-secondary)] font-medium sm:font-normal">Status</span>
                     <span className="text-sm sm:col-span-2">
                       {(() => {
                         const status = teamMember?.status?.toLowerCase() || 'unknown';
@@ -1194,7 +1194,7 @@ const TeamMemberDetails = () => {
                               <button
                                 onClick={handleResendInvite}
                                 disabled={resendingInvite}
-                                className="text-xs text-blue-600 hover:text-blue-700 font-medium underline disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="text-xs text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] font-medium underline disabled:opacity-50 disabled:cursor-not-allowed"
                               >
                                 {resendingInvite ? 'Sending...' : 'Resend Invite'}
                               </button>
@@ -1202,14 +1202,14 @@ const TeamMemberDetails = () => {
                           );
                         } else if (status === 'inactive' || status === 'deactivated') {
                           return (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)]">
                               <XCircle className="w-3 h-3 mr-1" />
                               Inactive
                             </span>
                           );
                         } else {
                           return (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)]">
                               {teamMember?.status || 'Unknown'}
                             </span>
                           );
@@ -1218,8 +1218,8 @@ const TeamMemberDetails = () => {
                     </span>
                   </div>
                   <div className="flex flex-col sm:grid sm:grid-cols-3 gap-2 sm:gap-4 py-2">
-                    <span className="text-sm text-gray-600 font-medium sm:font-normal">Role</span>
-                    <span className="text-sm text-gray-900 sm:col-span-2">
+                    <span className="text-sm text-[var(--sf-text-secondary)] font-medium sm:font-normal">Role</span>
+                    <span className="text-sm text-[var(--sf-text-primary)] sm:col-span-2">
                       {teamMember?.role === 'account owner' || teamMember?.role === 'owner' || teamMember?.role === 'admin' 
                         ? 'Account Owner' 
                         : teamMember?.role === 'manager' 
@@ -1232,36 +1232,36 @@ const TeamMemberDetails = () => {
                     </span>
                   </div>
                   {/* Payment Settings Section */}
-                  <div className="border-t border-gray-200 pt-4 mt-4">
-                    <h3 className="text-sm font-semibold text-gray-900 mb-3">Payment Settings</h3>
+                  <div className="border-t border-[var(--sf-border-light)] pt-4 mt-4">
+                    <h3 className="text-sm font-semibold text-[var(--sf-text-primary)] mb-3">Payment Settings</h3>
                     
                   <div className="flex flex-col sm:grid sm:grid-cols-3 gap-2 sm:gap-4 py-2">
-                    <span className="text-sm text-gray-600 font-medium sm:font-normal">Hourly Rate</span>
-                    <span className="text-sm text-gray-900 sm:col-span-2">
+                    <span className="text-sm text-[var(--sf-text-secondary)] font-medium sm:font-normal">Hourly Rate</span>
+                    <span className="text-sm text-[var(--sf-text-primary)] sm:col-span-2">
                       {editing ? (
                         <div className="flex items-center space-x-2">
-                          <span className="text-gray-500">$</span>
+                          <span className="text-[var(--sf-text-muted)]">$</span>
                           <input
                             type="number"
                             step="0.01"
                             min="0"
                             value={editFormData.hourly_rate !== undefined ? editFormData.hourly_rate : (teamMember?.hourly_rate || '')}
                             onChange={(e) => setEditFormData({ ...editFormData, hourly_rate: parseFloat(e.target.value) || null })}
-                            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="flex-1 border border-[var(--sf-border-light)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)]"
                             placeholder="0.00"
                           />
-                            <span className="text-xs text-gray-400">/hour</span>
+                            <span className="text-xs text-[var(--sf-text-muted)]">/hour</span>
                         </div>
                       ) : (
                           <div className="flex items-center space-x-2">
                             {teamMember?.hourly_rate 
                               ? <span>${parseFloat(teamMember.hourly_rate).toFixed(2)}/hour</span>
-                              : <span className="text-gray-400 italic">Not set</span>
+                              : <span className="text-[var(--sf-text-muted)] italic">Not set</span>
                             }
                             {!editing && (
                               <button
                                 onClick={handleEditMember}
-                                className="text-xs text-blue-600 hover:text-blue-700 underline ml-2"
+                                className="text-xs text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] underline ml-2"
                               >
                                 Set hourly rate
                               </button>
@@ -1272,8 +1272,8 @@ const TeamMemberDetails = () => {
                     </div>
                     
                     <div className="flex flex-col sm:grid sm:grid-cols-3 gap-2 sm:gap-4 py-2">
-                      <span className="text-sm text-gray-600 font-medium sm:font-normal">Commission %</span>
-                      <span className="text-sm text-gray-900 sm:col-span-2">
+                      <span className="text-sm text-[var(--sf-text-secondary)] font-medium sm:font-normal">Commission %</span>
+                      <span className="text-sm text-[var(--sf-text-primary)] sm:col-span-2">
                         {editing ? (
                           <div className="flex items-center space-x-2">
                             <input
@@ -1283,22 +1283,22 @@ const TeamMemberDetails = () => {
                               max="100"
                               value={editFormData.commission_percentage !== undefined ? editFormData.commission_percentage : (teamMember?.commission_percentage || '')}
                               onChange={(e) => setEditFormData({ ...editFormData, commission_percentage: parseFloat(e.target.value) || null })}
-                              className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              className="flex-1 border border-[var(--sf-border-light)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)]"
                               placeholder="0.00"
                             />
-                            <span className="text-gray-500">%</span>
-                            <span className="text-xs text-gray-400">of job revenue</span>
+                            <span className="text-[var(--sf-text-muted)]">%</span>
+                            <span className="text-xs text-[var(--sf-text-muted)]">of job revenue</span>
                           </div>
                         ) : (
                           <div className="flex items-center space-x-2">
                             {teamMember?.commission_percentage 
                               ? <span>{parseFloat(teamMember.commission_percentage).toFixed(2)}% of job revenue</span>
-                              : <span className="text-gray-400 italic">Not set</span>
+                              : <span className="text-[var(--sf-text-muted)] italic">Not set</span>
                             }
                             {!editing && (
                               <button
                                 onClick={handleEditMember}
-                                className="text-xs text-blue-600 hover:text-blue-700 underline ml-2"
+                                className="text-xs text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] underline ml-2"
                               >
                                 Set commission
                               </button>
@@ -1310,8 +1310,8 @@ const TeamMemberDetails = () => {
                     
                     {(teamMember?.hourly_rate || teamMember?.commission_percentage) && (
                       <div className="flex flex-col sm:grid sm:grid-cols-3 gap-2 sm:gap-4 py-2">
-                        <span className="text-sm text-gray-600 font-medium sm:font-normal">Payment Method</span>
-                        <span className="text-sm text-gray-900 sm:col-span-2">
+                        <span className="text-sm text-[var(--sf-text-secondary)] font-medium sm:font-normal">Payment Method</span>
+                        <span className="text-sm text-[var(--sf-text-primary)] sm:col-span-2">
                           {teamMember?.hourly_rate && teamMember?.commission_percentage 
                             ? 'Hybrid (Hourly + Commission)'
                             : teamMember?.hourly_rate 
@@ -1331,8 +1331,8 @@ const TeamMemberDetails = () => {
                     )}
                   </div>
                   <div className="flex flex-col sm:grid sm:grid-cols-3 gap-2 sm:gap-4 py-2">
-                    <span className="text-sm text-gray-600 font-medium sm:font-normal">Role permissions</span>
-                    <div className="text-sm text-gray-900 sm:col-span-2 space-y-1">
+                    <span className="text-sm text-[var(--sf-text-secondary)] font-medium sm:font-normal">Role permissions</span>
+                    <div className="text-sm text-[var(--sf-text-primary)] sm:col-span-2 space-y-1">
                       {(() => {
                         // Define permission list based on role
                         const permissions = [];
@@ -1383,10 +1383,10 @@ const TeamMemberDetails = () => {
                   {/* Right Column: Map */}
                   <div className="lg:col-span-1">
                     {!staffLocationsEnabled ? (
-                      <div className="h-64 sm:h-80 bg-gray-100 rounded-lg flex items-center justify-center border border-gray-200">
+                      <div className="h-64 sm:h-80 bg-[var(--sf-bg-page)] rounded-lg flex items-center justify-center border border-[var(--sf-border-light)]">
                         <div className="text-center px-4">
                           <MapPin className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-                          <p className="text-sm text-gray-500">Staff locations are currently hidden</p>
+                          <p className="text-sm text-[var(--sf-text-muted)]">Staff locations are currently hidden</p>
                         </div>
                       </div>
                     ) : (() => {
@@ -1407,10 +1407,10 @@ const TeamMemberDetails = () => {
 
                       if (!currentAddress) {
                         return (
-                          <div className="h-64 sm:h-80 bg-gray-100 rounded-lg flex items-center justify-center border border-gray-200">
+                          <div className="h-64 sm:h-80 bg-[var(--sf-bg-page)] rounded-lg flex items-center justify-center border border-[var(--sf-border-light)]">
                             <div className="text-center">
                               <MapPin className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-                              <p className="text-sm text-gray-500">No address on file</p>
+                              <p className="text-sm text-[var(--sf-text-muted)]">No address on file</p>
                             </div>
                           </div>
                         )
@@ -1422,7 +1422,7 @@ const TeamMemberDetails = () => {
 
                       return (
                         <div className="relative">
-                          <div className="h-64 sm:h-80 rounded-lg overflow-hidden border border-gray-200">
+                          <div className="h-64 sm:h-80 rounded-lg overflow-hidden border border-[var(--sf-border-light)]">
                             <iframe
                               title="Team Member Location"
                               width="100%"
@@ -1442,23 +1442,23 @@ const TeamMemberDetails = () => {
               </div>
 
               {/* Availability Card */}
-              <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
+              <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-4 sm:p-6">
                 <div className="mb-4 sm:mb-6">
-                  <h3 className="text-base font-semibold text-gray-900 mb-2">Availability</h3>
-                  <p className="text-sm text-gray-600">
+                  <h3 className="text-base font-semibold text-[var(--sf-text-primary)] mb-2">Availability</h3>
+                  <p className="text-sm text-[var(--sf-text-secondary)]">
                     Manage this team member's availability by editing their regular work hours, or by adding custom availability for specific dates.{' '}
-                    <a href="#" className="text-blue-600 hover:text-blue-700">Learn more...</a>
+                    <a href="#" className="text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)]">Learn more...</a>
                   </p>
                 </div>
 
                 {/* Allow Edit Availability Toggle */}
-                <div className="flex items-center justify-between py-4 border-b border-gray-200">
+                <div className="flex items-center justify-between py-4 border-b border-[var(--sf-border-light)]">
                   <div className="flex items-start space-x-3">
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900">
+                      <p className="text-sm font-medium text-[var(--sf-text-primary)]">
                         Allow this team member to edit their availability
                       </p>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-[var(--sf-text-secondary)]">
                         The team member's role allows them to edit their availability
                       </p>
                     </div>
@@ -1487,24 +1487,24 @@ const TeamMemberDetails = () => {
                   <div>
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center space-x-2">
-                        <Calendar className="w-4 h-4 text-gray-400" />
-                        <h4 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Recurring Hours</h4>
-                        <HelpCircle className="w-4 h-4 text-gray-400" />
+                        <Calendar className="w-4 h-4 text-[var(--sf-text-muted)]" />
+                        <h4 className="text-xs font-semibold text-[var(--sf-text-primary)] uppercase tracking-wide">Recurring Hours</h4>
+                        <HelpCircle className="w-4 h-4 text-[var(--sf-text-muted)]" />
                       </div>
                     </div>
 
-                    <div className="space-y-0 border border-gray-200 rounded-lg overflow-hidden">
+                    <div className="space-y-0 border border-[var(--sf-border-light)] rounded-lg overflow-hidden">
                       {Object.entries(workingHours).map(([day, { available, hours, timeSlots = [] }], index) => (
                         <div
                           key={day}
                           className={`flex items-center justify-between px-4 py-3 ${
-                            index !== Object.entries(workingHours).length - 1 ? 'border-b border-gray-200' : ''
+                            index !== Object.entries(workingHours).length - 1 ? 'border-b border-[var(--sf-border-light)]' : ''
                           }`}
                         >
-                          <span className="text-sm font-medium text-gray-700 capitalize w-24">
+                          <span className="text-sm font-medium text-[var(--sf-text-primary)] capitalize w-24">
                             {day}
                           </span>
-                          <span className="text-sm text-gray-600 text-right flex-1">
+                          <span className="text-sm text-[var(--sf-text-secondary)] text-right flex-1">
                             {available ? (
                               timeSlots.length > 0 ? (
                                 timeSlots.map((slot, slotIndex) => (
@@ -1526,7 +1526,7 @@ const TeamMemberDetails = () => {
 
                     <button
                       onClick={() => setShowWeeklyHoursModal(true)}
-                      className="mt-3 text-sm text-blue-600 hover:text-blue-700 font-medium"
+                      className="mt-3 text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] font-medium"
                     >
                       Edit Hours
                     </button>
@@ -1536,22 +1536,22 @@ const TeamMemberDetails = () => {
                   <div>
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center space-x-2">
-                        <Calendar className="w-4 h-4 text-gray-400" />
-                        <h4 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Custom Availability</h4>
-                        <HelpCircle className="w-4 h-4 text-gray-400" />
+                        <Calendar className="w-4 h-4 text-[var(--sf-text-muted)]" />
+                        <h4 className="text-xs font-semibold text-[var(--sf-text-primary)] uppercase tracking-wide">Custom Availability</h4>
+                        <HelpCircle className="w-4 h-4 text-[var(--sf-text-muted)]" />
                       </div>
                     </div>
 
                     {customAvailability.length === 0 ? (
-                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                      <div className="border-2 border-dashed border-[var(--sf-border-light)] rounded-lg p-8 text-center">
                         <Calendar className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-                        <h5 className="text-sm font-medium text-gray-900 mb-1">Add a date override</h5>
-                        <p className="text-xs text-gray-600 mb-4">
+                        <h5 className="text-sm font-medium text-[var(--sf-text-primary)] mb-1">Add a date override</h5>
+                        <p className="text-xs text-[var(--sf-text-secondary)] mb-4">
                           Customize this provider's availability for specific dates.
                         </p>
                         <button
                           onClick={() => setShowAvailabilityModal(true)}
-                          className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                          className="text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] font-medium"
                         >
                           Add Date Override
                         </button>
@@ -1561,15 +1561,15 @@ const TeamMemberDetails = () => {
                         {customAvailability.map((item) => (
                           <div
                             key={item.id}
-                            className="flex items-center justify-between p-3 border border-gray-200 rounded-lg"
+                            className="flex items-center justify-between p-3 border border-[var(--sf-border-light)] rounded-lg"
                           >
                             <div>
-                              <p className="text-sm font-medium text-gray-900">{item.date}</p>
-                              <p className="text-xs text-gray-600">{item.hours}</p>
+                              <p className="text-sm font-medium text-[var(--sf-text-primary)]">{item.date}</p>
+                              <p className="text-xs text-[var(--sf-text-secondary)]">{item.hours}</p>
                             </div>
                             <button
                               onClick={() => handleRemoveCustomAvailability(item.id)}
-                              className="text-gray-400 hover:text-red-600"
+                              className="text-[var(--sf-text-muted)] hover:text-red-600"
                             >
                               <X className="w-4 h-4" />
                             </button>
@@ -1577,7 +1577,7 @@ const TeamMemberDetails = () => {
                         ))}
                         <button
                           onClick={() => setShowAvailabilityModal(true)}
-                          className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                          className="text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] font-medium"
                         >
                           Add Date Override
                         </button>
@@ -1587,20 +1587,20 @@ const TeamMemberDetails = () => {
                 </div>
               </div>
               {/* Notifications Card */}
-              <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
+              <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-4 sm:p-6">
                 <div className="mb-4 sm:mb-6">
-                  <h3 className="text-base font-semibold text-gray-900 mb-2">Notifications</h3>
-                  <p className="text-sm text-gray-600">
+                  <h3 className="text-base font-semibold text-[var(--sf-text-primary)] mb-2">Notifications</h3>
+                  <p className="text-sm text-[var(--sf-text-secondary)]">
                     How should this service provider be notified when they are assigned to a job?
                   </p>
                 </div>
 
-                <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                <div className="bg-[var(--sf-bg-page)] rounded-lg p-4 mb-4">
                   <div className="flex items-start space-x-3">
-                    <Bell className="w-5 h-5 text-gray-400 mt-0.5" />
+                    <Bell className="w-5 h-5 text-[var(--sf-text-muted)] mt-0.5" />
                     <div>
-                      <p className="text-sm font-medium text-gray-900">Push Alerts: Not enabled</p>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm font-medium text-[var(--sf-text-primary)]">Push Alerts: Not enabled</p>
+                      <p className="text-sm text-[var(--sf-text-secondary)]">
                         This service provider has not enabled push notifications.
                       </p>
                     </div>
@@ -1608,10 +1608,10 @@ const TeamMemberDetails = () => {
                 </div>
 
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between py-3 border-b border-gray-200">
+                  <div className="flex items-center justify-between py-3 border-b border-[var(--sf-border-light)]">
                     <div className="flex items-center space-x-3">
-                      <Mail className="w-5 h-5 text-gray-400" />
-                      <span className="text-sm text-gray-700">Emails</span>
+                      <Mail className="w-5 h-5 text-[var(--sf-text-muted)]" />
+                      <span className="text-sm text-[var(--sf-text-primary)]">Emails</span>
                     </div>
                     <button
                       className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 ${
@@ -1633,8 +1633,8 @@ const TeamMemberDetails = () => {
 
                   <div className="flex items-center justify-between py-3">
                     <div className="flex items-center space-x-3">
-                      <MessageSquare className="w-5 h-5 text-gray-400" />
-                      <span className="text-sm text-gray-700">Text Messages (SMS)</span>
+                      <MessageSquare className="w-5 h-5 text-[var(--sf-text-muted)]" />
+                      <span className="text-sm text-[var(--sf-text-primary)]">Text Messages (SMS)</span>
                     </div>
                     <button
                       className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 ${
@@ -1657,10 +1657,10 @@ const TeamMemberDetails = () => {
               </div>
 
               {/* Skills Card */}
-              <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
+              <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-4 sm:p-6">
                 <div className="mb-4 sm:mb-6">
-                  <h3 className="text-base font-semibold text-gray-900 mb-2">Skills</h3>
-                  <p className="text-sm text-gray-600">
+                  <h3 className="text-base font-semibold text-[var(--sf-text-primary)] mb-2">Skills</h3>
+                  <p className="text-sm text-[var(--sf-text-secondary)]">
                     Skill tags can be used to make sure workers meet specific job-related skills, certifications, equipment and licensing requirements.
                   </p>
                 </div>
@@ -1669,17 +1669,17 @@ const TeamMemberDetails = () => {
                   <svg className="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
                   </svg>
-                  <p className="text-sm text-gray-600 mb-4">This provider doesn't have any skill tags yet</p>
-                  <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+                  <p className="text-sm text-[var(--sf-text-secondary)] mb-4">This provider doesn't have any skill tags yet</p>
+                  <button className="text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] font-medium">
                     Edit Skills
                   </button>
                 </div>
               </div>
 
               {/* Calendar Color Card */}
-              <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
+              <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-4 sm:p-6">
                 <div className="mb-4 sm:mb-6">
-                  <h3 className="text-base font-semibold text-gray-900">Calendar color</h3>
+                  <h3 className="text-base font-semibold text-[var(--sf-text-primary)]">Calendar color</h3>
                 </div>
 
                 <div className="flex flex-wrap gap-2">
@@ -1710,7 +1710,7 @@ const TeamMemberDetails = () => {
                       className={`w-10 h-10 rounded-lg border-2 transition-all ${
                         (editFormData.color || teamMember?.color) === color
                           ? 'border-gray-900 scale-110'
-                          : 'border-gray-200 hover:border-gray-400'
+                          : 'border-[var(--sf-border-light)] hover:border-gray-400'
                       }`}
                       style={{ backgroundColor: color }}
                     />
@@ -1720,7 +1720,7 @@ const TeamMemberDetails = () => {
 
               {/* Delete Button - Hidden for account owner */}
               {!(teamMember?.role === 'account owner' || teamMember?.role === 'owner' || teamMember?.role === 'admin') && (
-                <div className="bg-white rounded-lg border border-gray-200 p-6">
+                <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-6">
                   <button
                     onClick={handleDeleteMember}
                     className="w-full px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
@@ -1739,10 +1739,10 @@ const TeamMemberDetails = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg p-6 max-w-md w-full">
                       <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Add Territory</h3>
+              <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">Add Territory</h3>
                         <button 
                 onClick={() => setShowAddTerritoryModal(false)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
                         >
                 <X className="w-5 h-5" />
                         </button>
@@ -1750,11 +1750,11 @@ const TeamMemberDetails = () => {
                       
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Select Territory</label>
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Select Territory</label>
                 {territoryLoading ? (
                   <div className="text-center py-4">
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
-                    <p className="text-sm text-gray-500 mt-2">Loading territories...</p>
+                    <p className="text-sm text-[var(--sf-text-muted)] mt-2">Loading territories...</p>
                                 </div>
                 ) : (
                   <select
@@ -1765,7 +1765,7 @@ const TeamMemberDetails = () => {
                         e.target.value = "" // Reset dropdown
                       }
                     }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                    className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-md text-sm focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] outline-none"
                     defaultValue=""
                   >
                     <option value="" disabled>Select a territory</option>
@@ -1786,7 +1786,7 @@ const TeamMemberDetails = () => {
             <div className="flex space-x-3 mt-6">
               <button
                 onClick={() => setShowAddTerritoryModal(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                className="flex-1 px-4 py-2 border border-[var(--sf-border-light)] rounded-md text-sm font-medium text-[var(--sf-text-primary)] bg-white hover:bg-[var(--sf-bg-page)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--sf-blue-500)]"
               >
                 Cancel
               </button>
@@ -1800,11 +1800,11 @@ const TeamMemberDetails = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col">
             {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">Edit Weekly Hours</h3>
+            <div className="flex items-center justify-between p-6 border-b border-[var(--sf-border-light)]">
+              <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">Edit Weekly Hours</h3>
               <button
                 onClick={() => setShowWeeklyHoursModal(false)}
-                className="text-gray-400 hover:text-gray-600 p-1"
+                className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] p-1"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1814,7 +1814,7 @@ const TeamMemberDetails = () => {
             <div className="flex-1 overflow-y-auto p-6">
               <div className="space-y-4">
                 {Object.entries(workingHours).map(([day, { available, hours, timeSlots = [] }], index) => (
-                  <div key={day} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                  <div key={day} className="flex items-center justify-between p-4 bg-[var(--sf-bg-page)] rounded-lg">
                     <div className="flex items-center space-x-3">
                       <input
                         type="checkbox"
@@ -1823,9 +1823,9 @@ const TeamMemberDetails = () => {
                           ...prev,
                           [day]: { ...prev[day], available: e.target.checked }
                         }))}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        className="h-4 w-4 text-[var(--sf-blue-500)] focus:ring-[var(--sf-blue-500)] border-[var(--sf-border-light)] rounded"
                       />
-                      <span className="text-sm font-medium text-gray-900 capitalize min-w-[80px]">
+                      <span className="text-sm font-medium text-[var(--sf-text-primary)] capitalize min-w-[80px]">
                         {day}
                       </span>
                     </div>
@@ -1836,7 +1836,7 @@ const TeamMemberDetails = () => {
                           {timeSlots.length === 0 && (
                             <button
                               onClick={() => handleAddTimeSlot(day)}
-                              className="text-xs text-blue-600 hover:text-blue-700 font-medium self-start"
+                              className="text-xs text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] font-medium self-start"
                             >
                               + Add Hours
                             </button>
@@ -1846,17 +1846,17 @@ const TeamMemberDetails = () => {
                               <select
                                 value={slot.start}
                                 onChange={(e) => handleTimeSlotChange(day, slot.id, 'start', e.target.value)}
-                                className="text-sm border border-gray-300 rounded px-2 py-1 min-w-0 flex-shrink-0"
+                                className="text-sm border border-[var(--sf-border-light)] rounded px-2 py-1 min-w-0 flex-shrink-0"
                               >
                                 {timeOptions.map(time => (
                                   <option key={time} value={time}>{time}</option>
                                 ))}
                               </select>
-                              <span className="text-sm text-gray-500 flex-shrink-0">to</span>
+                              <span className="text-sm text-[var(--sf-text-muted)] flex-shrink-0">to</span>
                               <select
                                 value={slot.end}
                                 onChange={(e) => handleTimeSlotChange(day, slot.id, 'end', e.target.value)}
-                                className="text-sm border border-gray-300 rounded px-2 py-1 min-w-0 flex-shrink-0"
+                                className="text-sm border border-[var(--sf-border-light)] rounded px-2 py-1 min-w-0 flex-shrink-0"
                               >
                                 {timeOptions.map(time => (
                                   <option key={time} value={time}>{time}</option>
@@ -1871,7 +1871,7 @@ const TeamMemberDetails = () => {
                               {slotIndex === timeSlots.length - 1 && (
                                 <button
                                   onClick={() => handleAddTimeSlot(day)}
-                                  className="text-xs text-blue-600 hover:text-blue-700 font-medium flex-shrink-0"
+                                  className="text-xs text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] font-medium flex-shrink-0"
                                 >
                                   + Add More
                                 </button>
@@ -1883,7 +1883,7 @@ const TeamMemberDetails = () => {
                               onClick={() => handleSaveDay(day)}
                               disabled={savingDay === day}
                               className={`text-xs font-medium px-2 py-1 rounded self-start ${savingDay === day
-                                  ? 'text-gray-400 cursor-not-allowed bg-gray-100'
+                                  ? 'text-[var(--sf-text-muted)] cursor-not-allowed bg-[var(--sf-bg-page)]'
                                   : 'text-green-600 hover:text-green-700 bg-green-50 hover:bg-green-100'
                                 }`}
                             >
@@ -1893,7 +1893,7 @@ const TeamMemberDetails = () => {
                         </div>
                       </div>
                     ) : (
-                      <div className="text-sm text-gray-500">
+                      <div className="text-sm text-[var(--sf-text-muted)]">
                         Unavailable
                       </div>
                     )}
@@ -1903,17 +1903,17 @@ const TeamMemberDetails = () => {
             </div>
 
             {/* Modal Footer */}
-            <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">
+            <div className="flex items-center justify-end space-x-3 p-6 border-t border-[var(--sf-border-light)]">
               <button
                 onClick={() => setShowWeeklyHoursModal(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                className="px-4 py-2 text-sm font-medium text-[var(--sf-text-primary)] bg-white border border-[var(--sf-border-light)] rounded-md hover:bg-[var(--sf-bg-page)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--sf-blue-500)]"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSaveHours}
                 disabled={savingHours}
-                className={`px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 ${savingHours ? 'cursor-not-allowed' : ''}`}
+                className={`px-4 py-2 text-sm font-medium text-white bg-[var(--sf-blue-500)] border border-transparent rounded-md hover:bg-[var(--sf-blue-600)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--sf-blue-500)] disabled:opacity-50 ${savingHours ? 'cursor-not-allowed' : ''}`}
               >
                 {savingHours ? 'Saving...' : 'Save'}
               </button>
@@ -1935,12 +1935,12 @@ const TeamMemberDetails = () => {
           <div className="bg-white rounded-lg w-full max-w-md">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold text-gray-900">
+                <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">
                   Deactivate Team Member
                 </h3>
                 <button
                   onClick={() => setShowDeleteModal(false)}
-                  className="text-gray-400 hover:text-gray-500 hover:bg-gray-100 p-1 rounded-full transition-colors"
+                  className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-muted)] hover:bg-[var(--sf-bg-hover)] p-1 rounded-full transition-colors"
                   disabled={deleting}
                 >
                   <X className="w-5 h-5" />
@@ -1958,7 +1958,7 @@ const TeamMemberDetails = () => {
               )}
 
               <div className="mb-6">
-                <p className="text-gray-600">
+                <p className="text-[var(--sf-text-secondary)]">
                   Are you sure you want to deactivate <strong>{decodeHtmlEntities(teamMember?.first_name || '')} {decodeHtmlEntities(teamMember?.last_name || '')}</strong>? 
                   They will no longer be able to access the system, but their data will be preserved and they can be reactivated later.
                 </p>
@@ -1971,7 +1971,7 @@ const TeamMemberDetails = () => {
                     setDeleteError("") // Clear error when closing modal
                   }}
                   disabled={deleting}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                  className="flex-1 px-4 py-2 border border-[var(--sf-border-light)] rounded-md text-sm font-medium text-[var(--sf-text-primary)] bg-white hover:bg-[var(--sf-bg-page)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--sf-blue-500)] disabled:opacity-50"
                 >
                   Cancel
                 </button>

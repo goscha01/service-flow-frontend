@@ -169,9 +169,9 @@ const TerritoryDetails = () => {
         return 'bg-green-100 text-green-700'
       case 'inactive':
       case 'disabled':
-        return 'bg-gray-100 text-gray-700'
+        return 'bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)]'
       default:
-        return 'bg-gray-100 text-gray-700'
+        return 'bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)]'
     }
   }
 
@@ -194,10 +194,10 @@ const TerritoryDetails = () => {
 
   if (loading) {
     return (
-      <div className="flex h-screen bg-gray-50">
+      <div className="flex h-screen bg-[var(--sf-bg-page)]">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <div className="flex-1 flex items-center justify-center">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+          <Loader2 className="w-8 h-8 animate-spin text-[var(--sf-blue-500)]" />
         </div>
       </div>
     )
@@ -205,15 +205,15 @@ const TerritoryDetails = () => {
 
   if (error || !territory) {
     return (
-      <div className="flex h-screen bg-gray-50">
+      <div className="flex h-screen bg-[var(--sf-bg-page)]">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <AlertCircle className="mx-auto h-12 w-12 text-red-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">{error || "Territory not found"}</h3>
+            <h3 className="mt-2 text-sm font-medium text-[var(--sf-text-primary)]">{error || "Territory not found"}</h3>
             <button
               onClick={() => navigate('/territories')}
-              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="mt-4 px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)]"
             >
               Back to Territories
             </button>
@@ -237,7 +237,7 @@ const TerritoryDetails = () => {
   const territoryStatus = territory.status || 'active'
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-[var(--sf-bg-page)]">
       <div className="flex-1 flex flex-col overflow-hidden ">
 
         <main className="flex-1 overflow-y-auto">
@@ -245,14 +245,14 @@ const TerritoryDetails = () => {
             {/* Back button and title */}
             <button
               onClick={() => navigate('/territories')}
-              className="flex items-center text-gray-600 hover:text-gray-800 mb-4"
+              className="flex items-center text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] mb-4"
             >
               <ChevronLeft className="w-4 h-4 mr-1" />
               <span className="text-sm">All Territories</span>
             </button>
 
             <div className="flex items-center gap-3 mb-8">
-              <h1 className="text-3xl font-bold text-gray-900">{territory.name}</h1>
+              <h1 className="text-3xl font-bold text-[var(--sf-text-primary)]">{territory.name}</h1>
               <span className={`px-2.5 py-1 text-xs font-medium rounded ${getStatusColor(territoryStatus)}`}>
                 {getStatusLabel(territoryStatus)}
               </span>
@@ -272,12 +272,12 @@ const TerritoryDetails = () => {
               <div className="lg:col-span-2 space-y-6">
 
                 {/* Territory Details */}
-                <div className="bg-white border border-gray-200 rounded-lg p-6">
+                <div className="bg-white border border-[var(--sf-border-light)] rounded-lg p-6">
                   <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-base font-semibold text-gray-900">Territory Details</h2>
+                    <h2 className="text-base font-semibold text-[var(--sf-text-primary)]">Territory Details</h2>
                     <button 
                       onClick={handleEditTerritory}
-                      className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                      className="text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] font-medium"
                     >
                       Edit
                     </button>
@@ -285,28 +285,28 @@ const TerritoryDetails = () => {
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="flex items-start gap-3">
-                      <Building2 className="w-5 h-5 text-gray-400 mt-0.5" />
+                      <Building2 className="w-5 h-5 text-[var(--sf-text-muted)] mt-0.5" />
                       <div>
-                        <div className="text-xs font-medium text-gray-500 mb-1">Name</div>
-                        <div className="text-sm text-gray-900">{territory.name}</div>
+                        <div className="text-xs font-medium text-[var(--sf-text-muted)] mb-1">Name</div>
+                        <div className="text-sm text-[var(--sf-text-primary)]">{territory.name}</div>
                       </div>
                     </div>
 
                     <div className="flex items-start gap-3">
-                      <MapPin className="w-5 h-5 text-gray-400 mt-0.5" />
+                      <MapPin className="w-5 h-5 text-[var(--sf-text-muted)] mt-0.5" />
                       <div>
-                        <div className="text-xs font-medium text-gray-500 mb-1">Location</div>
-                        <div className="text-sm text-gray-900">
+                        <div className="text-xs font-medium text-[var(--sf-text-muted)] mb-1">Location</div>
+                        <div className="text-sm text-[var(--sf-text-primary)]">
                           {territory.address || territory.location || `${territory.name}, ${territory.city || ''}`}
                         </div>
                       </div>
                     </div>
 
                     <div className="flex items-start gap-3">
-                      <Globe className="w-5 h-5 text-gray-400 mt-0.5" />
+                      <Globe className="w-5 h-5 text-[var(--sf-text-muted)] mt-0.5" />
                       <div>
-                        <div className="text-xs font-medium text-gray-500 mb-1">Timezone</div>
-                        <div className="text-sm text-gray-900">
+                        <div className="text-xs font-medium text-[var(--sf-text-muted)] mb-1">Timezone</div>
+                        <div className="text-sm text-[var(--sf-text-primary)]">
                           {territory.timezone || 'America/New_York'}
                         </div>
                       </div>
@@ -315,47 +315,47 @@ const TerritoryDetails = () => {
                 </div>
 
                 {/* Operating Hours */}
-                <div className="bg-white border border-gray-200 rounded-lg p-6">
-                  <h2 className="text-base font-semibold text-gray-900 mb-2">Operating Hours</h2>
-                  <p className="text-sm text-gray-600 mb-6">
+                <div className="bg-white border border-[var(--sf-border-light)] rounded-lg p-6">
+                  <h2 className="text-base font-semibold text-[var(--sf-text-primary)] mb-2">Operating Hours</h2>
+                  <p className="text-sm text-[var(--sf-text-secondary)] mb-6">
                     Manage this territory's availability by editing the weekly hours, or by adding special hours for specific dates.
                   </p>
 
-                  <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-200">
+                  <div className="flex items-center justify-between mb-6 pb-4 border-b border-[var(--sf-border-light)]">
                     <div className="flex items-center gap-2">
-                      <Repeat className="w-4 h-4 text-gray-500" />
-                      <span className="text-sm font-medium text-gray-700">RECURRING HOURS</span>
+                      <Repeat className="w-4 h-4 text-[var(--sf-text-muted)]" />
+                      <span className="text-sm font-medium text-[var(--sf-text-primary)]">RECURRING HOURS</span>
                     </div>
-                    <button onClick={handleEditTerritory} className="text-sm text-blue-600 hover:text-blue-700 font-medium">Edit</button>
+                    <button onClick={handleEditTerritory} className="text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] font-medium">Edit</button>
                   </div>
 
                   <div className="space-y-3 mb-6">
                     {weekSchedule.map((schedule, idx) => (
                       <div key={idx} className="flex items-center justify-between py-2">
-                        <span className="text-sm text-gray-700 w-28">{schedule.day}</span>
-                        <span className={`text-sm ${schedule.hours === 'Unavailable' ? 'text-gray-400' : 'text-gray-900'}`}>
+                        <span className="text-sm text-[var(--sf-text-primary)] w-28">{schedule.day}</span>
+                        <span className={`text-sm ${schedule.hours === 'Unavailable' ? 'text-[var(--sf-text-muted)]' : 'text-[var(--sf-text-primary)]'}`}>
                           {schedule.hours}
                         </span>
                       </div>
                     ))}
                   </div>
 
-                  <div className="border-t border-gray-200 pt-6">
+                  <div className="border-t border-[var(--sf-border-light)] pt-6">
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-gray-500" />
-                        <span className="text-sm font-medium text-gray-700">DATE OVERRIDES</span>
+                        <Clock className="w-4 h-4 text-[var(--sf-text-muted)]" />
+                        <span className="text-sm font-medium text-[var(--sf-text-primary)]">DATE OVERRIDES</span>
                       </div>
-                      <button className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 font-medium">
+                      <button className="flex items-center gap-1 text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] font-medium">
                         <Plus className="w-4 h-4" />
                         <span>Add</span>
                       </button>
                     </div>
 
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex flex-col items-center justify-center text-center">
-                      <Calendar className="w-8 h-8 text-blue-600 mb-2" />
-                      <div className="text-sm font-medium text-gray-900 mb-1">Add a date override</div>
-                      <div className="text-xs text-gray-600">
+                    <div className="bg-[var(--sf-blue-50)] border border-blue-200 rounded-lg p-4 flex flex-col items-center justify-center text-center">
+                      <Calendar className="w-8 h-8 text-[var(--sf-blue-500)] mb-2" />
+                      <div className="text-sm font-medium text-[var(--sf-text-primary)] mb-1">Add a date override</div>
+                      <div className="text-xs text-[var(--sf-text-secondary)]">
                         Update your hours to reflect schedule changes and closures during holidays, vacations, and other special dates.
                       </div>
                     </div>
@@ -363,22 +363,22 @@ const TerritoryDetails = () => {
                 </div>
 
                 {/* Services */}
-                <div className="bg-white border border-gray-200 rounded-lg p-6">
-                  <h2 className="text-base font-semibold text-gray-900 mb-2">Services</h2>
-                  <p className="text-sm text-gray-600 mb-6">
+                <div className="bg-white border border-[var(--sf-border-light)] rounded-lg p-6">
+                  <h2 className="text-base font-semibold text-[var(--sf-text-primary)] mb-2">Services</h2>
+                  <p className="text-sm text-[var(--sf-text-secondary)] mb-6">
                     Manage which services are offered to customers in this territory. You can also adjust pricing for services in this territory.
                   </p>
 
-                  <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-200">
+                  <div className="flex items-center justify-between mb-4 pb-4 border-b border-[var(--sf-border-light)]">
                     <div className="flex items-center gap-2">
-                      <FileText className="w-4 h-4 text-gray-500" />
-                      <span className="text-sm font-medium text-gray-700">SERVICES OFFERED</span>
+                      <FileText className="w-4 h-4 text-[var(--sf-text-muted)]" />
+                      <span className="text-sm font-medium text-[var(--sf-text-primary)]">SERVICES OFFERED</span>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="text-sm text-gray-700">
+                      <span className="text-sm text-[var(--sf-text-primary)]">
                         {territoryServices.length > 0 ? `${territoryServices.length} Service${territoryServices.length !== 1 ? 's' : ''}` : 'All Services'}
                       </span>
-                      <button onClick={handleEditTerritory} className="text-sm text-blue-600 hover:text-blue-700 font-medium">Edit</button>
+                      <button onClick={handleEditTerritory} className="text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] font-medium">Edit</button>
                     </div>
                   </div>
 
@@ -386,11 +386,11 @@ const TerritoryDetails = () => {
                     {territoryServices.length > 0 ? (
                       territoryServices.map((service) => (
                         <div key={service.id || service.service_id} className="py-2">
-                          <span className="text-sm text-gray-900">
+                          <span className="text-sm text-[var(--sf-text-primary)]">
                             {service.name || service.service_name || 'Unnamed Service'}
                           </span>
                           {service.price && (
-                            <span className="ml-2 text-sm text-gray-500">
+                            <span className="ml-2 text-sm text-[var(--sf-text-muted)]">
                               - ${parseFloat(service.price).toFixed(2)}
                             </span>
                           )}
@@ -399,25 +399,25 @@ const TerritoryDetails = () => {
                     ) : services.length > 0 ? (
                       services.map((service) => (
                         <div key={service.id} className="py-2">
-                          <span className="text-sm text-gray-900">{service.name || 'Unnamed Service'}</span>
+                          <span className="text-sm text-[var(--sf-text-primary)]">{service.name || 'Unnamed Service'}</span>
                         </div>
                       ))
                     ) : (
-                      <div className="py-3 text-sm text-gray-500">No services available</div>
+                      <div className="py-3 text-sm text-[var(--sf-text-muted)]">No services available</div>
                     )}
                   </div>
                 </div>
 
                 {/* Service Providers */}
-                <div className="bg-white border border-gray-200 rounded-lg p-6">
+                <div className="bg-white border border-[var(--sf-border-light)] rounded-lg p-6">
                   <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-2">
-                      <h2 className="text-base font-semibold text-gray-900">Service Providers</h2>
-                      <span className="text-sm text-gray-500">{teamMembers.length}</span>
+                      <h2 className="text-base font-semibold text-[var(--sf-text-primary)]">Service Providers</h2>
+                      <span className="text-sm text-[var(--sf-text-muted)]">{teamMembers.length}</span>
                     </div>
                     <button 
                       onClick={() => setShowTeamMembersModal(true)} 
-                      className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                      className="text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] font-medium"
                     >
                       Manage
                     </button>
@@ -426,17 +426,17 @@ const TerritoryDetails = () => {
                   {teamMembers.length > 0 ? (
                     <div className="space-y-3">
                       {teamMembers.map((member) => (
-                        <div key={member.id || member.team_member_id} className="flex items-center gap-3 p-4 border border-gray-200 rounded-lg">
+                        <div key={member.id || member.team_member_id} className="flex items-center gap-3 p-4 border border-[var(--sf-border-light)] rounded-lg">
                           <div className="w-10 h-10 bg-red-100 rounded flex items-center justify-center flex-shrink-0">
                             <span className="text-sm font-medium text-red-600">
                               {getInitials(member.first_name, member.last_name)}
                             </span>
                           </div>
                           <div className="flex-1">
-                            <div className="text-sm font-medium text-gray-900 mb-0.5">
+                            <div className="text-sm font-medium text-[var(--sf-text-primary)] mb-0.5">
                               {member.first_name} {member.last_name}
                             </div>
-                            <div className="text-xs text-gray-500">
+                            <div className="text-xs text-[var(--sf-text-muted)]">
                               {member.status === 'active' ? 'Activated' : member.status || 'Pending'} • 
                               {member.email || 'No email'}
                             </div>
@@ -445,12 +445,12 @@ const TerritoryDetails = () => {
                       ))}
                     </div>
                   ) : (
-                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
-                      <UsersIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                      <p className="text-sm text-gray-600">No service providers assigned to this territory</p>
+                    <div className="bg-[var(--sf-bg-page)] border border-[var(--sf-border-light)] rounded-lg p-4 text-center">
+                      <UsersIcon className="w-8 h-8 text-[var(--sf-text-muted)] mx-auto mb-2" />
+                      <p className="text-sm text-[var(--sf-text-secondary)]">No service providers assigned to this territory</p>
                       <button 
                         onClick={() => setShowTeamMembersModal(true)}
-                        className="mt-3 text-sm text-blue-600 hover:text-blue-700 font-medium"
+                        className="mt-3 text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] font-medium"
                       >
                         Add Service Provider
                       </button>
@@ -459,26 +459,26 @@ const TerritoryDetails = () => {
                 </div>
 
                 {/* Staff Booking Notifications */}
-                <div className="bg-white border border-gray-200 rounded-lg p-6">
-                  <h2 className="text-base font-semibold text-gray-900 mb-2">Staff Booking Notifications</h2>
-                  <p className="text-sm text-gray-600 mb-6">
+                <div className="bg-white border border-[var(--sf-border-light)] rounded-lg p-6">
+                  <h2 className="text-base font-semibold text-[var(--sf-text-primary)] mb-2">Staff Booking Notifications</h2>
+                  <p className="text-sm text-[var(--sf-text-secondary)] mb-6">
                     You can choose staff members to be notified via email whenever a job in this territory is booked, rescheduled, or canceled.
                   </p>
 
                   {territory.notification_recipients && territory.notification_recipients.length > 0 ? (
                     <div className="space-y-2 mb-4">
                       {territory.notification_recipients.map((recipient, idx) => (
-                        <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                          <span className="text-sm text-gray-900">{recipient.email || recipient}</span>
+                        <div key={idx} className="flex items-center justify-between p-3 bg-[var(--sf-bg-page)] rounded-lg">
+                          <span className="text-sm text-[var(--sf-text-primary)]">{recipient.email || recipient}</span>
                           <button className="text-sm text-red-600 hover:text-red-700">Remove</button>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-sm text-gray-500 mb-4">No notification recipients configured</p>
+                    <p className="text-sm text-[var(--sf-text-muted)] mb-4">No notification recipients configured</p>
                   )}
 
-                  <button className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                  <button className="px-4 py-2 border border-[var(--sf-border-light)] rounded-lg text-sm font-medium text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-page)] flex items-center gap-2">
                     <Plus className="w-4 h-4" />
                     Add Recipient
                   </button>
@@ -489,46 +489,46 @@ const TerritoryDetails = () => {
               <div className="space-y-6">
 
                 {/* Map */}
-                <div className="bg-white border border-gray-200 rounded-lg overflow-hidden h-[500px] lg:h-[600px]">
+                <div className="bg-white border border-[var(--sf-border-light)] rounded-lg overflow-hidden h-[500px] lg:h-[600px]">
                   <TerritoryMap territory={territory} height="100%" showDetails={false} compact={true} className="h-full rounded-none border-0" />
                 </div>
 
                 {/* Service Area */}
-                <div className="bg-white border border-gray-200 rounded-lg p-5">
+                <div className="bg-white border border-[var(--sf-border-light)] rounded-lg p-5">
                   <div className="flex items-center gap-2 mb-3">
-                    <Navigation className="w-4 h-4 text-gray-500" />
-                    <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Service Area</span>
+                    <Navigation className="w-4 h-4 text-[var(--sf-text-muted)]" />
+                    <span className="text-xs font-semibold text-[var(--sf-text-primary)] uppercase tracking-wide">Service Area</span>
                   </div>
                   <div className="flex items-center justify-between mb-3">
-                    <span className="text-lg font-semibold text-gray-900">
+                    <span className="text-lg font-semibold text-[var(--sf-text-primary)]">
                       {territory.radius_miles || territory.radius || 'N/A'} mile radius
                     </span>
-                    <button onClick={handleEditTerritory} className="text-sm text-blue-600 hover:text-blue-700 font-medium">Edit</button>
+                    <button onClick={handleEditTerritory} className="text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] font-medium">Edit</button>
                   </div>
-                  <p className="text-xs text-gray-600 leading-relaxed">
+                  <p className="text-xs text-[var(--sf-text-secondary)] leading-relaxed">
                     The geographic area this territory services. Service areas are used for determining which territories to route jobs to based on location.
                   </p>
                 </div>
 
                 {/* Service Delivery Modes */}
-                <div className="bg-white border border-gray-200 rounded-lg p-5">
+                <div className="bg-white border border-[var(--sf-border-light)] rounded-lg p-5">
                   <div className="flex items-center gap-2 mb-4">
-                    <FileText className="w-4 h-4 text-gray-500" />
-                    <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Service Delivery Modes</span>
+                    <FileText className="w-4 h-4 text-[var(--sf-text-muted)]" />
+                    <span className="text-xs font-semibold text-[var(--sf-text-primary)] uppercase tracking-wide">Service Delivery Modes</span>
                   </div>
                   <div className="flex items-center justify-end mb-4">
-                    <button onClick={handleEditTerritory} className="text-sm text-blue-600 hover:text-blue-700 font-medium">Edit</button>
+                    <button onClick={handleEditTerritory} className="text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] font-medium">Edit</button>
                   </div>
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
-                      <Check className={`w-4 h-4 ${territory.mobile_service !== false ? 'text-green-600' : 'text-gray-400'}`} />
-                      <span className={`text-sm ${territory.mobile_service !== false ? 'text-gray-900' : 'text-gray-500'}`}>
+                      <Check className={`w-4 h-4 ${territory.mobile_service !== false ? 'text-green-600' : 'text-[var(--sf-text-muted)]'}`} />
+                      <span className={`text-sm ${territory.mobile_service !== false ? 'text-[var(--sf-text-primary)]' : 'text-[var(--sf-text-muted)]'}`}>
                         Mobile Service
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <X className={`w-4 h-4 ${territory.at_business_location === true ? 'text-green-600' : 'text-gray-400'}`} />
-                      <span className={`text-sm ${territory.at_business_location === true ? 'text-gray-900' : 'text-gray-500'}`}>
+                      <X className={`w-4 h-4 ${territory.at_business_location === true ? 'text-green-600' : 'text-[var(--sf-text-muted)]'}`} />
+                      <span className={`text-sm ${territory.at_business_location === true ? 'text-[var(--sf-text-primary)]' : 'text-[var(--sf-text-muted)]'}`}>
                         At Business Location
                       </span>
                     </div>
@@ -536,85 +536,85 @@ const TerritoryDetails = () => {
                 </div>
 
                 {/* Online Booking */}
-                <div className="bg-white border border-gray-200 rounded-lg p-5">
+                <div className="bg-white border border-[var(--sf-border-light)] rounded-lg p-5">
                   <div className="flex items-center gap-2 mb-3">
-                    <Calendar className="w-4 h-4 text-gray-500" />
-                    <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Online Booking</span>
+                    <Calendar className="w-4 h-4 text-[var(--sf-text-muted)]" />
+                    <span className="text-xs font-semibold text-[var(--sf-text-primary)] uppercase tracking-wide">Online Booking</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div className="flex items-center gap-1.5">
                         <div className={`w-2 h-2 rounded-full ${isOnlineBookingEnabled ? 'bg-green-500' : 'bg-gray-400'}`}></div>
-                        <span className="text-sm font-medium text-gray-900">{isOnlineBookingEnabled ? 'ON' : 'OFF'}</span>
+                        <span className="text-sm font-medium text-[var(--sf-text-primary)]">{isOnlineBookingEnabled ? 'ON' : 'OFF'}</span>
                       </div>
                     </div>
-                    <button onClick={handleEditTerritory} className="text-sm text-blue-600 hover:text-blue-700 font-medium">Edit</button>
+                    <button onClick={handleEditTerritory} className="text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] font-medium">Edit</button>
                   </div>
                 </div>
 
                 {/* Scheduling Rules */}
-                <div className="bg-white border border-gray-200 rounded-lg p-5">
+                <div className="bg-white border border-[var(--sf-border-light)] rounded-lg p-5">
                   <div className="flex items-center justify-between mb-4">
-                    <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Scheduling Rules</span>
-                    <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">Manage</button>
+                    <span className="text-xs font-semibold text-[var(--sf-text-primary)] uppercase tracking-wide">Scheduling Rules</span>
+                    <button className="text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] font-medium">Manage</button>
                   </div>
 
                   <div className="space-y-4">
                     <div className="flex items-start gap-3">
-                      <Clock className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                      <Clock className="w-4 h-4 text-[var(--sf-text-muted)] mt-0.5 flex-shrink-0" />
                       <div>
-                        <div className="text-xs text-gray-500 mb-0.5">Availability Calculation Method</div>
-                        <div className="text-sm text-gray-900">
+                        <div className="text-xs text-[var(--sf-text-muted)] mb-0.5">Availability Calculation Method</div>
+                        <div className="text-sm text-[var(--sf-text-primary)]">
                           {territory.availability_method || 'Use service provider availability'}
                         </div>
                       </div>
                     </div>
 
                     <div className="flex items-start gap-3">
-                      <Calendar className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                      <Calendar className="w-4 h-4 text-[var(--sf-text-muted)] mt-0.5 flex-shrink-0" />
                       <div>
-                        <div className="text-xs text-gray-500 mb-0.5">Timeslot Format</div>
-                        <div className="text-sm text-gray-900">
+                        <div className="text-xs text-[var(--sf-text-muted)] mb-0.5">Timeslot Format</div>
+                        <div className="text-sm text-[var(--sf-text-primary)]">
                           {territory.timeslot_format || '2 hour arrival windows'}
                         </div>
                       </div>
                     </div>
 
                     <div className="flex items-start gap-3">
-                      <Navigation className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                      <Navigation className="w-4 h-4 text-[var(--sf-text-muted)] mt-0.5 flex-shrink-0" />
                       <div>
-                        <div className="text-xs text-gray-500 mb-0.5">Max. Distance Between Jobs</div>
-                        <div className="text-sm text-gray-900">
+                        <div className="text-xs text-[var(--sf-text-muted)] mb-0.5">Max. Distance Between Jobs</div>
+                        <div className="text-sm text-[var(--sf-text-primary)]">
                           {territory.max_distance_between_jobs ? `${territory.max_distance_between_jobs} miles` : 'No limit'}
                         </div>
                       </div>
                     </div>
 
                     <div className="flex items-start gap-3">
-                      <FileText className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                      <FileText className="w-4 h-4 text-[var(--sf-text-muted)] mt-0.5 flex-shrink-0" />
                       <div>
-                        <div className="text-xs text-gray-500 mb-0.5">Min. Booking Notice</div>
-                        <div className="text-sm text-gray-900">
+                        <div className="text-xs text-[var(--sf-text-muted)] mb-0.5">Min. Booking Notice</div>
+                        <div className="text-sm text-[var(--sf-text-primary)]">
                           {territory.min_booking_notice || 'None'}
                         </div>
                       </div>
                     </div>
 
                     <div className="flex items-start gap-3">
-                      <FileText className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                      <FileText className="w-4 h-4 text-[var(--sf-text-muted)] mt-0.5 flex-shrink-0" />
                       <div>
-                        <div className="text-xs text-gray-500 mb-0.5">Max. Booking Notice</div>
-                        <div className="text-sm text-gray-900">
+                        <div className="text-xs text-[var(--sf-text-muted)] mb-0.5">Max. Booking Notice</div>
+                        <div className="text-sm text-[var(--sf-text-primary)]">
                           {territory.max_booking_notice || 'None'}
                         </div>
                       </div>
                     </div>
 
                     <div className="flex items-start gap-3">
-                      <UsersIcon className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                      <UsersIcon className="w-4 h-4 text-[var(--sf-text-muted)] mt-0.5 flex-shrink-0" />
                       <div>
-                        <div className="text-xs text-gray-500 mb-0.5">Max. Jobs Per Day</div>
-                        <div className="text-sm text-gray-900">
+                        <div className="text-xs text-[var(--sf-text-muted)] mb-0.5">Max. Jobs Per Day</div>
+                        <div className="text-sm text-[var(--sf-text-primary)]">
                           {territory.max_jobs_per_day ? `${territory.max_jobs_per_day} jobs` : 'No limit'}
                         </div>
                       </div>

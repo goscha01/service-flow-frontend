@@ -123,7 +123,7 @@ const ServiceFlowRecurring = () => {
   }, [recurringBookings]) // Update counts when bookings change
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen bg-[var(--sf-bg-page)] overflow-hidden">
  
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
@@ -131,13 +131,13 @@ const ServiceFlowRecurring = () => {
         <MobileHeader pageTitle="Recurring" />
 
         {/* Desktop Header */}
-        <div className="hidden lg:flex bg-white border-b border-gray-200 px-6 py-4 items-center justify-between">
-          <h1 className="text-2xl font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
+        <div className="hidden lg:flex bg-white border-b border-[var(--sf-border-light)] px-6 py-4 items-center justify-between">
+          <h1 className="text-2xl font-semibold text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
             Recurring Bookings
           </h1>
           <button 
             onClick={handleCreateNew}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center space-x-2"
+            className="bg-[var(--sf-blue-500)] text-white px-4 py-2 rounded-lg font-medium hover:bg-[var(--sf-blue-600)] transition-colors flex items-center space-x-2"
             style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
           >
             <Plus className="w-4 h-4" />
@@ -146,14 +146,14 @@ const ServiceFlowRecurring = () => {
         </div>
 
         {/* Mobile Header Content */}
-        <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-4">
+        <div className="lg:hidden bg-white border-b border-[var(--sf-border-light)] px-4 py-4">
           <div className="flex items-center justify-between">
-            <h1 className="text-xl font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
+            <h1 className="text-xl font-semibold text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
               Recurring Bookings
             </h1>
             <button 
               onClick={handleCreateNew}
-              className="bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors flex items-center space-x-1"
+              className="bg-[var(--sf-blue-500)] text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-[var(--sf-blue-600)] transition-colors flex items-center space-x-1"
               style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
             >
               <Plus className="w-4 h-4" />
@@ -165,7 +165,7 @@ const ServiceFlowRecurring = () => {
       {/* Content Area */}
         <div className="flex-1 overflow-y-auto bg-white">
           {/* Tabs */}
-          <div className="border-b border-gray-200 px-6 pt-4">
+          <div className="border-b border-[var(--sf-border-light)] px-6 pt-4">
             <div className="flex space-x-8">
               <button
                 onClick={() => {
@@ -174,8 +174,8 @@ const ServiceFlowRecurring = () => {
                 }}
                 className={`pb-4 px-1 border-b-2 font-medium text-sm transition-colors ${
                   activeTab === 'active'
-                    ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                    ? 'border-blue-600 text-[var(--sf-blue-500)]'
+                    : 'border-transparent text-[var(--sf-text-muted)] hover:text-[var(--sf-text-primary)]'
                 }`}
                 style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
               >
@@ -188,8 +188,8 @@ const ServiceFlowRecurring = () => {
                 }}
                 className={`pb-4 px-1 border-b-2 font-medium text-sm transition-colors ${
                   activeTab === 'canceled'
-                    ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                    ? 'border-blue-600 text-[var(--sf-blue-500)]'
+                    : 'border-transparent text-[var(--sf-text-muted)] hover:text-[var(--sf-text-primary)]'
                 }`}
                 style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
               >
@@ -206,13 +206,13 @@ const ServiceFlowRecurring = () => {
           ) : paginatedBookings.length === 0 ? (
         <div className="flex-1 flex items-center justify-center p-8">
           <div className="text-center max-w-md">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <RotateCcw className="w-8 h-8 text-gray-400" />
+            <div className="w-16 h-16 bg-[var(--sf-bg-page)] rounded-full flex items-center justify-center mx-auto mb-4">
+              <RotateCcw className="w-8 h-8 text-[var(--sf-text-muted)]" />
             </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                <h3 className="text-xl font-semibold text-[var(--sf-text-primary)] mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                   No {activeTab} recurring bookings
                 </h3>
-                <p className="text-gray-600 mb-6 leading-relaxed" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                <p className="text-[var(--sf-text-secondary)] mb-6 leading-relaxed" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                   {activeTab === 'active' 
                     ? 'Create a recurring booking to get started.'
                     : 'No canceled recurring bookings.'}
@@ -220,7 +220,7 @@ const ServiceFlowRecurring = () => {
                 {activeTab === 'active' && (
                   <button 
                     onClick={handleCreateNew}
-                    className="text-blue-600 hover:text-blue-700 font-medium"
+                    className="text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] font-medium"
                     style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                   >
                     Create New Recurring Booking
@@ -232,56 +232,56 @@ const ServiceFlowRecurring = () => {
             <>
               <div className="overflow-x-auto">
                 <table className="w-full" style={{ fontFamily: 'Montserrat' }}>
-                  <thead className="bg-gray-50 border-b border-gray-200">
+                  <thead className="bg-[var(--sf-bg-page)] border-b border-[var(--sf-border-light)]">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-[var(--sf-text-primary)] uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                         CUSTOMER
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-[var(--sf-text-primary)] uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                         SERVICE
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-[var(--sf-text-primary)] uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                         FREQUENCY
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-[var(--sf-text-primary)] uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                         NEXT JOB
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-[var(--sf-text-primary)] uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                         CREATED
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-[var(--sf-text-primary)] uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                         STATUS
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="bg-white divide-y divide-[var(--sf-border-light)]">
                     {paginatedBookings.map((booking) => (
-                      <tr key={booking.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => navigate(`/job/${booking.jobId}`)}>
+                      <tr key={booking.id} className="hover:bg-[var(--sf-bg-page)] cursor-pointer" onClick={() => navigate(`/job/${booking.jobId}`)}>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                          <div className="text-sm font-medium text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                             {booking.customerName}
                           </div>
-                          <div className="text-sm text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                          <div className="text-sm text-[var(--sf-text-muted)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                             {booking.customerCity}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                          <div className="text-sm text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                             {booking.serviceName}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                          <div className="text-sm text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                             {formatFrequency(booking.frequency, booking.scheduledDate || booking.nextJobDate)}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                          <div className="text-sm text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                             {formatNextJob(booking)}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                          <div className="text-sm text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                             {formatDate(booking.createdDate)}
                           </div>
                         </td>
@@ -302,25 +302,25 @@ const ServiceFlowRecurring = () => {
 
               {/* Pagination */}
               {totalPages > 1 && (
-                <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-                  <div className="text-sm text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                <div className="px-6 py-4 border-t border-[var(--sf-border-light)] flex items-center justify-between">
+                  <div className="text-sm text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                     Showing {startIndex + 1} to {Math.min(endIndex, recurringBookings.length)} of {recurringBookings.length} results
                   </div>
                   <div className="flex items-center space-x-2">
                     <button
                       onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                       disabled={currentPage === 1}
-                      className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="p-2 rounded-lg border border-[var(--sf-border-light)] hover:bg-[var(--sf-bg-page)] disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <ChevronLeft className="w-4 h-4" />
                     </button>
-                    <span className="text-sm text-gray-700 px-2" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                    <span className="text-sm text-[var(--sf-text-primary)] px-2" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                       Page {currentPage} of {totalPages}
                     </span>
                     <button
                       onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                       disabled={currentPage === totalPages}
-                      className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="p-2 rounded-lg border border-[var(--sf-border-light)] hover:bg-[var(--sf-bg-page)] disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <ChevronRight className="w-4 h-4" />
                     </button>

@@ -663,7 +663,7 @@ const JobDetails = () => {
   }, [])
 
   const statusOptions = [
-    { key: 'confirmed', label: 'Mark as En Route', color: 'bg-blue-500' },
+    { key: 'confirmed', label: 'Mark as En Route', color: 'bg-[var(--sf-blue-500)]' },
     { key: 'in_progress', label: 'Mark as In Progress', color: 'bg-orange-500' },
     { key: 'completed', label: 'Mark as Complete', color: 'bg-green-500' }
   ]
@@ -1394,14 +1394,14 @@ const JobDetails = () => {
 
   if (loading || !job) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-[var(--sf-bg-page)]">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <span className="text-gray-500 text-lg">
+          <span className="text-[var(--sf-text-muted)] text-lg">
             {isRetrying ? 'Retrying connection...' : 'Loading job details...'}
           </span>
           {isRetrying && (
-            <p className="text-sm text-gray-400 mt-2">
+            <p className="text-sm text-[var(--sf-text-muted)] mt-2">
               Windows Defender/firewall may be blocking the request. Retrying...
             </p>
           )}
@@ -1411,7 +1411,7 @@ const JobDetails = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-[var(--sf-bg-page)] flex">
       {/* Sidebar */}
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
@@ -1419,11 +1419,11 @@ const JobDetails = () => {
         {/* Mobile Header */}
         
         {/* Header */}
-        <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4">
+        <div className="bg-white border-b border-[var(--sf-border-light)] px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2 sm:space-x-4 min-w-0 flex-1">
               <button
-                className="flex items-center text-blue-600 hover:text-blue-700 flex-shrink-0"
+                className="flex items-center text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] flex-shrink-0"
                 onClick={() => navigate('/jobs')}
               >
                 <ArrowLeft className="w-4 h-4 mr-1" />
@@ -1431,13 +1431,13 @@ const JobDetails = () => {
               </button>
               
               <div className="min-w-0 flex-1">
-                <h1 className="text-lg sm:text-xl font-semibold text-gray-900 truncate">
+                <h1 className="text-lg sm:text-xl font-semibold text-[var(--sf-text-primary)] truncate">
                   {job.service_names && job.service_names.length > 1 
                     ? `${job.service_names.length} Services` 
                     : decodeHtmlEntities(job.service_name || 'Service')
                   } for {job.customer_first_name} {job.customer_last_name}
                 </h1>
-                <p className="text-xs sm:text-sm text-gray-600">Job #{job.id}</p>
+                <p className="text-xs sm:text-sm text-[var(--sf-text-secondary)]">Job #{job.id}</p>
               </div>
             </div>
 
@@ -1445,28 +1445,28 @@ const JobDetails = () => {
               {/* Mobile sidebar toggle */}
               <button
                 onClick={() => setShowMobileSidebar(true)}
-                className="lg:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                className="lg:hidden p-2 rounded-lg hover:bg-[var(--sf-bg-hover)] transition-colors"
               >
-                <Menu className="w-5 h-5 text-gray-600" />
+                <Menu className="w-5 h-5 text-[var(--sf-text-secondary)]" />
               </button>
 
               <div className="hidden sm:flex items-center space-x-2 relative">
-                <span className="text-sm text-gray-600">Territory</span>
-                <div className="flex items-center bg-gray-100 px-2 py-1 rounded cursor-pointer relative"
+                <span className="text-sm text-[var(--sf-text-secondary)]">Territory</span>
+                <div className="flex items-center bg-[var(--sf-bg-page)] px-2 py-1 rounded cursor-pointer relative"
                   onClick={() => setEditingField('territory')}
                 >
-                  <MapPin className="w-3 h-3 text-gray-500 mr-1" />
+                  <MapPin className="w-3 h-3 text-[var(--sf-text-muted)] mr-1" />
                   <span className="text-sm font-medium mr-1">
                     {territories.find(t => t.id === job.territory_id)?.name || 'Unassigned'}
                   </span>
-                  <ChevronDown className="w-3 h-3 text-gray-500" />
+                  <ChevronDown className="w-3 h-3 text-[var(--sf-text-muted)]" />
                 </div>
                 {editingField === 'territory' && (
-                  <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-gray-200 rounded shadow z-50">
+                  <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-[var(--sf-border-light)] rounded shadow z-50">
                     {territories.map(t => (
                       <button
                         key={t.id}
-                        className={`w-full text-left px-4 py-2 hover:bg-gray-100 ${job.territory_id === t.id ? 'font-semibold bg-gray-100' : ''}`}
+                        className={`w-full text-left px-4 py-2 hover:bg-[var(--sf-bg-hover)] ${job.territory_id === t.id ? 'font-semibold bg-[var(--sf-bg-page)]' : ''}`}
                         onClick={() => {
                           handleTerritoryChange(t.id)
                           setEditingField(null)
@@ -1483,9 +1483,9 @@ const JobDetails = () => {
               <div className="relative">
                 <button
                   onClick={() => setShowActionMenu(!showActionMenu)}
-                  className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                  className="p-2 rounded-lg hover:bg-[var(--sf-bg-hover)] transition-colors"
                 >
-                  <MoreVertical className="w-5 h-5 text-gray-600" />
+                  <MoreVertical className="w-5 h-5 text-[var(--sf-text-secondary)]" />
                 </button>
                 
                 {showActionMenu && (
@@ -1494,13 +1494,13 @@ const JobDetails = () => {
                       className="fixed inset-0 z-40" 
                       onClick={() => setShowActionMenu(false)}
                     />
-                    <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+                    <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-[var(--sf-border-light)] rounded-lg shadow-lg z-50">
                       <button
                         onClick={() => {
                           setShowEditServiceModal(true)
                           setShowActionMenu(false)
                         }}
-                        className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center space-x-2"
+                        className="w-full text-left px-4 py-2 hover:bg-[var(--sf-bg-page)] flex items-center space-x-2"
                       >
                         <Edit3 className="w-4 h-4" />
                         <span>Edit Service</span>
@@ -1510,7 +1510,7 @@ const JobDetails = () => {
                           setShowEditAddressModal(true)
                           setShowActionMenu(false)
                         }}
-                        className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center space-x-2"
+                        className="w-full text-left px-4 py-2 hover:bg-[var(--sf-bg-page)] flex items-center space-x-2"
                       >
                         <MapPin className="w-4 h-4" />
                         <span>Edit Address</span>
@@ -1520,7 +1520,7 @@ const JobDetails = () => {
                           setShowRescheduleModal(true)
                           setShowActionMenu(false)
                         }}
-                        className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center space-x-2"
+                        className="w-full text-left px-4 py-2 hover:bg-[var(--sf-bg-page)] flex items-center space-x-2"
                       >
                         <Calendar className="w-4 h-4" />
                         <span>Reschedule</span>
@@ -1531,7 +1531,7 @@ const JobDetails = () => {
                           setShowCancelModal(true)
                           setShowActionMenu(false)
                         }}
-                        className="w-full text-left px-4 py-2 hover:bg-gray-50 text-red-600 flex items-center space-x-2"
+                        className="w-full text-left px-4 py-2 hover:bg-[var(--sf-bg-page)] text-red-600 flex items-center space-x-2"
                       >
                         <X className="w-4 h-4" />
                         <span>Cancel Job</span>
@@ -1546,23 +1546,23 @@ const JobDetails = () => {
           {/* Status Bar */}
           <div className="mt-4 sm:mt-6">
             <div className="flex items-center space-x-3">
-              <label className="text-sm font-medium text-gray-700">Status:</label>
+              <label className="text-sm font-medium text-[var(--sf-text-primary)]">Status:</label>
               <div className="relative">
                 <button
-                  className="flex items-center border border-gray-300 rounded px-3 py-1 text-sm bg-white hover:bg-gray-50 focus:outline-none"
+                  className="flex items-center border border-[var(--sf-border-light)] rounded px-3 py-1 text-sm bg-white hover:bg-[var(--sf-bg-page)] focus:outline-none"
                   onClick={() => setEditingField('status')}
                   style={{ minWidth: 140 }}
                 >
                   <span className={`inline-block w-2 h-2 rounded-full mr-2 ${statusOptions.find(s => s.key === job.status)?.color || 'bg-gray-300'}`}></span>
                                           <span>{statusOptions.find(s => s.key === job.status)?.label || job.status || 'Status placeholder'}</span>
-                  <ChevronDown className="w-4 h-4 ml-2 text-gray-400" />
+                  <ChevronDown className="w-4 h-4 ml-2 text-[var(--sf-text-muted)]" />
                 </button>
                 {editingField === 'status' && (
-                  <div className="absolute z-50 mt-1 w-48 bg-white border border-gray-200 rounded shadow-lg">
+                  <div className="absolute z-50 mt-1 w-48 bg-white border border-[var(--sf-border-light)] rounded shadow-lg">
                     {statusOptions.map(status => (
                       <button
                         key={status.key}
-                        className={`w-full flex items-center px-4 py-2 text-left hover:bg-gray-50 ${job.status === status.key ? 'font-semibold bg-gray-100' : ''}`}
+                        className={`w-full flex items-center px-4 py-2 text-left hover:bg-[var(--sf-bg-page)] ${job.status === status.key ? 'font-semibold bg-[var(--sf-bg-page)]' : ''}`}
                         onClick={() => {
                           handleStatusChange(status.key)
                           setEditingField(null)
@@ -1599,7 +1599,7 @@ const JobDetails = () => {
           {/* Left Column */}
           <div className="flex-1 lg:max-w-3xl p-4 sm:p-6">
             {/* Map Section */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-4 sm:mb-6">
+            <div className="bg-white rounded-lg shadow-sm border border-[var(--sf-border-light)] mb-4 sm:mb-6">
               <div className="relative">
                 {/* Google Maps Integration */}
                 <div className="w-full h-80 sm:h-96 bg-gradient-to-br from-green-100 to-blue-100 rounded-t-lg flex items-center justify-center">
@@ -1625,13 +1625,13 @@ const JobDetails = () => {
                     />
                   ) : null}
                   <div className={`text-center ${job.service_address_street && job.service_address_city ? 'hidden' : 'flex flex-col items-center justify-center'}`}>
-                    <div className="w-10 sm:w-12 h-10 sm:h-12 bg-blue-500 rounded-lg flex items-center justify-center mx-auto mb-3">
+                    <div className="w-10 sm:w-12 h-10 sm:h-12 bg-[var(--sf-blue-500)] rounded-lg flex items-center justify-center mx-auto mb-3">
                       <MapPin className="w-5 sm:w-6 h-5 sm:h-6 text-white" />
                     </div>
-                    <p className="text-gray-600 font-medium">
+                    <p className="text-[var(--sf-text-secondary)] font-medium">
                       {job.service_address_street ? 'Map unavailable' : 'No address set'}
                     </p>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-[var(--sf-text-muted)]">
                       {job.service_address_street ? 'Unable to load map for this address' : 'Add an address to see the map'}
                     </p>
                   </div>
@@ -1640,14 +1640,14 @@ const JobDetails = () => {
             </div>
 
             {/* Location Info Section - Moved below map */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-4 sm:mb-6 p-4 sm:p-6">
+            <div className="bg-white rounded-lg shadow-sm border border-[var(--sf-border-light)] mb-4 sm:mb-6 p-4 sm:p-6">
               <div className="flex items-start justify-between">
                 <div className="min-w-0 flex-1">
-                  <h3 className="font-semibold text-gray-900 mb-1 text-sm sm:text-base">JOB LOCATION</h3>
-                  <p className="text-gray-700 font-medium text-sm sm:text-base truncate">
+                  <h3 className="font-semibold text-[var(--sf-text-primary)] mb-1 text-sm sm:text-base">JOB LOCATION</h3>
+                  <p className="text-[var(--sf-text-primary)] font-medium text-sm sm:text-base truncate">
                     {job.service_address_street || 'Address not set'}
                   </p>
-                  <p className="text-gray-700 text-sm sm:text-base">
+                  <p className="text-[var(--sf-text-primary)] text-sm sm:text-base">
                     {job.service_address_city}, {job.service_address_state} {job.service_address_zip}
                   </p>
                   {job.service_address_street && (
@@ -1657,14 +1657,14 @@ const JobDetails = () => {
                       )}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-700 text-xs sm:text-sm font-medium mt-1 flex items-center"
+                      className="text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] text-xs sm:text-sm font-medium mt-1 flex items-center"
                     >
                       View directions <ExternalLink className="w-3 h-3 ml-1" />
                     </a>
                   )}
                 </div>
                 <button
-                  className="text-blue-600 hover:text-blue-700 text-xs sm:text-sm font-medium ml-2 flex-shrink-0"
+                  className="text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] text-xs sm:text-sm font-medium ml-2 flex-shrink-0"
                   onClick={() => setShowEditAddressModal(true)}
                 >
                   Edit Address
@@ -1673,17 +1673,17 @@ const JobDetails = () => {
             </div>
 
             {/* Date & Time Section */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-4 sm:mb-6 p-4 sm:p-6">
+            <div className="bg-white rounded-lg shadow-sm border border-[var(--sf-border-light)] mb-4 sm:mb-6 p-4 sm:p-6">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
                 <div>
-                  <h3 className="text-sm font-medium text-gray-600 mb-2">DATE & TIME</h3>
+                  <h3 className="text-sm font-medium text-[var(--sf-text-secondary)] mb-2">DATE & TIME</h3>
                   <div className="flex items-center space-x-3">
-                    <Calendar className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                    <Calendar className="w-5 h-5 text-[var(--sf-text-muted)] flex-shrink-0" />
                     <div>
-                      <p className="text-lg sm:text-xl font-semibold text-gray-900">
+                      <p className="text-lg sm:text-xl font-semibold text-[var(--sf-text-primary)]">
                         {formatTime(job.scheduled_date) || 'Time placeholder'}
                       </p>
-                      <p className="text-gray-600 text-sm sm:text-base">{formatDate(job.scheduled_date) || 'Date placeholder'}</p>
+                      <p className="text-[var(--sf-text-secondary)] text-sm sm:text-base">{formatDate(job.scheduled_date) || 'Date placeholder'}</p>
                     </div>
                   </div>
                 </div>
@@ -1696,7 +1696,7 @@ const JobDetails = () => {
                   </button>
                   <button 
                     onClick={() => setShowRescheduleModal(true)}
-                    className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+                    className="px-3 py-2 bg-[var(--sf-blue-500)] text-white rounded hover:bg-[var(--sf-blue-600)] text-sm"
                   >
                     Reschedule
                   </button>
@@ -1705,57 +1705,57 @@ const JobDetails = () => {
             </div>
 
             {/* Job Details Section */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-4 sm:mb-6 p-4 sm:p-6">
+            <div className="bg-white rounded-lg shadow-sm border border-[var(--sf-border-light)] mb-4 sm:mb-6 p-4 sm:p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-medium text-gray-600">JOB DETAILS</h3>
+                <h3 className="text-sm font-medium text-[var(--sf-text-secondary)]">JOB DETAILS</h3>
                 <button
-                  className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                  className="text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] text-sm font-medium"
                   onClick={() => setShowEditServiceModal(true)}
                 >
                   Edit Service
                 </button>
               </div>
               <div className="flex items-start space-x-4">
-                <Clipboard className="w-5 h-5 text-gray-400 mt-1 flex-shrink-0" />
+                <Clipboard className="w-5 h-5 text-[var(--sf-text-muted)] mt-1 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   {/* Display multiple services if available */}
                   {job.service_names && Array.isArray(job.service_names) && job.service_names.length > 1 ? (
                     <div className="space-y-2">
-                      <p className="font-semibold text-gray-900">Multiple Services</p>
+                      <p className="font-semibold text-[var(--sf-text-primary)]">Multiple Services</p>
                       <div className="space-y-1">
                         {job.service_names.map((serviceName, index) => (
                           <div key={index} className="flex items-center space-x-2">
-                            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                            <span className="text-sm text-gray-700">{decodeHtmlEntities(serviceName || '')}</span>
+                            <div className="w-2 h-2 bg-[var(--sf-blue-500)] rounded-full"></div>
+                            <span className="text-sm text-[var(--sf-text-primary)]">{decodeHtmlEntities(serviceName || '')}</span>
                           </div>
                         ))}
                       </div>
                     </div>
                   ) : (
-                  <p className="font-semibold text-gray-900">{decodeHtmlEntities(job.service_name || '')}</p>
+                  <p className="font-semibold text-[var(--sf-text-primary)]">{decodeHtmlEntities(job.service_name || '')}</p>
                   )}
-                  <p className="text-gray-600 text-sm mb-2">
+                  <p className="text-[var(--sf-text-secondary)] text-sm mb-2">
                     {job.service_names && job.service_names.length > 1 ? `${job.service_names.length} services` : 'Default service category'}
                   </p>
-                  <p className="text-sm text-gray-600 mt-2">{formatDuration(job.duration || 0)}</p>
+                  <p className="text-sm text-[var(--sf-text-secondary)] mt-2">{formatDuration(job.duration || 0)}</p>
                 </div>
               </div>
             </div>
 
             {/* Team Assignment Section - Moved from sidebar */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-4 sm:mb-6 p-4 sm:p-6">
+            <div className="bg-white rounded-lg shadow-sm border border-[var(--sf-border-light)] mb-4 sm:mb-6 p-4 sm:p-6">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-blue-50 rounded-lg">
-                    <Users className="w-5 h-5 text-blue-600" />
+                  <div className="p-2 bg-[var(--sf-blue-50)] rounded-lg">
+                    <Users className="w-5 h-5 text-[var(--sf-blue-500)]" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900">Team Assignment</h3>
-                    <p className="text-sm text-gray-500">Manage team members for this job</p>
+                    <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">Team Assignment</h3>
+                    <p className="text-sm text-[var(--sf-text-muted)]">Manage team members for this job</p>
                   </div>
                 </div>
                 <button
-                  className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow-md"
+                  className="inline-flex items-center px-4 py-2 bg-[var(--sf-blue-500)] text-white text-sm font-medium rounded-lg hover:bg-[var(--sf-blue-600)] transition-all duration-200 shadow-sm hover:shadow-md"
                   onClick={() => setAssigning(true)}
                 >
                   <Plus className="w-4 h-4 mr-2" />
@@ -1770,7 +1770,7 @@ const JobDetails = () => {
                     const memberName = member ? (member.name || member.fullName || member.email || member.id) : 'Unknown Member';
                     const memberEmail = member ? (member.email || '') : '';
                     return (
-                      <div key={assignment.team_member_id} className="group relative bg-gray-50 border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-lg transition-all duration-200">
+                      <div key={assignment.team_member_id} className="group relative bg-[var(--sf-bg-page)] border border-[var(--sf-border-light)] rounded-xl p-4 shadow-sm hover:shadow-lg transition-all duration-200">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-4">
                             <div className="relative">
@@ -1785,7 +1785,7 @@ const JobDetails = () => {
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center space-x-3 mb-1">
-                                <h4 className="text-base font-semibold text-gray-900 truncate">{memberName}</h4>
+                                <h4 className="text-base font-semibold text-[var(--sf-text-primary)] truncate">{memberName}</h4>
                                 {assignment.is_primary && (
                                   <span className="inline-flex items-center px-2.5 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">
                                     Primary
@@ -1793,9 +1793,9 @@ const JobDetails = () => {
                                 )}
                               </div>
                               {memberEmail && (
-                                <p className="text-sm text-gray-600 mb-1 truncate">{memberEmail}</p>
+                                <p className="text-sm text-[var(--sf-text-secondary)] mb-1 truncate">{memberEmail}</p>
                               )}
-                              <p className="text-xs text-gray-500 flex items-center">
+                              <p className="text-xs text-[var(--sf-text-muted)] flex items-center">
                                 <Calendar className="w-3 h-3 mr-1" />
                                 Assigned {new Date(assignment.assigned_at).toLocaleDateString('en-US', {
                                   year: 'numeric',
@@ -1823,13 +1823,13 @@ const JobDetails = () => {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
                         <div className="p-2 bg-blue-100 rounded-lg">
-                          <CheckCircle className="w-4 h-4 text-blue-600" />
+                          <CheckCircle className="w-4 h-4 text-[var(--sf-blue-500)]" />
                         </div>
                         <div>
                           <p className="text-sm font-medium text-blue-900">
                             {job.team_assignments.length} team member{job.team_assignments.length !== 1 ? 's' : ''} assigned
                           </p>
-                          <p className="text-xs text-blue-700">
+                          <p className="text-xs text-[var(--sf-blue-500)]">
                             {job.workers_needed || 1} worker{job.workers_needed !== 1 ? 's' : ''} needed for this job
                           </p>
                         </div>
@@ -1838,22 +1838,22 @@ const JobDetails = () => {
                         <div className="text-lg font-bold text-blue-900">
                           {job.team_assignments.length}/{job.workers_needed || 1}
                         </div>
-                        <div className="text-xs text-blue-700">Assigned</div>
+                        <div className="text-xs text-[var(--sf-blue-500)]">Assigned</div>
                       </div>
                     </div>
                   </div>
                 </div>
               ) : (
-                <div className="text-center py-12 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border-2 border-dashed border-gray-300">
+                <div className="text-center py-12 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border-2 border-dashed border-[var(--sf-border-light)]">
                   <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Users className="w-8 h-8 text-gray-400" />
+                    <Users className="w-8 h-8 text-[var(--sf-text-muted)]" />
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No Team Members Assigned</h3>
-                  <p className="text-sm text-gray-600 mb-6 max-w-sm mx-auto">
+                  <h3 className="text-lg font-semibold text-[var(--sf-text-primary)] mb-2">No Team Members Assigned</h3>
+                  <p className="text-sm text-[var(--sf-text-secondary)] mb-6 max-w-sm mx-auto">
                     Assign team members to this job to ensure it gets completed efficiently and on time.
                   </p>
                   <button
-                    className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow-md"
+                    className="inline-flex items-center px-4 py-2 bg-[var(--sf-blue-500)] text-white text-sm font-medium rounded-lg hover:bg-[var(--sf-blue-600)] transition-all duration-200 shadow-sm hover:shadow-md"
                     onClick={() => setAssigning(true)}
                   >
                     <Plus className="w-4 h-4 mr-2" />
@@ -1869,13 +1869,13 @@ const JobDetails = () => {
                 <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[80vh] overflow-y-auto">
                   <div className="p-6">
                     <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-semibold text-gray-900">Assign Team Member</h3>
+                      <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">Assign Team Member</h3>
                       <button
                         onClick={() => {
                           setAssigning(false);
                           setSelectedTeamMember(null);
                         }}
-                        className="text-gray-400 hover:text-gray-600"
+                        className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
                       >
                         <X className="w-5 h-5" />
                       </button>
@@ -1883,11 +1883,11 @@ const JobDetails = () => {
                     
                     <div className="space-y-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                           Select Team Member
                         </label>
                         <select
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                          className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] bg-white"
                           value={selectedTeamMember || ''}
                           onChange={(e) => setSelectedTeamMember(e.target.value)}
                         >
@@ -1903,8 +1903,8 @@ const JobDetails = () => {
                       {teamMembers.length === 0 && (
                         <div className="text-center py-4">
                           <Users className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-                          <p className="text-gray-500 text-sm">No team members available</p>
-                          <p className="text-gray-400 text-xs">Add team members in the Team section first</p>
+                          <p className="text-[var(--sf-text-muted)] text-sm">No team members available</p>
+                          <p className="text-[var(--sf-text-muted)] text-xs">Add team members in the Team section first</p>
                         </div>
                       )}
                       
@@ -1914,7 +1914,7 @@ const JobDetails = () => {
                             setAssigning(false);
                             setSelectedTeamMember(null);
                           }}
-                          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+                          className="px-4 py-2 text-sm font-medium text-[var(--sf-text-primary)] bg-white border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-page)] transition-colors duration-200"
                         >
                           Cancel
                         </button>
@@ -1927,7 +1927,7 @@ const JobDetails = () => {
                             }
                           }}
                           disabled={!selectedTeamMember}
-                          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="px-4 py-2 text-sm font-medium text-white bg-[var(--sf-blue-500)] rounded-lg hover:bg-[var(--sf-blue-600)] transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           Assign Member
                         </button>
@@ -1939,11 +1939,11 @@ const JobDetails = () => {
             )}
 
             {/* Invoice Section */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
+            <div className="bg-white rounded-lg shadow-sm border border-[var(--sf-border-light)] p-4 sm:p-6">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 space-y-2 sm:space-y-0 sm:space-x-2">
                 <div>
                   <div className="flex items-center space-x-3 mb-2">
-                    <h3 className="text-2xl font-bold text-gray-900">Invoice</h3>
+                    <h3 className="text-2xl font-bold text-[var(--sf-text-primary)]">Invoice</h3>
                     <span className={`px-3 py-1 text-sm font-medium rounded-full ${
                       job.invoice_status === 'paid' 
                         ? 'bg-green-100 text-green-800' 
@@ -1951,7 +1951,7 @@ const JobDetails = () => {
                         ? 'bg-yellow-100 text-yellow-800'
                         : job.invoice_status === 'draft'
                         ? 'bg-blue-100 text-blue-800'
-                        : 'bg-gray-100 text-gray-800'
+                        : 'bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)]'
                     }`}>
                       {job.invoice_status === 'paid' 
                         ? 'Paid' 
@@ -1962,13 +1962,13 @@ const JobDetails = () => {
                         : 'No Invoice'}
                     </span>
                   </div>
-                  <p className="text-sm text-gray-600">Due Oct 2, 2025</p>
+                  <p className="text-sm text-[var(--sf-text-secondary)]">Due Oct 2, 2025</p>
                 </div>
                 
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
                   <button 
                     onClick={() => setShowAddPaymentModal(true)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center space-x-2 text-sm font-medium"
+                    className="px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] flex items-center justify-center space-x-2 text-sm font-medium"
                   >
                     <Plus className="w-4 h-4" />
                     <span>Add Payment</span>
@@ -1983,15 +1983,15 @@ const JobDetails = () => {
                         setShowSendInvoiceModal(true)
                       }
                     }}
-                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium"
+                    className="px-4 py-2 border border-[var(--sf-border-light)] text-[var(--sf-text-primary)] rounded-lg hover:bg-[var(--sf-bg-page)] text-sm font-medium"
                   >
                     Send Invoice
                   </button>
                   <div className="flex space-x-2">
-                    <button className="p-2 text-gray-400 hover:text-gray-600 border border-gray-300 rounded-lg">
+                    <button className="p-2 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] border border-[var(--sf-border-light)] rounded-lg">
                       <Printer className="w-4 h-4" />
                     </button>
-                    <button className="p-2 text-gray-400 hover:text-gray-600 border border-gray-300 rounded-lg">
+                    <button className="p-2 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] border border-[var(--sf-border-light)] rounded-lg">
                       <MoreVertical className="w-4 h-4" />
                     </button>
                   </div>
@@ -2000,13 +2000,13 @@ const JobDetails = () => {
 
               <div className="grid grid-cols-2 gap-4 mb-6">
                 <div>
-                  <p className="text-sm text-gray-600 mb-1">Amount paid</p>
-                  <p className="text-lg font-semibold text-gray-900">
+                  <p className="text-sm text-[var(--sf-text-secondary)] mb-1">Amount paid</p>
+                  <p className="text-lg font-semibold text-[var(--sf-text-primary)]">
                     ${job.total_paid_amount ? job.total_paid_amount.toFixed(2) : '0.00'}
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm text-gray-600 mb-1">Amount due</p>
+                  <p className="text-sm text-[var(--sf-text-secondary)] mb-1">Amount due</p>
                   <p className={`text-lg font-semibold ${job.invoice_status === 'paid' ? 'text-green-600' : 'text-red-600 underline'}`}>
                     ${job.invoice_status === 'paid' ? '0.00' : (job.total_invoice_amount ? job.total_invoice_amount.toFixed(2) : calculateTotalPrice().toFixed(2))}
                   </p>
@@ -2014,17 +2014,17 @@ const JobDetails = () => {
                 </div>
 
               {/* Payment Status Section */}
-              <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6">
+              <div className="bg-white border border-[var(--sf-border-light)] rounded-lg p-4 mb-6">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
                     <div className={`w-3 h-3 rounded-full ${job.invoice_status === 'paid' ? 'bg-green-500' : job.invoice_status === 'invoiced' || job.invoice_status === 'sent' ? 'bg-yellow-500' : 'bg-gray-300'}`}></div>
                     <div>
-                      <p className="text-sm font-medium text-gray-900">
+                      <p className="text-sm font-medium text-[var(--sf-text-primary)]">
                         {job.invoice_status === 'paid' ? 'Payment Received' : 
                          job.invoice_status === 'invoiced' || job.invoice_status === 'sent' ? 'Invoice Sent' : 
                          'No Invoice Sent'}
                       </p>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-[var(--sf-text-muted)]">
                         {job.invoice_status === 'paid' ? 'Customer has paid the invoice' : 
                          job.invoice_status === 'invoiced' || job.invoice_status === 'sent' ? 'Invoice sent to customer, awaiting payment' : 
                          'Invoice not yet sent to customer'}
@@ -2043,7 +2043,7 @@ const JobDetails = () => {
                         console.log('💳 Manual refresh clicked for job ID:', job.id)
                         fetchInvoiceStatus(job.id)
                       }}
-                      className="text-gray-400 hover:text-gray-600 transition-colors"
+                      className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] transition-colors"
                       title="Refresh payment status"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2055,16 +2055,16 @@ const JobDetails = () => {
               </div>
 
               {/* Service Details Section */}
-              <div className="bg-gray-50 rounded-lg p-4 mb-6">
-                <h4 className="font-semibold text-gray-900 mb-4">{decodeHtmlEntities(job.service_name || '')}</h4>
+              <div className="bg-[var(--sf-bg-page)] rounded-lg p-4 mb-6">
+                <h4 className="font-semibold text-[var(--sf-text-primary)] mb-4">{decodeHtmlEntities(job.service_name || '')}</h4>
                 
                 <div className="space-y-3">
                   {/* Base Price */}
                   <div className="flex justify-between items-center">
                     <div>
-                      <p className="text-sm text-gray-600">Base Price (${(parseFloat(job.services?.price) || 0).toFixed(2)})</p>
+                      <p className="text-sm text-[var(--sf-text-secondary)]">Base Price (${(parseFloat(job.services?.price) || 0).toFixed(2)})</p>
                   </div>
-                    <span className="text-sm font-medium text-gray-900">${(parseFloat(job.services?.price) || 0).toFixed(2)}</span>
+                    <span className="text-sm font-medium text-[var(--sf-text-primary)]">${(parseFloat(job.services?.price) || 0).toFixed(2)}</span>
                   </div>
                   
                   {/* Modifiers */}
@@ -2083,11 +2083,11 @@ const JobDetails = () => {
                           return modifier.selectedOptions.map((option, index) => (
                             <div key={`${modifier.id}-${option.id}-${index}`} className="flex justify-between items-center">
                               <div>
-                                <p className="text-sm text-gray-600">
+                                <p className="text-sm text-[var(--sf-text-secondary)]">
                                   {option.selectedQuantity ? `${option.selectedQuantity} ${option.label || option.description}` : (option.label || option.description)}
                                 </p>
                               </div>
-                              <span className="text-sm font-medium text-gray-900">
+                              <span className="text-sm font-medium text-[var(--sf-text-primary)]">
                                 ${parseFloat(option.price || 0).toFixed(2)}
                                 </span>
                             </div>
@@ -2108,9 +2108,9 @@ const JobDetails = () => {
                       return (
                         <div className="flex justify-between items-center">
                           <div>
-                            <p className="text-sm text-gray-600">Service Adjustment Price (${Math.abs(serviceAdjustment).toFixed(2)})</p>
+                            <p className="text-sm text-[var(--sf-text-secondary)]">Service Adjustment Price (${Math.abs(serviceAdjustment).toFixed(2)})</p>
                           </div>
-                          <span className="text-sm font-medium text-gray-900">
+                          <span className="text-sm font-medium text-[var(--sf-text-primary)]">
                             ${Math.abs(serviceAdjustment).toFixed(2)}
                           </span>
                         </div>
@@ -2120,20 +2120,20 @@ const JobDetails = () => {
                   })()}
                   
                   {/* Total (job price only — tips/discounts shown in summary below) */}
-                  <div className="flex justify-between items-center pt-2 border-t border-gray-200">
+                  <div className="flex justify-between items-center pt-2 border-t border-[var(--sf-border-light)]">
                     <div>
-                      <p className="text-sm font-semibold text-gray-900">Total</p>
+                      <p className="text-sm font-semibold text-[var(--sf-text-primary)]">Total</p>
                     </div>
-                    <span className="text-sm font-semibold text-gray-900">
+                    <span className="text-sm font-semibold text-[var(--sf-text-primary)]">
                       ${(parseFloat(job?.total) || 0).toFixed(2)}
                     </span>
                   </div>
                 </div>
 
-                <div className="mt-4 pt-4 border-t border-gray-200">
+                <div className="mt-4 pt-4 border-t border-[var(--sf-border-light)]">
                   <button
                     onClick={() => setShowEditServiceModal(true)}
-                    className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center"
+                    className="text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] text-sm font-medium flex items-center"
                   >
                     <Edit className="w-4 h-4 mr-2" />
                     Edit Service & Pricing
@@ -2143,37 +2143,37 @@ const JobDetails = () => {
 
               {/* Summary Section */}
               <div className="space-y-0">
-                <div className="flex justify-between items-center py-2 border-b border-gray-200">
-                  <span className="text-sm text-gray-600">Subtotal</span>
-                  <span className="text-sm font-medium text-gray-900">${((parseFloat(job?.total) || 0) + (parseFloat(job?.discount) || 0)).toFixed(2)}</span>
+                <div className="flex justify-between items-center py-2 border-b border-[var(--sf-border-light)]">
+                  <span className="text-sm text-[var(--sf-text-secondary)]">Subtotal</span>
+                  <span className="text-sm font-medium text-[var(--sf-text-primary)]">${((parseFloat(job?.total) || 0) + (parseFloat(job?.discount) || 0)).toFixed(2)}</span>
                 </div>
                 {parseFloat(job.discount || 0) > 0 && (
-                  <div className="flex justify-between items-center py-2 border-b border-gray-200">
-                    <span className="text-sm text-gray-600">Discount</span>
+                  <div className="flex justify-between items-center py-2 border-b border-[var(--sf-border-light)]">
+                    <span className="text-sm text-[var(--sf-text-secondary)]">Discount</span>
                     <span className="text-sm font-medium text-red-600">-${parseFloat(job.discount).toFixed(2)}</span>
                   </div>
                 )}
                 {parseFloat(job?.tip_amount || 0) > 0 && (
-                  <div className="flex justify-between items-center py-2 border-b border-gray-200">
-                    <span className="text-sm text-gray-600">Tip</span>
+                  <div className="flex justify-between items-center py-2 border-b border-[var(--sf-border-light)]">
+                    <span className="text-sm text-[var(--sf-text-secondary)]">Tip</span>
                     <span className="text-sm font-medium text-green-600">+${parseFloat(job.tip_amount).toFixed(2)}</span>
                   </div>
                 )}
-                <div className="flex justify-between items-center py-2 border-b border-gray-200">
-                  <span className="text-sm text-gray-600">Total</span>
-                  <span className="text-sm font-semibold text-gray-900">${calculateTotalPrice().toFixed(2)}</span>
+                <div className="flex justify-between items-center py-2 border-b border-[var(--sf-border-light)]">
+                  <span className="text-sm text-[var(--sf-text-secondary)]">Total</span>
+                  <span className="text-sm font-semibold text-[var(--sf-text-primary)]">${calculateTotalPrice().toFixed(2)}</span>
                 </div>
 
                 <div className="flex justify-between items-center py-2">
-                  <span className="text-sm text-gray-600">Amount paid</span>
-                  <span className="text-sm font-medium text-gray-900">
+                  <span className="text-sm text-[var(--sf-text-secondary)]">Amount paid</span>
+                  <span className="text-sm font-medium text-[var(--sf-text-primary)]">
                     ${job.total_paid_amount ? job.total_paid_amount.toFixed(2) : '0.00'}
                   </span>
                 </div>
 
                 <div className="flex justify-between items-center py-2">
-                  <span className="text-sm text-gray-600">Total due</span>
-                  <span className={`text-sm font-medium ${job.invoice_status === 'paid' ? 'text-green-600' : 'text-gray-900'}`}>
+                  <span className="text-sm text-[var(--sf-text-secondary)]">Total due</span>
+                  <span className={`text-sm font-medium ${job.invoice_status === 'paid' ? 'text-green-600' : 'text-[var(--sf-text-primary)]'}`}>
                     ${job.invoice_status === 'paid' ? '0.00' : (job.total_invoice_amount ? job.total_invoice_amount.toFixed(2) : calculateTotalPrice().toFixed(2))}
                   </span>
                 </div>
@@ -2181,13 +2181,13 @@ const JobDetails = () => {
 
               {/* Payments Section */}
               <div className="mt-8">
-                <h4 className="font-semibold text-gray-900 mb-4">Payments</h4>
+                <h4 className="font-semibold text-[var(--sf-text-primary)] mb-4">Payments</h4>
                   <div className="text-center py-8">
-                  <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                    <CreditCard className="w-6 h-6 text-gray-400" />
+                  <div className="w-12 h-12 bg-[var(--sf-bg-page)] rounded-full flex items-center justify-center mx-auto mb-3">
+                    <CreditCard className="w-6 h-6 text-[var(--sf-text-muted)]" />
                   </div>
-                    <p className="text-gray-500 font-medium">No payments</p>
-                  <p className="text-sm text-gray-400 mt-1">
+                    <p className="text-[var(--sf-text-muted)] font-medium">No payments</p>
+                  <p className="text-sm text-[var(--sf-text-muted)] mt-1">
                       When you process or record a payment for this invoice, it will appear here.
                     </p>
                   </div>
@@ -2197,9 +2197,9 @@ const JobDetails = () => {
             {/* Desktop Right Sidebar */}
           <div className="hidden lg:block w-80 xl:w-96 p-4 sm:p-6 space-y-6">
             {/* Customer Card */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <div className="bg-white rounded-lg shadow-sm border border-[var(--sf-border-light)] p-4">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-gray-900">Customer</h3>
+                <h3 className="font-semibold text-[var(--sf-text-primary)]">Customer</h3>
                 <button
                   onClick={() => {
                     setEditCustomerData({
@@ -2210,7 +2210,7 @@ const JobDetails = () => {
                     })
                     setShowEditCustomerModal(true)
                   }}
-                  className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                  className="text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] text-sm font-medium"
                 >
                   Edit
                 </button>
@@ -2221,7 +2221,7 @@ const JobDetails = () => {
                   <span className="text-white font-semibold text-sm">{getCustomerInitials()}</span>
                 </div>
                 <div>
-                  <p className="font-semibold text-gray-900">
+                  <p className="font-semibold text-[var(--sf-text-primary)]">
                     {job.customer_first_name && job.customer_last_name 
                       ? `${job.customer_first_name} ${job.customer_last_name}`
                       : job.customer_first_name || job.customer_last_name || 'Client name placeholder'
@@ -2232,38 +2232,38 @@ const JobDetails = () => {
 
               <div className="space-y-3">
                 <div className="flex items-center space-x-2 text-sm">
-                  <Phone className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-700">
+                  <Phone className="w-4 h-4 text-[var(--sf-text-muted)]" />
+                  <span className="text-[var(--sf-text-primary)]">
                     {job.customer_phone ? formatPhoneNumber(job.customer_phone) : 'Phone placeholder'}
                   </span>
                 </div>
                 <div className="flex items-center space-x-2 text-sm">
-                  <Mail className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-700 truncate">
+                  <Mail className="w-4 h-4 text-[var(--sf-text-muted)]" />
+                  <span className="text-[var(--sf-text-primary)] truncate">
                     {job.customer_email || 'No email address'}
                   </span>
                 </div>
               </div>
 
 
-              <div className="mt-4 pt-4 border-t border-gray-200">
+              <div className="mt-4 pt-4 border-t border-[var(--sf-border-light)]">
                 <div className="flex justify-between items-center text-sm">
-                  <span className="font-medium text-gray-700">BILLING ADDRESS</span>
-                  <button className="text-blue-600 hover:text-blue-700 font-medium">Edit</button>
+                  <span className="font-medium text-[var(--sf-text-primary)]">BILLING ADDRESS</span>
+                  <button className="text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] font-medium">Edit</button>
                 </div>
-                <p className="text-sm text-gray-600 mt-1">Same as service address</p>
+                <p className="text-sm text-[var(--sf-text-secondary)] mt-1">Same as service address</p>
               </div>
 
-              <div className="mt-4 pt-4 border-t border-gray-200">
+              <div className="mt-4 pt-4 border-t border-[var(--sf-border-light)]">
                 <div className="text-sm">
                   <div className="flex justify-between items-center mb-2">
-                    <span className="font-medium text-gray-700">EXPECTED PAYMENT METHOD</span>
+                    <span className="font-medium text-[var(--sf-text-primary)]">EXPECTED PAYMENT METHOD</span>
                   </div>
-                  <div className="flex items-center space-x-2 text-gray-600">
+                  <div className="flex items-center space-x-2 text-[var(--sf-text-secondary)]">
                     <CreditCard className="w-4 h-4" />
                     <span>No payment method on file</span>
                   </div>
-                  <button className="text-blue-600 hover:text-blue-700 text-sm font-medium mt-1">
+                  <button className="text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] text-sm font-medium mt-1">
                     Add a card to charge later
                   </button>
                 </div>
@@ -2271,21 +2271,21 @@ const JobDetails = () => {
             </div>
 
             {/* Team Section */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-              <h3 className="font-semibold text-gray-900 mb-4">Team</h3>
+            <div className="bg-white rounded-lg shadow-sm border border-[var(--sf-border-light)] p-4">
+              <h3 className="font-semibold text-[var(--sf-text-primary)] mb-4">Team</h3>
               <div className="space-y-4">
                 {/* Job Requirements */}
                 <div>
                   <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-medium text-gray-700">JOB REQUIREMENTS</span>
+                    <span className="text-sm font-medium text-[var(--sf-text-primary)]">JOB REQUIREMENTS</span>
                   </div>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Workers needed</span>
+                      <span className="text-[var(--sf-text-secondary)]">Workers needed</span>
                       <span className="font-medium">{job.workers_needed || 1} service provider</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Skills needed</span>
+                      <span className="text-[var(--sf-text-secondary)]">Skills needed</span>
                       <span className="font-medium">
                         {job.skills && job.skills.length ? job.skills.join(', ') : 'No skill tags required'}
                       </span>
@@ -2295,9 +2295,9 @@ const JobDetails = () => {
 
 
 
-                <div className="pt-4 border-t border-gray-200">
+                <div className="pt-4 border-t border-[var(--sf-border-light)]">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-700">Offer job to service providers</span>
+                    <span className="text-sm font-medium text-[var(--sf-text-primary)]">Offer job to service providers</span>
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input 
                         type="checkbox" 
@@ -2308,22 +2308,22 @@ const JobDetails = () => {
                         }}
                         className="sr-only peer" 
                       />
-                      <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                      <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[var(--sf-border-light)] after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[var(--sf-blue-500)]"></div>
                     </label>
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-[var(--sf-text-muted)] mt-1">
                     Allows qualified, available providers to see and claim this job. 
-                    <button className="text-blue-600 hover:text-blue-700 ml-1">Learn more</button>
+                    <button className="text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] ml-1">Learn more</button>
                   </p>
                 </div>
               </div>
             </div>
 
             {/* Intake Questions & Answers */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <div className="bg-white rounded-lg shadow-sm border border-[var(--sf-border-light)] p-4">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-gray-900 flex items-center">
-                  <MessageSquare className="w-5 h-5 mr-2 text-gray-400" />
+                <h3 className="font-semibold text-[var(--sf-text-primary)] flex items-center">
+                  <MessageSquare className="w-5 h-5 mr-2 text-[var(--sf-text-muted)]" />
                   Customer Questions & Answers
                 </h3>
                 <button
@@ -2337,7 +2337,7 @@ const JobDetails = () => {
                     });
                     setEditingField(newEditingField);
                   }}
-                  className="px-3 py-1 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 flex items-center space-x-2"
+                  className="px-3 py-1 border border-[var(--sf-border-light)] text-[var(--sf-text-primary)] rounded hover:bg-[var(--sf-bg-page)] flex items-center space-x-2"
                 >
                   <Edit className="w-4 h-4" />
                   <span>{editingField === 'intakeQuestions' ? 'Cancel' : 'Edit Answers'}</span>
@@ -2357,14 +2357,14 @@ const JobDetails = () => {
                   <div className="mt-4 flex justify-end space-x-2">
                     <button
                       onClick={() => setEditingField(null)}
-                      className="px-3 py-1 text-gray-600 border border-gray-300 rounded hover:bg-gray-50"
+                      className="px-3 py-1 text-[var(--sf-text-secondary)] border border-[var(--sf-border-light)] rounded hover:bg-[var(--sf-bg-page)]"
                     >
                       Cancel
                     </button>
                     <button
                       onClick={handleSaveIntakeQuestions}
                       disabled={loading}
-                      className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                      className="px-3 py-1 bg-[var(--sf-blue-500)] text-white rounded hover:bg-[var(--sf-blue-600)] disabled:opacity-50"
                     >
                       {loading ? 'Saving...' : 'Save Answers'}
                     </button>
@@ -2389,36 +2389,36 @@ const JobDetails = () => {
             </div>
 
             {/* Notes & Files */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-              <h3 className="font-semibold text-gray-900 mb-4">Notes & Files</h3>
+            <div className="bg-white rounded-lg shadow-sm border border-[var(--sf-border-light)] p-4">
+              <h3 className="font-semibold text-[var(--sf-text-primary)] mb-4">Notes & Files</h3>
               <div className="py-4">
                 <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                 {editingField === 'notes' ? (
                   <>
                     <textarea
-                      className="w-full border border-gray-300 rounded p-2 mb-2"
+                      className="w-full border border-[var(--sf-border-light)] rounded p-2 mb-2"
                       rows={4}
                       value={formData.notes}
                       onChange={e => setFormData(prev => ({ ...prev, notes: e.target.value }))}
                     />
                     <div className="flex justify-end space-x-2">
                       <button
-                        className="px-3 py-1 text-gray-600 border border-gray-300 rounded"
+                        className="px-3 py-1 text-[var(--sf-text-secondary)] border border-[var(--sf-border-light)] rounded"
                         onClick={() => setEditingField(null)}
                       >Cancel</button>
                       <button
-                        className="px-3 py-1 bg-blue-600 text-white rounded"
+                        className="px-3 py-1 bg-[var(--sf-blue-500)] text-white rounded"
                         onClick={handleSave}
                       >Save</button>
                     </div>
                   </>
                 ) : (
                   <>
-                    <p className="text-gray-700 mb-2 whitespace-pre-line min-h-[48px]">
-                      {job.notes || <span className="text-gray-400">No notes</span>}
+                    <p className="text-[var(--sf-text-primary)] mb-2 whitespace-pre-line min-h-[48px]">
+                      {job.notes || <span className="text-[var(--sf-text-muted)]">No notes</span>}
                     </p>
                     <button
-                      className="px-3 py-1 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 flex items-center space-x-2"
+                      className="px-3 py-1 border border-[var(--sf-border-light)] text-[var(--sf-text-primary)] rounded hover:bg-[var(--sf-bg-page)] flex items-center space-x-2"
                       onClick={() => setEditingField('notes')}
                     >
                       <Edit className="w-4 h-4" />
@@ -2430,16 +2430,16 @@ const JobDetails = () => {
             </div>
 
             {/* Customer Notifications */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-              <h3 className="font-semibold text-gray-900 mb-4">Customer notifications</h3>
+            <div className="bg-white rounded-lg shadow-sm border border-[var(--sf-border-light)] p-4">
+              <h3 className="font-semibold text-[var(--sf-text-primary)] mb-4">Customer notifications</h3>
               
               <div className="space-y-4">
                 <div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-3">NOTIFICATION PREFERENCES</h4>
+                  <h4 className="text-sm font-medium text-[var(--sf-text-primary)] mb-3">NOTIFICATION PREFERENCES</h4>
                   
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-700">Emails</span>
+                      <span className="text-sm text-[var(--sf-text-primary)]">Emails</span>
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input 
                           type="checkbox" 
@@ -2448,12 +2448,12 @@ const JobDetails = () => {
                           disabled={loading}
                           className="sr-only peer" 
                         />
-                        <div className={`w-9 h-5 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all ${emailNotifications ? 'bg-blue-600 peer-checked:after:translate-x-full peer-checked:after:border-white' : 'bg-gray-200'} ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}></div>
+                        <div className={`w-9 h-5 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[var(--sf-border-light)] after:border after:rounded-full after:h-4 after:w-4 after:transition-all ${emailNotifications ? 'bg-[var(--sf-blue-500)] peer-checked:after:translate-x-full peer-checked:after:border-white' : 'bg-gray-200'} ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}></div>
                       </label>
                     </div>
                     
                     <div className="flex items-center justify-between">
-                      <span className={`text-sm ${!userTwilioConnected ? 'text-gray-400' : 'text-gray-700'}`}>
+                      <span className={`text-sm ${!userTwilioConnected ? 'text-[var(--sf-text-muted)]' : 'text-[var(--sf-text-primary)]'}`}>
                         Text messages
                         {!userTwilioConnected && <span className="text-xs block text-red-500">(Twilio not connected)</span>}
                       </span>
@@ -2465,13 +2465,13 @@ const JobDetails = () => {
                           disabled={loading || !userTwilioConnected}
                           className="sr-only peer" 
                         />
-                        <div className={`w-9 h-5 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all ${smsNotifications ? 'bg-blue-600 peer-checked:after:translate-x-full peer-checked:after:border-white' : 'bg-gray-200'} ${loading || !userTwilioConnected ? 'opacity-50 cursor-not-allowed' : ''}`}></div>
+                        <div className={`w-9 h-5 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[var(--sf-border-light)] after:border after:rounded-full after:h-4 after:w-4 after:transition-all ${smsNotifications ? 'bg-[var(--sf-blue-500)] peer-checked:after:translate-x-full peer-checked:after:border-white' : 'bg-gray-200'} ${loading || !userTwilioConnected ? 'opacity-50 cursor-not-allowed' : ''}`}></div>
                       </label>
                     </div>
                   </div>
                 </div>
 
-                <div className="pt-4 border-t border-gray-200">
+                <div className="pt-4 border-t border-[var(--sf-border-light)]">
                   <div className="flex items-start space-x-3">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
                       job.confirmation_sent 
@@ -2490,7 +2490,7 @@ const JobDetails = () => {
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center justify-between">
-                        <h4 className="text-sm font-medium text-gray-700">Confirmation</h4>
+                        <h4 className="text-sm font-medium text-[var(--sf-text-primary)]">Confirmation</h4>
                         <button 
                           onClick={() => {
                             setNotificationType('confirmation')
@@ -2513,8 +2513,8 @@ const JobDetails = () => {
                           }}
                           className={`text-xs font-medium ${
                             !emailNotifications && !smsNotifications 
-                              ? 'text-gray-400 cursor-not-allowed' 
-                              : 'text-blue-600 hover:text-blue-700'
+                              ? 'text-[var(--sf-text-muted)] cursor-not-allowed' 
+                              : 'text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)]'
                           }`}
                           disabled={!emailNotifications && !smsNotifications}
                           title={
@@ -2526,8 +2526,8 @@ const JobDetails = () => {
                           {job.confirmation_sent ? 'Resend' : 'Send Now'}
                         </button>
                       </div>
-                      <p className="text-sm font-semibold text-gray-900">Appointment Confirmation</p>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-sm font-semibold text-[var(--sf-text-primary)]">Appointment Confirmation</p>
+                      <p className="text-xs text-[var(--sf-text-muted)]">
                         {!emailNotifications && !smsNotifications 
                           ? "Notifications are disabled for this customer"
                           : job.confirmation_sent 
@@ -2547,7 +2547,7 @@ const JobDetails = () => {
                   </div>
                 </div>
 
-                <div className="pt-4 border-t border-gray-200">
+                <div className="pt-4 border-t border-[var(--sf-border-light)]">
                   <div className="flex items-start space-x-3">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
                       job.reminder_sent 
@@ -2566,7 +2566,7 @@ const JobDetails = () => {
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center justify-between">
-                        <h4 className="text-sm font-medium text-gray-700">Reminder</h4>
+                        <h4 className="text-sm font-medium text-[var(--sf-text-primary)]">Reminder</h4>
                         <button 
                           onClick={() => {
                             setNotificationType('reminder')
@@ -2589,8 +2589,8 @@ const JobDetails = () => {
                           }}
                           className={`text-xs font-medium ${
                             !emailNotifications && !smsNotifications 
-                              ? 'text-gray-400 cursor-not-allowed' 
-                              : 'text-blue-600 hover:text-blue-700'
+                              ? 'text-[var(--sf-text-muted)] cursor-not-allowed' 
+                              : 'text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)]'
                           }`}
                           disabled={!emailNotifications && !smsNotifications}
                           title={
@@ -2602,8 +2602,8 @@ const JobDetails = () => {
                           {job.reminder_sent ? 'Resend' : 'Send Now'}
                         </button>
                       </div>
-                      <p className="text-sm font-semibold text-gray-900">Appointment Reminder</p>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-sm font-semibold text-[var(--sf-text-primary)]">Appointment Reminder</p>
+                      <p className="text-xs text-[var(--sf-text-muted)]">
                         {!emailNotifications && !smsNotifications 
                           ? "Notifications are disabled for this customer"
                           : job.reminder_sent 
@@ -2623,11 +2623,11 @@ const JobDetails = () => {
                   </div>
                 </div>
 
-                <div className="pt-4 border-t border-gray-200">
+                <div className="pt-4 border-t border-[var(--sf-border-light)]">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h4 className="text-sm font-medium text-gray-700">Custom Notifications</h4>
-                      <p className="text-xs text-gray-500">Send custom messages to customer</p>
+                      <h4 className="text-sm font-medium text-[var(--sf-text-primary)]">Custom Notifications</h4>
+                      <p className="text-xs text-[var(--sf-text-muted)]">Send custom messages to customer</p>
                     </div>
                     <button 
                       onClick={() => {
@@ -2635,7 +2635,7 @@ const JobDetails = () => {
                         setCustomMessage('')
                         setShowCustomMessageModal(true)
                       }}
-                      className="px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700"
+                      className="px-3 py-1 bg-[var(--sf-blue-500)] text-white rounded text-xs hover:bg-[var(--sf-blue-600)]"
                     >
                       Send Message
                     </button>
@@ -2645,26 +2645,26 @@ const JobDetails = () => {
             </div>
 
             {/* Customer Feedback */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-              <h3 className="font-semibold text-gray-900 mb-4">Customer feedback</h3>
+            <div className="bg-white rounded-lg shadow-sm border border-[var(--sf-border-light)] p-4">
+              <h3 className="font-semibold text-[var(--sf-text-primary)] mb-4">Customer feedback</h3>
               
-              <p className="text-sm text-gray-600 mb-2">
+              <p className="text-sm text-[var(--sf-text-secondary)] mb-2">
                 An email will be sent to the customer asking them to rate the service after the job is marked complete.
               </p>
-              <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">
+              <button className="text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] text-sm font-medium">
                 Learn more.
               </button>
             </div>
 
             {/* Conversion Summary */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-              <h3 className="font-semibold text-gray-900 mb-4">Conversion summary</h3>
+            <div className="bg-white rounded-lg shadow-sm border border-[var(--sf-border-light)] p-4">
+              <h3 className="font-semibold text-[var(--sf-text-primary)] mb-4">Conversion summary</h3>
               
               <div className="text-center py-4">
-                <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <Target className="w-6 h-6 text-gray-400" />
+                <div className="w-12 h-12 bg-[var(--sf-bg-page)] rounded-full flex items-center justify-center mx-auto mb-3">
+                  <Target className="w-6 h-6 text-[var(--sf-text-muted)]" />
                 </div>
-                <p className="text-gray-500 text-sm">No conversion data available</p>
+                <p className="text-[var(--sf-text-muted)] text-sm">No conversion data available</p>
               </div>
             </div>
           </div>
@@ -2682,12 +2682,12 @@ const JobDetails = () => {
                 onClick={() => setShowMobileSidebar(false)}
               />
               <div className="fixed top-0 right-0 h-full w-80 bg-white shadow-xl transform transition-transform duration-300 ease-in-out z-50 lg:hidden overflow-y-auto">
-                <div className="p-4 border-b border-gray-200">
+                <div className="p-4 border-b border-[var(--sf-border-light)]">
                   <div className="flex items-center justify-between">
-                    <h2 className="text-lg font-semibold text-gray-900">Job Details</h2>
+                    <h2 className="text-lg font-semibold text-[var(--sf-text-primary)]">Job Details</h2>
                     <button
                       onClick={() => setShowMobileSidebar(false)}
-                      className="text-gray-400 hover:text-gray-600"
+                      className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
                     >
                       <X className="w-6 h-6" />
                     </button>
@@ -2695,15 +2695,15 @@ const JobDetails = () => {
                 </div>
                 <div className="p-4 space-y-6">
                   {/* Customer Card */}
-                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-                    <h3 className="font-semibold text-gray-900 mb-4">Customer</h3>
+                  <div className="bg-white rounded-lg shadow-sm border border-[var(--sf-border-light)] p-4">
+                    <h3 className="font-semibold text-[var(--sf-text-primary)] mb-4">Customer</h3>
                     
                     <div className="flex items-center space-x-3 mb-4">
                       <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center">
                         <span className="text-white font-semibold text-sm">{getCustomerInitials()}</span>
                       </div>
                       <div>
-                        <p className="font-semibold text-gray-900">
+                        <p className="font-semibold text-[var(--sf-text-primary)]">
                           {job.customer_first_name} {job.customer_last_name}
                         </p>
                       </div>
@@ -2711,14 +2711,14 @@ const JobDetails = () => {
 
                     <div className="space-y-3">
                       <div className="flex items-center space-x-2 text-sm">
-                        <Phone className="w-4 h-4 text-gray-400" />
-                        <span className="text-gray-700">
+                        <Phone className="w-4 h-4 text-[var(--sf-text-muted)]" />
+                        <span className="text-[var(--sf-text-primary)]">
                           {formatPhoneNumber(job.customer_phone)}
                         </span>
                       </div>
                       <div className="flex items-center space-x-2 text-sm">
-                        <Mail className="w-4 h-4 text-gray-400" />
-                        <span className="text-gray-700 truncate">
+                        <Mail className="w-4 h-4 text-[var(--sf-text-muted)]" />
+                        <span className="text-[var(--sf-text-primary)] truncate">
                           {job.customer_email}
                         </span>
                       </div>
@@ -2726,15 +2726,15 @@ const JobDetails = () => {
                   </div>
 
                   {/* Job Requirements Section */}
-                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-                    <h3 className="font-semibold text-gray-900 mb-4">Job Requirements</h3>
+                  <div className="bg-white rounded-lg shadow-sm border border-[var(--sf-border-light)] p-4">
+                    <h3 className="font-semibold text-[var(--sf-text-primary)] mb-4">Job Requirements</h3>
                     <div className="space-y-3">
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600">Workers needed</span>
+                        <span className="text-sm text-[var(--sf-text-secondary)]">Workers needed</span>
                         <span className="font-medium">{job.workers_needed || 1} service provider</span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600">Skills needed</span>
+                        <span className="text-sm text-[var(--sf-text-secondary)]">Skills needed</span>
                         <span className="font-medium text-right max-w-xs">
                           {job.skills && job.skills.length ? job.skills.join(', ') : 'No skill tags required'}
                         </span>
@@ -2746,15 +2746,15 @@ const JobDetails = () => {
                   <IntakeAnswersDisplay intakeAnswers={job.intake_answers || []} />
 
                   {/* Notes & Files */}
-                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-                    <h3 className="font-semibold text-gray-900 mb-4">Notes & Files</h3>
+                  <div className="bg-white rounded-lg shadow-sm border border-[var(--sf-border-light)] p-4">
+                    <h3 className="font-semibold text-[var(--sf-text-primary)] mb-4">Notes & Files</h3>
                     <div className="py-4">
                       <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                      <p className="text-gray-700 mb-2 whitespace-pre-line min-h-[48px]">
-                        {job.notes || <span className="text-gray-400">No notes</span>}
+                      <p className="text-[var(--sf-text-primary)] mb-2 whitespace-pre-line min-h-[48px]">
+                        {job.notes || <span className="text-[var(--sf-text-muted)]">No notes</span>}
                       </p>
                       <button
-                        className="px-3 py-1 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 flex items-center space-x-2"
+                        className="px-3 py-1 border border-[var(--sf-border-light)] text-[var(--sf-text-primary)] rounded hover:bg-[var(--sf-bg-page)] flex items-center space-x-2"
                         onClick={() => setEditingField('notes')}
                       >
                         <Edit className="w-4 h-4" />
@@ -2764,16 +2764,16 @@ const JobDetails = () => {
                   </div>
 
                   {/* Customer Notifications */}
-                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-                    <h3 className="font-semibold text-gray-900 mb-4">Customer notifications</h3>
+                  <div className="bg-white rounded-lg shadow-sm border border-[var(--sf-border-light)] p-4">
+                    <h3 className="font-semibold text-[var(--sf-text-primary)] mb-4">Customer notifications</h3>
                     
                     <div className="space-y-4">
                       <div>
-                        <h4 className="text-sm font-medium text-gray-700 mb-3">NOTIFICATION PREFERENCES</h4>
+                        <h4 className="text-sm font-medium text-[var(--sf-text-primary)] mb-3">NOTIFICATION PREFERENCES</h4>
                         
                         <div className="space-y-3">
                           <div className="flex items-center justify-between">
-                            <span className="text-sm text-gray-700">Emails</span>
+                            <span className="text-sm text-[var(--sf-text-primary)]">Emails</span>
                             <label className="relative inline-flex items-center cursor-pointer">
                               <input 
                                 type="checkbox" 
@@ -2782,12 +2782,12 @@ const JobDetails = () => {
                                 disabled={loading}
                                 className="sr-only peer" 
                               />
-                              <div className={`w-9 h-5 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all ${emailNotifications ? 'bg-blue-600 peer-checked:after:translate-x-full peer-checked:after:border-white' : 'bg-gray-200'} ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}></div>
+                              <div className={`w-9 h-5 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[var(--sf-border-light)] after:border after:rounded-full after:h-4 after:w-4 after:transition-all ${emailNotifications ? 'bg-[var(--sf-blue-500)] peer-checked:after:translate-x-full peer-checked:after:border-white' : 'bg-gray-200'} ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}></div>
                             </label>
                           </div>
                           
                           <div className="flex items-center justify-between">
-                            <span className={`text-sm ${!userTwilioConnected ? 'text-gray-400' : 'text-gray-700'}`}>
+                            <span className={`text-sm ${!userTwilioConnected ? 'text-[var(--sf-text-muted)]' : 'text-[var(--sf-text-primary)]'}`}>
                               Text messages
                               {!userTwilioConnected && <span className="text-xs block text-red-500">(Twilio not connected)</span>}
                             </span>
@@ -2799,7 +2799,7 @@ const JobDetails = () => {
                                 disabled={loading || !userTwilioConnected}
                                 className="sr-only peer" 
                               />
-                              <div className={`w-9 h-5 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all ${smsNotifications ? 'bg-blue-600 peer-checked:after:translate-x-full peer-checked:after:border-white' : 'bg-gray-200'} ${loading || !userTwilioConnected ? 'opacity-50 cursor-not-allowed' : ''}`}></div>
+                              <div className={`w-9 h-5 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[var(--sf-border-light)] after:border after:rounded-full after:h-4 after:w-4 after:transition-all ${smsNotifications ? 'bg-[var(--sf-blue-500)] peer-checked:after:translate-x-full peer-checked:after:border-white' : 'bg-gray-200'} ${loading || !userTwilioConnected ? 'opacity-50 cursor-not-allowed' : ''}`}></div>
                             </label>
                           </div>
                         </div>
@@ -2819,31 +2819,31 @@ const JobDetails = () => {
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Reschedule Job</h3>
+                  <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">Reschedule Job</h3>
                   <button
                     onClick={() => setShowRescheduleModal(false)}
-                    className="text-gray-400 hover:text-gray-600 p-1"
+                    className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] p-1"
                   >
                     <X className="w-5 h-5" />
                   </button>
                 </div>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Date</label>
                     <input
                       type="date"
                       value={formData.scheduledDate}
                       onChange={(e) => setFormData(prev => ({ ...prev, scheduledDate: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Time</label>
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Time</label>
                     <input
                       type="time"
                       value={formData.scheduledTime}
                       onChange={(e) => setFormData(prev => ({ ...prev, scheduledTime: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                     />
                   </div>
                 </div>
@@ -2851,13 +2851,13 @@ const JobDetails = () => {
                 <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 mt-6">
                   <button
                     onClick={() => setShowRescheduleModal(false)}
-                    className="px-4 py-2 text-gray-600 hover:text-gray-800 order-2 sm:order-1"
+                    className="px-4 py-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] order-2 sm:order-1"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleReschedule}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 order-1 sm:order-2"
+                    className="px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] order-1 sm:order-2"
                   >
                     Reschedule
                   </button>
@@ -2873,22 +2873,22 @@ const JobDetails = () => {
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Cancel Job</h3>
+                  <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">Cancel Job</h3>
                   <button
                     onClick={() => setShowCancelModal(false)}
-                    className="text-gray-400 hover:text-gray-600 p-1"
+                    className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] p-1"
                   >
                     <X className="w-5 h-5" />
                   </button>
                 </div>
-                <p className="text-gray-600 mb-6">
+                <p className="text-[var(--sf-text-secondary)] mb-6">
                   Are you sure you want to cancel this job? This action cannot be undone.
                 </p>
                 
                 <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3">
                   <button
                     onClick={() => setShowCancelModal(false)}
-                    className="px-4 py-2 text-gray-600 hover:text-gray-800 order-2 sm:order-1"
+                    className="px-4 py-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] order-2 sm:order-1"
                   >
                     Keep Job
                   </button>
@@ -2913,7 +2913,7 @@ const JobDetails = () => {
             <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col">
               <div className="p-6 flex-1 overflow-y-auto">
                 <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-2xl font-bold text-gray-900">Edit Job</h3>
+                  <h3 className="text-2xl font-bold text-[var(--sf-text-primary)]">Edit Job</h3>
                   <div className="flex space-x-3">
                   <button
                     onClick={() => {
@@ -2926,13 +2926,13 @@ const JobDetails = () => {
                         }));
                       }
                     }}
-                      className="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg text-sm font-medium"
+                      className="px-4 py-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] border border-[var(--sf-border-light)] rounded-lg text-sm font-medium"
                     >
                       Cancel
                     </button>
                     <button
                       onClick={handleSaveService}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+                      className="px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] text-sm font-medium"
                     >
                       Save Job
                   </button>
@@ -2942,7 +2942,7 @@ const JobDetails = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                   {/* Services Section */}
                   <div>
-                    <h4 className="text-lg font-semibold text-gray-900 mb-4">Services</h4>
+                    <h4 className="text-lg font-semibold text-[var(--sf-text-primary)] mb-4">Services</h4>
                     
                     {/* Search and Add Options */}
                     <div className="space-y-3 mb-6">
@@ -2950,51 +2950,51 @@ const JobDetails = () => {
                     <input
                       type="text"
                           placeholder="Search services..."
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="w-full px-4 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                     />
-                        <Search className="absolute right-3 top-2.5 w-4 h-4 text-gray-400" />
+                        <Search className="absolute right-3 top-2.5 w-4 h-4 text-[var(--sf-text-muted)]" />
                   </div>
                       <div className="flex space-x-2">
-                        <button className="px-3 py-2 text-blue-600 hover:text-blue-700 text-sm font-medium border border-blue-200 rounded-lg">
+                        <button className="px-3 py-2 text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] text-sm font-medium border border-blue-200 rounded-lg">
                           Add Custom Service or Item
                         </button>
-                        <button className="px-3 py-2 text-gray-600 hover:text-gray-700 text-sm font-medium border border-gray-300 rounded-lg">
+                        <button className="px-3 py-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] text-sm font-medium border border-[var(--sf-border-light)] rounded-lg">
                           Browse Services
                         </button>
                     </div>
                   </div>
                   
                     {/* Service List */}
-                    <div className="border border-gray-200 rounded-lg">
-                      <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
-                        <div className="grid grid-cols-2 gap-4 text-sm font-medium text-gray-600">
+                    <div className="border border-[var(--sf-border-light)] rounded-lg">
+                      <div className="px-4 py-3 bg-[var(--sf-bg-page)] border-b border-[var(--sf-border-light)]">
+                        <div className="grid grid-cols-2 gap-4 text-sm font-medium text-[var(--sf-text-secondary)]">
                           <span>SERVICE</span>
                           <span>PRICE</span>
                         </div>
                       </div>
                       <div className="p-4">
-                        <div className="flex items-center justify-between py-3 border-b border-gray-100">
+                        <div className="flex items-center justify-between py-3 border-b border-[var(--sf-border-light)]">
                   <div>
-                            <p className="font-medium text-gray-900">{decodeHtmlEntities(job.service_name || '')}</p>
-                            <button className="text-blue-600 hover:text-blue-700 text-sm">Edit</button>
-                            <button className="text-gray-600 hover:text-gray-700 text-sm ml-4">Show details &gt;</button>
+                            <p className="font-medium text-[var(--sf-text-primary)]">{decodeHtmlEntities(job.service_name || '')}</p>
+                            <button className="text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] text-sm">Edit</button>
+                            <button className="text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] text-sm ml-4">Show details &gt;</button>
                           </div>
                           <div className="flex items-center space-x-2">
-                            <span className="text-sm font-medium text-gray-900">${(parseFloat(job.service_price) || 0).toFixed(2)}</span>
-                            <button className="p-1 text-gray-400 hover:text-gray-600">
+                            <span className="text-sm font-medium text-[var(--sf-text-primary)]">${(parseFloat(job.service_price) || 0).toFixed(2)}</span>
+                            <button className="p-1 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]">
                               <Edit className="w-4 h-4" />
                             </button>
-                            <button className="p-1 text-gray-400 hover:text-red-600">
+                            <button className="p-1 text-[var(--sf-text-muted)] hover:text-red-600">
                               <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
                         </div>
                         
                         {/* Customize Price */}
-                        <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Customize price</label>
+                        <div className="mt-4 p-3 bg-[var(--sf-blue-50)] rounded-lg border border-blue-200">
+                          <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Customize price</label>
                           <div className="flex items-center space-x-2">
-                            <span className="text-sm text-gray-500">$</span>
+                            <span className="text-sm text-[var(--sf-text-muted)]">$</span>
                     <input
                       type="number"
                           step="0.01"
@@ -3011,7 +3011,7 @@ const JobDetails = () => {
                                 service_price: newPrice
                                 }));
                               }}
-                              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              className="flex-1 px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                           placeholder="0.00"
                         />
                             <button className="text-sm text-red-600 hover:text-red-800">Reset</button>
@@ -3019,13 +3019,13 @@ const JobDetails = () => {
                           <div className="flex space-x-2 mt-2">
                             <button 
                               onClick={() => setShowEditServiceModal(false)}
-                              className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800"
+                              className="px-3 py-1 text-sm text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]"
                             >
                               Cancel
                             </button>
                             <button 
                               onClick={handleSaveService}
-                              className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+                              className="px-3 py-1 text-sm bg-[var(--sf-blue-500)] text-white rounded hover:bg-[var(--sf-blue-600)]"
                             >
                               Save
                             </button>
@@ -3036,62 +3036,62 @@ const JobDetails = () => {
                     
                     {/* Cost Breakdown */}
                     <div className="mt-6 space-y-3">
-                      <div className="flex justify-between items-center py-2 border-b border-gray-200">
-                        <span className="text-sm text-gray-600">Subtotal</span>
-                        <span className="text-sm font-medium text-gray-900">${(parseFloat(formData.service_price) || parseFloat(job?.service_price) || 0).toFixed(2)}</span>
+                      <div className="flex justify-between items-center py-2 border-b border-[var(--sf-border-light)]">
+                        <span className="text-sm text-[var(--sf-text-secondary)]">Subtotal</span>
+                        <span className="text-sm font-medium text-[var(--sf-text-primary)]">${(parseFloat(formData.service_price) || parseFloat(job?.service_price) || 0).toFixed(2)}</span>
                       </div>
                       {parseFloat(job.discount || 0) > 0 ? (
                         <div className="flex justify-between items-center py-2">
-                          <button onClick={() => setShowDiscountModal(true)} className="text-sm text-blue-600 hover:text-blue-700">Discount</button>
+                          <button onClick={() => setShowDiscountModal(true)} className="text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)]">Discount</button>
                           <span className="text-sm font-medium text-red-600">-${parseFloat(job.discount).toFixed(2)}</span>
                         </div>
                       ) : (
                         <button
                           onClick={() => setShowDiscountModal(true)}
-                          className="text-sm text-blue-600 hover:text-blue-700"
+                          className="text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)]"
                         >
                           Add Discount
                         </button>
                       )}
                       <div className="flex justify-between items-center py-2">
-                        <span className="text-sm text-gray-600">Taxes</span>
-                        <span className="text-sm font-medium text-gray-900">$0.00</span>
+                        <span className="text-sm text-[var(--sf-text-secondary)]">Taxes</span>
+                        <span className="text-sm font-medium text-[var(--sf-text-primary)]">$0.00</span>
                       </div>
                       {parseFloat(job.tip_amount || 0) > 0 ? (
                         <div className="flex justify-between items-center py-2">
-                          <button onClick={() => setShowTipModal(true)} className="text-sm text-blue-600 hover:text-blue-700">Tip</button>
+                          <button onClick={() => setShowTipModal(true)} className="text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)]">Tip</button>
                           <span className="text-sm font-medium text-green-600">+${parseFloat(job.tip_amount).toFixed(2)}</span>
                         </div>
                       ) : (
                         <button
                           onClick={() => setShowTipModal(true)}
-                          className="text-sm text-blue-600 hover:text-blue-700"
+                          className="text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)]"
                         >
                           Add tip
                         </button>
                       )}
-                      <div className="flex justify-between items-center py-2 border-t border-gray-200">
-                        <span className="text-sm font-medium text-gray-900">Total</span>
-                        <span className="text-sm font-medium text-gray-900">${calculateTotalPrice().toFixed(2)}</span>
+                      <div className="flex justify-between items-center py-2 border-t border-[var(--sf-border-light)]">
+                        <span className="text-sm font-medium text-[var(--sf-text-primary)]">Total</span>
+                        <span className="text-sm font-medium text-[var(--sf-text-primary)]">${calculateTotalPrice().toFixed(2)}</span>
                       </div>
                     </div>
                   </div>
                   
                   {/* Summary Section */}
                       <div>
-                    <h4 className="text-lg font-semibold text-gray-900 mb-4">Summary</h4>
+                    <h4 className="text-lg font-semibold text-[var(--sf-text-primary)] mb-4">Summary</h4>
                     <div className="space-y-4">
-                      <div className="flex justify-between items-center py-2 border-b border-gray-200">
-                        <span className="text-sm text-gray-600">Previous Total</span>
-                        <span className="text-sm font-medium text-gray-900">${calculateTotalPrice().toFixed(2)}</span>
+                      <div className="flex justify-between items-center py-2 border-b border-[var(--sf-border-light)]">
+                        <span className="text-sm text-[var(--sf-text-secondary)]">Previous Total</span>
+                        <span className="text-sm font-medium text-[var(--sf-text-primary)]">${calculateTotalPrice().toFixed(2)}</span>
                       </div>
-                      <div className="flex justify-between items-center py-2 border-b border-gray-200">
-                        <span className="text-sm text-gray-600">Updated Total</span>
-                        <span className="text-sm font-medium text-gray-900">${calculateTotalPrice().toFixed(2)}</span>
+                      <div className="flex justify-between items-center py-2 border-b border-[var(--sf-border-light)]">
+                        <span className="text-sm text-[var(--sf-text-secondary)]">Updated Total</span>
+                        <span className="text-sm font-medium text-[var(--sf-text-primary)]">${calculateTotalPrice().toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between items-center py-2">
-                        <span className="text-sm text-gray-600">Estimated duration</span>
-                        <span className="text-sm font-medium text-gray-900">{formatDuration(job.duration || 0)}</span>
+                        <span className="text-sm text-[var(--sf-text-secondary)]">Estimated duration</span>
+                        <span className="text-sm font-medium text-[var(--sf-text-primary)]">{formatDuration(job.duration || 0)}</span>
                       </div>
                     </div>
                   </div>
@@ -3107,10 +3107,10 @@ const JobDetails = () => {
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Edit Address</h3>
+                  <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">Edit Address</h3>
                   <button
                     onClick={() => setShowEditAddressModal(false)}
-                    className="text-gray-400 hover:text-gray-600 p-1"
+                    className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] p-1"
                   >
                     <X className="w-5 h-5" />
                   </button>
@@ -3118,12 +3118,12 @@ const JobDetails = () => {
                 
                 {/* Copy Customer Address Button */}
                 {job && (job.customer_address || job.customer_city || job.customer_state || job.customer_zip_code) && (
-                  <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg mb-4">
+                  <div className="flex items-center justify-between p-3 bg-[var(--sf-blue-50)] border border-blue-200 rounded-lg mb-4">
                     <div className="flex items-center">
-                      <MapPin className="w-4 h-4 text-blue-600 mr-2" />
+                      <MapPin className="w-4 h-4 text-[var(--sf-blue-500)] mr-2" />
                       <div>
                         <p className="text-sm font-medium text-blue-900">Customer Address Available</p>
-                        <p className="text-xs text-blue-700">
+                        <p className="text-xs text-[var(--sf-blue-500)]">
                           {job.customer_address || `${job.customer_city}, ${job.customer_state} ${job.customer_zip_code}`}
                         </p>
                       </div>
@@ -3131,7 +3131,7 @@ const JobDetails = () => {
                     <button
                       type="button"
                       onClick={copyCustomerAddressToService}
-                      className="px-3 py-1 text-xs font-medium text-blue-600 bg-white border border-blue-300 rounded-md hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="px-3 py-1 text-xs font-medium text-[var(--sf-blue-500)] bg-white border border-blue-300 rounded-md hover:bg-[var(--sf-blue-50)] focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)]"
                     >
                       Copy Address
                     </button>
@@ -3140,7 +3140,7 @@ const JobDetails = () => {
                 
                 <div className="space-y-4">
                   <div className="relative">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                       Street Address
                       {addressAutoPopulated && formData.serviceAddress.street && (
                         <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
@@ -3178,11 +3178,11 @@ const JobDetails = () => {
                         setAddressAutoPopulated(true);
                       }}
                       placeholder={job?.service_address_street || "Start typing address..."}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                       City
                       {addressAutoPopulated && formData.serviceAddress.city && (
                         <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
@@ -3200,13 +3200,13 @@ const JobDetails = () => {
                           city: e.target.value
                         }
                       }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                       placeholder={job?.service_address_city || "Enter city"}
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                         State
                         {addressAutoPopulated && formData.serviceAddress.state && (
                           <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
@@ -3224,12 +3224,12 @@ const JobDetails = () => {
                             state: e.target.value
                           }
                         }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                         placeholder={job?.service_address_state || "Enter state"}
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                         ZIP Code
                         {addressAutoPopulated && formData.serviceAddress.zipCode && (
                           <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
@@ -3247,7 +3247,7 @@ const JobDetails = () => {
                             zipCode: e.target.value
                           }
                         }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                         placeholder={job?.service_address_zip || "Enter ZIP code"}
                       />
                     </div>
@@ -3257,7 +3257,7 @@ const JobDetails = () => {
                 <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 mt-6">
                   <button
                     onClick={() => setShowEditAddressModal(false)}
-                    className="px-4 py-2 text-gray-600 hover:text-gray-800 order-2 sm:order-1"
+                    className="px-4 py-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] order-2 sm:order-1"
                   >
                     Cancel
                   </button>
@@ -3266,7 +3266,7 @@ const JobDetails = () => {
                       handleSave()
                       setShowEditAddressModal(false)
                     }}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 order-1 sm:order-2"
+                    className="px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] order-1 sm:order-2"
                   >
                     Save Changes
                   </button>
@@ -3282,13 +3282,13 @@ const JobDetails = () => {
             <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-xl font-semibold text-gray-900">Email Invoice</h3>
+                  <h3 className="text-xl font-semibold text-[var(--sf-text-primary)]">Email Invoice</h3>
                   <button
                     onClick={() => {
                       setShowSendInvoiceModal(false);
                       setManualEmail('');
                     }}
-                    className="text-gray-400 hover:text-gray-600 p-1"
+                    className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] p-1"
                   >
                     <X className="w-5 h-5" />
                   </button>
@@ -3296,10 +3296,10 @@ const JobDetails = () => {
 
                 <div className="space-y-6">
                   {/* Payment Link Option */}
-                  <div className={`flex items-center justify-between p-4 rounded-lg ${stripeConnected ? 'bg-gray-50' : 'bg-red-50 border border-red-200'}`}>
+                  <div className={`flex items-center justify-between p-4 rounded-lg ${stripeConnected ? 'bg-[var(--sf-bg-page)]' : 'bg-red-50 border border-red-200'}`}>
                     <div className="flex-1">
-                      <h4 className="font-medium text-gray-900">Include a link to pay this invoice online</h4>
-                      <p className="text-sm text-gray-600">
+                      <h4 className="font-medium text-[var(--sf-text-primary)]">Include a link to pay this invoice online</h4>
+                      <p className="text-sm text-[var(--sf-text-secondary)]">
                         {stripeConnected 
                           ? 'Allow customer to pay directly via Stripe' 
                           : 'Stripe is not connected. Please connect Stripe in Settings to enable online payments.'
@@ -3320,7 +3320,7 @@ const JobDetails = () => {
                               console.error('Error refreshing Stripe status:', error)
                             }
                           }}
-                          className="mt-2 text-sm text-blue-600 hover:text-blue-700 underline"
+                          className="mt-2 text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] underline"
                         >
                           Refresh Stripe Status
                         </button>
@@ -3334,58 +3334,58 @@ const JobDetails = () => {
                         disabled={!stripeConnected}
                         onChange={(e) => setIncludePaymentLink(e.target.checked)}
                       />
-                      <div className={`w-11 h-6 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 ${stripeConnected ? 'bg-gray-200' : 'bg-gray-300'}`}></div>
+                      <div className={`w-11 h-6 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[var(--sf-border-light)] after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--sf-blue-500)] ${stripeConnected ? 'bg-gray-200' : 'bg-gray-300'}`}></div>
                     </label>
                   </div>
 
                   {/* Email Details */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Send to</label>
+                      <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Send to</label>
                     <input
                       type="email"
                       value={manualEmail || job.customer_email || ''}
                       onChange={(e) => setManualEmail(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                       placeholder="Enter email address"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Subject</label>
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Subject</label>
                     <input
                       type="text"
                         defaultValue={`You have a new invoice from ${user?.business_name || 'Your Business'}`}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                     />
                   </div>
                   </div>
 
                   {/* Invoice Summary */}
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <h4 className="font-medium text-gray-900 mb-4">Invoice Summary</h4>
+                  <div className="bg-[var(--sf-bg-page)] rounded-lg p-4">
+                    <h4 className="font-medium text-[var(--sf-text-primary)] mb-4">Invoice Summary</h4>
                     <div className="space-y-3">
                       <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">AMOUNT DUE</span>
+                        <span className="text-sm text-[var(--sf-text-secondary)]">AMOUNT DUE</span>
                         <span className="font-semibold">${calculateTotalPrice().toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">DUE BY</span>
+                        <span className="text-sm text-[var(--sf-text-secondary)]">DUE BY</span>
                         <span className="text-sm">{new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">SERVICE DATE</span>
+                        <span className="text-sm text-[var(--sf-text-secondary)]">SERVICE DATE</span>
                         <span className="text-sm">{new Date(job.scheduled_date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">SERVICE ADDRESS</span>
+                        <span className="text-sm text-[var(--sf-text-secondary)]">SERVICE ADDRESS</span>
                         <span className="text-sm">{job.customer_address || 'Address not provided'}</span>
                       </div>
                     </div>
                   </div>
 
                   {/* Service Details */}
-                  <div className="bg-white border border-gray-200 rounded-lg p-4">
-                    <h4 className="font-medium text-gray-900 mb-3">Service Details</h4>
+                  <div className="bg-white border border-[var(--sf-border-light)] rounded-lg p-4">
+                    <h4 className="font-medium text-[var(--sf-text-primary)] mb-3">Service Details</h4>
                     <div className="space-y-2">
                       {job.service_names && job.service_names.length > 0 ? (
                         job.service_names.map((service, index) => (
@@ -3404,8 +3404,8 @@ const JobDetails = () => {
                   </div>
 
                   {/* Financial Summary */}
-                  <div className="bg-white border border-gray-200 rounded-lg p-4">
-                    <h4 className="font-medium text-gray-900 mb-3">Financial Summary</h4>
+                  <div className="bg-white border border-[var(--sf-border-light)] rounded-lg p-4">
+                    <h4 className="font-medium text-[var(--sf-text-primary)] mb-3">Financial Summary</h4>
                     <div className="space-y-2">
                       <div className="flex justify-between text-sm">
                         <span>Subtotal</span>
@@ -3441,7 +3441,7 @@ const JobDetails = () => {
                   </div>
 
                   {/* Closing Message */}
-                  <div className="text-center text-sm text-gray-600">
+                  <div className="text-center text-sm text-[var(--sf-text-secondary)]">
                     We appreciate your business.
                   </div>
 
@@ -3471,13 +3471,13 @@ const JobDetails = () => {
                       setShowSendInvoiceModal(false);
                       setManualEmail('');
                     }}
-                    className="px-4 py-2 text-gray-600 hover:text-gray-800 order-2 sm:order-1"
+                    className="px-4 py-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] order-2 sm:order-1"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleSendInvoice}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 order-1 sm:order-2"
+                    className="px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] order-1 sm:order-2"
                   >
                     Send
                   </button>
@@ -3492,25 +3492,25 @@ const JobDetails = () => {
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Email Required</h3>
+                <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">Email Required</h3>
                 <button
                   onClick={() => {
                     setShowEmailRequiredModal(false);
                     setPendingAction(null);
                   }}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
               
               <div className="space-y-4">
-                <p className="text-gray-600">
+                <p className="text-[var(--sf-text-secondary)]">
                   This customer doesn't have an email address. Please provide an email to {pendingAction === 'send' ? 'send the invoice' : 'resend the notification'}.
                 </p>
                 
                 <div>
-                  <label htmlFor="customer-email" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="customer-email" className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                     Customer Email
                   </label>
                   <input
@@ -3518,7 +3518,7 @@ const JobDetails = () => {
                     id="customer-email"
                     value={manualEmail}
                     onChange={(e) => setManualEmail(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                     placeholder="Enter customer email address"
                     required
                   />
@@ -3531,7 +3531,7 @@ const JobDetails = () => {
                       setPendingAction(null);
                       setManualEmail('');
                     }}
-                    className="flex-1 px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50"
+                    className="flex-1 px-4 py-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-page)]"
                   >
                     Cancel
                   </button>
@@ -3550,7 +3550,7 @@ const JobDetails = () => {
                         setError('Please enter a valid email address');
                       }
                     }}
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    className="flex-1 px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)]"
                   >
                     {pendingAction === 'send' ? 'Send Invoice' : 'Resend'}
                   </button>
@@ -3565,10 +3565,10 @@ const JobDetails = () => {
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Edit Customer</h3>
+                <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">Edit Customer</h3>
                 <button
                   onClick={() => setShowEditCustomerModal(false)}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -3576,7 +3576,7 @@ const JobDetails = () => {
               
               <div className="space-y-4">
                 <div>
-                  <label htmlFor="edit-first-name" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="edit-first-name" className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                     First Name
                   </label>
                   <input
@@ -3584,12 +3584,12 @@ const JobDetails = () => {
                     id="edit-first-name"
                     value={editCustomerData.firstName}
                     onChange={(e) => setEditCustomerData(prev => ({ ...prev, firstName: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                   />
                 </div>
                 
                 <div>
-                  <label htmlFor="edit-last-name" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="edit-last-name" className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                     Last Name
                   </label>
                   <input
@@ -3597,12 +3597,12 @@ const JobDetails = () => {
                     id="edit-last-name"
                     value={editCustomerData.lastName}
                     onChange={(e) => setEditCustomerData(prev => ({ ...prev, lastName: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                   />
                 </div>
                 
                 <div>
-                  <label htmlFor="edit-email" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="edit-email" className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                     Email Address
                   </label>
                   <input
@@ -3610,13 +3610,13 @@ const JobDetails = () => {
                     id="edit-email"
                     value={editCustomerData.email}
                     onChange={(e) => setEditCustomerData(prev => ({ ...prev, email: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                     placeholder="Enter email address"
                   />
                 </div>
                 
                 <div>
-                  <label htmlFor="edit-phone" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="edit-phone" className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                     Phone Number
                   </label>
                   <input
@@ -3624,7 +3624,7 @@ const JobDetails = () => {
                     id="edit-phone"
                     value={editCustomerData.phone}
                     onChange={(e) => setEditCustomerData(prev => ({ ...prev, phone: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                     placeholder="Enter phone number"
                   />
                 </div>
@@ -3632,7 +3632,7 @@ const JobDetails = () => {
                 <div className="flex space-x-3 pt-4">
                   <button
                     onClick={() => setShowEditCustomerModal(false)}
-                    className="flex-1 px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50"
+                    className="flex-1 px-4 py-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-page)]"
                   >
                     Cancel
                   </button>
@@ -3686,7 +3686,7 @@ const JobDetails = () => {
                         setLoading(false);
                       }
                     }}
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    className="flex-1 px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)]"
                     disabled={loading}
                   >
                     {loading ? 'Saving...' : 'Save Changes'}
@@ -3703,7 +3703,7 @@ const JobDetails = () => {
             <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-xl font-semibold text-gray-900">
+                  <h3 className="text-xl font-semibold text-[var(--sf-text-primary)]">
                     {notificationType === 'confirmation' ? 'Appointment Confirmation' : 'Appointment Reminder'}
                   </h3>
                   <button
@@ -3712,7 +3712,7 @@ const JobDetails = () => {
                       setNotificationType(null);
                       setNotificationEmail('');
                     }}
-                    className="text-gray-400 hover:text-gray-600"
+                    className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
                   >
                     <X className="w-5 h-5" />
                   </button>
@@ -3721,7 +3721,7 @@ const JobDetails = () => {
                 <div className="space-y-6">
                   {/* Notification Method Selection */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-3">
                       Send via
                     </label>
                     <div className="grid grid-cols-2 gap-3">
@@ -3735,19 +3735,19 @@ const JobDetails = () => {
                         disabled={!emailNotifications}
                         className={`p-3 border rounded-lg text-center transition-colors ${
                           !emailNotifications
-                            ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed'
+                            ? 'border-[var(--sf-border-light)] bg-[var(--sf-bg-page)] text-[var(--sf-text-muted)] cursor-not-allowed'
                             : selectedNotificationMethod === 'email'
-                            ? 'border-blue-500 bg-blue-50 text-blue-700'
-                            : 'border-gray-300 hover:border-gray-400'
+                            ? 'border-blue-500 bg-[var(--sf-blue-50)] text-[var(--sf-blue-500)]'
+                            : 'border-[var(--sf-border-light)] hover:border-gray-400'
                         }`}
                         title={!emailNotifications ? 'Email notifications are disabled' : ''}
                       >
-                        <Mail className={`w-5 h-5 mx-auto mb-1 ${!emailNotifications ? 'text-gray-400' : ''}`} />
-                        <div className={`text-sm font-medium ${!emailNotifications ? 'text-gray-400' : ''}`}>
+                        <Mail className={`w-5 h-5 mx-auto mb-1 ${!emailNotifications ? 'text-[var(--sf-text-muted)]' : ''}`} />
+                        <div className={`text-sm font-medium ${!emailNotifications ? 'text-[var(--sf-text-muted)]' : ''}`}>
                           Email
                           {!emailNotifications && <span className="text-xs block text-red-500">(Disabled)</span>}
                         </div>
-                        <div className="text-xs text-gray-500">Send via email</div>
+                        <div className="text-xs text-[var(--sf-text-muted)]">Send via email</div>
                       </button>
                       <button
                         onClick={() => {
@@ -3759,19 +3759,19 @@ const JobDetails = () => {
                         disabled={!smsNotifications}
                         className={`p-3 border rounded-lg text-center transition-colors ${
                           !smsNotifications
-                            ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed'
+                            ? 'border-[var(--sf-border-light)] bg-[var(--sf-bg-page)] text-[var(--sf-text-muted)] cursor-not-allowed'
                             : selectedNotificationMethod === 'sms'
-                            ? 'border-blue-500 bg-blue-50 text-blue-700'
-                            : 'border-gray-300 hover:border-gray-400'
+                            ? 'border-blue-500 bg-[var(--sf-blue-50)] text-[var(--sf-blue-500)]'
+                            : 'border-[var(--sf-border-light)] hover:border-gray-400'
                         }`}
                         title={!smsNotifications ? 'SMS notifications are disabled' : ''}
                       >
-                        <Phone className={`w-5 h-5 mx-auto mb-1 ${!smsNotifications ? 'text-gray-400' : ''}`} />
-                        <div className={`text-sm font-medium ${!smsNotifications ? 'text-gray-400' : ''}`}>
+                        <Phone className={`w-5 h-5 mx-auto mb-1 ${!smsNotifications ? 'text-[var(--sf-text-muted)]' : ''}`} />
+                        <div className={`text-sm font-medium ${!smsNotifications ? 'text-[var(--sf-text-muted)]' : ''}`}>
                           SMS
                           {!smsNotifications && <span className="text-xs block text-red-500">(Disabled)</span>}
                         </div>
-                        <div className="text-xs text-gray-500">Send via text</div>
+                        <div className="text-xs text-[var(--sf-text-muted)]">Send via text</div>
                       </button>
                     </div>
                   </div>
@@ -3780,7 +3780,7 @@ const JobDetails = () => {
                   {selectedNotificationMethod === 'email' ? (
                     <div>
                       <label htmlFor="notification-email" className={`block text-sm font-medium mb-2 ${
-                        !emailNotifications ? 'text-gray-400' : 'text-gray-700'
+                        !emailNotifications ? 'text-[var(--sf-text-muted)]' : 'text-[var(--sf-text-primary)]'
                       }`}>
                         Email Address
                         {!emailNotifications && <span className="text-red-500 ml-1">(Disabled)</span>}
@@ -3791,10 +3791,10 @@ const JobDetails = () => {
                         value={notificationEmail}
                         onChange={(e) => setNotificationEmail(e.target.value)}
                         disabled={!emailNotifications}
-                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-blue-500 ${
+                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-[var(--sf-blue-500)] ${
                           !emailNotifications 
-                            ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed' 
-                            : 'border-gray-300 focus:ring-blue-500'
+                            ? 'border-[var(--sf-border-light)] bg-[var(--sf-bg-page)] text-[var(--sf-text-muted)] cursor-not-allowed' 
+                            : 'border-[var(--sf-border-light)] focus:ring-[var(--sf-blue-500)]'
                         }`}
                         placeholder={!emailNotifications ? "Email notifications are disabled" : "Enter email address"}
                         required
@@ -3803,7 +3803,7 @@ const JobDetails = () => {
                   ) : (
                     <div>
                       <label htmlFor="notification-phone" className={`block text-sm font-medium mb-2 ${
-                        !smsNotifications ? 'text-gray-400' : 'text-gray-700'
+                        !smsNotifications ? 'text-[var(--sf-text-muted)]' : 'text-[var(--sf-text-primary)]'
                       }`}>
                         Phone Number
                         {!smsNotifications && <span className="text-red-500 ml-1">(Disabled)</span>}
@@ -3814,16 +3814,16 @@ const JobDetails = () => {
                         value={notificationPhone}
                         onChange={(e) => setNotificationPhone(e.target.value)}
                         disabled={!smsNotifications}
-                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-blue-500 ${
+                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-[var(--sf-blue-500)] ${
                           !smsNotifications 
-                            ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed' 
-                            : 'border-gray-300 focus:ring-blue-500'
+                            ? 'border-[var(--sf-border-light)] bg-[var(--sf-bg-page)] text-[var(--sf-text-muted)] cursor-not-allowed' 
+                            : 'border-[var(--sf-border-light)] focus:ring-[var(--sf-blue-500)]'
                         }`}
                         placeholder={!smsNotifications ? "SMS notifications are disabled" : "Enter phone number (e.g., +1234567890)"}
                         required
                       />
                       <p className={`text-xs mt-1 ${
-                        !smsNotifications ? 'text-gray-400' : 'text-gray-500'
+                        !smsNotifications ? 'text-[var(--sf-text-muted)]' : 'text-[var(--sf-text-muted)]'
                       }`}>
                         {!smsNotifications ? "SMS notifications are disabled for this customer" : "Include country code (e.g., +1 for US)"}
                       </p>
@@ -3832,18 +3832,18 @@ const JobDetails = () => {
 
                   {/* Message Preview */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                       Message Preview
                     </label>
-                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 max-h-60 overflow-y-auto">
+                    <div className="bg-[var(--sf-bg-page)] border border-[var(--sf-border-light)] rounded-lg p-4 max-h-60 overflow-y-auto">
                       {selectedNotificationMethod === 'email' ? (
                         // Email preview
                         notificationType === 'confirmation' ? (
                           <div className="space-y-3">
-                            <div className="font-semibold text-gray-900">
+                            <div className="font-semibold text-[var(--sf-text-primary)]">
                               Hi {job?.customer_first_name || 'Customer'},
                             </div>
-                            <div className="text-gray-700">
+                            <div className="text-[var(--sf-text-primary)]">
                               Your appointment has been confirmed for <strong>{new Date(job?.scheduled_date).toLocaleDateString('en-US', { 
                                 weekday: 'long', 
                                 month: 'long', 
@@ -3855,26 +3855,26 @@ const JobDetails = () => {
                                 hour12: true 
                               })}</strong>.
                             </div>
-                            <div className="text-gray-700">
+                            <div className="text-[var(--sf-text-primary)]">
                               <strong>Service:</strong> {job?.service_name || 'Service'}
                             </div>
-                            <div className="text-gray-700">
+                            <div className="text-[var(--sf-text-primary)]">
                               <strong>Location:</strong> {job?.service_address_street || 'Service Address'}, {job?.service_address_city || 'City'}, {job?.service_address_state || 'State'} {job?.service_address_zip || 'ZIP'}
                             </div>
-                            <div className="text-gray-700">
+                            <div className="text-[var(--sf-text-primary)]">
                               We look forward to serving you!
                             </div>
-                            <div className="text-gray-700">
+                            <div className="text-[var(--sf-text-primary)]">
                               Best regards,<br />
                               Your Service Team
                             </div>
                           </div>
                         ) : (
                           <div className="space-y-3">
-                            <div className="font-semibold text-gray-900">
+                            <div className="font-semibold text-[var(--sf-text-primary)]">
                               Hi {job?.customer_first_name || 'Customer'},
                             </div>
-                            <div className="text-gray-700">
+                            <div className="text-[var(--sf-text-primary)]">
                               This is a friendly reminder that you have an appointment scheduled for <strong>{new Date(job?.scheduled_date).toLocaleDateString('en-US', { 
                                 weekday: 'long', 
                                 month: 'long', 
@@ -3886,16 +3886,16 @@ const JobDetails = () => {
                                 hour12: true 
                               })}</strong>.
                             </div>
-                            <div className="text-gray-700">
+                            <div className="text-[var(--sf-text-primary)]">
                               <strong>Service:</strong> {job?.service_name || 'Service'}
                             </div>
-                            <div className="text-gray-700">
+                            <div className="text-[var(--sf-text-primary)]">
                               <strong>Location:</strong> {job?.service_address_street || 'Service Address'}, {job?.service_address_city || 'City'}, {job?.service_address_state || 'State'} {job?.service_address_zip || 'ZIP'}
                             </div>
-                            <div className="text-gray-700">
+                            <div className="text-[var(--sf-text-primary)]">
                               Please arrive on time. If you need to reschedule, please contact us as soon as possible.
                             </div>
-                            <div className="text-gray-700">
+                            <div className="text-[var(--sf-text-primary)]">
                               Best regards,<br />
                               Your Service Team
                             </div>
@@ -3904,7 +3904,7 @@ const JobDetails = () => {
                       ) : (
                         // SMS preview
                         notificationType === 'confirmation' ? (
-                          <div className="text-gray-700">
+                          <div className="text-[var(--sf-text-primary)]">
                             Hi {job?.customer_first_name || 'Customer'}! Your appointment is confirmed for {job?.service_name || 'Service'} on {new Date(job?.scheduled_date).toLocaleDateString('en-US', { 
                               weekday: 'long', 
                               month: 'long', 
@@ -3916,7 +3916,7 @@ const JobDetails = () => {
                             })}. We'll see you soon! - Your Service Team
                           </div>
                         ) : (
-                          <div className="text-gray-700">
+                          <div className="text-[var(--sf-text-primary)]">
                             Hi {job?.customer_first_name || 'Customer'}! Reminder: You have an appointment for {job?.service_name || 'Service'} on {new Date(job?.scheduled_date).toLocaleDateString('en-US', { 
                               weekday: 'long', 
                               month: 'long', 
@@ -3942,7 +3942,7 @@ const JobDetails = () => {
                         setNotificationPhone('');
                         setSelectedNotificationMethod('email');
                       }}
-                      className="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 order-2 sm:order-1"
+                      className="px-4 py-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-page)] order-2 sm:order-1"
                     >
                       Cancel
                     </button>
@@ -4119,7 +4119,7 @@ const JobDetails = () => {
                         (selectedNotificationMethod === 'email' && !emailNotifications) ||
                         (selectedNotificationMethod === 'sms' && !smsNotifications)
                           ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                          : 'bg-blue-600 text-white hover:bg-blue-700'
+                          : 'bg-[var(--sf-blue-500)] text-white hover:bg-[var(--sf-blue-600)]'
                       }`}
                       disabled={
                         loading || 
@@ -4148,14 +4148,14 @@ const JobDetails = () => {
             <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-xl font-semibold text-gray-900">Send Custom Message</h3>
+                  <h3 className="text-xl font-semibold text-[var(--sf-text-primary)]">Send Custom Message</h3>
                   <button
                     onClick={() => {
                       setShowCustomMessageModal(false);
                       setCustomMessage('');
                       setCustomMessageEmail('');
                     }}
-                    className="text-gray-400 hover:text-gray-600"
+                    className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
                   >
                     <X className="w-5 h-5" />
                   </button>
@@ -4164,7 +4164,7 @@ const JobDetails = () => {
                 <div className="space-y-6">
                   {/* Email Address */}
                   <div>
-                    <label htmlFor="custom-message-email" className="block text-sm font-medium text-gray-700 mb-2">
+                    <label htmlFor="custom-message-email" className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                       Send to
                     </label>
                     <input
@@ -4172,7 +4172,7 @@ const JobDetails = () => {
                       id="custom-message-email"
                       value={customMessageEmail}
                       onChange={(e) => setCustomMessageEmail(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                       placeholder="Enter email address"
                       required
                     />
@@ -4180,14 +4180,14 @@ const JobDetails = () => {
 
                   {/* Custom Message */}
                   <div>
-                    <label htmlFor="custom-message-text" className="block text-sm font-medium text-gray-700 mb-2">
+                    <label htmlFor="custom-message-text" className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                       Message
                     </label>
                     <textarea
                       id="custom-message-text"
                       value={customMessage}
                       onChange={(e) => setCustomMessage(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                       rows={6}
                       placeholder="Enter your custom message here..."
                       required
@@ -4197,18 +4197,18 @@ const JobDetails = () => {
                   {/* Message Preview */}
                   {customMessage && (
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                         Message Preview
                       </label>
-                      <div className="border border-gray-300 rounded-lg p-4 bg-gray-50 max-h-40 overflow-y-auto">
+                      <div className="border border-[var(--sf-border-light)] rounded-lg p-4 bg-[var(--sf-bg-page)] max-h-40 overflow-y-auto">
                         <div className="space-y-2">
-                          <div className="font-semibold text-gray-900">
+                          <div className="font-semibold text-[var(--sf-text-primary)]">
                             Hi {job?.customer_first_name || 'Customer'},
                           </div>
-                          <div className="text-gray-700 whitespace-pre-wrap">
+                          <div className="text-[var(--sf-text-primary)] whitespace-pre-wrap">
                             {customMessage}
                           </div>
-                          <div className="text-gray-700">
+                          <div className="text-[var(--sf-text-primary)]">
                             Best regards,<br />
                             Your Service Team
                           </div>
@@ -4225,7 +4225,7 @@ const JobDetails = () => {
                         setCustomMessage('');
                         setCustomMessageEmail('');
                       }}
-                      className="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 order-2 sm:order-1"
+                      className="px-4 py-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-page)] order-2 sm:order-1"
                     >
                       Cancel
                     </button>
@@ -4258,7 +4258,7 @@ const JobDetails = () => {
                           setError('Please enter both email address and message');
                         }
                       }}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 order-1 sm:order-2"
+                      className="px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] order-1 sm:order-2"
                       disabled={loading}
                     >
                       {loading ? 'Sending...' : 'Send Message'}
@@ -4276,18 +4276,18 @@ const JobDetails = () => {
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Add Payment</h3>
+                  <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">Add Payment</h3>
                   <button
                     onClick={() => setShowAddPaymentModal(false)}
-                    className="text-gray-400 hover:text-gray-600 p-1"
+                    className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] p-1"
                   >
                     <X className="w-5 h-5" />
                   </button>
                 </div>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Payment Method</label>
-                    <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Payment Method</label>
+                    <select className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]">
                       <option value="cash">Cash</option>
                       <option value="check">Check</option>
                       <option value="credit_card">Credit Card</option>
@@ -4296,28 +4296,28 @@ const JobDetails = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Amount</label>
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Amount</label>
                     <input
                       type="number"
                       step="0.01"
                       defaultValue={parseFloat(job.total) || parseFloat(job.service_price) || 0}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                       placeholder="Enter amount"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Payment Date</label>
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Payment Date</label>
                     <input
                       type="date"
                       defaultValue={new Date().toISOString().split('T')[0]}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Notes</label>
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Notes</label>
                     <textarea
                       rows={3}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                       placeholder="Optional payment notes"
                     />
                   </div>
@@ -4326,7 +4326,7 @@ const JobDetails = () => {
                 <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 mt-6">
                   <button
                     onClick={() => setShowAddPaymentModal(false)}
-                    className="px-4 py-2 text-gray-600 hover:text-gray-800 order-2 sm:order-1"
+                    className="px-4 py-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] order-2 sm:order-1"
                   >
                     Cancel
                   </button>
@@ -4336,7 +4336,7 @@ const JobDetails = () => {
                       setTimeout(() => setSuccessMessage(""), 3000)
                       setShowAddPaymentModal(false)
                     }}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 order-1 sm:order-2"
+                    className="px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] order-1 sm:order-2"
                   >
                     Record Payment
                   </button>
@@ -4352,10 +4352,10 @@ const JobDetails = () => {
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Add Discount</h3>
+                  <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">Add Discount</h3>
                   <button
                     onClick={() => setShowDiscountModal(false)}
-                    className="text-gray-400 hover:text-gray-600"
+                    className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
                   >
                     <X className="w-5 h-5" />
                   </button>
@@ -4369,8 +4369,8 @@ const JobDetails = () => {
                       onClick={() => setFormData(prev => ({ ...prev, discountMode: 'fixed' }))}
                       className={`px-6 py-2 text-base font-semibold transition-colors ${
                         (formData.discountMode || 'fixed') === 'fixed'
-                          ? 'bg-blue-500 text-white'
-                          : 'bg-white text-blue-500 hover:bg-blue-50'
+                          ? 'bg-[var(--sf-blue-500)] text-white'
+                          : 'bg-white text-blue-500 hover:bg-[var(--sf-blue-50)]'
                       }`}
                     >
                       $
@@ -4380,8 +4380,8 @@ const JobDetails = () => {
                       onClick={() => setFormData(prev => ({ ...prev, discountMode: 'percentage' }))}
                       className={`px-6 py-2 text-base font-semibold transition-colors ${
                         (formData.discountMode || 'fixed') === 'percentage'
-                          ? 'bg-blue-500 text-white'
-                          : 'bg-white text-blue-500 hover:bg-blue-50'
+                          ? 'bg-[var(--sf-blue-500)] text-white'
+                          : 'bg-white text-blue-500 hover:bg-[var(--sf-blue-50)]'
                       }`}
                     >
                       %
@@ -4389,11 +4389,11 @@ const JobDetails = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                       {(formData.discountMode || 'fixed') === 'percentage' ? 'Discount Percentage' : 'Discount Amount'}
                     </label>
                     <div className="flex items-center space-x-2">
-                      <span className="text-sm text-gray-500">{(formData.discountMode || 'fixed') === 'percentage' ? '%' : '$'}</span>
+                      <span className="text-sm text-[var(--sf-text-muted)]">{(formData.discountMode || 'fixed') === 'percentage' ? '%' : '$'}</span>
                       <input
                         type="text"
                         inputMode="decimal"
@@ -4405,13 +4405,13 @@ const JobDetails = () => {
                             setFormData(prev => ({ ...prev, discountInput: val }))
                           }
                         }}
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="flex-1 px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                         placeholder={`${(formData.discountMode || 'fixed') === 'percentage' ? '0' : '0.00'}`}
                         autoFocus
                       />
                     </div>
                     {(formData.discountMode || 'fixed') === 'percentage' && formData.discountInput && (
-                      <p className="text-sm text-gray-500 mt-1">
+                      <p className="text-sm text-[var(--sf-text-muted)] mt-1">
                         = ${resolveDiscount(formData.discountInput, 'percentage', (parseFloat(job?.total || 0) + parseFloat(job?.discount || 0))).toFixed(2)} discount
                       </p>
                     )}
@@ -4423,7 +4423,7 @@ const JobDetails = () => {
                         setFormData(prev => ({ ...prev, discountInput: '', discountMode: 'fixed' }))
                         setShowDiscountModal(false)
                       }}
-                      className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                      className="flex-1 px-4 py-2 border border-[var(--sf-border-light)] text-[var(--sf-text-primary)] rounded-lg hover:bg-[var(--sf-bg-page)]"
                     >
                       Cancel
                     </button>
@@ -4456,7 +4456,7 @@ const JobDetails = () => {
                         }
                       }}
                       disabled={loading}
-                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                      className="flex-1 px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] disabled:opacity-50"
                     >
                       {loading ? 'Saving...' : 'Add Discount'}
                     </button>
@@ -4473,10 +4473,10 @@ const JobDetails = () => {
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Add Tip</h3>
+                  <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">Add Tip</h3>
                   <button
                     onClick={() => setShowTipModal(false)}
-                    className="text-gray-400 hover:text-gray-600"
+                    className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
                   >
                     <X className="w-5 h-5" />
                   </button>
@@ -4484,9 +4484,9 @@ const JobDetails = () => {
                 
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Tip Amount</label>
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Tip Amount</label>
                     <div className="flex items-center space-x-2">
-                      <span className="text-sm text-gray-500">$</span>
+                      <span className="text-sm text-[var(--sf-text-muted)]">$</span>
                       <input
                         type="text"
                         inputMode="decimal"
@@ -4497,7 +4497,7 @@ const JobDetails = () => {
                             setFormData(prev => ({ ...prev, tipInput: val }))
                           }
                         }}
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="flex-1 px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                         placeholder="0.00"
                         autoFocus
                       />
@@ -4510,7 +4510,7 @@ const JobDetails = () => {
                         setFormData(prev => ({ ...prev, tipInput: '' }))
                         setShowTipModal(false)
                       }}
-                      className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                      className="flex-1 px-4 py-2 border border-[var(--sf-border-light)] text-[var(--sf-text-primary)] rounded-lg hover:bg-[var(--sf-bg-page)]"
                     >
                       Cancel
                     </button>
@@ -4541,7 +4541,7 @@ const JobDetails = () => {
                         }
                       }}
                       disabled={loading}
-                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                      className="flex-1 px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] disabled:opacity-50"
                     >
                       {loading ? 'Saving...' : 'Add Tip'}
                     </button>

@@ -1,19 +1,19 @@
 export default function Footer() {
   return (
-    <footer className="bg-white border-t border-gray-200">
+    <footer className="bg-white border-t border-[var(--sf-border-light)]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Company Info */}
           <div className="space-y-4">
             <img src="/placeholder.svg?height=40&width=160" alt="Serviceflow" className="h-10 w-auto" />
-            <p className="text-gray-600 text-sm">Online scheduling software for home service providers.</p>
+            <p className="text-[var(--sf-text-secondary)] text-sm">Online scheduling software for home service providers.</p>
             <div className="flex space-x-4">
-              <a href="https://twitter.com/ServiceflowApp" className="text-gray-400 hover:text-gray-600">
+              <a href="https://twitter.com/ServiceflowApp" className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]">
                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M6.29 18.251c7.547 0 11.675-6.253 11.675-11.675 0-.178 0-.355-.012-.53A8.348 8.348 0 0020 3.92a8.19 8.19 0 01-2.357.646 4.118 4.118 0 001.804-2.27 8.224 8.224 0 01-2.605.996 4.107 4.107 0 00-6.993 3.743 11.65 11.65 0 01-8.457-4.287 4.106 4.106 0 001.27 5.477A4.073 4.073 0 01.8 7.713v.052a4.105 4.105 0 003.292 4.022 4.095 4.095 0 01-1.853.07 4.108 4.108 0 003.834 2.85A8.233 8.233 0 010 16.407a11.616 11.616 0 006.29 1.84" />
                 </svg>
               </a>
-              <a href="https://www.facebook.com/ServiceflowApp/" className="text-gray-400 hover:text-gray-600">
+              <a href="https://www.facebook.com/ServiceflowApp/" className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]">
                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                   <path
                     fillRule="evenodd"
@@ -22,7 +22,7 @@ export default function Footer() {
                   />
                 </svg>
               </a>
-              <a href="https://www.youtube.com/@Serviceflow" className="text-gray-400 hover:text-gray-600">
+              <a href="https://www.youtube.com/@Serviceflow" className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]">
                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
                   <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
@@ -33,40 +33,40 @@ export default function Footer() {
 
           {/* Features */}
           <div className="space-y-4">
-            <h3 className="font-semibold text-gray-900">Features</h3>
+            <h3 className="font-semibold text-[var(--sf-text-primary)]">Features</h3>
             <ul className="space-y-2 text-sm">
               <li>
-                <a href="/features" className="text-gray-600 hover:text-gray-900">
+                <a href="/features" className="text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]">
                   Overview
                 </a>
               </li>
               <li>
-                <a href="/online-booking-software" className="text-gray-600 hover:text-gray-900">
+                <a href="/online-booking-software" className="text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]">
                   Online Booking
                 </a>
               </li>
               <li>
-                <a href="/service-request-software" className="text-gray-600 hover:text-gray-900">
+                <a href="/service-request-software" className="text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]">
                   Service Requests
                 </a>
               </li>
               <li>
-                <a href="/bookable-estimates" className="text-gray-600 hover:text-gray-900">
+                <a href="/bookable-estimates" className="text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]">
                   Bookable Estimates
                 </a>
               </li>
               <li>
-                <a href="/invoicing" className="text-gray-600 hover:text-gray-900">
+                <a href="/invoicing" className="text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]">
                   Invoicing
                 </a>
               </li>
               <li>
-                <a href="/crm" className="text-gray-600 hover:text-gray-900">
+                <a href="/crm" className="text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]">
                   Customer Manager (CRM)
                 </a>
               </li>
               <li>
-                <a href="/service-territories" className="text-gray-600 hover:text-gray-900">
+                <a href="/service-territories" className="text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]">
                   Territories (Multi-Location)
                 </a>
               </li>
@@ -75,40 +75,40 @@ export default function Footer() {
 
           {/* Industries */}
           <div className="space-y-4">
-            <h3 className="font-semibold text-gray-900">Industries</h3>
+            <h3 className="font-semibold text-[var(--sf-text-primary)]">Industries</h3>
             <ul className="space-y-2 text-sm">
               <li>
-                <a href="/mobile-auto-detailing-software" className="text-gray-600 hover:text-gray-900">
+                <a href="/mobile-auto-detailing-software" className="text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]">
                   Auto Detailing
                 </a>
               </li>
               <li>
-                <a href="/appliance-repair-scheduling-software" className="text-gray-600 hover:text-gray-900">
+                <a href="/appliance-repair-scheduling-software" className="text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]">
                   Appliance Repair
                 </a>
               </li>
               <li>
-                <a href="/junk-removal-software" className="text-gray-600 hover:text-gray-900">
+                <a href="/junk-removal-software" className="text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]">
                   Junk Removal
                 </a>
               </li>
               <li>
-                <a href="/residential-cleaning-online-booking.html" className="text-gray-600 hover:text-gray-900">
+                <a href="/residential-cleaning-online-booking.html" className="text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]">
                   Home Cleaning
                 </a>
               </li>
               <li>
-                <a href="/hvac-scheduling-software" className="text-gray-600 hover:text-gray-900">
+                <a href="/hvac-scheduling-software" className="text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]">
                   HVAC
                 </a>
               </li>
               <li>
-                <a href="/carpet-cleaning-scheduling-software" className="text-gray-600 hover:text-gray-900">
+                <a href="/carpet-cleaning-scheduling-software" className="text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]">
                   Carpet Cleaning
                 </a>
               </li>
               <li>
-                <a href="/phone-repair-scheduling-software" className="text-gray-600 hover:text-gray-900">
+                <a href="/phone-repair-scheduling-software" className="text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]">
                   Mobile Phone Repair
                 </a>
               </li>
@@ -117,40 +117,40 @@ export default function Footer() {
 
           {/* Resources */}
           <div className="space-y-4">
-            <h3 className="font-semibold text-gray-900">Resources</h3>
+            <h3 className="font-semibold text-[var(--sf-text-primary)]">Resources</h3>
             <ul className="space-y-2 text-sm">
               <li>
-                <a href="/change-log" className="text-gray-600 hover:text-gray-900">
+                <a href="/change-log" className="text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]">
                   What's New ✨
                 </a>
               </li>
               <li>
-                <a href="/service-templates" className="text-gray-600 hover:text-gray-900">
+                <a href="/service-templates" className="text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]">
                   Service Templates
                 </a>
               </li>
               <li>
-                <a href="https://help.service-flow.com/en/" className="text-gray-600 hover:text-gray-900">
+                <a href="https://help.service-flow.com/en/" className="text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]">
                   Help Center
                 </a>
               </li>
               <li>
-                <a href="https://developers.service-flow.com/" className="text-gray-600 hover:text-gray-900">
+                <a href="https://developers.service-flow.com/" className="text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]">
                   API & Developers
                 </a>
               </li>
               <li>
-                <a href="/housecall-pro-alternative" className="text-gray-600 hover:text-gray-900">
+                <a href="/housecall-pro-alternative" className="text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]">
                   Compare to Housecall Pro
                 </a>
               </li>
               <li>
-                <a href="/affiliates" className="text-gray-600 hover:text-gray-900">
+                <a href="/affiliates" className="text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]">
                   Affiliates
                 </a>
               </li>
               <li>
-                <a href="/contact" className="text-gray-600 hover:text-gray-900">
+                <a href="/contact" className="text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]">
                   Contact Us
                 </a>
               </li>
@@ -159,17 +159,17 @@ export default function Footer() {
         </div>
 
         {/* Bottom Section */}
-        <div className="mt-12 pt-8 border-t border-gray-200">
+        <div className="mt-12 pt-8 border-t border-[var(--sf-border-light)]">
           <div className="flex flex-col md:flex-row justify-between items-center">
-            <div className="flex space-x-6 text-sm text-gray-600">
-              <a href="/privacy" className="hover:text-gray-900">
+            <div className="flex space-x-6 text-sm text-[var(--sf-text-secondary)]">
+              <a href="/privacy" className="hover:text-[var(--sf-text-primary)]">
                 Privacy
               </a>
-              <a href="/terms" className="hover:text-gray-900">
+              <a href="/terms" className="hover:text-[var(--sf-text-primary)]">
                 Terms
               </a>
             </div>
-            <div className="mt-4 md:mt-0 text-sm text-gray-600">© 2025 Serviceflow.</div>
+            <div className="mt-4 md:mt-0 text-sm text-[var(--sf-text-secondary)]">© 2025 Serviceflow.</div>
           </div>
         </div>
       </div>

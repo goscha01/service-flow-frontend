@@ -142,12 +142,12 @@ const ServiceModifiersForm = ({ modifiers = [], selectedModifiers: parentSelecte
     return (
       <div key={modifier.id} className="mb-6">
         <div className="mb-4">
-          <h3 className="text-base font-bold text-gray-900 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
+          <h3 className="text-base font-bold text-[var(--sf-text-primary)] mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
             {modifier.name || modifier.title}
             {modifier.required && <span className="text-red-500 ml-1">*</span>}
           </h3>
           {modifier.description && (
-            <p className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{modifier.description}</p>
+            <p className="text-sm text-[var(--sf-text-secondary)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{modifier.description}</p>
           )}
         </div>
 
@@ -165,13 +165,13 @@ const ServiceModifiersForm = ({ modifiers = [], selectedModifiers: parentSelecte
             if (modifier.selectionType === 'quantity') {
               return (
                 <div key={option.id} className={`border-2 rounded-lg p-5 transition-all ${
-                  quantity > 0 ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400'
+                  quantity > 0 ? 'border-blue-500 bg-[var(--sf-blue-50)]' : 'border-[var(--sf-border-light)] hover:border-gray-400'
                 }`}>
                   <div className="text-center">
-                    <h4 className="font-semibold text-gray-900 text-base mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                    <h4 className="font-semibold text-[var(--sf-text-primary)] text-base mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                       {option.label || option.name}
                     </h4>
-                    <div className="text-base text-gray-600 mb-3" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                    <div className="text-base text-[var(--sf-text-secondary)] mb-3" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                       ${(() => {
                         const priceKey = `${modifier.id}_option_${option.id}`;
                         const editedPrice = effectiveEditedPrices[priceKey];
@@ -179,7 +179,7 @@ const ServiceModifiersForm = ({ modifiers = [], selectedModifiers: parentSelecte
                       })()}
                     </div>
                     {option.description && (
-                      <p className="text-xs text-gray-500 mb-4 px-2" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                      <p className="text-xs text-[var(--sf-text-muted)] mb-4 px-2" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                         {option.description}
                       </p>
                     )}
@@ -187,20 +187,20 @@ const ServiceModifiersForm = ({ modifiers = [], selectedModifiers: parentSelecte
                       <button
                         type="button"
                         onClick={() => handleModifierChange(modifier.id, option.id, -1)}
-                        className="w-9 h-9 flex items-center justify-center border border-gray-400 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                        className="w-9 h-9 flex items-center justify-center border border-gray-400 rounded-lg hover:bg-[var(--sf-bg-hover)] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                         disabled={quantity === 0}
                       >
-                        <Minus className="w-4 h-4 text-gray-700" />
+                        <Minus className="w-4 h-4 text-[var(--sf-text-primary)]" />
                       </button>
-                      <span className="text-xl font-semibold text-gray-900 w-10 text-center" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                      <span className="text-xl font-semibold text-[var(--sf-text-primary)] w-10 text-center" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                         {quantity}
                       </span>
                       <button
                         type="button"
                         onClick={() => handleModifierChange(modifier.id, option.id, 1)}
-                        className="w-9 h-9 flex items-center justify-center border border-gray-400 rounded-lg hover:bg-gray-100 transition-colors"
+                        className="w-9 h-9 flex items-center justify-center border border-gray-400 rounded-lg hover:bg-[var(--sf-bg-hover)] transition-colors"
                       >
-                        <Plus className="w-4 h-4 text-gray-700" />
+                        <Plus className="w-4 h-4 text-[var(--sf-text-primary)]" />
                       </button>
                     </div>
                   </div>
@@ -221,22 +221,22 @@ const ServiceModifiersForm = ({ modifiers = [], selectedModifiers: parentSelecte
                   <div key={option.id} className="relative">
                     <label className={`block cursor-pointer ${isSelected ? '' : ''}`}>
                       <div className={`border-2 rounded-lg p-4 transition-all ${
-                        isSelected ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-gray-300 bg-white'
+                        isSelected ? 'border-blue-600 bg-[var(--sf-blue-50)]' : 'border-[var(--sf-border-light)] hover:border-[var(--sf-border-light)] bg-white'
                       }`}>
                         {option.image && (
                           <div className="mb-3">
                             <img
                               src={option.image}
                               alt={option.label || option.name}
-                              className="w-full h-32 object-cover rounded border border-gray-200"
+                              className="w-full h-32 object-cover rounded border border-[var(--sf-border-light)]"
                             />
                           </div>
                         )}
                         <div className="text-center">
-                          <div className="font-semibold text-gray-900 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                          <div className="font-semibold text-[var(--sf-text-primary)] mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                             {option.label || option.name}
                           </div>
-                          <div className="text-sm font-medium text-gray-700">
+                          <div className="text-sm font-medium text-[var(--sf-text-primary)]">
                             {optionPrice > 0 ? `+$${optionPrice.toFixed(2)}` : 'Free'}
                           </div>
                         </div>
@@ -274,13 +274,13 @@ const ServiceModifiersForm = ({ modifiers = [], selectedModifiers: parentSelecte
                     className={`px-4 py-2.5 rounded-lg font-medium text-sm transition-all ${
                       isSelected 
                         ? 'bg-green-600 text-white border-2 border-green-600 hover:bg-green-700' 
-                        : 'bg-white text-gray-900 border-2 border-gray-300 hover:border-gray-400'
+                        : 'bg-white text-[var(--sf-text-primary)] border-2 border-[var(--sf-border-light)] hover:border-gray-400'
                     }`}
                     style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                   >
                     {option.label || option.name}
                     {optionPrice > 0 && (
-                      <span className={`ml-2 ${isSelected ? 'text-white' : 'text-gray-600'}`}>
+                      <span className={`ml-2 ${isSelected ? 'text-white' : 'text-[var(--sf-text-secondary)]'}`}>
                         +${optionPrice.toFixed(2)}
                       </span>
                     )}

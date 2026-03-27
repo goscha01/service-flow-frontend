@@ -211,11 +211,11 @@ const TeamPage = () => {
       case 'active':
         return 'bg-green-100 text-green-800'
       case 'inactive':
-        return 'bg-gray-100 text-gray-800'
+        return 'bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)]'
       case 'on_leave':
         return 'bg-yellow-100 text-yellow-800'
       default:
-        return 'bg-gray-100 text-gray-800'
+        return 'bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)]'
     }
   }
 
@@ -247,7 +247,7 @@ const TeamPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[var(--sf-bg-page)]">
      
       <div className="">
         <div className="px-4 sm:px-6 lg:px-8 py-8">
@@ -255,29 +255,29 @@ const TeamPage = () => {
           <div className="mb-8">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Team Management</h1>
-                <p className="mt-1 text-sm text-gray-500">
+                <h1 className="text-2xl font-bold text-[var(--sf-text-primary)]">Team Management</h1>
+                <p className="mt-1 text-sm text-[var(--sf-text-muted)]">
                   Manage your team members, track performance, and optimize productivity
                 </p>
               </div>
               <div className="flex items-center space-x-3">
                 <button
                   onClick={() => navigate('/calendar')}
-                  className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  className="inline-flex items-center px-4 py-2 border border-[var(--sf-border-light)] text-sm font-medium rounded-md shadow-sm text-[var(--sf-text-primary)] bg-white hover:bg-[var(--sf-bg-page)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--sf-blue-500)]"
                 >
                   <Calendar className="w-4 h-4 mr-2" />
                   Calendar
                 </button>
                 <button
                   onClick={() => navigate('/payroll')}
-                  className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  className="inline-flex items-center px-4 py-2 border border-[var(--sf-border-light)] text-sm font-medium rounded-md shadow-sm text-[var(--sf-text-primary)] bg-white hover:bg-[var(--sf-bg-page)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--sf-blue-500)]"
                 >
                   <Receipt className="w-4 h-4 mr-2" />
                   Payroll
                 </button>
                 <button
                   onClick={() => navigate('/staff-locations')}
-                  className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  className="inline-flex items-center px-4 py-2 border border-[var(--sf-border-light)] text-sm font-medium rounded-md shadow-sm text-[var(--sf-text-primary)] bg-white hover:bg-[var(--sf-bg-page)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--sf-blue-500)]"
                 >
                   <MapPin className="w-4 h-4 mr-2" />
                   Staff Locations
@@ -286,9 +286,9 @@ const TeamPage = () => {
                 <button
                   onClick={handleToggleStaffLocations}
                   disabled={updatingLocationSetting}
-                  className={`inline-flex items-center px-4 py-2 border text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+                  className={`inline-flex items-center px-4 py-2 border text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--sf-blue-500)] ${
                     staffLocationsEnabled
-                      ? 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'
+                      ? 'border-[var(--sf-border-light)] text-[var(--sf-text-primary)] bg-white hover:bg-[var(--sf-bg-page)]'
                       : 'border-red-300 text-red-700 bg-red-50 hover:bg-red-100'
                   } disabled:opacity-50`}
                   title={staffLocationsEnabled ? 'Hide Staff Locations Globally' : 'Show Staff Locations Globally'}
@@ -307,7 +307,7 @@ const TeamPage = () => {
                 </button>
                 <button
                   onClick={handleAddMember}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-[var(--sf-blue-500)] hover:bg-[var(--sf-blue-600)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--sf-blue-500)]"
                 >
                   <UserPlus className="w-4 h-4 mr-2" />
                   Add Team Member
@@ -317,14 +317,14 @@ const TeamPage = () => {
           </div>
 
           {/* Tabs */}
-          <div className="border-b border-gray-200 mb-6">
+          <div className="border-b border-[var(--sf-border-light)] mb-6">
             <nav className="-mb-px flex space-x-8">
               <button
                 onClick={() => setActiveTab("members")}
                 className={`py-2 px-1 border-b-2 font-medium text-sm ${
                   activeTab === "members"
-                    ? "border-blue-500 text-blue-600"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                    ? "border-blue-500 text-[var(--sf-blue-500)]"
+                    : "border-transparent text-[var(--sf-text-muted)] hover:text-[var(--sf-text-primary)] hover:border-[var(--sf-border-light)]"
                 }`}
               >
                 <Users className="w-4 h-4 inline mr-2" />
@@ -334,8 +334,8 @@ const TeamPage = () => {
                 onClick={() => setActiveTab("analytics")}
                 className={`py-2 px-1 border-b-2 font-medium text-sm ${
                   activeTab === "analytics"
-                    ? "border-blue-500 text-blue-600"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                    ? "border-blue-500 text-[var(--sf-blue-500)]"
+                    : "border-transparent text-[var(--sf-text-muted)] hover:text-[var(--sf-text-primary)] hover:border-[var(--sf-border-light)]"
                 }`}
               >
                 <BarChart3 className="w-4 h-4 inline mr-2" />
@@ -346,7 +346,7 @@ const TeamPage = () => {
                 className={`py-2 px-1 border-b-2 font-medium text-sm ${
                   activeTab === "deactivate"
                     ? "border-red-500 text-red-600"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                    : "border-transparent text-[var(--sf-text-muted)] hover:text-[var(--sf-text-primary)] hover:border-[var(--sf-border-light)]"
                 }`}
               >
                 <Trash2 className="w-4 h-4 inline mr-2" />
@@ -359,16 +359,16 @@ const TeamPage = () => {
           {activeTab === "members" && (
             <div>
               {/* Filters */}
-              <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6">
+              <div className="bg-white border border-[var(--sf-border-light)] rounded-lg p-4 mb-6">
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
                   <div className="relative flex-1 max-w-md">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--sf-text-muted)] w-5 h-5" />
                     <input
                       type="text"
                       placeholder="Search team members..."
                       value={filters.search}
                       onChange={(e) => handleFilterChange({ search: e.target.value })}
-                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                      className="w-full pl-10 pr-4 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] outline-none"
                     />
                   </div>
 
@@ -376,7 +376,7 @@ const TeamPage = () => {
                     <select
                       value={filters.status}
                       onChange={(e) => handleFilterChange({ status: e.target.value })}
-                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                      className="border border-[var(--sf-border-light)] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] outline-none"
                     >
                       <option value="">All Status</option>
                       <option value="active">Active</option>
@@ -390,7 +390,7 @@ const TeamPage = () => {
                         const [sortBy, sortOrder] = e.target.value.split(":")
                         handleFilterChange({ sortBy, sortOrder })
                       }}
-                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                      className="border border-[var(--sf-border-light)] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] outline-none"
                     >
                       <option value="first_name:ASC">Sort by: Name A-Z</option>
                       <option value="first_name:DESC">Sort by: Name Z-A</option>
@@ -418,16 +418,16 @@ const TeamPage = () => {
                   </div>
                 </div>
               ) : teamMembers.length === 0 ? (
-                <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
-                  <Users className="mx-auto h-12 w-12 text-gray-400" />
-                  <h3 className="mt-2 text-sm font-medium text-gray-900">No team members</h3>
-                  <p className="mt-1 text-sm text-gray-500">
+                <div className="bg-white border border-[var(--sf-border-light)] rounded-lg p-8 text-center">
+                  <Users className="mx-auto h-12 w-12 text-[var(--sf-text-muted)]" />
+                  <h3 className="mt-2 text-sm font-medium text-[var(--sf-text-primary)]">No team members</h3>
+                  <p className="mt-1 text-sm text-[var(--sf-text-muted)]">
                     Get started by adding your first team member.
                   </p>
                   <div className="mt-6">
                     <button
                       onClick={handleAddMember}
-                      className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                      className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-[var(--sf-blue-500)] hover:bg-[var(--sf-blue-600)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--sf-blue-500)]"
                     >
                       <UserPlus className="w-4 h-4 mr-2" />
                       Add Team Member
@@ -436,7 +436,7 @@ const TeamPage = () => {
                 </div>
               ) : (
                 <div className="bg-white shadow overflow-hidden sm:rounded-md">
-                  <ul className="divide-y divide-gray-200">
+                  <ul className="divide-y divide-[var(--sf-border-light)]">
                     {teamMembers.map((member) => (
                       <li key={member.id}>
                         <div className="px-4 py-4 sm:px-6">
@@ -444,21 +444,21 @@ const TeamPage = () => {
                             <div className="flex items-center">
                               <div className="flex-shrink-0">
                                 <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                                  <span className="text-sm font-medium text-blue-600">
+                                  <span className="text-sm font-medium text-[var(--sf-blue-500)]">
                                     {member.first_name?.[0]}{member.last_name?.[0]}
                                   </span>
                                 </div>
                               </div>
                               <div className="ml-4">
                                 <div className="flex items-center">
-                                  <p className="text-sm font-medium text-gray-900">
+                                  <p className="text-sm font-medium text-[var(--sf-text-primary)]">
                                     {member.first_name} {member.last_name}
                                   </p>
                                   <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(member.status)}`}>
                                     {getStatusLabel(member.status)}
                                   </span>
                                 </div>
-                                <div className="mt-1 flex items-center text-sm text-gray-500">
+                                <div className="mt-1 flex items-center text-sm text-[var(--sf-text-muted)]">
                                   <span>{member.email}</span>
                                   {member.phone && (
                                     <>
@@ -506,7 +506,7 @@ const TeamPage = () => {
                                         </span>
                                       ))}
                                       {skills.length > 3 && (
-                                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)]">
                                           +{skills.length - 3} more
                                         </span>
                                       )}
@@ -518,7 +518,7 @@ const TeamPage = () => {
                             
                             <div className="flex items-center space-x-4">
                               {/* Performance Stats */}
-                              <div className="hidden sm:flex items-center space-x-4 text-sm text-gray-500">
+                              <div className="hidden sm:flex items-center space-x-4 text-sm text-[var(--sf-text-muted)]">
                                 <div className="flex items-center">
                                   <Clock className="w-4 h-4 mr-1" />
                                   <span>{member.total_jobs || 0} jobs</span>
@@ -537,14 +537,14 @@ const TeamPage = () => {
                               <div className="flex items-center space-x-2">
                                 <button
                                   onClick={() => handleViewMember(member)}
-                                  className="text-gray-400 hover:text-gray-500"
+                                  className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-muted)]"
                                   title="View details"
                                 >
                                   <Eye className="w-4 h-4" />
                                 </button>
                                 <button
                                   onClick={() => handleEditMember(member)}
-                                  className="text-gray-400 hover:text-blue-500"
+                                  className="text-[var(--sf-text-muted)] hover:text-blue-500"
                                   title="Edit"
                                 >
                                   <Edit className="w-4 h-4" />
@@ -587,14 +587,14 @@ const TeamPage = () => {
                       <div className="p-5">
                         <div className="flex items-center">
                           <div className="flex-shrink-0">
-                            <Users className="h-6 w-6 text-gray-400" />
+                            <Users className="h-6 w-6 text-[var(--sf-text-muted)]" />
                           </div>
                           <div className="ml-5 w-0 flex-1">
                             <dl>
-                              <dt className="text-sm font-medium text-gray-500 truncate">
+                              <dt className="text-sm font-medium text-[var(--sf-text-muted)] truncate">
                                 Total Team Members
                               </dt>
-                              <dd className="text-lg font-medium text-gray-900">
+                              <dd className="text-lg font-medium text-[var(--sf-text-primary)]">
                                 {analytics.teamStats?.total_team_members || 0}
                               </dd>
                             </dl>
@@ -607,14 +607,14 @@ const TeamPage = () => {
                       <div className="p-5">
                         <div className="flex items-center">
                           <div className="flex-shrink-0">
-                            <Calendar className="h-6 w-6 text-gray-400" />
+                            <Calendar className="h-6 w-6 text-[var(--sf-text-muted)]" />
                           </div>
                           <div className="ml-5 w-0 flex-1">
                             <dl>
-                              <dt className="text-sm font-medium text-gray-500 truncate">
+                              <dt className="text-sm font-medium text-[var(--sf-text-muted)] truncate">
                                 Total Jobs
                               </dt>
-                              <dd className="text-lg font-medium text-gray-900">
+                              <dd className="text-lg font-medium text-[var(--sf-text-primary)]">
                                 {analytics.teamStats?.total_jobs || 0}
                               </dd>
                             </dl>
@@ -627,14 +627,14 @@ const TeamPage = () => {
                       <div className="p-5">
                         <div className="flex items-center">
                           <div className="flex-shrink-0">
-                            <TrendingUp className="h-6 w-6 text-gray-400" />
+                            <TrendingUp className="h-6 w-6 text-[var(--sf-text-muted)]" />
                           </div>
                           <div className="ml-5 w-0 flex-1">
                             <dl>
-                              <dt className="text-sm font-medium text-gray-500 truncate">
+                              <dt className="text-sm font-medium text-[var(--sf-text-muted)] truncate">
                                 Completed Jobs
                               </dt>
-                              <dd className="text-lg font-medium text-gray-900">
+                              <dd className="text-lg font-medium text-[var(--sf-text-primary)]">
                                 {analytics.teamStats?.completed_jobs || 0}
                               </dd>
                             </dl>
@@ -647,14 +647,14 @@ const TeamPage = () => {
                       <div className="p-5">
                         <div className="flex items-center">
                           <div className="flex-shrink-0">
-                            <DollarSign className="h-6 w-6 text-gray-400" />
+                            <DollarSign className="h-6 w-6 text-[var(--sf-text-muted)]" />
                           </div>
                           <div className="ml-5 w-0 flex-1">
                             <dl>
-                              <dt className="text-sm font-medium text-gray-500 truncate">
+                              <dt className="text-sm font-medium text-[var(--sf-text-muted)] truncate">
                                 Total Revenue
                               </dt>
-                              <dd className="text-lg font-medium text-gray-900">
+                              <dd className="text-lg font-medium text-[var(--sf-text-primary)]">
                                 {formatCurrency(analytics.teamStats?.total_revenue)}
                               </dd>
                             </dl>
@@ -667,51 +667,51 @@ const TeamPage = () => {
                   {/* Performance Summary */}
                   <div className="bg-white shadow overflow-hidden sm:rounded-md">
                     <div className="px-4 py-5 sm:px-6">
-                      <h3 className="text-lg leading-6 font-medium text-gray-900">
+                      <h3 className="text-lg leading-6 font-medium text-[var(--sf-text-primary)]">
                         Team Performance Summary
                       </h3>
                     </div>
-                    <div className="border-t border-gray-200">
-                      <ul className="divide-y divide-gray-200">
+                    <div className="border-t border-[var(--sf-border-light)]">
+                      <ul className="divide-y divide-[var(--sf-border-light)]">
                         {analytics.performanceSummary?.map((member) => (
                           <li key={member.id} className="px-4 py-4 sm:px-6">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center">
                                 <div className="flex-shrink-0">
                                   <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                                    <span className="text-sm font-medium text-blue-600">
+                                    <span className="text-sm font-medium text-[var(--sf-blue-500)]">
                                       {member.first_name?.[0]}{member.last_name?.[0]}
                                     </span>
                                   </div>
                                 </div>
                                 <div className="ml-4">
-                                  <p className="text-sm font-medium text-gray-900">
+                                  <p className="text-sm font-medium text-[var(--sf-text-primary)]">
                                     {member.first_name} {member.last_name}
                                   </p>
-                                  <p className="text-sm text-gray-500">{member.role}</p>
+                                  <p className="text-sm text-[var(--sf-text-muted)]">{member.role}</p>
                                 </div>
                               </div>
                               
                               <div className="flex items-center space-x-6 text-sm">
                                 <div className="text-center">
-                                  <p className="text-gray-500">Total Jobs</p>
-                                  <p className="font-medium text-gray-900">{member.total_jobs}</p>
+                                  <p className="text-[var(--sf-text-muted)]">Total Jobs</p>
+                                  <p className="font-medium text-[var(--sf-text-primary)]">{member.total_jobs}</p>
                                 </div>
                                 <div className="text-center">
-                                  <p className="text-gray-500">Completed</p>
-                                  <p className="font-medium text-gray-900">{member.completed_jobs}</p>
+                                  <p className="text-[var(--sf-text-muted)]">Completed</p>
+                                  <p className="font-medium text-[var(--sf-text-primary)]">{member.completed_jobs}</p>
                                 </div>
                                 <div className="text-center">
-                                  <p className="text-gray-500">Active</p>
-                                  <p className="font-medium text-gray-900">{member.active_jobs}</p>
+                                  <p className="text-[var(--sf-text-muted)]">Active</p>
+                                  <p className="font-medium text-[var(--sf-text-primary)]">{member.active_jobs}</p>
                                 </div>
                                 <div className="text-center">
-                                  <p className="text-gray-500">Avg Value</p>
-                                  <p className="font-medium text-gray-900">{formatCurrency(member.avg_job_value)}</p>
+                                  <p className="text-[var(--sf-text-muted)]">Avg Value</p>
+                                  <p className="font-medium text-[var(--sf-text-primary)]">{formatCurrency(member.avg_job_value)}</p>
                                 </div>
                                 <div className="text-center">
-                                  <p className="text-gray-500">Total Revenue</p>
-                                  <p className="font-medium text-gray-900">{formatCurrency(member.total_revenue)}</p>
+                                  <p className="text-[var(--sf-text-muted)]">Total Revenue</p>
+                                  <p className="font-medium text-[var(--sf-text-primary)]">{formatCurrency(member.total_revenue)}</p>
                                 </div>
                               </div>
                             </div>
@@ -722,10 +722,10 @@ const TeamPage = () => {
                   </div>
                 </div>
               ) : (
-                <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
-                  <BarChart3 className="mx-auto h-12 w-12 text-gray-400" />
-                  <h3 className="mt-2 text-sm font-medium text-gray-900">No analytics data</h3>
-                  <p className="mt-1 text-sm text-gray-500">
+                <div className="bg-white border border-[var(--sf-border-light)] rounded-lg p-8 text-center">
+                  <BarChart3 className="mx-auto h-12 w-12 text-[var(--sf-text-muted)]" />
+                  <h3 className="mt-2 text-sm font-medium text-[var(--sf-text-primary)]">No analytics data</h3>
+                  <p className="mt-1 text-sm text-[var(--sf-text-muted)]">
                     Analytics will appear once you have team members and completed jobs.
                   </p>
                 </div>
@@ -774,38 +774,38 @@ const TeamPage = () => {
                   </div>
                 </div>
               ) : teamMembers.length === 0 ? (
-                <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
-                  <Users className="mx-auto h-12 w-12 text-gray-400" />
-                  <h3 className="mt-2 text-sm font-medium text-gray-900">No team members</h3>
-                  <p className="mt-1 text-sm text-gray-500">
+                <div className="bg-white border border-[var(--sf-border-light)] rounded-lg p-8 text-center">
+                  <Users className="mx-auto h-12 w-12 text-[var(--sf-text-muted)]" />
+                  <h3 className="mt-2 text-sm font-medium text-[var(--sf-text-primary)]">No team members</h3>
+                  <p className="mt-1 text-sm text-[var(--sf-text-muted)]">
                     There are no team members to deactivate.
                   </p>
                 </div>
               ) : (
                 <div className="bg-white shadow overflow-hidden sm:rounded-md">
-                  <ul className="divide-y divide-gray-200">
+                  <ul className="divide-y divide-[var(--sf-border-light)]">
                     {teamMembers.map((member) => (
                       <li key={member.id}>
                         <div className="px-4 py-4 sm:px-6">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center">
                               <div className="flex-shrink-0">
-                                <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center">
-                                  <span className="text-sm font-medium text-gray-700">
+                                <div className="h-10 w-10 rounded-full bg-[var(--sf-bg-page)] flex items-center justify-center">
+                                  <span className="text-sm font-medium text-[var(--sf-text-primary)]">
                                     {member.first_name?.[0]}{member.last_name?.[0]}
                                   </span>
                                 </div>
                               </div>
                               <div className="ml-4">
                                 <div className="flex items-center space-x-2">
-                                  <p className="text-sm font-medium text-gray-900">
+                                  <p className="text-sm font-medium text-[var(--sf-text-primary)]">
                                     {member.first_name} {member.last_name}
                                   </p>
                                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(member.status)}`}>
                                     {getStatusLabel(member.status)}
                                   </span>
                                 </div>
-                                <div className="mt-1 flex items-center space-x-4 text-sm text-gray-500">
+                                <div className="mt-1 flex items-center space-x-4 text-sm text-[var(--sf-text-muted)]">
                                   <div className="flex items-center space-x-1">
                                     <Mail className="w-4 h-4" />
                                     <span>{member.email}</span>

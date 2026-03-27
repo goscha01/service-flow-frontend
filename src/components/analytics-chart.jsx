@@ -22,7 +22,7 @@ const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'
 export const RevenueChart = ({ data, type = 'line' }) => {
   if (!data || data.length === 0) {
     return (
-      <div className="h-64 flex items-center justify-center text-gray-500">
+      <div className="h-64 flex items-center justify-center text-[var(--sf-text-muted)]">
         No revenue data available
       </div>
     )
@@ -77,7 +77,7 @@ export const RevenueChart = ({ data, type = 'line' }) => {
 export const JobStatusChart = ({ data }) => {
   if (!data || Object.keys(data).length === 0) {
     return (
-      <div className="h-64 flex items-center justify-center text-gray-500">
+      <div className="h-64 flex items-center justify-center text-[var(--sf-text-muted)]">
         No job data available
       </div>
     )
@@ -152,11 +152,11 @@ export const JobStatusChart = ({ data }) => {
                 className="w-3 h-3 rounded-full"
                 style={{ backgroundColor: getStatusColor(entry.originalKey) }}
               />
-              <span className="text-gray-700 font-medium">{entry.name}</span>
+              <span className="text-[var(--sf-text-primary)] font-medium">{entry.name}</span>
             </div>
             <div className="text-right">
-              <span className="text-gray-900 font-semibold">{entry.value}</span>
-              <span className="text-gray-500 ml-1">
+              <span className="text-[var(--sf-text-primary)] font-semibold">{entry.value}</span>
+              <span className="text-[var(--sf-text-muted)] ml-1">
                 ({((entry.value / chartData.reduce((sum, item) => sum + item.value, 0)) * 100).toFixed(1)}%)
               </span>
             </div>
@@ -170,7 +170,7 @@ export const JobStatusChart = ({ data }) => {
 export const BarChartComponent = ({ data, dataKey, nameKey = 'name' }) => {
   if (!data || data.length === 0) {
     return (
-      <div className="h-64 flex items-center justify-center text-gray-500">
+      <div className="h-64 flex items-center justify-center text-[var(--sf-text-muted)]">
         No data available
       </div>
     )
@@ -206,7 +206,7 @@ export const BarChartComponent = ({ data, dataKey, nameKey = 'name' }) => {
 export const MultiLineChart = ({ data, dataKeys, colors = COLORS }) => {
   if (!data || data.length === 0) {
     return (
-      <div className="h-64 flex items-center justify-center text-gray-500">
+      <div className="h-64 flex items-center justify-center text-[var(--sf-text-muted)]">
         No data available
       </div>
     )

@@ -945,11 +945,11 @@ const Analytics = () => {
       case 'pending':
         return 'text-yellow-600 bg-yellow-100'
       case 'in_progress':
-        return 'text-blue-600 bg-blue-100'
+        return 'text-[var(--sf-blue-500)] bg-[var(--sf-blue-50)]'
       case 'cancelled':
         return 'text-red-600 bg-red-100'
       default:
-        return 'text-gray-600 bg-gray-100'
+        return 'text-[var(--sf-text-secondary)] bg-[var(--sf-bg-page)]'
     }
   }
 
@@ -1178,13 +1178,13 @@ const Analytics = () => {
 
   if (loading) {
     return (
-      <div className="flex h-screen bg-gray-50 overflow-hidden">
+      <div className="flex h-screen bg-[var(--sf-bg-page)] overflow-hidden">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} activePage="analytics" />
         <div className="flex-1 flex flex-col min-w-0 ">
           <div className="flex-1 overflow-auto">
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              <span className="ml-3 text-gray-600">Loading analytics...</span>
+              <span className="ml-3 text-[var(--sf-text-secondary)]">Loading analytics...</span>
             </div>
           </div>
         </div>
@@ -1193,7 +1193,7 @@ const Analytics = () => {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen bg-[var(--sf-bg-page)] overflow-hidden">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} activePage="analytics" />
 
       <div className="flex-1 flex flex-col min-w-0 ">
@@ -1205,12 +1205,12 @@ const Analytics = () => {
             {/* Header */}
             <div className="mb-8 relative">
               <div className="flex items-center justify-between mb-4">
-                <h1 className="text-2xl font-bold text-gray-900">Analytics & Reports</h1>
+                <h1 className="text-2xl font-bold text-[var(--sf-text-primary)]">Analytics & Reports</h1>
                 <div className="flex items-center space-x-4">
                   <select
                     value={dateRange}
                     onChange={(e) => setDateRange(e.target.value)}
-                    className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="border border-[var(--sf-border-light)] rounded-lg px-3 py-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                   >
                     <option value="7">Last 7 days</option>
                     <option value="30">Last 30 days</option>
@@ -1220,16 +1220,16 @@ const Analytics = () => {
                   <select
                     value={trendView}
                     onChange={(e) => setTrendView(e.target.value)}
-                    className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="border border-[var(--sf-border-light)] rounded-lg px-3 py-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                   >
                     <option value="daily">Daily</option>
                     <option value="weekly">Weekly</option>
                     <option value="monthly">Monthly</option>
                   </select>
-                  <div className="flex items-center space-x-2 border-l border-gray-300 pl-4">
+                  <div className="flex items-center space-x-2 border-l border-[var(--sf-border-light)] pl-4">
                     <button
                       onClick={exportToPDF}
-                      className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                      className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-[var(--sf-text-primary)] bg-white border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-page)] transition-colors"
                       title="Export to PDF"
                     >
                       <FileText className="w-4 h-4" />
@@ -1237,7 +1237,7 @@ const Analytics = () => {
                     </button>
                     <button
                       onClick={exportToExcel}
-                      className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                      className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-[var(--sf-text-primary)] bg-white border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-page)] transition-colors"
                       title="Export to Excel"
                     >
                       <FileSpreadsheet className="w-4 h-4" />
@@ -1247,20 +1247,20 @@ const Analytics = () => {
                   <button
                     onClick={() => fetchAnalytics(false)}
                     disabled={refreshing || loading}
-                    className={`p-2 text-gray-400 hover:text-gray-600 transition-colors ${refreshing || loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`p-2 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] transition-colors ${refreshing || loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                     title="Refresh data"
                   >
                     <RefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
                   </button>
                   {refreshing && (
-                    <div className="absolute top-16 right-4 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-sm text-blue-700 shadow-sm z-10 flex items-center space-x-2">
+                    <div className="absolute top-16 right-4 bg-[var(--sf-blue-50)] border border-[var(--sf-blue-500)]/20 rounded-lg px-3 py-2 text-sm text-[var(--sf-blue-500)] shadow-sm z-10 flex items-center space-x-2">
                       <RefreshCw className="w-4 h-4 animate-spin" />
                       <span>Updating data...</span>
                     </div>
                   )}
                 </div>
               </div>
-              <p className="text-gray-600">
+              <p className="text-[var(--sf-text-secondary)]">
                 Track your business performance with comprehensive analytics and insights.
               </p>
             </div>
@@ -1275,7 +1275,7 @@ const Analytics = () => {
             )}
 
             {/* Tabs */}
-            <div className="flex space-x-1 bg-gray-100 rounded-lg p-1 mb-8">
+            <div className="flex space-x-1 bg-[var(--sf-bg-page)] rounded-lg p-1 mb-8">
               {[
                 { id: "overview", label: "Overview", icon: BarChart3 },
                 { id: "revenue", label: "Revenue", icon: DollarSign },
@@ -1290,8 +1290,8 @@ const Analytics = () => {
                   onClick={() => setActiveTab(tab.id)}
                   className={`flex items-center space-x-2 px-4 py-2 text-sm font-medium rounded-md ${
                     activeTab === tab.id
-                      ? "bg-white text-gray-900 shadow"
-                      : "text-gray-500 hover:text-gray-700"
+                      ? "bg-white text-[var(--sf-text-primary)] shadow"
+                      : "text-[var(--sf-text-muted)] hover:text-[var(--sf-text-primary)]"
                   }`}
                 >
                   <tab.icon className="w-4 h-4" />
@@ -1305,66 +1305,66 @@ const Analytics = () => {
               <div className="space-y-6">
                 {/* Key Metrics */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  <div className="bg-white rounded-lg shadow p-6">
+                  <div className="bg-white rounded-xl shadow-sm p-6">
                     <div className="flex items-center">
                       <div className="p-2 bg-green-100 rounded-lg">
                         <DollarSign className="w-6 h-6 text-green-600" />
                       </div>
                       <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-600">Total Revenue</p>
-                        <p className="text-2xl font-bold text-gray-900">{formatCurrency(overview.totalRevenue)}</p>
+                        <p className="text-sm font-medium text-[var(--sf-text-secondary)]">Total Revenue</p>
+                        <p className="text-2xl font-bold text-[var(--sf-text-primary)]">{formatCurrency(overview.totalRevenue)}</p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="bg-white rounded-lg shadow p-6">
+                  <div className="bg-white rounded-xl shadow-sm p-6">
                     <div className="flex items-center">
-                      <div className="p-2 bg-blue-100 rounded-lg">
-                        <Calendar className="w-6 h-6 text-blue-600" />
+                      <div className="p-2 bg-[var(--sf-blue-50)] rounded-lg">
+                        <Calendar className="w-6 h-6 text-[var(--sf-blue-500)]" />
                       </div>
                       <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-600">Total Jobs</p>
-                        <p className="text-2xl font-bold text-gray-900">{overview.totalJobs}</p>
+                        <p className="text-sm font-medium text-[var(--sf-text-secondary)]">Total Jobs</p>
+                        <p className="text-2xl font-bold text-[var(--sf-text-primary)]">{overview.totalJobs}</p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="bg-white rounded-lg shadow p-6">
+                  <div className="bg-white rounded-xl shadow-sm p-6">
                     <div className="flex items-center">
                       <div className="p-2 bg-green-100 rounded-lg">
                         <CheckCircle className="w-6 h-6 text-green-600" />
                       </div>
                       <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-600">Completion Rate</p>
-                        <p className="text-2xl font-bold text-gray-900">{overview.completionRate}%</p>
+                        <p className="text-sm font-medium text-[var(--sf-text-secondary)]">Completion Rate</p>
+                        <p className="text-2xl font-bold text-[var(--sf-text-primary)]">{overview.completionRate}%</p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="bg-white rounded-lg shadow p-6">
+                  <div className="bg-white rounded-xl shadow-sm p-6">
                     <div className="flex items-center">
                       <div className="p-2 bg-purple-100 rounded-lg">
                         <TrendingUp className="w-6 h-6 text-purple-600" />
                       </div>
                       <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-600">Avg Job Value</p>
-                        <p className="text-2xl font-bold text-gray-900">{formatCurrency(overview.avgJobValue)}</p>
+                        <p className="text-sm font-medium text-[var(--sf-text-secondary)]">Avg Job Value</p>
+                        <p className="text-2xl font-bold text-[var(--sf-text-primary)]">{formatCurrency(overview.avgJobValue)}</p>
                       </div>
                     </div>
                   </div>
                 </div>
 
                 {/* Revenue Chart */}
-                <div className="bg-white rounded-lg shadow p-6">
+                <div className="bg-white rounded-xl shadow-sm p-6">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900">Revenue Trend ({trendView})</h3>
+                    <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">Revenue Trend ({trendView})</h3>
                     <div className="flex items-center space-x-2">
                       <button
                         onClick={() => setTrendView('daily')}
                         className={`px-3 py-1 text-sm rounded-md ${
                           trendView === 'daily' 
-                            ? 'bg-blue-600 text-white' 
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            ? 'bg-[var(--sf-blue-500)] text-white' 
+                            : 'bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-hover)]'
                         }`}
                       >
                         Daily
@@ -1373,8 +1373,8 @@ const Analytics = () => {
                         onClick={() => setTrendView('weekly')}
                         className={`px-3 py-1 text-sm rounded-md ${
                           trendView === 'weekly' 
-                            ? 'bg-blue-600 text-white' 
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            ? 'bg-[var(--sf-blue-500)] text-white' 
+                            : 'bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-hover)]'
                         }`}
                       >
                         Weekly
@@ -1383,8 +1383,8 @@ const Analytics = () => {
                         onClick={() => setTrendView('monthly')}
                         className={`px-3 py-1 text-sm rounded-md ${
                           trendView === 'monthly' 
-                            ? 'bg-blue-600 text-white' 
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            ? 'bg-[var(--sf-blue-500)] text-white' 
+                            : 'bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-hover)]'
                         }`}
                       >
                         Monthly
@@ -1395,18 +1395,18 @@ const Analytics = () => {
                 </div>
 
                 {/* Top Services */}
-                <div className="bg-white rounded-lg shadow p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Top Services</h3>
+                <div className="bg-white rounded-xl shadow-sm p-6">
+                  <h3 className="text-lg font-semibold text-[var(--sf-text-primary)] mb-4">Top Services</h3>
                   <div className="space-y-3">
                     {topServices.map((service, index) => (
                       <div key={index} className="flex items-center justify-between">
                         <div className="flex items-center">
-                          <span className="w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium mr-3">
+                          <span className="w-6 h-6 bg-[var(--sf-blue-50)] text-[var(--sf-blue-500)] rounded-full flex items-center justify-center text-sm font-medium mr-3">
                             {index + 1}
                           </span>
-                          <span className="text-gray-900">{service.name}</span>
+                          <span className="text-[var(--sf-text-primary)]">{service.name}</span>
                         </div>
-                        <span className="text-gray-600">{service.count} jobs</span>
+                        <span className="text-[var(--sf-text-secondary)]">{service.count} jobs</span>
                       </div>
                     ))}
                   </div>
@@ -1417,31 +1417,31 @@ const Analytics = () => {
             {/* Revenue Tab */}
             {activeTab === "revenue" && (
               <div className="space-y-6">
-                <div className="bg-white rounded-lg shadow p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Revenue Analytics</h3>
+                <div className="bg-white rounded-xl shadow-sm p-6">
+                  <h3 className="text-lg font-semibold text-[var(--sf-text-primary)] mb-4">Revenue Analytics</h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                     <div className="text-center">
-                      <p className="text-2xl font-bold text-gray-900">{formatCurrency(overview.totalRevenue)}</p>
-                      <p className="text-sm text-gray-600">Total Revenue</p>
+                      <p className="text-2xl font-bold text-[var(--sf-text-primary)]">{formatCurrency(overview.totalRevenue)}</p>
+                      <p className="text-sm text-[var(--sf-text-secondary)]">Total Revenue</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-2xl font-bold text-gray-900">{overview.completedJobs}</p>
-                      <p className="text-sm text-gray-600">Paid Jobs</p>
+                      <p className="text-2xl font-bold text-[var(--sf-text-primary)]">{overview.completedJobs}</p>
+                      <p className="text-sm text-[var(--sf-text-secondary)]">Paid Jobs</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-2xl font-bold text-gray-900">{formatCurrency(overview.avgJobValue)}</p>
-                      <p className="text-sm text-gray-600">Average Job Value</p>
+                      <p className="text-2xl font-bold text-[var(--sf-text-primary)]">{formatCurrency(overview.avgJobValue)}</p>
+                      <p className="text-sm text-[var(--sf-text-secondary)]">Average Job Value</p>
                     </div>
                   </div>
                   <div className="flex items-center justify-between mb-4">
-                    <h4 className="text-md font-semibold text-gray-700">Revenue Trend ({trendView})</h4>
+                    <h4 className="text-md font-semibold text-[var(--sf-text-primary)]">Revenue Trend ({trendView})</h4>
                     <div className="flex items-center space-x-2">
                       <button
                         onClick={() => setTrendView('daily')}
                         className={`px-3 py-1 text-sm rounded-md ${
                           trendView === 'daily' 
-                            ? 'bg-blue-600 text-white' 
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            ? 'bg-[var(--sf-blue-500)] text-white' 
+                            : 'bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-hover)]'
                         }`}
                       >
                         Daily
@@ -1450,8 +1450,8 @@ const Analytics = () => {
                         onClick={() => setTrendView('weekly')}
                         className={`px-3 py-1 text-sm rounded-md ${
                           trendView === 'weekly' 
-                            ? 'bg-blue-600 text-white' 
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            ? 'bg-[var(--sf-blue-500)] text-white' 
+                            : 'bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-hover)]'
                         }`}
                       >
                         Weekly
@@ -1460,8 +1460,8 @@ const Analytics = () => {
                         onClick={() => setTrendView('monthly')}
                         className={`px-3 py-1 text-sm rounded-md ${
                           trendView === 'monthly' 
-                            ? 'bg-blue-600 text-white' 
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            ? 'bg-[var(--sf-blue-500)] text-white' 
+                            : 'bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-hover)]'
                         }`}
                       >
                         Monthly
@@ -1476,8 +1476,8 @@ const Analytics = () => {
             {/* Jobs Tab */}
             {activeTab === "jobs" && (
               <div className="space-y-6">
-                <div className="bg-white rounded-lg shadow p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-6">Job Status Distribution</h3>
+                <div className="bg-white rounded-xl shadow-sm p-6">
+                  <h3 className="text-lg font-semibold text-[var(--sf-text-primary)] mb-6">Job Status Distribution</h3>
                   
                   {/* Status Cards and Chart Layout */}
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
@@ -1491,12 +1491,12 @@ const Analytics = () => {
                         return (
                           <div 
                             key={status} 
-                            className={`border-2 rounded-lg p-4 transition-all hover:shadow-md ${
+                            className={`border-2 rounded-xl p-4 transition-all hover:shadow-md ${
                               getStatusColor(status).includes('green') ? 'border-green-200 bg-green-50' :
                               getStatusColor(status).includes('yellow') ? 'border-yellow-200 bg-yellow-50' :
-                              getStatusColor(status).includes('blue') ? 'border-blue-200 bg-blue-50' :
+                              getStatusColor(status).includes('blue') ? 'border-blue-200 bg-[var(--sf-blue-50)]' :
                               getStatusColor(status).includes('red') ? 'border-red-200 bg-red-50' :
-                              'border-gray-200 bg-gray-50'
+                              'border-[var(--sf-border-light)] bg-[var(--sf-bg-page)]'
                             }`}
                           >
                             <div className="flex items-center justify-between">
@@ -1504,24 +1504,24 @@ const Analytics = () => {
                                 <div className={`px-3 py-1 rounded-lg text-sm font-semibold ${getStatusColor(status)}`}>
                                   {statusLabel}
                                 </div>
-                                <span className="text-sm text-gray-500">
+                                <span className="text-sm text-[var(--sf-text-muted)]">
                                   {percentage}%
                                 </span>
                               </div>
                               <div className="text-right">
-                                <p className="text-3xl font-bold text-gray-900">{count}</p>
-                                <p className="text-xs text-gray-500 mt-1">jobs</p>
+                                <p className="text-3xl font-bold text-[var(--sf-text-primary)]">{count}</p>
+                                <p className="text-xs text-[var(--sf-text-muted)] mt-1">jobs</p>
                               </div>
                             </div>
                             {/* Progress bar */}
-                            <div className="mt-3 w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                            <div className="mt-3 w-full bg-[var(--sf-border-light)] rounded-full h-2 overflow-hidden">
                               <div 
                                 className={`h-full transition-all ${
                                   getStatusColor(status).includes('green') ? 'bg-green-500' :
                                   getStatusColor(status).includes('yellow') ? 'bg-yellow-500' :
-                                  getStatusColor(status).includes('blue') ? 'bg-blue-500' :
+                                  getStatusColor(status).includes('blue') ? 'bg-[var(--sf-blue-500)]' :
                                   getStatusColor(status).includes('red') ? 'bg-red-500' :
-                                  'bg-gray-500'
+                                  'bg-[var(--sf-bg-page)]0'
                                 }`}
                                 style={{ width: `${percentage}%` }}
                               />
@@ -1533,28 +1533,28 @@ const Analytics = () => {
                     
                     {/* Pie Chart - Right Column */}
                     <div className="lg:col-span-1">
-                      <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                        <h4 className="text-sm font-semibold text-gray-700 mb-4 text-center">Visual Distribution</h4>
+                      <div className="bg-[var(--sf-bg-page)] rounded-lg p-4 border border-[var(--sf-border-light)]">
+                        <h4 className="text-sm font-semibold text-[var(--sf-text-primary)] mb-4 text-center">Visual Distribution</h4>
                         <JobStatusChart data={jobMetrics.statusCounts || {}} />
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-white rounded-lg shadow p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Job Performance</h3>
+                <div className="bg-white rounded-xl shadow-sm p-6">
+                  <h3 className="text-lg font-semibold text-[var(--sf-text-primary)] mb-4">Job Performance</h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="text-center">
-                      <p className="text-2xl font-bold text-gray-900">{jobMetrics.totalJobs}</p>
-                      <p className="text-sm text-gray-600">Total Jobs</p>
+                      <p className="text-2xl font-bold text-[var(--sf-text-primary)]">{jobMetrics.totalJobs}</p>
+                      <p className="text-sm text-[var(--sf-text-secondary)]">Total Jobs</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-2xl font-bold text-gray-900">{overview.completionRate}%</p>
-                      <p className="text-sm text-gray-600">Completion Rate</p>
+                      <p className="text-2xl font-bold text-[var(--sf-text-primary)]">{overview.completionRate}%</p>
+                      <p className="text-sm text-[var(--sf-text-secondary)]">Completion Rate</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-2xl font-bold text-gray-900">{Math.round(jobMetrics.avgJobDuration)} min</p>
-                      <p className="text-sm text-gray-600">Avg Duration</p>
+                      <p className="text-2xl font-bold text-[var(--sf-text-primary)]">{Math.round(jobMetrics.avgJobDuration)} min</p>
+                      <p className="text-sm text-[var(--sf-text-secondary)]">Avg Duration</p>
                     </div>
                   </div>
                 </div>
@@ -1564,36 +1564,36 @@ const Analytics = () => {
             {/* Team Tab */}
             {activeTab === "team" && (
               <div className="space-y-6">
-                <div className="bg-white rounded-lg shadow p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Team Performance</h3>
+                <div className="bg-white rounded-xl shadow-sm p-6">
+                  <h3 className="text-lg font-semibold text-[var(--sf-text-primary)] mb-4">Team Performance</h3>
                   <div className="space-y-4">
                     {teamPerformance.map((member) => (
-                      <div key={member.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                      <div key={member.id} className="flex items-center justify-between p-4 border border-[var(--sf-border-light)] rounded-lg">
                         <div className="flex items-center">
-                          <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                            <span className="text-blue-600 font-medium">
+                          <div className="w-10 h-10 bg-[var(--sf-blue-50)] rounded-full flex items-center justify-center">
+                            <span className="text-[var(--sf-blue-500)] font-medium">
                               {member.first_name?.[0]}{member.last_name?.[0]}
                             </span>
                           </div>
                           <div className="ml-4">
-                            <p className="font-medium text-gray-900">
+                            <p className="font-medium text-[var(--sf-text-primary)]">
                               {member.first_name} {member.last_name}
                             </p>
-                            <p className="text-sm text-gray-600">{member.role}</p>
+                            <p className="text-sm text-[var(--sf-text-secondary)]">{member.role}</p>
                           </div>
                         </div>
                         <div className="flex items-center space-x-6">
                           <div className="text-center">
-                            <p className="text-lg font-bold text-gray-900">{member.totalJobs}</p>
-                            <p className="text-sm text-gray-600">Total Jobs</p>
+                            <p className="text-lg font-bold text-[var(--sf-text-primary)]">{member.totalJobs}</p>
+                            <p className="text-sm text-[var(--sf-text-secondary)]">Total Jobs</p>
                           </div>
                           <div className="text-center">
                             <p className="text-lg font-bold text-green-600">{member.completionRate}%</p>
-                            <p className="text-sm text-gray-600">Completion</p>
+                            <p className="text-sm text-[var(--sf-text-secondary)]">Completion</p>
                           </div>
                           <div className="text-center">
-                            <p className="text-lg font-bold text-blue-600">{formatCurrency(member.avgJobValue)}</p>
-                            <p className="text-sm text-gray-600">Avg Value</p>
+                            <p className="text-lg font-bold text-[var(--sf-blue-500)]">{formatCurrency(member.avgJobValue)}</p>
+                            <p className="text-sm text-[var(--sf-text-secondary)]">Avg Value</p>
                           </div>
                         </div>
                       </div>
@@ -1606,40 +1606,40 @@ const Analytics = () => {
             {/* Customers Tab */}
             {activeTab === "customers" && (
               <div className="space-y-6">
-                <div className="bg-white rounded-lg shadow p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Customer Analytics</h3>
+                <div className="bg-white rounded-xl shadow-sm p-6">
+                  <h3 className="text-lg font-semibold text-[var(--sf-text-primary)] mb-4">Customer Analytics</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     <div className="text-center">
-                      <p className="text-2xl font-bold text-gray-900">{customerAnalytics.totalCustomers}</p>
-                      <p className="text-sm text-gray-600">Total Customers</p>
+                      <p className="text-2xl font-bold text-[var(--sf-text-primary)]">{customerAnalytics.totalCustomers}</p>
+                      <p className="text-sm text-[var(--sf-text-secondary)]">Total Customers</p>
                     </div>
                     <div className="text-center">
                       <p className="text-2xl font-bold text-green-600">{customerAnalytics.activeCustomers}</p>
-                      <p className="text-sm text-gray-600">Active Customers</p>
+                      <p className="text-sm text-[var(--sf-text-secondary)]">Active Customers</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-2xl font-bold text-blue-600">{formatCurrency(customerAnalytics.avgLTV)}</p>
-                      <p className="text-sm text-gray-600">Avg Lifetime Value</p>
+                      <p className="text-2xl font-bold text-[var(--sf-blue-500)]">{formatCurrency(customerAnalytics.avgLTV)}</p>
+                      <p className="text-sm text-[var(--sf-text-secondary)]">Avg Lifetime Value</p>
                     </div>
                     <div className="text-center">
                       <p className="text-2xl font-bold text-purple-600">{customerAnalytics.newCustomers}</p>
-                      <p className="text-sm text-gray-600">New Customers (30d)</p>
+                      <p className="text-sm text-[var(--sf-text-secondary)]">New Customers (30d)</p>
                     </div>
                   </div>
                 </div>
 
                 {/* Lost Customers Section */}
-                <div className="bg-white rounded-lg shadow p-6">
+                <div className="bg-white rounded-xl shadow-sm p-6">
                   <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-lg font-semibold text-gray-900">Lost Customers Analytics</h3>
+                    <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">Lost Customers Analytics</h3>
                     <div className="flex items-center space-x-2">
-                      <label className="text-sm text-gray-600">Inactive threshold:</label>
+                      <label className="text-sm text-[var(--sf-text-secondary)]">Inactive threshold:</label>
                       <select
                         value={inactiveDaysThreshold}
                         onChange={(e) => {
                           setInactiveDaysThreshold(parseInt(e.target.value))
                         }}
-                        className="border border-gray-300 rounded-lg px-3 py-1 text-sm focus:ring-blue-500 focus:border-blue-500"
+                        className="border border-[var(--sf-border-light)] rounded-lg px-3 py-1 text-sm focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                       >
                         <option value={30}>30 days</option>
                         <option value={60}>60 days</option>
@@ -1670,9 +1670,9 @@ const Analytics = () => {
                         {formatCurrency(lostCustomersAnalytics.summary?.lostRevenue || 0)}
                       </p>
                     </div>
-                    <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-                      <p className="text-sm text-blue-600 font-medium">Avg Days Inactive</p>
-                      <p className="text-2xl font-bold text-blue-900 mt-2">
+                    <div className="bg-[var(--sf-blue-50)] rounded-lg p-4 border border-[var(--sf-blue-500)]/20">
+                      <p className="text-sm text-[var(--sf-blue-500)] font-medium">Avg Days Inactive</p>
+                      <p className="text-2xl font-bold text-[var(--sf-blue-500)] mt-2">
                         {lostCustomersAnalytics.summary?.avgDaysSinceLastJob?.toFixed(0) || 0}
                       </p>
                     </div>
@@ -1680,24 +1680,24 @@ const Analytics = () => {
 
                   {/* Additional Metrics */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                    <div className="text-center p-4 bg-gray-50 rounded-lg">
-                      <p className="text-2xl font-bold text-gray-900">{lostCustomersAnalytics.summary?.activeCustomers || 0}</p>
-                      <p className="text-sm text-gray-600 mt-1">Active Customers</p>
+                    <div className="text-center p-4 bg-[var(--sf-bg-page)] rounded-lg">
+                      <p className="text-2xl font-bold text-[var(--sf-text-primary)]">{lostCustomersAnalytics.summary?.activeCustomers || 0}</p>
+                      <p className="text-sm text-[var(--sf-text-secondary)] mt-1">Active Customers</p>
                     </div>
-                    <div className="text-center p-4 bg-gray-50 rounded-lg">
-                      <p className="text-2xl font-bold text-gray-900">{lostCustomersAnalytics.summary?.neverActiveCustomers || 0}</p>
-                      <p className="text-sm text-gray-600 mt-1">Never Active</p>
+                    <div className="text-center p-4 bg-[var(--sf-bg-page)] rounded-lg">
+                      <p className="text-2xl font-bold text-[var(--sf-text-primary)]">{lostCustomersAnalytics.summary?.neverActiveCustomers || 0}</p>
+                      <p className="text-sm text-[var(--sf-text-secondary)] mt-1">Never Active</p>
                     </div>
-                    <div className="text-center p-4 bg-gray-50 rounded-lg">
-                      <p className="text-2xl font-bold text-gray-900">{lostCustomersAnalytics.summary?.totalCustomers || 0}</p>
-                      <p className="text-sm text-gray-600 mt-1">Total Customers</p>
+                    <div className="text-center p-4 bg-[var(--sf-bg-page)] rounded-lg">
+                      <p className="text-2xl font-bold text-[var(--sf-text-primary)]">{lostCustomersAnalytics.summary?.totalCustomers || 0}</p>
+                      <p className="text-sm text-[var(--sf-text-secondary)] mt-1">Total Customers</p>
                     </div>
                   </div>
 
                   {/* Churn Trend Chart */}
                   {lostCustomersAnalytics.timeSeries && lostCustomersAnalytics.timeSeries.length > 0 && (
                     <div className="mb-6">
-                      <h4 className="text-md font-semibold text-gray-900 mb-4">Churn Trend ({trendView})</h4>
+                      <h4 className="text-md font-semibold text-[var(--sf-text-primary)] mb-4">Churn Trend ({trendView})</h4>
                       <ResponsiveContainer width="100%" height={250}>
                         <AreaChart data={lostCustomersAnalytics.timeSeries}>
                           <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
@@ -1755,29 +1755,29 @@ const Analytics = () => {
                   {/* Lost Customers List */}
                   {lostCustomersAnalytics.lostCustomersList && lostCustomersAnalytics.lostCustomersList.length > 0 && (
                     <div>
-                      <h4 className="text-md font-semibold text-gray-900 mb-4">Lost Customers List</h4>
+                      <h4 className="text-md font-semibold text-[var(--sf-text-primary)] mb-4">Lost Customers List</h4>
                       <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                          <thead className="bg-gray-50">
+                        <table className="min-w-full divide-y divide-[var(--sf-border-light)]">
+                          <thead className="bg-[var(--sf-bg-page)]">
                             <tr>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Job Date</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Days Inactive</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Revenue</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Jobs</th>
+                              <th className="px-6 py-3 text-left text-xs font-semibold text-[var(--sf-text-muted)] uppercase tracking-wider">Customer</th>
+                              <th className="px-6 py-3 text-left text-xs font-semibold text-[var(--sf-text-muted)] uppercase tracking-wider">Email</th>
+                              <th className="px-6 py-3 text-left text-xs font-semibold text-[var(--sf-text-muted)] uppercase tracking-wider">Last Job Date</th>
+                              <th className="px-6 py-3 text-left text-xs font-semibold text-[var(--sf-text-muted)] uppercase tracking-wider">Days Inactive</th>
+                              <th className="px-6 py-3 text-left text-xs font-semibold text-[var(--sf-text-muted)] uppercase tracking-wider">Total Revenue</th>
+                              <th className="px-6 py-3 text-left text-xs font-semibold text-[var(--sf-text-muted)] uppercase tracking-wider">Total Jobs</th>
                             </tr>
                           </thead>
-                          <tbody className="bg-white divide-y divide-gray-200">
+                          <tbody className="bg-white divide-y divide-[var(--sf-border-light)]">
                             {lostCustomersAnalytics.lostCustomersList.map((customer) => (
                               <tr key={customer.customerId}>
                                 <td className="px-6 py-4 whitespace-nowrap">
-                                  <div className="text-sm font-medium text-gray-900">{customer.name}</div>
+                                  <div className="text-sm font-medium text-[var(--sf-text-primary)]">{customer.name}</div>
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--sf-text-secondary)]">
                                   {customer.email || 'N/A'}
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--sf-text-secondary)]">
                                   {customer.lastJobDate ? new Date(customer.lastJobDate).toLocaleDateString() : 'Never'}
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -1789,10 +1789,10 @@ const Analytics = () => {
                                     {customer.daysSinceLastJob || 0} days
                                   </span>
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--sf-text-primary)] font-medium">
                                   {formatCurrency(customer.totalRevenue)}
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--sf-text-secondary)]">
                                   {customer.totalJobs}
                                 </td>
                               </tr>
@@ -1811,44 +1811,44 @@ const Analytics = () => {
               <div className="space-y-6">
                 {/* Summary Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  <div className="bg-white rounded-lg shadow p-6">
+                  <div className="bg-white rounded-xl shadow-sm p-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm text-gray-600">Total Payroll</p>
-                        <p className="text-2xl font-bold text-gray-900 mt-1">
+                        <p className="text-sm text-[var(--sf-text-secondary)]">Total Payroll</p>
+                        <p className="text-2xl font-bold text-[var(--sf-text-primary)] mt-1">
                           {formatCurrency(salaryAnalytics.summary?.totalPayroll || 0)}
                         </p>
                       </div>
-                      <DollarSign className="w-8 h-8 text-blue-600" />
+                      <DollarSign className="w-8 h-8 text-[var(--sf-blue-500)]" />
                     </div>
                   </div>
-                  <div className="bg-white rounded-lg shadow p-6">
+                  <div className="bg-white rounded-xl shadow-sm p-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm text-gray-600">Hourly Payroll</p>
-                        <p className="text-2xl font-bold text-gray-900 mt-1">
+                        <p className="text-sm text-[var(--sf-text-secondary)]">Hourly Payroll</p>
+                        <p className="text-2xl font-bold text-[var(--sf-text-primary)] mt-1">
                           {formatCurrency(salaryAnalytics.summary?.totalHourlyPayroll || 0)}
                         </p>
                       </div>
                       <Clock className="w-8 h-8 text-green-600" />
                     </div>
                   </div>
-                  <div className="bg-white rounded-lg shadow p-6">
+                  <div className="bg-white rounded-xl shadow-sm p-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm text-gray-600">Commission Payroll</p>
-                        <p className="text-2xl font-bold text-gray-900 mt-1">
+                        <p className="text-sm text-[var(--sf-text-secondary)]">Commission Payroll</p>
+                        <p className="text-2xl font-bold text-[var(--sf-text-primary)] mt-1">
                           {formatCurrency(salaryAnalytics.summary?.totalCommissionPayroll || 0)}
                         </p>
                       </div>
                       <TrendingUp className="w-8 h-8 text-purple-600" />
                     </div>
                   </div>
-                  <div className="bg-white rounded-lg shadow p-6">
+                  <div className="bg-white rounded-xl shadow-sm p-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm text-gray-600">Team Members</p>
-                        <p className="text-2xl font-bold text-gray-900 mt-1">
+                        <p className="text-sm text-[var(--sf-text-secondary)]">Team Members</p>
+                        <p className="text-2xl font-bold text-[var(--sf-text-primary)] mt-1">
                           {salaryAnalytics.summary?.memberCount || 0}
                         </p>
                       </div>
@@ -1858,12 +1858,12 @@ const Analytics = () => {
                 </div>
 
                 {/* Payment Method Breakdown */}
-                <div className="bg-white rounded-lg shadow p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Payment Method Distribution</h3>
+                <div className="bg-white rounded-xl shadow-sm p-6">
+                  <h3 className="text-lg font-semibold text-[var(--sf-text-primary)] mb-4">Payment Method Distribution</h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-                      <p className="text-sm text-blue-600 font-medium">Hourly Only</p>
-                      <p className="text-2xl font-bold text-blue-900 mt-2">
+                    <div className="bg-[var(--sf-blue-50)] rounded-lg p-4 border border-[var(--sf-blue-500)]/20">
+                      <p className="text-sm text-[var(--sf-blue-500)] font-medium">Hourly Only</p>
+                      <p className="text-2xl font-bold text-[var(--sf-blue-500)] mt-2">
                         {salaryAnalytics.summary?.hourlyOnlyCount || 0}
                       </p>
                     </div>
@@ -1883,8 +1883,8 @@ const Analytics = () => {
                 </div>
 
                 {/* Payroll Trend Chart */}
-                <div className="bg-white rounded-lg shadow p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Payroll Trend ({trendView})</h3>
+                <div className="bg-white rounded-xl shadow-sm p-6">
+                  <h3 className="text-lg font-semibold text-[var(--sf-text-primary)] mb-4">Payroll Trend ({trendView})</h3>
                   {salaryAnalytics.timeSeries && salaryAnalytics.timeSeries.length > 0 ? (
                     <ResponsiveContainer width="100%" height={300}>
                       <AreaChart data={salaryAnalytics.timeSeries}>
@@ -1942,60 +1942,60 @@ const Analytics = () => {
                       </AreaChart>
                     </ResponsiveContainer>
                   ) : (
-                    <div className="h-64 flex items-center justify-center text-gray-500">
+                    <div className="h-64 flex items-center justify-center text-[var(--sf-text-muted)]">
                       No payroll data available
                     </div>
                   )}
                 </div>
 
                 {/* Team Member Breakdown */}
-                <div className="bg-white rounded-lg shadow p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Salary by Team Member</h3>
+                <div className="bg-white rounded-xl shadow-sm p-6">
+                  <h3 className="text-lg font-semibold text-[var(--sf-text-primary)] mb-4">Salary by Team Member</h3>
                   {salaryAnalytics.memberBreakdown && salaryAnalytics.memberBreakdown.length > 0 ? (
                     <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
+                      <table className="min-w-full divide-y divide-[var(--sf-border-light)]">
+                        <thead className="bg-[var(--sf-bg-page)]">
                           <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Team Member</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Method</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hours</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hourly Salary</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commission</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Salary</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Jobs</th>
+                            <th className="px-6 py-3 text-left text-xs font-semibold text-[var(--sf-text-muted)] uppercase tracking-wider">Team Member</th>
+                            <th className="px-6 py-3 text-left text-xs font-semibold text-[var(--sf-text-muted)] uppercase tracking-wider">Payment Method</th>
+                            <th className="px-6 py-3 text-left text-xs font-semibold text-[var(--sf-text-muted)] uppercase tracking-wider">Hours</th>
+                            <th className="px-6 py-3 text-left text-xs font-semibold text-[var(--sf-text-muted)] uppercase tracking-wider">Hourly Salary</th>
+                            <th className="px-6 py-3 text-left text-xs font-semibold text-[var(--sf-text-muted)] uppercase tracking-wider">Commission</th>
+                            <th className="px-6 py-3 text-left text-xs font-semibold text-[var(--sf-text-muted)] uppercase tracking-wider">Total Salary</th>
+                            <th className="px-6 py-3 text-left text-xs font-semibold text-[var(--sf-text-muted)] uppercase tracking-wider">Jobs</th>
                           </tr>
                         </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
+                        <tbody className="bg-white divide-y divide-[var(--sf-border-light)]">
                           {salaryAnalytics.memberBreakdown.map((member) => (
                             <tr key={member.memberId}>
                               <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="text-sm font-medium text-gray-900">{member.name}</div>
+                                <div className="text-sm font-medium text-[var(--sf-text-primary)]">{member.name}</div>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
                                   member.paymentMethod === 'hybrid' ? 'bg-green-100 text-green-800' :
-                                  member.paymentMethod === 'hourly' ? 'bg-blue-100 text-blue-800' :
+                                  member.paymentMethod === 'hourly' ? 'bg-[var(--sf-blue-50)] text-[var(--sf-blue-500)]' :
                                   member.paymentMethod === 'commission' ? 'bg-purple-100 text-purple-800' :
-                                  'bg-gray-100 text-gray-800'
+                                  'bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)]'
                                 }`}>
                                   {member.paymentMethod === 'hybrid' ? 'Hybrid' :
                                    member.paymentMethod === 'hourly' ? 'Hourly' :
                                    member.paymentMethod === 'commission' ? 'Commission' : 'None'}
                                 </span>
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--sf-text-secondary)]">
                                 {member.totalHours.toFixed(2)}
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--sf-text-primary)]">
                                 {formatCurrency(member.totalHourlySalary)}
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--sf-text-primary)]">
                                 {formatCurrency(member.totalCommission)}
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-[var(--sf-text-primary)]">
                                 {formatCurrency(member.totalSalary)}
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--sf-text-secondary)]">
                                 {member.jobCount}
                               </td>
                             </tr>
@@ -2004,7 +2004,7 @@ const Analytics = () => {
                       </table>
                     </div>
                   ) : (
-                    <div className="text-center py-8 text-gray-500">
+                    <div className="text-center py-8 text-[var(--sf-text-muted)]">
                       No team member salary data available
                     </div>
                   )}
@@ -2017,44 +2017,44 @@ const Analytics = () => {
               <div className="space-y-6">
                 {/* Summary Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  <div className="bg-white rounded-lg shadow p-6">
+                  <div className="bg-white rounded-xl shadow-sm p-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm text-gray-600">Total Leads</p>
-                        <p className="text-2xl font-bold text-gray-900 mt-1">
+                        <p className="text-sm text-[var(--sf-text-secondary)]">Total Leads</p>
+                        <p className="text-2xl font-bold text-[var(--sf-text-primary)] mt-1">
                           {conversionAnalytics.summary?.totalLeads || 0}
                         </p>
                       </div>
-                      <Users className="w-8 h-8 text-blue-600" />
+                      <Users className="w-8 h-8 text-[var(--sf-blue-500)]" />
                     </div>
                   </div>
-                  <div className="bg-white rounded-lg shadow p-6">
+                  <div className="bg-white rounded-xl shadow-sm p-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm text-gray-600">Converted Leads</p>
-                        <p className="text-2xl font-bold text-gray-900 mt-1">
+                        <p className="text-sm text-[var(--sf-text-secondary)]">Converted Leads</p>
+                        <p className="text-2xl font-bold text-[var(--sf-text-primary)] mt-1">
                           {conversionAnalytics.summary?.convertedLeads || 0}
                         </p>
                       </div>
                       <CheckCircle className="w-8 h-8 text-green-600" />
                     </div>
                   </div>
-                  <div className="bg-white rounded-lg shadow p-6">
+                  <div className="bg-white rounded-xl shadow-sm p-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm text-gray-600">Conversion Rate</p>
-                        <p className="text-2xl font-bold text-gray-900 mt-1">
+                        <p className="text-sm text-[var(--sf-text-secondary)]">Conversion Rate</p>
+                        <p className="text-2xl font-bold text-[var(--sf-text-primary)] mt-1">
                           {conversionAnalytics.summary?.conversionRate?.toFixed(1) || 0}%
                         </p>
                       </div>
                       <TrendingUp className="w-8 h-8 text-purple-600" />
                     </div>
                   </div>
-                  <div className="bg-white rounded-lg shadow p-6">
+                  <div className="bg-white rounded-xl shadow-sm p-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm text-gray-600">Avg Time to Convert</p>
-                        <p className="text-2xl font-bold text-gray-900 mt-1">
+                        <p className="text-sm text-[var(--sf-text-secondary)]">Avg Time to Convert</p>
+                        <p className="text-2xl font-bold text-[var(--sf-text-primary)] mt-1">
                           {conversionAnalytics.summary?.avgTimeToConversion?.toFixed(1) || 0} days
                         </p>
                       </div>
@@ -2064,18 +2064,18 @@ const Analytics = () => {
                 </div>
 
                 {/* Conversion Funnel */}
-                <div className="bg-white rounded-lg shadow p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Conversion Funnel</h3>
+                <div className="bg-white rounded-xl shadow-sm p-6">
+                  <h3 className="text-lg font-semibold text-[var(--sf-text-primary)] mb-4">Conversion Funnel</h3>
                   <div className="space-y-4">
                     {/* Total Leads */}
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium text-gray-700">Total Leads</span>
-                        <span className="text-sm text-gray-600">{conversionAnalytics.summary?.totalLeads || 0}</span>
+                        <span className="text-sm font-medium text-[var(--sf-text-primary)]">Total Leads</span>
+                        <span className="text-sm text-[var(--sf-text-secondary)]">{conversionAnalytics.summary?.totalLeads || 0}</span>
                       </div>
-                      <div className="w-full bg-gray-200 rounded-full h-8">
+                      <div className="w-full bg-[var(--sf-border-light)] rounded-full h-8">
                         <div 
-                          className="bg-blue-600 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium"
+                          className="bg-[var(--sf-blue-500)] h-8 rounded-full flex items-center justify-center text-white text-sm font-medium"
                           style={{ width: '100%' }}
                         >
                           100%
@@ -2086,13 +2086,13 @@ const Analytics = () => {
                     {/* Converted Leads */}
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium text-gray-700">Converted to Customers</span>
-                        <span className="text-sm text-gray-600">
+                        <span className="text-sm font-medium text-[var(--sf-text-primary)]">Converted to Customers</span>
+                        <span className="text-sm text-[var(--sf-text-secondary)]">
                           {conversionAnalytics.summary?.convertedLeads || 0} 
                           ({conversionAnalytics.summary?.conversionRate?.toFixed(1) || 0}%)
                         </span>
                       </div>
-                      <div className="w-full bg-gray-200 rounded-full h-8">
+                      <div className="w-full bg-[var(--sf-border-light)] rounded-full h-8">
                         <div 
                           className="bg-green-600 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium"
                           style={{ 
@@ -2107,8 +2107,8 @@ const Analytics = () => {
                 </div>
 
                 {/* Conversion Trend Chart */}
-                <div className="bg-white rounded-lg shadow p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Conversion Trend ({trendView})</h3>
+                <div className="bg-white rounded-xl shadow-sm p-6">
+                  <h3 className="text-lg font-semibold text-[var(--sf-text-primary)] mb-4">Conversion Trend ({trendView})</h3>
                   {conversionAnalytics.timeSeries && conversionAnalytics.timeSeries.length > 0 ? (
                     <ResponsiveContainer width="100%" height={300}>
                       <AreaChart data={conversionAnalytics.timeSeries}>
@@ -2170,7 +2170,7 @@ const Analytics = () => {
                       </AreaChart>
                     </ResponsiveContainer>
                   ) : (
-                    <div className="h-64 flex items-center justify-center text-gray-500">
+                    <div className="h-64 flex items-center justify-center text-[var(--sf-text-muted)]">
                       No conversion data available
                     </div>
                   )}
@@ -2178,28 +2178,28 @@ const Analytics = () => {
 
                 {/* Conversion by Source */}
                 {conversionAnalytics.bySource && Object.keys(conversionAnalytics.bySource).length > 0 && (
-                  <div className="bg-white rounded-lg shadow p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Conversion by Source</h3>
+                  <div className="bg-white rounded-xl shadow-sm p-6">
+                    <h3 className="text-lg font-semibold text-[var(--sf-text-primary)] mb-4">Conversion by Source</h3>
                     <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
+                      <table className="min-w-full divide-y divide-[var(--sf-border-light)]">
+                        <thead className="bg-[var(--sf-bg-page)]">
                           <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Leads</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Converted</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Conversion Rate</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Value</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Converted Value</th>
+                            <th className="px-6 py-3 text-left text-xs font-semibold text-[var(--sf-text-muted)] uppercase tracking-wider">Source</th>
+                            <th className="px-6 py-3 text-left text-xs font-semibold text-[var(--sf-text-muted)] uppercase tracking-wider">Total Leads</th>
+                            <th className="px-6 py-3 text-left text-xs font-semibold text-[var(--sf-text-muted)] uppercase tracking-wider">Converted</th>
+                            <th className="px-6 py-3 text-left text-xs font-semibold text-[var(--sf-text-muted)] uppercase tracking-wider">Conversion Rate</th>
+                            <th className="px-6 py-3 text-left text-xs font-semibold text-[var(--sf-text-muted)] uppercase tracking-wider">Total Value</th>
+                            <th className="px-6 py-3 text-left text-xs font-semibold text-[var(--sf-text-muted)] uppercase tracking-wider">Converted Value</th>
                           </tr>
                         </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
+                        <tbody className="bg-white divide-y divide-[var(--sf-border-light)]">
                           {Object.entries(conversionAnalytics.bySource)
                             .sort((a, b) => b[1].total - a[1].total)
                             .map(([source, data]) => (
                             <tr key={source}>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{source}</td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{data.total}</td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{data.converted}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-[var(--sf-text-primary)]">{source}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--sf-text-secondary)]">{data.total}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--sf-text-secondary)]">{data.converted}</td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm">
                                 <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
                                   data.conversionRate >= 50 ? 'bg-green-100 text-green-800' :
@@ -2209,8 +2209,8 @@ const Analytics = () => {
                                   {data.conversionRate.toFixed(1)}%
                                 </span>
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{formatCurrency(data.totalValue)}</td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">{formatCurrency(data.convertedValue)}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--sf-text-secondary)]">{formatCurrency(data.totalValue)}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--sf-text-primary)] font-medium">{formatCurrency(data.convertedValue)}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -2221,20 +2221,20 @@ const Analytics = () => {
 
                 {/* Conversion by Stage */}
                 {conversionAnalytics.byStage && Object.keys(conversionAnalytics.byStage).length > 0 && (
-                  <div className="bg-white rounded-lg shadow p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Conversion by Stage</h3>
+                  <div className="bg-white rounded-xl shadow-sm p-6">
+                    <h3 className="text-lg font-semibold text-[var(--sf-text-primary)] mb-4">Conversion by Stage</h3>
                     <div className="space-y-3">
                       {Object.entries(conversionAnalytics.byStage)
                         .sort((a, b) => b[1].total - a[1].total)
                         .map(([stage, data]) => (
-                        <div key={stage} className="border border-gray-200 rounded-lg p-4">
+                        <div key={stage} className="border border-[var(--sf-border-light)] rounded-lg p-4">
                           <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-medium text-gray-900">{stage}</span>
-                            <span className="text-sm text-gray-600">
+                            <span className="text-sm font-medium text-[var(--sf-text-primary)]">{stage}</span>
+                            <span className="text-sm text-[var(--sf-text-secondary)]">
                               {data.converted} / {data.total} ({data.conversionRate.toFixed(1)}%)
                             </span>
                           </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div className="w-full bg-[var(--sf-border-light)] rounded-full h-2">
                             <div 
                               className={`h-2 rounded-full ${
                                 data.conversionRate >= 50 ? 'bg-green-500' :
@@ -2251,14 +2251,14 @@ const Analytics = () => {
                 )}
 
                 {/* Recurring Conversion Section */}
-                <div className="bg-white rounded-lg shadow p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-6">Customer to Recurring Conversion</h3>
+                <div className="bg-white rounded-xl shadow-sm p-6">
+                  <h3 className="text-lg font-semibold text-[var(--sf-text-primary)] mb-6">Customer to Recurring Conversion</h3>
                   
                   {/* Summary Cards */}
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-                    <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-                      <p className="text-sm text-blue-600 font-medium">One-Time Only</p>
-                      <p className="text-2xl font-bold text-blue-900 mt-2">
+                    <div className="bg-[var(--sf-blue-50)] rounded-lg p-4 border border-[var(--sf-blue-500)]/20">
+                      <p className="text-sm text-[var(--sf-blue-500)] font-medium">One-Time Only</p>
+                      <p className="text-2xl font-bold text-[var(--sf-blue-500)] mt-2">
                         {recurringConversionAnalytics.summary?.oneTimeOnlyCustomers || 0}
                       </p>
                     </div>
@@ -2284,25 +2284,25 @@ const Analytics = () => {
 
                   {/* Customer Breakdown */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                    <div className="text-center p-4 bg-gray-50 rounded-lg">
-                      <p className="text-2xl font-bold text-gray-900">{recurringConversionAnalytics.summary?.totalCustomers || 0}</p>
-                      <p className="text-sm text-gray-600 mt-1">Total Customers</p>
+                    <div className="text-center p-4 bg-[var(--sf-bg-page)] rounded-lg">
+                      <p className="text-2xl font-bold text-[var(--sf-text-primary)]">{recurringConversionAnalytics.summary?.totalCustomers || 0}</p>
+                      <p className="text-sm text-[var(--sf-text-secondary)] mt-1">Total Customers</p>
                     </div>
-                    <div className="text-center p-4 bg-gray-50 rounded-lg">
-                      <p className="text-2xl font-bold text-gray-900">{recurringConversionAnalytics.summary?.recurringOnlyCustomers || 0}</p>
-                      <p className="text-sm text-gray-600 mt-1">Recurring Only</p>
+                    <div className="text-center p-4 bg-[var(--sf-bg-page)] rounded-lg">
+                      <p className="text-2xl font-bold text-[var(--sf-text-primary)]">{recurringConversionAnalytics.summary?.recurringOnlyCustomers || 0}</p>
+                      <p className="text-sm text-[var(--sf-text-secondary)] mt-1">Recurring Only</p>
                     </div>
-                    <div className="text-center p-4 bg-gray-50 rounded-lg">
-                      <p className="text-2xl font-bold text-gray-900">{recurringConversionAnalytics.summary?.customersWithOneTimeJobs || 0}</p>
-                      <p className="text-sm text-gray-600 mt-1">With One-Time Jobs</p>
+                    <div className="text-center p-4 bg-[var(--sf-bg-page)] rounded-lg">
+                      <p className="text-2xl font-bold text-[var(--sf-text-primary)]">{recurringConversionAnalytics.summary?.customersWithOneTimeJobs || 0}</p>
+                      <p className="text-sm text-[var(--sf-text-secondary)] mt-1">With One-Time Jobs</p>
                     </div>
                   </div>
 
                   {/* Revenue Impact */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                    <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                      <p className="text-sm text-blue-600 font-medium">One-Time Revenue</p>
-                      <p className="text-xl font-bold text-blue-900 mt-1">
+                    <div className="p-4 bg-[var(--sf-blue-50)] rounded-lg border border-[var(--sf-blue-500)]/20">
+                      <p className="text-sm text-[var(--sf-blue-500)] font-medium">One-Time Revenue</p>
+                      <p className="text-xl font-bold text-[var(--sf-blue-500)] mt-1">
                         {formatCurrency(recurringConversionAnalytics.summary?.totalOneTimeRevenue || 0)}
                       </p>
                     </div>
@@ -2323,7 +2323,7 @@ const Analytics = () => {
                   {/* Conversion Trend Chart */}
                   {recurringConversionAnalytics.timeSeries && recurringConversionAnalytics.timeSeries.length > 0 && (
                     <div className="mb-6">
-                      <h4 className="text-md font-semibold text-gray-900 mb-4">Conversion Trend ({trendView})</h4>
+                      <h4 className="text-md font-semibold text-[var(--sf-text-primary)] mb-4">Conversion Trend ({trendView})</h4>
                       <ResponsiveContainer width="100%" height={250}>
                         <AreaChart data={recurringConversionAnalytics.timeSeries}>
                           <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
@@ -2381,32 +2381,32 @@ const Analytics = () => {
                   {/* Breakdown by Frequency */}
                   {recurringConversionAnalytics.byFrequency && Object.keys(recurringConversionAnalytics.byFrequency).length > 0 && (
                     <div>
-                      <h4 className="text-md font-semibold text-gray-900 mb-4">Recurring Jobs by Frequency</h4>
+                      <h4 className="text-md font-semibold text-[var(--sf-text-primary)] mb-4">Recurring Jobs by Frequency</h4>
                       <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                          <thead className="bg-gray-50">
+                        <table className="min-w-full divide-y divide-[var(--sf-border-light)]">
+                          <thead className="bg-[var(--sf-bg-page)]">
                             <tr>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Frequency</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customers</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Jobs</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Revenue</th>
+                              <th className="px-6 py-3 text-left text-xs font-semibold text-[var(--sf-text-muted)] uppercase tracking-wider">Frequency</th>
+                              <th className="px-6 py-3 text-left text-xs font-semibold text-[var(--sf-text-muted)] uppercase tracking-wider">Customers</th>
+                              <th className="px-6 py-3 text-left text-xs font-semibold text-[var(--sf-text-muted)] uppercase tracking-wider">Jobs</th>
+                              <th className="px-6 py-3 text-left text-xs font-semibold text-[var(--sf-text-muted)] uppercase tracking-wider">Revenue</th>
                             </tr>
                           </thead>
-                          <tbody className="bg-white divide-y divide-gray-200">
+                          <tbody className="bg-white divide-y divide-[var(--sf-border-light)]">
                             {Object.values(recurringConversionAnalytics.byFrequency)
                               .sort((a, b) => b.customerCount - a.customerCount)
                               .map((freq, index) => (
                               <tr key={index}>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 capitalize">
+                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-[var(--sf-text-primary)] capitalize">
                                   {freq.frequency}
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--sf-text-secondary)]">
                                   {freq.customerCount}
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--sf-text-secondary)]">
                                   {freq.jobCount}
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--sf-text-primary)] font-medium">
                                   {formatCurrency(freq.revenue)}
                                 </td>
                               </tr>

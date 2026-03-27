@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import Sidebar from "../../components/sidebar"
 import CreateCustomPaymentMethodModal from "../../components/create-custom-payment-method-modal"
-import { ChevronLeft, Edit, Trash2, HelpCircle, Check, AlertCircle } from "lucide-react"
+import { ChevronLeft, Edit, Trash2, Check, AlertCircle } from "lucide-react"
 import { paymentSettingsAPI, paymentMethodsAPI } from "../../services/api"
 import { useAuth } from "../../context/AuthContext"
 
@@ -27,7 +27,9 @@ const Payments = () => {
     defaultMemo: "",
     invoiceFooter: "",
     paymentProcessor: null,
-    paymentProcessorConnected: false
+    paymentProcessorConnected: false,
+    tipCalculationMode: "automatic",
+    paymentTypeFees: {}
   })
 
   const [paymentMethods, setPaymentMethods] = useState([])
@@ -47,7 +49,11 @@ const Payments = () => {
         paymentMethodsAPI.getPaymentMethods()
       ])
       
-      setSettings(settingsData)
+      setSettings({
+        ...settingsData,
+        tipCalculationMode: settingsData.tipCalculationMode || 'automatic',
+        paymentTypeFees: settingsData.paymentTypeFees || {}
+      })
       setPaymentMethods(methodsData)
     } catch (error) {
       console.error('Error loading payment data:', error)
@@ -90,19 +96,33 @@ const Payments = () => {
 
   const handleSavePaymentMethod = async (paymentMethod) => {
     try {
+      const { fee, ...methodData } = paymentMethod
       if (editingMethod) {
-        await paymentMethodsAPI.updatePaymentMethod(editingMethod.id, paymentMethod)
-        setPaymentMethods(prev => 
-          prev.map(method => 
-            method.id === editingMethod.id 
-              ? { ...method, ...paymentMethod }
+        await paymentMethodsAPI.updatePaymentMethod(editingMethod.id, methodData)
+        // Update fee in settings if name changed
+        const oldName = editingMethod.name
+        const newName = methodData.name
+        setPaymentMethods(prev =>
+          prev.map(method =>
+            method.id === editingMethod.id
+              ? { ...method, ...methodData }
               : method
           )
         )
+        setSettings(prev => {
+          const fees = { ...prev.paymentTypeFees }
+          if (oldName !== newName) delete fees[oldName]
+          fees[newName] = fee
+          return { ...prev, paymentTypeFees: fees }
+        })
         setEditingMethod(null)
       } else {
-        const newMethod = await paymentMethodsAPI.createPaymentMethod(paymentMethod)
+        const newMethod = await paymentMethodsAPI.createPaymentMethod(methodData)
         setPaymentMethods(prev => [...prev, newMethod])
+        setSettings(prev => ({
+          ...prev,
+          paymentTypeFees: { ...prev.paymentTypeFees, [methodData.name]: fee }
+        }))
       }
       setIsPaymentMethodModalOpen(false)
       setMessage({ type: 'success', text: 'Payment method saved successfully' })
@@ -132,13 +152,13 @@ const Payments = () => {
 
   if (loading) {
     return (
-      <div className="flex h-screen bg-gray-50 overflow-hidden">
+      <div className="flex h-screen bg-[var(--sf-bg-page)] overflow-hidden">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="mt-2 text-gray-600">Loading payment settings...</p>
+              <p className="mt-2 text-[var(--sf-text-secondary)]">Loading payment settings...</p>
             </div>
           </div>
         </div>
@@ -147,22 +167,22 @@ const Payments = () => {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen bg-[var(--sf-bg-page)] overflow-hidden">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
 
         {/* Header */}
-        <div className="bg-white border-b border-gray-200 px-6 py-4">
+        <div className="bg-white border-b border-[var(--sf-border-light)] px-6 py-4">
           <div className="flex items-center space-x-4">
             <button
               onClick={() => navigate("/settings")}
-              className="flex items-center space-x-2 text-gray-600 hover:text-gray-900"
+              className="flex items-center space-x-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]"
             >
               <ChevronLeft className="w-5 h-5" />
               <span className="text-sm">Settings</span>
             </button>
-            <h1 className="text-2xl font-semibold text-gray-900">Payments</h1>
+            <h1 className="text-2xl font-semibold text-[var(--sf-text-primary)]">Payments</h1>
           </div>
         </div>
 
@@ -188,9 +208,9 @@ const Payments = () => {
             )}
 
             {/* Payment Processing */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Payment Processing</h2>
-              <p className="text-gray-600 mb-6">
+            <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-6">
+              <h2 className="text-xl font-semibold text-[var(--sf-text-primary)] mb-4">Payment Processing</h2>
+              <p className="text-[var(--sf-text-secondary)] mb-6">
                 Serviceflow Payments lets you securely accept credit card payments online. Your customers can pay when they
                 book or when they receive an invoice.
               </p>
@@ -222,206 +242,192 @@ const Payments = () => {
               <button 
                 onClick={handleSetupPaymentProcessor}
                 disabled={saving}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="bg-[var(--sf-blue-500)] text-white px-4 py-2 rounded-lg font-medium hover:bg-[var(--sf-blue-600)] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {saving ? 'Setting up...' : settings.paymentProcessorConnected ? 'Change Payment Processor' : 'Set Up Payment Processing'}
               </button>
             </div>
 
             {/* Tips */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Tips</h2>
-              <p className="text-gray-600 mb-6">
-                Allow customers to add tips when booking online or paying invoices. Tips are added to the total amount
-                charged to the customer.
+            <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-6">
+              <h2 className="text-xl font-semibold text-[var(--sf-text-primary)] mb-4">Tips</h2>
+              <p className="text-[var(--sf-text-secondary)] mb-6">
+                Configure how tips are calculated when recording payments. Tips go to payroll, not revenue.
               </p>
 
               <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-medium text-gray-900">Online Booking Tips</h4>
-                    <p className="text-sm text-gray-600">Prompt customers to add tips when booking online</p>
-                  </div>
-                  <button
-                    onClick={() => setSettings({ ...settings, onlineBookingTips: !settings.onlineBookingTips })}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      settings.onlineBookingTips ? "bg-blue-600" : "bg-gray-300"
-                    }`}
-                  >
-                    <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                        settings.onlineBookingTips ? "translate-x-6" : "translate-x-1"
-                      }`}
-                    />
-                  </button>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-medium text-gray-900">Invoice Payment Tips</h4>
-                    <p className="text-sm text-gray-600">Prompt customers to add tips when paying invoices online</p>
-                  </div>
-                  <button
-                    onClick={() => setSettings({ ...settings, invoicePaymentTips: !settings.invoicePaymentTips })}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      settings.invoicePaymentTips ? "bg-blue-600" : "bg-gray-300"
-                    }`}
-                  >
-                    <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                        settings.invoicePaymentTips ? "translate-x-6" : "translate-x-1"
-                      }`}
-                    />
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Custom Payment Methods */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Custom Payment Methods</h2>
-              <p className="text-gray-600 mb-6">
-                Add other ways customers can pay you outside of Serviceflow. Custom payment methods can be selected by
-                customers booking online.
-              </p>
-
-              <div className="space-y-3 mb-4">
-                {paymentMethods.map((method) => (
-                  <div key={method.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
-                    <div>
-                      <span className="font-medium text-gray-900">{method.name}</span>
-                      {method.description && (
-                        <p className="text-sm text-gray-600 mt-1">{method.description}</p>
-                      )}
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <button 
-                        onClick={() => handleEditPaymentMethod(method)}
-                        className="p-1 text-gray-400 hover:text-gray-600"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button 
-                        onClick={() => handleDeletePaymentMethod(method.id)}
-                        className="p-1 text-gray-400 hover:text-red-600"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <button 
-                onClick={() => setIsPaymentMethodModalOpen(true)}
-                className="text-blue-600 hover:text-blue-700 font-medium text-sm"
-              >
-                + Custom Payment Method
-              </button>
-            </div>
-
-            {/* Invoice Template */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Invoice Template</h2>
-              <p className="text-gray-600 mb-6">
-                Personalize the default memo and footer message that appear on your invoices, as well as your default
-                payment terms.
-              </p>
-              <button className="text-blue-600 hover:text-blue-700 text-sm mb-6">Learn more about invoices</button>
-
-              <div className="space-y-6">
-                {/* Default Memo */}
+                {/* Tip Calculation Mode */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Default memo</label>
-                  <textarea
-                    value={settings.defaultMemo}
-                    onChange={(e) => setSettings({ ...settings, defaultMemo: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                    rows={3}
-                    placeholder="We appreciate your business."
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    This memo will be added to all new invoices. You can always customize it for individual invoices
-                    later.
-                  </p>
-                </div>
-
-                {/* Footer */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Footer</label>
-                  <textarea
-                    value={settings.invoiceFooter}
-                    onChange={(e) => setSettings({ ...settings, invoiceFooter: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                    rows={2}
-                    placeholder="This will appear on the bottom invoice page and when printing an invoice"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    This section will appear at the bottom of all new invoices you create. Use it to provide contact
-                    details, help information, or payment terms.
-                  </p>
-                </div>
-
-                {/* Payment Due */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Payment due</label>
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="number"
-                      value={settings.paymentDueDays}
-                      onChange={(e) => setSettings({ ...settings, paymentDueDays: parseInt(e.target.value) || 0 })}
-                      className="w-20 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                    />
-                    <select
-                      value={settings.paymentDueUnit}
-                      onChange={(e) => setSettings({ ...settings, paymentDueUnit: e.target.value })}
-                      className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  <h4 className="font-medium text-[var(--sf-text-primary)] mb-3">Tip Calculation</h4>
+                  <div className="flex items-center gap-4">
+                    <button
+                      onClick={() => setSettings({ ...settings, tipCalculationMode: 'automatic' })}
+                      style={{
+                        flex: 1,
+                        padding: '12px',
+                        borderRadius: '8px',
+                        fontSize: '14px',
+                        fontWeight: 500,
+                        transition: 'all 0.2s',
+                        cursor: 'pointer',
+                        border: settings.tipCalculationMode === 'automatic' ? '2px solid var(--sf-blue-500)' : '1.5px solid var(--sf-border-light)',
+                        background: settings.tipCalculationMode === 'automatic' ? 'var(--sf-blue-50)' : 'white',
+                        color: settings.tipCalculationMode === 'automatic' ? 'var(--sf-blue-500)' : 'var(--sf-text-secondary)',
+                        boxShadow: 'none'
+                      }}
                     >
-                      <option value="days">days</option>
-                      <option value="weeks">weeks</option>
-                      <option value="months">months</option>
-                    </select>
-                    <span className="text-gray-600">after service date</span>
+                      <div style={{ fontWeight: 600, marginBottom: '4px' }}>Automatic</div>
+                      <div style={{ fontSize: '12px', fontWeight: 400, opacity: 0.8 }}>Tip = Amount Paid - Total Due - Fee</div>
+                    </button>
+                    <button
+                      onClick={() => setSettings({ ...settings, tipCalculationMode: 'manual' })}
+                      style={{
+                        flex: 1,
+                        padding: '12px',
+                        borderRadius: '8px',
+                        fontSize: '14px',
+                        fontWeight: 500,
+                        transition: 'all 0.2s',
+                        cursor: 'pointer',
+                        border: settings.tipCalculationMode === 'manual' ? '2px solid var(--sf-blue-500)' : '1.5px solid var(--sf-border-light)',
+                        background: settings.tipCalculationMode === 'manual' ? 'var(--sf-blue-50)' : 'white',
+                        color: settings.tipCalculationMode === 'manual' ? 'var(--sf-blue-500)' : 'var(--sf-text-secondary)',
+                        boxShadow: 'none'
+                      }}
+                    >
+                      <div style={{ fontWeight: 600, marginBottom: '4px' }}>Manual</div>
+                      <div style={{ fontSize: '12px', fontWeight: 400, opacity: 0.8 }}>Enter tip amount manually each time</div>
+                    </button>
                   </div>
                 </div>
 
-                {/* Service Options */}
-                <div className="space-y-3">
-                  <div className="flex items-center space-x-3">
-                    <input
-                      type="checkbox"
-                      checked={settings.showServicePrices}
-                      onChange={(e) => setSettings({ ...settings, showServicePrices: e.target.checked })}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <label className="text-sm text-gray-700">
-                      Show prices of service options in service line items
-                    </label>
-                  </div>
-
-                  <div className="flex items-center space-x-3">
-                    <input
-                      type="checkbox"
-                      checked={settings.showServiceDescriptions}
-                      onChange={(e) => setSettings({ ...settings, showServiceDescriptions: e.target.checked })}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <label className="text-sm text-gray-700">Show service descriptions in invoice line items</label>
-                  </div>
-                </div>
-
-                {/* Custom Fields */}
+                {/* Payment Type Fees */}
                 <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center space-x-2">
-                      <h4 className="font-medium text-gray-900">Custom Fields</h4>
-                      <HelpCircle className="w-4 h-4 text-gray-400" />
-                    </div>
-                    <button className="text-blue-600 hover:text-blue-700 font-medium text-sm">Manage Fields</button>
-                  </div>
-                  <p className="text-sm text-gray-600">
-                    Add custom information that appears on all your invoices (VAT number, license, certifications, etc.)
+                  <h4 className="font-medium text-[var(--sf-text-primary)] mb-1">Processing Fees by Payment Type</h4>
+                  <p className="text-xs text-[var(--sf-text-muted)] mb-3">
+                    Set the processing fee percentage for each payment type. Fee is deducted before calculating tips. Set to 0 for no fee.
                   </p>
+                  <div className="space-y-3">
+                    {/* Built-in payment types */}
+                    {[
+                      { key: 'cash', label: 'Cash' },
+                      { key: 'check', label: 'Check' },
+                      { key: 'credit_card', label: 'Credit Card' },
+                      { key: 'bank_transfer', label: 'Bank Transfer' },
+                    ].map(({ key, label }) => (
+                      <div key={key} className="flex items-center justify-between">
+                        <span className="text-sm text-[var(--sf-text-primary)]">{label}</span>
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="number"
+                            step="0.1"
+                            min="0"
+                            max="100"
+                            value={settings.paymentTypeFees?.[key] ?? 0}
+                            onChange={(e) => setSettings(prev => ({
+                              ...prev,
+                              paymentTypeFees: {
+                                ...prev.paymentTypeFees,
+                                [key]: parseFloat(e.target.value) || 0
+                              }
+                            }))}
+                            className="w-20 text-right border border-[var(--sf-border-light)] rounded-lg px-2 py-1.5 text-sm focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] outline-none"
+                          />
+                          <span className="text-sm text-[var(--sf-text-muted)]">%</span>
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* Custom payment methods with fee + edit/delete */}
+                    {paymentMethods.map((method) => (
+                      <div key={method.id} className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-[var(--sf-text-primary)]">{method.name}</span>
+                          <button
+                            onClick={() => handleEditPaymentMethod(method)}
+                            className="p-0.5 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
+                            style={{ border: 'none', background: 'none', boxShadow: 'none', borderRadius: '4px', padding: '2px' }}
+                          >
+                            <Edit className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleDeletePaymentMethod(method.id)}
+                            className="p-0.5 text-[var(--sf-text-muted)] hover:text-red-600"
+                            style={{ border: 'none', background: 'none', boxShadow: 'none', borderRadius: '4px', padding: '2px' }}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="number"
+                            step="0.1"
+                            min="0"
+                            max="100"
+                            value={settings.paymentTypeFees?.[method.name] ?? 0}
+                            onChange={(e) => setSettings(prev => ({
+                              ...prev,
+                              paymentTypeFees: {
+                                ...prev.paymentTypeFees,
+                                [method.name]: parseFloat(e.target.value) || 0
+                              }
+                            }))}
+                            className="w-20 text-right border border-[var(--sf-border-light)] rounded-lg px-2 py-1.5 text-sm focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] outline-none"
+                          />
+                          <span className="text-sm text-[var(--sf-text-muted)]">%</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Add custom payment method */}
+                  <button
+                    onClick={() => { setEditingMethod(null); setIsPaymentMethodModalOpen(true) }}
+                    className="mt-3 text-[var(--sf-blue-500)] font-medium text-sm"
+                    style={{ border: 'none', background: 'none', boxShadow: 'none', padding: 0, borderRadius: 0 }}
+                  >
+                    + Custom Payment Method
+                  </button>
+                </div>
+
+                {/* Online Booking/Invoice Tips */}
+                <div className="border-t border-[var(--sf-border-light)] pt-6">
+                  <h4 className="font-medium text-[var(--sf-text-primary)] mb-4">Customer-Facing Tips</h4>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-sm font-medium text-[var(--sf-text-primary)]">Online Booking Tips</span>
+                        <p className="text-xs text-[var(--sf-text-secondary)]">Prompt customers to add tips when booking online</p>
+                      </div>
+                      <button
+                        onClick={() => setSettings({ ...settings, onlineBookingTips: !settings.onlineBookingTips })}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                          settings.onlineBookingTips ? "bg-[var(--sf-blue-500)]" : "bg-gray-300"
+                        }`}
+                      >
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          settings.onlineBookingTips ? "translate-x-6" : "translate-x-1"
+                        }`} />
+                      </button>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-sm font-medium text-[var(--sf-text-primary)]">Invoice Payment Tips</span>
+                        <p className="text-xs text-[var(--sf-text-secondary)]">Prompt customers to add tips when paying invoices online</p>
+                      </div>
+                      <button
+                        onClick={() => setSettings({ ...settings, invoicePaymentTips: !settings.invoicePaymentTips })}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                          settings.invoicePaymentTips ? "bg-[var(--sf-blue-500)]" : "bg-gray-300"
+                        }`}
+                      >
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          settings.invoicePaymentTips ? "translate-x-6" : "translate-x-1"
+                        }`} />
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -431,7 +437,7 @@ const Payments = () => {
               <button
                 onClick={handleSaveSettings}
                 disabled={saving}
-                className="bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="bg-[var(--sf-blue-500)] text-white px-6 py-2 rounded-lg font-medium hover:bg-[var(--sf-blue-600)] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {saving ? 'Saving...' : 'Save Settings'}
               </button>
@@ -449,6 +455,7 @@ const Payments = () => {
           }}
           onSave={handleSavePaymentMethod}
           editingMethod={editingMethod}
+          initialFee={editingMethod ? (settings.paymentTypeFees?.[editingMethod.name] ?? 0) : 0}
         />
       )}
     </div>

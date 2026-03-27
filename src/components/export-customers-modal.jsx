@@ -26,16 +26,16 @@ const ExportCustomersModal = ({ isOpen, onClose }) => {
       <div className="bg-white rounded-xl w-full max-w-md relative">
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold text-gray-900">Export customers</h2>
+            <h2 className="text-xl font-semibold text-[var(--sf-text-primary)]">Export customers</h2>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-500 hover:bg-gray-100 p-1 rounded-full transition-colors"
+              className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-muted)] hover:bg-[var(--sf-bg-hover)] p-1 rounded-full transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
 
-          <p className="text-gray-600 text-sm mb-6">
+          <p className="text-[var(--sf-text-secondary)] text-sm mb-6">
             Export your customers in a CSV file for Excel, Numbers, or other spreadsheet programs
           </p>
 
@@ -50,7 +50,7 @@ const ExportCustomersModal = ({ isOpen, onClose }) => {
                 onChange={(e) => setExportType(e.target.value)}
                 className="mt-1 text-primary-600 focus:ring-primary-500 rounded-full"
               />
-              <label htmlFor="all_customers" className="text-sm text-gray-900 leading-none pt-1">
+              <label htmlFor="all_customers" className="text-sm text-[var(--sf-text-primary)] leading-none pt-1">
                 Export all customers
               </label>
             </div>
@@ -65,7 +65,7 @@ const ExportCustomersModal = ({ isOpen, onClose }) => {
                 onChange={(e) => setExportType(e.target.value)}
                 className="mt-1 text-primary-600 focus:ring-primary-500 rounded-full"
               />
-              <label htmlFor="csv_format" className="text-sm text-gray-900 leading-none pt-1">
+              <label htmlFor="csv_format" className="text-sm text-[var(--sf-text-primary)] leading-none pt-1">
                 Export as CSV file
               </label>
             </div>
@@ -84,7 +84,7 @@ const ExportCustomersModal = ({ isOpen, onClose }) => {
           <div className="flex justify-end space-x-3 mt-8">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+              className="px-4 py-2 text-sm font-medium text-[var(--sf-text-primary)] bg-white border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-page)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
               disabled={isExporting}
             >
               Cancel

@@ -213,12 +213,12 @@ const BookingKoalaImport = ({ onSuccess, onError }) => {
   if (step === 1) {
     return (
       <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Upload Booking Koala Export File</h2>
-        <p className="text-gray-600 mb-6">
+        <h2 className="text-xl font-semibold text-[var(--sf-text-primary)] mb-4">Upload Booking Koala Export File</h2>
+        <p className="text-[var(--sf-text-secondary)] mb-6">
           Upload a CSV or Excel file exported from Booking Koala. The system will automatically detect and map customer and job data.
         </p>
 
-        <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gray-400 transition-colors">
+        <div className="border-2 border-dashed border-[var(--sf-border-light)] rounded-lg p-8 text-center hover:border-gray-400 transition-colors">
           <input
             type="file"
             id="file-upload"
@@ -227,11 +227,11 @@ const BookingKoalaImport = ({ onSuccess, onError }) => {
             className="hidden"
           />
           <label htmlFor="file-upload" className="cursor-pointer">
-            <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-600 mb-2">
-              <span className="text-blue-600 hover:text-blue-700">Click to upload</span> or drag and drop
+            <Upload className="w-12 h-12 text-[var(--sf-text-muted)] mx-auto mb-4" />
+            <p className="text-[var(--sf-text-secondary)] mb-2">
+              <span className="text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)]">Click to upload</span> or drag and drop
             </p>
-            <p className="text-sm text-gray-500">CSV or Excel files only</p>
+            <p className="text-sm text-[var(--sf-text-muted)]">CSV or Excel files only</p>
           </label>
         </div>
 
@@ -244,7 +244,7 @@ const BookingKoalaImport = ({ onSuccess, onError }) => {
           </div>
         )}
 
-        <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="mt-6 bg-[var(--sf-blue-50)] border border-blue-200 rounded-lg p-4">
           <h3 className="text-sm font-semibold text-blue-900 mb-2">Supported Fields</h3>
           <div className="grid grid-cols-2 gap-4 text-sm text-blue-800">
             <div>
@@ -273,7 +273,7 @@ const BookingKoalaImport = ({ onSuccess, onError }) => {
     return (
       <div className="bg-white rounded-lg shadow p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-gray-900">Preview Data</h2>
+          <h2 className="text-xl font-semibold text-[var(--sf-text-primary)]">Preview Data</h2>
           <button
             onClick={() => {
               setStep(1);
@@ -281,33 +281,33 @@ const BookingKoalaImport = ({ onSuccess, onError }) => {
               setFileData(null);
               setPreviewData(null);
             }}
-            className="text-gray-600 hover:text-gray-800"
+            className="text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <p className="text-gray-600 mb-4">
+        <p className="text-[var(--sf-text-secondary)] mb-4">
           Found {fileData?.length || 0} rows. Showing first 10 rows for preview.
         </p>
 
         {previewData && previewData.length > 0 && (
           <div className="overflow-x-auto mb-6">
-            <table className="min-w-full divide-y divide-gray-200 border border-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-[var(--sf-border-light)] border border-[var(--sf-border-light)]">
+              <thead className="bg-[var(--sf-bg-page)]">
                 <tr>
                   {Object.keys(previewData[0]).map((key) => (
-                    <th key={key} className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                    <th key={key} className="px-4 py-2 text-left text-xs font-medium text-[var(--sf-text-muted)] uppercase">
                       {key}
                     </th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white divide-y divide-[var(--sf-border-light)]">
                 {previewData.map((row, index) => (
                   <tr key={index}>
                     {Object.keys(previewData[0]).map((key) => (
-                      <td key={key} className="px-4 py-2 text-sm text-gray-600">
+                      <td key={key} className="px-4 py-2 text-sm text-[var(--sf-text-secondary)]">
                         {row[key] || '-'}
                       </td>
                     ))}
@@ -321,13 +321,13 @@ const BookingKoalaImport = ({ onSuccess, onError }) => {
         <div className="flex space-x-4">
           <button
             onClick={() => setStep(1)}
-            className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+            className="px-4 py-2 border border-[var(--sf-border-light)] rounded-lg text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-page)]"
           >
             Back
           </button>
           <button
             onClick={() => setStep(3)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)]"
           >
             Continue to Import Settings
           </button>
@@ -342,17 +342,17 @@ const BookingKoalaImport = ({ onSuccess, onError }) => {
     return (
       <div className="bg-white rounded-lg shadow p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-gray-900">Import Settings</h2>
+          <h2 className="text-xl font-semibold text-[var(--sf-text-primary)]">Import Settings</h2>
           <button
             onClick={() => setStep(2)}
-            className="text-gray-600 hover:text-gray-800"
+            className="text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         <div className="mb-6">
-          <p className="text-gray-600 mb-4">
+          <p className="text-[var(--sf-text-secondary)] mb-4">
             Detected data type: <span className="font-semibold">
               {dataType === 'customers' ? 'Customers' : 
                dataType === 'jobs' ? 'Jobs' : 
@@ -367,9 +367,9 @@ const BookingKoalaImport = ({ onSuccess, onError }) => {
                 type="checkbox"
                 checked={importSettings.skipDuplicates}
                 onChange={(e) => setImportSettings({ ...importSettings, skipDuplicates: e.target.checked })}
-                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                className="w-4 h-4 text-[var(--sf-blue-500)] border-[var(--sf-border-light)] rounded focus:ring-[var(--sf-blue-500)]"
               />
-              <span className="text-gray-700">Skip duplicate records</span>
+              <span className="text-[var(--sf-text-primary)]">Skip duplicate records</span>
             </label>
 
             <label className="flex items-center space-x-3">
@@ -377,9 +377,9 @@ const BookingKoalaImport = ({ onSuccess, onError }) => {
                 type="checkbox"
                 checked={importSettings.updateExisting}
                 onChange={(e) => setImportSettings({ ...importSettings, updateExisting: e.target.checked })}
-                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                className="w-4 h-4 text-[var(--sf-blue-500)] border-[var(--sf-border-light)] rounded focus:ring-[var(--sf-blue-500)]"
               />
-              <span className="text-gray-700">Update existing records (if duplicates found)</span>
+              <span className="text-[var(--sf-text-primary)]">Update existing records (if duplicates found)</span>
             </label>
           </div>
         </div>
@@ -387,13 +387,13 @@ const BookingKoalaImport = ({ onSuccess, onError }) => {
         <div className="flex space-x-4">
           <button
             onClick={() => setStep(2)}
-            className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+            className="px-4 py-2 border border-[var(--sf-border-light)] rounded-lg text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-page)]"
           >
             Back
           </button>
           <button
             onClick={handleImport}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+            className="px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] flex items-center space-x-2"
           >
             <span>Start Import</span>
           </button>
@@ -405,9 +405,9 @@ const BookingKoalaImport = ({ onSuccess, onError }) => {
   if (step === 4) {
     return (
       <div className="bg-white rounded-lg shadow p-6 text-center">
-        <Loader2 className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
-        <h2 className="text-xl font-semibold text-gray-900 mb-2">Importing Data...</h2>
-        <p className="text-gray-600">Please wait while we import your Booking Koala data.</p>
+        <Loader2 className="w-12 h-12 text-[var(--sf-blue-500)] animate-spin mx-auto mb-4" />
+        <h2 className="text-xl font-semibold text-[var(--sf-text-primary)] mb-2">Importing Data...</h2>
+        <p className="text-[var(--sf-text-secondary)]">Please wait while we import your Booking Koala data.</p>
       </div>
     );
   }

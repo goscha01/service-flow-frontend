@@ -63,10 +63,10 @@ export default function DemoSection() {
           {/* Left Column - Content */}
           <div className="space-y-8">
             <div className="space-y-6">
-              <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 leading-tight">
+              <h2 className="text-3xl lg:text-4xl font-bold text-[var(--sf-text-primary)] leading-tight">
                 Scheduling software that works the way your service business does.
               </h2>
-              <p className="text-xl text-gray-600 leading-relaxed">
+              <p className="text-xl text-[var(--sf-text-secondary)] leading-relaxed">
                 Let customers book instantly, request preferred times, or ask for a custom quote. Serviceflow handles the
                 scheduling logic, collects job details, and keeps your calendar accurate—so you can focus on growing
                 your business.
@@ -76,13 +76,13 @@ export default function DemoSection() {
             <div className="space-y-6">
               <div className="flex items-start space-x-4">
                 <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
-                  <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-4 h-4 text-[var(--sf-blue-500)]" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
                 <div>
-                  <h3 className="font-semibold text-gray-900">Embed or link</h3>
-                  <p className="text-gray-600">
+                  <h3 className="font-semibold text-[var(--sf-text-primary)]">Embed or link</h3>
+                  <p className="text-[var(--sf-text-secondary)]">
                     Embed the widget on any page or share a Serviceflow‑hosted link—same seamless flow for bookings and
                     requests.
                   </p>
@@ -91,13 +91,13 @@ export default function DemoSection() {
 
               <div className="flex items-start space-x-4">
                 <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
-                  <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-4 h-4 text-[var(--sf-blue-500)]" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" />
                   </svg>
                 </div>
                 <div>
-                  <h3 className="font-semibold text-gray-900">Fully on‑brand</h3>
-                  <p className="text-gray-600">
+                  <h3 className="font-semibold text-[var(--sf-text-primary)]">Fully on‑brand</h3>
+                  <p className="text-[var(--sf-text-secondary)]">
                     Tweak colors, pricing, and intake questions so each service's looks and feels 100% yours
                   </p>
                 </div>
@@ -135,11 +135,11 @@ export default function DemoSection() {
         </div>
 
         {/* Demo CTA Section */}
-        <div className="mt-16 bg-gray-50 rounded-2xl p-8">
+        <div className="mt-16 bg-[var(--sf-bg-page)] rounded-2xl p-8">
           <div className="grid md:grid-cols-2 gap-8 items-center">
             <div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Experience it yourself</h3>
-              <p className="text-gray-600">
+              <h3 className="text-xl font-semibold text-[var(--sf-text-primary)] mb-2">Experience it yourself</h3>
+              <p className="text-[var(--sf-text-secondary)]">
                 Try scheduling with our demo home service companies to see Serviceflow in action.
               </p>
             </div>
@@ -149,7 +149,7 @@ export default function DemoSection() {
                 <div className="mb-4">
                   <img src="/images/maidup-logo-white.svg" alt="MaidUp Logo" className="h-8 w-auto" />
                 </div>
-                <button className="bg-white text-blue-600 px-6 py-2 rounded-full font-semibold hover:bg-gray-100 transition-colors">
+                <button className="bg-white text-[var(--sf-blue-500)] px-6 py-2 rounded-full font-semibold hover:bg-[var(--sf-bg-hover)] transition-colors">
                   Book Now
                 </button>
               </div>
@@ -158,7 +158,7 @@ export default function DemoSection() {
                 <div className="mb-4">
                   <img src="/images/plumbing-logo-white.svg" alt="Plumbing Logo" className="h-8 w-auto" />
                 </div>
-                <button className="bg-white text-blue-600 px-6 py-2 rounded-full font-semibold hover:bg-gray-100 transition-colors">
+                <button className="bg-white text-[var(--sf-blue-500)] px-6 py-2 rounded-full font-semibold hover:bg-[var(--sf-bg-hover)] transition-colors">
                   Book Now
                 </button>
               </div>

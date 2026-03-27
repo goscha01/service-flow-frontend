@@ -111,47 +111,47 @@ export default function ServiceModal({ isOpen, onClose, onSave }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-8 relative animate-fadeIn">
         <button
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-700"
+          className="absolute top-4 right-4 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-primary)]"
           onClick={onClose}
         >
           <X className="w-5 h-5" />
         </button>
-        <h2 className="text-2xl font-bold mb-2 text-gray-900">Create Service</h2>
-        <p className="text-gray-600 mb-6">Add a new service to your offerings</p>
+        <h2 className="text-2xl font-bold mb-2 text-[var(--sf-text-primary)]">Create Service</h2>
+        <p className="text-[var(--sf-text-secondary)] mb-6">Add a new service to your offerings</p>
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4 text-red-700 text-sm">{error}</div>
         )}
         {/* Debug info - remove in production */}
         {process.env.NODE_ENV === 'development' && (
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mb-4 text-xs text-gray-600">
+          <div className="bg-[var(--sf-bg-page)] border border-[var(--sf-border-light)] rounded-lg p-3 mb-4 text-xs text-[var(--sf-text-secondary)]">
             <strong>Debug:</strong> Name: "{formData.name}", Duration: {formData.duration}, Price: "{formData.price}"
           </div>
         )}
         <div className="space-y-5">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+            <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">Name *</label>
             <input
               type="text"
               name="name"
               value={formData.name}
               onChange={handleChange}
-              className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
+              className="w-full border border-[var(--sf-border-light)] rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
               required
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+            <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">Description</label>
             <textarea
               name="description"
               value={formData.description}
               onChange={handleChange}
               rows={3}
-              className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
+              className="w-full border border-[var(--sf-border-light)] rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Price ($)</label>
+              <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">Price ($)</label>
               <input
                 type="number"
                 name="price"
@@ -166,12 +166,12 @@ export default function ServiceModal({ isOpen, onClose, onSave }) {
                 }}
                 min="0"
                 step="0.01"
-                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
+                className="w-full border border-[var(--sf-border-light)] rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
                 placeholder="0.00"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Duration</label>
+              <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">Duration</label>
               <div className="flex items-center space-x-2">
                 <div className="flex items-center space-x-1">
                   <input
@@ -190,10 +190,10 @@ export default function ServiceModal({ isOpen, onClose, onSave }) {
                       }
                     }}
                     min="0"
-                    className="w-16 border border-gray-300 rounded-lg px-2 py-2 text-center focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
+                    className="w-16 border border-[var(--sf-border-light)] rounded-lg px-2 py-2 text-center focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
                     placeholder="0"
                   />
-                  <span className="text-sm text-gray-600">hr</span>
+                  <span className="text-sm text-[var(--sf-text-secondary)]">hr</span>
                 </div>
                 <div className="flex items-center space-x-1">
               <input
@@ -213,22 +213,22 @@ export default function ServiceModal({ isOpen, onClose, onSave }) {
                     }}
                     min="0"
                     max="59"
-                    className="w-16 border border-gray-300 rounded-lg px-2 py-2 text-center focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
+                    className="w-16 border border-[var(--sf-border-light)] rounded-lg px-2 py-2 text-center focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
                 placeholder="30"
               />
-                  <span className="text-sm text-gray-600">min</span>
+                  <span className="text-sm text-[var(--sf-text-secondary)]">min</span>
                 </div>
               </div>
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+            <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">Category</label>
             <input
               type="text"
               name="category"
               value={formData.category}
               onChange={handleChange}
-              className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
+              className="w-full border border-[var(--sf-border-light)] rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
             />
           </div>
           <div className="flex items-center space-x-2">
@@ -238,9 +238,9 @@ export default function ServiceModal({ isOpen, onClose, onSave }) {
               checked={formData.require_payment_method}
               onChange={handleChange}
               id="require_payment_method"
-              className="h-4 w-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+              className="h-4 w-4 text-green-600 border-[var(--sf-border-light)] rounded focus:ring-green-500"
             />
-            <label htmlFor="require_payment_method" className="text-sm text-gray-700">
+            <label htmlFor="require_payment_method" className="text-sm text-[var(--sf-text-primary)]">
               Require payment method
             </label>
           </div>

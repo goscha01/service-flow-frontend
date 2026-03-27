@@ -251,16 +251,16 @@ const ConvertToRecurringModal = ({
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[99999] p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col">
-        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 flex-shrink-0">
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-[var(--sf-border-light)] flex-shrink-0">
           <div className="flex items-center space-x-2">
-            <ModalIcon className="w-5 h-5 text-blue-600" />
-            <h2 className="text-lg sm:text-xl font-bold text-gray-900">
+            <ModalIcon className="w-5 h-5 text-[var(--sf-blue-500)]" />
+            <h2 className="text-lg sm:text-xl font-bold text-[var(--sf-text-primary)]">
               {modalTitle}
             </h2>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
+            className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
             disabled={loading}
           >
             <X className="w-5 h-5" />
@@ -278,13 +278,13 @@ const ConvertToRecurringModal = ({
 
           {/* Job Information Preview */}
           <div className="mb-6">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">Job Information</h3>
-            <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-              <div className="text-sm text-gray-900">
+            <h3 className="text-sm font-semibold text-[var(--sf-text-primary)] mb-3">Job Information</h3>
+            <div className="bg-[var(--sf-bg-page)] rounded-lg p-4 space-y-2">
+              <div className="text-sm text-[var(--sf-text-primary)]">
                 <span className="font-medium">Service:</span> {decodeHtmlEntities(job.service_name || 'N/A')}
               </div>
               {scheduledDate && (
-                <div className="text-sm text-gray-900">
+                <div className="text-sm text-[var(--sf-text-primary)]">
                   <span className="font-medium">Current Date:</span>{' '}
                   {scheduledDate.toLocaleDateString('en-US', {
                     weekday: 'long',
@@ -295,7 +295,7 @@ const ConvertToRecurringModal = ({
                 </div>
               )}
               {isEditMode && job.recurring_frequency && (
-                <div className="text-sm text-gray-900">
+                <div className="text-sm text-[var(--sf-text-primary)]">
                   <span className="font-medium">Current Frequency:</span>{' '}
                   {formatRecurringFrequency(job.recurring_frequency || job.recurringFrequency, scheduledDate)}
                 </div>
@@ -305,7 +305,7 @@ const ConvertToRecurringModal = ({
 
           {/* Frequency Selection */}
           <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-3">
+            <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-3">
               {isEditMode ? 'New Frequency *' : 'Recurring Frequency *'}
             </label>
 
@@ -317,8 +317,8 @@ const ConvertToRecurringModal = ({
                   onClick={() => setFrequency('daily')}
                   className={`px-3 py-2 text-sm rounded-lg border ${
                     frequency === 'daily'
-                      ? 'bg-blue-600 text-white border-blue-600'
-                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                      ? 'bg-[var(--sf-blue-500)] text-white border-blue-600'
+                      : 'bg-white text-[var(--sf-text-primary)] border-[var(--sf-border-light)] hover:bg-[var(--sf-bg-page)]'
                   }`}
                   disabled={loading}
                 >
@@ -329,8 +329,8 @@ const ConvertToRecurringModal = ({
                   onClick={() => setFrequency('weekly')}
                   className={`px-3 py-2 text-sm rounded-lg border ${
                     frequency === 'weekly'
-                      ? 'bg-blue-600 text-white border-blue-600'
-                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                      ? 'bg-[var(--sf-blue-500)] text-white border-blue-600'
+                      : 'bg-white text-[var(--sf-text-primary)] border-[var(--sf-border-light)] hover:bg-[var(--sf-bg-page)]'
                   }`}
                   disabled={loading}
                 >
@@ -341,8 +341,8 @@ const ConvertToRecurringModal = ({
                   onClick={() => setFrequency('monthly')}
                   className={`px-3 py-2 text-sm rounded-lg border ${
                     frequency === 'monthly'
-                      ? 'bg-blue-600 text-white border-blue-600'
-                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                      ? 'bg-[var(--sf-blue-500)] text-white border-blue-600'
+                      : 'bg-white text-[var(--sf-text-primary)] border-[var(--sf-border-light)] hover:bg-[var(--sf-bg-page)]'
                   }`}
                   disabled={loading}
                 >
@@ -352,9 +352,9 @@ const ConvertToRecurringModal = ({
 
               {/* Weekly Options */}
               {frequency === 'weekly' && (
-                <div className="space-y-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="space-y-3 p-4 bg-[var(--sf-blue-50)] rounded-lg border border-blue-200">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                       Every
                     </label>
                     <div className="flex items-center space-x-2">
@@ -363,10 +363,10 @@ const ConvertToRecurringModal = ({
                         min="1"
                         value={customFrequency.interval}
                         onChange={(e) => setCustomFrequency({ ...customFrequency, interval: parseInt(e.target.value) || 1 })}
-                        className="w-20 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-20 px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                         disabled={loading}
                       />
-                      <span className="text-sm text-gray-700">week(s)</span>
+                      <span className="text-sm text-[var(--sf-text-primary)]">week(s)</span>
                     </div>
                     {errors.interval && (
                       <p className="mt-1 text-sm text-red-600">{errors.interval}</p>
@@ -374,13 +374,13 @@ const ConvertToRecurringModal = ({
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                       Day of Week (Optional)
                     </label>
                     <select
                       value={customFrequency.dayOfWeek}
                       onChange={(e) => setCustomFrequency({ ...customFrequency, dayOfWeek: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                       disabled={loading}
                     >
                       <option value="">Any day</option>
@@ -398,9 +398,9 @@ const ConvertToRecurringModal = ({
 
               {/* Monthly Options */}
               {frequency === 'monthly' && (
-                <div className="space-y-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="space-y-3 p-4 bg-[var(--sf-blue-50)] rounded-lg border border-blue-200">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                       Every
                     </label>
                     <div className="flex items-center space-x-2">
@@ -409,10 +409,10 @@ const ConvertToRecurringModal = ({
                         min="1"
                         value={customFrequency.interval}
                         onChange={(e) => setCustomFrequency({ ...customFrequency, interval: parseInt(e.target.value) || 1 })}
-                        className="w-20 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-20 px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                         disabled={loading}
                       />
-                      <span className="text-sm text-gray-700">month(s)</span>
+                      <span className="text-sm text-[var(--sf-text-primary)]">month(s)</span>
                     </div>
                     {errors.interval && (
                       <p className="mt-1 text-sm text-red-600">{errors.interval}</p>
@@ -420,7 +420,7 @@ const ConvertToRecurringModal = ({
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                       Schedule Type
                     </label>
                     <div className="space-y-2">
@@ -431,10 +431,10 @@ const ConvertToRecurringModal = ({
                           value="day"
                           checked={!customFrequency.ordinal}
                           onChange={() => setCustomFrequency({ ...customFrequency, ordinal: '', weekday: '' })}
-                          className="text-blue-600"
+                          className="text-[var(--sf-blue-500)]"
                           disabled={loading}
                         />
-                        <span className="text-sm text-gray-700">Specific day of month</span>
+                        <span className="text-sm text-[var(--sf-text-primary)]">Specific day of month</span>
                       </label>
                       {!customFrequency.ordinal && (
                         <div className="ml-6">
@@ -445,7 +445,7 @@ const ConvertToRecurringModal = ({
                             value={customFrequency.dayOfMonth}
                             onChange={(e) => setCustomFrequency({ ...customFrequency, dayOfMonth: e.target.value })}
                             placeholder="Day (1-31)"
-                            className="w-32 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="w-32 px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                             disabled={loading}
                           />
                         </div>
@@ -458,17 +458,17 @@ const ConvertToRecurringModal = ({
                           value="ordinal"
                           checked={!!customFrequency.ordinal}
                           onChange={() => setCustomFrequency({ ...customFrequency, dayOfMonth: '' })}
-                          className="text-blue-600"
+                          className="text-[var(--sf-blue-500)]"
                           disabled={loading}
                         />
-                        <span className="text-sm text-gray-700">Ordinal weekday (e.g., 2nd Friday)</span>
+                        <span className="text-sm text-[var(--sf-text-primary)]">Ordinal weekday (e.g., 2nd Friday)</span>
                       </label>
                       {customFrequency.ordinal && (
                         <div className="ml-6 space-y-2">
                           <select
                             value={customFrequency.ordinal}
                             onChange={(e) => setCustomFrequency({ ...customFrequency, ordinal: e.target.value })}
-                            className="w-32 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="w-32 px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                             disabled={loading}
                           >
                             <option value="">Select...</option>
@@ -481,7 +481,7 @@ const ConvertToRecurringModal = ({
                           <select
                             value={customFrequency.weekday}
                             onChange={(e) => setCustomFrequency({ ...customFrequency, weekday: e.target.value })}
-                            className="w-32 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ml-2"
+                            className="w-32 px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] ml-2"
                             disabled={loading}
                           >
                             <option value="">Day...</option>
@@ -504,20 +504,20 @@ const ConvertToRecurringModal = ({
 
           {/* End Date Option */}
           <div className="mb-6">
-            <div className="flex items-start space-x-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="flex items-start space-x-3 p-4 bg-[var(--sf-bg-page)] rounded-lg border border-[var(--sf-border-light)]">
               <input
                 type="checkbox"
                 id={`hasEndDate-${mode}`}
                 checked={hasEndDate}
                 onChange={(e) => setHasEndDate(e.target.checked)}
-                className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                className="mt-1 w-4 h-4 text-[var(--sf-blue-500)] border-[var(--sf-border-light)] rounded focus:ring-[var(--sf-blue-500)]"
                 disabled={loading}
               />
               <div className="flex-1">
-                <label htmlFor={`hasEndDate-${mode}`} className="text-sm font-medium text-gray-900 cursor-pointer">
+                <label htmlFor={`hasEndDate-${mode}`} className="text-sm font-medium text-[var(--sf-text-primary)] cursor-pointer">
                   Set end date (Optional)
                 </label>
-                <p className="text-xs text-gray-600 mt-1">
+                <p className="text-xs text-[var(--sf-text-secondary)] mt-1">
                   Stop creating recurring jobs after a specific date
                 </p>
                 {hasEndDate && (
@@ -527,8 +527,8 @@ const ConvertToRecurringModal = ({
                       value={endDate}
                       onChange={(e) => setEndDate(e.target.value)}
                       min={new Date().toISOString().split('T')[0]}
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                        errors.endDate ? 'border-red-300' : 'border-gray-300'
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] ${
+                        errors.endDate ? 'border-red-300' : 'border-[var(--sf-border-light)]'
                       }`}
                       disabled={loading}
                     />
@@ -545,9 +545,9 @@ const ConvertToRecurringModal = ({
           </div>
 
           {/* Preview */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="bg-[var(--sf-blue-50)] border border-blue-200 rounded-lg p-4">
             <div className="flex items-start space-x-2">
-              <Calendar className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+              <Calendar className="w-5 h-5 text-[var(--sf-blue-500)] flex-shrink-0 mt-0.5" />
               <div className="text-sm text-blue-800">
                 <p className="font-medium mb-1">Preview:</p>
                 <p className="text-xs">
@@ -583,11 +583,11 @@ const ConvertToRecurringModal = ({
           )}
         </div>
 
-        <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 p-4 sm:p-6 border-t border-gray-200 flex-shrink-0">
+        <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 p-4 sm:p-6 border-t border-[var(--sf-border-light)] flex-shrink-0">
           <button
             type="button"
             onClick={onClose}
-            className="w-full sm:w-auto px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+            className="w-full sm:w-auto px-4 py-2 text-[var(--sf-text-primary)] bg-[var(--sf-bg-page)] rounded-lg hover:bg-gray-200"
             disabled={loading}
           >
             Cancel
@@ -595,7 +595,7 @@ const ConvertToRecurringModal = ({
           <button
             onClick={handleConvert}
             disabled={loading}
-            className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+            className="w-full sm:w-auto px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
           >
             {loading ? (
               <>

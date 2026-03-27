@@ -195,16 +195,16 @@ const Dashboard = () => {
   ]
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-[var(--sf-bg-page)]">
       {/* Sidebar */}
-      <div className="w-64 bg-white border-r border-gray-200 flex flex-col">
+      <div className="w-64 bg-white border-r border-[var(--sf-border-light)] flex flex-col">
         {/* Logo */}
-        <div className="p-6 border-b border-gray-200">
+        <div className="p-6 border-b border-[var(--sf-border-light)]">
           <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+            <div className="w-8 h-8 bg-[var(--sf-blue-500)] rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-lg">Z</span>
             </div>
-            <span className="text-xl font-semibold text-gray-900">zenbooker</span>
+            <span className="text-xl font-semibold text-[var(--sf-text-primary)]">zenbooker</span>
           </div>
         </div>
 
@@ -216,8 +216,8 @@ const Dashboard = () => {
               to={item.path}
               className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                 item.active
-                  ? 'bg-blue-50 text-blue-700'
-                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  ? 'bg-[var(--sf-blue-50)] text-[var(--sf-blue-500)]'
+                  : 'text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-page)]'
               }`}
             >
               <item.icon className="w-5 h-5" />
@@ -227,14 +227,14 @@ const Dashboard = () => {
         </nav>
 
         {/* User Profile */}
-        <div className="p-4 border-t border-gray-200">
+        <div className="p-4 border-t border-[var(--sf-border-light)]">
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 bg-red-500 rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-sm">JW</span>
             </div>
             <div>
-              <div className="text-sm font-medium text-gray-900">Just web</div>
-              <div className="text-xs text-gray-500">Just_web</div>
+              <div className="text-sm font-medium text-[var(--sf-text-primary)]">Just web</div>
+              <div className="text-xs text-[var(--sf-text-muted)]">Just_web</div>
             </div>
           </div>
         </div>
@@ -243,11 +243,11 @@ const Dashboard = () => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="bg-white border-b border-gray-200 px-6 py-4">
+        <div className="bg-white border-b border-[var(--sf-border-light)] px-6 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-semibold text-gray-900">Overview</h1>
-              <p className="text-sm text-gray-500 mt-1">
+              <h1 className="text-2xl font-semibold text-[var(--sf-text-primary)]">Overview</h1>
+              <p className="text-sm text-[var(--sf-text-muted)] mt-1">
                 {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - Today
               </p>
             </div>
@@ -255,14 +255,14 @@ const Dashboard = () => {
               <select
                 value={dateRange}
                 onChange={(e) => setDateRange(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="px-3 py-2 border border-[var(--sf-border-light)] rounded-lg text-sm focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
               >
                 <option value="7">Last 7 days</option>
                 <option value="30">Last 30 days</option>
                 <option value="90">Last 90 days</option>
                 <option value="365">Last year</option>
               </select>
-              <Button onClick={() => navigate('/createjob')} className="bg-blue-600 hover:bg-blue-700">
+              <Button onClick={() => navigate('/createjob')} className="bg-[var(--sf-blue-500)] hover:bg-[var(--sf-blue-600)]">
                 <Plus className="w-4 h-4 mr-2" />
                 New
               </Button>
@@ -279,13 +279,13 @@ const Dashboard = () => {
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">New jobs</CardTitle>
-                  <Info className="h-4 w-4 text-gray-400" />
+                  <Info className="h-4 w-4 text-[var(--sf-text-muted)]" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{isLoading ? '...' : dashboardData.newJobs}</div>
                   <div className="flex items-center space-x-2 mt-2">
                     <Progress value={dashboardData.totalJobs > 0 ? (dashboardData.newJobs / dashboardData.totalJobs) * 100 : 0} className="flex-1" />
-                    <span className="text-xs text-gray-500">7 days</span>
+                    <span className="text-xs text-[var(--sf-text-muted)]">7 days</span>
                   </div>
                 </CardContent>
               </Card>
@@ -294,7 +294,7 @@ const Dashboard = () => {
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Jobs</CardTitle>
-                  <Info className="h-4 w-4 text-gray-400" />
+                  <Info className="h-4 w-4 text-[var(--sf-text-muted)]" />
                 </CardHeader>
                 <CardContent>
                   {isLoading ? (
@@ -304,13 +304,13 @@ const Dashboard = () => {
                       <div className="text-2xl font-bold">{dashboardData.totalJobs}</div>
                       <div className="flex items-center space-x-2 mt-2">
                         <Progress value={100} className="flex-1" />
-                        <span className="text-xs text-gray-500">Total</span>
+                        <span className="text-xs text-[var(--sf-text-muted)]">Total</span>
                       </div>
                     </>
                   ) : (
                     <div className="text-center py-4">
-                      <p className="text-gray-900 font-medium">No data to display</p>
-                      <p className="text-gray-600 text-sm mt-1">
+                      <p className="text-[var(--sf-text-primary)] font-medium">No data to display</p>
+                      <p className="text-[var(--sf-text-secondary)] text-sm mt-1">
                         Try changing the date range filter at the top of the page
                       </p>
                     </div>
@@ -322,13 +322,13 @@ const Dashboard = () => {
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">New recurring bookings</CardTitle>
-                  <Info className="h-4 w-4 text-gray-400" />
+                  <Info className="h-4 w-4 text-[var(--sf-text-muted)]" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{isLoading ? '...' : dashboardData.newRecurringBookings}</div>
                   <div className="flex items-center space-x-2 mt-2">
                     <Progress value={dashboardData.recurringBookings > 0 ? (dashboardData.newRecurringBookings / dashboardData.recurringBookings) * 100 : 0} className="flex-1" />
-                    <span className="text-xs text-gray-500">7 days</span>
+                    <span className="text-xs text-[var(--sf-text-muted)]">7 days</span>
                   </div>
                 </CardContent>
               </Card>
@@ -337,7 +337,7 @@ const Dashboard = () => {
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Recurring bookings</CardTitle>
-                  <Info className="h-4 w-4 text-gray-400" />
+                  <Info className="h-4 w-4 text-[var(--sf-text-muted)]" />
                 </CardHeader>
                 <CardContent>
                   {isLoading ? (
@@ -347,13 +347,13 @@ const Dashboard = () => {
                       <div className="text-2xl font-bold">{dashboardData.recurringBookings}</div>
                       <div className="flex items-center space-x-2 mt-2">
                         <Progress value={100} className="flex-1" />
-                        <span className="text-xs text-gray-500">Total</span>
+                        <span className="text-xs text-[var(--sf-text-muted)]">Total</span>
                       </div>
                     </>
                   ) : (
                     <div className="text-center py-4">
-                      <p className="text-gray-900 font-medium">No data to display</p>
-                      <p className="text-gray-600 text-sm mt-1">
+                      <p className="text-[var(--sf-text-primary)] font-medium">No data to display</p>
+                      <p className="text-[var(--sf-text-secondary)] text-sm mt-1">
                         Try changing the date range filter at the top of the page
                       </p>
                     </div>
@@ -365,13 +365,13 @@ const Dashboard = () => {
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Job value</CardTitle>
-                  <Info className="h-4 w-4 text-gray-400" />
+                  <Info className="h-4 w-4 text-[var(--sf-text-muted)]" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">${isLoading ? '...' : dashboardData.jobValue}</div>
                   <div className="flex items-center space-x-2 mt-2">
                     <Progress value={Math.min((dashboardData.jobValue / 100) * 100, 100)} className="flex-1" />
-                    <span className="text-xs text-gray-500">Avg</span>
+                    <span className="text-xs text-[var(--sf-text-muted)]">Avg</span>
                   </div>
                 </CardContent>
               </Card>
@@ -380,13 +380,13 @@ const Dashboard = () => {
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Payments collected</CardTitle>
-                  <Info className="h-4 w-4 text-gray-400" />
+                  <Info className="h-4 w-4 text-[var(--sf-text-muted)]" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">${isLoading ? '...' : dashboardData.totalRevenue}</div>
                   <div className="flex items-center space-x-2 mt-2">
                     <Progress value={Math.min((dashboardData.totalRevenue / 1000) * 100, 100)} className="flex-1" />
-                    <span className="text-xs text-gray-500">Total</span>
+                    <span className="text-xs text-[var(--sf-text-muted)]">Total</span>
                   </div>
                 </CardContent>
               </Card>
@@ -397,7 +397,7 @@ const Dashboard = () => {
 
       {/* Floating Action Button */}
       <div className="fixed bottom-6 right-6">
-        <Button size="icon" className="w-12 h-12 rounded-full bg-blue-600 hover:bg-blue-700 shadow-lg">
+        <Button size="icon" className="w-12 h-12 rounded-full bg-[var(--sf-blue-500)] hover:bg-[var(--sf-blue-600)] shadow-lg">
           <MessageSquare className="w-6 h-6" />
         </Button>
       </div>

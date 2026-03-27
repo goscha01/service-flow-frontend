@@ -545,24 +545,24 @@ const ServiceSelectionModal = ({
     <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black bg-opacity-50 p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
         {/* Header */}
-        <div className="flex items-center justify-between px-8 py-5 border-b border-gray-200">
+        <div className="flex items-center justify-between px-8 py-5 border-b border-[var(--sf-border-light)]">
           <div className="flex items-center space-x-4">
             {currentView !== 'categories' && categoriesEnabled && (
               <button
                 onClick={handleBack}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                className="p-2 hover:bg-[var(--sf-bg-hover)] rounded-full transition-colors"
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
             )}
             <div className="flex-1">
-              <h2 className="text-xl font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: currentView === 'customize' ? 700 : 600 }}>
+              <h2 className="text-xl font-semibold text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: currentView === 'customize' ? 700 : 600 }}>
                 {currentView === 'categories' && 'Select Service Category'}
                 {currentView === 'services' && (categoriesEnabled ? `Services in ${selectedCategory?.name}` : 'Select Service')}
                 {currentView === 'customize' && selectedService?.name}
               </h2>
               {currentView !== 'customize' && (
-                <p className="text-sm text-gray-600 mt-1" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                <p className="text-sm text-[var(--sf-text-secondary)] mt-1" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                   {currentView === 'categories' && 'Choose a category to see available services'}
                   {currentView === 'services' && (categoriesEnabled ? 'Select a service to add to your job' : 'Select a service to add to your job')}
                 </p>
@@ -571,7 +571,7 @@ const ServiceSelectionModal = ({
           </div>
           <button
             onClick={handleClose}
-            className="text-gray-400 hover:text-gray-500 hover:bg-gray-100 p-2 rounded-full transition-colors"
+            className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-muted)] hover:bg-[var(--sf-bg-hover)] p-2 rounded-full transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -579,7 +579,7 @@ const ServiceSelectionModal = ({
 
         {/* Search - Hide in customize view */}
         {currentView !== 'customize' && (
-          <div className="px-8 py-5 border-b border-gray-200 bg-gray-50">
+          <div className="px-8 py-5 border-b border-[var(--sf-border-light)] bg-[var(--sf-bg-page)]">
             <div className="relative">
               <input
                 type="text"
@@ -590,7 +590,7 @@ const ServiceSelectionModal = ({
                 }
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                className="w-full px-4 py-2.5 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] bg-white"
                 style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
               />
             </div>
@@ -610,13 +610,13 @@ const ServiceSelectionModal = ({
                 <div>
                   {categories.length === 0 && services.length === 0 ? (
                     <div className="text-center py-8">
-                      <div className="text-gray-400 mb-2">
+                      <div className="text-[var(--sf-text-muted)] mb-2">
                         <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
                         </svg>
                       </div>
-                      <h3 className="text-lg font-medium text-gray-900 mb-1">No Services Available</h3>
-                      <p className="text-sm text-gray-600">
+                      <h3 className="text-lg font-medium text-[var(--sf-text-primary)] mb-1">No Services Available</h3>
+                      <p className="text-sm text-[var(--sf-text-secondary)]">
                         You haven't created any services yet. Create your first service to get started.
                       </p>
                     </div>
@@ -627,16 +627,16 @@ const ServiceSelectionModal = ({
                         <button
                           key={category.id}
                           onClick={() => handleCategorySelect(category)}
-                          className="p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors text-left"
+                          className="p-4 border border-[var(--sf-border-light)] rounded-lg hover:border-blue-300 hover:bg-[var(--sf-blue-50)] transition-colors text-left"
                         >
                           <div className="flex items-center justify-between">
                             <div>
-                              <h3 className="font-medium text-gray-900">{category.name}</h3>
-                              <p className="text-sm text-gray-600 mt-1">
+                              <h3 className="font-medium text-[var(--sf-text-primary)]">{category.name}</h3>
+                              <p className="text-sm text-[var(--sf-text-secondary)] mt-1">
                                 {getServiceCountForCategory(category)} services
                               </p>
                             </div>
-                            <ChevronRight className="w-5 h-5 text-gray-400" />
+                            <ChevronRight className="w-5 h-5 text-[var(--sf-text-muted)]" />
                           </div>
                         </button>
                       ))}
@@ -645,16 +645,16 @@ const ServiceSelectionModal = ({
                       {getUncategorizedServices().length > 0 && (
                         <button
                           onClick={() => handleCategorySelect({ id: 'no-category', name: 'No category' })}
-                          className="p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors text-left"
+                          className="p-4 border border-[var(--sf-border-light)] rounded-lg hover:border-blue-300 hover:bg-[var(--sf-blue-50)] transition-colors text-left"
                         >
                           <div className="flex items-center justify-between">
                             <div>
-                              <h3 className="font-medium text-gray-900">No category</h3>
-                              <p className="text-sm text-gray-600 mt-1">
+                              <h3 className="font-medium text-[var(--sf-text-primary)]">No category</h3>
+                              <p className="text-sm text-[var(--sf-text-secondary)] mt-1">
                                 {getUncategorizedServices().length} services
                               </p>
                             </div>
-                            <ChevronRight className="w-5 h-5 text-gray-400" />
+                            <ChevronRight className="w-5 h-5 text-[var(--sf-text-muted)]" />
                           </div>
                         </button>
                       )}
@@ -668,13 +668,13 @@ const ServiceSelectionModal = ({
                 <div className="space-y-4">
                   {getFilteredServices().length === 0 ? (
                     <div className="text-center py-8">
-                      <div className="text-gray-400 mb-2">
+                      <div className="text-[var(--sf-text-muted)] mb-2">
                         <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
                         </svg>
                       </div>
-                      <h3 className="text-lg font-medium text-gray-900 mb-1">No Services Found</h3>
-                      <p className="text-sm text-gray-600">
+                      <h3 className="text-lg font-medium text-[var(--sf-text-primary)] mb-1">No Services Found</h3>
+                      <p className="text-sm text-[var(--sf-text-secondary)]">
                         {searchTerm ? 'No services match your search criteria.' : 'You haven\'t created any services yet.'}
                       </p>
                     </div>
@@ -687,13 +687,13 @@ const ServiceSelectionModal = ({
                       className={`w-full p-4 border rounded-lg text-left transition-colors ${
                         isServiceSelected(service)
                           ? 'border-green-300 bg-green-50 cursor-not-allowed'
-                          : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50'
+                          : 'border-[var(--sf-border-light)] hover:border-blue-300 hover:bg-[var(--sf-blue-50)]'
                       }`}
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
                           <div className="flex items-center space-x-2">
-                            <h3 className="font-medium text-gray-900">{service.name}</h3>
+                            <h3 className="font-medium text-[var(--sf-text-primary)]">{service.name}</h3>
                             {isServiceSelected(service) && (
                               <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
                                 Selected
@@ -701,9 +701,9 @@ const ServiceSelectionModal = ({
                             )}
                           </div>
                           {service.description && (
-                            <p className="text-sm text-gray-600 mt-1">{service.description}</p>
+                            <p className="text-sm text-[var(--sf-text-secondary)] mt-1">{service.description}</p>
                           )}
-                          <div className="flex items-center space-x-4 mt-2 text-sm text-gray-500">
+                          <div className="flex items-center space-x-4 mt-2 text-sm text-[var(--sf-text-muted)]">
                             {service.duration && (
                               <div className="flex items-center space-x-1">
                                 <Clock className="w-4 h-4" />
@@ -718,7 +718,7 @@ const ServiceSelectionModal = ({
                             )}
                           </div>
                         </div>
-                        <ChevronRight className="w-5 h-5 text-gray-400" />
+                        <ChevronRight className="w-5 h-5 text-[var(--sf-text-muted)]" />
                       </div>
                     </button>
                     ))
@@ -733,7 +733,7 @@ const ServiceSelectionModal = ({
                   {(!selectedService.parsedModifiers || selectedService.parsedModifiers.length === 0) && 
                    (!selectedService.parsedIntakeQuestions || selectedService.parsedIntakeQuestions.length === 0) ? (
                     <div className="text-center py-8">
-                      <p className="text-gray-500 text-base">
+                      <p className="text-[var(--sf-text-muted)] text-base">
                         No modifications available for this service.
                       </p>
                     </div>
@@ -742,7 +742,7 @@ const ServiceSelectionModal = ({
                       {/* Modifiers */}
                       {selectedService.parsedModifiers && selectedService.parsedModifiers.length > 0 && (
                         <div>
-                          <h4 className="text-base font-bold text-gray-900 mb-4" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Select Your Items</h4>
+                          <h4 className="text-base font-bold text-[var(--sf-text-primary)] mb-4" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Select Your Items</h4>
                           <ServiceModifiersForm
                             modifiers={selectedService.parsedModifiers}
                             selectedModifiers={selectedModifiers}
@@ -784,15 +784,15 @@ const ServiceSelectionModal = ({
 
         {/* Footer - Single Save Button */}
         {currentView === 'customize' && (
-          <div className="flex items-center justify-end px-8 py-5 border-t border-gray-200 bg-white flex-shrink-0">
+          <div className="flex items-center justify-end px-8 py-5 border-t border-[var(--sf-border-light)] bg-white flex-shrink-0">
             <button
               type="button"
               onClick={handleAddService}
               disabled={!validateCustomization()}
-              className={`px-10 py-3 text-base font-semibold rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors shadow-sm ${
+              className={`px-10 py-3 text-base font-semibold rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--sf-blue-500)] transition-colors shadow-sm ${
                 validateCustomization()
-                  ? 'text-white bg-blue-600 hover:bg-blue-700'
-                  : 'text-gray-400 bg-gray-300 cursor-not-allowed'
+                  ? 'text-white bg-[var(--sf-blue-500)] hover:bg-[var(--sf-blue-600)]'
+                  : 'text-[var(--sf-text-muted)] bg-gray-300 cursor-not-allowed'
               }`}
               style={{ fontFamily: 'Montserrat', fontWeight: 600 }}
             >

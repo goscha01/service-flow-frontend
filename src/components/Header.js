@@ -30,7 +30,7 @@ export default function Header() {
   }
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-100">
+    <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-b border-[var(--sf-border-light)]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
@@ -45,7 +45,7 @@ export default function Header() {
               onMouseEnter={() => setActiveDropdown("product")}
               onMouseLeave={() => setActiveDropdown(null)}
             >
-              <button className="flex items-center text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">
+              <button className="flex items-center text-[var(--sf-text-primary)] hover:text-[var(--sf-text-primary)] px-3 py-2 rounded-md text-sm font-medium">
                 Product
                 <svg className="ml-1 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -53,26 +53,26 @@ export default function Header() {
               </button>
 
               {activeDropdown === "product" && (
-                <div className="absolute top-full left-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 p-6">
+                <div className="absolute top-full left-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-[var(--sf-border-light)] p-6">
                   <div className="space-y-4">
                     <button 
                       onClick={() => handleNavigation("/online-booking")}
-                      className="flex items-start space-x-3 p-2 rounded-lg hover:bg-gray-50 w-full text-left"
+                      className="flex items-start space-x-3 p-2 rounded-lg hover:bg-[var(--sf-bg-page)] w-full text-left"
                     >
                       <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                        <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                        <svg className="w-4 h-4 text-[var(--sf-blue-500)]" fill="currentColor" viewBox="0 0 20 20">
                           <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                       </div>
                       <div>
-                        <h3 className="font-medium text-gray-900">Online Booking</h3>
-                        <p className="text-sm text-gray-500">Let customers book services 24/7</p>
+                        <h3 className="font-medium text-[var(--sf-text-primary)]">Online Booking</h3>
+                        <p className="text-sm text-[var(--sf-text-muted)]">Let customers book services 24/7</p>
                       </div>
                     </button>
 
                     <button
                       onClick={() => handleNavigation("/service-requests")}
-                      className="flex items-start space-x-3 p-2 rounded-lg hover:bg-gray-50 w-full text-left"
+                      className="flex items-start space-x-3 p-2 rounded-lg hover:bg-[var(--sf-bg-page)] w-full text-left"
                     >
                       <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
                         <svg className="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
@@ -80,14 +80,14 @@ export default function Header() {
                         </svg>
                       </div>
                       <div>
-                        <h3 className="font-medium text-gray-900">Service Requests</h3>
-                        <p className="text-sm text-gray-500">Let customers request quotes or bookings</p>
+                        <h3 className="font-medium text-[var(--sf-text-primary)]">Service Requests</h3>
+                        <p className="text-sm text-[var(--sf-text-muted)]">Let customers request quotes or bookings</p>
                       </div>
                     </button>
 
                     <button 
                       onClick={() => handleNavigation("/invoicing")}
-                      className="flex items-start space-x-3 p-2 rounded-lg hover:bg-gray-50 w-full text-left"
+                      className="flex items-start space-x-3 p-2 rounded-lg hover:bg-[var(--sf-bg-page)] w-full text-left"
                     >
                       <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
                         <svg className="w-4 h-4 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
@@ -95,8 +95,8 @@ export default function Header() {
                         </svg>
                       </div>
                       <div>
-                        <h3 className="font-medium text-gray-900">Invoicing</h3>
-                        <p className="text-sm text-gray-500">Send invoices & payment links</p>
+                        <h3 className="font-medium text-[var(--sf-text-primary)]">Invoicing</h3>
+                        <p className="text-sm text-[var(--sf-text-muted)]">Send invoices & payment links</p>
                       </div>
                     </button>
                   </div>
@@ -106,7 +106,7 @@ export default function Header() {
 
             <button
               onClick={() => handleNavigation("/pricing")}
-              className="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
+              className="text-[var(--sf-text-primary)] hover:text-[var(--sf-text-primary)] px-3 py-2 rounded-md text-sm font-medium"
             >
               Pricing
             </button>
@@ -116,7 +116,7 @@ export default function Header() {
               onMouseEnter={() => setActiveDropdown("resources")}
               onMouseLeave={() => setActiveDropdown(null)}
             >
-              <button className="flex items-center text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">
+              <button className="flex items-center text-[var(--sf-text-primary)] hover:text-[var(--sf-text-primary)] px-3 py-2 rounded-md text-sm font-medium">
                 Resources
                 <svg className="ml-1 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -124,23 +124,23 @@ export default function Header() {
               </button>
 
               {activeDropdown === "resources" && (
-                <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 p-4">
+                <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-[var(--sf-border-light)] p-4">
                   <div className="space-y-2">
                     <button 
                       onClick={() => handleNavigation("/help")}
-                      className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md w-full text-left"
+                      className="block px-3 py-2 text-sm text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-page)] rounded-md w-full text-left"
                     >
                       Help Center
                     </button>
                     <button
                       onClick={() => handleNavigation("/whats-new")}
-                      className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md w-full text-left"
+                      className="block px-3 py-2 text-sm text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-page)] rounded-md w-full text-left"
                     >
                       Product Updates
                     </button>
                     <button
                       onClick={() => handleNavigation("/settings/developers")}
-                      className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md w-full text-left"
+                      className="block px-3 py-2 text-sm text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-page)] rounded-md w-full text-left"
                     >
                       Developers
                     </button>
@@ -156,13 +156,13 @@ export default function Header() {
               <>
                 <button
                   onClick={() => handleNavigation("/dashboard")}
-                  className="text-gray-700 hover:text-gray-900 px-3 py-2 text-sm font-medium"
+                  className="text-[var(--sf-text-primary)] hover:text-[var(--sf-text-primary)] px-3 py-2 text-sm font-medium"
                 >
                   Dashboard
                 </button>
                 <button
                   onClick={handleLogout}
-                  className="text-gray-700 hover:text-gray-900 px-3 py-2 text-sm font-medium"
+                  className="text-[var(--sf-text-primary)] hover:text-[var(--sf-text-primary)] px-3 py-2 text-sm font-medium"
                 >
                   Sign Out
                 </button>
@@ -171,13 +171,13 @@ export default function Header() {
               <>
                 <button
                   onClick={() => handleNavigation("/signin")}
-                  className="text-gray-700 hover:text-gray-900 px-3 py-2 text-sm font-medium"
+                  className="text-[var(--sf-text-primary)] hover:text-[var(--sf-text-primary)] px-3 py-2 text-sm font-medium"
                 >
                   Sign In
                 </button>
                 <button
                   onClick={() => handleNavigation("/signup")}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
+                  className="bg-[var(--sf-blue-500)] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-[var(--sf-blue-600)] transition-colors"
                 >
                   Start Free Trial
                 </button>
@@ -195,23 +195,23 @@ export default function Header() {
 
         {/* Mobile menu */}
         {isMenuOpen && (
-          <div className="lg:hidden py-4 border-t border-gray-200">
+          <div className="lg:hidden py-4 border-t border-[var(--sf-border-light)]">
             <div className="space-y-2">
               <button
                 onClick={() => handleNavigation("/")}
-                className="block px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-md w-full text-left"
+                className="block px-3 py-2 text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-page)] rounded-md w-full text-left"
               >
                 Features
               </button>
               <button
                 onClick={() => handleNavigation("/pricing")}
-                className="block px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-md w-full text-left"
+                className="block px-3 py-2 text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-page)] rounded-md w-full text-left"
               >
                 Pricing
               </button>
               <button
                 onClick={() => handleNavigation("/help")}
-                className="block px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-md w-full text-left"
+                className="block px-3 py-2 text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-page)] rounded-md w-full text-left"
               >
                 Help
               </button>
@@ -220,13 +220,13 @@ export default function Header() {
                   <>
                     <button
                       onClick={() => handleNavigation("/dashboard")}
-                      className="block px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-md w-full text-left"
+                      className="block px-3 py-2 text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-page)] rounded-md w-full text-left"
                     >
                       Dashboard
                     </button>
                     <button
                       onClick={handleLogout}
-                      className="block px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-md w-full text-left"
+                      className="block px-3 py-2 text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-page)] rounded-md w-full text-left"
                     >
                       Sign Out
                     </button>
@@ -235,13 +235,13 @@ export default function Header() {
                   <>
                     <button
                       onClick={() => handleNavigation("/signin")}
-                      className="block px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-md w-full text-left"
+                      className="block px-3 py-2 text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-page)] rounded-md w-full text-left"
                     >
                       Sign In
                     </button>
                     <button
                       onClick={() => handleNavigation("/signup")}
-                      className="block bg-blue-600 text-white px-3 py-2 rounded-md hover:bg-blue-700 w-full"
+                      className="block bg-[var(--sf-blue-500)] text-white px-3 py-2 rounded-md hover:bg-[var(--sf-blue-600)] w-full"
                     >
                       Start Free Trial
                     </button>

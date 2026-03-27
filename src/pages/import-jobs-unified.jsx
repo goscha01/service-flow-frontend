@@ -1820,15 +1820,15 @@ const UnifiedImportJobsPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[var(--sf-bg-page)]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-6">
-          <Link to="/jobs" className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 mb-4">
+          <Link to="/jobs" className="inline-flex items-center text-sm text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] mb-4">
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Jobs
           </Link>
-          <h1 className="text-3xl font-bold text-gray-900">Import Jobs</h1>
-          <p className="mt-2 text-sm text-gray-600">
+          <h1 className="text-3xl font-bold text-[var(--sf-text-primary)]">Import Jobs</h1>
+          <p className="mt-2 text-sm text-[var(--sf-text-secondary)]">
             Import jobs from CSV or Excel files. Supports ZenBooker, Booking Koala, and generic formats with field mapping.
           </p>
         </div>
@@ -1869,7 +1869,7 @@ const UnifiedImportJobsPage = () => {
         <div className="bg-white rounded-lg shadow-md p-6">
           {/* Source Type Selection */}
           <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
               Import Source
             </label>
             <div className="flex flex-wrap gap-3">
@@ -1877,8 +1877,8 @@ const UnifiedImportJobsPage = () => {
                 onClick={() => handleSourceTypeChange('auto')}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                   sourceType === 'auto'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    ? 'bg-[var(--sf-blue-500)] text-white'
+                    : 'bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)] hover:bg-gray-200'
                 }`}
               >
                 Auto-Detect
@@ -1887,8 +1887,8 @@ const UnifiedImportJobsPage = () => {
                 onClick={() => handleSourceTypeChange('zenbooker')}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                   sourceType === 'zenbooker'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    ? 'bg-[var(--sf-blue-500)] text-white'
+                    : 'bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)] hover:bg-gray-200'
                 }`}
               >
                 ZenBooker CSV
@@ -1897,8 +1897,8 @@ const UnifiedImportJobsPage = () => {
                 onClick={() => handleSourceTypeChange('booking-koala')}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                   sourceType === 'booking-koala'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    ? 'bg-[var(--sf-blue-500)] text-white'
+                    : 'bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)] hover:bg-gray-200'
                 }`}
               >
                 Booking Koala
@@ -1907,8 +1907,8 @@ const UnifiedImportJobsPage = () => {
                 onClick={() => handleSourceTypeChange('generic')}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                   sourceType === 'generic'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    ? 'bg-[var(--sf-blue-500)] text-white'
+                    : 'bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)] hover:bg-gray-200'
                 }`}
               >
                 Generic CSV/Excel
@@ -1918,35 +1918,35 @@ const UnifiedImportJobsPage = () => {
 
           {/* File Upload */}
           <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
               Select File
             </label>
             <input
               type="file"
               accept=".csv,.xlsx,.xls"
               onChange={handleFileChange}
-              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+              className="block w-full text-sm text-[var(--sf-text-muted)] file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-[var(--sf-blue-50)] file:text-[var(--sf-blue-500)] hover:file:bg-blue-100"
             />
           </div>
 
           {/* Field Mapping Section */}
           {showFieldMapping && csvHeaders.length > 0 && (
-            <div className="mb-6 border border-gray-200 rounded-lg p-4">
+            <div className="mb-6 border border-[var(--sf-border-light)] rounded-lg p-4">
               <button
                 onClick={() => setShowFieldMapping(!showFieldMapping)}
                 className="w-full flex items-center justify-between text-left mb-4"
               >
                 <div className="flex items-center">
-                  <Settings className="w-5 h-5 mr-2 text-gray-600" />
-                  <h3 className="text-lg font-medium text-gray-900">Field Mapping</h3>
-                  <span className="ml-2 text-sm text-gray-500">
+                  <Settings className="w-5 h-5 mr-2 text-[var(--sf-text-secondary)]" />
+                  <h3 className="text-lg font-medium text-[var(--sf-text-primary)]">Field Mapping</h3>
+                  <span className="ml-2 text-sm text-[var(--sf-text-muted)]">
                     ({Object.values(fieldMappings).filter(v => v).length} of {Object.keys(zenbookerFields).length} mapped)
                   </span>
                 </div>
                 {showFieldMapping ? (
-                  <ChevronUp className="w-5 h-5 text-gray-600" />
+                  <ChevronUp className="w-5 h-5 text-[var(--sf-text-secondary)]" />
                 ) : (
-                  <ChevronDown className="w-5 h-5 text-gray-600" />
+                  <ChevronDown className="w-5 h-5 text-[var(--sf-text-secondary)]" />
                 )}
               </button>
 
@@ -1954,13 +1954,13 @@ const UnifiedImportJobsPage = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-96 overflow-y-auto">
                   {Object.entries(zenbookerFields).map(([zenbookerField, label]) => (
                     <div key={zenbookerField} className="flex flex-col">
-                      <label className="text-sm font-medium text-gray-700 mb-1">
+                      <label className="text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                         {label}
                       </label>
                       <select
                         value={fieldMappings[zenbookerField] || ''}
                         onChange={(e) => updateFieldMapping(zenbookerField, e.target.value || null)}
-                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+                        className="block w-full rounded-md border-[var(--sf-border-light)] shadow-sm focus:border-[var(--sf-blue-500)] focus:ring-[var(--sf-blue-500)] text-sm"
                       >
                         <option value="">-- Not mapped --</option>
                         {csvHeaders.map(header => (
@@ -1979,23 +1979,23 @@ const UnifiedImportJobsPage = () => {
           {/* Preview Section */}
           {showPreview && previewData && previewData.length > 0 && (
             <div className="mb-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Preview (First 5 rows)</h3>
-              <div className="overflow-x-auto border border-gray-200 rounded-lg">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+              <h3 className="text-lg font-medium text-[var(--sf-text-primary)] mb-4">Preview (First 5 rows)</h3>
+              <div className="overflow-x-auto border border-[var(--sf-border-light)] rounded-lg">
+                <table className="min-w-full divide-y divide-[var(--sf-border-light)]">
+                  <thead className="bg-[var(--sf-bg-page)]">
                     <tr>
                       {Object.keys(previewData[0]).slice(0, 10).map(header => (
-                        <th key={header} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th key={header} className="px-4 py-3 text-left text-xs font-medium text-[var(--sf-text-muted)] uppercase tracking-wider">
                           {header}
                         </th>
                       ))}
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="bg-white divide-y divide-[var(--sf-border-light)]">
                     {previewData.map((row, index) => (
                       <tr key={index}>
                         {Object.keys(row).slice(0, 10).map(header => (
-                          <td key={header} className="px-4 py-3 text-sm text-gray-900 max-w-xs truncate">
+                          <td key={header} className="px-4 py-3 text-sm text-[var(--sf-text-primary)] max-w-xs truncate">
                             {String(row[header] || '')}
                           </td>
                         ))}
@@ -2004,7 +2004,7 @@ const UnifiedImportJobsPage = () => {
                   </tbody>
                 </table>
               </div>
-              <p className="mt-2 text-sm text-gray-500">
+              <p className="mt-2 text-sm text-[var(--sf-text-muted)]">
                 Showing {previewData.length} of {parsedJobs.length} total rows
               </p>
             </div>
@@ -2012,14 +2012,14 @@ const UnifiedImportJobsPage = () => {
 
           {/* Import Button */}
           {showPreview && parsedJobs.length > 0 && (
-            <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-              <div className="text-sm text-gray-600">
+            <div className="flex items-center justify-between pt-4 border-t border-[var(--sf-border-light)]">
+              <div className="text-sm text-[var(--sf-text-secondary)]">
                 <span className="font-medium">{parsedJobs.length}</span> jobs ready to import
               </div>
               <button
                 onClick={handleImport}
                 disabled={isImporting}
-                className="px-6 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 transition-colors"
+                className="px-6 py-2 text-sm font-medium text-white bg-[var(--sf-blue-500)] rounded-lg hover:bg-[var(--sf-blue-600)] focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 transition-colors"
               >
                 {isImporting ? (
                   <>
@@ -2038,24 +2038,24 @@ const UnifiedImportJobsPage = () => {
 
           {/* Progress Bar */}
           {isImporting && (
-            <div className="mt-6 bg-blue-50 border-2 border-blue-200 rounded-lg p-6">
+            <div className="mt-6 bg-[var(--sf-blue-50)] border-2 border-blue-200 rounded-lg p-6">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center space-x-2">
-                  <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
+                  <Loader2 className="w-5 h-5 text-[var(--sf-blue-500)] animate-spin" />
                   <div className="flex flex-col">
-                    <span className="text-base font-semibold text-gray-900">Importing Jobs</span>
+                    <span className="text-base font-semibold text-[var(--sf-text-primary)]">Importing Jobs</span>
                     {importProgress.batchInfo && (
-                      <span className="text-sm text-gray-600 mt-1">{importProgress.batchInfo}</span>
+                      <span className="text-sm text-[var(--sf-text-secondary)] mt-1">{importProgress.batchInfo}</span>
                     )}
                   </div>
                 </div>
-                <span className="text-base font-semibold text-blue-600">
+                <span className="text-base font-semibold text-[var(--sf-blue-500)]">
                   {importProgress.current} / {importProgress.total} ({importProgress.percentage}%)
                 </span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
                 <div
-                  className="bg-blue-600 h-4 rounded-full transition-all duration-300"
+                  className="bg-[var(--sf-blue-500)] h-4 rounded-full transition-all duration-300"
                   style={{ width: `${importProgress.percentage}%` }}
                 />
               </div>

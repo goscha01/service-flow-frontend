@@ -1225,7 +1225,7 @@ const ServiceDetails = () => {
             console.log('🔄 Intake dropdown button clicked, current state:', isIntakeDropdownOpen);
             setIsIntakeDropdownOpen(!isIntakeDropdownOpen);
           }}
-          className="bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+          className="bg-[var(--sf-blue-500)] text-white px-4 py-3 rounded-lg hover:bg-[var(--sf-blue-600)] transition-colors font-medium"
         >
           + New Intake Question
         </button>
@@ -1233,16 +1233,16 @@ const ServiceDetails = () => {
         {isIntakeDropdownOpen && (
           <div
             id="intake-dropdown-container"
-            className="absolute left-0 bottom-full mb-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50 max-h-60 overflow-y-auto"
+            className="absolute left-0 bottom-full mb-2 w-64 bg-white rounded-lg shadow-lg border border-[var(--sf-border-light)] py-2 z-50 max-h-60 overflow-y-auto"
           >
             {questionTypes.map((type) => (
               <button
                 key={type.value}
                 onClick={() => handleQuestionTypeSelect(type.value)}
-                className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center space-x-3 transition-colors"
+                className="w-full px-4 py-2 text-left hover:bg-[var(--sf-bg-page)] flex items-center space-x-3 transition-colors"
               >
                 <span className="text-xl">{type.icon}</span>
-                <span className="text-sm text-gray-900">{type.label}</span>
+                <span className="text-sm text-[var(--sf-text-primary)]">{type.label}</span>
               </button>
             ))}
           </div>
@@ -1269,11 +1269,11 @@ const ServiceDetails = () => {
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
         <div className="bg-white rounded-lg w-full max-w-md">
           <div className="p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-6">Create a skill tag</h2>
+            <h2 className="text-xl font-semibold text-[var(--sf-text-primary)] mb-6">Create a skill tag</h2>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                   Skill tag name
                 </label>
                 <input
@@ -1281,7 +1281,7 @@ const ServiceDetails = () => {
                   value={skillTagName}
                   onChange={(e) => setSkillTagName(e.target.value)}
                   placeholder="Ex: Cleaner, HVAC Tech"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                  className="w-full border border-[var(--sf-border-light)] rounded-lg px-3 py-2"
                 />
               </div>
             </div>
@@ -1289,13 +1289,13 @@ const ServiceDetails = () => {
             <div className="flex items-center space-x-3 mt-8">
               <button
                 onClick={handleSave}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg"
+                className="px-4 py-2 text-sm font-medium text-[var(--sf-text-primary)] bg-[var(--sf-bg-page)] hover:bg-gray-200 rounded-lg"
               >
                 Save Skill Tag
               </button>
               <button
                 onClick={handleClose}
-                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg"
+                className="px-4 py-2 text-sm font-medium text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-hover)] rounded-lg"
               >
                 Cancel
               </button>
@@ -1310,13 +1310,13 @@ const ServiceDetails = () => {
     switch (section.id) {
       case "intake":
         return (
-          <div className="p-6 border-t border-gray-200">
+          <div className="p-6 border-t border-[var(--sf-border-light)]">
             {/* Two-column layout: Content on left, Image on right */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
               {/* Left Column - Content */}
               <div className="space-y-6">
                 {/* Description */}
-                <p className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                <p className="text-sm text-[var(--sf-text-secondary)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                   Intake questions allow you to collect extra information from your customers during the booking process using custom fields.
                 </p>
 
@@ -1330,7 +1330,7 @@ const ServiceDetails = () => {
                         onClick={() => {
                           setIsIntakeDropdownOpen(!isIntakeDropdownOpen);
                         }}
-                        className="bg-gray-100 hover:bg-gray-200 text-gray-900 font-bold py-2 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2"
+                        className="bg-[var(--sf-bg-page)] hover:bg-gray-200 text-[var(--sf-text-primary)] font-bold py-2 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2"
                         style={{ fontFamily: 'Montserrat', fontWeight: 700 }}
                       >
                         <Plus className="w-4 h-4" />
@@ -1341,7 +1341,7 @@ const ServiceDetails = () => {
                     <div>
                       <button 
                         onClick={() => {}}
-                        className="text-sm text-blue-600 hover:text-blue-700 flex items-center space-x-1"
+                        className="text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] flex items-center space-x-1"
                       >
                         <BookOpen className="w-4 h-4" />
                         <span>Learn more about intake questions</span>
@@ -1355,7 +1355,7 @@ const ServiceDetails = () => {
                   <div>
                     <button 
                       onClick={() => {}}
-                      className="text-sm text-blue-600 hover:text-blue-700 flex items-center space-x-1"
+                      className="text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] flex items-center space-x-1"
                     >
                       <BookOpen className="w-4 h-4" />
                       <span>Learn more about intake questions</span>
@@ -1366,7 +1366,7 @@ const ServiceDetails = () => {
                 {isIntakeDropdownOpen && createPortal(
                   <div
                     id="intake-dropdown-container"
-                    className="fixed w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-[9999]"
+                    className="fixed w-64 bg-white rounded-lg shadow-lg border border-[var(--sf-border-light)] py-2 z-[9999]"
                     style={{
                       top: `${dropdownPosition.top}px`,
                       left: `${dropdownPosition.left}px`,
@@ -1391,10 +1391,10 @@ const ServiceDetails = () => {
                           setIsIntakeModalOpen(true);
                           setIsIntakeDropdownOpen(false);
                         }}
-                        className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center space-x-3 transition-colors"
+                        className="w-full px-4 py-2 text-left hover:bg-[var(--sf-bg-page)] flex items-center space-x-3 transition-colors"
                       >
                         <span className="text-xl">{type.icon}</span>
-                        <span className="text-sm text-gray-900">{type.label}</span>
+                        <span className="text-sm text-[var(--sf-text-primary)]">{type.label}</span>
                       </button>
                     ))}
                   </div>,
@@ -1416,10 +1416,10 @@ const ServiceDetails = () => {
             <div className="mt-8 space-y-4">
               {serviceData.intakeQuestions && serviceData.intakeQuestions.length > 0 ? (
                 serviceData.intakeQuestions.map((question, index) => (
-                  <div key={question.id} className="border border-gray-200 rounded-lg">
+                  <div key={question.id} className="border border-[var(--sf-border-light)] rounded-lg">
                     <div className="flex items-center justify-between p-4">
                       <div className="flex items-center space-x-3">
-                        <span className="text-gray-400">{index + 1}.</span>
+                        <span className="text-[var(--sf-text-muted)]">{index + 1}.</span>
                         <div>
                           <div className="flex items-center space-x-2">
                             <span className="font-medium">{question.question}</span>
@@ -1431,11 +1431,11 @@ const ServiceDetails = () => {
                           </div>
                           {/* Field Description */}
                           {question.description && (
-                            <p className="text-sm text-gray-500 mt-1">{question.description}</p>
+                            <p className="text-sm text-[var(--sf-text-muted)] mt-1">{question.description}</p>
                           )}
                           {/* Question Type and Selection Type */}
                           <div className="flex items-center space-x-2 mt-1">
-                            <span className="text-sm text-gray-500">
+                            <span className="text-sm text-[var(--sf-text-muted)]">
                               {question.questionType === 'dropdown' && 'Dropdown'}
                               {question.questionType === 'multiple_choice' && 'Multiple Choice'}
                               {question.questionType === 'picture_choice' && 'Picture Choice'}
@@ -1446,7 +1446,7 @@ const ServiceDetails = () => {
                               {question.questionType === 'quantity_select' && 'Quantity Select'}
                             </span>
                             {question.selectionType && ['dropdown', 'multiple_choice', 'picture_choice', 'color_choice'].includes(question.questionType) && (
-                              <span className="text-sm text-gray-500">
+                              <span className="text-sm text-[var(--sf-text-muted)]">
                                 {question.selectionType === 'single' ? 'Single Select' : 'Multi-Select'}
                               </span>
                             )}
@@ -1456,7 +1456,7 @@ const ServiceDetails = () => {
                       <div className="flex items-center space-x-2">
                         <button
                           onClick={() => handleEditIntakeQuestion(question)}
-                          className="text-sm text-blue-600 hover:text-blue-800"
+                          className="text-sm text-[var(--sf-blue-500)] hover:text-blue-800"
                         >
                           Edit
                         </button>
@@ -1479,7 +1479,7 @@ const ServiceDetails = () => {
                       <div className="px-4 pb-4">
                         <div className="flex flex-wrap gap-2">
                           {question.options.map((option, optionIndex) => (
-                            <div key={optionIndex} className="bg-gray-100 rounded-full px-3 py-1 text-sm">
+                            <div key={optionIndex} className="bg-[var(--sf-bg-page)] rounded-full px-3 py-1 text-sm">
                               {option.text}
                             </div>
                           ))}
@@ -1501,7 +1501,7 @@ const ServiceDetails = () => {
                     onClick={() => {
                       setIsIntakeDropdownOpen(!isIntakeDropdownOpen);
                     }}
-                    className="bg-gray-100 hover:bg-gray-200 text-gray-900 font-bold py-2 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2"
+                    className="bg-[var(--sf-bg-page)] hover:bg-gray-200 text-[var(--sf-text-primary)] font-bold py-2 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2"
                     style={{ fontFamily: 'Montserrat', fontWeight: 700 }}
                   >
                     <Plus className="w-4 h-4" />
@@ -1513,11 +1513,11 @@ const ServiceDetails = () => {
 
             {/* Save button for intake questions */}
             {intakeQuestionsChanged && (
-              <div className="pt-4 border-t border-gray-200">
+              <div className="pt-4 border-t border-[var(--sf-border-light)]">
                 <button
                   onClick={handleSaveIntakeQuestions}
                   disabled={savingIntakeQuestions}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                  className="bg-[var(--sf-blue-500)] text-white px-4 py-2 rounded-lg hover:bg-[var(--sf-blue-600)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
                 >
                   {savingIntakeQuestions ? (
                     <>
@@ -1536,20 +1536,20 @@ const ServiceDetails = () => {
       case "availability":
         return (
           <div className="p-6 space-y-6">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-[var(--sf-text-secondary)]">
               You can override your default business hours and availability settings, and offer custom timeslots for this service using a timeslot template.
             </p>
 
             {availabilityLoading ? (
               <div className="flex items-center justify-center py-8">
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-                <span className="ml-3 text-gray-600">Loading availability settings...</span>
+                <span className="ml-3 text-[var(--sf-text-secondary)]">Loading availability settings...</span>
               </div>
             ) : (
               <div className="space-y-6">
                 {/* Availability Type */}
             <div className="space-y-4">
-                  <h3 className="text-sm font-medium text-gray-900">Availability Type</h3>
+                  <h3 className="text-sm font-medium text-[var(--sf-text-primary)]">Availability Type</h3>
                   <div className="space-y-3">
               <div className="flex items-center space-x-3">
                 <input
@@ -1558,9 +1558,9 @@ const ServiceDetails = () => {
                         name="availability-type"
                         checked={availabilityData.availabilityType === 'default'}
                         onChange={() => setAvailabilityData(prev => ({ ...prev, availabilityType: 'default' }))}
-                  className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                  className="h-4 w-4 text-[var(--sf-blue-500)] border-[var(--sf-border-light)] focus:ring-[var(--sf-blue-500)]"
                 />
-                      <label htmlFor="default-availability" className="text-sm text-gray-900">
+                      <label htmlFor="default-availability" className="text-sm text-[var(--sf-text-primary)]">
                         Use default business hours and availability settings
                 </label>
               </div>
@@ -1572,9 +1572,9 @@ const ServiceDetails = () => {
                         name="availability-type"
                         checked={availabilityData.availabilityType === 'custom'}
                         onChange={() => setAvailabilityData(prev => ({ ...prev, availabilityType: 'custom' }))}
-                  className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                  className="h-4 w-4 text-[var(--sf-blue-500)] border-[var(--sf-border-light)] focus:ring-[var(--sf-blue-500)]"
                 />
-                      <label htmlFor="custom-availability" className="text-sm text-gray-900">
+                      <label htmlFor="custom-availability" className="text-sm text-[var(--sf-text-primary)]">
                         Use custom availability settings for this service
                 </label>
                     </div>
@@ -1583,12 +1583,12 @@ const ServiceDetails = () => {
 
                 {/* Custom Availability Settings */}
                 {availabilityData.availabilityType === 'custom' && (
-                  <div className="space-y-4 p-4 bg-gray-50 rounded-lg">
-                    <h4 className="text-sm font-medium text-gray-900">Custom Availability Settings</h4>
+                  <div className="space-y-4 p-4 bg-[var(--sf-bg-page)] rounded-lg">
+                    <h4 className="text-sm font-medium text-[var(--sf-text-primary)]">Custom Availability Settings</h4>
 
                     {/* Minimum Booking Notice */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                         Minimum Booking Notice (hours)
                       </label>
                   <input
@@ -1599,13 +1599,13 @@ const ServiceDetails = () => {
                           minimumBookingNotice: parseInt(e.target.value) * 60
                         }))}
                         min="0"
-                        className="w-32 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-32 border border-[var(--sf-border-light)] rounded-lg px-3 py-2 focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                       />
                     </div>
 
                     {/* Maximum Booking Advance */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                         Maximum Booking Advance (days)
                   </label>
                       <input
@@ -1617,13 +1617,13 @@ const ServiceDetails = () => {
                         }))}
                         min="1"
                         max="365"
-                        className="w-32 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-32 border border-[var(--sf-border-light)] rounded-lg px-3 py-2 focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                       />
                 </div>
 
                     {/* Booking Interval */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                         Booking Interval (minutes)
                       </label>
                       <select
@@ -1632,7 +1632,7 @@ const ServiceDetails = () => {
                           ...prev,
                           bookingInterval: parseInt(e.target.value)
                         }))}
-                        className="w-32 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-32 border border-[var(--sf-border-light)] rounded-lg px-3 py-2 focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                       >
                         <option value={15}>15 minutes</option>
                         <option value={30}>30 minutes</option>
@@ -1645,11 +1645,11 @@ const ServiceDetails = () => {
                 )}
 
                 {/* Save Button */}
-                <div className="flex justify-end pt-4 border-t border-gray-200">
+                <div className="flex justify-end pt-4 border-t border-[var(--sf-border-light)]">
                   <button
                     onClick={handleSaveAvailability}
                     disabled={availabilitySaving}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                    className="px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg text-sm font-medium hover:bg-[var(--sf-blue-600)] disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
                   >
                     {availabilitySaving ? (
                       <>
@@ -1672,47 +1672,47 @@ const ServiceDetails = () => {
             <div className="space-y-6">
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-medium text-gray-900">Required skills</h3>
-                  <a href="#" className="text-sm text-blue-600 hover:text-blue-700">
+                  <h3 className="text-sm font-medium text-[var(--sf-text-primary)]">Required skills</h3>
+                  <a href="#" className="text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)]">
                     Learn more
                   </a>
                 </div>
-                <p className="text-sm text-gray-600 mb-4">
+                <p className="text-sm text-[var(--sf-text-secondary)] mb-4">
                   Add required skill tags to make sure jobs booked for this service are assigned to the right team members.
                 </p>
-                <div className="border border-gray-200 rounded-lg p-4 bg-gray-50 text-center">
-                  <p className="text-sm text-gray-500 mb-2">No skill tags available</p>
+                <div className="border border-[var(--sf-border-light)] rounded-lg p-4 bg-[var(--sf-bg-page)] text-center">
+                  <p className="text-sm text-[var(--sf-text-muted)] mb-2">No skill tags available</p>
                   <button
                     onClick={() => setIsSkillTagModalOpen(true)}
-                    className="text-sm text-blue-600 hover:text-blue-700"
+                    className="text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)]"
                   >
                     + Create new skill tag
                   </button>
                 </div>
-                <p className="text-sm text-gray-500 mt-2">
+                <p className="text-sm text-[var(--sf-text-muted)] mt-2">
                   No skills tags required. Any service provider can be assigned to jobs for this service.
                 </p>
               </div>
 
-              <div className="pt-6 border-t border-gray-200">
-                <h3 className="text-sm font-medium text-gray-900 mb-3">Minimum crew size</h3>
-                <p className="text-sm text-gray-600 mb-4">
+              <div className="pt-6 border-t border-[var(--sf-border-light)]">
+                <h3 className="text-sm font-medium text-[var(--sf-text-primary)] mb-3">Minimum crew size</h3>
+                <p className="text-sm text-[var(--sf-text-secondary)] mb-4">
                   Select the number of service providers needed to complete this type of service
                 </p>
                 <div className="flex items-center space-x-2">
-                  <select className="border border-gray-300 rounded-md text-sm p-2">
+                  <select className="border border-[var(--sf-border-light)] rounded-md text-sm p-2">
                     <option>1</option>
                     <option>2</option>
                     <option>3</option>
                     <option>4</option>
                   </select>
-                  <span className="text-sm text-gray-600">service provider</span>
+                  <span className="text-sm text-[var(--sf-text-secondary)]">service provider</span>
                 </div>
               </div>
 
-              <div className="pt-6 border-t border-gray-200">
-                <h3 className="text-sm font-medium text-gray-900 mb-3">Assignment & job offers</h3>
-                <p className="text-sm text-gray-600 mb-4">
+              <div className="pt-6 border-t border-[var(--sf-border-light)]">
+                <h3 className="text-sm font-medium text-[var(--sf-text-primary)] mb-3">Assignment & job offers</h3>
+                <p className="text-sm text-[var(--sf-text-secondary)] mb-4">
                   Control how providers are assigned when this service is booked
                 </p>
                 <div className="space-y-4">
@@ -1721,14 +1721,14 @@ const ServiceDetails = () => {
                       type="radio"
                       id="manual-assign"
                       name="assignment"
-                      className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500 mt-1"
+                      className="h-4 w-4 text-[var(--sf-blue-500)] border-[var(--sf-border-light)] focus:ring-[var(--sf-blue-500)] mt-1"
                       defaultChecked
                     />
                     <div>
-                      <label htmlFor="manual-assign" className="text-sm font-medium text-gray-900 block">
+                      <label htmlFor="manual-assign" className="text-sm font-medium text-[var(--sf-text-primary)] block">
                         Manual
                       </label>
-                      <p className="text-sm text-gray-500">
+                      <p className="text-sm text-[var(--sf-text-muted)]">
                         Jobs for this service will not be automatically assigned or offered
                       </p>
                     </div>
@@ -1739,13 +1739,13 @@ const ServiceDetails = () => {
                       type="radio"
                       id="auto-assign"
                       name="assignment"
-                      className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500 mt-1"
+                      className="h-4 w-4 text-[var(--sf-blue-500)] border-[var(--sf-border-light)] focus:ring-[var(--sf-blue-500)] mt-1"
                     />
                     <div>
-                      <label htmlFor="auto-assign" className="text-sm font-medium text-gray-900 block">
+                      <label htmlFor="auto-assign" className="text-sm font-medium text-[var(--sf-text-primary)] block">
                         Automatically assign
                       </label>
-                      <p className="text-sm text-gray-500">
+                      <p className="text-sm text-[var(--sf-text-muted)]">
                         Assigns the required number of available providers who possess the necessary skill tags to jobs for this service
                       </p>
                     </div>
@@ -1756,13 +1756,13 @@ const ServiceDetails = () => {
                       type="radio"
                       id="auto-offer"
                       name="assignment"
-                      className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500 mt-1"
+                      className="h-4 w-4 text-[var(--sf-blue-500)] border-[var(--sf-border-light)] focus:ring-[var(--sf-blue-500)] mt-1"
                     />
                     <div>
-                      <label htmlFor="auto-offer" className="text-sm font-medium text-gray-900 block">
+                      <label htmlFor="auto-offer" className="text-sm font-medium text-[var(--sf-text-primary)] block">
                         Automatically offer
                       </label>
-                      <p className="text-sm text-gray-500">
+                      <p className="text-sm text-[var(--sf-text-muted)]">
                         Offers jobs for this service to all available providers who possess the necessary skill tags until the required number of providers needed accept
                       </p>
                     </div>
@@ -1779,42 +1779,42 @@ const ServiceDetails = () => {
             {recurringOptions.length === 0 ? (
               <div className="bg-white rounded-lg p-6 text-center space-y-4">
                 <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto">
-                  <RefreshCw className="w-8 h-8 text-blue-600" />
+                  <RefreshCw className="w-8 h-8 text-[var(--sf-blue-500)]" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-medium text-gray-900">Recurring options</h3>
-                  <p className="text-sm text-gray-600 mt-2">
+                  <h3 className="text-lg font-medium text-[var(--sf-text-primary)]">Recurring options</h3>
+                  <p className="text-sm text-[var(--sf-text-secondary)] mt-2">
                     Let customers schedule this service as a recurring booking by adding recurring frequencies that customers will be able to choose from. You can also offer discounts for certain frequencies.
                   </p>
                 </div>
                 <button
                   onClick={() => setIsRecurringModalOpen(true)}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                  className="bg-[var(--sf-blue-500)] text-white px-4 py-2 rounded-lg hover:bg-[var(--sf-blue-600)] transition-colors"
                 >
                   Create a Recurring Option
                 </button>
-                <a href="#" className="text-sm text-blue-600 hover:text-blue-700 block">
+                <a href="#" className="text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] block">
                   Learn more
                 </a>
               </div>
             ) : (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-medium text-gray-900">Recurring Options</h3>
+                  <h3 className="text-lg font-medium text-[var(--sf-text-primary)]">Recurring Options</h3>
                   <button
                     onClick={() => setIsRecurringModalOpen(true)}
-                    className="bg-blue-600 text-white px-3 py-1.5 text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                    className="bg-[var(--sf-blue-500)] text-white px-3 py-1.5 text-sm rounded-lg hover:bg-[var(--sf-blue-600)] transition-colors"
                   >
                     Add Option
                   </button>
                 </div>
                 <div className="space-y-3">
                   {recurringOptions.map((option, index) => (
-                    <div key={index} className="bg-white border border-gray-200 rounded-lg p-4">
+                    <div key={index} className="bg-white border border-[var(--sf-border-light)] rounded-lg p-4">
                       <div className="flex items-center justify-between">
                         <div>
-                          <h4 className="font-medium text-gray-900">{option.name}</h4>
-                          <p className="text-sm text-gray-600">
+                          <h4 className="font-medium text-[var(--sf-text-primary)]">{option.name}</h4>
+                          <p className="text-sm text-[var(--sf-text-secondary)]">
                             Every {option.interval} {option.frequency.toLowerCase()}{option.interval > 1 ? 's' : ''}
                             {option.discount !== 'None' && ` • ${option.discount} discount`}
                           </p>
@@ -1832,17 +1832,17 @@ const ServiceDetails = () => {
       case "territory":
         return (
           <div className="p-6 space-y-6">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-[var(--sf-text-secondary)]">
               Territory adjustments allow you to dynamically increase or decrease this service's price for specific territories
             </p>
 
-            <div className="border border-gray-200 rounded-lg p-6">
+            <div className="border border-[var(--sf-border-light)] rounded-lg p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-medium text-gray-900">Service territory price rules</h3>
+                <h3 className="text-sm font-medium text-[var(--sf-text-primary)]">Service territory price rules</h3>
                 {territoryRules.length > 0 && (
                   <button
                     onClick={() => setIsTerritoryModalOpen(true)}
-                    className="bg-blue-600 text-white px-3 py-1.5 text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                    className="bg-[var(--sf-blue-500)] text-white px-3 py-1.5 text-sm rounded-lg hover:bg-[var(--sf-blue-600)] transition-colors"
                   >
                     Add Rule
                   </button>
@@ -1851,17 +1851,17 @@ const ServiceDetails = () => {
 
               {territoryRules.length === 0 ? (
                 <div>
-                  <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                  <div className="bg-[var(--sf-bg-page)] rounded-lg p-4 mb-4">
                     <div className="flex items-center space-x-2">
-                      <MapPin className="w-5 h-5 text-gray-400" />
-                      <p className="text-sm text-gray-600">
+                      <MapPin className="w-5 h-5 text-[var(--sf-text-muted)]" />
+                      <p className="text-sm text-[var(--sf-text-secondary)]">
                         No territory adjustment rules set up yet. Add rules to customize pricing for specific territories.
                       </p>
                     </div>
                   </div>
                   <button
                     onClick={() => setIsTerritoryModalOpen(true)}
-                    className="w-full border border-gray-300 rounded-lg p-3 text-center text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    className="w-full border border-[var(--sf-border-light)] rounded-lg p-3 text-center text-sm font-medium text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-page)]"
                   >
                     Add Rule
                   </button>
@@ -1869,11 +1869,11 @@ const ServiceDetails = () => {
               ) : (
                 <div className="space-y-3">
                   {territoryRules.map((rule, index) => (
-                    <div key={index} className="bg-gray-50 rounded-lg p-4">
+                    <div key={index} className="bg-[var(--sf-bg-page)] rounded-lg p-4">
                       <div className="flex items-center justify-between">
                         <div>
-                          <h4 className="font-medium text-gray-900">{rule.territory}</h4>
-                          <p className="text-sm text-gray-600">
+                          <h4 className="font-medium text-[var(--sf-text-primary)]">{rule.territory}</h4>
+                          <p className="text-sm text-[var(--sf-text-secondary)]">
                             {rule.operation === 'increase' ? 'Increase' : 'Decrease'} price by{' '}
                             {rule.type === 'percentage' ? `${rule.value}%` : `$${rule.value}`}
                           </p>
@@ -1893,22 +1893,22 @@ const ServiceDetails = () => {
           <div className="p-6 space-y-6">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-medium text-gray-900">Require payment method</h3>
-                <p className="text-sm text-gray-600 mt-1">
+                <h3 className="text-sm font-medium text-[var(--sf-text-primary)]">Require payment method</h3>
+                <p className="text-sm text-[var(--sf-text-secondary)] mt-1">
                   Require customers provide a valid payment method when booking this service online?
                 </p>
               </div>
               <div className="flex items-center space-x-2">
-                <span className="text-sm text-gray-600">No</span>
+                <span className="text-sm text-[var(--sf-text-secondary)]">No</span>
                 <button
                   onClick={() => setServiceData(prev => ({ ...prev, require_payment_method: !prev.require_payment_method }))}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${serviceData.require_payment_method ? "bg-blue-600" : "bg-gray-200"}`}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${serviceData.require_payment_method ? "bg-[var(--sf-blue-500)]" : "bg-gray-200"}`}
                 >
                   <span
                     className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${serviceData.require_payment_method ? "translate-x-6" : "translate-x-1"}`}
                   />
                 </button>
-                <span className="text-sm text-gray-600">Yes</span>
+                <span className="text-sm text-[var(--sf-text-secondary)]">Yes</span>
               </div>
             </div>
           </div>
@@ -1917,47 +1917,47 @@ const ServiceDetails = () => {
       case "howItWorks":
         return (
           <div className="p-6 space-y-6">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-[var(--sf-text-secondary)]">
               Highlight the features of this service or your business, answer common questions customers might have, and showcase reviews from other customers.
             </p>
 
             <div className="space-y-6">
-              <div className="border border-gray-200 rounded-lg p-6">
-                <h3 className="text-sm font-medium text-gray-900 mb-4">Frequently asked questions</h3>
-                <p className="text-sm text-gray-600 mb-4">Add questions and answers customers might have about this service.</p>
+              <div className="border border-[var(--sf-border-light)] rounded-lg p-6">
+                <h3 className="text-sm font-medium text-[var(--sf-text-primary)] mb-4">Frequently asked questions</h3>
+                <p className="text-sm text-[var(--sf-text-secondary)] mb-4">Add questions and answers customers might have about this service.</p>
                 <div className="space-y-4">
-                  <div className="border border-gray-200 rounded-lg p-4">
-                    <h4 className="text-sm font-medium text-gray-900">What's included in the TV mounting service?</h4>
-                    <p className="text-sm text-gray-600 mt-2">
+                  <div className="border border-[var(--sf-border-light)] rounded-lg p-4">
+                    <h4 className="text-sm font-medium text-[var(--sf-text-primary)]">What's included in the TV mounting service?</h4>
+                    <p className="text-sm text-[var(--sf-text-secondary)] mt-2">
                       Our service includes securely mounting your TV to the wall using your mount or one we offer. We can also select wall stud locations and ensure your TV is level and mounted at the right height. You can also add wire concealment and device setup during booking.
                     </p>
                   </div>
-                  <button className="text-sm text-blue-600 hover:text-blue-700">+ Add another question</button>
+                  <button className="text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)]">+ Add another question</button>
                 </div>
               </div>
 
-              <div className="border border-gray-200 rounded-lg p-6">
-                <h3 className="text-sm font-medium text-gray-900 mb-4">How it works</h3>
-                <p className="text-sm text-gray-600 mb-4">Walk customers through how this service works, including what happens next after booking.</p>
+              <div className="border border-[var(--sf-border-light)] rounded-lg p-6">
+                <h3 className="text-sm font-medium text-[var(--sf-text-primary)] mb-4">How it works</h3>
+                <p className="text-sm text-[var(--sf-text-secondary)] mb-4">Walk customers through how this service works, including what happens next after booking.</p>
                 <div className="space-y-4">
                   <div className="flex items-start space-x-4">
-                    <div className="flex-shrink-0 w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
+                    <div className="flex-shrink-0 w-8 h-8 bg-[var(--sf-bg-page)] rounded-full flex items-center justify-center">
                       1
                     </div>
                     <div>
-                      <h4 className="text-sm font-medium text-gray-900">Select your options</h4>
-                      <p className="text-sm text-gray-600 mt-1">
+                      <h4 className="text-sm font-medium text-[var(--sf-text-primary)]">Select your options</h4>
+                      <p className="text-sm text-[var(--sf-text-secondary)] mt-1">
                         Choose your TV size, wall mount type, and any additional services like wire concealment or device setup.
                       </p>
                     </div>
                   </div>
-                  <button className="text-sm text-blue-600 hover:text-blue-700">+ Add another step</button>
+                  <button className="text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)]">+ Add another step</button>
                 </div>
               </div>
 
-              <div className="border border-gray-200 rounded-lg p-6">
-                <h3 className="text-sm font-medium text-gray-900 mb-4">Highlights</h3>
-                <p className="text-sm text-gray-600 mb-4">
+              <div className="border border-[var(--sf-border-light)] rounded-lg p-6">
+                <h3 className="text-sm font-medium text-[var(--sf-text-primary)] mb-4">Highlights</h3>
+                <p className="text-sm text-[var(--sf-text-secondary)] mb-4">
                   Emphasize important features of this service or your business to customers.
                 </p>
                 <div className="space-y-2">
@@ -1965,18 +1965,18 @@ const ServiceDetails = () => {
                     <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
                       ✓
                     </div>
-                    <span className="text-sm text-gray-900">Fast Service</span>
+                    <span className="text-sm text-[var(--sf-text-primary)]">Fast Service</span>
                   </div>
-                  <button className="text-sm text-blue-600 hover:text-blue-700">+ Add</button>
+                  <button className="text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)]">+ Add</button>
                 </div>
               </div>
 
-              <div className="border border-gray-200 rounded-lg p-6">
-                <h3 className="text-sm font-medium text-gray-900 mb-4">Testimonials</h3>
-                <p className="text-sm text-gray-600 mb-4">
+              <div className="border border-[var(--sf-border-light)] rounded-lg p-6">
+                <h3 className="text-sm font-medium text-[var(--sf-text-primary)] mb-4">Testimonials</h3>
+                <p className="text-sm text-[var(--sf-text-secondary)] mb-4">
                   Show reviews and testimonials from your satisfied past customers.
                 </p>
-                <button className="text-sm text-blue-600 hover:text-blue-700">+ Add</button>
+                <button className="text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)]">+ Add</button>
               </div>
             </div>
           </div>
@@ -1986,8 +1986,8 @@ const ServiceDetails = () => {
         return (
           <div className="p-6 space-y-6">
             <div>
-              <h3 className="text-sm font-medium text-gray-900 mb-2">Visibility</h3>
-              <p className="text-sm text-gray-600 mb-4">
+              <h3 className="text-sm font-medium text-[var(--sf-text-primary)] mb-2">Visibility</h3>
+              <p className="text-sm text-[var(--sf-text-secondary)] mb-4">
                 If you hide this service from your booking page, customers will only be able to book it if you link directly to it or embed it
               </p>
               <div className="space-y-3">
@@ -1995,25 +1995,25 @@ const ServiceDetails = () => {
                   <input
                     type="radio"
                     name="visibility"
-                    className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                    className="h-4 w-4 text-[var(--sf-blue-500)] border-[var(--sf-border-light)] focus:ring-[var(--sf-blue-500)]"
                     defaultChecked
                   />
-                  <span className="ml-3 text-sm text-gray-900">Show service on booking page</span>
+                  <span className="ml-3 text-sm text-[var(--sf-text-primary)]">Show service on booking page</span>
                 </label>
                 <label className="flex items-center">
                   <input
                     type="radio"
                     name="visibility"
-                    className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                    className="h-4 w-4 text-[var(--sf-blue-500)] border-[var(--sf-border-light)] focus:ring-[var(--sf-blue-500)]"
                   />
-                  <span className="ml-3 text-sm text-gray-900">Hide service on booking page</span>
+                  <span className="ml-3 text-sm text-[var(--sf-text-primary)]">Hide service on booking page</span>
                 </label>
               </div>
             </div>
 
-            <div className="pt-6 border-t border-gray-200">
-              <h3 className="text-sm font-medium text-gray-900 mb-2">Confirmation page</h3>
-              <p className="text-sm text-gray-600 mb-4">
+            <div className="pt-6 border-t border-[var(--sf-border-light)]">
+              <h3 className="text-sm font-medium text-[var(--sf-text-primary)] mb-2">Confirmation page</h3>
+              <p className="text-sm text-[var(--sf-text-secondary)] mb-4">
                 Customize what should happen after a customer books this service from your booking page
               </p>
               <div className="space-y-3">
@@ -2021,26 +2021,26 @@ const ServiceDetails = () => {
                   <input
                     type="radio"
                     name="confirmation"
-                    className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                    className="h-4 w-4 text-[var(--sf-blue-500)] border-[var(--sf-border-light)] focus:ring-[var(--sf-blue-500)]"
                     defaultChecked
                   />
-                  <span className="ml-3 text-sm text-gray-900">Display default confirmation message</span>
+                  <span className="ml-3 text-sm text-[var(--sf-text-primary)]">Display default confirmation message</span>
                 </label>
                 <label className="flex items-center">
                   <input
                     type="radio"
                     name="confirmation"
-                    className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                    className="h-4 w-4 text-[var(--sf-blue-500)] border-[var(--sf-border-light)] focus:ring-[var(--sf-blue-500)]"
                   />
-                  <span className="ml-3 text-sm text-gray-900">Display custom confirmation message</span>
+                  <span className="ml-3 text-sm text-[var(--sf-text-primary)]">Display custom confirmation message</span>
                 </label>
                 <label className="flex items-center">
                   <input
                     type="radio"
                     name="confirmation"
-                    className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                    className="h-4 w-4 text-[var(--sf-blue-500)] border-[var(--sf-border-light)] focus:ring-[var(--sf-blue-500)]"
                   />
-                  <span className="ml-3 text-sm text-gray-900">Redirect to external site</span>
+                  <span className="ml-3 text-sm text-[var(--sf-text-primary)]">Redirect to external site</span>
                 </label>
               </div>
             </div>
@@ -2050,14 +2050,14 @@ const ServiceDetails = () => {
       case "bookingLink":
         return (
           <div className="p-6 space-y-6">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-[var(--sf-text-secondary)]">
               Customers can book this service from your booking page. You can also link directly to this service or embed it inside a widget.
             </p>
 
             <div className="space-y-6">
               <div>
-                <h3 className="text-sm font-medium text-gray-900 mb-2">Direct link to book this service</h3>
-                <p className="text-sm text-gray-600 mb-4">
+                <h3 className="text-sm font-medium text-[var(--sf-text-primary)] mb-2">Direct link to book this service</h3>
+                <p className="text-sm text-[var(--sf-text-secondary)] mb-4">
                   You can copy and paste this link to share this service's booking form with your customers.
                 </p>
                 <div className="flex space-x-2">
@@ -2065,23 +2065,23 @@ const ServiceDetails = () => {
                     type="text"
                     value="https://widget.serviceflow.com/book/justwebagency?preselected=1"
                     readOnly
-                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-600 bg-gray-50"
+                    className="flex-1 border border-[var(--sf-border-light)] rounded-lg px-3 py-2 text-sm text-[var(--sf-text-secondary)] bg-[var(--sf-bg-page)]"
                   />
-                  <button className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50">
+                  <button className="px-4 py-2 border border-[var(--sf-border-light)] rounded-lg text-sm font-medium hover:bg-[var(--sf-bg-page)]">
                     Copy
                   </button>
-                  <button className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50">
+                  <button className="px-4 py-2 border border-[var(--sf-border-light)] rounded-lg text-sm font-medium hover:bg-[var(--sf-bg-page)]">
                     View
                   </button>
                 </div>
               </div>
 
               <div>
-                <h3 className="text-sm font-medium text-gray-900 mb-2">Embed this service</h3>
-                <p className="text-sm text-gray-600 mb-4">
+                <h3 className="text-sm font-medium text-[var(--sf-text-primary)] mb-2">Embed this service</h3>
+                <p className="text-sm text-[var(--sf-text-secondary)] mb-4">
                   Embed the booking page for this service on your website. Choose from four different embed widgets.
                 </p>
-                <button className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50">
+                <button className="px-4 py-2 border border-[var(--sf-border-light)] rounded-lg text-sm font-medium hover:bg-[var(--sf-bg-page)]">
                   Embed Service
                 </button>
               </div>
@@ -2091,41 +2091,41 @@ const ServiceDetails = () => {
 
       case "details":
         return (
-          <div className="p-6 space-y-6 border-t border-gray-200">
+          <div className="p-6 space-y-6 border-t border-[var(--sf-border-light)]">
             {/* Service Details Section - Name, Description, Image */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2 space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
+                  <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Name</label>
                   <input
                     type="text"
                     value={serviceData.name}
                     onChange={(e) => setServiceData({ ...serviceData, name: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full border border-[var(--sf-border-light)] rounded-lg px-3 py-2 focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                  <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Description</label>
                   <textarea
                     value={serviceData.description}
                     onChange={(e) => setServiceData({ ...serviceData, description: e.target.value })}
                     placeholder="Optional"
                     rows={4}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                    className="w-full border border-[var(--sf-border-light)] rounded-lg px-3 py-2 focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] resize-none"
                   />
                 </div>
               </div>
 
               {/* Image Upload Section */}
               <div className="lg:col-span-1">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Image</label>
-                <div className={`border-2 border-dashed border-gray-300 rounded-lg p-6 text-center relative ${imageUploading ? 'opacity-50 pointer-events-none' : 'hover:border-gray-400 transition-colors'}`}>
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Image</label>
+                <div className={`border-2 border-dashed border-[var(--sf-border-light)] rounded-lg p-6 text-center relative ${imageUploading ? 'opacity-50 pointer-events-none' : 'hover:border-gray-400 transition-colors'}`}>
                   {imageUploading && (
                     <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center rounded-lg z-10">
                       <div className="text-center">
-                        <Loader2 className="w-6 h-6 animate-spin text-blue-600 mx-auto mb-2" />
-                        <p className="text-sm text-gray-600">Uploading...</p>
+                        <Loader2 className="w-6 h-6 animate-spin text-[var(--sf-blue-500)] mx-auto mb-2" />
+                        <p className="text-sm text-[var(--sf-text-secondary)]">Uploading...</p>
                       </div>
                     </div>
                   )}
@@ -2146,8 +2146,8 @@ const ServiceDetails = () => {
                     </div>
                   ) : (
                     <>
-                      <Camera className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                      <label className={`text-sm text-blue-600 font-medium cursor-pointer ${imageUploading ? 'pointer-events-none' : ''}`}>
+                      <Camera className="w-8 h-8 text-[var(--sf-text-muted)] mx-auto mb-2" />
+                      <label className={`text-sm text-[var(--sf-blue-500)] font-medium cursor-pointer ${imageUploading ? 'pointer-events-none' : ''}`}>
                         <input
                           type="file"
                           accept="image/*"
@@ -2164,17 +2164,17 @@ const ServiceDetails = () => {
             </div>
 
             {/* Base Price and Duration Section */}
-            <div className="border-t border-gray-200 pt-6">
-              <h3 className="text-base font-semibold text-gray-900 mb-4">Base Price and Duration</h3>
+            <div className="border-t border-[var(--sf-border-light)] pt-6">
+              <h3 className="text-base font-semibold text-[var(--sf-text-primary)] mb-4">Base Price and Duration</h3>
               
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
+                  <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2 flex items-center gap-1">
                     Base duration
-                    <HelpCircle className="w-4 h-4 text-gray-400" />
+                    <HelpCircle className="w-4 h-4 text-[var(--sf-text-muted)]" />
                   </label>
                   <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2">
+                    <div className="flex items-center gap-2 border border-[var(--sf-border-light)] rounded-lg px-3 py-2">
                       <input
                         type="number"
                         value={Math.floor(serviceData.duration / 60)}
@@ -2192,9 +2192,9 @@ const ServiceDetails = () => {
                         className="w-16 border-0 focus:ring-0 p-0 text-center"
                         min="0"
                       />
-                      <span className="text-sm text-gray-600">hours</span>
+                      <span className="text-sm text-[var(--sf-text-secondary)]">hours</span>
                     </div>
-                    <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2">
+                    <div className="flex items-center gap-2 border border-[var(--sf-border-light)] rounded-lg px-3 py-2">
                       <input
                         type="number"
                         value={serviceData.duration % 60}
@@ -2213,18 +2213,18 @@ const ServiceDetails = () => {
                         min="0"
                         max="59"
                       />
-                      <span className="text-sm text-gray-600">minutes</span>
+                      <span className="text-sm text-[var(--sf-text-secondary)]">minutes</span>
                     </div>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
+                  <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2 flex items-center gap-1">
                     Base price
-                    <HelpCircle className="w-4 h-4 text-gray-400" />
+                    <HelpCircle className="w-4 h-4 text-[var(--sf-text-muted)]" />
                   </label>
-                  <div className="flex items-center border border-gray-300 rounded-lg px-3 py-2 w-48">
-                    <span className="text-sm text-gray-600 flex-shrink-0">$</span>
+                  <div className="flex items-center border border-[var(--sf-border-light)] rounded-lg px-3 py-2 w-48">
+                    <span className="text-sm text-[var(--sf-text-secondary)] flex-shrink-0">$</span>
                     <input
                       type="number"
                       value={serviceData.price === 0 ? '' : (serviceData.price || '')}
@@ -2253,12 +2253,12 @@ const ServiceDetails = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
+                  <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2 flex items-center gap-1">
                     Minimum price
-                    <HelpCircle className="w-4 h-4 text-gray-400" />
+                    <HelpCircle className="w-4 h-4 text-[var(--sf-text-muted)]" />
                   </label>
-                  <div className="flex items-center border border-gray-300 rounded-lg px-3 py-2 w-48">
-                    <span className="text-sm text-gray-600 flex-shrink-0">$</span>
+                  <div className="flex items-center border border-[var(--sf-border-light)] rounded-lg px-3 py-2 w-48">
+                    <span className="text-sm text-[var(--sf-text-secondary)] flex-shrink-0">$</span>
                     <input
                       type="number"
                       value={serviceData.minimumPrice || ''}
@@ -2286,9 +2286,9 @@ const ServiceDetails = () => {
                     id="isFree"
                     checked={serviceData.isFree}
                     onChange={(e) => setServiceData({ ...serviceData, isFree: e.target.checked })}
-                    className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    className="h-4 w-4 text-[var(--sf-blue-500)] border-[var(--sf-border-light)] rounded focus:ring-[var(--sf-blue-500)]"
                   />
-                  <label htmlFor="isFree" className="ml-2 text-sm text-gray-700">
+                  <label htmlFor="isFree" className="ml-2 text-sm text-[var(--sf-text-primary)]">
                     This service is free
                   </label>
                 </div>
@@ -2296,28 +2296,28 @@ const ServiceDetails = () => {
             </div>
 
             {/* TAXES Section */}
-            <div className="border-t border-gray-200 pt-6">
-              <h3 className="text-base font-semibold text-gray-900 mb-4">TAXES</h3>
+            <div className="border-t border-[var(--sf-border-light)] pt-6">
+              <h3 className="text-base font-semibold text-[var(--sf-text-primary)] mb-4">TAXES</h3>
               <div className="flex items-center">
                 <input
                   type="checkbox"
                   id="isTaxable"
                   checked={serviceData.isTaxable}
                   onChange={(e) => setServiceData({ ...serviceData, isTaxable: e.target.checked })}
-                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  className="h-4 w-4 text-[var(--sf-blue-500)] border-[var(--sf-border-light)] rounded focus:ring-[var(--sf-blue-500)]"
                 />
-                <label htmlFor="isTaxable" className="ml-2 text-sm text-gray-700">
+                <label htmlFor="isTaxable" className="ml-2 text-sm text-[var(--sf-text-primary)]">
                   This service is taxable
                 </label>
               </div>
             </div>
 
             {/* Save Button */}
-            <div className="flex justify-end pt-4 border-t border-gray-200">
+            <div className="flex justify-end pt-4 border-t border-[var(--sf-border-light)]">
               <button
                 onClick={() => handleSaveService()}
                 disabled={saving}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                className="px-6 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg text-sm font-medium hover:bg-[var(--sf-blue-600)] disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
               >
                 {saving ? (
                   <>
@@ -2334,20 +2334,20 @@ const ServiceDetails = () => {
 
       case "modifiers":
         return (
-          <div className="p-6 space-y-6 border-t border-gray-200">
+          <div className="p-6 space-y-6 border-t border-[var(--sf-border-light)]">
             {/* Header Section */}
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-3">
-                <Tag className="w-5 h-5 text-blue-600" />
-                <h3 className="text-lg font-bold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
+                <Tag className="w-5 h-5 text-[var(--sf-blue-500)]" />
+                <h3 className="text-lg font-bold text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
                   Service Modifiers
                 </h3>
               </div>
-              <ChevronDown className="w-5 h-5 text-gray-400" />
+              <ChevronDown className="w-5 h-5 text-[var(--sf-text-muted)]" />
             </div>
 
             {/* Description */}
-            <p className="text-sm text-gray-600 mb-4" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+            <p className="text-sm text-[var(--sf-text-secondary)] mb-4" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
               Service modifiers are groups of options that can adjust this service's price and duration when selected.
             </p>
 
@@ -2355,7 +2355,7 @@ const ServiceDetails = () => {
             <div className="mb-6">
               <button 
                 onClick={() => {}}
-                className="text-sm text-blue-600 hover:text-blue-700 flex items-center space-x-1"
+                className="text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] flex items-center space-x-1"
               >
                 <BookOpen className="w-4 h-4" />
                 <span>Learn more about service modifiers</span>
@@ -2381,25 +2381,25 @@ const ServiceDetails = () => {
                   };
 
                   return (
-                    <div key={modifier.id} className="bg-white border border-gray-200 rounded-lg">
+                    <div key={modifier.id} className="bg-white border border-[var(--sf-border-light)] rounded-lg">
                       <div className="flex items-center justify-between p-4">
                         <div className="flex items-center space-x-3 flex-1">
-                          <GripVertical className="w-5 h-5 text-gray-400 cursor-move" />
-                          <h4 className="text-base font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                          <GripVertical className="w-5 h-5 text-[var(--sf-text-muted)] cursor-move" />
+                          <h4 className="text-base font-semibold text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                             {modifier.title || modifier.name}
                           </h4>
                         </div>
                         <div className="flex items-center space-x-2">
                           <button
                             onClick={() => handleEditModifier(modifier)}
-                            className="px-3 py-1.5 text-sm text-gray-900 hover:bg-gray-50 rounded-lg transition-colors font-medium"
+                            className="px-3 py-1.5 text-sm text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-page)] rounded-lg transition-colors font-medium"
                             style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                           >
                             Edit
                           </button>
                           <button
                             onClick={() => handleDeleteModifier(modifier.id)}
-                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            className="p-1.5 text-[var(--sf-text-muted)] hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -2425,7 +2425,7 @@ const ServiceDetails = () => {
                             return (
                               <div 
                                 key={optionIndex} 
-                                className="bg-gray-100 text-gray-900 rounded-full px-3 py-1.5 text-sm font-medium"
+                                className="bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)] rounded-full px-3 py-1.5 text-sm font-medium"
                                 style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                               >
                                 {parts.join(' • ')}
@@ -2441,13 +2441,13 @@ const ServiceDetails = () => {
             </div>
 
             {/* New Modifier Group Button */}
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+            <div className="border-2 border-dashed border-[var(--sf-border-light)] rounded-lg p-6 text-center">
               <button
                 onClick={() => {
                   setEditingModifier(null)
                   setIsCreateModifierGroupModalOpen(true)
                 }}
-                className="px-4 py-2 bg-white text-gray-900 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors border border-gray-300"
+                className="px-4 py-2 bg-white text-[var(--sf-text-primary)] rounded-lg text-sm font-medium hover:bg-[var(--sf-bg-page)] transition-colors border border-[var(--sf-border-light)]"
                 style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
               >
                 New Modifier Group
@@ -2472,7 +2472,7 @@ const ServiceDetails = () => {
   // Loading Skeleton Component
   const SectionSkeleton = ({ delay = 0 }) => (
     <div
-      className="bg-white rounded-lg border border-gray-200 animate-pulse"
+      className="bg-white rounded-lg border border-[var(--sf-border-light)] animate-pulse"
       style={{ animationDelay: `${delay}ms` }}
     >
       <div className="px-6 py-5 flex items-center space-x-4">
@@ -2480,9 +2480,9 @@ const ServiceDetails = () => {
         <div className="flex-1 space-y-2.5">
           <div className="flex items-center space-x-2">
             <div className="h-4 bg-gray-200 rounded w-32"></div>
-            <div className="h-5 bg-gray-100 rounded-full w-20"></div>
+            <div className="h-5 bg-[var(--sf-bg-page)] rounded-full w-20"></div>
           </div>
-          <div className="h-3 bg-gray-100 rounded w-3/4"></div>
+          <div className="h-3 bg-[var(--sf-bg-page)] rounded w-3/4"></div>
         </div>
         <div className="w-5 h-5 bg-gray-200 rounded"></div>
       </div>
@@ -2662,9 +2662,9 @@ const ServiceDetails = () => {
         <div className="fixed inset-0 bg-black bg-opacity-25 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 shadow-lg">
             <div className="text-center">
-              <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
-              <p className="text-lg font-medium text-gray-900 mb-2">Uploading Image</p>
-              <p className="text-sm text-gray-600">Please wait while we upload your image...</p>
+              <Loader2 className="w-8 h-8 animate-spin text-[var(--sf-blue-500)] mx-auto mb-4" />
+              <p className="text-lg font-medium text-[var(--sf-text-primary)] mb-2">Uploading Image</p>
+              <p className="text-sm text-[var(--sf-text-secondary)]">Please wait while we upload your image...</p>
             </div>
           </div>
         </div>
@@ -2672,22 +2672,22 @@ const ServiceDetails = () => {
 
      
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0 lg:mx-44 xl:mx-48 bg-gray-50/50">
+      <div className="flex-1 flex flex-col min-w-0 lg:mx-44 xl:mx-48 bg-[var(--sf-bg-page)]/50">
         {/* Mobile Header */}
 
         {/* Header */}
-        <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
+        <div className="bg-white border-b border-[var(--sf-border-light)] sticky top-0 z-10">
           <div className="max-w-6xl mx-auto px-6 sm:px-8 lg:px-10">
             <div className="py-6">
               <button
                 onClick={() => navigate("/services")}
-                className="flex items-center text-sm text-gray-500 hover:text-gray-900 mb-4 transition-colors"
+                className="flex items-center text-sm text-[var(--sf-text-muted)] hover:text-[var(--sf-text-primary)] mb-4 transition-colors"
               >
                 <ChevronLeft className="w-4 h-4 mr-1" />
                 Services
               </button>
               <div className="flex items-center justify-between">
-                <h1 className="text-2xl font-bold text-gray-900">
+                <h1 className="text-2xl font-bold text-[var(--sf-text-primary)]">
                   {decodeHtmlEntities(serviceData.name || '')}
                 </h1>
               </div>
@@ -2737,16 +2737,16 @@ const ServiceDetails = () => {
             ) : error && error.includes("not found") ? (
               <div className="flex items-center justify-center py-12">
                 <div className="text-center">
-                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <svg className="w-8 h-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <div className="w-16 h-16 bg-[var(--sf-bg-page)] rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg className="w-8 h-8 text-[var(--sf-text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
                   </div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">Service Not Found</h3>
-                  <p className="text-gray-500 mb-4">The service you're looking for doesn't exist or has been deleted.</p>
+                  <h3 className="text-lg font-medium text-[var(--sf-text-primary)] mb-2">Service Not Found</h3>
+                  <p className="text-[var(--sf-text-muted)] mb-4">The service you're looking for doesn't exist or has been deleted.</p>
                   <button
                     onClick={() => navigate('/services')}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                    className="bg-[var(--sf-blue-500)] text-white px-4 py-2 rounded-lg hover:bg-[var(--sf-blue-600)] transition-colors"
                   >
                     Back to Services
                   </button>
@@ -2757,7 +2757,7 @@ const ServiceDetails = () => {
               {sections.map((section, index) => (
                 <div
                   key={section.id}
-                  className="bg-white rounded-lg border border-gray-200 transition-all duration-200 hover:shadow-lg group cursor-pointer overflow-hidden"
+                  className="bg-white rounded-lg border border-[var(--sf-border-light)] transition-all duration-200 hover:shadow-lg group cursor-pointer overflow-hidden"
                   style={{
                     animation: `fadeIn 0.4s ease-out ${index * 0.05}s both`
                   }}
@@ -2767,25 +2767,25 @@ const ServiceDetails = () => {
                     className="w-full px-6 py-5 text-left flex items-center justify-between"
                   >
                     <div className="flex items-center space-x-4 flex-1">
-                      <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center group-hover:bg-blue-50 transition-colors">
-                        <section.icon className="w-5 h-5 text-gray-700 group-hover:text-blue-600 transition-colors" />
+                      <div className="flex-shrink-0 w-10 h-10 rounded-full bg-[var(--sf-bg-page)] flex items-center justify-center group-hover:bg-[var(--sf-blue-50)] transition-colors">
+                        <section.icon className="w-5 h-5 text-[var(--sf-text-primary)] group-hover:text-[var(--sf-blue-500)] transition-colors" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center space-x-2 mb-1">
-                          <h2 className="text-base font-semibold text-gray-900">
+                          <h2 className="text-base font-semibold text-[var(--sf-text-primary)]">
                             {section.title}
                           </h2>
                           {section.badge && (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[var(--sf-bg-page)] text-[var(--sf-text-secondary)]">
                               {section.badge}
                             </span>
                           )}
                         </div>
-                        <p className="text-sm text-gray-500">{section.description}</p>
+                        <p className="text-sm text-[var(--sf-text-muted)]">{section.description}</p>
                       </div>
                     </div>
                     <ChevronRight
-                      className={`w-5 h-5 text-gray-400 flex-shrink-0 ml-4 transition-all duration-300 group-hover:text-gray-600 ${
+                      className={`w-5 h-5 text-[var(--sf-text-muted)] flex-shrink-0 ml-4 transition-all duration-300 group-hover:text-[var(--sf-text-secondary)] ${
                         expandedSection === section.id ? "transform rotate-90" : ""
                       }`}
                     />
@@ -2800,7 +2800,7 @@ const ServiceDetails = () => {
                     }`}
                   >
                     {expandedSection === section.id && (
-                      <div className="border-t border-gray-100 animate-slideDown">
+                      <div className="border-t border-[var(--sf-border-light)] animate-slideDown">
                         {renderSectionContent(section)}
                       </div>
                     )}

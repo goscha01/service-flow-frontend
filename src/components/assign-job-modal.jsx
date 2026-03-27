@@ -725,24 +725,24 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign, companyDrivingTimeMinu
   if (!isOpen || !job) return null
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-[10000] flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-gray-50 rounded-lg w-full max-w-2xl max-h-[90vh] flex flex-col shadow-xl" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[10000] flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-[var(--sf-bg-page)] rounded-xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-xl" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-gray-200 rounded-t-lg">
+        <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-[var(--sf-border-light)] rounded-t-lg">
           <button
             onClick={onClose}
-            className="p-1.5 hover:bg-gray-100 rounded-full transition-colors"
+            className="p-1.5 hover:bg-[var(--sf-bg-hover)] rounded-full transition-colors"
           >
-            <X className="w-5 h-5 text-gray-600" />
+            <X className="w-5 h-5 text-[var(--sf-text-secondary)]" />
           </button>
-          <h2 className="text-lg font-bold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Assign Job</h2>
+          <h2 className="text-lg font-bold text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Assign Job</h2>
           <button
             onClick={handleAssign}
             disabled={assigning}
             className={`px-5 py-2 text-sm font-semibold rounded-lg transition-all ${
               !assigning
-                ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm'
-                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                ? 'bg-[var(--sf-blue-500)] text-white hover:bg-[var(--sf-blue-600)] shadow-sm'
+                : 'bg-[var(--sf-border-light)] text-[var(--sf-text-muted)] cursor-not-allowed'
             }`}
             style={{ fontFamily: 'Montserrat', fontWeight: 600 }}
           >
@@ -753,20 +753,20 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign, companyDrivingTimeMinu
         {/* Content - Scrollable */}
         <div className="flex-1 overflow-y-auto px-6 py-5">
           {/* Job Details Card */}
-          <div className="bg-white rounded-lg border border-gray-200 p-5 mb-5">
+          <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-5 mb-5">
             <div className="flex items-start justify-between mb-3">
               <div className="flex-1">
-                <div className="text-sm font-medium text-gray-900 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                <div className="text-sm font-medium text-[var(--sf-text-primary)] mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                   {formatDate(job.scheduled_date)}
                 </div>
-                <div className="text-base font-bold text-gray-900 mb-4" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
+                <div className="text-base font-bold text-[var(--sf-text-primary)] mb-4" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
                   {formatTime(job.scheduled_date)}
                 </div>
               </div>
               
               {/* Assignment Status Badge */}
-              <div className="flex items-center gap-2 bg-gray-100 rounded-full px-3 py-1.5">
-                <span className="text-xs font-medium text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+              <div className="flex items-center gap-2 bg-[var(--sf-bg-page)] rounded-full px-3 py-1.5">
+                <span className="text-xs font-medium text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                   {assignedCount}/{workersNeeded} assigned
                 </span>
                 {assignedMembers.length > 0 && (
@@ -782,7 +782,7 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign, companyDrivingTimeMinu
                   </div>
                     ))}
                     {assignedMembers.length > 3 && (
-                      <span className="text-xs text-gray-600">+{assignedMembers.length - 3}</span>
+                      <span className="text-xs text-[var(--sf-text-secondary)]">+{assignedMembers.length - 3}</span>
                     )}
                   </div>
                 )}
@@ -792,12 +792,12 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign, companyDrivingTimeMinu
             {/* Assigned Members List */}
             {assignedMembers.length > 0 && (
               <div className="flex flex-wrap items-center gap-2 mb-3">
-                <User className="w-4 h-4 text-gray-500" />
+                <User className="w-4 h-4 text-[var(--sf-text-muted)]" />
                 <div className="flex flex-wrap gap-2">
                   {assignedMembers.map((member) => (
                     <span 
                       key={member.id}
-                      className="text-sm font-medium text-gray-900" 
+                      className="text-sm font-medium text-[var(--sf-text-primary)]" 
                       style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                     >
                       {(() => {
@@ -819,24 +819,24 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign, companyDrivingTimeMinu
 
             {/* Service Type */}
             <div className="flex items-center gap-2 mb-3">
-              <Wrench className="w-4 h-4 text-gray-500" />
-              <span className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+              <Wrench className="w-4 h-4 text-[var(--sf-text-muted)]" />
+              <span className="text-sm font-medium text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                 {decodeHtmlEntities(job.service_name || job.service_type || 'Service')}
               </span>
             </div>
 
             {/* Duration */}
             <div className="flex items-center gap-2 mb-3">
-              <Clock className="w-4 h-4 text-gray-500" />
-              <span className="text-sm text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+              <Clock className="w-4 h-4 text-[var(--sf-text-muted)]" />
+              <span className="text-sm text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                 {formatDuration(job.service_duration || job.duration)}
               </span>
             </div>
 
             {/* Location */}
             <div className="flex items-start gap-2 mb-4">
-              <MapPin className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
-              <span className="text-sm text-gray-700 leading-relaxed" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+              <MapPin className="w-4 h-4 text-[var(--sf-text-muted)] mt-0.5 flex-shrink-0" />
+              <span className="text-sm text-[var(--sf-text-primary)] leading-relaxed" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                 {job.service_address_street || job.customer_address || job.address || 'Address not provided'}
                 {job.service_address_city && `, ${job.service_address_city}`}
                 {job.service_address_state && `, ${job.service_address_state}`}
@@ -844,7 +844,7 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign, companyDrivingTimeMinu
             </div>
 
             {/* Drive Time Toggle */}
-            <div className="flex items-center gap-2.5 pt-3 border-t border-gray-200">
+            <div className="flex items-center gap-2.5 pt-3 border-t border-[var(--sf-border-light)]">
               <label className="relative inline-flex items-center cursor-pointer">
                 <input
                   type="checkbox"
@@ -852,9 +852,9 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign, companyDrivingTimeMinu
                   onChange={(e) => setShowDriveTime(e.target.checked)}
                   className="sr-only peer"
                 />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                <div className="w-11 h-6 bg-[var(--sf-border-light)] peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[var(--sf-blue-500)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[var(--sf-border-light)] after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--sf-blue-500)]"></div>
               </label>
-              <span className="text-sm text-gray-700 cursor-pointer select-none" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+              <span className="text-sm text-[var(--sf-text-primary)] cursor-pointer select-none" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                 Show approximate drive time
               </span>
             </div>
@@ -864,13 +864,13 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign, companyDrivingTimeMinu
           <div className="mb-5 space-y-3">
             {/* Search Bar */}
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[var(--sf-text-muted)]" />
               <input
                 type="text"
                 placeholder="Search providers..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white"
+                className="w-full pl-10 pr-4 py-2.5 text-sm border border-[var(--sf-border-light)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-transparent transition-all bg-white"
                 style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
               />
             </div>
@@ -880,7 +880,7 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign, companyDrivingTimeMinu
               <select
                 value={selectedSkill}
                 onChange={(e) => setSelectedSkill(e.target.value)}
-                className="w-full pl-4 pr-10 py-2.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white cursor-pointer transition-all"
+                className="w-full pl-4 pr-10 py-2.5 text-sm border border-[var(--sf-border-light)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-transparent appearance-none bg-white cursor-pointer transition-all"
                 style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
               >
                 <option value="none">Skills None</option>
@@ -888,7 +888,7 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign, companyDrivingTimeMinu
                   <option key={index} value={skill}>{skill}</option>
                 ))}
               </select>
-              <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[var(--sf-text-muted)] pointer-events-none" />
             </div>
 
             {/* Include deactivated checkbox */}
@@ -897,9 +897,9 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign, companyDrivingTimeMinu
                 type="checkbox"
                 checked={includeInactive}
                 onChange={(e) => setIncludeInactive(e.target.checked)}
-                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                className="w-4 h-4 text-[var(--sf-blue-500)] border-[var(--sf-border-light)] rounded focus:ring-[var(--sf-blue-500)]"
               />
-              <span className="text-xs text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+              <span className="text-xs text-[var(--sf-text-secondary)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                 Include deactivated members
               </span>
             </label>
@@ -908,18 +908,18 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign, companyDrivingTimeMinu
           {/* Available Providers Section */}
           <div>
             <div className="flex items-center gap-2 mb-4">
-              <span className="text-xs font-bold text-gray-900 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
+              <span className="text-xs font-bold text-[var(--sf-text-primary)] uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
                 Available
               </span>
-              <span className="px-2 py-0.5 bg-gray-200 rounded-full text-xs font-medium text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+              <span className="px-2 py-0.5 bg-[var(--sf-border-light)] rounded-full text-xs font-medium text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                 {filteredMembers.length}
               </span>
             </div>
 
             {loading ? (
-              <div className="text-center py-8 text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Loading providers...</div>
+              <div className="text-center py-8 text-[var(--sf-text-muted)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Loading providers...</div>
             ) : filteredMembers.length === 0 ? (
-              <div className="text-center py-8 text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>No available providers found</div>
+              <div className="text-center py-8 text-[var(--sf-text-muted)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>No available providers found</div>
             ) : (
               <div className="space-y-3">
                 {filteredMembers.map((member) => {
@@ -934,16 +934,16 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign, companyDrivingTimeMinu
                       onClick={() => toggleMemberSelection(memberId)}
                       className={`bg-white border rounded-lg p-4 cursor-pointer transition-all ${
                         isSelected
-                          ? 'border-blue-600 bg-blue-50'
-                          : 'border-gray-200 hover:border-gray-300'
+                          ? 'border-[var(--sf-blue-500)] bg-[var(--sf-blue-50)]'
+                          : 'border-[var(--sf-border-light)] hover:border-[var(--sf-border-light)]'
                       }`}
                     >
                       <div className="flex items-start gap-4">
                         {/* Large Selection Indicator */}
                         <div className={`mt-1 w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${
                           isSelected
-                            ? 'bg-blue-600'
-                            : 'bg-gray-200'
+                            ? 'bg-[var(--sf-blue-500)]'
+                            : 'bg-[var(--sf-border-light)]'
                         }`}>
                           {isSelected && (
                             <Check className="w-5 h-5 text-white" strokeWidth={3} />
@@ -982,7 +982,7 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign, companyDrivingTimeMinu
                         {/* Member Info */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between mb-1.5">
-                            <h3 className="text-sm font-bold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
+                            <h3 className="text-sm font-bold text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
                               {(() => {
                                 const firstName = (member.first_name || '').trim()
                                 const lastName = (member.last_name || '').trim()
@@ -1002,7 +1002,7 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign, companyDrivingTimeMinu
                           </div>
                           
                           {availability.availableFrom && availability.availableTo && (
-                            <div className="text-xs text-gray-600 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                            <div className="text-xs text-[var(--sf-text-secondary)] mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                               Available {availability.availableFrom} - {availability.availableTo}
                             </div>
                           )}
@@ -1031,7 +1031,7 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign, companyDrivingTimeMinu
                           {/* View Schedule Button */}
                           <button
                             onClick={(e) => toggleScheduleExpansion(member.id, e)}
-                            className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1 mb-2 transition-colors"
+                            className="text-xs text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] flex items-center gap-1 mb-2 transition-colors"
                             style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                           >
                             {isExpanded ? (
@@ -1049,13 +1049,13 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign, companyDrivingTimeMinu
 
                           {/* Expanded Schedule View */}
                           {isExpanded && availability.availableHours && availability.availableHours.length > 0 && (
-                            <div className="mt-3 pt-3 border-t border-gray-200">
+                            <div className="mt-3 pt-3 border-t border-[var(--sf-border-light)]">
                               {availability.availableHours.map((hourBlock, idx) => (
                                 <div key={idx} className="mb-3 last:mb-0">
-                                  <div className="text-xs text-gray-700 mb-1.5" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                                  <div className="text-xs text-[var(--sf-text-primary)] mb-1.5" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                                     {hourBlock.label}
                                   </div>
-                                  <div className="relative h-6 bg-gray-100 rounded overflow-hidden">
+                                  <div className="relative h-6 bg-[var(--sf-bg-page)] rounded overflow-hidden">
                                     <div 
                                       className="absolute inset-0 bg-green-500 opacity-30"
                                       style={{
@@ -1063,7 +1063,7 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign, companyDrivingTimeMinu
                                       }}
                                     ></div>
                                     <div className="absolute inset-0 flex items-center justify-center">
-                                      <span className="text-xs font-medium text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                                      <span className="text-xs font-medium text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                                         Available
                                       </span>
                                     </div>
