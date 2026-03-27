@@ -142,7 +142,7 @@ const AddressValidation = ({
       }
     }
     
-    return <MapPin className="w-4 h-4 text-gray-400" />;
+    return <MapPin className="w-4 h-4 text-[var(--sf-text-muted)]" />;
   };
 
   const getValidationMessage = () => {
@@ -173,7 +173,7 @@ const AddressValidation = ({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          className="w-full px-3 py-2 pr-10 border border-[var(--sf-border-light)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
         />
         <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
           {getValidationIcon()}
@@ -181,15 +181,15 @@ const AddressValidation = ({
       </div>
 
       {showValidationResults && validationResult && (
-        <div className="mt-2 p-3 bg-gray-50 rounded-lg border">
+        <div className="mt-2 p-3 bg-[var(--sf-bg-page)] rounded-lg border">
           <div className="flex items-start justify-between">
             <div className="flex-1">
               {getValidationMessage()}
               
               {validationResult.formattedAddress && (
                 <div className="mt-2">
-                  <p className="text-sm font-medium text-gray-700">Suggested address:</p>
-                  <p className="text-sm text-gray-600">{validationResult.formattedAddress}</p>
+                  <p className="text-sm font-medium text-[var(--sf-text-primary)]">Suggested address:</p>
+                  <p className="text-sm text-[var(--sf-text-secondary)]">{validationResult.formattedAddress}</p>
                 </div>
               )}
 
@@ -234,7 +234,7 @@ const AddressValidation = ({
               <button
                 type="button"
                 onClick={() => onChange(validationResult.formattedAddress)}
-                className="ml-2 px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
+                className="ml-2 px-2 py-1 text-xs bg-[var(--sf-blue-500)] text-white rounded hover:bg-[var(--sf-blue-500)]"
               >
                 Use Suggested
               </button>
@@ -255,7 +255,7 @@ const AddressValidation = ({
           type="button"
           onClick={handleManualValidation}
           disabled={!value || value.length < 5 || isValidating}
-          className="mt-2 px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="mt-2 px-3 py-1 text-sm bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)] rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isValidating ? 'Validating...' : 'Validate Address'}
         </button>

@@ -31,7 +31,7 @@ const ServiceFlowWebsiteEmbed = () => {
   ]
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen bg-[var(--sf-bg-page)] overflow-hidden">
       {/* Main Sidebar */}
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} activePage="online-booking" />
 
@@ -40,25 +40,25 @@ const ServiceFlowWebsiteEmbed = () => {
         {/* Mobile Header */}
 
         {/* Desktop Header */}
-        <div className="hidden lg:flex bg-white border-b border-gray-200 px-6 py-4 items-center">
-          <button className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 mr-4">
+        <div className="hidden lg:flex bg-white border-b border-[var(--sf-border-light)] px-6 py-4 items-center">
+          <button className="flex items-center space-x-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] mr-4">
             <ChevronLeft className="w-5 h-5" />
             <span className="text-sm">Online Booking</span>
           </button>
           <div>
-            <h1 className="text-2xl font-semibold text-gray-900">Website Embed</h1>
-            <p className="text-gray-600 mt-1">Choose the type of widget you'd like to embed</p>
+            <h1 className="text-2xl font-semibold text-[var(--sf-text-primary)]">Website Embed</h1>
+            <p className="text-[var(--sf-text-secondary)] mt-1">Choose the type of widget you'd like to embed</p>
           </div>
         </div>
 
         {/* Mobile Header Content */}
-        <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-4">
-          <button className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-3">
+        <div className="lg:hidden bg-white border-b border-[var(--sf-border-light)] px-4 py-4">
+          <button className="flex items-center space-x-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] mb-3">
             <ChevronLeft className="w-5 h-5" />
             <span className="text-sm">Online Booking</span>
           </button>
-          <h1 className="text-xl font-semibold text-gray-900 mb-2">Website Embed</h1>
-          <p className="text-gray-600 text-sm">Choose the type of widget you'd like to embed</p>
+          <h1 className="text-xl font-semibold text-[var(--sf-text-primary)] mb-2">Website Embed</h1>
+          <p className="text-[var(--sf-text-secondary)] text-sm">Choose the type of widget you'd like to embed</p>
         </div>
 
         {/* Content Area */}
@@ -68,15 +68,15 @@ const ServiceFlowWebsiteEmbed = () => {
               {embedOptions.map((option, index) => (
                 <div
                   key={index}
-                  className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow cursor-pointer"
+                  className="bg-white rounded-lg border border-[var(--sf-border-light)] p-6 hover:shadow-md transition-shadow cursor-pointer"
                 >
                   <div className="mb-4">
-                    <div className="w-full h-32 bg-gray-100 rounded-lg flex items-center justify-center mb-4">
-                      <div className="text-gray-400 text-sm">Widget Preview</div>
+                    <div className="w-full h-32 bg-[var(--sf-bg-page)] rounded-lg flex items-center justify-center mb-4">
+                      <div className="text-[var(--sf-text-muted)] text-sm">Widget Preview</div>
                     </div>
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">{option.title}</h3>
-                  <p className="text-gray-600 text-sm">{option.description}</p>
+                  <h3 className="text-lg font-semibold text-[var(--sf-text-primary)] mb-2">{option.title}</h3>
+                  <p className="text-[var(--sf-text-secondary)] text-sm">{option.description}</p>
                 </div>
               ))}
             </div>

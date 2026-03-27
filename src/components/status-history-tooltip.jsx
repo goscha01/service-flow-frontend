@@ -202,7 +202,7 @@ const StatusHistoryTooltip = ({ statusHistory, status, children, isReached = fal
       {isVisible && currentStatusEntry && (
         <div 
           ref={tooltipContentRef}
-          className="fixed z-[100] bg-white rounded-lg shadow-xl border border-gray-200 p-4 min-w-[280px] max-w-[320px]"
+          className="fixed z-[100] bg-white rounded-lg shadow-xl border border-[var(--sf-border-light)] p-4 min-w-[280px] max-w-[320px]"
           style={{
             top: `${tooltipPosition.top}px`,
             left: `${tooltipPosition.left}px`,
@@ -226,17 +226,17 @@ const StatusHistoryTooltip = ({ statusHistory, status, children, isReached = fal
           
           {/* Content */}
           <div className="space-y-2">
-            <div className="text-xs text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+            <div className="text-xs text-[var(--sf-text-muted)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
               {formatDate(currentStatusEntry.changed_at)}
             </div>
-            <div className="text-base font-bold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
+            <div className="text-base font-bold text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
               {getActionDescription(currentStatusEntry)}
             </div>
             {(() => {
               const elapsedMinutes = getElapsedTimeAfterStarted(currentStatusEntry);
               if (elapsedMinutes !== null) {
                 return (
-                  <div className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                  <div className="text-sm text-[var(--sf-text-secondary)]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                     {elapsedMinutes} {elapsedMinutes === 1 ? 'min' : 'min'} after job started
                   </div>
                 );
@@ -244,7 +244,7 @@ const StatusHistoryTooltip = ({ statusHistory, status, children, isReached = fal
               return null;
             })()}
             {currentStatusEntry.changed_by && (
-              <div className="text-sm text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+              <div className="text-sm text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                 Via {currentStatusEntry.changed_by}
               </div>
             )}

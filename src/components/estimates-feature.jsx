@@ -10,16 +10,16 @@ const EstimatesFeature = () => {
         <div className="w-5 h-5 bg-purple-100 rounded-full flex items-center justify-center">
           <Info className="w-3 h-3 text-purple-600" />
         </div>
-        <span className="text-sm text-gray-600">Available on the Professional plan</span>
+        <span className="text-sm text-[var(--sf-text-secondary)]">Available on the Professional plan</span>
       </div>
 
       {/* Feature description */}
       <div className="space-y-4">
-        <h2 className="text-2xl lg:text-3xl font-bold text-gray-900">Send Bookable Estimates to Customers</h2>
-        <p className="text-lg text-gray-600 leading-relaxed">
+        <h2 className="text-2xl lg:text-3xl font-bold text-[var(--sf-text-primary)]">Send Bookable Estimates to Customers</h2>
+        <p className="text-lg text-[var(--sf-text-secondary)] leading-relaxed">
           Create custom quotes that customers can easily review and book with just a few clicks.
         </p>
-        <button className="text-blue-600 hover:text-blue-700 font-medium">Learn more...</button>
+        <button className="text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] font-medium">Learn more...</button>
       </div>
     </div>
   )

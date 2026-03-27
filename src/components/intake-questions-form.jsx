@@ -173,12 +173,12 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
           return (
             <div key={questionId} className="mb-6">
               <div className="mb-3">
-                <label className="block text-base font-bold text-gray-900 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
+                <label className="block text-base font-bold text-[var(--sf-text-primary)] mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
                   {question.question}
                   {question.required && <span className="text-red-500 ml-1">*</span>}
                 </label>
                 {question.description && (
-                  <p className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{question.description}</p>
+                  <p className="text-sm text-[var(--sf-text-secondary)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{question.description}</p>
                 )}
               </div>
               
@@ -200,18 +200,18 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
           return (
             <div key={questionId} className="mb-6">
               <div className="mb-3">
-                <label className="block text-base font-bold text-gray-900 mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
+                <label className="block text-base font-bold text-[var(--sf-text-primary)] mb-1" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
                   {question.question}
                   {question.required && <span className="text-red-500 ml-1">*</span>}
                 </label>
                 {question.description && (
-                  <p className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{question.description}</p>
+                  <p className="text-sm text-[var(--sf-text-secondary)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{question.description}</p>
                 )}
               </div>
               
               <div className="space-y-3">
                 {question.options?.map((option, index) => (
-                  <label key={index} className="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
+                  <label key={index} className="flex items-center p-3 border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-page)] cursor-pointer transition-colors">
                     <input
                       type="radio"
                       name={questionId}
@@ -219,9 +219,9 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
                       checked={currentAnswer === option.text}
                       onChange={(e) => handleAnswerChange(questionId, e.target.value)}
                       required={question.required}
-                      className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                      className="h-4 w-4 text-[var(--sf-blue-500)] border-[var(--sf-border-light)] focus:ring-[var(--sf-blue-500)]"
                     />
-                    <span className="ml-3 text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>{option.text}</span>
+                    <span className="ml-3 text-sm font-medium text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>{option.text}</span>
                   </label>
                 ))}
               </div>
@@ -253,12 +253,12 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
         return (
           <div key={questionId} className="mb-6">
             <div className="mb-3">
-              <label className="block text-lg font-medium text-gray-900 mb-1">
+              <label className="block text-lg font-medium text-[var(--sf-text-primary)] mb-1">
                 {question.question}
                 {question.required && <span className="text-red-500 ml-1">*</span>}
               </label>
               {question.description && (
-                <p className="text-sm text-gray-600">{question.description}</p>
+                <p className="text-sm text-[var(--sf-text-secondary)]">{question.description}</p>
               )}
             </div>
             
@@ -281,7 +281,7 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
                 value={currentAnswer || ''}
                 onChange={(e) => handleAnswerChange(questionId, e.target.value)}
                 required={question.required}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-4 py-3 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
               style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
               >
                 <option value="">Select an option...</option>
@@ -299,12 +299,12 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
         return (
           <div key={questionId} className="mb-6">
             <div className="mb-3">
-              <label className="block text-lg font-medium text-gray-900 mb-1">
+              <label className="block text-lg font-medium text-[var(--sf-text-primary)] mb-1">
                 {question.question}
                 {question.required && <span className="text-red-500 ml-1">*</span>}
               </label>
               {question.description && (
-                <p className="text-sm text-gray-600">{question.description}</p>
+                <p className="text-sm text-[var(--sf-text-secondary)]">{question.description}</p>
               )}
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -338,8 +338,8 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
                     (question.selectionType === 'multi'
                       ? (currentAnswer || []).includes(option.text)
                       : (currentAnswer && currentAnswer.text === option.text))
-                      ? 'border-blue-500 bg-blue-50 shadow-md'
-                      : 'border-gray-200 hover:border-gray-300'
+                      ? 'border-blue-500 bg-[var(--sf-blue-50)] shadow-md'
+                      : 'border-[var(--sf-border-light)] hover:border-[var(--sf-border-light)]'
                   }`}>
                     {option.image ? (
                       <img
@@ -348,12 +348,12 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
                         className="w-full h-32 object-cover"
                       />
                     ) : (
-                      <div className="w-full h-32 bg-gray-100 flex items-center justify-center">
-                        <ImageIcon className="w-8 h-8 text-gray-400" />
+                      <div className="w-full h-32 bg-[var(--sf-bg-page)] flex items-center justify-center">
+                        <ImageIcon className="w-8 h-8 text-[var(--sf-text-muted)]" />
                       </div>
                     )}
                     <div className="p-3 text-center">
-                      <span className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>{option.text}</span>
+                      <span className="text-sm font-medium text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>{option.text}</span>
                     </div>
                   </div>
                 </label>
@@ -366,12 +366,12 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
         return (
           <div key={questionId} className="mb-6">
             <div className="mb-3">
-              <label className="block text-lg font-medium text-gray-900 mb-1">
+              <label className="block text-lg font-medium text-[var(--sf-text-primary)] mb-1">
                 {question.question}
                 {question.required && <span className="text-red-500 ml-1">*</span>}
               </label>
               {question.description && (
-                <p className="text-sm text-gray-600">{question.description}</p>
+                <p className="text-sm text-[var(--sf-text-secondary)]">{question.description}</p>
               )}
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -380,7 +380,7 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
                 const quantity = currentQuantities[option.id] || 0;
                 
                 return (
-                  <div key={index} className="border border-gray-200 rounded-lg p-4">
+                  <div key={index} className="border border-[var(--sf-border-light)] rounded-lg p-4">
                     {option.image && (
                       <img
                         src={option.image}
@@ -389,16 +389,16 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
                       />
                     )}
                     <div className="text-center mb-3">
-                      <div className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>{option.text}</div>
+                      <div className="text-sm font-medium text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>{option.text}</div>
                       {option.price && (
-                        <div className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>${option.price}</div>
+                        <div className="text-sm text-[var(--sf-text-secondary)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>${option.price}</div>
                       )}
                     </div>
                     <div className="flex items-center justify-center space-x-3">
                       <button
                         type="button"
                         onClick={() => handleQuantityChange(questionId, option.id, -1)}
-                        className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-100 transition-colors"
+                        className="w-8 h-8 rounded-full border border-[var(--sf-border-light)] flex items-center justify-center hover:bg-[var(--sf-bg-hover)] transition-colors"
                       >
                         <Minus className="w-3 h-3" />
                       </button>
@@ -406,7 +406,7 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
                       <button
                         type="button"
                         onClick={() => handleQuantityChange(questionId, option.id, 1)}
-                        className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-100 transition-colors"
+                        className="w-8 h-8 rounded-full border border-[var(--sf-border-light)] flex items-center justify-center hover:bg-[var(--sf-bg-hover)] transition-colors"
                       >
                         <Plus className="w-3 h-3" />
                       </button>
@@ -422,12 +422,12 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
         return (
           <div key={questionId} className="mb-6">
             <div className="mb-3">
-              <label className="block text-lg font-medium text-gray-900 mb-1">
+              <label className="block text-lg font-medium text-[var(--sf-text-primary)] mb-1">
                 {question.question}
                 {question.required && <span className="text-red-500 ml-1">*</span>}
               </label>
               {question.description && (
-                <p className="text-sm text-gray-600">{question.description}</p>
+                <p className="text-sm text-[var(--sf-text-secondary)]">{question.description}</p>
               )}
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -458,23 +458,23 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
                     (question.selectionType === 'multi'
                       ? (currentAnswer || []).includes(option.text)
                       : currentAnswer === option.text)
-                      ? 'border-blue-500 bg-blue-50 shadow-md'
-                      : 'border-gray-200 hover:border-gray-300'
+                      ? 'border-blue-500 bg-[var(--sf-blue-50)] shadow-md'
+                      : 'border-[var(--sf-border-light)] hover:border-[var(--sf-border-light)]'
                   }`}>
                     {/* Color Swatch */}
                     <div 
-                      className="w-full h-20 rounded-lg mb-3 shadow-sm border border-gray-200"
+                      className="w-full h-20 rounded-lg mb-3 shadow-sm border border-[var(--sf-border-light)]"
                       style={{ backgroundColor: option.text }}
                     />
                     {/* Color Label */}
                     <div className="text-center">
-                      <span className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>{option.text}</span>
+                      <span className="text-sm font-medium text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>{option.text}</span>
                     </div>
                     {/* Selection Indicator */}
                     {(question.selectionType === 'multi'
                       ? (currentAnswer || []).includes(option.text)
                       : currentAnswer === option.text) && (
-                      <div className="absolute -top-2 -right-2 w-7 h-7 bg-blue-600 rounded-full flex items-center justify-center shadow-lg">
+                      <div className="absolute -top-2 -right-2 w-7 h-7 bg-[var(--sf-blue-500)] rounded-full flex items-center justify-center shadow-lg">
                         <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                         </svg>
@@ -491,12 +491,12 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
         return (
           <div key={questionId} className="mb-6">
             <div className="mb-3">
-              <label className="block text-lg font-medium text-gray-900 mb-1">
+              <label className="block text-lg font-medium text-[var(--sf-text-primary)] mb-1">
               {question.question}
               {question.required && <span className="text-red-500 ml-1">*</span>}
             </label>
             {question.description && (
-                <p className="text-sm text-gray-600">{question.description}</p>
+                <p className="text-sm text-[var(--sf-text-secondary)]">{question.description}</p>
             )}
             </div>
             <input
@@ -504,7 +504,7 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
               value={currentAnswer || ''}
               onChange={(e) => handleAnswerChange(questionId, e.target.value)}
               required={question.required}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-4 py-3 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
               style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
               placeholder="Enter your answer"
             />
@@ -515,12 +515,12 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
         return (
           <div key={questionId} className="mb-6">
             <div className="mb-3">
-              <label className="block text-lg font-medium text-gray-900 mb-1">
+              <label className="block text-lg font-medium text-[var(--sf-text-primary)] mb-1">
               {question.question}
               {question.required && <span className="text-red-500 ml-1">*</span>}
             </label>
             {question.description && (
-                <p className="text-sm text-gray-600">{question.description}</p>
+                <p className="text-sm text-[var(--sf-text-secondary)]">{question.description}</p>
             )}
             </div>
             <textarea
@@ -528,7 +528,7 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
               onChange={(e) => handleAnswerChange(questionId, e.target.value)}
               required={question.required}
               rows={4}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-4 py-3 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
               style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
               placeholder="Enter your answer"
             />
@@ -539,18 +539,18 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
         return (
           <div key={questionId} className="mb-6">
             <div className="mb-3">
-              <label className="block text-lg font-medium text-gray-900 mb-1">
+              <label className="block text-lg font-medium text-[var(--sf-text-primary)] mb-1">
                 {question.question}
                 {question.required && <span className="text-red-500 ml-1">*</span>}
               </label>
               {question.description && (
-                <p className="text-sm text-gray-600">{question.description}</p>
+                <p className="text-sm text-[var(--sf-text-secondary)]">{question.description}</p>
               )}
             </div>
             <div className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
               imageUploading[questionId] 
-                ? 'border-blue-300 bg-blue-50' 
-                : 'border-gray-300 hover:border-gray-400'
+                ? 'border-blue-300 bg-[var(--sf-blue-50)]' 
+                : 'border-[var(--sf-border-light)] hover:border-gray-400'
             }`}>
               <input
                 type="file"
@@ -568,20 +568,20 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
                 {imageUploading[questionId] ? (
                   <>
                     <div className="w-8 h-8 border-2 border-blue-300 border-t-blue-600 rounded-full animate-spin mx-auto mb-2"></div>
-                    <p className="text-sm text-blue-600">Uploading image...</p>
+                    <p className="text-sm text-[var(--sf-blue-500)]">Uploading image...</p>
                     <p className="text-xs text-blue-500 mt-1">Please wait</p>
                   </>
                 ) : currentAnswer ? (
                   <>
                     <ImageIcon className="w-8 h-8 text-green-600 mx-auto mb-2" />
                     <p className="text-sm text-green-600">Image uploaded successfully</p>
-                    <p className="text-xs text-gray-500 mt-1">Click to change image</p>
+                    <p className="text-xs text-[var(--sf-text-muted)] mt-1">Click to change image</p>
                   </>
                 ) : (
                   <>
-                    <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                    <p className="text-sm text-gray-600">Click to upload an image</p>
-                    <p className="text-xs text-gray-500 mt-1">PNG, JPG, GIF up to 10MB</p>
+                    <Upload className="w-8 h-8 text-[var(--sf-text-muted)] mx-auto mb-2" />
+                    <p className="text-sm text-[var(--sf-text-secondary)]">Click to upload an image</p>
+                    <p className="text-xs text-[var(--sf-text-muted)] mt-1">PNG, JPG, GIF up to 10MB</p>
                   </>
                 )}
               </label>
@@ -590,7 +590,7 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
                   <img 
                     src={currentAnswer} 
                     alt="Uploaded" 
-                    className="w-32 h-32 object-cover rounded mx-auto border border-gray-200 shadow-sm" 
+                    className="w-32 h-32 object-cover rounded mx-auto border border-[var(--sf-border-light)] shadow-sm" 
                   />
                   <button
                     type="button"
@@ -609,12 +609,12 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
         return (
           <div key={questionId} className="mb-6">
             <div className="mb-3">
-              <label className="block text-lg font-medium text-gray-900 mb-1">
+              <label className="block text-lg font-medium text-[var(--sf-text-primary)] mb-1">
               {question.question}
               {question.required && <span className="text-red-500 ml-1">*</span>}
             </label>
             {question.description && (
-                <p className="text-sm text-gray-600">{question.description}</p>
+                <p className="text-sm text-[var(--sf-text-secondary)]">{question.description}</p>
             )}
             </div>
             <input
@@ -622,7 +622,7 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
               value={currentAnswer || ''}
               onChange={(e) => handleAnswerChange(questionId, e.target.value)}
               required={question.required}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-4 py-3 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
               style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
               placeholder="Enter your answer"
             />
@@ -636,12 +636,12 @@ const IntakeQuestionsForm = ({ questions = [], onAnswersChange, onSave, isEditab
         {questions.map(renderQuestion)}
         
         {isEditable && onSave && (
-          <div className="flex justify-end pt-4 border-t border-gray-200">
+          <div className="flex justify-end pt-4 border-t border-[var(--sf-border-light)]">
             <button
               type="button"
               onClick={onSave}
               disabled={isSaving}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-[var(--sf-blue-500)] hover:bg-[var(--sf-blue-600)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--sf-blue-500)] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSaving ? (
                 <>

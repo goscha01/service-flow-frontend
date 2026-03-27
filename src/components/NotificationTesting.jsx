@@ -180,15 +180,15 @@ const NotificationTesting = () => {
   return (
     <div className="space-y-6">
       {/* Email Testing */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6">
+      <div className="bg-white border border-[var(--sf-border-light)] rounded-lg p-6">
         <div className="flex items-center space-x-3 mb-4">
-          <Mail className="w-6 h-6 text-blue-600" />
-          <h2 className="text-lg font-semibold text-gray-900">Email Testing</h2>
+          <Mail className="w-6 h-6 text-[var(--sf-blue-500)]" />
+          <h2 className="text-lg font-semibold text-[var(--sf-text-primary)]">Email Testing</h2>
         </div>
         
         <form onSubmit={handleSendTestEmail} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
               Recipient Email
             </label>
             <input
@@ -196,14 +196,14 @@ const NotificationTesting = () => {
               name="to"
               value={emailData.to}
               onChange={handleEmailInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)]"
               placeholder="test@example.com"
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
               Subject
             </label>
             <input
@@ -211,13 +211,13 @@ const NotificationTesting = () => {
               name="subject"
               value={emailData.subject}
               onChange={handleEmailInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)]"
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
               Message
             </label>
             <textarea
@@ -225,7 +225,7 @@ const NotificationTesting = () => {
               value={emailData.message}
               onChange={handleEmailInputChange}
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)]"
               required
             />
           </div>
@@ -233,7 +233,7 @@ const NotificationTesting = () => {
           <button
             type="submit"
             disabled={loading}
-            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center space-x-2 px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {loading ? (
               <Loader className="w-4 h-4 animate-spin" />
@@ -246,22 +246,22 @@ const NotificationTesting = () => {
       </div>
 
       {/* SMS Testing */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6">
+      <div className="bg-white border border-[var(--sf-border-light)] rounded-lg p-6">
         <div className="flex items-center space-x-3 mb-4">
           <Phone className="w-6 h-6 text-green-600" />
-          <h2 className="text-lg font-semibold text-gray-900">SMS Testing</h2>
+          <h2 className="text-lg font-semibold text-[var(--sf-text-primary)]">SMS Testing</h2>
         </div>
         
         <div className="space-y-4">
           {/* Phone Number Selection */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
               From Phone Number
             </label>
             <select
               value={selectedPhoneNumber}
               onChange={(e) => setSelectedPhoneNumber(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
             >
               {phoneNumbers.map((number) => (
                 <option key={number.phoneNumber} value={number.phoneNumber}>
@@ -273,7 +273,7 @@ const NotificationTesting = () => {
 
           <form onSubmit={handleSendTestSMS} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                 Recipient Phone Number
               </label>
               <input
@@ -281,14 +281,14 @@ const NotificationTesting = () => {
                 name="to"
                 value={smsData.to}
                 onChange={handleSMSInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                 placeholder="+1234567890"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                 Message
               </label>
               <textarea
@@ -296,7 +296,7 @@ const NotificationTesting = () => {
                 value={smsData.message}
                 onChange={handleSMSInputChange}
                 rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                 required
               />
             </div>
@@ -318,21 +318,21 @@ const NotificationTesting = () => {
       </div>
 
       {/* Team Member SMS Testing */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6">
+      <div className="bg-white border border-[var(--sf-border-light)] rounded-lg p-6">
         <div className="flex items-center space-x-3 mb-4">
           <User className="w-6 h-6 text-purple-600" />
-          <h2 className="text-lg font-semibold text-gray-900">Team Member SMS Testing</h2>
+          <h2 className="text-lg font-semibold text-[var(--sf-text-primary)]">Team Member SMS Testing</h2>
         </div>
         
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
               Select Team Member (Top 3)
             </label>
             <select
               value={selectedTeamMember}
               onChange={(e) => setSelectedTeamMember(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
             >
               <option value="">Choose a team member...</option>
               {teamMembers.slice(0, 3).map((member) => (
@@ -344,14 +344,14 @@ const NotificationTesting = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
               Message
             </label>
             <textarea
               value={smsData.message}
               onChange={(e) => setSmsData(prev => ({ ...prev, message: e.target.value }))}
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
               placeholder="Enter your message here..."
             />
           </div>

@@ -6,7 +6,7 @@ const ScheduleSidebar = ({ filters, onFilterChange, teamMembers }) => {
   const statusOptions = [
     { id: "all", label: "All Statuses", icon: Filter },
     { id: "pending", label: "Pending", icon: AlertCircle, color: "text-yellow-600" },
-    { id: "confirmed", label: "Confirmed", icon: CheckCircle, color: "text-blue-600" },
+    { id: "confirmed", label: "Confirmed", icon: CheckCircle, color: "text-[var(--sf-blue-500)]" },
     { id: "in-progress", label: "In Progress", icon: PlayCircle, color: "text-orange-600" },
     { id: "completed", label: "Completed", icon: CheckCircle, color: "text-green-600" },
     { id: "cancelled", label: "Cancelled", icon: XCircle, color: "text-red-600" },
@@ -51,11 +51,11 @@ const ScheduleSidebar = ({ filters, onFilterChange, teamMembers }) => {
   ]
 
   return (
-    <div className="w-full lg:w-64 bg-gray-50 border-r border-gray-200 flex-shrink-0 overflow-y-auto h-full">
+    <div className="w-full lg:w-64 bg-[var(--sf-bg-page)] border-r border-[var(--sf-border-light)] flex-shrink-0 overflow-y-auto h-full">
       <div className="p-4 space-y-6">
         {/* Status Filter */}
         <div>
-          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">STATUS</h3>
+          <h3 className="text-xs font-semibold text-[var(--sf-text-muted)] uppercase tracking-wider mb-3">STATUS</h3>
         <nav className="space-y-1">
             {statusOptions.map((option) => {
               const isActive = filters.status === option.id
@@ -65,8 +65,8 @@ const ScheduleSidebar = ({ filters, onFilterChange, teamMembers }) => {
                   onClick={() => onFilterChange('status', option.id)}
                 className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-left ${
                   isActive
-                    ? "bg-blue-50 text-blue-700 border border-blue-200"
-                    : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                    ? "bg-[var(--sf-blue-50)] text-[var(--sf-blue-500)] border border-blue-200"
+                    : "text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-hover)] hover:text-[var(--sf-text-primary)]"
                 }`}
               >
                   <option.icon className={`w-4 h-4 flex-shrink-0 ${option.color || ''}`} />
@@ -79,7 +79,7 @@ const ScheduleSidebar = ({ filters, onFilterChange, teamMembers }) => {
 
         {/* Team Member Filter */}
         <div>
-          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">JOBS ASSIGNED TO</h3>
+          <h3 className="text-xs font-semibold text-[var(--sf-text-muted)] uppercase tracking-wider mb-3">JOBS ASSIGNED TO</h3>
           <nav className="space-y-1">
             {teamMemberOptions.map((option) => {
               const isActive = filters.teamMember === option.id
@@ -89,8 +89,8 @@ const ScheduleSidebar = ({ filters, onFilterChange, teamMembers }) => {
                   onClick={() => onFilterChange('teamMember', option.id)}
                   className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-left ${
                     isActive
-                      ? "bg-blue-50 text-blue-700 border border-blue-200"
-                      : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                      ? "bg-[var(--sf-blue-50)] text-[var(--sf-blue-500)] border border-blue-200"
+                      : "text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-hover)] hover:text-[var(--sf-text-primary)]"
                   }`}
                 >
                   {option.color ? (
@@ -107,7 +107,7 @@ const ScheduleSidebar = ({ filters, onFilterChange, teamMembers }) => {
 
         {/* Territory Filter */}
         <div>
-          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">TERRITORIES</h3>
+          <h3 className="text-xs font-semibold text-[var(--sf-text-muted)] uppercase tracking-wider mb-3">TERRITORIES</h3>
           <nav className="space-y-1">
             {territoryOptions.map((option) => {
               const isActive = filters.territory === option.id
@@ -117,8 +117,8 @@ const ScheduleSidebar = ({ filters, onFilterChange, teamMembers }) => {
                   onClick={() => onFilterChange('territory', option.id)}
                   className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-left ${
                     isActive
-                      ? "bg-blue-50 text-blue-700 border border-blue-200"
-                      : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                      ? "bg-[var(--sf-blue-50)] text-[var(--sf-blue-500)] border border-blue-200"
+                      : "text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-hover)] hover:text-[var(--sf-text-primary)]"
                   }`}
                 >
                   <option.icon className="w-4 h-4 flex-shrink-0" />
@@ -131,7 +131,7 @@ const ScheduleSidebar = ({ filters, onFilterChange, teamMembers }) => {
 
         {/* Time Range Filter */}
         <div>
-          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">TIME RANGE</h3>
+          <h3 className="text-xs font-semibold text-[var(--sf-text-muted)] uppercase tracking-wider mb-3">TIME RANGE</h3>
           <nav className="space-y-1">
             {timeRangeOptions.map((option) => {
               const isActive = filters.timeRange === option.id
@@ -141,8 +141,8 @@ const ScheduleSidebar = ({ filters, onFilterChange, teamMembers }) => {
                   onClick={() => onFilterChange('timeRange', option.id)}
                   className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-left ${
                     isActive
-                      ? "bg-blue-50 text-blue-700 border border-blue-200"
-                      : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                      ? "bg-[var(--sf-blue-50)] text-[var(--sf-blue-500)] border border-blue-200"
+                      : "text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-hover)] hover:text-[var(--sf-text-primary)]"
                   }`}
                 >
                   <option.icon className="w-4 h-4 flex-shrink-0" />
@@ -155,7 +155,7 @@ const ScheduleSidebar = ({ filters, onFilterChange, teamMembers }) => {
 
         {/* Clear Filters */}
         {(filters.status !== 'all' || filters.teamMember !== 'all' || filters.timeRange !== 'all' || filters.territory !== 'all') && (
-          <div className="pt-4 border-t border-gray-200">
+          <div className="pt-4 border-t border-[var(--sf-border-light)]">
             <button
               onClick={() => {
                 onFilterChange('status', 'all')
@@ -163,7 +163,7 @@ const ScheduleSidebar = ({ filters, onFilterChange, teamMembers }) => {
                 onFilterChange('timeRange', 'all')
                 onFilterChange('territory', 'all')
               }}
-              className="w-full px-3 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              className="w-full px-3 py-2 text-sm font-medium text-[var(--sf-text-secondary)] bg-[var(--sf-bg-page)] rounded-lg hover:bg-gray-200 transition-colors"
             >
               Clear All Filters
             </button>

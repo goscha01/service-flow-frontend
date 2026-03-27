@@ -6,11 +6,11 @@ export default function ContractorSection() {
           {/* Left Column - Content */}
           <div className="space-y-8">
             <div className="space-y-6">
-              <span className="text-xs font-bold text-blue-600 uppercase tracking-wide">Self-Managed Availability</span>
-              <h2 className="text-3xl lg:text-4xl font-bold text-gray-900">
+              <span className="text-xs font-bold text-[var(--sf-blue-500)] uppercase tracking-wide">Self-Managed Availability</span>
+              <h2 className="text-3xl lg:text-4xl font-bold text-[var(--sf-text-primary)]">
                 Online booking that works with independent contractors.
               </h2>
-              <p className="text-lg text-gray-600 leading-relaxed">
+              <p className="text-lg text-[var(--sf-text-secondary)] leading-relaxed">
                 With Serviceflow, you can empower your contractors to control their own availability and update their
                 schedules as needed. This real-time availability is automatically pushed to your online booking page—so
                 customers always see up-to-date openings.

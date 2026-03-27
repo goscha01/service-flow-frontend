@@ -29,7 +29,7 @@ const ErrorPopup = ({
       case 'warning':
         return <AlertTriangle className="w-6 h-6 text-yellow-600" />
       case 'info':
-        return <Info className="w-6 h-6 text-blue-600" />
+        return <Info className="w-6 h-6 text-[var(--sf-blue-500)]" />
       default:
         return <AlertCircle className="w-6 h-6 text-red-600" />
     }
@@ -42,7 +42,7 @@ const ErrorPopup = ({
       case 'warning':
         return 'bg-yellow-50 border-yellow-200 text-yellow-800'
       case 'info':
-        return 'bg-blue-50 border-blue-200 text-blue-800'
+        return 'bg-[var(--sf-blue-50)] border-blue-200 text-blue-800'
       default:
         return 'bg-red-50 border-red-200 text-red-800'
     }
@@ -67,7 +67,7 @@ const ErrorPopup = ({
             <div className="ml-4 flex-shrink-0">
               <button
                 onClick={onClose}
-                className="text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 rounded-full p-1"
+                className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] focus:outline-none focus:ring-2 focus:ring-gray-500 rounded-full p-1"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -83,7 +83,7 @@ const ErrorPopup = ({
                   : type === 'warning'
                   ? 'bg-yellow-600 text-white hover:bg-yellow-700 focus:ring-yellow-500'
                   : type === 'info'
-                  ? 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500'
+                  ? 'bg-[var(--sf-blue-500)] text-white hover:bg-[var(--sf-blue-600)] focus:ring-[var(--sf-blue-500)]'
                   : 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500'
               }`}
             >

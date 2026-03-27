@@ -116,14 +116,14 @@ const TerritoryTeamMembersModal = ({ isOpen, onClose, onSuccess, territoryId, us
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <div className="flex items-center justify-between p-6 border-b border-[var(--sf-border-light)]">
           <div className="flex items-center gap-2">
-            <Users className="h-6 w-6 text-blue-600" />
-            <h3 className="text-lg font-semibold text-gray-900">Manage Service Providers</h3>
+            <Users className="h-6 w-6 text-[var(--sf-blue-500)]" />
+            <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">Manage Service Providers</h3>
           </div>
           <button 
             onClick={onClose} 
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] transition-colors"
             disabled={saving}
           >
             <X className="h-6 w-6" />
@@ -140,18 +140,18 @@ const TerritoryTeamMembersModal = ({ isOpen, onClose, onSuccess, territoryId, us
 
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+              <Loader2 className="w-8 h-8 animate-spin text-[var(--sf-blue-500)]" />
             </div>
           ) : (
             <>
-              <p className="text-sm text-gray-600 mb-4">
+              <p className="text-sm text-[var(--sf-text-secondary)] mb-4">
                 Select service providers to assign to this territory. These providers will be available for jobs in this region.
               </p>
 
               {availableTeamMembers.length === 0 ? (
                 <div className="text-center py-12">
-                  <Users className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                  <p className="text-sm text-gray-600">No team members available</p>
+                  <Users className="w-12 h-12 text-[var(--sf-text-muted)] mx-auto mb-3" />
+                  <p className="text-sm text-[var(--sf-text-secondary)]">No team members available</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -166,31 +166,31 @@ const TerritoryTeamMembersModal = ({ isOpen, onClose, onSuccess, territoryId, us
                         onClick={() => toggleTeamMember(member.id)}
                         className={`flex items-center gap-3 p-4 border rounded-lg cursor-pointer transition-colors ${
                           isSelected
-                            ? 'border-blue-500 bg-blue-50'
-                            : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                            ? 'border-blue-500 bg-[var(--sf-blue-50)]'
+                            : 'border-[var(--sf-border-light)] hover:border-[var(--sf-border-light)] hover:bg-[var(--sf-bg-page)]'
                         }`}
                       >
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                          isSelected ? 'bg-blue-500' : 'bg-gray-200'
+                          isSelected ? 'bg-[var(--sf-blue-500)]' : 'bg-gray-200'
                         }`}>
                           <span className={`text-sm font-medium ${
-                            isSelected ? 'text-white' : 'text-gray-600'
+                            isSelected ? 'text-white' : 'text-[var(--sf-text-secondary)]'
                           }`}>
                             {getInitials(member.first_name, member.last_name)}
                           </span>
                         </div>
                         
                         <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium text-gray-900 mb-0.5">
+                          <div className="text-sm font-medium text-[var(--sf-text-primary)] mb-0.5">
                             {fullName}
                           </div>
-                          <div className="text-xs text-gray-500">
+                          <div className="text-xs text-[var(--sf-text-muted)]">
                             {member.email || 'No email'} {member.role && `• ${member.role}`}
                           </div>
                         </div>
 
                         {isSelected && (
-                          <CheckCircle className="w-5 h-5 text-blue-600 flex-shrink-0" />
+                          <CheckCircle className="w-5 h-5 text-[var(--sf-blue-500)] flex-shrink-0" />
                         )}
                       </div>
                     )
@@ -202,18 +202,18 @@ const TerritoryTeamMembersModal = ({ isOpen, onClose, onSuccess, territoryId, us
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 bg-gray-50">
+        <div className="flex items-center justify-end gap-3 p-6 border-t border-[var(--sf-border-light)] bg-[var(--sf-bg-page)]">
           <button
             onClick={onClose}
             disabled={saving}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 text-sm font-medium text-[var(--sf-text-primary)] bg-white border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-page)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
             disabled={saving || loading}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            className="px-4 py-2 text-sm font-medium text-white bg-[var(--sf-blue-500)] rounded-lg hover:bg-[var(--sf-blue-600)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             {saving && <Loader2 className="w-4 h-4 animate-spin" />}
             Save Changes

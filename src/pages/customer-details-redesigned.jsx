@@ -173,7 +173,7 @@ const CustomerDetailsRedesigned = () => {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--sf-bg-page)] flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
     )
@@ -181,12 +181,12 @@ const CustomerDetailsRedesigned = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--sf-bg-page)] flex items-center justify-center">
         <div className="text-center">
           <div className="text-red-500 text-lg font-medium">{error}</div>
           <button
             onClick={() => navigate('/customers')}
-            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="mt-4 px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)]"
           >
             Back to Customers
           </button>
@@ -197,12 +197,12 @@ const CustomerDetailsRedesigned = () => {
 
   if (!customer) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--sf-bg-page)] flex items-center justify-center">
         <div className="text-center">
-          <div className="text-gray-500 text-lg font-medium">Customer not found</div>
+          <div className="text-[var(--sf-text-muted)] text-lg font-medium">Customer not found</div>
           <button
             onClick={() => navigate('/customers')}
-            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="mt-4 px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)]"
           >
             Back to Customers
           </button>
@@ -212,7 +212,7 @@ const CustomerDetailsRedesigned = () => {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-[var(--sf-bg-page)]">
       
       <div className="flex-1 flex flex-col min-w-0 lg:mx-44 xl:mx-48">
         
@@ -223,7 +223,7 @@ const CustomerDetailsRedesigned = () => {
               <div className="flex items-center space-x-4">
                 <button
                   onClick={() => navigate('/customers')}
-                  className="flex items-center text-gray-600 hover:text-gray-800 transition-colors"
+                  className="flex items-center text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] transition-colors"
                 >
                   <ChevronLeft className="w-5 h-5 mr-1" />
                   <span className="text-sm font-medium">All Customers</span>
@@ -231,7 +231,7 @@ const CustomerDetailsRedesigned = () => {
               </div>
               
               <div className="flex items-center space-x-4">
-                <h1 className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
+                <h1 className="text-2xl font-bold text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
                   {customer.first_name} {customer.last_name}
                 </h1>
               </div>
@@ -255,27 +255,27 @@ const CustomerDetailsRedesigned = () => {
               {/* Left Column */}
               <div className="space-y-6">
                 {/* DETAILS Card */}
-                <div className="bg-white rounded-lg border border-gray-200 p-6">
-                  <h3 className="text-sm font-semibold text-gray-700 mb-4">DETAILS</h3>
+                <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-6">
+                  <h3 className="text-sm font-semibold text-[var(--sf-text-primary)] mb-4">DETAILS</h3>
                   
                   <div className="space-y-4">
                     {customer.phone && (
                       <div className="flex items-center space-x-3">
-                        <Phone className="w-4 h-4 text-gray-400" />
-                        <span className="text-sm text-gray-900">{formatPhoneNumber(customer.phone)}</span>
+                        <Phone className="w-4 h-4 text-[var(--sf-text-muted)]" />
+                        <span className="text-sm text-[var(--sf-text-primary)]">{formatPhoneNumber(customer.phone)}</span>
                       </div>
                     )}
                     
                     <div className="flex items-center space-x-3">
-                      <Mail className="w-4 h-4 text-gray-400" />
-                      <span className="text-sm text-gray-900">
+                      <Mail className="w-4 h-4 text-[var(--sf-text-muted)]" />
+                      <span className="text-sm text-[var(--sf-text-primary)]">
                         {customer.email || 'No email address'}
                       </span>
                     </div>
                     
                     <div className="flex items-center space-x-3">
-                      <MapPin className="w-4 h-4 text-gray-400" />
-                      <span className="text-sm text-gray-900">
+                      <MapPin className="w-4 h-4 text-[var(--sf-text-muted)]" />
+                      <span className="text-sm text-[var(--sf-text-primary)]">
                         {(() => {
                           const addressParts = []
                           if (customer.address) addressParts.push(customer.address)
@@ -288,15 +288,15 @@ const CustomerDetailsRedesigned = () => {
                     </div>
 
                     <div className="flex items-center space-x-3">
-                      <Link className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                      <span className="text-sm text-gray-900">{customer.source || customer.customer_source || 'No source'}</span>
+                      <Link className="w-4 h-4 text-[var(--sf-text-muted)] flex-shrink-0" />
+                      <span className="text-sm text-[var(--sf-text-primary)]">{customer.source || customer.customer_source || 'No source'}</span>
                     </div>
                   </div>
 
-                  <div className="mt-6 pt-4 border-t border-gray-200">
+                  <div className="mt-6 pt-4 border-t border-[var(--sf-border-light)]">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">CUSTOMER SINCE</span>
-                      <span className="text-sm text-gray-900">
+                      <span className="text-xs font-medium text-[var(--sf-text-muted)] uppercase tracking-wide">CUSTOMER SINCE</span>
+                      <span className="text-sm text-[var(--sf-text-primary)]">
                         {new Date(customer.created_at).toLocaleDateString('en-US', { 
                           month: 'long', 
                           year: 'numeric' 
@@ -305,16 +305,16 @@ const CustomerDetailsRedesigned = () => {
                     </div>
                     
                     <div className="flex items-center justify-between mt-3">
-                      <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">SOURCE</span>
-                      <span className="text-sm text-gray-900">
+                      <span className="text-xs font-medium text-[var(--sf-text-muted)] uppercase tracking-wide">SOURCE</span>
+                      <span className="text-sm text-[var(--sf-text-primary)]">
                         {customer.source || customer.customer_source || 'No source'}
                       </span>
                     </div>
                     
                     <div className="flex items-center justify-between mt-3">
-                      <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">TOTAL REVENUE</span>
+                      <span className="text-xs font-medium text-[var(--sf-text-muted)] uppercase tracking-wide">TOTAL REVENUE</span>
                       <div className="flex items-center space-x-1">
-                        <span className="text-sm text-gray-900">
+                        <span className="text-sm text-[var(--sf-text-primary)]">
                           {(() => {
                             // Calculate total revenue from completed jobs and paid invoices
                             const completedJobs = jobs.filter(job => 
@@ -345,21 +345,21 @@ const CustomerDetailsRedesigned = () => {
                               : '$0.00'
                           })()}
                         </span>
-                        <Info className="w-3 h-3 text-gray-400" />
+                        <Info className="w-3 h-3 text-[var(--sf-text-muted)]" />
                       </div>
                     </div>
                   </div>
                 </div>
 
                 {/* Jobs Card */}
-                <div className="bg-white rounded-lg border border-gray-200 p-6" style={{ overflow: 'visible' }}>
+                <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-6" style={{ overflow: 'visible' }}>
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-semibold text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Jobs</h3>
+                    <h3 className="text-sm font-semibold text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Jobs</h3>
                     <div className="flex items-center space-x-2">
                       {canCreateJobs(user) && (
                         <button
                           onClick={handleNewJob}
-                          className="flex items-center space-x-1 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                          className="flex items-center space-x-1 px-3 py-1.5 bg-[var(--sf-blue-500)] text-white text-xs font-medium rounded-lg hover:bg-[var(--sf-blue-600)] transition-colors"
                           style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                         >
                           <Plus className="w-3 h-3" />
@@ -373,23 +373,23 @@ const CustomerDetailsRedesigned = () => {
                               e.stopPropagation()
                               setShowMenuDropdown(!showMenuDropdown)
                             }}
-                            className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                            className="p-2 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] transition-colors"
                             type="button"
                           >
                             <MoreVertical className="w-5 h-5" />
                           </button>
                           
                           {showMenuDropdown && (
-                            <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-[9999]">
+                            <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-[var(--sf-border-light)] py-2 z-[9999]">
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   handleEditCustomer()
                                 }}
-                                className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm"
+                                className="w-full text-left px-4 py-2.5 hover:bg-[var(--sf-bg-page)] transition-colors flex items-center gap-3 text-[var(--sf-text-primary)] font-medium text-sm"
                                 style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                               >
-                                <Edit className="w-4 h-4 text-gray-600" />
+                                <Edit className="w-4 h-4 text-[var(--sf-text-secondary)]" />
                                 <span>Edit Customer</span>
                               </button>
                               {canCreateJobs(user) && (
@@ -398,10 +398,10 @@ const CustomerDetailsRedesigned = () => {
                                     e.stopPropagation()
                                     handleNewJob()
                                   }}
-                                  className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-gray-800 font-medium text-sm"
+                                  className="w-full text-left px-4 py-2.5 hover:bg-[var(--sf-bg-page)] transition-colors flex items-center gap-3 text-[var(--sf-text-primary)] font-medium text-sm"
                                   style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                                 >
-                                  <FileText className="w-4 h-4 text-gray-600" />
+                                  <FileText className="w-4 h-4 text-[var(--sf-text-secondary)]" />
                                   <span>New Job</span>
                                 </button>
                               )}
@@ -410,7 +410,7 @@ const CustomerDetailsRedesigned = () => {
                                   e.stopPropagation()
                                   handleDeleteCustomer()
                                 }}
-                                className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center gap-3 text-red-600 font-medium text-sm"
+                                className="w-full text-left px-4 py-2.5 hover:bg-[var(--sf-bg-page)] transition-colors flex items-center gap-3 text-red-600 font-medium text-sm"
                                 style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                               >
                                 <Trash2 className="w-4 h-4 text-red-600" />
@@ -428,8 +428,8 @@ const CustomerDetailsRedesigned = () => {
                       onClick={() => setActiveJobTab("upcoming")}
                       className={`px-3 py-1.5 text-xs font-medium rounded ${
                         activeJobTab === "upcoming"
-                          ? "bg-blue-100 text-blue-700"
-                          : "text-gray-500 hover:text-gray-700"
+                          ? "bg-blue-100 text-[var(--sf-blue-500)]"
+                          : "text-[var(--sf-text-muted)] hover:text-[var(--sf-text-primary)]"
                       }`}
                     >
                       Upcoming {upcomingJobs.length}
@@ -438,8 +438,8 @@ const CustomerDetailsRedesigned = () => {
                       onClick={() => setActiveJobTab("past")}
                       className={`px-3 py-1.5 text-xs font-medium rounded ${
                         activeJobTab === "past"
-                          ? "bg-blue-100 text-blue-700"
-                          : "text-gray-500 hover:text-gray-700"
+                          ? "bg-blue-100 text-[var(--sf-blue-500)]"
+                          : "text-[var(--sf-text-muted)] hover:text-[var(--sf-text-primary)]"
                       }`}
                     >
                       Past {pastJobs.length}
@@ -448,8 +448,8 @@ const CustomerDetailsRedesigned = () => {
                       onClick={() => setActiveJobTab("cancelled")}
                       className={`px-3 py-1.5 text-xs font-medium rounded ${
                         activeJobTab === "cancelled"
-                          ? "bg-blue-100 text-blue-700"
-                          : "text-gray-500 hover:text-gray-700"
+                          ? "bg-blue-100 text-[var(--sf-blue-500)]"
+                          : "text-[var(--sf-text-muted)] hover:text-[var(--sf-text-primary)]"
                       }`}
                     >
                       Canceled {cancelledJobs.length}
@@ -459,19 +459,19 @@ const CustomerDetailsRedesigned = () => {
                   {/* Job List */}
                   <div className="space-y-3">
                     {activeJobTab === "upcoming" && upcomingJobs.map((job) => (
-                      <div key={job.id} className="flex items-center space-x-3 p-3 bg-blue-50 rounded-lg">
-                        <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center">
+                      <div key={job.id} className="flex items-center space-x-3 p-3 bg-[var(--sf-blue-50)] rounded-lg">
+                        <div className="w-12 h-12 bg-[var(--sf-blue-500)] rounded-lg flex items-center justify-center">
                           <Calendar className="w-6 h-6 text-white" />
                         </div>
                         <div className="flex-1">
-                          <div className="text-xs font-medium text-blue-600 uppercase">
+                          <div className="text-xs font-medium text-[var(--sf-blue-500)] uppercase">
                             {formatDate(job.scheduled_date)}
                           </div>
-                          <div className="text-sm font-semibold text-gray-900">
+                          <div className="text-sm font-semibold text-[var(--sf-text-primary)]">
                             JOB-#{job.id}
                           </div>
-                          <div className="text-sm text-gray-600">{job.service_name || 'Service'}</div>
-                          <div className="text-xs text-gray-500">
+                          <div className="text-sm text-[var(--sf-text-secondary)]">{job.service_name || 'Service'}</div>
+                          <div className="text-xs text-[var(--sf-text-muted)]">
                             {formatTime(job.scheduled_date)}
                           </div>
                         </div>
@@ -479,19 +479,19 @@ const CustomerDetailsRedesigned = () => {
                     ))}
                     
                     {activeJobTab === "past" && pastJobs.map((job) => (
-                      <div key={job.id} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                      <div key={job.id} className="flex items-center space-x-3 p-3 bg-[var(--sf-bg-page)] rounded-lg">
                         <div className="w-12 h-12 bg-gray-400 rounded-lg flex items-center justify-center">
                           <Calendar className="w-6 h-6 text-white" />
                         </div>
                         <div className="flex-1">
-                          <div className="text-xs font-medium text-gray-500 uppercase">
+                          <div className="text-xs font-medium text-[var(--sf-text-muted)] uppercase">
                             {formatDate(job.scheduled_date)}
                           </div>
-                          <div className="text-sm font-semibold text-gray-900">
+                          <div className="text-sm font-semibold text-[var(--sf-text-primary)]">
                             JOB-#{job.id}
                           </div>
-                          <div className="text-sm text-gray-600">{job.service_name || 'Service'}</div>
-                          <div className="text-xs text-gray-500">
+                          <div className="text-sm text-[var(--sf-text-secondary)]">{job.service_name || 'Service'}</div>
+                          <div className="text-xs text-[var(--sf-text-muted)]">
                             {formatTime(job.scheduled_date)}
                           </div>
                         </div>
@@ -507,11 +507,11 @@ const CustomerDetailsRedesigned = () => {
                           <div className="text-xs font-medium text-red-500 uppercase">
                             {formatDate(job.scheduled_date)}
                           </div>
-                          <div className="text-sm font-semibold text-gray-900">
+                          <div className="text-sm font-semibold text-[var(--sf-text-primary)]">
                             JOB-#{job.id}
                           </div>
-                          <div className="text-sm text-gray-600">{job.service_name || 'Service'}</div>
-                          <div className="text-xs text-gray-500">
+                          <div className="text-sm text-[var(--sf-text-secondary)]">{job.service_name || 'Service'}</div>
+                          <div className="text-xs text-[var(--sf-text-muted)]">
                             {formatTime(job.scheduled_date)}
                           </div>
                         </div>
@@ -521,22 +521,22 @@ const CustomerDetailsRedesigned = () => {
                 </div>
 
                 {/* Requests Card */}
-                <div className="bg-white rounded-lg border border-gray-200 p-6">
-                  <h3 className="text-sm font-semibold text-gray-700 mb-4">Requests</h3>
+                <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-6">
+                  <h3 className="text-sm font-semibold text-[var(--sf-text-primary)] mb-4">Requests</h3>
                   <div className="flex flex-col items-center justify-center py-8">
                     <FileText className="w-12 h-12 text-gray-300 mb-3" />
-                    <p className="text-sm text-gray-500 text-center">
+                    <p className="text-sm text-[var(--sf-text-muted)] text-center">
                       This customer hasn't submitted any booking or quote requests
                     </p>
                   </div>
                 </div>
 
                 {/* Estimates Card */}
-                <div className="bg-white rounded-lg border border-gray-200 p-6">
+                <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-6">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-semibold text-gray-700">Estimates</h3>
+                    <h3 className="text-sm font-semibold text-[var(--sf-text-primary)]">Estimates</h3>
                     {canCreateJobs(user) && (
-                      <button className="flex items-center space-x-1 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700">
+                      <button className="flex items-center space-x-1 px-3 py-1.5 bg-[var(--sf-blue-500)] text-white text-xs font-medium rounded-lg hover:bg-[var(--sf-blue-600)]">
                         <Plus className="w-3 h-3" />
                         <span>New Estimate</span>
                       </button>
@@ -544,18 +544,18 @@ const CustomerDetailsRedesigned = () => {
                   </div>
                   <div className="flex flex-col items-center justify-center py-8">
                     <Link className="w-12 h-12 text-gray-300 mb-3" />
-                    <p className="text-sm text-gray-500 text-center">
+                    <p className="text-sm text-[var(--sf-text-muted)] text-center">
                       No bookable estimates have been sent to this customer
                     </p>
                   </div>
                 </div>
 
                 {/* Notes and Files Card */}
-                <div className="bg-white rounded-lg border border-gray-200 p-6">
+                <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-6">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-semibold text-gray-700">Notes and Files</h3>
+                    <h3 className="text-sm font-semibold text-[var(--sf-text-primary)]">Notes and Files</h3>
                     {canCreateJobs(user) && (
-                      <button className="flex items-center space-x-1 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700">
+                      <button className="flex items-center space-x-1 px-3 py-1.5 bg-[var(--sf-blue-500)] text-white text-xs font-medium rounded-lg hover:bg-[var(--sf-blue-600)]">
                         <Plus className="w-3 h-3" />
                         <span>New Note</span>
                       </button>
@@ -563,7 +563,7 @@ const CustomerDetailsRedesigned = () => {
                   </div>
                   <div className="flex flex-col items-center justify-center py-8">
                     <FileText className="w-12 h-12 text-gray-300 mb-3" />
-                    <p className="text-sm text-gray-500 text-center">
+                    <p className="text-sm text-[var(--sf-text-muted)] text-center">
                       This customer doesn't have any notes attached to them
                     </p>
                   </div>
@@ -573,16 +573,16 @@ const CustomerDetailsRedesigned = () => {
               {/* Right Column */}
               <div className="space-y-6">
                 {/* Properties Card */}
-                <div className="bg-white rounded-lg border border-gray-200 p-6">
+                <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-6">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-semibold text-gray-700">Properties</h3>
+                    <h3 className="text-sm font-semibold text-[var(--sf-text-primary)]">Properties</h3>
                     {isAccountOwner(user) && (
                       <div className="flex items-center space-x-2">
-                        <button className="flex items-center space-x-1 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700">
+                        <button className="flex items-center space-x-1 px-3 py-1.5 bg-[var(--sf-blue-500)] text-white text-xs font-medium rounded-lg hover:bg-[var(--sf-blue-600)]">
                           <Plus className="w-3 h-3" />
                           <span>Add Property</span>
                         </button>
-                        <button className="p-1 text-gray-400 hover:text-gray-600">
+                        <button className="p-1 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]">
                           <MoreVertical className="w-4 h-4" />
                         </button>
                       </div>
@@ -590,19 +590,19 @@ const CustomerDetailsRedesigned = () => {
                   </div>
                   
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center justify-between p-3 bg-[var(--sf-bg-page)] rounded-lg">
                       <div className="flex items-center space-x-3">
-                        <MapPin className="w-4 h-4 text-gray-400" />
+                        <MapPin className="w-4 h-4 text-[var(--sf-text-muted)]" />
                         <div>
-                          <div className="text-sm font-medium text-gray-900">Victory Ave</div>
-                          <div className="text-xs text-gray-500">Sochumi</div>
+                          <div className="text-sm font-medium text-[var(--sf-text-primary)]">Victory Ave</div>
+                          <div className="text-xs text-[var(--sf-text-muted)]">Sochumi</div>
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded">
+                        <span className="px-2 py-1 bg-blue-100 text-[var(--sf-blue-500)] text-xs font-medium rounded">
                           Default
                         </span>
-                        <button className="p-1 text-gray-400 hover:text-gray-600">
+                        <button className="p-1 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]">
                           <MoreVertical className="w-4 h-4" />
                         </button>
                       </div>
@@ -611,33 +611,33 @@ const CustomerDetailsRedesigned = () => {
                 </div>
 
                 {/* Recurring Bookings Card */}
-                <div className="bg-white rounded-lg border border-gray-200 p-6">
-                  <h3 className="text-sm font-semibold text-gray-700 mb-4">Recurring Bookings</h3>
+                <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-6">
+                  <h3 className="text-sm font-semibold text-[var(--sf-text-primary)] mb-4">Recurring Bookings</h3>
                   <div className="flex flex-col items-center justify-center py-8">
                     <RefreshCw className="w-12 h-12 text-gray-300 mb-3" />
-                    <p className="text-sm text-gray-500 text-center">
+                    <p className="text-sm text-[var(--sf-text-muted)] text-center">
                       This customer doesn't have any recurring bookings
                     </p>
                   </div>
                 </div>
 
                 {/* Payment Methods Card */}
-                <div className="bg-white rounded-lg border border-gray-200 p-6">
+                <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-6">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-semibold text-gray-700">Payment Methods</h3>
+                    <h3 className="text-sm font-semibold text-[var(--sf-text-primary)]">Payment Methods</h3>
                     <div className="flex items-center space-x-2">
-                      <button className="flex items-center space-x-1 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700">
+                      <button className="flex items-center space-x-1 px-3 py-1.5 bg-[var(--sf-blue-500)] text-white text-xs font-medium rounded-lg hover:bg-[var(--sf-blue-600)]">
                         <Plus className="w-3 h-3" />
                         <span>Add Card</span>
                       </button>
-                      <button className="p-1 text-gray-400 hover:text-gray-600">
+                      <button className="p-1 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]">
                         <MoreVertical className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
                   <div className="flex flex-col items-center justify-center py-8">
                     <CreditCard className="w-12 h-12 text-gray-300 mb-3" />
-                    <p className="text-sm text-gray-500 text-center">
+                    <p className="text-sm text-[var(--sf-text-muted)] text-center">
                       This customer doesn't have any payment cards on file
                     </p>
                   </div>

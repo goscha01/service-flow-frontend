@@ -69,30 +69,30 @@ const TwilioConnectOnboarding = ({ onSuccess, onError }) => {
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-6">
+    <div className="bg-white border border-[var(--sf-border-light)] rounded-lg p-6">
       <div className="flex items-start space-x-3">
         <div className="flex-shrink-0">
-          <Phone className="w-6 h-6 text-blue-600" />
+          <Phone className="w-6 h-6 text-[var(--sf-blue-500)]" />
         </div>
         <div className="flex-1">
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
+          <h3 className="text-lg font-medium text-[var(--sf-text-primary)] mb-2">
             Connect Your Twilio Account
           </h3>
-          <p className="text-sm text-gray-600 mb-4">
+          <p className="text-sm text-[var(--sf-text-secondary)] mb-4">
             Connect your Twilio account to send SMS notifications to customers. 
             You'll use your own Twilio phone number and billing.
           </p>
           
           <div className="space-y-3">
-            <div className="flex items-center space-x-2 text-sm text-gray-600">
+            <div className="flex items-center space-x-2 text-sm text-[var(--sf-text-secondary)]">
               <CheckCircle className="w-4 h-4 text-green-500" />
               <span>Send job confirmations via SMS</span>
             </div>
-            <div className="flex items-center space-x-2 text-sm text-gray-600">
+            <div className="flex items-center space-x-2 text-sm text-[var(--sf-text-secondary)]">
               <CheckCircle className="w-4 h-4 text-green-500" />
               <span>Send payment reminders</span>
             </div>
-            <div className="flex items-center space-x-2 text-sm text-gray-600">
+            <div className="flex items-center space-x-2 text-sm text-[var(--sf-text-secondary)]">
               <CheckCircle className="w-4 h-4 text-green-500" />
               <span>Use your own Twilio phone number</span>
             </div>
@@ -111,7 +111,7 @@ const TwilioConnectOnboarding = ({ onSuccess, onError }) => {
             <button
               onClick={handleConnectAccount}
               disabled={loading}
-              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center space-x-2 px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {loading ? (
                 <Loader className="w-4 h-4 animate-spin" />
@@ -124,7 +124,7 @@ const TwilioConnectOnboarding = ({ onSuccess, onError }) => {
             </button>
           </div>
 
-          <div className="mt-4 text-xs text-gray-500">
+          <div className="mt-4 text-xs text-[var(--sf-text-muted)]">
             <p>
               You'll be redirected to Twilio to authorize the connection. 
               This is secure and uses Twilio's official OAuth flow.

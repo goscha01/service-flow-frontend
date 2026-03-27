@@ -74,9 +74,9 @@ const TerritoryMap = ({
 
   if (!territory || !mapUrl) {
     return (
-      <div className={`bg-gray-100 rounded-lg flex items-center justify-center ${className}`} style={{ height }}>
-        <div className="text-center text-gray-500">
-          <MapPin className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+      <div className={`bg-[var(--sf-bg-page)] rounded-lg flex items-center justify-center ${className}`} style={{ height }}>
+        <div className="text-center text-[var(--sf-text-muted)]">
+          <MapPin className="w-8 h-8 mx-auto mb-2 text-[var(--sf-text-muted)]" />
           <p>No territory data available</p>
         </div>
       </div>
@@ -84,7 +84,7 @@ const TerritoryMap = ({
   }
 
   return (
-    <div className={`relative bg-white overflow-hidden ${className || 'rounded-lg border border-gray-200'}`} style={height === '100%' ? { height: '100%' } : {}}>
+    <div className={`relative bg-white overflow-hidden ${className || 'rounded-lg border border-[var(--sf-border-light)]'}`} style={height === '100%' ? { height: '100%' } : {}}>
       {/* Map Container */}
       <div className="relative h-full" style={height !== '100%' ? { height } : {}}>
         {!mapError ? (
@@ -102,9 +102,9 @@ const TerritoryMap = ({
             onError={handleMapError}
           />
         ) : (
-          <div className="flex items-center justify-center h-full bg-gray-100">
-            <div className="text-center text-gray-500">
-              <MapPin className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+          <div className="flex items-center justify-center h-full bg-[var(--sf-bg-page)]">
+            <div className="text-center text-[var(--sf-text-muted)]">
+              <MapPin className="w-8 h-8 mx-auto mb-2 text-[var(--sf-text-muted)]" />
               <p>Map failed to load</p>
             </div>
           </div>
@@ -114,7 +114,7 @@ const TerritoryMap = ({
         <div className="absolute inset-0 pointer-events-none">
           {/* Territory Center Marker */}
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-            <div className={`${compact ? 'w-5 h-5' : 'w-6 h-6'} ${compact ? 'border' : 'border-2'} bg-blue-600 rounded-full border-white shadow-lg flex items-center justify-center`}>
+            <div className={`${compact ? 'w-5 h-5' : 'w-6 h-6'} ${compact ? 'border' : 'border-2'} bg-[var(--sf-blue-500)] rounded-full border-white shadow-lg flex items-center justify-center`}>
               <div className={`${compact ? 'w-1.5 h-1.5' : 'w-2 h-2'} bg-white rounded-full`}></div>
             </div>
           </div>
@@ -122,7 +122,7 @@ const TerritoryMap = ({
           {/* Territory Radius Circle */}
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
             <div 
-              className={`${compact ? 'border' : 'border-2'} border-blue-500 border-dashed rounded-full bg-blue-500 bg-opacity-10`}
+              className={`${compact ? 'border' : 'border-2'} border-blue-500 border-dashed rounded-full bg-[var(--sf-blue-500)] bg-opacity-10`}
               style={{
                 width: `${compact ? Math.min(250, Math.max(60, details.radius * 10)) : Math.min(200, Math.max(50, details.radius * 8))}px`,
                 height: `${compact ? Math.min(250, Math.max(60, details.radius * 10)) : Math.min(200, Math.max(50, details.radius * 8))}px`
@@ -134,10 +134,10 @@ const TerritoryMap = ({
           {!compact && (
             <div className="absolute top-4 left-4 bg-white rounded-lg shadow-lg p-3 max-w-xs">
               <div className="flex items-center space-x-2 mb-2">
-                <Target className="w-4 h-4 text-blue-600" />
-                <h3 className="font-semibold text-gray-900">{details.name}</h3>
+                <Target className="w-4 h-4 text-[var(--sf-blue-500)]" />
+                <h3 className="font-semibold text-[var(--sf-text-primary)]">{details.name}</h3>
               </div>
-              <div className="space-y-1 text-sm text-gray-600">
+              <div className="space-y-1 text-sm text-[var(--sf-text-secondary)]">
                 <div className="flex items-center space-x-2">
                   <MapPin className="w-3 h-3" />
                   <span>{details.location}</span>
@@ -162,10 +162,10 @@ const TerritoryMap = ({
           {compact && (
             <div className="absolute top-2 left-2 bg-white rounded-md shadow-md p-2 max-w-[140px]">
               <div className="flex items-center space-x-1 mb-1">
-                <Target className="w-3 h-3 text-blue-600" />
-                <h3 className="font-medium text-gray-900 text-xs truncate">{details.name}</h3>
+                <Target className="w-3 h-3 text-[var(--sf-blue-500)]" />
+                <h3 className="font-medium text-[var(--sf-text-primary)] text-xs truncate">{details.name}</h3>
               </div>
-              <div className="text-xs text-gray-600">
+              <div className="text-xs text-[var(--sf-text-secondary)]">
                 <div className="flex items-center space-x-1">
                   <Target className="w-2 h-2" />
                   <span>{details.radius} mi</span>
@@ -179,21 +179,21 @@ const TerritoryMap = ({
             <span className={`inline-flex items-center ${compact ? 'px-2 py-0.5 text-xs' : 'px-3 py-1 text-sm'} rounded-full font-medium ${
               details.status === 'active' 
                 ? 'bg-green-100 text-green-800' 
-                : 'bg-gray-100 text-gray-800'
+                : 'bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)]'
             }`}>
               {details.status}
             </span>
           </div>
 
           {/* Radius Indicator */}
-          <div className={`absolute ${compact ? 'bottom-2 left-2' : 'bottom-4 left-4'} bg-blue-600 text-white ${compact ? 'px-2 py-0.5 text-xs' : 'px-3 py-1 text-sm'} rounded-lg font-medium`}>
+          <div className={`absolute ${compact ? 'bottom-2 left-2' : 'bottom-4 left-4'} bg-[var(--sf-blue-500)] text-white ${compact ? 'px-2 py-0.5 text-xs' : 'px-3 py-1 text-sm'} rounded-lg font-medium`}>
             {details.radius} mi
           </div>
 
           {/* Map Controls */}
           <div className={`absolute ${compact ? 'bottom-2 right-2' : 'bottom-4 right-4'} flex space-x-2`}>
             <button 
-              className={`${compact ? 'p-1.5' : 'p-2'} bg-white rounded-lg shadow-md hover:bg-gray-50 transition-colors`}
+              className={`${compact ? 'p-1.5' : 'p-2'} bg-white rounded-lg shadow-md hover:bg-[var(--sf-bg-page)] transition-colors`}
               onClick={() => window.open(mapUrl.replace('embed', 'maps'), '_blank')}
               title="Open in Google Maps"
             >
@@ -206,10 +206,10 @@ const TerritoryMap = ({
 
         {/* Loading Overlay */}
         {!mapLoaded && !mapError && (
-          <div className="absolute inset-0 bg-gray-100 flex items-center justify-center">
+          <div className="absolute inset-0 bg-[var(--sf-bg-page)] flex items-center justify-center">
             <div className="text-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-              <p className="text-gray-600">Loading map...</p>
+              <p className="text-[var(--sf-text-secondary)]">Loading map...</p>
             </div>
           </div>
         )}
@@ -217,23 +217,23 @@ const TerritoryMap = ({
 
       {/* Territory Details Section */}
       {showDetails && details && (
-        <div className="p-4 border-t border-gray-200">
+        <div className="p-4 border-t border-[var(--sf-border-light)]">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">{details.radius}</div>
-              <div className="text-sm text-gray-600">Mile Radius</div>
+              <div className="text-2xl font-bold text-[var(--sf-blue-500)]">{details.radius}</div>
+              <div className="text-sm text-[var(--sf-text-secondary)]">Mile Radius</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-green-600">{details.teamMembers}</div>
-              <div className="text-sm text-gray-600">Team Members</div>
+              <div className="text-sm text-[var(--sf-text-secondary)]">Team Members</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-purple-600">{details.pricingMultiplier}x</div>
-              <div className="text-sm text-gray-600">Pricing Multiplier</div>
+              <div className="text-sm text-[var(--sf-text-secondary)]">Pricing Multiplier</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-orange-600">{details.zipCodes.length}</div>
-              <div className="text-sm text-gray-600">ZIP Codes</div>
+              <div className="text-sm text-[var(--sf-text-secondary)]">ZIP Codes</div>
             </div>
           </div>
         </div>

@@ -57,8 +57,8 @@ export default function FeaturesGrid() {
             <div key={index} className={`${feature.bgColor} rounded-3xl p-8 space-y-6`}>
               <div className="space-y-4">
                 <span className="text-xs font-bold text-green-600 uppercase tracking-wide">{feature.category}</span>
-                <h3 className="text-2xl font-bold text-gray-900">{feature.title}</h3>
-                <p className="text-gray-600 leading-relaxed">{feature.description}</p>
+                <h3 className="text-2xl font-bold text-[var(--sf-text-primary)]">{feature.title}</h3>
+                <p className="text-[var(--sf-text-secondary)] leading-relaxed">{feature.description}</p>
               </div>
 
               <div className="relative">

@@ -197,7 +197,7 @@ const AddressAutocomplete = ({
       return <CheckCircle className="w-4 h-4 text-green-500" />;
     }
     
-    return <MapPin className="w-4 h-4 text-gray-400" />;
+    return <MapPin className="w-4 h-4 text-[var(--sf-text-muted)]" />;
   };
 
   // Add styles for Google Places Autocomplete dropdown
@@ -245,7 +245,7 @@ const AddressAutocomplete = ({
           value={input}
           onChange={handleInputChange}
           placeholder={placeholder}
-          className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          className="w-full px-3 py-2 pr-10 border border-[var(--sf-border-light)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
           readOnly={!googleMapsReady}
           autoComplete="off"
           spellCheck={false}
@@ -257,7 +257,7 @@ const AddressAutocomplete = ({
       
       {/* Loading State */}
       {!googleMapsReady && (
-        <div className="mt-2 text-sm text-gray-500 flex items-center gap-1">
+        <div className="mt-2 text-sm text-[var(--sf-text-muted)] flex items-center gap-1">
           <Loader2 className="w-4 h-4 animate-spin" />
           Loading Google Maps...
                 </div>

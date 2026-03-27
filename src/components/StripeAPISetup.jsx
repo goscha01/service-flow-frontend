@@ -112,12 +112,12 @@ const StripeAPISetup = ({ onSuccess, onError }) => {
 
   if (checkingConnection) {
     return (
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+      <div className="bg-[var(--sf-blue-50)] border border-blue-200 rounded-lg p-4">
         <div className="flex items-center space-x-3">
-          <Loader className="w-5 h-5 text-blue-600 animate-spin" />
+          <Loader className="w-5 h-5 text-[var(--sf-blue-500)] animate-spin" />
           <div>
             <h3 className="text-sm font-medium text-blue-800">Checking Connection</h3>
-            <p className="text-sm text-blue-700">
+            <p className="text-sm text-[var(--sf-blue-500)]">
               Verifying your Stripe connection status...
             </p>
           </div>
@@ -151,30 +151,30 @@ const StripeAPISetup = ({ onSuccess, onError }) => {
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-6">
+    <div className="bg-white border border-[var(--sf-border-light)] rounded-lg p-6">
       <div className="flex items-start space-x-3">
         <div className="flex-shrink-0">
           <CreditCard className="w-6 h-6 text-purple-600" />
         </div>
         <div className="flex-1">
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
+          <h3 className="text-lg font-medium text-[var(--sf-text-primary)] mb-2">
             Setup Stripe Payment Integration
           </h3>
-          <p className="text-sm text-gray-600 mb-4">
+          <p className="text-sm text-[var(--sf-text-secondary)] mb-4">
             Enter your Stripe API keys to process payments and send invoices. 
             You'll use your own Stripe account and handle all transactions directly.
           </p>
           
           <div className="space-y-3 mb-4">
-            <div className="flex items-center space-x-2 text-sm text-gray-600">
+            <div className="flex items-center space-x-2 text-sm text-[var(--sf-text-secondary)]">
               <CheckCircle className="w-4 h-4 text-green-500" />
               <span>Send invoices to customers</span>
             </div>
-            <div className="flex items-center space-x-2 text-sm text-gray-600">
+            <div className="flex items-center space-x-2 text-sm text-[var(--sf-text-secondary)]">
               <CheckCircle className="w-4 h-4 text-green-500" />
               <span>Process payments directly</span>
             </div>
-            <div className="flex items-center space-x-2 text-sm text-gray-600">
+            <div className="flex items-center space-x-2 text-sm text-[var(--sf-text-secondary)]">
               <CheckCircle className="w-4 h-4 text-green-500" />
               <span>Use your own Stripe account</span>
             </div>
@@ -182,7 +182,7 @@ const StripeAPISetup = ({ onSuccess, onError }) => {
           
           <form onSubmit={handleSetupCredentials} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                 Publishable Key
               </label>
               <input
@@ -190,14 +190,14 @@ const StripeAPISetup = ({ onSuccess, onError }) => {
                 name="publishableKey"
                 value={formData.publishableKey}
                 onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
                 placeholder="pk_test_xxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                 Secret Key
               </label>
               <div className="relative">
@@ -206,7 +206,7 @@ const StripeAPISetup = ({ onSuccess, onError }) => {
                   name="secretKey"
                   value={formData.secretKey}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-3 py-2 pr-10 border border-[var(--sf-border-light)] rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
                   placeholder="sk_test_xxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
                   required
                 />
@@ -216,9 +216,9 @@ const StripeAPISetup = ({ onSuccess, onError }) => {
                   className="absolute inset-y-0 right-0 pr-3 flex items-center"
                 >
                   {showCredentials ? (
-                    <EyeOff className="w-4 h-4 text-gray-400" />
+                    <EyeOff className="w-4 h-4 text-[var(--sf-text-muted)]" />
                   ) : (
-                    <Eye className="w-4 h-4 text-gray-400" />
+                    <Eye className="w-4 h-4 text-[var(--sf-text-muted)]" />
                   )}
                 </button>
               </div>
@@ -253,14 +253,14 @@ const StripeAPISetup = ({ onSuccess, onError }) => {
                 type="button"
                 onClick={handleTestConnection}
                 disabled={loading}
-                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="px-4 py-2 border border-[var(--sf-border-light)] text-[var(--sf-text-primary)] rounded-lg hover:bg-[var(--sf-bg-page)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Test Connection
               </button>
             </div>
           </form>
 
-          <div className="mt-4 text-xs text-gray-500">
+          <div className="mt-4 text-xs text-[var(--sf-text-muted)]">
             <p>
               Your API keys are stored securely and only used to process payments through your Stripe account.
             </p>

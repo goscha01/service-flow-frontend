@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { useNavigate } from "react-router-dom"
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Calendar, CalendarDays, Clock, Users, Filter, Edit, X, Check, CheckCircle, AlertCircle, List, Grid, Phone, Mail, DollarSign } from "lucide-react"
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronDown, Calendar, CalendarDays, Clock, Users, Filter, Edit, X, Check, CheckCircle, AlertCircle, List, Grid, Phone, Mail, DollarSign, Search, Plus } from "lucide-react"
 import { teamAPI, jobsAPI, leadsAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
 import { getImageUrl } from "../utils/imageUtils"
@@ -55,11 +55,16 @@ const UnifiedCalendar = () => {
     const lastDay = new Date(currentYear, currentMonth + 1, 0)
     const startDate = new Date(firstDay)
     startDate.setDate(startDate.getDate() - firstDay.getDay())
-    
+
     const days = []
     const currentDate = new Date(startDate)
-    
-    for (let i = 0; i < 42; i++) {
+
+    // Calculate needed rows: enough to cover from start padding through last day of month
+    const daysNeeded = firstDay.getDay() + lastDay.getDate()
+    const rowsNeeded = Math.ceil(daysNeeded / 7)
+    const totalCells = rowsNeeded * 7
+
+    for (let i = 0; i < totalCells; i++) {
       days.push({
         date: new Date(currentDate),
         isCurrentMonth: currentDate.getMonth() === currentMonth,
@@ -1599,10 +1604,10 @@ const UnifiedCalendar = () => {
   // Only show loading spinner on initial load
   if (loading && teamMembers.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--sf-bg-page)] flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading calendar...</p>
+          <p className="mt-4 text-[var(--sf-text-secondary)]">Loading calendar...</p>
         </div>
       </div>
     )
@@ -1613,7 +1618,7 @@ const UnifiedCalendar = () => {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen bg-[var(--sf-bg-page)] overflow-hidden">
       {/* Sidebar - Always Collapsed */}
       
       {/* Main Content */}
@@ -1622,7 +1627,7 @@ const UnifiedCalendar = () => {
         <MobileHeader pageTitle="Tasks" />
         
         {/* View Mode Switcher - Tasks Only */}
-        <div className="bg-white border-b border-gray-200 px-4 py-3">
+        <div className="bg-white border-b border-[var(--sf-border-light)] px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <button
@@ -1632,8 +1637,8 @@ const UnifiedCalendar = () => {
                 }}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                   viewMode === 'tasks-calendar'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    ? 'bg-[var(--sf-blue-500)] text-white'
+                    : 'bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-hover)]'
                 }`}
               >
                 Calendar
@@ -1642,8 +1647,8 @@ const UnifiedCalendar = () => {
                 onClick={() => setViewMode('tasks-list')}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                   viewMode === 'tasks-list'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    ? 'bg-[var(--sf-blue-500)] text-white'
+                    : 'bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-hover)]'
                 }`}
               >
                 List
@@ -1655,26 +1660,26 @@ const UnifiedCalendar = () => {
         <div className="flex-1 flex min-w-0">
         {/* Filter Sidebar - Show for Tasks View */}
         {(viewMode === 'tasks-calendar' || viewMode === 'tasks-list') && (
-          <div className="hidden lg:flex w-56 bg-white border-r border-gray-200 flex-shrink-0 flex-col h-screen">
+          <div className="hidden lg:flex w-56 bg-white border-r border-[var(--sf-border-light)] flex-shrink-0 flex-col h-screen">
             {/* Fixed Header */}
-            <div className="p-4 border-b border-gray-200 flex-shrink-0">
+            <div className="p-4 border-b border-[var(--sf-border-light)] flex-shrink-0">
               <div className="flex items-center justify-between">
-                <h2 style={{fontFamily: 'Montserrat', fontWeight: 700}} className="text-2xl font-bold text-gray-900">Filters</h2>
+                <h2 style={{fontFamily: 'Montserrat', fontWeight: 700}} className="text-2xl font-bold text-[var(--sf-text-primary)]">Filters</h2>
               </div>
             </div>
             
             {/* Scrollable Filter Content */}
-            <div className="flex-1 bg-gray-100 overflow-y-auto p-2 scrollbar-hide">
+            <div className="flex-1 bg-[var(--sf-bg-page)] overflow-y-auto p-2 scrollbar-hide">
               {/* Tasks Filter - Only show team members with active tasks */}
               <div className="mb-6">
-                <h3 className="text-xs font-semibold text-gray-700 mb-3 uppercase tracking-wider">TASKS</h3>
+                <h3 className="text-xs font-semibold text-[var(--sf-text-primary)] mb-3 uppercase tracking-wider">TASKS</h3>
                 
                 <button
                   onClick={() => handleSelectTeamMember(null)}
                   className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors mb-2 ${
                     selectedTeamMemberId === null
-                      ? 'bg-blue-50 text-blue-700 border border-blue-200' 
-                      : 'bg-white text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                      ? 'bg-[var(--sf-blue-50)] text-[var(--sf-blue-500)] border border-blue-200' 
+                      : 'bg-white text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-hover)] hover:text-[var(--sf-text-primary)]'
                   }`}
                 >
                   <Users className="w-4 h-4" />
@@ -1741,8 +1746,8 @@ const UnifiedCalendar = () => {
                         onClick={() => handleSelectTeamMember(member.id)}
                         className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors mb-2 ${
                           isSelected 
-                            ? 'bg-blue-50 text-blue-700 border border-blue-200' 
-                            : 'bg-white text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                            ? 'bg-[var(--sf-blue-50)] text-[var(--sf-blue-500)] border border-blue-200' 
+                            : 'bg-white text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-hover)] hover:text-[var(--sf-text-primary)]'
                         }`}
                       >
                         <div 
@@ -1751,7 +1756,7 @@ const UnifiedCalendar = () => {
                         />
                         <span className="truncate flex-1 text-left">{member.first_name} {member.last_name}</span>
                         {memberTaskCount > 0 && (
-                          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
+                          <span className="text-xs bg-blue-100 text-[var(--sf-blue-500)] px-2 py-0.5 rounded-full font-medium">
                             {memberTaskCount}
                           </span>
                         )}
@@ -1765,7 +1770,7 @@ const UnifiedCalendar = () => {
         )}
 
         {/* Calendar Content */}
-        <div className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto scrollbar-hide bg-gray-50">
+        <div className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto scrollbar-hide bg-[var(--sf-bg-page)]">
       {/* Message */}
       {message.text && (
         <div className={`px-4 py-3 ${message.type === 'success' ? 'bg-green-50 border-l-4 border-green-400' : 'bg-red-50 border-l-4 border-red-400'}`}>
@@ -1778,17 +1783,17 @@ const UnifiedCalendar = () => {
       {/* Tasks List View */}
       {viewMode === 'tasks-list' && (
         <div className="px-4 py-6 lg:px-6">
-          <div className="bg-white rounded-lg shadow-sm">
-            <div className="px-6 py-4 border-b border-gray-200">
+          <div className="bg-white rounded-xl border border-[var(--sf-border-light)] shadow-sm">
+            <div className="px-6 py-4 border-b border-[var(--sf-border-light)]">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-900">Tasks</h2>
+                <h2 className="text-lg font-semibold text-[var(--sf-text-primary)]">Tasks</h2>
                 <div className="flex items-center space-x-2">
                   <button
                     onClick={() => {
                       setViewMode('tasks-calendar')
                       setCalendarView('month')
                     }}
-                    className="px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors flex items-center space-x-2"
+                    className="bg-white border border-[var(--sf-border-light)] rounded-lg px-3 py-2 text-sm font-medium text-[var(--sf-text-secondary)] hover:bg-[var(--sf-bg-hover)] transition-colors flex items-center space-x-2"
                   >
                     <Calendar className="w-4 h-4" />
                     <span>Calendar View</span>
@@ -1796,7 +1801,7 @@ const UnifiedCalendar = () => {
                   <select
                     value={taskFilter}
                     onChange={(e) => setTaskFilter(e.target.value)}
-                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="border border-[var(--sf-border-light)] rounded-lg bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)]"
                   >
                     <option value="all">All Tasks</option>
                     <option value="pending">Pending</option>
@@ -1814,18 +1819,18 @@ const UnifiedCalendar = () => {
                       setShowCreateTaskModal(true)
                       console.log('showCreateTaskModal set to:', true)
                     }}
-                    className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 active:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors cursor-pointer"
+                    className="sf-btn-primary px-3 py-2 rounded-lg text-sm font-medium active:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:ring-offset-2 transition-colors cursor-pointer"
                   >
                     + Add Task
                   </button>
                 </div>
               </div>
             </div>
-            
+
             <div className="p-6">
               {getFilteredTasks().length === 0 ? (
-                <div className="text-center py-12 text-gray-500">
-                  <Calendar className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                <div className="text-center py-12 text-[var(--sf-text-muted)]">
+                  <Calendar className="w-12 h-12 mx-auto mb-4 text-[var(--sf-text-muted)]" />
                   <p className="text-lg font-medium mb-2">No tasks found</p>
                   <p className="text-sm mb-4">
                     {taskFilter !== 'all' ? `No ${taskFilter} tasks` : 'Get started by creating your first task'}
@@ -1841,7 +1846,7 @@ const UnifiedCalendar = () => {
                         setShowCreateTaskModal(true)
                         console.log('showCreateTaskModal set to:', true)
                       }}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 active:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors cursor-pointer"
+                      className="sf-btn-primary px-4 py-2 rounded-lg text-sm font-medium active:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:ring-offset-2 transition-colors cursor-pointer"
                     >
                       Create Task
                     </button>
@@ -1878,130 +1883,90 @@ const UnifiedCalendar = () => {
       {/* Tasks Calendar View or Availability Calendar */}
           {viewMode === 'tasks-calendar' && (
         <>
-              {/* Top Header Bar */}
-              <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4">
-            <div className="flex items-center justify-between">
-                  {/* Left - View Switcher and Date Navigation */}
-                  <div className="flex items-center space-x-4">
-                    {/* Tasks View Switcher (List/Calendar) - Only show in tasks mode */}
-                    {viewMode === 'tasks-calendar' && (
-                      <div className="flex items-center bg-gray-100 rounded-lg p-1">
-                        <button
-                          onClick={() => setViewMode('tasks-list')}
-                          className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
-                            viewMode === 'tasks-list'
-                              ? 'bg-white text-blue-600 shadow-sm'
-                              : 'text-gray-600 hover:text-gray-900'
-                          }`}
-                        >
-                          <List className="w-4 h-4 inline mr-1" />
-                          List
-                        </button>
-                        <button
-                          onClick={() => {
-                            setViewMode('tasks-calendar')
-                            setCalendarView('month')
-                          }}
-                          className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
-                            viewMode === 'tasks-calendar'
-                              ? 'bg-white text-blue-600 shadow-sm'
-                              : 'text-gray-600 hover:text-gray-900'
-                          }`}
-                        >
-                          <Calendar className="w-4 h-4 inline mr-1" />
-                          Calendar
-                        </button>
-                      </div>
-                    )}
-                    {/* Calendar View Switcher (Day/Week/Month) */}
-                    <div className="flex items-center bg-gray-100 rounded-lg p-1">
-                      <button
-                        onClick={() => setCalendarView('day')}
-                        className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
-                          calendarView === 'day'
-                            ? 'bg-white text-blue-600 shadow-sm'
-                            : 'text-gray-600 hover:text-gray-900'
-                        }`}
-                      >
-                        Day
-                      </button>
-                      <button
-                        onClick={() => setCalendarView('week')}
-                        className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
-                          calendarView === 'week'
-                            ? 'bg-white text-blue-600 shadow-sm'
-                            : 'text-gray-600 hover:text-gray-900'
-                        }`}
-                      >
-                        Week
-                      </button>
-                      <button
-                        onClick={() => setCalendarView('month')}
-                        className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
-                          calendarView === 'month'
-                            ? 'bg-white text-blue-600 shadow-sm'
-                            : 'text-gray-600 hover:text-gray-900'
-                        }`}
-                      >
-                        Month
-                      </button>
-                    </div>
-                    
-                    {/* Date Navigation (Pill Shape) */}
-                    <div className="flex items-center space-x-2 relative">
-                      <div className="flex items-center bg-gray-200 rounded-full px-3 py-1.5">
-              <button
-                onClick={() => {
-                  const newDate = new Date(currentDate)
-                  newDate.setFullYear(newDate.getFullYear() - 1)
-                  setCurrentDate(newDate)
-                }}
-                className="p-1 hover:bg-gray-300 rounded-full transition-colors"
-                title="Previous year"
-              >
-                <ChevronsLeft className="w-4 h-4 text-gray-700" />
-              </button>
-              <button
-                onClick={handlePreviousMonth}
-                          className="p-1 hover:bg-gray-300 rounded-full transition-colors"
-                          title="Previous month"
-              >
-                          <ChevronLeft className="w-4 h-4 text-gray-700" />
-              </button>
-                        <button
-                          onClick={() => setShowCalendarPicker(!showCalendarPicker)}
-                          className="text-sm font-semibold text-gray-900 mx-3 hover:text-blue-600 transition-colors cursor-pointer min-w-[140px] text-center"
-                        >
-                          {calendarView === 'day'
-                            ? currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
-                            : calendarView === 'week'
-                            ? `Week of ${getWeekStartDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
-                            : `${monthNames[currentMonth]} ${currentYear}`
-                          }
-                        </button>
-                        <button
-                          onClick={handleNextMonth}
-                          className="p-1 hover:bg-gray-300 rounded-full transition-colors"
-                          title="Next month"
-                        >
-                          <ChevronRight className="w-4 h-4 text-gray-700" />
-                        </button>
-              <button
-                onClick={() => {
-                  const newDate = new Date(currentDate)
-                  newDate.setFullYear(newDate.getFullYear() + 1)
-                  setCurrentDate(newDate)
-                }}
-                className="p-1 hover:bg-gray-300 rounded-full transition-colors"
-                title="Next year"
-              >
-                <ChevronsRight className="w-4 h-4 text-gray-700" />
-              </button>
-                      </div>
+              {/* Top Header Bar - Figma-aligned */}
+              <div className="calendar-header bg-white border-b border-[var(--sf-border-light)] px-4 sm:px-6 py-4">
+                {/* Row 1: Title */}
+                <h2 className="text-xl font-semibold text-[var(--sf-text-primary)] mb-3">Calendar</h2>
 
-                      {/* Calendar Picker Popup */}
+                {/* Row 2: Controls */}
+                <div className="flex items-center justify-between">
+                  {/* Left - Date Navigation */}
+                  <div className="flex items-center space-x-3">
+                    {/* Today Button */}
+                    <button
+                      onClick={() => {
+                        const today = new Date()
+                        setCurrentDate(today)
+                        setSelectedDate(today)
+                      }}
+                      className="calendar-btn-today px-3 py-1.5 text-xs font-medium text-[var(--sf-text-primary)] bg-white border border-[var(--sf-border-light)] shadow-sm hover:bg-[var(--sf-bg-hover)] transition-colors"
+                    >
+                      Today
+                    </button>
+
+                    {/* Month/Year Picker */}
+                    <button
+                      onClick={() => setShowCalendarPicker(!showCalendarPicker)}
+                      className="calendar-month-picker flex items-center space-x-1 text-sm font-medium text-[var(--sf-text-primary)] hover:text-[var(--sf-blue-500)] transition-colors cursor-pointer"
+                    >
+                      <span>{`${monthNames[currentMonth]} ${currentYear}`}</span>
+                      <ChevronDown className="w-4 h-4" />
+                    </button>
+
+                    {/* Prev/Next Month Arrows (circular) */}
+                    <button
+                      onClick={handlePreviousMonth}
+                      className="calendar-nav-arrow bg-white border border-[var(--sf-border-light)] shadow-sm hover:bg-[var(--sf-bg-hover)] transition-colors"
+                      title="Previous month"
+                    >
+                      <ChevronLeft className="w-3.5 h-3.5 text-[var(--sf-text-primary)]" />
+                    </button>
+                    <button
+                      onClick={handleNextMonth}
+                      className="calendar-nav-arrow bg-white border border-[var(--sf-border-light)] shadow-sm hover:bg-[var(--sf-bg-hover)] transition-colors"
+                      title="Next month"
+                    >
+                      <ChevronRight className="w-3.5 h-3.5 text-[var(--sf-text-primary)]" />
+                    </button>
+                  </div>
+
+                  {/* Right - Search, View, Add */}
+                  <div className="flex items-center space-x-3">
+                    {/* Search */}
+                    <div className="calendar-search flex items-center bg-white border border-[var(--sf-border-light)] px-3 py-1.5 w-48">
+                      <Search className="w-4 h-4 text-[var(--sf-text-muted)] mr-2 flex-shrink-0" />
+                      <span className="text-sm text-[var(--sf-text-muted)]">Search</span>
+                    </div>
+
+                    {/* Monthly Dropdown */}
+                    <button
+                      className="calendar-btn-monthly flex items-center space-x-1.5 px-4 py-2 bg-white border border-[var(--sf-border-light)] text-sm font-medium text-[var(--sf-text-primary)] shadow-sm hover:bg-[var(--sf-bg-hover)] transition-colors"
+                    >
+                      <span>{calendarView === 'day' ? 'Daily' : calendarView === 'week' ? 'Weekly' : 'Monthly'}</span>
+                      <ChevronDown className="w-4 h-4" />
+                    </button>
+
+                    {/* Add Event Button */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        setEditingTask(null)
+                        setShowCreateTaskModal(true)
+                      }}
+                      className="calendar-btn-add flex items-center space-x-1.5 px-4 py-2 bg-[#2970FF] text-white text-sm font-medium hover:bg-[#1a5cd4] transition-colors"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Add Event</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Calendar Picker Popup */}
+                <div className="relative">
                       {showCalendarPicker && (
-                        <div ref={calendarPickerRef} className="absolute top-full left-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 p-4 w-72 sm:w-80">
+                        <div ref={calendarPickerRef} className="absolute top-2 right-0 bg-white border border-[var(--sf-border-light)] rounded-lg shadow-lg z-50 p-4 w-72 sm:w-80">
                           <div className="grid grid-cols-7 gap-1">
                             {/* Calendar Header */}
                             <div className="col-span-7 flex items-center justify-between mb-2">
@@ -2012,7 +1977,7 @@ const UnifiedCalendar = () => {
                                     newDate.setFullYear(newDate.getFullYear() - 1)
                                     setCurrentDate(newDate)
                                   }}
-                                  className="p-1 hover:bg-gray-100 rounded"
+                                  className="p-1 hover:bg-[var(--sf-bg-hover)] rounded"
                                   title="Previous year"
                                 >
                                   <ChevronsLeft className="w-4 h-4" />
@@ -2023,7 +1988,7 @@ const UnifiedCalendar = () => {
                                     newDate.setMonth(newDate.getMonth() - 1)
                                     setCurrentDate(newDate)
                                   }}
-                                  className="p-1 hover:bg-gray-100 rounded"
+                                  className="p-1 hover:bg-[var(--sf-bg-hover)] rounded"
                                   title="Previous month"
                                 >
                                   <ChevronLeft className="w-4 h-4" />
@@ -2039,7 +2004,7 @@ const UnifiedCalendar = () => {
                                     newDate.setMonth(newDate.getMonth() + 1)
                                     setCurrentDate(newDate)
                                   }}
-                                  className="p-1 hover:bg-gray-100 rounded"
+                                  className="p-1 hover:bg-[var(--sf-bg-hover)] rounded"
                                   title="Next month"
                                 >
                                   <ChevronRight className="w-4 h-4" />
@@ -2050,7 +2015,7 @@ const UnifiedCalendar = () => {
                                     newDate.setFullYear(newDate.getFullYear() + 1)
                                     setCurrentDate(newDate)
                                   }}
-                                  className="p-1 hover:bg-gray-100 rounded"
+                                  className="p-1 hover:bg-[var(--sf-bg-hover)] rounded"
                                   title="Next year"
                                 >
                                   <ChevronsRight className="w-4 h-4" />
@@ -2060,7 +2025,7 @@ const UnifiedCalendar = () => {
 
                             {/* Day Headers */}
                             {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(day => (
-                              <div key={day} className="text-xs font-medium text-gray-500 text-center py-1">
+                              <div key={day} className="text-xs font-medium text-[var(--sf-text-muted)] text-center py-1">
                                 {day}
                               </div>
                             ))}
@@ -2075,12 +2040,12 @@ const UnifiedCalendar = () => {
               <button
                                   key={index}
                                   onClick={() => handleCalendarDateChange(day)}
-                                  className={`text-xs p-2 rounded hover:bg-gray-100 transition-colors ${
-                                    isCurrentMonth ? 'text-gray-900' : 'text-gray-400'
+                                  className={`text-xs p-2 rounded hover:bg-[var(--sf-bg-hover)] transition-colors ${
+                                    isCurrentMonth ? 'text-[var(--sf-text-primary)]' : 'text-[var(--sf-text-muted)]'
                                   } ${
-                                    isSelected ? 'bg-blue-600 text-white hover:bg-blue-700' : ''
+                                    isSelected ? 'bg-[var(--sf-blue-500)] text-white hover:bg-[var(--sf-blue-600)]' : ''
                                   } ${
-                                    isToday && !isSelected ? 'bg-blue-50 text-blue-600' : ''
+                                    isToday && !isSelected ? 'bg-[var(--sf-blue-50)] text-[var(--sf-blue-500)]' : ''
                                   }`}
                                 >
                                   {day.getDate()}
@@ -2093,43 +2058,12 @@ const UnifiedCalendar = () => {
             </div>
           </div>
 
-                  {/* Right - Actions */}
-                  <div className="flex items-center space-x-2">
-                    {viewMode === 'tasks-calendar' || viewMode === 'tasks-list' ? (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          console.log('Add Task button (header) clicked')
-                          setEditingTask(null)
-                          setShowCreateTaskModal(true)
-                          console.log('showCreateTaskModal set to:', true)
-                        }}
-                        className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 active:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors cursor-pointer"
-                      >
-                        <span>+ Add Task</span>
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => navigate('/schedule')}
-                        className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
-                        title="Open Schedule"
-                      >
-                        <Calendar className="w-4 h-4" />
-                        <span>Schedule</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-
           {/* Day View */}
           {calendarView === 'day' && (
             <div className="px-4 py-4 lg:px-6">
-              <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-                <div className="border-b border-gray-200 p-4">
-                  <h3 className="text-lg font-semibold text-gray-900">
+              <div className="bg-white rounded-xl border border-[var(--sf-border-light)] shadow-sm">
+                <div className="border-b border-[var(--sf-border-light)] p-4">
+                  <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">
                     {(selectedDate || currentDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
                   </h3>
                 </div>
@@ -2141,7 +2075,7 @@ const UnifiedCalendar = () => {
                     if (tasksForDate.length === 0) {
                       return (
                         <div className="text-center py-8">
-                          <div className="text-gray-500 text-lg font-medium">No tasks for this date</div>
+                          <div className="text-[var(--sf-text-muted)] text-lg font-medium">No tasks for this date</div>
                         </div>
                       )
                     }
@@ -2184,13 +2118,13 @@ const UnifiedCalendar = () => {
                 <div className="grid grid-cols-7 gap-2 mb-2">
                   {getWeekDates().map((date, idx) => (
                     <div key={idx} className="p-2 text-center">
-                      <div className="text-xs font-medium text-gray-500">
+                      <div className="text-xs font-medium text-[var(--sf-text-muted)]">
                         {dayNames[date.getDay()]}
                       </div>
                       <div className={`text-lg font-semibold mt-1 ${
                         date.toDateString() === new Date().toDateString()
-                          ? 'text-blue-600'
-                          : 'text-gray-900'
+                          ? 'text-[var(--sf-blue-500)]'
+                          : 'text-[var(--sf-text-primary)]'
                       }`}>
                         {date.getDate()}
                       </div>
@@ -2208,12 +2142,12 @@ const UnifiedCalendar = () => {
                     return (
                       <div
                         key={idx}
-                        className={`border rounded-lg p-3 min-h-[200px] cursor-pointer transition-colors ${
+                        className={`rounded-lg p-3 min-h-[200px] cursor-pointer transition-colors ${
                           isToday
-                            ? 'bg-white border-blue-500 ring-2 ring-blue-500'
+                            ? 'bg-[var(--sf-blue-50)] border-2 border-[var(--sf-blue-500)]'
                             : isSelected
-                            ? 'bg-blue-50 border-blue-300'
-                            : 'bg-white border-gray-200 hover:bg-gray-50'
+                            ? 'bg-[var(--sf-blue-50)] border border-blue-300'
+                            : 'bg-white border border-[var(--sf-border-light)] hover:bg-[var(--sf-bg-hover)]'
                         }`}
                         onClick={() => {
                           setSelectedDate(date)
@@ -2223,7 +2157,7 @@ const UnifiedCalendar = () => {
                         <div className="space-y-1">
                           {tasksForDate.length === 0 ? (
                             <div className="text-center py-4">
-                              <div className="text-xs text-gray-400">No tasks</div>
+                              <div className="text-xs text-[var(--sf-text-muted)]">No tasks</div>
                             </div>
                           ) : (
                             tasksForDate.map((task) => (
@@ -2234,14 +2168,14 @@ const UnifiedCalendar = () => {
                                   setSelectedTask(task)
                                   setShowTaskDetails(true)
                                 }}
-                                className={`px-2 py-1 rounded text-xs border cursor-pointer hover:opacity-80 transition-opacity ${
+                                className={`px-2 py-1 rounded-lg text-xs border border-[var(--sf-border-light)] shadow-sm cursor-pointer hover:opacity-80 transition-opacity ${
                                   task.status === 'completed'
-                                    ? 'bg-green-100 text-green-800 border-green-200'
+                                    ? 'bg-green-50 text-green-800'
                                     : task.priority === 'urgent'
-                                    ? 'bg-red-100 text-red-800 border-red-200'
+                                    ? 'bg-red-50 text-red-800'
                                     : task.priority === 'high'
-                                    ? 'bg-orange-100 text-orange-800 border-orange-200'
-                                    : 'bg-blue-100 text-blue-800 border-blue-200'
+                                    ? 'bg-orange-50 text-orange-800'
+                                    : 'bg-blue-50 text-blue-800'
                                 }`}
                               >
                                 <div className="truncate font-medium">{task.title}</div>
@@ -2264,82 +2198,99 @@ const UnifiedCalendar = () => {
 
           {/* Month View */}
           {calendarView === 'month' && (
-          <div className=" ">
-            <div className="grid grid-cols-7">
-              {/* Month header */}
-              {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map(day => (
-                <div key={day} className="text-center text-xs border-[0.5px] border-gray-200 font-medium text-gray-600 py-3">
-                  {day}
-                </div>
-              ))}
-              {/* Month days */}
-              {calendarDays.map((day, index) => {
-                const dateStr = day.date.toISOString().split('T')[0]
-                const isToday = day.date.toDateString() === new Date().toDateString()
-                const isCurrentMonth = day.isCurrentMonth
-                const isSelected = selectedDate && day.date.toDateString() === selectedDate.toDateString()
-                
-                return (
-                  <div
-                    key={index}
-                    className={`border p-1 min-h-[100px] cursor-pointer transition-colors ${
-                      !isCurrentMonth 
-                        ? 'bg-gray-50 text-gray-400 border-gray-100' 
-                        : isSelected 
-                          ? 'border-blue-500 bg-blue-50' 
-                          : isToday 
-                            ? 'border-blue-300 bg-blue-50/50' 
-                            : 'border-gray-200 bg-white hover:bg-gray-50'
-                    }`}
-                    onClick={() => {
-                      setSelectedDate(day.date)
-                      // Update currentDate for day view when a date is clicked
-                      if (calendarView === 'day') {
-                        setCurrentDate(day.date)
-                      }
-                    }}
-                  >
-                    <div className={`text-md text-right right-3 font-medium mb-1 ${
-                      isSelected && isCurrentMonth ? 'text-blue-900 font-semibold' : ''
-                    }`}>
-                      {day.date.getDate()}
-                    </div>
-                      
-                    {/* Tasks Calendar View */}
-                    {viewMode === 'tasks-calendar' && (
-                      <div className="space-y-1">
-                        {getTasksForDate(day.date).map((task) => (
-                          <div
-                            key={task.id}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setSelectedTask(task)
-                              setShowTaskDetails(true)
-                            }}
-                            className={`px-2 py-1 rounded text-xs border cursor-pointer hover:opacity-80 transition-opacity ${
-                              task.status === 'completed'
-                                ? 'bg-green-100 text-green-800 border-green-200'
-                                : task.priority === 'urgent'
-                                ? 'bg-red-100 text-red-800 border-red-200'
-                                : task.priority === 'high'
-                                ? 'bg-orange-100 text-orange-800 border-orange-200'
-                                : 'bg-blue-100 text-blue-800 border-blue-200'
-                            }`}
-                          >
-                            <div className="truncate font-medium">{task.title}</div>
-                            {task.leads && (
-                              <div className="text-xs opacity-75 truncate">
-                                {task.leads.first_name} {task.leads.last_name}
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    
+          <div className="px-4 py-4 lg:px-6">
+            <div className="bg-white">
+              <div className="grid grid-cols-7 calendar-grid">
+                {/* Day header row */}
+                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, i) => (
+                  <div key={day} className={`text-center text-sm font-medium text-[#595A5B] py-2.5 bg-[#F9FAFB] border border-[#EDF1F5] ${i === 0 ? 'rounded-tl-lg' : ''} ${i === 6 ? 'rounded-tr-lg' : ''}`}>
+                    {day}
                   </div>
-                )
-              })}
+                ))}
+                {/* Month days */}
+                {calendarDays.map((day, index) => {
+                  const isToday = day.date.toDateString() === new Date().toDateString()
+                  const isCurrentMonth = day.isCurrentMonth
+                  const isSelected = selectedDate && day.date.toDateString() === selectedDate.toDateString()
+                  const totalCells = calendarDays.length
+                  const isBottomLeft = index === totalCells - 7
+                  const isBottomRight = index === totalCells - 1
+
+                  return (
+                    <div
+                      key={index}
+                      className={`border-[1px] border-[#EDF1F5] p-2 min-h-[110px] cursor-pointer transition-colors ${
+                        isBottomLeft ? 'rounded-bl-lg' : ''
+                      } ${isBottomRight ? 'rounded-br-lg' : ''} ${
+                        !isCurrentMonth
+                          ? 'bg-white'
+                          : isSelected
+                            ? 'border-[var(--sf-blue-500)] bg-[var(--sf-blue-50)]'
+                            : 'bg-white hover:bg-[var(--sf-bg-hover)]'
+                      }`}
+                      onClick={() => {
+                        setSelectedDate(day.date)
+                        if (calendarView === 'day') {
+                          setCurrentDate(day.date)
+                        }
+                      }}
+                    >
+                      {/* Date number - top left */}
+                      <div className="flex items-start mb-1">
+                        {isToday && isCurrentMonth ? (
+                          <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#2970FF] text-white text-sm font-medium">
+                            {day.date.getDate()}
+                          </span>
+                        ) : (
+                          <span className={`inline-flex items-center justify-center px-1.5 py-0.5 text-sm font-medium ${
+                            !isCurrentMonth ? 'text-[#A6A9AC]' : 'text-[#2D2E2E]'
+                          }`}>
+                            {day.date.getDate()}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Tasks Calendar View - Left border style cards */}
+                      {viewMode === 'tasks-calendar' && (
+                        <div className="space-y-1 mt-1">
+                          {getTasksForDate(day.date).map((task) => {
+                            const borderColor = task.status === 'completed'
+                              ? '#16B364'
+                              : task.priority === 'urgent'
+                              ? '#FFB856'
+                              : task.priority === 'high'
+                              ? '#FF9502'
+                              : '#2970FF'
+                            const textColor = task.status === 'completed'
+                              ? '#16B364'
+                              : task.priority === 'urgent'
+                              ? '#FFB856'
+                              : task.priority === 'high'
+                              ? '#FF9502'
+                              : '#2970FF'
+                            return (
+                              <div
+                                key={task.id}
+                                data-calendar-event="true"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setSelectedTask(task)
+                                  setShowTaskDetails(true)
+                                }}
+                                className="bg-white cursor-pointer hover:opacity-80 transition-opacity p-1"
+                                style={{ border: `0.5px solid ${borderColor}`, borderRadius: '4px' }}
+                              >
+                                <div className="truncate text-xs font-normal" style={{ color: textColor }}>{task.title}</div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           </div>
         )}
@@ -2351,10 +2302,10 @@ const UnifiedCalendar = () => {
       
       {/* Edit Availability Modal */}
       {showEditModal && selectedMember && editingAvailability && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-[9999] flex items-end justify-center lg:items-center">
-          <div className="bg-white rounded-t-2xl lg:rounded-2xl w-full lg:w-[600px] max-h-[90vh] flex flex-col">
+        <div className="fixed inset-0 bg-black/50 z-[9999] flex items-end justify-center lg:items-center">
+          <div className="bg-white rounded-t-xl lg:rounded-xl shadow-xl w-full lg:w-[600px] max-h-[90vh] flex flex-col">
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--sf-border-light)] flex-shrink-0">
               <div className="flex items-center space-x-3">
                 <div
                   className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold"
@@ -2363,10 +2314,10 @@ const UnifiedCalendar = () => {
                   {getMemberInitials(selectedMember)}
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">
+                  <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">
                     {selectedMember.first_name} {selectedMember.last_name}
                   </h3>
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-[var(--sf-text-muted)]">
                     {new Date(editingAvailability.date).toLocaleDateString('en-US', { 
                       weekday: 'long', 
                       year: 'numeric', 
@@ -2378,9 +2329,9 @@ const UnifiedCalendar = () => {
               </div>
               <button
                 onClick={() => setShowEditModal(false)}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                className="p-2 hover:bg-[var(--sf-bg-hover)] rounded-full transition-colors"
               >
-                <X className="w-5 h-5 text-gray-600" />
+                <X className="w-5 h-5 text-[var(--sf-text-secondary)]" />
               </button>
             </div>
             
@@ -2399,15 +2350,15 @@ const UnifiedCalendar = () => {
                         ? [{ start: '09:00', end: '17:00' }]
                         : editingAvailability.hours
                     })}
-                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 border-gray-300"
+                    className="w-4 h-4 text-[var(--sf-blue-500)] rounded focus:ring-[var(--sf-blue-500)] border-[var(--sf-border-light)]"
                   />
-                  <label className="text-sm font-medium text-gray-900">Available on this date</label>
+                  <label className="text-sm font-medium text-[var(--sf-text-primary)]">Available on this date</label>
                 </div>
                 
                 {/* Time Slots */}
                 {editingAvailability.available && (
                   <div className="space-y-3">
-                    <label className="block text-sm font-medium text-gray-900">Working Hours</label>
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)]">Working Hours</label>
                     {editingAvailability.hours && editingAvailability.hours.length > 0 ? (
                       editingAvailability.hours.map((slot, index) => (
                         <div key={index} className="flex items-center space-x-2">
@@ -2419,9 +2370,9 @@ const UnifiedCalendar = () => {
                               newHours[index] = { ...slot, start: e.target.value }
                               setEditingAvailability({ ...editingAvailability, hours: newHours })
                             }}
-                            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="border border-[var(--sf-border-light)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)]"
                           />
-                          <span className="text-gray-500">to</span>
+                          <span className="text-[var(--sf-text-muted)]">to</span>
                           <input
                             type="time"
                             value={slot.end}
@@ -2430,7 +2381,7 @@ const UnifiedCalendar = () => {
                               newHours[index] = { ...slot, end: e.target.value }
                               setEditingAvailability({ ...editingAvailability, hours: newHours })
                             }}
-                            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="border border-[var(--sf-border-light)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)]"
                           />
                           {editingAvailability.hours.length > 1 && (
                             <button
@@ -2451,7 +2402,7 @@ const UnifiedCalendar = () => {
                           ...editingAvailability,
                           hours: [{ start: '09:00', end: '17:00' }]
                         })}
-                        className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                        className="text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] font-medium"
                       >
                         + Add Hours
                       </button>
@@ -2463,7 +2414,7 @@ const UnifiedCalendar = () => {
                           ...editingAvailability,
                           hours: [...editingAvailability.hours, { start: '09:00', end: '17:00' }]
                         })}
-                        className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                        className="text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] font-medium"
                       >
                         + Add Another Time Slot
                       </button>
@@ -2475,17 +2426,17 @@ const UnifiedCalendar = () => {
             </div>
             
             {/* Footer */}
-            <div className="flex items-center justify-end space-x-3 px-6 py-4 border-t border-gray-200 flex-shrink-0">
+            <div className="flex items-center justify-end space-x-3 px-6 py-4 border-t border-[var(--sf-border-light)] flex-shrink-0">
               <button
                 onClick={() => setShowEditModal(false)}
-                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+                className="bg-white border border-[var(--sf-border-light)] rounded-lg px-4 py-2 text-sm font-medium text-[var(--sf-text-secondary)] hover:bg-[var(--sf-bg-hover)] transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSaveAvailability}
                 disabled={saving}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="sf-btn-primary px-4 py-2 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {saving ? 'Saving...' : 'Save'}
               </button>
@@ -2496,17 +2447,17 @@ const UnifiedCalendar = () => {
 
       {/* Task Details Modal */}
       {showTaskDetails && selectedTask && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">{selectedTask.title}</h3>
+                <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">{selectedTask.title}</h3>
                 <button
                   onClick={() => {
                     setShowTaskDetails(false)
                     setSelectedTask(null)
                   }}
-                  className="text-gray-400 hover:text-gray-600 p-1"
+                  className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] p-1"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -2514,14 +2465,14 @@ const UnifiedCalendar = () => {
               <div className="space-y-4">
                 {selectedTask.description && (
                   <div>
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">Description</h4>
-                    <p className="text-sm text-gray-900">{selectedTask.description}</p>
+                    <h4 className="text-sm font-medium text-[var(--sf-text-primary)] mb-2">Description</h4>
+                    <p className="text-sm text-[var(--sf-text-primary)]">{selectedTask.description}</p>
                   </div>
                 )}
                 {selectedTask.due_date && (
                   <div>
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">Due Date</h4>
-                    <p className="text-sm text-gray-900">
+                    <h4 className="text-sm font-medium text-[var(--sf-text-primary)] mb-2">Due Date</h4>
+                    <p className="text-sm text-[var(--sf-text-primary)]">
                       {new Date(selectedTask.due_date).toLocaleDateString('en-US', {
                         weekday: 'long',
                         year: 'numeric',
@@ -2532,7 +2483,7 @@ const UnifiedCalendar = () => {
                   </div>
                 )}
                 <div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">Status</h4>
+                  <h4 className="text-sm font-medium text-[var(--sf-text-primary)] mb-2">Status</h4>
                   <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
                     selectedTask.status === 'completed'
                       ? 'bg-green-100 text-green-800'
@@ -2547,7 +2498,7 @@ const UnifiedCalendar = () => {
                 </div>
                 {selectedTask.priority && (
                   <div>
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">Priority</h4>
+                    <h4 className="text-sm font-medium text-[var(--sf-text-primary)] mb-2">Priority</h4>
                     <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
                       selectedTask.priority === 'urgent'
                         ? 'bg-red-100 text-red-800'
@@ -2563,27 +2514,27 @@ const UnifiedCalendar = () => {
                 )}
                 {selectedTask.leads && (
                   <div>
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">Related Lead</h4>
-                    <p className="text-sm text-gray-900">
+                    <h4 className="text-sm font-medium text-[var(--sf-text-primary)] mb-2">Related Lead</h4>
+                    <p className="text-sm text-[var(--sf-text-primary)]">
                       {selectedTask.leads.first_name} {selectedTask.leads.last_name}
                     </p>
                   </div>
                 )}
               </div>
-              <div className="flex items-center justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
+              <div className="flex items-center justify-end space-x-3 mt-6 pt-4 border-t border-[var(--sf-border-light)]">
                 {/* Finish and Finish & Follow Up buttons - only show for pending tasks */}
                 {selectedTask.status === 'pending' && (
                   <>
                     <button
                       onClick={() => handleFinish(selectedTask)}
-                      className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors flex items-center space-x-2"
+                      className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors flex items-center space-x-2 shadow-sm"
                     >
                       <CheckCircle className="w-4 h-4" />
                       <span>Finish</span>
                     </button>
                     <button
                       onClick={() => handleFinishAndFollowUp(selectedTask)}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors flex items-center space-x-2"
+                      className="sf-btn-primary px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2"
                     >
                       <CheckCircle className="w-4 h-4" />
                       <span>Finish and Follow Up</span>
@@ -2596,7 +2547,7 @@ const UnifiedCalendar = () => {
                     setEditingTask(selectedTask)
                     setShowCreateTaskModal(true)
                   }}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                  className="sf-btn-primary px-4 py-2 rounded-lg text-sm font-medium transition-colors"
                 >
                   Edit Task
                 </button>
@@ -2605,7 +2556,7 @@ const UnifiedCalendar = () => {
                     setShowTaskDetails(false)
                     setSelectedTask(null)
                   }}
-                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-300 transition-colors"
+                  className="bg-white border border-[var(--sf-border-light)] rounded-lg px-4 py-2 text-sm font-medium text-[var(--sf-text-secondary)] hover:bg-[var(--sf-bg-hover)] transition-colors"
                 >
                   Close
                 </button>

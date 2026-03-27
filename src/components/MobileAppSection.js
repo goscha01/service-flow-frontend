@@ -15,8 +15,8 @@ export default function MobileAppSection() {
           {/* Right Column - Content */}
           <div className="space-y-8">
             <div className="space-y-6">
-              <h2 className="text-3xl lg:text-4xl font-bold text-gray-900">Keep your team connected in the field.</h2>
-              <p className="text-lg text-gray-600 leading-relaxed">
+              <h2 className="text-3xl lg:text-4xl font-bold text-[var(--sf-text-primary)]">Keep your team connected in the field.</h2>
+              <p className="text-lg text-[var(--sf-text-secondary)] leading-relaxed">
                 Serviceflow's mobile web app offers your service providers the convenience of viewing their daily
                 schedules, upcoming jobs, and accessing customer information right from their smartphone or tablet.
                 <br />

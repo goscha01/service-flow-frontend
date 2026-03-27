@@ -35,12 +35,12 @@ const DiscountModal = ({ isOpen, onClose, onSave, currentDiscount = 0, currentDi
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
+          <h2 className="text-xl font-bold text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
             Add Discount
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-500 hover:bg-gray-100 p-2 rounded-full transition-colors"
+            className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-muted)] hover:bg-[var(--sf-bg-hover)] p-2 rounded-full transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -54,8 +54,8 @@ const DiscountModal = ({ isOpen, onClose, onSave, currentDiscount = 0, currentDi
               onClick={() => setDiscountType('fixed')}
               className={`px-6 py-2 text-base font-semibold transition-colors ${
                 discountType === 'fixed'
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-white text-blue-500 hover:bg-blue-50'
+                  ? 'bg-[var(--sf-blue-500)] text-white'
+                  : 'bg-white text-blue-500 hover:bg-[var(--sf-blue-50)]'
               }`}
               style={{ fontFamily: 'Montserrat', fontWeight: 600 }}
             >
@@ -66,8 +66,8 @@ const DiscountModal = ({ isOpen, onClose, onSave, currentDiscount = 0, currentDi
               onClick={() => setDiscountType('percentage')}
               className={`px-6 py-2 text-base font-semibold transition-colors ${
                 discountType === 'percentage'
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-white text-blue-500 hover:bg-blue-50'
+                  ? 'bg-[var(--sf-blue-500)] text-white'
+                  : 'bg-white text-blue-500 hover:bg-[var(--sf-blue-50)]'
               }`}
               style={{ fontFamily: 'Montserrat', fontWeight: 600 }}
             >
@@ -86,7 +86,7 @@ const DiscountModal = ({ isOpen, onClose, onSave, currentDiscount = 0, currentDi
             value={discountValue}
             onChange={(e) => setDiscountValue(e.target.value)}
             placeholder="Enter discount"
-            className="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-4 py-3 text-lg border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
             style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
             autoFocus
           />
@@ -94,7 +94,7 @@ const DiscountModal = ({ isOpen, onClose, onSave, currentDiscount = 0, currentDi
             <p className="text-sm text-red-600 mt-1">Percentage cannot exceed 100%</p>
           )}
           {discountType === 'percentage' && subtotal > 0 && discountValue > 0 && discountValue <= 100 && (
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="text-sm text-[var(--sf-text-muted)] mt-1">
               = ${resolveDiscount(discountValue, 'percentage', subtotal).toFixed(2)} discount
             </p>
           )}
@@ -105,7 +105,7 @@ const DiscountModal = ({ isOpen, onClose, onSave, currentDiscount = 0, currentDi
           <button
             type="button"
             onClick={handleSave}
-            className="flex-1 px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-semibold transition-colors"
+            className="flex-1 px-6 py-3 bg-gray-200 text-[var(--sf-text-primary)] rounded-lg hover:bg-gray-300 font-semibold transition-colors"
             style={{ fontFamily: 'Montserrat', fontWeight: 600 }}
           >
             Save
@@ -113,7 +113,7 @@ const DiscountModal = ({ isOpen, onClose, onSave, currentDiscount = 0, currentDi
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-semibold transition-colors"
+            className="flex-1 px-6 py-3 bg-white border border-[var(--sf-border-light)] text-[var(--sf-text-primary)] rounded-lg hover:bg-[var(--sf-bg-page)] font-semibold transition-colors"
             style={{ fontFamily: 'Montserrat', fontWeight: 600 }}
           >
             Cancel

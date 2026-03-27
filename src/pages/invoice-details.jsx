@@ -108,12 +108,12 @@ const InvoiceDetails = () => {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'draft': return 'bg-gray-100 text-gray-800'
+      case 'draft': return 'bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)]'
       case 'sent': return 'bg-blue-100 text-blue-800'
       case 'paid': return 'bg-green-100 text-green-800'
       case 'overdue': return 'bg-red-100 text-red-800'
-      case 'cancelled': return 'bg-gray-100 text-gray-800'
-      default: return 'bg-gray-100 text-gray-800'
+      case 'cancelled': return 'bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)]'
+      default: return 'bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)]'
     }
   }
 
@@ -130,7 +130,7 @@ const InvoiceDetails = () => {
 
   if (loading) {
     return (
-      <div className="flex h-screen bg-gray-50 overflow-hidden">
+      <div className="flex h-screen bg-[var(--sf-bg-page)] overflow-hidden">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         
         <div className="flex-1 flex flex-col min-w-0">
@@ -145,7 +145,7 @@ const InvoiceDetails = () => {
 
   if (error) {
     return (
-      <div className="flex h-screen bg-gray-50 overflow-hidden">
+      <div className="flex h-screen bg-[var(--sf-bg-page)] overflow-hidden">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         
         <div className="flex-1 flex flex-col min-w-0">
@@ -153,7 +153,7 @@ const InvoiceDetails = () => {
           <div className="flex-1 overflow-auto flex items-center justify-center">
             <div className="text-center">
               <AlertCircle className="mx-auto h-12 w-12 text-red-400" />
-              <h3 className="mt-2 text-sm font-medium text-gray-900">{error}</h3>
+              <h3 className="mt-2 text-sm font-medium text-[var(--sf-text-primary)]">{error}</h3>
               <div className="mt-6">
                 <button
                   onClick={() => navigate('/invoices')}
@@ -171,14 +171,14 @@ const InvoiceDetails = () => {
 
   if (!invoice) {
     return (
-      <div className="flex h-screen bg-gray-50 overflow-hidden">
+      <div className="flex h-screen bg-[var(--sf-bg-page)] overflow-hidden">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         
         <div className="flex-1 flex flex-col min-w-0">
           
           <div className="flex-1 overflow-auto flex items-center justify-center">
             <div className="text-center">
-              <h3 className="mt-2 text-sm font-medium text-gray-900">Invoice not found</h3>
+              <h3 className="mt-2 text-sm font-medium text-[var(--sf-text-primary)]">Invoice not found</h3>
               <div className="mt-6">
                 <button
                   onClick={() => navigate('/invoices')}
@@ -195,7 +195,7 @@ const InvoiceDetails = () => {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen bg-[var(--sf-bg-page)] overflow-hidden">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
       <div className="flex-1 flex flex-col min-w-0">
@@ -203,23 +203,23 @@ const InvoiceDetails = () => {
         <div className="flex-1 overflow-auto">
           <div className="px-4 sm:px-6 lg:px-8 py-8">
             {/* Header */}
-            <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
+            <div className="bg-white border-b border-[var(--sf-border-light)] sticky top-0 z-10">
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="py-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
                       <button
                         onClick={() => navigate('/invoices')}
-                        className="flex items-center text-sm text-gray-500 hover:text-gray-700"
+                        className="flex items-center text-sm text-[var(--sf-text-muted)] hover:text-[var(--sf-text-primary)]"
                       >
                         <ChevronLeft className="w-4 h-4 mr-1" />
                         Back to Invoices
                       </button>
                       <div>
-                        <h1 className="text-2xl font-bold text-gray-900">
+                        <h1 className="text-2xl font-bold text-[var(--sf-text-primary)]">
                           Invoice #{invoice.id}
                         </h1>
-                        <p className="text-sm text-gray-500">Invoice Details</p>
+                        <p className="text-sm text-[var(--sf-text-muted)]">Invoice Details</p>
                       </div>
                     </div>
                     <div className="flex items-center space-x-3">
@@ -227,14 +227,14 @@ const InvoiceDetails = () => {
                         <>
                           <button
                             onClick={handleSendInvoice}
-                            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                            className="inline-flex items-center px-4 py-2 border border-[var(--sf-border-light)] rounded-md shadow-sm text-sm font-medium text-[var(--sf-text-primary)] bg-white hover:bg-[var(--sf-bg-page)]"
                           >
                             <Send className="w-4 h-4 mr-2" />
                             Send
                           </button>
                           <button
                             onClick={handleEditInvoice}
-                            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                            className="inline-flex items-center px-4 py-2 border border-[var(--sf-border-light)] rounded-md shadow-sm text-sm font-medium text-[var(--sf-text-primary)] bg-white hover:bg-[var(--sf-bg-page)]"
                           >
                             <Edit className="w-4 h-4 mr-2" />
                             Edit
@@ -271,7 +271,7 @@ const InvoiceDetails = () => {
                 <div className="lg:col-span-2">
                   <div className="bg-white rounded-lg shadow p-6">
                     <div className="flex items-center justify-between mb-6">
-                      <h2 className="text-lg font-medium text-gray-900">Invoice Information</h2>
+                      <h2 className="text-lg font-medium text-[var(--sf-text-primary)]">Invoice Information</h2>
                       <span className={`px-3 py-1 text-sm font-medium rounded-full ${getStatusColor(invoice.status)}`}>
                         {getStatusLabel(invoice.status)}
                       </span>
@@ -279,36 +279,36 @@ const InvoiceDetails = () => {
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div>
-                        <h3 className="text-sm font-medium text-gray-500 mb-2">Customer</h3>
+                        <h3 className="text-sm font-medium text-[var(--sf-text-muted)] mb-2">Customer</h3>
                         <div className="flex items-center">
-                          <User className="w-4 h-4 text-gray-400 mr-2" />
-                          <span className="text-sm text-gray-900">
+                          <User className="w-4 h-4 text-[var(--sf-text-muted)] mr-2" />
+                          <span className="text-sm text-[var(--sf-text-primary)]">
                             {invoice.customer_first_name} {invoice.customer_last_name}
                           </span>
                         </div>
                         {invoice.customer_email && (
-                          <p className="text-sm text-gray-500 mt-1">{invoice.customer_email}</p>
+                          <p className="text-sm text-[var(--sf-text-muted)] mt-1">{invoice.customer_email}</p>
                         )}
                         {invoice.customer_phone && (
-                          <p className="text-sm text-gray-500">{formatPhoneNumber(invoice.customer_phone)}</p>
+                          <p className="text-sm text-[var(--sf-text-muted)]">{formatPhoneNumber(invoice.customer_phone)}</p>
                         )}
                       </div>
                       
                       <div>
-                        <h3 className="text-sm font-medium text-gray-500 mb-2">Invoice Details</h3>
+                        <h3 className="text-sm font-medium text-[var(--sf-text-muted)] mb-2">Invoice Details</h3>
                         <div className="space-y-2">
                           <div className="flex items-center">
-                            <FileText className="w-4 h-4 text-gray-400 mr-2" />
-                            <span className="text-sm text-gray-900">Invoice #{invoice.id}</span>
+                            <FileText className="w-4 h-4 text-[var(--sf-text-muted)] mr-2" />
+                            <span className="text-sm text-[var(--sf-text-primary)]">Invoice #{invoice.id}</span>
                           </div>
                           <div className="flex items-center">
-                            <Calendar className="w-4 h-4 text-gray-400 mr-2" />
-                            <span className="text-sm text-gray-900">Created: {formatDate(invoice.created_at)}</span>
+                            <Calendar className="w-4 h-4 text-[var(--sf-text-muted)] mr-2" />
+                            <span className="text-sm text-[var(--sf-text-primary)]">Created: {formatDate(invoice.created_at)}</span>
                           </div>
                           {invoice.due_date && (
                             <div className="flex items-center">
-                              <Calendar className="w-4 h-4 text-gray-400 mr-2" />
-                              <span className="text-sm text-gray-900">Due: {formatDate(invoice.due_date)}</span>
+                              <Calendar className="w-4 h-4 text-[var(--sf-text-muted)] mr-2" />
+                              <span className="text-sm text-[var(--sf-text-primary)]">Due: {formatDate(invoice.due_date)}</span>
                             </div>
                           )}
                         </div>
@@ -318,18 +318,18 @@ const InvoiceDetails = () => {
                     {/* Invoice Items */}
                     {invoice.items && invoice.items.length > 0 && (
                       <div className="mt-8">
-                        <h3 className="text-sm font-medium text-gray-500 mb-4">Items</h3>
+                        <h3 className="text-sm font-medium text-[var(--sf-text-muted)] mb-4">Items</h3>
                         <div className="space-y-3">
                           {invoice.items.map((item, index) => (
-                            <div key={index} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
+                            <div key={index} className="flex items-center justify-between p-3 border border-[var(--sf-border-light)] rounded-lg">
                               <div>
-                                <p className="text-sm font-medium text-gray-900">{item.description}</p>
+                                <p className="text-sm font-medium text-[var(--sf-text-primary)]">{item.description}</p>
                                 {item.quantity && (
-                                  <p className="text-sm text-gray-500">Qty: {item.quantity}</p>
+                                  <p className="text-sm text-[var(--sf-text-muted)]">Qty: {item.quantity}</p>
                                 )}
                               </div>
                               <div className="text-right">
-                                <p className="text-sm font-medium text-gray-900">{formatCurrency(item.amount)}</p>
+                                <p className="text-sm font-medium text-[var(--sf-text-primary)]">{formatCurrency(item.amount)}</p>
                               </div>
                             </div>
                           ))}
@@ -338,10 +338,10 @@ const InvoiceDetails = () => {
                     )}
                     
                     {/* Total */}
-                    <div className="mt-6 pt-6 border-t border-gray-200">
+                    <div className="mt-6 pt-6 border-t border-[var(--sf-border-light)]">
                       <div className="flex items-center justify-between">
-                        <span className="text-lg font-medium text-gray-900">Total</span>
-                        <span className="text-lg font-bold text-gray-900">{formatCurrency(invoice.total_amount)}</span>
+                        <span className="text-lg font-medium text-[var(--sf-text-primary)]">Total</span>
+                        <span className="text-lg font-bold text-[var(--sf-text-primary)]">{formatCurrency(invoice.total_amount)}</span>
                       </div>
                     </div>
                   </div>
@@ -350,12 +350,12 @@ const InvoiceDetails = () => {
                 {/* Invoice Actions */}
                 <div className="lg:col-span-1">
                   <div className="bg-white rounded-lg shadow p-6">
-                    <h2 className="text-lg font-medium text-gray-900 mb-4">Actions</h2>
+                    <h2 className="text-lg font-medium text-[var(--sf-text-primary)] mb-4">Actions</h2>
                     
                     <div className="space-y-3">
                       <button
                         onClick={handlePrint}
-                        className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                        className="w-full flex items-center justify-center px-4 py-2 border border-[var(--sf-border-light)] rounded-md shadow-sm text-sm font-medium text-[var(--sf-text-primary)] bg-white hover:bg-[var(--sf-bg-page)]"
                       >
                         <Printer className="w-4 h-4 mr-2" />
                         Print Invoice
@@ -365,14 +365,14 @@ const InvoiceDetails = () => {
                         <>
                           <button
                             onClick={handleSendInvoice}
-                            className="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+                            className="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[var(--sf-blue-500)] hover:bg-[var(--sf-blue-600)]"
                           >
                             <Send className="w-4 h-4 mr-2" />
                             Send Invoice
                           </button>
                           <button
                             onClick={handleEditInvoice}
-                            className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                            className="w-full flex items-center justify-center px-4 py-2 border border-[var(--sf-border-light)] rounded-md shadow-sm text-sm font-medium text-[var(--sf-text-primary)] bg-white hover:bg-[var(--sf-bg-page)]"
                           >
                             <Edit className="w-4 h-4 mr-2" />
                             Edit Invoice

@@ -101,32 +101,32 @@ const GoogleSheetsSettings = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[var(--sf-bg-page)]">
       <div className="max-w-6xl mx-auto p-6">
         {/* Header */}
         <div className="mb-6">
           <button
             onClick={() => navigate('/settings')}
-            className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-4"
+            className="flex items-center space-x-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] mb-4"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Back to Settings</span>
           </button>
           <div className="flex items-center space-x-3 mb-2">
             <FileSpreadsheet className="w-8 h-8 text-green-600" />
-            <h1 className="text-3xl font-bold text-gray-900">Google Sheets Integration</h1>
+            <h1 className="text-3xl font-bold text-[var(--sf-text-primary)]">Google Sheets Integration</h1>
           </div>
-          <p className="text-gray-600">
+          <p className="text-[var(--sf-text-secondary)]">
             Export your data to Google Sheets or import data from existing spreadsheets.
           </p>
         </div>
 
         {/* Connection Status */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+        <div className="bg-white rounded-lg shadow-sm border border-[var(--sf-border-light)] p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-3">
               <div className={`w-3 h-3 rounded-full ${connected ? 'bg-green-500' : 'bg-gray-400'}`} />
-              <h3 className="text-lg font-semibold text-gray-900">
+              <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">
                 {connected ? 'Connected' : 'Not Connected'}
               </h3>
             </div>
@@ -145,7 +145,7 @@ const GoogleSheetsSettings = () => {
                     <button
                       onClick={handleConnectGoogle}
                       disabled={loading}
-                      className="w-full sm:w-auto px-6 py-2.5 bg-white border-2 border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2 transition-colors"
+                      className="w-full sm:w-auto px-6 py-2.5 bg-white border-2 border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-page)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--sf-blue-500)] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2 transition-colors"
                     >
                       <svg className="w-5 h-5" viewBox="0 0 24 24">
                         <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -153,11 +153,11 @@ const GoogleSheetsSettings = () => {
                         <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
                         <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
                       </svg>
-                      <span className="text-gray-700 font-medium">
+                      <span className="text-[var(--sf-text-primary)] font-medium">
                         {loading ? 'Connecting...' : 'Connect Google Account'}
                       </span>
                     </button>
-                    <p className="text-xs text-gray-500 mt-2">
+                    <p className="text-xs text-[var(--sf-text-muted)] mt-2">
                       Clicking the button will redirect you to Google to authorize access to Sheets and Calendar. 
                       You'll be redirected back after authorization.
                     </p>
@@ -220,15 +220,15 @@ const GoogleSheetsSettings = () => {
         )}
 
         {/* Tabs */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
-          <div className="border-b border-gray-200">
+        <div className="bg-white rounded-lg shadow-sm border border-[var(--sf-border-light)] mb-6">
+          <div className="border-b border-[var(--sf-border-light)]">
             <nav className="flex space-x-8 px-6">
               <button
                 onClick={() => setActiveTab('export')}
                 className={`py-4 px-1 border-b-2 font-medium text-sm ${
                   activeTab === 'export'
                     ? 'border-green-600 text-green-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    : 'border-transparent text-[var(--sf-text-muted)] hover:text-[var(--sf-text-primary)] hover:border-[var(--sf-border-light)]'
                 }`}
               >
                 <div className="flex items-center space-x-2">
@@ -241,7 +241,7 @@ const GoogleSheetsSettings = () => {
                 className={`py-4 px-1 border-b-2 font-medium text-sm ${
                   activeTab === 'import'
                     ? 'border-green-600 text-green-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    : 'border-transparent text-[var(--sf-text-muted)] hover:text-[var(--sf-text-primary)] hover:border-[var(--sf-border-light)]'
                 }`}
               >
                 <div className="flex items-center space-x-2">
@@ -256,22 +256,22 @@ const GoogleSheetsSettings = () => {
             {activeTab === 'export' ? (
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Export Data to Google Sheets</h3>
-                  <p className="text-gray-600 text-sm mb-6">
+                  <h3 className="text-lg font-semibold text-[var(--sf-text-primary)] mb-2">Export Data to Google Sheets</h3>
+                  <p className="text-[var(--sf-text-secondary)] text-sm mb-6">
                     Export your customers or jobs data directly to a new Google Spreadsheet.
                   </p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Export Customers */}
-                  <div className="border border-gray-200 rounded-lg p-6">
+                  <div className="border border-[var(--sf-border-light)] rounded-lg p-6">
                     <div className="flex items-center space-x-3 mb-4">
                       <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                        <Download className="w-5 h-5 text-blue-600" />
+                        <Download className="w-5 h-5 text-[var(--sf-blue-500)]" />
                       </div>
                       <div>
-                        <h4 className="font-semibold text-gray-900">Export Customers</h4>
-                        <p className="text-sm text-gray-600">Export all customer data</p>
+                        <h4 className="font-semibold text-[var(--sf-text-primary)]">Export Customers</h4>
+                        <p className="text-sm text-[var(--sf-text-secondary)]">Export all customer data</p>
                       </div>
                     </div>
                     <SheetsExport
@@ -291,14 +291,14 @@ const GoogleSheetsSettings = () => {
                   </div>
 
                   {/* Export Jobs */}
-                  <div className="border border-gray-200 rounded-lg p-6">
+                  <div className="border border-[var(--sf-border-light)] rounded-lg p-6">
                     <div className="flex items-center space-x-3 mb-4">
                       <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
                         <Download className="w-5 h-5 text-purple-600" />
                       </div>
                       <div>
-                        <h4 className="font-semibold text-gray-900">Export Jobs</h4>
-                        <p className="text-sm text-gray-600">Export all job data</p>
+                        <h4 className="font-semibold text-[var(--sf-text-primary)]">Export Jobs</h4>
+                        <p className="text-sm text-[var(--sf-text-secondary)]">Export all job data</p>
                       </div>
                     </div>
                     <SheetsExport
@@ -318,9 +318,9 @@ const GoogleSheetsSettings = () => {
                   </div>
                 </div>
 
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="bg-[var(--sf-blue-50)] border border-blue-200 rounded-lg p-4">
                   <h4 className="text-sm font-medium text-blue-800 mb-2">How Export Works</h4>
-                  <ul className="text-sm text-blue-700 space-y-1">
+                  <ul className="text-sm text-[var(--sf-blue-500)] space-y-1">
                     <li>• A new Google Spreadsheet will be created automatically</li>
                     <li>• All your data will be formatted and organized in columns</li>
                     <li>• The spreadsheet will be accessible in your Google Drive</li>
@@ -331,22 +331,22 @@ const GoogleSheetsSettings = () => {
             ) : (
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Import Data from Google Sheets</h3>
-                  <p className="text-gray-600 text-sm mb-6">
+                  <h3 className="text-lg font-semibold text-[var(--sf-text-primary)] mb-2">Import Data from Google Sheets</h3>
+                  <p className="text-[var(--sf-text-secondary)] text-sm mb-6">
                     Import customers or jobs from an existing Google Spreadsheet. You'll be able to map fields manually.
                   </p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Import Customers */}
-                  <div className="border border-gray-200 rounded-lg p-6">
+                  <div className="border border-[var(--sf-border-light)] rounded-lg p-6">
                     <div className="flex items-center space-x-3 mb-4">
                       <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                        <Upload className="w-5 h-5 text-blue-600" />
+                        <Upload className="w-5 h-5 text-[var(--sf-blue-500)]" />
                       </div>
                       <div>
-                        <h4 className="font-semibold text-gray-900">Import Customers</h4>
-                        <p className="text-sm text-gray-600">Import customer data from a spreadsheet</p>
+                        <h4 className="font-semibold text-[var(--sf-text-primary)]">Import Customers</h4>
+                        <p className="text-sm text-[var(--sf-text-secondary)]">Import customer data from a spreadsheet</p>
                       </div>
                     </div>
                     <GoogleSheetsImport
@@ -363,14 +363,14 @@ const GoogleSheetsSettings = () => {
                   </div>
 
                   {/* Import Jobs */}
-                  <div className="border border-gray-200 rounded-lg p-6">
+                  <div className="border border-[var(--sf-border-light)] rounded-lg p-6">
                     <div className="flex items-center space-x-3 mb-4">
                       <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
                         <Upload className="w-5 h-5 text-purple-600" />
                       </div>
                       <div>
-                        <h4 className="font-semibold text-gray-900">Import Jobs</h4>
-                        <p className="text-sm text-gray-600">Import job data from a spreadsheet</p>
+                        <h4 className="font-semibold text-[var(--sf-text-primary)]">Import Jobs</h4>
+                        <p className="text-sm text-[var(--sf-text-secondary)]">Import job data from a spreadsheet</p>
                       </div>
                     </div>
                     <GoogleSheetsImport
@@ -387,9 +387,9 @@ const GoogleSheetsSettings = () => {
                   </div>
                 </div>
 
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="bg-[var(--sf-blue-50)] border border-blue-200 rounded-lg p-4">
                   <h4 className="text-sm font-medium text-blue-800 mb-2">How Import Works</h4>
-                  <ul className="text-sm text-blue-700 space-y-1">
+                  <ul className="text-sm text-[var(--sf-blue-500)] space-y-1">
                     <li>• Select a Google Spreadsheet from your Google Drive</li>
                     <li>• Preview the data to verify it looks correct</li>
                     <li>• Map spreadsheet columns to Serviceflow fields</li>
@@ -403,9 +403,9 @@ const GoogleSheetsSettings = () => {
         </div>
 
         {/* Help Section */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Need Help?</h3>
-          <div className="space-y-3 text-sm text-gray-600">
+        <div className="bg-white rounded-lg shadow-sm border border-[var(--sf-border-light)] p-6">
+          <h3 className="text-lg font-semibold text-[var(--sf-text-primary)] mb-4">Need Help?</h3>
+          <div className="space-y-3 text-sm text-[var(--sf-text-secondary)]">
             <p>
               <strong>Export:</strong> Your data will be exported to a new Google Spreadsheet. 
               The spreadsheet will be created in your Google Drive and you'll receive a link to open it.

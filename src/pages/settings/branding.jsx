@@ -131,13 +131,13 @@ const BrandingSettings = () => {
 
   if (loading) {
     return (
-      <div className="flex h-screen bg-gray-50 overflow-hidden">
+      <div className="flex h-screen bg-[var(--sf-bg-page)] overflow-hidden">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <div className="flex-1 flex flex-col min-w-0">
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-              <p className="mt-4 text-gray-600">Loading branding settings...</p>
+              <p className="mt-4 text-[var(--sf-text-secondary)]">Loading branding settings...</p>
             </div>
           </div>
         </div>
@@ -146,22 +146,22 @@ const BrandingSettings = () => {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen bg-[var(--sf-bg-page)] overflow-hidden">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
 
         {/* Header */}
-        <div className="bg-white border-b border-gray-200 px-6 py-4">
+        <div className="bg-white border-b border-[var(--sf-border-light)] px-6 py-4">
           <div className="flex items-center space-x-4">
             <button
               onClick={() => navigate("/settings")}
-              className="flex items-center space-x-2 text-gray-600 hover:text-gray-900"
+              className="flex items-center space-x-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]"
             >
               <ChevronLeft className="w-5 h-5" />
               <span className="text-sm">Settings</span>
             </button>
-            <h1 className="text-2xl font-semibold text-gray-900">Branding</h1>
+            <h1 className="text-2xl font-semibold text-[var(--sf-text-primary)]">Branding</h1>
           </div>
         </div>
 
@@ -184,11 +184,11 @@ const BrandingSettings = () => {
         {/* Content */}
         <div className="flex-1 overflow-auto">
           <div className="max-w-4xl mx-auto p-6">
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <p className="text-gray-600 mb-6">
+            <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-6">
+              <p className="text-[var(--sf-text-secondary)] mb-6">
                 Customize your emails and rescheduling page to match your brand.
               </p>
-              <p className="text-gray-600 mb-8">
+              <p className="text-[var(--sf-text-secondary)] mb-8">
                 You can customize branding and appearance of you booking page separately in{" "}
                 <button 
                   onClick={() => navigate("/online-booking")}
@@ -200,14 +200,14 @@ const BrandingSettings = () => {
 
               {/* Logo Upload */}
               <div className="mb-8">
-                <h3 className="text-sm font-medium text-gray-700 mb-1">Logo</h3>
-                <p className="text-sm text-gray-500 mb-4">
+                <h3 className="text-sm font-medium text-[var(--sf-text-primary)] mb-1">Logo</h3>
+                <p className="text-sm text-[var(--sf-text-muted)] mb-4">
                   HEIC, PNG, or JPG.
                   <br />
                   Recommended width: 512 pixels minimum.
                 </p>
                 <div className="mt-2">
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                  <div className="border-2 border-dashed border-[var(--sf-border-light)] rounded-lg p-8 text-center">
                     <input
                       type="file"
                       accept="image/*"
@@ -217,7 +217,7 @@ const BrandingSettings = () => {
                     />
                     <label
                       htmlFor="logo-upload"
-                      className="cursor-pointer text-gray-500 hover:text-gray-600"
+                      className="cursor-pointer text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
                     >
                       Click to upload logo
                     </label>
@@ -237,7 +237,7 @@ const BrandingSettings = () => {
                    </div>
                  )}
                 <div className="mt-4 flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Show logo in Serviceflow admin</span>
+                  <span className="text-sm text-[var(--sf-text-secondary)]">Show logo in Serviceflow admin</span>
                   <button
                     onClick={() => setSettings({ ...settings, showLogoInAdmin: !settings.showLogoInAdmin })}
                     className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-600 focus:ring-offset-2 ${
@@ -255,8 +255,8 @@ const BrandingSettings = () => {
 
               {/* Color Picker */}
               <div>
-                <h3 className="text-sm font-medium text-gray-700 mb-1">Primary color</h3>
-                <p className="text-sm text-gray-500 mb-4">This color will be used for buttons and certain icons</p>
+                <h3 className="text-sm font-medium text-[var(--sf-text-primary)] mb-1">Primary color</h3>
+                <p className="text-sm text-[var(--sf-text-muted)] mb-4">This color will be used for buttons and certain icons</p>
                 <div className="grid grid-cols-8 gap-2">
                   {colors.map((color) => (
                     <button
@@ -275,17 +275,17 @@ const BrandingSettings = () => {
                       className="w-6 h-6 rounded"
                       style={{ backgroundColor: settings.primaryColor }}
                     />
-                    <span className="text-sm text-gray-600 uppercase">{settings.primaryColor}</span>
+                    <span className="text-sm text-[var(--sf-text-secondary)] uppercase">{settings.primaryColor}</span>
                   </div>
                 </div>
               </div>
 
               {/* Save Button */}
-              <div className="mt-8 pt-6 border-t border-gray-200">
+              <div className="mt-8 pt-6 border-t border-[var(--sf-border-light)]">
                 <button
                   onClick={handleSaveBranding}
                   disabled={saving}
-                  className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="bg-[var(--sf-blue-500)] text-white px-6 py-2 rounded-md hover:bg-[var(--sf-blue-600)] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {saving ? 'Saving...' : 'Save Changes'}
                 </button>

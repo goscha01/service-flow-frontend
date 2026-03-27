@@ -78,24 +78,24 @@ const TeamCalendar = ({ userId, onDateClick, selectedDate }) => {
   }
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+    <div className="bg-white rounded-lg border border-[var(--sf-border-light)] overflow-hidden">
       {/* Calendar Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-200">
+      <div className="flex items-center justify-between p-4 border-b border-[var(--sf-border-light)]">
         <div className="flex items-center space-x-4">
-          <Calendar className="w-5 h-5 text-gray-400" />
-          <h3 className="text-lg font-semibold text-gray-900">Team Calendar</h3>
+          <Calendar className="w-5 h-5 text-[var(--sf-text-muted)]" />
+          <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">Team Calendar</h3>
         </div>
         <div className="flex items-center space-x-1">
           <button
             onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear() - 1, prev.getMonth()))}
-            className="p-2 hover:bg-gray-100 rounded-lg"
+            className="p-2 hover:bg-[var(--sf-bg-hover)] rounded-lg"
             title="Previous year"
           >
             <ChevronsLeft className="w-4 h-4" />
           </button>
           <button
             onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1))}
-            className="p-2 hover:bg-gray-100 rounded-lg"
+            className="p-2 hover:bg-[var(--sf-bg-hover)] rounded-lg"
             title="Previous month"
           >
             <ChevronLeft className="w-4 h-4" />
@@ -105,14 +105,14 @@ const TeamCalendar = ({ userId, onDateClick, selectedDate }) => {
           </h4>
           <button
             onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1))}
-            className="p-2 hover:bg-gray-100 rounded-lg"
+            className="p-2 hover:bg-[var(--sf-bg-hover)] rounded-lg"
             title="Next month"
           >
             <ChevronRight className="w-4 h-4" />
           </button>
           <button
             onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear() + 1, prev.getMonth()))}
-            className="p-2 hover:bg-gray-100 rounded-lg"
+            className="p-2 hover:bg-[var(--sf-bg-hover)] rounded-lg"
             title="Next year"
           >
             <ChevronsRight className="w-4 h-4" />
@@ -121,15 +121,15 @@ const TeamCalendar = ({ userId, onDateClick, selectedDate }) => {
       </div>
 
       {/* Team Members Legend */}
-      <div className="p-4 border-b border-gray-200">
+      <div className="p-4 border-b border-[var(--sf-border-light)]">
         <div className="flex flex-wrap gap-3">
           {teamMembers.map((member) => (
             <div key={member.id} className="flex items-center space-x-2">
               <div 
-                className="w-4 h-4 rounded-full border border-gray-300"
+                className="w-4 h-4 rounded-full border border-[var(--sf-border-light)]"
                 style={{ backgroundColor: member.color }}
               />
-              <span className="text-sm font-medium text-gray-700">
+              <span className="text-sm font-medium text-[var(--sf-text-primary)]">
                 {member.first_name} {member.last_name}
               </span>
             </div>
@@ -142,7 +142,7 @@ const TeamCalendar = ({ userId, onDateClick, selectedDate }) => {
         {/* Day headers */}
         <div className="grid grid-cols-7 gap-1 mb-2">
           {dayNames.map(day => (
-            <div key={day} className="p-2 text-center text-sm font-medium text-gray-500">
+            <div key={day} className="p-2 text-center text-sm font-medium text-[var(--sf-text-muted)]">
               {day}
             </div>
           ))}
@@ -154,14 +154,14 @@ const TeamCalendar = ({ userId, onDateClick, selectedDate }) => {
             <button
               key={index}
               onClick={() => onDateClick && onDateClick(date)}
-              className={`p-3 text-sm rounded-lg hover:bg-gray-50 transition-colors ${
+              className={`p-3 text-sm rounded-lg hover:bg-[var(--sf-bg-page)] transition-colors ${
                 isSelected(date) 
-                  ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                  ? 'bg-[var(--sf-blue-500)] text-white hover:bg-[var(--sf-blue-600)]' 
                   : isToday(date)
                     ? 'bg-blue-100 text-blue-900 font-semibold'
                     : isCurrentMonth(date) 
-                      ? 'text-gray-900' 
-                      : 'text-gray-400'
+                      ? 'text-[var(--sf-text-primary)]' 
+                      : 'text-[var(--sf-text-muted)]'
               }`}
             >
               <div className="flex flex-col items-center space-y-1">
@@ -187,23 +187,23 @@ const TeamCalendar = ({ userId, onDateClick, selectedDate }) => {
       </div>
 
       {/* Team Member Status */}
-      <div className="p-4 border-t border-gray-200 bg-gray-50">
+      <div className="p-4 border-t border-[var(--sf-border-light)] bg-[var(--sf-bg-page)]">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {teamMembers.map((member) => (
-            <div key={member.id} className="flex items-center space-x-3 p-3 bg-white rounded-lg border border-gray-200">
+            <div key={member.id} className="flex items-center space-x-3 p-3 bg-white rounded-lg border border-[var(--sf-border-light)]">
               <div 
-                className="w-6 h-6 rounded-full border border-gray-300 flex-shrink-0"
+                className="w-6 h-6 rounded-full border border-[var(--sf-border-light)] flex-shrink-0"
                 style={{ backgroundColor: member.color }}
               />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate">
+                <p className="text-sm font-medium text-[var(--sf-text-primary)] truncate">
                   {member.first_name} {member.last_name}
                 </p>
-                <p className="text-xs text-gray-500">{member.role}</p>
+                <p className="text-xs text-[var(--sf-text-muted)]">{member.role}</p>
               </div>
               <div className="flex items-center space-x-1">
-                <Clock className="w-4 h-4 text-gray-400" />
-                <span className="text-xs text-gray-500">
+                <Clock className="w-4 h-4 text-[var(--sf-text-muted)]" />
+                <span className="text-xs text-[var(--sf-text-muted)]">
                   {member.availability ? 'Available' : 'Busy'}
                 </span>
               </div>

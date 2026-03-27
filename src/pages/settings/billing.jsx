@@ -110,12 +110,12 @@ const PaymentForm = ({ onSuccess, plan, loading, setLoading }) => {
   return (
     <form onSubmit={handleSubmit} className="max-w-lg mx-auto">
       <div className="mb-6">
-        <label className="flex items-center text-sm font-medium text-gray-700 mb-3">
+        <label className="flex items-center text-sm font-medium text-[var(--sf-text-primary)] mb-3">
           <CreditCard className="w-4 h-4 mr-2" />
           Card Details
-          <Lock className="w-4 h-4 text-gray-400 ml-2" />
+          <Lock className="w-4 h-4 text-[var(--sf-text-muted)] ml-2" />
         </label>
-        <div className="border border-gray-300 rounded-md p-3 focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500">
+        <div className="border border-[var(--sf-border-light)] rounded-md p-3 focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500">
           <CardElement options={cardElementOptions} />
         </div>
         {error && (
@@ -129,7 +129,7 @@ const PaymentForm = ({ onSuccess, plan, loading, setLoading }) => {
       <button
         type="submit"
         disabled={!stripe || loading}
-        className="w-full px-4 py-3 bg-blue-500 text-white rounded-md font-medium hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full px-4 py-3 bg-[var(--sf-blue-500)] text-white rounded-md font-medium hover:bg-[var(--sf-blue-500)] focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {loading ? 'Processing...' : `Start ${plan} Subscription`}
       </button>
@@ -228,13 +228,13 @@ const BillingSettings = () => {
 
   if (loading) {
     return (
-      <div className="flex h-screen bg-gray-50 overflow-hidden">
+      <div className="flex h-screen bg-[var(--sf-bg-page)] overflow-hidden">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-              <p className="mt-4 text-gray-600">Loading billing information...</p>
+              <p className="mt-4 text-[var(--sf-text-secondary)]">Loading billing information...</p>
             </div>
           </div>
         </div>
@@ -243,22 +243,22 @@ const BillingSettings = () => {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen bg-[var(--sf-bg-page)] overflow-hidden">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
 
         {/* Header */}
-        <div className="bg-white border-b border-gray-200 px-6 py-4">
+        <div className="bg-white border-b border-[var(--sf-border-light)] px-6 py-4">
           <div className="flex items-center space-x-4">
             <button
               onClick={() => navigate("/settings")}
-              className="flex items-center space-x-2 text-gray-600 hover:text-gray-900"
+              className="flex items-center space-x-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]"
             >
               <ChevronLeft className="w-5 h-5" />
               <span className="text-sm">Settings</span>
             </button>
-            <h1 className="text-2xl font-semibold text-gray-900">Billing & Subscription</h1>
+            <h1 className="text-2xl font-semibold text-[var(--sf-text-primary)]">Billing & Subscription</h1>
           </div>
         </div>
 
@@ -282,14 +282,14 @@ const BillingSettings = () => {
         <div className="flex-1 overflow-auto">
           <div className="max-w-4xl mx-auto p-6">
             {/* Current Plan Section */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+            <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-6 mb-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h3 className="text-sm font-medium text-gray-600">Current plan</h3>
+                  <h3 className="text-sm font-medium text-[var(--sf-text-secondary)]">Current plan</h3>
                   <div className="flex items-center space-x-2 mt-1">
-                    <span className="text-xl font-semibold text-gray-900">{billingDetails.currentPlan}</span>
+                    <span className="text-xl font-semibold text-[var(--sf-text-primary)]">{billingDetails.currentPlan}</span>
                     {billingDetails.isTrial && (
-                      <span className="px-2 py-1 bg-gray-100 text-gray-600 text-sm rounded">Trial</span>
+                      <span className="px-2 py-1 bg-[var(--sf-bg-page)] text-[var(--sf-text-secondary)] text-sm rounded">Trial</span>
                     )}
                     {billingDetails.subscriptionStatus === 'canceled' && (
                       <span className="px-2 py-1 bg-red-100 text-red-600 text-sm rounded">Cancelled</span>
@@ -299,7 +299,7 @@ const BillingSettings = () => {
                 <div className="flex space-x-2">
                   <button 
                     onClick={() => setIsPlanModalOpen(true)}
-                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                    className="px-4 py-2 text-sm font-medium text-[var(--sf-text-primary)] bg-white border border-[var(--sf-border-light)] rounded-md hover:bg-[var(--sf-bg-page)]"
                   >
                     Change Plan
                   </button>
@@ -317,31 +317,31 @@ const BillingSettings = () => {
               
               {billingDetails.isTrial && (
                 <div>
-                  <h3 className="text-sm font-medium text-gray-600">Trial status</h3>
-                  <p className="text-gray-900 mt-1">{billingDetails.trialDaysLeft} days left</p>
+                  <h3 className="text-sm font-medium text-[var(--sf-text-secondary)]">Trial status</h3>
+                  <p className="text-[var(--sf-text-primary)] mt-1">{billingDetails.trialDaysLeft} days left</p>
                 </div>
               )}
             </div>
 
             {/* Payment Methods Section */}
             {paymentMethods.length > 0 && (
-              <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Payment Methods</h3>
+              <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-6 mb-6">
+                <h3 className="text-lg font-medium text-[var(--sf-text-primary)] mb-4">Payment Methods</h3>
                 <div className="space-y-3">
                   {paymentMethods.map((method) => (
-                    <div key={method.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
+                    <div key={method.id} className="flex items-center justify-between p-3 border border-[var(--sf-border-light)] rounded-lg">
                       <div className="flex items-center space-x-3">
-                        <CreditCard className="w-5 h-5 text-gray-400" />
+                        <CreditCard className="w-5 h-5 text-[var(--sf-text-muted)]" />
                         <div>
-                          <p className="text-sm font-medium text-gray-900">
+                          <p className="text-sm font-medium text-[var(--sf-text-primary)]">
                             {method.brand.toUpperCase()} •••• {method.last4}
                           </p>
-                          <p className="text-sm text-gray-500">
+                          <p className="text-sm text-[var(--sf-text-muted)]">
                             Expires {method.exp_month}/{method.exp_year}
                           </p>
                         </div>
                       </div>
-                      <span className="text-sm text-blue-600">Default</span>
+                      <span className="text-sm text-[var(--sf-blue-500)]">Default</span>
                     </div>
                   ))}
                 </div>
@@ -349,11 +349,11 @@ const BillingSettings = () => {
             )}
 
             {/* Stripe Connect Account Section */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+            <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-6 mb-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Stripe Account</h3>
-                  <p className="text-sm text-gray-600">Connect your Stripe account to accept payments</p>
+                  <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">Stripe Account</h3>
+                  <p className="text-sm text-[var(--sf-text-secondary)]">Connect your Stripe account to accept payments</p>
                 </div>
                 {stripeConnectStatus?.connected && (
                   <div className="flex items-center space-x-2">
@@ -392,15 +392,15 @@ const BillingSettings = () => {
 
             {/* Subscription Setup Card */}
             {billingDetails.isTrial && paymentMethods.length === 0 && (
-              <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-6">
                 <div className="text-center mb-6">
-                  <h2 className="text-2xl font-semibold text-gray-900 mb-2">
+                  <h2 className="text-2xl font-semibold text-[var(--sf-text-primary)] mb-2">
                     Subscribe to Serviceflow for ${billingDetails.monthlyPrice}/month USD
                   </h2>
-                  <h3 className="text-lg text-gray-700 mb-4">
+                  <h3 className="text-lg text-[var(--sf-text-primary)] mb-4">
                     to keep using your account.
                   </h3>
-                  <p className="text-gray-600">
+                  <p className="text-[var(--sf-text-secondary)]">
                     You can cancel any time and you won't be charged until after<br />
                     your trial ends on {billingDetails.trialEndDate}
                   </p>

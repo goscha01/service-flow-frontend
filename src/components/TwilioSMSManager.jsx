@@ -146,14 +146,14 @@ const TwilioSMSManager = ({ onSMSSent, onNotificationSetup }) => {
 
       {/* Phone Numbers Display */}
       {phoneNumbers.length > 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="bg-[var(--sf-blue-50)] border border-blue-200 rounded-lg p-4">
           <div className="flex items-center space-x-3">
-            <Phone className="w-5 h-5 text-blue-600" />
+            <Phone className="w-5 h-5 text-[var(--sf-blue-500)]" />
             <div>
               <h3 className="text-sm font-medium text-blue-800">Available Phone Numbers</h3>
               <div className="mt-1 space-y-1">
                 {phoneNumbers.map((number, index) => (
-                  <div key={index} className="text-sm text-blue-700">
+                  <div key={index} className="text-sm text-[var(--sf-blue-500)]">
                     {number.phoneNumber} {number.friendlyName && `(${number.friendlyName})`}
                   </div>
                 ))}
@@ -164,16 +164,16 @@ const TwilioSMSManager = ({ onSMSSent, onNotificationSetup }) => {
       )}
 
       {/* Send SMS Section */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6">
+      <div className="bg-white border border-[var(--sf-border-light)] rounded-lg p-6">
         <div className="flex items-center space-x-3 mb-4">
-          <MessageSquare className="w-5 h-5 text-blue-600" />
-          <h3 className="text-lg font-medium text-gray-900">Send SMS Message</h3>
+          <MessageSquare className="w-5 h-5 text-[var(--sf-blue-500)]" />
+          <h3 className="text-lg font-medium text-[var(--sf-text-primary)]">Send SMS Message</h3>
         </div>
         
         <form onSubmit={handleSendSMS} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                 To Phone Number
               </label>
               <input
@@ -181,20 +181,20 @@ const TwilioSMSManager = ({ onSMSSent, onNotificationSetup }) => {
                 name="to"
                 value={smsData.to}
                 onChange={handleSMSInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)]"
                 placeholder="+1234567890"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                 From Phone Number
               </label>
               <select
                 value={selectedPhoneNumber}
                 onChange={(e) => setSelectedPhoneNumber(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)]"
               >
                 {phoneNumbers.map((number, index) => (
                   <option key={index} value={number.phoneNumber}>
@@ -206,7 +206,7 @@ const TwilioSMSManager = ({ onSMSSent, onNotificationSetup }) => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
               Message
             </label>
             <textarea
@@ -214,11 +214,11 @@ const TwilioSMSManager = ({ onSMSSent, onNotificationSetup }) => {
               value={smsData.message}
               onChange={handleSMSInputChange}
               rows={4}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)]"
               placeholder="Enter your message here..."
               required
             />
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-[var(--sf-text-muted)] mt-1">
               Character count: {smsData.message.length}/1600
             </p>
           </div>
@@ -227,7 +227,7 @@ const TwilioSMSManager = ({ onSMSSent, onNotificationSetup }) => {
             <button
               type="submit"
               disabled={loading}
-              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center space-x-2 px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <Send className="w-4 h-4" />
               <span>{loading ? 'Sending...' : 'Send SMS'}</span>
@@ -237,7 +237,7 @@ const TwilioSMSManager = ({ onSMSSent, onNotificationSetup }) => {
               type="button"
               onClick={handleTestSMS}
               disabled={loading || !smsData.to}
-              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-4 py-2 border border-[var(--sf-border-light)] text-[var(--sf-text-primary)] rounded-lg hover:bg-[var(--sf-bg-page)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Test SMS
             </button>
@@ -246,15 +246,15 @@ const TwilioSMSManager = ({ onSMSSent, onNotificationSetup }) => {
       </div>
 
       {/* SMS Notifications Setup */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6">
+      <div className="bg-white border border-[var(--sf-border-light)] rounded-lg p-6">
         <div className="flex items-center space-x-3 mb-4">
           <Settings className="w-5 h-5 text-green-600" />
-          <h3 className="text-lg font-medium text-gray-900">Setup SMS Notifications</h3>
+          <h3 className="text-lg font-medium text-[var(--sf-text-primary)]">Setup SMS Notifications</h3>
         </div>
         
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-3">
+            <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-3">
               Select notification types to enable:
             </label>
             <div className="space-y-3">
@@ -264,9 +264,9 @@ const TwilioSMSManager = ({ onSMSSent, onNotificationSetup }) => {
                     type="checkbox"
                     checked={enabled}
                     onChange={() => handleNotificationTypeChange(type)}
-                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    className="w-4 h-4 text-[var(--sf-blue-500)] border-[var(--sf-border-light)] rounded focus:ring-[var(--sf-blue-500)]"
                   />
-                  <span className="text-sm text-gray-700 capitalize">
+                  <span className="text-sm text-[var(--sf-text-primary)] capitalize">
                     {type.replace(/([A-Z])/g, ' $1').trim()}
                   </span>
                 </label>

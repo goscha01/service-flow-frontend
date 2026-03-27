@@ -140,13 +140,13 @@ const JobTemplateModal = ({ isOpen, onClose, onSave, editingTemplate, userId }) 
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">
+        <div className="flex items-center justify-between p-6 border-b border-[var(--sf-border-light)]">
+          <h2 className="text-xl font-semibold text-[var(--sf-text-primary)]">
             {editingTemplate ? 'Edit Job Template' : 'Create Job Template'}
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
+            className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
           >
             <X className="w-5 h-5" />
           </button>
@@ -175,35 +175,35 @@ const JobTemplateModal = ({ isOpen, onClose, onSave, editingTemplate, userId }) 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {/* Template Name */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
               Template Name *
             </label>
             <input
               type="text"
               value={formData.name}
               onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="w-full border border-[var(--sf-border-light)] rounded-lg px-3 py-2 focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] outline-none"
               placeholder="e.g., Standard House Cleaning"
             />
           </div>
 
           {/* Description */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
               Description
             </label>
             <textarea
               value={formData.description}
               onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
               rows={3}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="w-full border border-[var(--sf-border-light)] rounded-lg px-3 py-2 focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] outline-none"
               placeholder="Describe this job template..."
             />
           </div>
 
           {/* Service Selection */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
               Service *
             </label>
             <div className="relative">
@@ -213,27 +213,27 @@ const JobTemplateModal = ({ isOpen, onClose, onSave, editingTemplate, userId }) 
                 value={serviceSearch}
                 onChange={(e) => setServiceSearch(e.target.value)}
                 onFocus={() => setShowServiceDropdown(true)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                className="w-full border border-[var(--sf-border-light)] rounded-lg px-3 py-2 focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] outline-none"
               />
             </div>
 
             {showServiceDropdown && (
-              <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+              <div className="absolute z-10 w-full mt-1 bg-white border border-[var(--sf-border-light)] rounded-lg shadow-lg max-h-60 overflow-y-auto">
                 {filteredServices.map((service) => (
                   <button
                     key={service.id}
                     type="button"
                     onClick={() => handleServiceSelect(service)}
-                    className="w-full px-4 py-2 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
+                    className="w-full px-4 py-2 text-left hover:bg-[var(--sf-bg-page)] border-b border-[var(--sf-border-light)] last:border-b-0"
                   >
                     <div className="font-medium">{service.name}</div>
-                    <div className="text-sm text-gray-500">
+                    <div className="text-sm text-[var(--sf-text-muted)]">
                       ${service.price} • {service.duration} minutes
                     </div>
                   </button>
                 ))}
                 {filteredServices.length === 0 && (
-                  <div className="px-4 py-2 text-gray-500">No services found</div>
+                  <div className="px-4 py-2 text-[var(--sf-text-muted)]">No services found</div>
                 )}
               </div>
             )}
@@ -242,20 +242,20 @@ const JobTemplateModal = ({ isOpen, onClose, onSave, editingTemplate, userId }) 
           {/* Estimated Duration and Price */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                 Estimated Duration (minutes)
               </label>
               <input
                 type="number"
                 value={formData.estimatedDuration}
                 onChange={(e) => setFormData(prev => ({ ...prev, estimatedDuration: e.target.value }))}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                className="w-full border border-[var(--sf-border-light)] rounded-lg px-3 py-2 focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] outline-none"
                 placeholder="120"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                 Estimated Price ($)
               </label>
               <input
@@ -263,7 +263,7 @@ const JobTemplateModal = ({ isOpen, onClose, onSave, editingTemplate, userId }) 
                 step="0.01"
                 value={formData.estimatedPrice}
                 onChange={(e) => setFormData(prev => ({ ...prev, estimatedPrice: e.target.value }))}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                className="w-full border border-[var(--sf-border-light)] rounded-lg px-3 py-2 focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] outline-none"
                 placeholder="150.00"
               />
             </div>
@@ -271,14 +271,14 @@ const JobTemplateModal = ({ isOpen, onClose, onSave, editingTemplate, userId }) 
 
           {/* Default Notes */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
               Default Notes
             </label>
             <textarea
               value={formData.defaultNotes}
               onChange={(e) => setFormData(prev => ({ ...prev, defaultNotes: e.target.value }))}
               rows={4}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="w-full border border-[var(--sf-border-light)] rounded-lg px-3 py-2 focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] outline-none"
               placeholder="Default notes that will be added to jobs created from this template..."
             />
           </div>
@@ -288,14 +288,14 @@ const JobTemplateModal = ({ isOpen, onClose, onSave, editingTemplate, userId }) 
             <button
               type="button"
               onClick={onClose}
-              className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+              className="px-6 py-2 border border-[var(--sf-border-light)] rounded-lg text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-page)]"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+              className="px-6 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
             >
               <Save className="w-4 h-4" />
               <span>{loading ? 'Saving...' : (editingTemplate ? 'Update' : 'Create')}</span>

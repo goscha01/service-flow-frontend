@@ -28,7 +28,7 @@ const WorkerBottomNav = () => {
   }
   
   return (
-    <div className="lg:hidden fixed-bottom-nav bg-white border-t border-gray-200 z-[100] shadow-lg" style={{ bottom: `calc(env(safe-area-inset-bottom, 0px) + 8px)` }}>
+    <div className="lg:hidden fixed-bottom-nav bg-white border-t border-[var(--sf-border-light)] z-[100] shadow-lg" style={{ bottom: `calc(env(safe-area-inset-bottom, 0px) + 8px)` }}>
       <div className="flex items-center justify-around py-3.5 px-2 safe-area-bottom">
         {navItems.map((item) => {
           const Icon = item.icon
@@ -40,12 +40,12 @@ const WorkerBottomNav = () => {
               onClick={() => handleNavigation(item.path)}
               className={`flex flex-col items-center space-y-1.5 px-2 py-1.5 flex-1 transition-colors ${
                 active 
-                  ? 'text-blue-600' 
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'text-[var(--sf-blue-500)]' 
+                  : 'text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]'
               }`}
             >
-              <Icon className={`w-6 h-6 ${active ? 'text-blue-600' : ''}`} />
-              <span className={`text-xs font-medium ${active ? 'text-blue-600' : 'text-gray-600'}`}>
+              <Icon className={`w-6 h-6 ${active ? 'text-[var(--sf-blue-500)]' : ''}`} />
+              <span className={`text-xs font-medium ${active ? 'text-[var(--sf-blue-500)]' : 'text-[var(--sf-text-secondary)]'}`}>
                 {item.label}
               </span>
             </button>

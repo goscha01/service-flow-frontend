@@ -157,7 +157,7 @@ const InvoiceEdit = () => {
 
   if (loading) {
     return (
-      <div className="flex h-screen bg-gray-50 overflow-hidden">
+      <div className="flex h-screen bg-[var(--sf-bg-page)] overflow-hidden">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         
         <div className="flex-1 flex flex-col min-w-0">
@@ -172,7 +172,7 @@ const InvoiceEdit = () => {
 
   if (error && !invoice) {
     return (
-      <div className="flex h-screen bg-gray-50 overflow-hidden">
+      <div className="flex h-screen bg-[var(--sf-bg-page)] overflow-hidden">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         
         <div className="flex-1 flex flex-col min-w-0">
@@ -180,12 +180,12 @@ const InvoiceEdit = () => {
           <div className="flex-1 overflow-auto flex items-center justify-center">
             <div className="text-center">
               <AlertCircle className="mx-auto h-12 w-12 text-red-400" />
-              <h3 className="mt-2 text-sm font-medium text-gray-900">Error loading invoice</h3>
-              <p className="mt-1 text-sm text-gray-500">{error}</p>
+              <h3 className="mt-2 text-sm font-medium text-[var(--sf-text-primary)]">Error loading invoice</h3>
+              <p className="mt-1 text-sm text-[var(--sf-text-muted)]">{error}</p>
               <div className="mt-6">
                 <button
                   onClick={() => navigate('/invoices')}
-                  className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                  className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-[var(--sf-blue-500)] hover:bg-[var(--sf-blue-600)]"
                 >
                   Back to Invoices
                 </button>
@@ -198,7 +198,7 @@ const InvoiceEdit = () => {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen bg-[var(--sf-bg-page)] overflow-hidden">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
       <div className="flex-1 flex flex-col min-w-0">
@@ -211,20 +211,20 @@ const InvoiceEdit = () => {
                 <div className="flex items-center">
                   <button
                     onClick={() => navigate(`/invoices/${invoiceId}`)}
-                    className="mr-4 p-2 text-gray-400 hover:text-gray-600"
+                    className="mr-4 p-2 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
                   >
                     <ChevronLeft className="w-5 h-5" />
                   </button>
                   <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Edit Invoice #{invoiceId}</h1>
-                    <p className="text-sm text-gray-500">Update invoice details and settings</p>
+                    <h1 className="text-2xl font-bold text-[var(--sf-text-primary)]">Edit Invoice #{invoiceId}</h1>
+                    <p className="text-sm text-[var(--sf-text-muted)]">Update invoice details and settings</p>
                   </div>
                 </div>
                 
                 <div className="flex items-center space-x-3">
                   <button
                     onClick={handleCancel}
-                    className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                    className="inline-flex items-center px-4 py-2 border border-[var(--sf-border-light)] shadow-sm text-sm font-medium rounded-md text-[var(--sf-text-primary)] bg-white hover:bg-[var(--sf-bg-page)]"
                   >
                     <X className="w-4 h-4 mr-2" />
                     Cancel
@@ -232,7 +232,7 @@ const InvoiceEdit = () => {
                   <button
                     onClick={handleSave}
                     disabled={saving}
-                    className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+                    className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-[var(--sf-blue-500)] hover:bg-[var(--sf-blue-600)] disabled:opacity-50"
                   >
                     {saving ? (
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -260,22 +260,22 @@ const InvoiceEdit = () => {
 
             {/* Form */}
             <div className="bg-white shadow rounded-lg">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h3 className="text-lg font-medium text-gray-900">Invoice Details</h3>
+              <div className="px-6 py-4 border-b border-[var(--sf-border-light)]">
+                <h3 className="text-lg font-medium text-[var(--sf-text-primary)]">Invoice Details</h3>
               </div>
               
               <div className="px-6 py-4 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Customer */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                       Customer
                     </label>
                     <select
                       name="customer_id"
                       value={formData.customer_id}
                       onChange={handleInputChange}
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full border border-[var(--sf-border-light)] rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)]"
                     >
                       <option value="">Select a customer</option>
                       {customers.map(customer => (
@@ -288,14 +288,14 @@ const InvoiceEdit = () => {
 
                   {/* Service */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                       Service
                     </label>
                     <select
                       name="service_id"
                       value={formData.service_id}
                       onChange={handleInputChange}
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full border border-[var(--sf-border-light)] rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)]"
                     >
                       <option value="">Select a service</option>
                       {services.map(service => (
@@ -308,12 +308,12 @@ const InvoiceEdit = () => {
 
                   {/* Amount */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                       Amount
                     </label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <DollarSign className="h-5 w-5 text-gray-400" />
+                        <DollarSign className="h-5 w-5 text-[var(--sf-text-muted)]" />
                       </div>
                       <input
                         type="number"
@@ -321,7 +321,7 @@ const InvoiceEdit = () => {
                         value={formData.amount}
                         onChange={handleInputChange}
                         step="0.01"
-                        className="w-full pl-10 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full pl-10 border border-[var(--sf-border-light)] rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)]"
                         placeholder="0.00"
                       />
                     </div>
@@ -329,12 +329,12 @@ const InvoiceEdit = () => {
 
                   {/* Tax Amount */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                       Tax Amount
                     </label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <DollarSign className="h-5 w-5 text-gray-400" />
+                        <DollarSign className="h-5 w-5 text-[var(--sf-text-muted)]" />
                       </div>
                       <input
                         type="number"
@@ -342,7 +342,7 @@ const InvoiceEdit = () => {
                         value={formData.tax_amount}
                         onChange={handleInputChange}
                         step="0.01"
-                        className="w-full pl-10 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full pl-10 border border-[var(--sf-border-light)] rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)]"
                         placeholder="0.00"
                       />
                     </div>
@@ -350,12 +350,12 @@ const InvoiceEdit = () => {
 
                   {/* Total Amount */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                       Total Amount
                     </label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <DollarSign className="h-5 w-5 text-gray-400" />
+                        <DollarSign className="h-5 w-5 text-[var(--sf-text-muted)]" />
                       </div>
                       <input
                         type="number"
@@ -363,7 +363,7 @@ const InvoiceEdit = () => {
                         value={formData.total_amount}
                         onChange={handleInputChange}
                         step="0.01"
-                        className="w-full pl-10 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full pl-10 border border-[var(--sf-border-light)] rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)]"
                         placeholder="0.00"
                       />
                     </div>
@@ -371,33 +371,33 @@ const InvoiceEdit = () => {
 
                   {/* Due Date */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                       Due Date
                     </label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <Calendar className="h-5 w-5 text-gray-400" />
+                        <Calendar className="h-5 w-5 text-[var(--sf-text-muted)]" />
                       </div>
                       <input
                         type="date"
                         name="due_date"
                         value={formData.due_date}
                         onChange={handleInputChange}
-                        className="w-full pl-10 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full pl-10 border border-[var(--sf-border-light)] rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)]"
                       />
                     </div>
                   </div>
 
                   {/* Status */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                       Status
                     </label>
                     <select
                       name="status"
                       value={formData.status}
                       onChange={handleInputChange}
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full border border-[var(--sf-border-light)] rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)]"
                     >
                       <option value="draft">Draft</option>
                       <option value="sent">Sent</option>
@@ -410,7 +410,7 @@ const InvoiceEdit = () => {
 
                 {/* Notes */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                     Notes
                   </label>
                   <textarea
@@ -418,7 +418,7 @@ const InvoiceEdit = () => {
                     value={formData.notes}
                     onChange={handleInputChange}
                     rows={4}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-[var(--sf-border-light)] rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)]"
                     placeholder="Add any additional notes about this invoice..."
                   />
                 </div>

@@ -21,7 +21,7 @@ const Modal = ({
       case 'warning':
         return <AlertCircle className="w-6 h-6 text-yellow-600" />;
       default:
-        return <Info className="w-6 h-6 text-blue-600" />;
+        return <Info className="w-6 h-6 text-[var(--sf-blue-500)]" />;
     }
   };
 
@@ -34,7 +34,7 @@ const Modal = ({
       case 'warning':
         return 'bg-yellow-50';
       default:
-        return 'bg-blue-50';
+        return 'bg-[var(--sf-blue-50)]';
     }
   };
 
@@ -54,7 +54,7 @@ const Modal = ({
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-        <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={onClose}></div>
+        <div className="fixed inset-0 transition-opacity bg-[var(--sf-bg-page)]0 bg-opacity-75" onClick={onClose}></div>
 
         <span className="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
 
@@ -65,11 +65,11 @@ const Modal = ({
                 {getIcon()}
               </div>
               <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left flex-1">
-                <h3 className="text-lg font-medium text-gray-900">
+                <h3 className="text-lg font-medium text-[var(--sf-text-primary)]">
                   {title}
                 </h3>
                 <div className="mt-2">
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-[var(--sf-text-muted)]">
                     {message}
                   </p>
                   {children}
@@ -79,7 +79,7 @@ const Modal = ({
                 <div className="absolute top-4 right-4">
                   <button
                     onClick={onClose}
-                    className="text-gray-400 hover:text-gray-600"
+                    className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
                   >
                     <X className="w-6 h-6" />
                   </button>
@@ -90,7 +90,7 @@ const Modal = ({
           <div className={`px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse border-t ${getBorderColor()}`}>
             <button
               onClick={onClose}
-              className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm"
+              className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-[var(--sf-blue-500)] text-base font-medium text-white hover:bg-[var(--sf-blue-600)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--sf-blue-500)] sm:ml-3 sm:w-auto sm:text-sm"
             >
               OK
             </button>

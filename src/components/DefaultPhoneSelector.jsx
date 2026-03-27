@@ -111,10 +111,10 @@ const DefaultPhoneSelector = () => {
 
   if (loading) {
     return (
-      <div className="bg-white border border-gray-200 rounded-lg p-6">
+      <div className="bg-white border border-[var(--sf-border-light)] rounded-lg p-6">
         <div className="flex items-center space-x-3">
           <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
-          <span className="text-gray-600">Loading phone numbers...</span>
+          <span className="text-[var(--sf-text-secondary)]">Loading phone numbers...</span>
         </div>
       </div>
     );
@@ -122,8 +122,8 @@ const DefaultPhoneSelector = () => {
 
   if (phoneNumbers.length === 0) {
     return (
-      <div className="bg-white border border-gray-200 rounded-lg p-6">
-        <div className="flex items-center space-x-3 text-gray-600">
+      <div className="bg-white border border-[var(--sf-border-light)] rounded-lg p-6">
+        <div className="flex items-center space-x-3 text-[var(--sf-text-secondary)]">
           <AlertCircle className="w-5 h-5" />
           <span>No Twilio phone numbers available. Please connect your Twilio account first.</span>
         </div>
@@ -132,25 +132,25 @@ const DefaultPhoneSelector = () => {
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-6">
+    <div className="bg-white border border-[var(--sf-border-light)] rounded-lg p-6">
       <div className="flex items-center space-x-3 mb-4">
-        <Phone className="w-6 h-6 text-blue-600" />
-        <h2 className="text-lg font-semibold text-gray-900">Default Phone Number</h2>
+        <Phone className="w-6 h-6 text-[var(--sf-blue-500)]" />
+        <h2 className="text-lg font-semibold text-[var(--sf-text-primary)]">Default Phone Number</h2>
       </div>
       
-      <p className="text-sm text-gray-600 mb-4">
+      <p className="text-sm text-[var(--sf-text-secondary)] mb-4">
         Select which Twilio phone number to use as the default for sending SMS notifications.
       </p>
 
       <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
             Choose Default Phone Number
           </label>
           <select
             value={selectedPhone}
             onChange={(e) => setSelectedPhone(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)]"
           >
             {phoneNumbers.map((phone) => (
               <option key={phone.phoneNumber} value={phone.phoneNumber}>
@@ -164,13 +164,13 @@ const DefaultPhoneSelector = () => {
         </div>
 
         <div className="flex items-center justify-between">
-          <div className="text-sm text-gray-600">
+          <div className="text-sm text-[var(--sf-text-secondary)]">
             <span className="font-medium">Selected:</span> {selectedPhone}
           </div>
           <button
             onClick={handleSaveDefault}
             disabled={saving}
-            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center space-x-2 px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-md hover:bg-[var(--sf-blue-600)] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {saving ? (
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>

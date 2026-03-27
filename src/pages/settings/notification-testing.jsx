@@ -10,27 +10,27 @@ const NotificationTestingSettings = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen bg-[var(--sf-bg-page)] overflow-hidden">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
       <div className="flex-1 flex flex-col min-w-0 lg:ml-64 xl:ml-72">
         
         {/* Header */}
-        <div className="bg-white border-b border-gray-200 px-6 py-4">
+        <div className="bg-white border-b border-[var(--sf-border-light)] px-6 py-4">
           <div className="flex items-center space-x-4">
             <button
               onClick={() => navigate("/settings/client-team-notifications")}
-              className="flex items-center space-x-2 text-gray-600 hover:text-gray-900"
+              className="flex items-center space-x-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]"
             >
               <ChevronLeft className="w-5 h-5" />
               <span className="text-sm">Client & Team Notifications</span>
             </button>
             <div className="flex items-center space-x-3">
-              <Bell className="w-6 h-6 text-blue-600" />
-              <h1 className="text-2xl font-bold text-gray-900">Notification Testing</h1>
+              <Bell className="w-6 h-6 text-[var(--sf-blue-500)]" />
+              <h1 className="text-2xl font-bold text-[var(--sf-text-primary)]">Notification Testing</h1>
             </div>
           </div>
-          <p className="text-gray-600 mt-2">
+          <p className="text-[var(--sf-text-secondary)] mt-2">
             Test your email and SMS notifications to ensure they're working correctly. 
             Send test messages to verify your notification setup and team member communications.
           </p>

@@ -706,7 +706,7 @@ const BookingKoalaIntegration = () => {
         <div className="mb-6">
           <button
             onClick={() => navigate('/settings')}
-            className="flex items-center space-x-2 text-gray-600 hover:text-gray-800 mb-4"
+            className="flex items-center space-x-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] mb-4"
           >
             <span>← Back to Settings</span>
           </button>
@@ -715,31 +715,31 @@ const BookingKoalaIntegration = () => {
               <Upload className="w-8 h-8 text-orange-600" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Booking Koala Integration</h1>
-              <p className="text-gray-600">Import your customers and jobs from Booking Koala</p>
+              <h1 className="text-3xl font-bold text-[var(--sf-text-primary)]">Booking Koala Integration</h1>
+              <p className="text-[var(--sf-text-secondary)]">Import your customers and jobs from Booking Koala</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">About Booking Koala Import</h2>
-          <p className="text-gray-700 mb-4">
+        <div className="bg-white rounded-lg border border-[var(--sf-border-light)] shadow-sm p-6 mb-6">
+          <h2 className="text-xl font-semibold text-[var(--sf-text-primary)] mb-4">About Booking Koala Import</h2>
+          <p className="text-[var(--sf-text-primary)] mb-4">
             Easily migrate your data from Booking Koala to ZenBooker. Choose what you want to import:
           </p>
 
           <div className="grid md:grid-cols-2 gap-4 mb-6">
             {/* Customer Import Card */}
-            <div className="border-2 border-gray-200 rounded-lg p-6 hover:border-orange-400 transition-colors">
+            <div className="border-2 border-[var(--sf-border-light)] rounded-lg p-6 hover:border-orange-400 transition-colors">
               <div className="flex items-center space-x-3 mb-3">
                 <div className="p-2 bg-blue-100 rounded-lg">
-                  <FileText className="w-6 h-6 text-blue-600" />
+                  <FileText className="w-6 h-6 text-[var(--sf-blue-500)]" />
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900">Import Customers</h3>
+                <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">Import Customers</h3>
               </div>
-              <p className="text-sm text-gray-600 mb-4">
+              <p className="text-sm text-[var(--sf-text-secondary)] mb-4">
                 Import customer data from Booking Koala customer export. Includes:
               </p>
-              <ul className="list-disc list-inside space-y-1 text-sm text-gray-700 mb-4">
+              <ul className="list-disc list-inside space-y-1 text-sm text-[var(--sf-text-primary)] mb-4">
                 <li>Name, email, phone</li>
                 <li>Address information</li>
                 <li>Customer notes and tags</li>
@@ -749,24 +749,24 @@ const BookingKoalaIntegration = () => {
                   setImportType('customers');
                   setStep(2);
                 }}
-                className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                className="w-full px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] transition-colors font-medium"
               >
                 Import Customers
               </button>
             </div>
 
             {/* Job Import Card */}
-            <div className="border-2 border-gray-200 rounded-lg p-6 hover:border-orange-400 transition-colors">
+            <div className="border-2 border-[var(--sf-border-light)] rounded-lg p-6 hover:border-orange-400 transition-colors">
               <div className="flex items-center space-x-3 mb-3">
                 <div className="p-2 bg-green-100 rounded-lg">
                   <FileText className="w-6 h-6 text-green-600" />
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900">Import Jobs</h3>
+                <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">Import Jobs</h3>
               </div>
-              <p className="text-sm text-gray-600 mb-4">
+              <p className="text-sm text-[var(--sf-text-secondary)] mb-4">
                 Import booking/job data from Booking Koala bookings export. Includes:
               </p>
-              <ul className="list-disc list-inside space-y-1 text-sm text-gray-700 mb-4">
+              <ul className="list-disc list-inside space-y-1 text-sm text-[var(--sf-text-primary)] mb-4">
                 <li>Service details and scheduling</li>
                 <li>Provider/team assignments</li>
                 <li>Pricing and status</li>
@@ -784,9 +784,9 @@ const BookingKoalaIntegration = () => {
             </div>
           </div>
 
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+          <div className="bg-[var(--sf-blue-50)] border border-blue-200 rounded-lg p-4 mb-6">
             <div className="flex items-start space-x-3">
-              <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+              <Info className="w-5 h-5 text-[var(--sf-blue-500)] flex-shrink-0 mt-0.5" />
               <div>
                 <h3 className="font-semibold text-blue-900 mb-1">How to Export from Booking Koala</h3>
                 <ol className="list-decimal list-inside space-y-1 text-sm text-blue-800">
@@ -826,14 +826,14 @@ const BookingKoalaIntegration = () => {
               setStep(1);
               setImportType(null);
             }}
-            className="flex items-center space-x-2 text-gray-600 hover:text-gray-800 mb-4"
+            className="flex items-center space-x-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] mb-4"
           >
             <span>← Back</span>
           </button>
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-2xl font-bold text-[var(--sf-text-primary)]">
             Upload Booking Koala {importType === 'customers' ? 'Customers' : 'Jobs'} File
           </h1>
-          <p className="text-gray-600 mt-2">
+          <p className="text-[var(--sf-text-secondary)] mt-2">
             {importType === 'customers' 
               ? 'Upload your Booking Koala customer export file'
               : 'Upload your Booking Koala bookings/jobs export file'}
@@ -849,8 +849,8 @@ const BookingKoalaIntegration = () => {
           </div>
         )}
 
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-orange-400 transition-colors">
+        <div className="bg-white rounded-lg border border-[var(--sf-border-light)] shadow-sm p-6">
+          <div className="border-2 border-dashed border-[var(--sf-border-light)] rounded-lg p-8 text-center hover:border-orange-400 transition-colors">
             <input
               type="file"
               accept=".csv,.xlsx,.xls"
@@ -862,23 +862,23 @@ const BookingKoalaIntegration = () => {
               htmlFor="file-upload"
               className="cursor-pointer flex flex-col items-center"
             >
-              <Upload className="w-12 h-12 text-gray-400 mb-4" />
-              <p className="text-lg font-medium text-gray-700 mb-2">
+              <Upload className="w-12 h-12 text-[var(--sf-text-muted)] mb-4" />
+              <p className="text-lg font-medium text-[var(--sf-text-primary)] mb-2">
                 Click to upload or drag and drop
               </p>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-[var(--sf-text-muted)]">
                 CSV or Excel files (.csv, .xlsx, .xls)
               </p>
             </label>
           </div>
 
           {selectedFile && (
-            <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+            <div className="mt-4 p-4 bg-[var(--sf-bg-page)] rounded-lg">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
-                  <FileText className="w-5 h-5 text-gray-600" />
-                  <span className="text-sm font-medium text-gray-900">{selectedFile.name}</span>
-                  <span className="text-xs text-gray-500">
+                  <FileText className="w-5 h-5 text-[var(--sf-text-secondary)]" />
+                  <span className="text-sm font-medium text-[var(--sf-text-primary)]">{selectedFile.name}</span>
+                  <span className="text-xs text-[var(--sf-text-muted)]">
                     {(selectedFile.size / 1024).toFixed(2)} KB
                   </span>
                 </div>
@@ -888,7 +888,7 @@ const BookingKoalaIntegration = () => {
                     setFileData(null);
                     setPreviewData(null);
                   }}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -907,14 +907,14 @@ const BookingKoalaIntegration = () => {
         <div className="mb-6">
           <button
             onClick={() => setStep(2)}
-            className="flex items-center space-x-2 text-gray-600 hover:text-gray-800 mb-4"
+            className="flex items-center space-x-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] mb-4"
           >
             <span>← Back</span>
           </button>
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-2xl font-bold text-[var(--sf-text-primary)]">
             Preview {importType === 'customers' ? 'Customers' : 'Jobs'} Data
           </h1>
-          <p className="text-gray-600">Review the first 10 rows of your {importType === 'customers' ? 'customer' : 'job'} data</p>
+          <p className="text-[var(--sf-text-secondary)]">Review the first 10 rows of your {importType === 'customers' ? 'customer' : 'job'} data</p>
         </div>
 
         {previewData && previewData.length > 0 && (() => {
@@ -931,28 +931,28 @@ const BookingKoalaIntegration = () => {
           }
           
           return (
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden mb-6">
-              <div className="p-4 bg-blue-50 border-b border-blue-200">
+            <div className="bg-white rounded-lg border border-[var(--sf-border-light)] shadow-sm overflow-hidden mb-6">
+              <div className="p-4 bg-[var(--sf-blue-50)] border-b border-blue-200">
                 <p className="text-sm text-blue-800">
                   <strong>Preview of mapped data:</strong> This shows how your data will be imported. 
                   Only the first 10 rows are shown.
                 </p>
               </div>
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                <table className="min-w-full divide-y divide-[var(--sf-border-light)]">
+                  <thead className="bg-[var(--sf-bg-page)]">
                     <tr>
                       {Object.keys(displayData[0]).map((key) => (
                         <th
                           key={key}
-                          className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                          className="px-4 py-3 text-left text-xs font-medium text-[var(--sf-text-muted)] uppercase tracking-wider"
                         >
                           {key}
                         </th>
                       ))}
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="bg-white divide-y divide-[var(--sf-border-light)]">
                     {displayData.map((row, idx) => (
                       <tr key={idx}>
                         {Object.keys(displayData[0]).map((key) => {
@@ -962,7 +962,7 @@ const BookingKoalaIntegration = () => {
                             ? JSON.stringify(value) 
                             : (value || '-');
                           return (
-                            <td key={key} className="px-4 py-3 text-sm text-gray-900 max-w-xs truncate" title={typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value)}>
+                            <td key={key} className="px-4 py-3 text-sm text-[var(--sf-text-primary)] max-w-xs truncate" title={typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value)}>
                               {String(displayValue).substring(0, 100)}{String(displayValue).length > 100 ? '...' : ''}
                             </td>
                           );
@@ -979,7 +979,7 @@ const BookingKoalaIntegration = () => {
         <div className="flex justify-end space-x-4">
           <button
             onClick={() => setStep(2)}
-            className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+            className="px-6 py-2 border border-[var(--sf-border-light)] rounded-lg text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-page)]"
           >
             Cancel
           </button>
@@ -1001,11 +1001,11 @@ const BookingKoalaIntegration = () => {
         <div className="mb-6">
           <button
             onClick={() => setStep(3)}
-            className="flex items-center space-x-2 text-gray-600 hover:text-gray-800 mb-4"
+            className="flex items-center space-x-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] mb-4"
           >
             <span>← Back</span>
           </button>
-          <h1 className="text-2xl font-bold text-gray-900">Import Settings</h1>
+          <h1 className="text-2xl font-bold text-[var(--sf-text-primary)]">Import Settings</h1>
         </div>
 
         {error && (
@@ -1017,8 +1017,8 @@ const BookingKoalaIntegration = () => {
           </div>
         )}
 
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Duplicate Handling</h2>
+        <div className="bg-white rounded-lg border border-[var(--sf-border-light)] shadow-sm p-6 mb-6">
+          <h2 className="text-lg font-semibold text-[var(--sf-text-primary)] mb-4">Duplicate Handling</h2>
           
           <div className="space-y-4">
             <label className="flex items-start space-x-3 cursor-pointer">
@@ -1029,8 +1029,8 @@ const BookingKoalaIntegration = () => {
                 className="mt-1"
               />
               <div>
-                <span className="font-medium text-gray-900">Skip Duplicates</span>
-                <p className="text-sm text-gray-600">
+                <span className="font-medium text-[var(--sf-text-primary)]">Skip Duplicates</span>
+                <p className="text-sm text-[var(--sf-text-secondary)]">
                   Skip records that already exist in your system
                 </p>
               </div>
@@ -1045,8 +1045,8 @@ const BookingKoalaIntegration = () => {
                 disabled={!importSettings.skipDuplicates}
               />
               <div>
-                <span className="font-medium text-gray-900">Update Existing Records</span>
-                <p className="text-sm text-gray-600">
+                <span className="font-medium text-[var(--sf-text-primary)]">Update Existing Records</span>
+                <p className="text-sm text-[var(--sf-text-secondary)]">
                   Update existing records with new data instead of skipping them
                 </p>
               </div>
@@ -1057,7 +1057,7 @@ const BookingKoalaIntegration = () => {
         <div className="flex justify-end space-x-4">
           <button
             onClick={() => setStep(3)}
-            className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+            className="px-6 py-2 border border-[var(--sf-border-light)] rounded-lg text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-page)]"
           >
             Back
           </button>
@@ -1088,14 +1088,14 @@ const BookingKoalaIntegration = () => {
       <div className="max-w-4xl mx-auto p-6">
         <div className="text-center py-8">
           <Loader2 className="w-16 h-16 text-orange-600 mx-auto mb-4 animate-spin" />
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Importing Data...</h1>
-          <p className="text-gray-600 mb-6">Please wait while we import your Booking Koala data</p>
+          <h1 className="text-2xl font-bold text-[var(--sf-text-primary)] mb-2">Importing Data...</h1>
+          <p className="text-[var(--sf-text-secondary)] mb-6">Please wait while we import your Booking Koala data</p>
           
           {/* Overall Progress */}
           <div className="mb-8">
             <div className="flex justify-between items-center mb-2">
-              <span className="text-sm font-medium text-gray-700">Overall Progress</span>
-              <span className="text-sm font-medium text-gray-700">{Math.round(overallProgress)}%</span>
+              <span className="text-sm font-medium text-[var(--sf-text-primary)]">Overall Progress</span>
+              <span className="text-sm font-medium text-[var(--sf-text-primary)]">{Math.round(overallProgress)}%</span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
               <div 
@@ -1103,25 +1103,25 @@ const BookingKoalaIntegration = () => {
                 style={{ width: `${overallProgress}%` }}
               />
             </div>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-[var(--sf-text-muted)] mt-1">
               {importProgress.customers.current + importProgress.jobs.current} of {importProgress.customers.total + importProgress.jobs.total} records processed
             </p>
           </div>
 
           {/* Customers Progress */}
           {importProgress.customers.total > 0 && (
-            <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="mb-6 bg-[var(--sf-blue-50)] border border-blue-200 rounded-lg p-4">
               <div className="flex justify-between items-center mb-2">
                 <span className="text-sm font-medium text-blue-900">Customers</span>
                 <span className="text-sm font-medium text-blue-900">{Math.round(customersProgress)}%</span>
               </div>
               <div className="w-full bg-blue-200 rounded-full h-2.5 overflow-hidden mb-2">
                 <div 
-                  className="bg-blue-600 h-2.5 rounded-full transition-all duration-300 ease-out"
+                  className="bg-[var(--sf-blue-500)] h-2.5 rounded-full transition-all duration-300 ease-out"
                   style={{ width: `${customersProgress}%` }}
                 />
               </div>
-              <div className="flex justify-between text-xs text-blue-700">
+              <div className="flex justify-between text-xs text-[var(--sf-blue-500)]">
                 <span>Processed: {importProgress.customers.current} / {importProgress.customers.total}</span>
                 <span className="flex gap-4">
                   <span>✓ {importProgress.customers.imported}</span>
@@ -1166,10 +1166,10 @@ const BookingKoalaIntegration = () => {
       <div className="max-w-4xl mx-auto p-6">
         <div className="text-center py-8">
           <CheckCircle className="w-16 h-16 text-green-600 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">
+          <h1 className="text-2xl font-bold text-[var(--sf-text-primary)] mb-2">
             {importType === 'customers' ? 'Customers' : 'Jobs'} Import Complete!
           </h1>
-          <p className="text-gray-600 mb-4">
+          <p className="text-[var(--sf-text-secondary)] mb-4">
             Successfully imported {importType === 'customers' ? 'customer' : 'job'} data from Booking Koala
           </p>
           

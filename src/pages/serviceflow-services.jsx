@@ -513,11 +513,11 @@ const ServiceFlowServices = () => {
       onDragEnd={handleDragEnd}
       onClick={() => handleServiceClick(service.id)}
       className={`flex items-center justify-between px-4 py-3 transition-all duration-200 bg-white cursor-pointer ${
-        draggedService?.id === service.id ? 'opacity-50 scale-95' : 'hover:bg-gray-50'
+        draggedService?.id === service.id ? 'opacity-50 scale-95' : 'hover:bg-[var(--sf-bg-page)]'
       } border-b last:border-b-0`}
     >
       <div className="flex items-center gap-3 flex-1 min-w-0">
-        <GripVertical className="w-5 h-5 text-gray-300 cursor-move hover:text-gray-400 transition-colors flex-shrink-0" title="Drag to move service" />
+        <GripVertical className="w-5 h-5 text-gray-300 cursor-move hover:text-[var(--sf-text-muted)] transition-colors flex-shrink-0" title="Drag to move service" />
         {service.image ? (
           <img
             src={getImageUrl(service.image)}
@@ -526,15 +526,15 @@ const ServiceFlowServices = () => {
             onError={(e) => handleImageError(e, null)}
           />
         ) : (
-          <div className="w-9 h-9 flex items-center justify-center bg-gray-100 rounded flex-shrink-0">
-            <Wrench className="w-4 h-4 text-gray-400" />
+          <div className="w-9 h-9 flex items-center justify-center bg-[var(--sf-bg-page)] rounded flex-shrink-0">
+            <Wrench className="w-4 h-4 text-[var(--sf-text-muted)]" />
           </div>
         )}
         <div className="flex flex-col min-w-0">
-          <span className="font-medium text-gray-900 text-sm truncate" title={safeDecodeText(service.name)}>
+          <span className="font-medium text-[var(--sf-text-primary)] text-sm truncate" title={safeDecodeText(service.name)}>
             {safeDecodeText(service.name) || 'Unnamed Service'}
           </span>
-          <span className="text-xs text-gray-500">{service.price > 0 ? `${service.price}` : 'Free'}</span>
+          <span className="text-xs text-[var(--sf-text-muted)]">{service.price > 0 ? `${service.price}` : 'Free'}</span>
         </div>
       </div>
       <div className="flex items-center gap-2 flex-shrink-0 ml-4">
@@ -543,12 +543,12 @@ const ServiceFlowServices = () => {
             e.stopPropagation()
             handleServiceClick(service.id)
           }}
-          className="p-1 rounded hover:bg-gray-100"
+          className="p-1 rounded hover:bg-[var(--sf-bg-hover)]"
           title="Edit"
           tabIndex={-1}
           type="button"
         >
-          <Edit className="w-5 h-5 text-gray-500" />
+          <Edit className="w-5 h-5 text-[var(--sf-text-muted)]" />
         </button>
         <button
           onClick={(e) => {
@@ -556,15 +556,15 @@ const ServiceFlowServices = () => {
             handleDuplicateService(service)
           }}
           disabled={deleteLoading === service.id}
-          className="p-1 rounded hover:bg-gray-100 disabled:opacity-50"
+          className="p-1 rounded hover:bg-[var(--sf-bg-hover)] disabled:opacity-50"
           title="Copy"
           tabIndex={-1}
           type="button"
         >
           {deleteLoading === service.id ? (
-            <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+            <Loader2 className="w-5 h-5 animate-spin text-[var(--sf-text-muted)]" />
           ) : (
-            <Copy className="w-5 h-5 text-gray-500" />
+            <Copy className="w-5 h-5 text-[var(--sf-text-muted)]" />
           )}
         </button>
         <button
@@ -589,7 +589,7 @@ const ServiceFlowServices = () => {
   );
 
   return (
-    <div style={{fontFamily: 'Montserrat', fontWeight: 500}} className="flex h-screen bg-gray-50 overflow-hidden">
+    <div style={{fontFamily: 'Montserrat', fontWeight: 500}} className="flex h-screen bg-[var(--sf-bg-page)] overflow-hidden">
    
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
@@ -597,9 +597,9 @@ const ServiceFlowServices = () => {
         <MobileHeader pageTitle="Services" />
 
         {/* Desktop Header */}
-        <div className="hidden lg:flex bg-white border-b border-gray-200 px-5 lg:px-40 xl:px-44 2xl:px-48 py-4 items-center justify-between">
+        <div className="hidden lg:flex bg-white border-b border-[var(--sf-border-light)] px-5 lg:px-40 xl:px-44 2xl:px-48 py-4 items-center justify-between">
           <div className="max-w-7xl mx-auto w-full flex items-center justify-between">
-            <h1 className="text-2xl font-semibold text-gray-900">Services</h1>
+            <h1 className="text-2xl font-semibold text-[var(--sf-text-primary)]">Services</h1>
             <div className="flex items-center space-x-2">
               {services.length > 0 && (
                 <button
@@ -612,7 +612,7 @@ const ServiceFlowServices = () => {
               )}
             <button
               onClick={() => setCreateModalOpen(true)}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center space-x-2"
+              className="bg-[var(--sf-blue-500)] text-white px-4 py-2 rounded-lg font-medium hover:bg-[var(--sf-blue-600)] transition-colors flex items-center space-x-2"
             >
               <Plus className="w-4 h-4" />
               <span>Add Service</span>
@@ -622,9 +622,9 @@ const ServiceFlowServices = () => {
         </div>
 
         {/* Mobile Header Content */}
-        <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-4">
+        <div className="lg:hidden bg-white border-b border-[var(--sf-border-light)] px-4 py-4">
           <div className="flex items-center justify-between">
-            <h1 className="text-xl font-semibold text-gray-900">Services</h1>
+            <h1 className="text-xl font-semibold text-[var(--sf-text-primary)]">Services</h1>
             <div className="flex items-center space-x-2">
               {services.length > 0 && (
                 <button
@@ -637,7 +637,7 @@ const ServiceFlowServices = () => {
               )}
             <button
               onClick={() => setCreateModalOpen(true)}
-              className="bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors flex items-center space-x-2"
+              className="bg-[var(--sf-blue-500)] text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-[var(--sf-blue-600)] transition-colors flex items-center space-x-2"
             >
               <Plus className="w-4 h-4" />
               <span>Add Service</span>
@@ -653,8 +653,8 @@ const ServiceFlowServices = () => {
             {/* Auth Loading */}
             {authLoading ? (
               <div className="p-8 text-center">
-                <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
-                <p className="text-gray-600">Loading...</p>
+                <Loader2 className="w-8 h-8 animate-spin text-[var(--sf-blue-500)] mx-auto mb-4" />
+                <p className="text-[var(--sf-text-secondary)]">Loading...</p>
               </div>
             ) : (
               <>
@@ -675,20 +675,20 @@ const ServiceFlowServices = () => {
             )}
 
             {/* Services List */}
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm mb-6">
+            <div className="bg-white rounded-lg border border-[var(--sf-border-light)] shadow-sm mb-6">
               {loading ? (
                 <div className="p-8 text-center">
-                  <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
-                  <p className="text-gray-600">Loading services...</p>
+                  <Loader2 className="w-8 h-8 animate-spin text-[var(--sf-blue-500)] mx-auto mb-4" />
+                  <p className="text-[var(--sf-text-secondary)]">Loading services...</p>
                 </div>
               ) : services.length === 0 ? (
                 <div className="p-8 text-center">
                   <Wrench className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No services yet</h3>
-                  <p className="text-gray-500 mb-4">Create your first service to get started</p>
+                  <h3 className="text-lg font-medium text-[var(--sf-text-primary)] mb-2">No services yet</h3>
+                  <p className="text-[var(--sf-text-muted)] mb-4">Create your first service to get started</p>
                   <button
                     onClick={() => setCreateModalOpen(true)}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                    className="bg-[var(--sf-blue-500)] text-white px-4 py-2 rounded-lg font-medium hover:bg-[var(--sf-blue-600)] transition-colors"
                   >
                     Create Service
                   </button>
@@ -731,8 +731,8 @@ const ServiceFlowServices = () => {
                       return (
                         <div
                           key={category}
-                          className={`border-b border-gray-200 last:border-b-0 transition-all duration-200 relative ${
-                            dragOverCategory === category ? 'bg-blue-50 border-2 border-blue-200' : ''
+                          className={`border-b border-[var(--sf-border-light)] last:border-b-0 transition-all duration-200 relative ${
+                            dragOverCategory === category ? 'bg-[var(--sf-blue-50)] border-2 border-blue-200' : ''
                           }`}
                           onDragOver={(e) => handleDragOver(e, category)}
                           onDragLeave={handleDragLeave}
@@ -741,25 +741,25 @@ const ServiceFlowServices = () => {
                           <div
                             className={`px-4 py-3 flex items-center justify-between ${
                               categoryServices.length === 0
-                                ? 'bg-gray-100'
-                                : 'bg-gray-50'
+                                ? 'bg-[var(--sf-bg-page)]'
+                                : 'bg-[var(--sf-bg-page)]'
                             }`}
                           >
-                            <h3 className={`font-medium ${categoryServices.length === 0 ? 'text-gray-400' : 'text-gray-900'}`}>
+                            <h3 className={`font-medium ${categoryServices.length === 0 ? 'text-[var(--sf-text-muted)]' : 'text-[var(--sf-text-primary)]'}`}>
                               {category}
                               {categoryServices.length === 0 && (
-                                <span className="ml-2 text-xs text-gray-400 font-normal">(empty)</span>
+                                <span className="ml-2 text-xs text-[var(--sf-text-muted)] font-normal">(empty)</span>
                               )}
                             </h3>
                             <div className="flex items-center space-x-2">
-                              <span className={`text-sm ${categoryServices.length === 0 ? 'text-gray-400' : 'text-gray-500'}`}>
+                              <span className={`text-sm ${categoryServices.length === 0 ? 'text-[var(--sf-text-muted)]' : 'text-[var(--sf-text-muted)]'}`}>
                                 {categoryServices.length} service{categoryServices.length !== 1 ? 's' : ''}
                               </span>
                               {category !== 'No category' && (
                                 <div className="flex items-center space-x-1">
                                   <button
                                     onClick={() => handleEditCategory(category)}
-                                    className="p-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded transition-colors"
+                                    className="p-1 text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] hover:bg-[var(--sf-blue-50)] rounded transition-colors"
                                     title="Edit category name"
                                   >
                                     <Edit className="w-4 h-4" />
@@ -776,7 +776,7 @@ const ServiceFlowServices = () => {
                             </div>
                           </div>
                           {categoryServices.length === 0 && (
-                            <div className="px-4 py-6 text-center text-gray-500">
+                            <div className="px-4 py-6 text-center text-[var(--sf-text-muted)]">
                               <p>No services in this category yet.</p>
                               <p className="text-sm mt-1">Drag services here or create new ones to get started.</p>
                             </div>
@@ -793,13 +793,13 @@ const ServiceFlowServices = () => {
             </div>
 
             {/* Service Categories */}
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+            <div className="bg-white rounded-lg border border-[var(--sf-border-light)] shadow-sm p-6">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1">
-                  <h3 className="text-base font-semibold text-gray-900 mb-1">Service categories</h3>
-                  <p className="text-sm text-gray-600">
+                  <h3 className="text-base font-semibold text-[var(--sf-text-primary)] mb-1">Service categories</h3>
+                  <p className="text-sm text-[var(--sf-text-secondary)]">
                     Service categories allow you to organize your services into groups for your booking page.{" "}
-                    <button className="text-blue-600 hover:text-blue-700 font-medium">Learn more</button>
+                    <button className="text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] font-medium">Learn more</button>
                   </p>
                 </div>
                 <div className="flex-shrink-0">
@@ -812,7 +812,7 @@ const ServiceFlowServices = () => {
                       } catch (error) {}
                     }}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      categoriesEnabled ? "bg-blue-600" : "bg-gray-300"
+                      categoriesEnabled ? "bg-[var(--sf-blue-500)]" : "bg-gray-300"
                     }`}
                   >
                     <span
@@ -826,7 +826,7 @@ const ServiceFlowServices = () => {
               {categoriesEnabled && (
                 <div className="space-y-4 mt-6">
                   <div className="flex items-center justify-between">
-                    <h4 className="font-medium text-gray-900">Categories</h4>
+                    <h4 className="font-medium text-[var(--sf-text-primary)]">Categories</h4>
                     <div className="flex items-center space-x-2">
                       <button
                         onClick={fixCategoryMapping}
@@ -844,7 +844,7 @@ const ServiceFlowServices = () => {
                       </button>
                       <button
                         onClick={() => setShowAddCategoryModal(true)}
-                        className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
+                        className="bg-[var(--sf-blue-500)] text-white px-3 py-1 rounded text-sm hover:bg-[var(--sf-blue-600)]"
                       >
                         Add Category
                       </button>
@@ -884,19 +884,19 @@ const ServiceFlowServices = () => {
       {deleteModalOpen && serviceToDelete && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all duration-300 ease-out">
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+            <div className="flex items-center justify-between p-6 border-b border-[var(--sf-border-light)]">
               <div className="flex items-center space-x-3">
                 <div className="p-2 bg-red-100 rounded-full">
                   <Trash2 className="w-5 h-5 text-red-600" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Delete Service</h3>
-                  <p className="text-sm text-gray-500">This action cannot be undone</p>
+                  <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">Delete Service</h3>
+                  <p className="text-sm text-[var(--sf-text-muted)]">This action cannot be undone</p>
                 </div>
               </div>
               <button
                 onClick={cancelDelete}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                className="p-2 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] hover:bg-[var(--sf-bg-hover)] rounded-full transition-colors"
                 disabled={deleteLoading === serviceToDelete.id}
               >
                 <X className="w-5 h-5" />
@@ -904,7 +904,7 @@ const ServiceFlowServices = () => {
             </div>
             <div className="p-6">
               <div className="mb-4">
-                <p className="text-gray-700 mb-2">
+                <p className="text-[var(--sf-text-primary)] mb-2">
                   Are you sure you want to delete <strong>"{serviceToDelete.name}"</strong>?
                 </p>
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
@@ -933,7 +933,7 @@ const ServiceFlowServices = () => {
                 <button
                   onClick={cancelDelete}
                   disabled={deleteLoading === serviceToDelete.id}
-                  className="flex-1 sm:flex-none px-6 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 sm:flex-none px-6 py-2.5 text-[var(--sf-text-primary)] bg-white border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-page)] focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancel
                 </button>
@@ -964,33 +964,33 @@ const ServiceFlowServices = () => {
       {showDeleteAllConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all duration-300 ease-out">
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+            <div className="flex items-center justify-between p-6 border-b border-[var(--sf-border-light)]">
               <div className="flex items-center space-x-3">
                 <div className="p-2 bg-red-100 rounded-full">
                   <AlertTriangle className="w-5 h-5 text-red-600" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Delete All Services</h3>
-                  <p className="text-sm text-gray-500">This action cannot be undone</p>
+                  <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">Delete All Services</h3>
+                  <p className="text-sm text-[var(--sf-text-muted)]">This action cannot be undone</p>
                 </div>
               </div>
               <button
                 onClick={() => setShowDeleteAllConfirm(false)}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                className="p-2 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] hover:bg-[var(--sf-bg-hover)] rounded-full transition-colors"
                 disabled={deleteAllLoading}
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
             <div className="p-6">
-              <p className="text-gray-700 mb-4">
+              <p className="text-[var(--sf-text-primary)] mb-4">
                 Are you sure you want to delete all {services.length} service(s)? This action is permanent and cannot be undone.
               </p>
               <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
                 <button
                   onClick={() => setShowDeleteAllConfirm(false)}
                   disabled={deleteAllLoading}
-                  className="flex-1 sm:flex-none px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 sm:flex-none px-6 py-2.5 border border-[var(--sf-border-light)] text-[var(--sf-text-primary)] rounded-lg hover:bg-[var(--sf-bg-page)] focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancel
                 </button>
@@ -1020,19 +1020,19 @@ const ServiceFlowServices = () => {
       {categoryDeleteModalOpen && categoryToDelete && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all duration-300 ease-out">
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+            <div className="flex items-center justify-between p-6 border-b border-[var(--sf-border-light)]">
               <div className="flex items-center space-x-3">
                 <div className="p-2 bg-red-100 rounded-full">
                   <Trash2 className="w-5 h-5 text-red-600" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Delete Category</h3>
-                  <p className="text-sm text-gray-500">This action cannot be undone</p>
+                  <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">Delete Category</h3>
+                  <p className="text-sm text-[var(--sf-text-muted)]">This action cannot be undone</p>
                 </div>
               </div>
               <button
                 onClick={handleCancelCategoryDelete}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                className="p-2 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] hover:bg-[var(--sf-bg-hover)] rounded-full transition-colors"
                 disabled={deletingCategory}
               >
                 <X className="w-5 h-5" />
@@ -1040,12 +1040,12 @@ const ServiceFlowServices = () => {
             </div>
             <div className="p-6">
               <div className="mb-4">
-                <p className="text-gray-700 mb-2">
+                <p className="text-[var(--sf-text-primary)] mb-2">
                   Are you sure you want to delete the category <strong>"{categoryToDelete.name}"</strong>?
                 </p>
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <div className="bg-[var(--sf-blue-50)] border border-blue-200 rounded-lg p-3">
                   <div className="flex items-start space-x-2">
-                    <AlertCircle className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                    <AlertCircle className="w-4 h-4 text-[var(--sf-blue-500)] mt-0.5 flex-shrink-0" />
                     <div className="text-sm text-blue-800">
                       <p className="font-medium">Note:</p>
                       <p className="mt-1">All services in this category will be moved to "Uncategorized" and will remain available for booking.</p>
@@ -1057,7 +1057,7 @@ const ServiceFlowServices = () => {
                 <button
                   onClick={handleCancelCategoryDelete}
                   disabled={deletingCategory}
-                  className="flex-1 sm:flex-none px-6 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 sm:flex-none px-6 py-2.5 text-[var(--sf-text-primary)] bg-white border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-page)] focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancel
                 </button>
@@ -1087,19 +1087,19 @@ const ServiceFlowServices = () => {
       {categoryEditModalOpen && categoryToEdit && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all duration-300 ease-out">
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+            <div className="flex items-center justify-between p-6 border-b border-[var(--sf-border-light)]">
               <div className="flex items-center space-x-3">
                 <div className="p-2 bg-blue-100 rounded-full">
-                  <Edit className="w-5 h-5 text-blue-600" />
+                  <Edit className="w-5 h-5 text-[var(--sf-blue-500)]" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Edit Category</h3>
-                  <p className="text-sm text-gray-500">Update category name</p>
+                  <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">Edit Category</h3>
+                  <p className="text-sm text-[var(--sf-text-muted)]">Update category name</p>
                 </div>
               </div>
               <button
                 onClick={handleCancelCategoryEdit}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                className="p-2 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] hover:bg-[var(--sf-bg-hover)] rounded-full transition-colors"
                 disabled={editingCategory}
               >
                 <X className="w-5 h-5" />
@@ -1107,7 +1107,7 @@ const ServiceFlowServices = () => {
             </div>
             <div className="p-6">
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                   Category Name
                 </label>
                 <input
@@ -1119,7 +1119,7 @@ const ServiceFlowServices = () => {
                       object: { ...prev.object, name: e.target.value }
                     }));
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                   placeholder="Enter category name"
                   disabled={editingCategory}
                 />
@@ -1128,14 +1128,14 @@ const ServiceFlowServices = () => {
                 <button
                   onClick={handleCancelCategoryEdit}
                   disabled={editingCategory}
-                  className="flex-1 sm:flex-none px-6 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 sm:flex-none px-6 py-2.5 text-[var(--sf-text-primary)] bg-white border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-page)] focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleConfirmCategoryEdit}
                   disabled={editingCategory || !categoryToEdit.object.name.trim()}
-                  className="flex-1 sm:flex-none px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                  className="flex-1 sm:flex-none px-6 py-2.5 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
                 >
                   {editingCategory ? (
                     <>
@@ -1159,8 +1159,8 @@ const ServiceFlowServices = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Add Category</h3>
-              <button onClick={() => setShowAddCategoryModal(false)} className="text-gray-500 hover:text-gray-700">
+              <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">Add Category</h3>
+              <button onClick={() => setShowAddCategoryModal(false)} className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-primary)]">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1170,7 +1170,7 @@ const ServiceFlowServices = () => {
               </div>
             )}
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                 Category Name
               </label>
               <input
@@ -1181,7 +1181,7 @@ const ServiceFlowServices = () => {
                   if (error) setError("")
                 }}
                 placeholder="Enter category name"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                 onKeyPress={(e) => e.key === 'Enter' && handleAddCategory()}
               />
             </div>
@@ -1191,14 +1191,14 @@ const ServiceFlowServices = () => {
                   setShowAddCategoryModal(false)
                   setError("")
                 }}
-                className="px-4 py-2 rounded-lg text-gray-700 border border-gray-300 hover:bg-gray-100"
+                className="px-4 py-2 rounded-lg text-[var(--sf-text-primary)] border border-[var(--sf-border-light)] hover:bg-[var(--sf-bg-hover)]"
               >
                 Cancel
               </button>
               <button
                 onClick={handleAddCategory}
                 disabled={!newCategoryName.trim()}
-                className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                className="px-4 py-2 rounded-lg bg-[var(--sf-blue-500)] text-white hover:bg-[var(--sf-blue-600)] disabled:opacity-50"
               >
                 Add Category
               </button>
@@ -1210,19 +1210,19 @@ const ServiceFlowServices = () => {
       {duplicateSuccessModalOpen && duplicatedService && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all duration-300 ease-out">
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+            <div className="flex items-center justify-between p-6 border-b border-[var(--sf-border-light)]">
               <div className="flex items-center space-x-3">
                 <div className="p-2 bg-green-100 rounded-full">
                   <Copy className="w-5 h-5 text-green-600" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Service Duplicated!</h3>
-                  <p className="text-sm text-gray-500">Your service has been successfully duplicated</p>
+                  <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">Service Duplicated!</h3>
+                  <p className="text-sm text-[var(--sf-text-muted)]">Your service has been successfully duplicated</p>
                 </div>
               </div>
               <button
                 onClick={() => setDuplicateSuccessModalOpen(false)}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                className="p-2 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] hover:bg-[var(--sf-bg-hover)] rounded-full transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1251,7 +1251,7 @@ const ServiceFlowServices = () => {
               <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
                 <button
                   onClick={() => setDuplicateSuccessModalOpen(false)}
-                  className="flex-1 sm:flex-none px-6 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors"
+                  className="flex-1 sm:flex-none px-6 py-2.5 text-[var(--sf-text-primary)] bg-white border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-page)] focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors"
                 >
                   Stay Here
                 </button>
@@ -1260,7 +1260,7 @@ const ServiceFlowServices = () => {
                     setDuplicateSuccessModalOpen(false);
                     navigate(`/services/${duplicatedService.id}`);
                   }}
-                  className="flex-1 sm:flex-none px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors flex items-center justify-center space-x-2"
+                  className="flex-1 sm:flex-none px-6 py-2.5 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:ring-offset-2 transition-colors flex items-center justify-center space-x-2"
                 >
                   <Copy className="w-4 h-4" />
                   <span>View Duplicated Service</span>

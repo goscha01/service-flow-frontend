@@ -36,7 +36,7 @@ const EstimatePreviewModal = ({ isOpen, onClose, estimate, onSend, onConvertToIn
       case 'rejected':
         return 'bg-red-100 text-red-800'
       default:
-        return 'bg-gray-100 text-gray-800'
+        return 'bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)]'
     }
   }
 
@@ -88,12 +88,12 @@ const EstimatePreviewModal = ({ isOpen, onClose, estimate, onSend, onConvertToIn
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <div className="flex items-center justify-between p-6 border-b border-[var(--sf-border-light)]">
           <div className="flex items-center space-x-3">
-            <FileText className="w-6 h-6 text-blue-600" />
+            <FileText className="w-6 h-6 text-[var(--sf-blue-500)]" />
             <div>
-              <h2 className="text-xl font-semibold text-gray-900">Estimate #{estimate.id}</h2>
-              <p className="text-sm text-gray-500">Created on {formatDate(estimate.created_at)}</p>
+              <h2 className="text-xl font-semibold text-[var(--sf-text-primary)]">Estimate #{estimate.id}</h2>
+              <p className="text-sm text-[var(--sf-text-muted)]">Created on {formatDate(estimate.created_at)}</p>
             </div>
           </div>
           <div className="flex items-center space-x-2">
@@ -102,7 +102,7 @@ const EstimatePreviewModal = ({ isOpen, onClose, estimate, onSend, onConvertToIn
             </span>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600"
+              className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
             >
               <X className="w-5 h-5" />
             </button>
@@ -112,31 +112,31 @@ const EstimatePreviewModal = ({ isOpen, onClose, estimate, onSend, onConvertToIn
         {/* Estimate Content */}
         <div className="p-6">
           {/* Customer Information */}
-          <div className="bg-gray-50 rounded-lg p-4 mb-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-3">Customer Information</h3>
+          <div className="bg-[var(--sf-bg-page)] rounded-lg p-4 mb-6">
+            <h3 className="text-lg font-medium text-[var(--sf-text-primary)] mb-3">Customer Information</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="flex items-center space-x-2">
-                <User className="w-4 h-4 text-gray-400" />
-                <span className="text-gray-900">
+                <User className="w-4 h-4 text-[var(--sf-text-muted)]" />
+                <span className="text-[var(--sf-text-primary)]">
                   {estimate.customer_first_name} {estimate.customer_last_name}
                 </span>
               </div>
               {estimate.customer_email && (
                 <div className="flex items-center space-x-2">
-                  <Mail className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-900">{estimate.customer_email}</span>
+                  <Mail className="w-4 h-4 text-[var(--sf-text-muted)]" />
+                  <span className="text-[var(--sf-text-primary)]">{estimate.customer_email}</span>
                 </div>
               )}
               {estimate.customer_phone && (
                 <div className="flex items-center space-x-2">
-                  <Phone className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-900">{formatPhoneNumber(estimate.customer_phone)}</span>
+                  <Phone className="w-4 h-4 text-[var(--sf-text-muted)]" />
+                  <span className="text-[var(--sf-text-primary)]">{formatPhoneNumber(estimate.customer_phone)}</span>
                 </div>
               )}
               {estimate.customer_address && (
                 <div className="flex items-center space-x-2">
-                  <MapPin className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-900">{estimate.customer_address}</span>
+                  <MapPin className="w-4 h-4 text-[var(--sf-text-muted)]" />
+                  <span className="text-[var(--sf-text-primary)]">{estimate.customer_address}</span>
                 </div>
               )}
             </div>
@@ -144,33 +144,33 @@ const EstimatePreviewModal = ({ isOpen, onClose, estimate, onSend, onConvertToIn
 
           {/* Services */}
           <div className="mb-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-3">Services</h3>
-            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-              <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
-                <div className="grid grid-cols-12 gap-4 text-sm font-medium text-gray-700">
+            <h3 className="text-lg font-medium text-[var(--sf-text-primary)] mb-3">Services</h3>
+            <div className="bg-white border border-[var(--sf-border-light)] rounded-lg overflow-hidden">
+              <div className="bg-[var(--sf-bg-page)] px-4 py-3 border-b border-[var(--sf-border-light)]">
+                <div className="grid grid-cols-12 gap-4 text-sm font-medium text-[var(--sf-text-primary)]">
                   <div className="col-span-6">Service</div>
                   <div className="col-span-2 text-center">Quantity</div>
                   <div className="col-span-2 text-right">Price</div>
                   <div className="col-span-2 text-right">Total</div>
                 </div>
               </div>
-              <div className="divide-y divide-gray-200">
+              <div className="divide-y divide-[var(--sf-border-light)]">
                 {services.map((service, index) => (
                   <div key={index} className="px-4 py-3">
                     <div className="grid grid-cols-12 gap-4 items-center">
                       <div className="col-span-6">
-                        <div className="font-medium text-gray-900">{service.name}</div>
+                        <div className="font-medium text-[var(--sf-text-primary)]">{service.name}</div>
                         {service.description && (
-                          <div className="text-sm text-gray-500">{service.description}</div>
+                          <div className="text-sm text-[var(--sf-text-muted)]">{service.description}</div>
                         )}
                       </div>
-                      <div className="col-span-2 text-center text-gray-900">
+                      <div className="col-span-2 text-center text-[var(--sf-text-primary)]">
                         {service.quantity}
                       </div>
-                      <div className="col-span-2 text-right text-gray-900">
+                      <div className="col-span-2 text-right text-[var(--sf-text-primary)]">
                         {formatCurrency(service.price)}
                       </div>
-                      <div className="col-span-2 text-right font-medium text-gray-900">
+                      <div className="col-span-2 text-right font-medium text-[var(--sf-text-primary)]">
                         {formatCurrency(service.price * service.quantity)}
                       </div>
                     </div>
@@ -181,10 +181,10 @@ const EstimatePreviewModal = ({ isOpen, onClose, estimate, onSend, onConvertToIn
           </div>
 
           {/* Total */}
-          <div className="bg-blue-50 rounded-lg p-4 mb-6">
+          <div className="bg-[var(--sf-blue-50)] rounded-lg p-4 mb-6">
             <div className="flex items-center justify-between">
-              <span className="text-lg font-medium text-gray-900">Total Amount</span>
-              <span className="text-2xl font-bold text-blue-600">
+              <span className="text-lg font-medium text-[var(--sf-text-primary)]">Total Amount</span>
+              <span className="text-2xl font-bold text-[var(--sf-blue-500)]">
                 {formatCurrency(estimate.total_amount)}
               </span>
             </div>
@@ -193,22 +193,22 @@ const EstimatePreviewModal = ({ isOpen, onClose, estimate, onSend, onConvertToIn
           {/* Estimate Details */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <div>
-              <h3 className="text-lg font-medium text-gray-900 mb-3">Estimate Details</h3>
+              <h3 className="text-lg font-medium text-[var(--sf-text-primary)] mb-3">Estimate Details</h3>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500">Estimate Number</span>
-                  <span className="text-sm font-medium text-gray-900">#{estimate.id}</span>
+                  <span className="text-sm text-[var(--sf-text-muted)]">Estimate Number</span>
+                  <span className="text-sm font-medium text-[var(--sf-text-primary)]">#{estimate.id}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500">Created Date</span>
-                  <span className="text-sm font-medium text-gray-900">{formatDate(estimate.created_at)}</span>
+                  <span className="text-sm text-[var(--sf-text-muted)]">Created Date</span>
+                  <span className="text-sm font-medium text-[var(--sf-text-primary)]">{formatDate(estimate.created_at)}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500">Valid Until</span>
-                  <span className="text-sm font-medium text-gray-900">{formatDate(estimate.valid_until)}</span>
+                  <span className="text-sm text-[var(--sf-text-muted)]">Valid Until</span>
+                  <span className="text-sm font-medium text-[var(--sf-text-primary)]">{formatDate(estimate.valid_until)}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500">Status</span>
+                  <span className="text-sm text-[var(--sf-text-muted)]">Status</span>
                   <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(estimate.status)}`}>
                     {getStatusLabel(estimate.status)}
                   </span>
@@ -218,20 +218,20 @@ const EstimatePreviewModal = ({ isOpen, onClose, estimate, onSend, onConvertToIn
 
             {estimate.notes && (
               <div>
-                <h3 className="text-lg font-medium text-gray-900 mb-3">Notes</h3>
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <p className="text-sm text-gray-700">{estimate.notes}</p>
+                <h3 className="text-lg font-medium text-[var(--sf-text-primary)] mb-3">Notes</h3>
+                <div className="bg-[var(--sf-bg-page)] rounded-lg p-3">
+                  <p className="text-sm text-[var(--sf-text-primary)]">{estimate.notes}</p>
                 </div>
               </div>
             )}
           </div>
 
           {/* Action Buttons */}
-          <div className="flex items-center justify-between pt-6 border-t border-gray-200">
+          <div className="flex items-center justify-between pt-6 border-t border-[var(--sf-border-light)]">
             <div className="flex items-center space-x-3">
               <button
                 onClick={() => window.print()}
-                className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="flex items-center space-x-2 px-4 py-2 border border-[var(--sf-border-light)] rounded-lg text-sm font-medium text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-page)]"
               >
                 <Printer className="w-4 h-4" />
                 <span>Print</span>
@@ -241,7 +241,7 @@ const EstimatePreviewModal = ({ isOpen, onClose, estimate, onSend, onConvertToIn
                   // TODO: Implement PDF download
                   alert('PDF download feature coming soon!')
                 }}
-                className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="flex items-center space-x-2 px-4 py-2 border border-[var(--sf-border-light)] rounded-lg text-sm font-medium text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-page)]"
               >
                 <Download className="w-4 h-4" />
                 <span>Download PDF</span>
@@ -253,7 +253,7 @@ const EstimatePreviewModal = ({ isOpen, onClose, estimate, onSend, onConvertToIn
                 <button
                   onClick={handleSend}
                   disabled={loading}
-                  className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+                  className="flex items-center space-x-2 px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg text-sm font-medium hover:bg-[var(--sf-blue-600)] disabled:opacity-50"
                 >
                   <Send className="w-4 h-4" />
                   <span>{loading ? 'Sending...' : 'Send Estimate'}</span>

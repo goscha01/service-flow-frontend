@@ -26,10 +26,10 @@ export default function HeroSection() {
           {/* Left Column - Content */}
           <div className="space-y-8">
             <div className="space-y-6">
-              <h1 className="text-4xl lg:text-5xl xl:text-6xl font-bold text-gray-900 leading-tight">
+              <h1 className="text-4xl lg:text-5xl xl:text-6xl font-bold text-[var(--sf-text-primary)] leading-tight">
                 The best booking experience for home service businesses.
               </h1>
-              <p className="text-xl text-gray-600 leading-relaxed">
+              <p className="text-xl text-[var(--sf-text-secondary)] leading-relaxed">
                 Take bookings, send quotes, and schedule jobs in real time—plus manage dispatch and payments, all in one
                 place.
               </p>
@@ -43,7 +43,7 @@ export default function HeroSection() {
                   placeholder="Your email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="flex-1 px-4 py-3 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-transparent"
                   required
                 />
                 <button
@@ -53,7 +53,7 @@ export default function HeroSection() {
                   Start Free Trial
                 </button>
               </form>
-              <p className="text-sm text-gray-500">14-day free trial • No credit card required • Easy setup</p>
+              <p className="text-sm text-[var(--sf-text-muted)]">14-day free trial • No credit card required • Easy setup</p>
             </div>
           </div>
 

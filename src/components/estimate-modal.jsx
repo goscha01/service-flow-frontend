@@ -224,13 +224,13 @@ const EstimateModal = ({ isOpen, onClose, onSave, editingEstimate = null, userId
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">
+        <div className="flex items-center justify-between p-6 border-b border-[var(--sf-border-light)]">
+          <h2 className="text-xl font-semibold text-[var(--sf-text-primary)]">
             {editingEstimate ? 'Edit Estimate' : 'Create Estimate'}
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
+            className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
           >
             <X className="w-5 h-5" />
           </button>
@@ -254,11 +254,11 @@ const EstimateModal = ({ isOpen, onClose, onSave, editingEstimate = null, userId
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {/* Customer Selection */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
               Customer *
             </label>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--sf-text-muted)] w-5 h-5" />
               <input
                 type="text"
                 placeholder="Search customers..."
@@ -268,25 +268,25 @@ const EstimateModal = ({ isOpen, onClose, onSave, editingEstimate = null, userId
                   setShowCustomerDropdown(true)
                 }}
                 onFocus={() => setShowCustomerDropdown(true)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                className="w-full pl-10 pr-4 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] outline-none"
               />
               
               {showCustomerDropdown && filteredCustomers.length > 0 && (
-                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                <div className="absolute z-10 w-full mt-1 bg-white border border-[var(--sf-border-light)] rounded-lg shadow-lg max-h-60 overflow-y-auto">
                   {filteredCustomers.map((customer) => (
                     <button
                       key={customer.id}
                       type="button"
                       onClick={() => handleCustomerSelect(customer)}
-                      className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center space-x-3"
+                      className="w-full px-4 py-2 text-left hover:bg-[var(--sf-bg-hover)] flex items-center space-x-3"
                     >
-                      <User className="w-4 h-4 text-gray-400" />
+                      <User className="w-4 h-4 text-[var(--sf-text-muted)]" />
                       <div>
-                        <div className="font-medium text-gray-900">
+                        <div className="font-medium text-[var(--sf-text-primary)]">
                           {customer.first_name} {customer.last_name}
                         </div>
                         {customer.email && (
-                          <div className="text-sm text-gray-500">{customer.email}</div>
+                          <div className="text-sm text-[var(--sf-text-muted)]">{customer.email}</div>
                         )}
                       </div>
                     </button>
@@ -298,11 +298,11 @@ const EstimateModal = ({ isOpen, onClose, onSave, editingEstimate = null, userId
 
           {/* Services Selection */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
               Services *
             </label>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--sf-text-muted)] w-5 h-5" />
               <input
                 type="text"
                 placeholder="Search services..."
@@ -312,28 +312,28 @@ const EstimateModal = ({ isOpen, onClose, onSave, editingEstimate = null, userId
                   setShowServiceDropdown(true)
                 }}
                 onFocus={() => setShowServiceDropdown(true)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                className="w-full pl-10 pr-4 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] outline-none"
               />
               
               {showServiceDropdown && filteredServices.length > 0 && (
-                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                <div className="absolute z-10 w-full mt-1 bg-white border border-[var(--sf-border-light)] rounded-lg shadow-lg max-h-60 overflow-y-auto">
                   {filteredServices.map((service) => (
                     <button
                       key={service.id}
                       type="button"
                       onClick={() => handleServiceSelect(service)}
-                      className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center justify-between"
+                      className="w-full px-4 py-2 text-left hover:bg-[var(--sf-bg-hover)] flex items-center justify-between"
                     >
                       <div className="flex items-center space-x-3">
-                        <FileText className="w-4 h-4 text-gray-400" />
+                        <FileText className="w-4 h-4 text-[var(--sf-text-muted)]" />
                         <div>
-                          <div className="font-medium text-gray-900">{service.name}</div>
+                          <div className="font-medium text-[var(--sf-text-primary)]">{service.name}</div>
                           {service.description && (
-                            <div className="text-sm text-gray-500">{service.description}</div>
+                            <div className="text-sm text-[var(--sf-text-muted)]">{service.description}</div>
                           )}
                         </div>
                       </div>
-                      <div className="text-sm font-medium text-gray-900">
+                      <div className="text-sm font-medium text-[var(--sf-text-primary)]">
                         {formatCurrency(service.price)}
                       </div>
                     </button>
@@ -345,15 +345,15 @@ const EstimateModal = ({ isOpen, onClose, onSave, editingEstimate = null, userId
 
           {/* Selected Services */}
           {formData.services.length > 0 && (
-            <div className="bg-gray-50 rounded-lg p-4">
-              <h3 className="text-sm font-medium text-gray-700 mb-3">Selected Services</h3>
+            <div className="bg-[var(--sf-bg-page)] rounded-lg p-4">
+              <h3 className="text-sm font-medium text-[var(--sf-text-primary)] mb-3">Selected Services</h3>
               <div className="space-y-3">
                 {formData.services.map((service) => (
-                  <div key={service.serviceId} className="flex items-center justify-between bg-white rounded-lg p-3 border border-gray-200">
+                  <div key={service.serviceId} className="flex items-center justify-between bg-white rounded-lg p-3 border border-[var(--sf-border-light)]">
                     <div className="flex-1">
-                      <div className="font-medium text-gray-900">{service.name}</div>
+                      <div className="font-medium text-[var(--sf-text-primary)]">{service.name}</div>
                       {service.description && (
-                        <div className="text-sm text-gray-500">{service.description}</div>
+                        <div className="text-sm text-[var(--sf-text-muted)]">{service.description}</div>
                       )}
                     </div>
                     <div className="flex items-center space-x-3">
@@ -361,7 +361,7 @@ const EstimateModal = ({ isOpen, onClose, onSave, editingEstimate = null, userId
                         <button
                           type="button"
                           onClick={() => handleServiceQuantityChange(service.serviceId, service.quantity - 1)}
-                          className="w-6 h-6 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-100"
+                          className="w-6 h-6 rounded-full border border-[var(--sf-border-light)] flex items-center justify-center hover:bg-[var(--sf-bg-hover)]"
                         >
                           <Minus className="w-3 h-3" />
                         </button>
@@ -369,18 +369,18 @@ const EstimateModal = ({ isOpen, onClose, onSave, editingEstimate = null, userId
                         <button
                           type="button"
                           onClick={() => handleServiceQuantityChange(service.serviceId, service.quantity + 1)}
-                          className="w-6 h-6 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-100"
+                          className="w-6 h-6 rounded-full border border-[var(--sf-border-light)] flex items-center justify-center hover:bg-[var(--sf-bg-hover)]"
                         >
                           <Plus className="w-3 h-3" />
                         </button>
                       </div>
-                      <div className="text-sm font-medium text-gray-900">
+                      <div className="text-sm font-medium text-[var(--sf-text-primary)]">
                         {formatCurrency(service.price * service.quantity)}
                       </div>
                       <button
                         type="button"
                         onClick={() => handleRemoveService(service.serviceId)}
-                        className="ml-2 p-1 text-gray-400 hover:text-red-600"
+                        className="ml-2 p-1 text-[var(--sf-text-muted)] hover:text-red-600"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -392,10 +392,10 @@ const EstimateModal = ({ isOpen, onClose, onSave, editingEstimate = null, userId
           )}
 
           {/* Total Amount */}
-          <div className="bg-blue-50 rounded-lg p-4">
+          <div className="bg-[var(--sf-blue-50)] rounded-lg p-4">
             <div className="flex items-center justify-between">
-              <span className="text-lg font-medium text-gray-900">Total Amount</span>
-              <span className="text-2xl font-bold text-blue-600">
+              <span className="text-lg font-medium text-[var(--sf-text-primary)]">Total Amount</span>
+              <span className="text-2xl font-bold text-[var(--sf-blue-500)]">
                 {formatCurrency(formData.totalAmount)}
               </span>
             </div>
@@ -403,47 +403,47 @@ const EstimateModal = ({ isOpen, onClose, onSave, editingEstimate = null, userId
 
           {/* Valid Until */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
               Valid Until
             </label>
             <div className="flex items-center space-x-2">
-              <Calendar className="w-4 h-4 text-gray-400" />
+              <Calendar className="w-4 h-4 text-[var(--sf-text-muted)]" />
               <input
                 type="date"
                 value={formData.validUntil}
                 onChange={(e) => setFormData(prev => ({ ...prev, validUntil: e.target.value }))}
-                className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                className="border border-[var(--sf-border-light)] rounded-lg px-3 py-2 focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] outline-none"
               />
             </div>
           </div>
 
           {/* Notes */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
               Notes
             </label>
             <textarea
               value={formData.notes}
               onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
               rows={4}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="w-full border border-[var(--sf-border-light)] rounded-lg px-3 py-2 focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] outline-none"
               placeholder="Add any additional notes for this estimate..."
             />
           </div>
 
           {/* Action Buttons */}
-          <div className="flex items-center justify-end space-x-3 pt-6 border-t border-gray-200">
+          <div className="flex items-center justify-end space-x-3 pt-6 border-t border-[var(--sf-border-light)]">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="px-4 py-2 border border-[var(--sf-border-light)] rounded-lg text-sm font-medium text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-page)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--sf-blue-500)]"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading || !formData.customerId || formData.services.length === 0}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+              className="px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg text-sm font-medium hover:bg-[var(--sf-blue-600)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--sf-blue-500)] disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
             >
               {loading ? (
                 <LoadingButton />

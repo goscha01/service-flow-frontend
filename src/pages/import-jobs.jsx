@@ -1285,7 +1285,7 @@ const ImportJobsPage = () => {
     const hasWarnings = importResult.warnings && importResult.warnings.length > 0;
     
     return (
-      <div className="min-h-screen bg-gray-50 py-8">
+      <div className="min-h-screen bg-[var(--sf-bg-page)] py-8">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center py-12">
             {hasImports ? (
@@ -1293,10 +1293,10 @@ const ImportJobsPage = () => {
             ) : (
               <AlertCircle className="w-16 h-16 text-red-600 mx-auto mb-6" />
             )}
-            <h1 className="text-3xl font-bold text-gray-900 mb-4">
+            <h1 className="text-3xl font-bold text-[var(--sf-text-primary)] mb-4">
               {hasImports ? 'Import Complete!' : 'Import Failed'}
             </h1>
-            <p className="text-lg text-gray-600 mb-8">
+            <p className="text-lg text-[var(--sf-text-secondary)] mb-8">
               {hasImports 
                 ? `Successfully processed ${(importResult.imported || 0) + (importResult.updated || 0)} job${((importResult.imported || 0) + (importResult.updated || 0)) !== 1 ? 's' : ''} (${importResult.imported || 0} new, ${importResult.updated || 0} updated).`
                 : 'No jobs were imported. Please check the errors below and try again.'
@@ -1312,8 +1312,8 @@ const ImportJobsPage = () => {
                 </div>
                 {(importResult.updated > 0) && (
                   <div className="bg-white rounded-lg p-4">
-                    <div className="text-2xl font-bold text-blue-600">{importResult.updated}</div>
-                    <div className="text-blue-700">Updated</div>
+                    <div className="text-2xl font-bold text-[var(--sf-blue-500)]">{importResult.updated}</div>
+                    <div className="text-[var(--sf-blue-500)]">Updated</div>
                   </div>
                 )}
                 {importResult.skipped > 0 && (
@@ -1332,22 +1332,22 @@ const ImportJobsPage = () => {
               
               {/* Updated Jobs Display */}
               {hasWarnings && (
-                <div className="mt-6 bg-blue-50 border border-blue-200 rounded-xl p-6">
+                <div className="mt-6 bg-[var(--sf-blue-50)] border border-blue-200 rounded-xl p-6">
                   <h4 className="text-lg font-semibold text-blue-800 mb-4 flex items-center">
                     <CheckCircle className="w-5 h-5 mr-2" />
                     Jobs Updated ({importResult.warnings.length})
                   </h4>
-                  <p className="text-sm text-blue-700 mb-4">
+                  <p className="text-sm text-[var(--sf-blue-500)] mb-4">
                     These jobs already existed in your account and were updated with new data from the CSV file.
                   </p>
                   <div className="max-h-64 overflow-y-auto space-y-2">
                     {importResult.warnings.slice(0, 50).map((warning, index) => (
                       <div key={index} className="bg-white rounded-lg p-2 border border-blue-100">
-                        <p className="text-xs text-blue-700 font-mono">{warning}</p>
+                        <p className="text-xs text-[var(--sf-blue-500)] font-mono">{warning}</p>
                       </div>
                     ))}
                     {importResult.warnings.length > 50 && (
-                      <p className="text-sm text-blue-600 italic">
+                      <p className="text-sm text-[var(--sf-blue-500)] italic">
                         ... and {importResult.warnings.length - 50} more updated jobs
                       </p>
                     )}
@@ -1392,7 +1392,7 @@ const ImportJobsPage = () => {
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link
                 to="/jobs"
-                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center"
+                className="px-6 py-3 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] transition-colors flex items-center justify-center"
               >
                 View Jobs
               </Link>
@@ -1415,28 +1415,28 @@ const ImportJobsPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[var(--sf-bg-page)]">
       {/* Fixed Progress Bar Overlay */}
       {isImporting && (
         <div className="fixed top-0 left-0 right-0 z-50 bg-white border-b-2 border-blue-200 shadow-lg">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
              <div className="flex items-center justify-between mb-2">
                <div className="flex items-center space-x-3">
-                 <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
-                 <span className="text-lg font-semibold text-gray-900">Importing Jobs...</span>
+                 <Loader2 className="w-5 h-5 text-[var(--sf-blue-500)] animate-spin" />
+                 <span className="text-lg font-semibold text-[var(--sf-text-primary)]">Importing Jobs...</span>
                  {importProgress.batchInfo && (
-                   <span className="text-sm text-blue-600">
+                   <span className="text-sm text-[var(--sf-blue-500)]">
                      (Batch {importProgress.batchInfo.current}/{importProgress.batchInfo.total})
                    </span>
                  )}
                </div>
-               <span className="text-lg font-semibold text-blue-600">
+               <span className="text-lg font-semibold text-[var(--sf-blue-500)]">
                  {importProgress.current} / {importProgress.total} ({importProgress.percentage}%)
                </span>
              </div>
             <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
               <div
-                className="bg-blue-600 h-3 rounded-full transition-all duration-300 ease-out"
+                className="bg-[var(--sf-blue-500)] h-3 rounded-full transition-all duration-300 ease-out"
                 style={{ width: `${importProgress.percentage}%` }}
               />
             </div>
@@ -1450,14 +1450,14 @@ const ImportJobsPage = () => {
           <div className="flex items-center mb-4">
             <Link
               to="/jobs"
-              className="flex items-center text-gray-600 hover:text-gray-800 transition-colors mr-4"
+              className="flex items-center text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] transition-colors mr-4"
             >
               <ArrowLeft className="w-5 h-5 mr-2" />
               Back to Jobs
             </Link>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900">Import Jobs</h1>
-          <p className="text-gray-600 mt-2">
+          <h1 className="text-3xl font-bold text-[var(--sf-text-primary)]">Import Jobs</h1>
+          <p className="text-[var(--sf-text-secondary)] mt-2">
             Import your job data from a CSV file into ZenBooker. Supports ZenBooker export format and standard CSV templates.
           </p>
         </div>
@@ -1465,22 +1465,22 @@ const ImportJobsPage = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Instructions */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 sticky top-8">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">How to Import</h2>
+            <div className="bg-white rounded-xl shadow-sm border border-[var(--sf-border-light)] p-6 sticky top-8">
+              <h2 className="text-lg font-semibold text-[var(--sf-text-primary)] mb-4">How to Import</h2>
               
               <div className="space-y-6">
                 <div className="flex items-start space-x-3">
-                  <div className="flex-shrink-0 w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-semibold">
+                  <div className="flex-shrink-0 w-8 h-8 bg-blue-100 text-[var(--sf-blue-500)] rounded-full flex items-center justify-center text-sm font-semibold">
                     1
                   </div>
                   <div>
-                    <h3 className="font-medium text-gray-900">Download Template</h3>
-                    <p className="text-sm text-gray-600 mt-1">
+                    <h3 className="font-medium text-[var(--sf-text-primary)]">Download Template</h3>
+                    <p className="text-sm text-[var(--sf-text-secondary)] mt-1">
                       Get our CSV template to see the correct format.
                     </p>
                     <button
                       onClick={downloadTemplate}
-                      className="mt-2 inline-flex items-center text-sm text-blue-600 hover:text-blue-700"
+                      className="mt-2 inline-flex items-center text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)]"
                     >
                       <Download className="w-4 h-4 mr-1" />
                       Download Template
@@ -1489,36 +1489,36 @@ const ImportJobsPage = () => {
                 </div>
 
                 <div className="flex items-start space-x-3">
-                  <div className="flex-shrink-0 w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-semibold">
+                  <div className="flex-shrink-0 w-8 h-8 bg-blue-100 text-[var(--sf-blue-500)] rounded-full flex items-center justify-center text-sm font-semibold">
                     2
                   </div>
                   <div>
-                    <h3 className="font-medium text-gray-900">Fill Template</h3>
-                    <p className="text-sm text-gray-600 mt-1">
+                    <h3 className="font-medium text-[var(--sf-text-primary)]">Fill Template</h3>
+                    <p className="text-sm text-[var(--sf-text-secondary)] mt-1">
                       Add your job data to the template file.
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-start space-x-3">
-                  <div className="flex-shrink-0 w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-semibold">
+                  <div className="flex-shrink-0 w-8 h-8 bg-blue-100 text-[var(--sf-blue-500)] rounded-full flex items-center justify-center text-sm font-semibold">
                     3
                   </div>
                   <div>
-                    <h3 className="font-medium text-gray-900">Upload & Preview</h3>
-                    <p className="text-sm text-gray-600 mt-1">
+                    <h3 className="font-medium text-[var(--sf-text-primary)]">Upload & Preview</h3>
+                    <p className="text-sm text-[var(--sf-text-secondary)] mt-1">
                       Upload your CSV file and review the data.
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-start space-x-3">
-                  <div className="flex-shrink-0 w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-semibold">
+                  <div className="flex-shrink-0 w-8 h-8 bg-blue-100 text-[var(--sf-blue-500)] rounded-full flex items-center justify-center text-sm font-semibold">
                     4
                   </div>
                   <div>
-                    <h3 className="font-medium text-gray-900">Import Data</h3>
-                    <p className="text-sm text-gray-600 mt-1">
+                    <h3 className="font-medium text-[var(--sf-text-primary)]">Import Data</h3>
+                    <p className="text-sm text-[var(--sf-text-secondary)] mt-1">
                       Confirm the import to add jobs to Serviceflow.
                     </p>
                   </div>
@@ -1540,15 +1540,15 @@ const ImportJobsPage = () => {
 
           {/* Main Content */}
           <div className="lg:col-span-2">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="bg-white rounded-xl shadow-sm border border-[var(--sf-border-light)] p-6">
               {/* File Upload */}
               <div className="mb-8">
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">Upload CSV File</h2>
+                <h2 className="text-xl font-semibold text-[var(--sf-text-primary)] mb-4">Upload CSV File</h2>
                 
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gray-400 transition-colors">
-                  <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">Choose CSV file</h3>
-                  <p className="text-gray-600 mb-4">
+                <div className="border-2 border-dashed border-[var(--sf-border-light)] rounded-lg p-8 text-center hover:border-gray-400 transition-colors">
+                  <Upload className="w-12 h-12 text-[var(--sf-text-muted)] mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-[var(--sf-text-primary)] mb-2">Choose CSV file</h3>
+                  <p className="text-[var(--sf-text-secondary)] mb-4">
                     Select a CSV file with your job data
                   </p>
                   
@@ -1562,14 +1562,14 @@ const ImportJobsPage = () => {
                   />
                   <label
                     htmlFor="file-upload"
-                    className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer transition-colors"
+                    className="inline-flex items-center px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] cursor-pointer transition-colors"
                   >
                     <Upload className="w-4 h-4 mr-2" />
                     Choose File
                   </label>
                   
                   {selectedFile && (
-                    <p className="mt-4 text-sm text-gray-600">
+                    <p className="mt-4 text-sm text-[var(--sf-text-secondary)]">
                       Selected: {selectedFile.name}
                     </p>
                   )}
@@ -1590,86 +1590,86 @@ const ImportJobsPage = () => {
               {showPreview && previewData && (
                 <div className="mb-8">
                   <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-xl font-semibold text-gray-900">Data Preview</h2>
+                    <h2 className="text-xl font-semibold text-[var(--sf-text-primary)]">Data Preview</h2>
                     <div className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
                       {previewData.length} jobs
                     </div>
                   </div>
                   
-                  <p className="text-sm text-gray-600 mb-6">
+                  <p className="text-sm text-[var(--sf-text-secondary)] mb-6">
                     Review the data below before importing. Only jobs with valid customer information will be imported.
                   </p>
                   
-                  <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                  <div className="bg-white border border-[var(--sf-border-light)] rounded-lg overflow-hidden">
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
-                        <thead className="bg-gray-50 border-b border-gray-200">
+                        <thead className="bg-[var(--sf-bg-page)] border-b border-[var(--sf-border-light)]">
                           <tr>
-                            <th className="px-4 py-3 text-left font-semibold text-gray-700 min-w-[120px]">Customer Email</th>
-                            <th className="px-4 py-3 text-left font-semibold text-gray-700 min-w-[150px]">Service Name</th>
-                            <th className="px-4 py-3 text-left font-semibold text-gray-700 min-w-[100px]">Status</th>
-                            <th className="px-4 py-3 text-left font-semibold text-gray-700 min-w-[120px]">Scheduled Date</th>
-                            <th className="px-4 py-3 text-left font-semibold text-gray-700 min-w-[100px]">Team Member</th>
-                            <th className="px-4 py-3 text-left font-semibold text-gray-700 min-w-[80px]">Priority</th>
-                            <th className="px-4 py-3 text-left font-semibold text-gray-700 min-w-[100px]">Total</th>
-                            <th className="px-4 py-3 text-left font-semibold text-gray-700 min-w-[120px]">Address</th>
-                            <th className="px-4 py-3 text-left font-semibold text-gray-700 min-w-[100px]">Notes</th>
+                            <th className="px-4 py-3 text-left font-semibold text-[var(--sf-text-primary)] min-w-[120px]">Customer Email</th>
+                            <th className="px-4 py-3 text-left font-semibold text-[var(--sf-text-primary)] min-w-[150px]">Service Name</th>
+                            <th className="px-4 py-3 text-left font-semibold text-[var(--sf-text-primary)] min-w-[100px]">Status</th>
+                            <th className="px-4 py-3 text-left font-semibold text-[var(--sf-text-primary)] min-w-[120px]">Scheduled Date</th>
+                            <th className="px-4 py-3 text-left font-semibold text-[var(--sf-text-primary)] min-w-[100px]">Team Member</th>
+                            <th className="px-4 py-3 text-left font-semibold text-[var(--sf-text-primary)] min-w-[80px]">Priority</th>
+                            <th className="px-4 py-3 text-left font-semibold text-[var(--sf-text-primary)] min-w-[100px]">Total</th>
+                            <th className="px-4 py-3 text-left font-semibold text-[var(--sf-text-primary)] min-w-[120px]">Address</th>
+                            <th className="px-4 py-3 text-left font-semibold text-[var(--sf-text-primary)] min-w-[100px]">Notes</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                           {previewData.slice(0, 20).map((job, index) => (
-                            <tr key={index} className="hover:bg-gray-50 transition-colors">
-                              <td className="px-4 py-3 text-gray-700">
+                            <tr key={index} className="hover:bg-[var(--sf-bg-page)] transition-colors">
+                              <td className="px-4 py-3 text-[var(--sf-text-primary)]">
                                 <div className="max-w-[120px] truncate" title={job.customerEmail || '-'}>
                                   {job.customerEmail || '-'}
                                 </div>
                               </td>
-                              <td className="px-4 py-3 text-gray-700">
+                              <td className="px-4 py-3 text-[var(--sf-text-primary)]">
                                 <div className="max-w-[150px] truncate" title={job.serviceName || '-'}>
                                   {job.serviceName || '-'}
                                 </div>
                               </td>
-                              <td className="px-4 py-3 text-gray-700">
+                              <td className="px-4 py-3 text-[var(--sf-text-primary)]">
                                 <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
                                   job.status === 'completed' ? 'bg-green-100 text-green-800' :
                                   job.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
                                   job.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
                                   job.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                                  'bg-gray-100 text-gray-800'
+                                  'bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)]'
                                 }`}>
                                   {job.status || 'pending'}
                                 </span>
                               </td>
-                              <td className="px-4 py-3 text-gray-700">
+                              <td className="px-4 py-3 text-[var(--sf-text-primary)]">
                                 <div className="max-w-[120px] truncate" title={job.scheduledDate || '-'}>
                                   {job.scheduledDate || '-'}
                                 </div>
                               </td>
-                              <td className="px-4 py-3 text-gray-700">
+                              <td className="px-4 py-3 text-[var(--sf-text-primary)]">
                                 <div className="max-w-[100px] truncate" title={job.teamMemberName || '-'}>
                                   {job.teamMemberName || '-'}
                                 </div>
                               </td>
-                              <td className="px-4 py-3 text-gray-700">
+                              <td className="px-4 py-3 text-[var(--sf-text-primary)]">
                                 <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
                                   job.priority === 'urgent' ? 'bg-red-100 text-red-800' :
                                   job.priority === 'high' ? 'bg-orange-100 text-orange-800' :
                                   job.priority === 'normal' ? 'bg-blue-100 text-blue-800' :
-                                  job.priority === 'low' ? 'bg-gray-100 text-gray-800' :
-                                  'bg-gray-100 text-gray-800'
+                                  job.priority === 'low' ? 'bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)]' :
+                                  'bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)]'
                                 }`}>
                                   {job.priority || 'normal'}
                                 </span>
                               </td>
-                              <td className="px-4 py-3 text-gray-700 font-medium">
+                              <td className="px-4 py-3 text-[var(--sf-text-primary)] font-medium">
                                 ${job.total || job.price || '0'}
                               </td>
-                              <td className="px-4 py-3 text-gray-700">
+                              <td className="px-4 py-3 text-[var(--sf-text-primary)]">
                                 <div className="max-w-[120px] truncate" title={`${job.serviceAddressStreet || ''} ${job.serviceAddressCity || ''} ${job.serviceAddressState || ''}`.trim() || '-'}>
                                   {`${job.serviceAddressStreet || ''} ${job.serviceAddressCity || ''} ${job.serviceAddressState || ''}`.trim() || '-'}
                                 </div>
                               </td>
-                              <td className="px-4 py-3 text-gray-700">
+                              <td className="px-4 py-3 text-[var(--sf-text-primary)]">
                                 <div className="max-w-[100px] truncate" title={job.notes || '-'}>
                                   {job.notes || '-'}
                                 </div>
@@ -1681,8 +1681,8 @@ const ImportJobsPage = () => {
                     </div>
                     
                     {previewData.length > 20 && (
-                      <div className="px-4 py-3 bg-gray-50 border-t border-gray-200">
-                        <div className="flex items-center justify-center text-sm text-gray-600">
+                      <div className="px-4 py-3 bg-[var(--sf-bg-page)] border-t border-[var(--sf-border-light)]">
+                        <div className="flex items-center justify-center text-sm text-[var(--sf-text-secondary)]">
                           <span className="bg-gray-200 rounded-full px-3 py-1">
                             ... and {previewData.length - 20} more jobs
                           </span>
@@ -1699,19 +1699,19 @@ const ImportJobsPage = () => {
                         setSelectedFile(null);
                         document.getElementById('file-upload').value = '';
                       }}
-                      className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
+                      className="px-4 py-2 text-sm font-medium text-[var(--sf-text-primary)] bg-white border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-page)] focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
                     >
                       Choose Different File
                     </button>
                     
                     <div className="flex items-center space-x-4">
-                      <div className="text-sm text-gray-600">
+                      <div className="text-sm text-[var(--sf-text-secondary)]">
                         <span className="font-medium">{previewData.length}</span> jobs ready to import
                       </div>
                       <button
                         onClick={handleImport}
                         disabled={isImporting}
-                        className="px-6 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 transition-colors"
+                        className="px-6 py-2 text-sm font-medium text-white bg-[var(--sf-blue-500)] rounded-lg hover:bg-[var(--sf-blue-600)] focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 transition-colors"
                       >
                         {isImporting ? (
                           <>
@@ -1730,24 +1730,24 @@ const ImportJobsPage = () => {
                   
                   {/* Progress Bar */}
                   {isImporting && (
-                    <div className="mt-6 bg-blue-50 border-2 border-blue-200 rounded-lg p-6 shadow-lg">
+                    <div className="mt-6 bg-[var(--sf-blue-50)] border-2 border-blue-200 rounded-lg p-6 shadow-lg">
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center space-x-2">
-                          <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
-                          <span className="text-base font-semibold text-gray-900">Importing Jobs</span>
+                          <Loader2 className="w-5 h-5 text-[var(--sf-blue-500)] animate-spin" />
+                          <span className="text-base font-semibold text-[var(--sf-text-primary)]">Importing Jobs</span>
                           {importProgress.batchInfo && (
-                            <span className="text-sm text-blue-600 ml-2">
+                            <span className="text-sm text-[var(--sf-blue-500)] ml-2">
                               (Batch {importProgress.batchInfo.current}/{importProgress.batchInfo.total})
                             </span>
                           )}
                         </div>
-                        <span className="text-base font-semibold text-blue-600">
+                        <span className="text-base font-semibold text-[var(--sf-blue-500)]">
                           {importProgress.current} / {importProgress.total} ({importProgress.percentage}%)
                         </span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden shadow-inner">
                         <div
-                          className="bg-blue-600 h-4 rounded-full transition-all duration-300 ease-out flex items-center justify-end pr-2"
+                          className="bg-[var(--sf-blue-500)] h-4 rounded-full transition-all duration-300 ease-out flex items-center justify-end pr-2"
                           style={{ width: `${importProgress.percentage}%` }}
                         >
                           {importProgress.percentage > 10 && (
@@ -1757,7 +1757,7 @@ const ImportJobsPage = () => {
                           )}
                         </div>
                       </div>
-                      <p className="text-sm text-gray-600 mt-3 font-medium">
+                      <p className="text-sm text-[var(--sf-text-secondary)] mt-3 font-medium">
                         {importProgress.batchInfo 
                           ? `Processing in batches to ensure reliability. Batch ${importProgress.batchInfo.current} of ${importProgress.batchInfo.total}...`
                           : 'Please wait while we import your jobs. This may take a few moments...'

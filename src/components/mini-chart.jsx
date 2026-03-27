@@ -5,7 +5,7 @@ const MiniChart = ({ data, color = 'blue' }) => {
   if (!data || data.length === 0) {
     return (
       <div className="h-24 flex items-center justify-center">
-        <p className="text-xs text-gray-400">No data</p>
+        <p className="text-xs text-[var(--sf-text-muted)]">No data</p>
       </div>
     )
   }
@@ -15,7 +15,7 @@ const MiniChart = ({ data, color = 'blue' }) => {
   const range = maxValue - minValue || 1
 
   const colorClasses = {
-    blue: 'bg-blue-600',
+    blue: 'bg-[var(--sf-blue-500)]',
     green: 'bg-green-600',
     purple: 'bg-purple-600',
     orange: 'bg-orange-600',

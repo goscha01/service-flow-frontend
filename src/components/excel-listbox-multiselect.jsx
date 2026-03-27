@@ -70,37 +70,37 @@ const ExcelListboxMultiselect = ({
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
         className={`
-          w-full px-3 py-2 text-left border border-gray-300 rounded-lg shadow-sm
-          focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
-          ${disabled ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-white hover:bg-gray-50 cursor-pointer'}
+          w-full px-3 py-2 text-left border border-[var(--sf-border-light)] rounded-lg shadow-sm
+          focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]
+          ${disabled ? 'bg-[var(--sf-bg-page)] text-[var(--sf-text-muted)] cursor-not-allowed' : 'bg-white hover:bg-[var(--sf-bg-page)] cursor-pointer'}
           ${isOpen ? 'ring-2 ring-blue-500 border-blue-500' : ''}
         `}
       >
         <div className="flex items-center justify-between">
           <div className="flex-1 min-w-0">
-            <span className={selectedValues.length > 0 ? 'text-gray-900' : 'text-gray-500'}>
+            <span className={selectedValues.length > 0 ? 'text-[var(--sf-text-primary)]' : 'text-[var(--sf-text-muted)]'}>
               {getDisplayText()}
             </span>
           </div>
           
           <ChevronDown 
-            className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} 
+            className={`w-4 h-4 text-[var(--sf-text-muted)] transition-transform ${isOpen ? 'rotate-180' : ''}`} 
           />
         </div>
       </button>
 
       {/* Excel-style Popup Listbox */}
       {isOpen && (
-        <div className="absolute z-[9999] w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg">
+        <div className="absolute z-[9999] w-full mt-1 bg-white border border-[var(--sf-border-light)] rounded-lg shadow-lg">
           {/* Header */}
-          <div className="px-3 py-2 bg-gray-50 border-b border-gray-200 rounded-t-lg">
-            <h3 className="text-sm font-medium text-gray-900">Select Items to Add</h3>
+          <div className="px-3 py-2 bg-[var(--sf-bg-page)] border-b border-[var(--sf-border-light)] rounded-t-lg">
+            <h3 className="text-sm font-medium text-[var(--sf-text-primary)]">Select Items to Add</h3>
           </div>
           
           {/* Listbox with checkboxes - Excel style */}
           <div className="max-h-60 overflow-y-auto">
             {options.length === 0 ? (
-              <div className="px-3 py-2 text-sm text-gray-500">
+              <div className="px-3 py-2 text-sm text-[var(--sf-text-muted)]">
                 No options available
               </div>
             ) : (
@@ -109,19 +109,19 @@ const ExcelListboxMultiselect = ({
                 return (
                   <label
                     key={option.value}
-                    className="flex items-center px-3 py-2 hover:bg-gray-100 cursor-pointer transition-colors"
+                    className="flex items-center px-3 py-2 hover:bg-[var(--sf-bg-hover)] cursor-pointer transition-colors"
                   >
                     <input
                       type="checkbox"
                       checked={isSelected}
                       onChange={() => handleToggleOption(option.value)}
-                      className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      className="h-4 w-4 text-[var(--sf-blue-500)] border-[var(--sf-border-light)] rounded focus:ring-[var(--sf-blue-500)]"
                     />
-                    <span className="ml-3 text-sm text-gray-900 flex-1">
+                    <span className="ml-3 text-sm text-[var(--sf-text-primary)] flex-1">
                       {option.label}
                     </span>
                     {isSelected && (
-                      <Check className="w-4 h-4 text-blue-600" />
+                      <Check className="w-4 h-4 text-[var(--sf-blue-500)]" />
                     )}
                   </label>
                 );
@@ -130,18 +130,18 @@ const ExcelListboxMultiselect = ({
           </div>
           
           {/* Footer with OK/Cancel buttons - Excel style */}
-          <div className="px-3 py-2 bg-gray-50 border-t border-gray-200 rounded-b-lg flex justify-end space-x-2">
+          <div className="px-3 py-2 bg-[var(--sf-bg-page)] border-t border-[var(--sf-border-light)] rounded-b-lg flex justify-end space-x-2">
             <button
               type="button"
               onClick={handleCancel}
-              className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"
+              className="px-3 py-1 text-sm text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-hover)] rounded transition-colors"
             >
               Cancel
             </button>
             <button
               type="button"
               onClick={handleOK}
-              className="px-3 py-1 text-sm bg-blue-600 text-white hover:bg-blue-700 rounded transition-colors"
+              className="px-3 py-1 text-sm bg-[var(--sf-blue-500)] text-white hover:bg-[var(--sf-blue-600)] rounded transition-colors"
             >
               OK
             </button>

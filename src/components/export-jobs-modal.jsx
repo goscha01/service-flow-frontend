@@ -133,44 +133,44 @@ const ExportJobsModal = ({ isOpen, onClose, initialFilters = {} }) => {
       <div className="bg-white rounded-xl w-full max-w-4xl relative my-6 max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold text-gray-900">Export Jobs</h2>
+            <h2 className="text-xl font-semibold text-[var(--sf-text-primary)]">Export Jobs</h2>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-500 hover:bg-gray-100 p-1 rounded-full transition-colors"
+              className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-muted)] hover:bg-[var(--sf-bg-hover)] p-1 rounded-full transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
 
-          <p className="text-gray-600 text-sm mb-6">
+          <p className="text-[var(--sf-text-secondary)] text-sm mb-6">
             Choose filters to export specific jobs, or leave filters empty to export all jobs.
           </p>
 
           {/* Filters */}
           <div className="space-y-6 mb-8">
             <div className="flex items-center space-x-2 mb-4">
-              <Filter className="w-5 h-5 text-gray-500" />
-              <h3 className="text-lg font-medium text-gray-900">Export Filters (Optional)</h3>
+              <Filter className="w-5 h-5 text-[var(--sf-text-muted)]" />
+              <h3 className="text-lg font-medium text-[var(--sf-text-primary)]">Export Filters (Optional)</h3>
               {hasActiveFilters && (
                 <button
                   onClick={clearFilters}
-                  className="text-sm text-blue-600 hover:text-blue-700 ml-auto"
+                  className="text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] ml-auto"
                 >
                   Clear All Filters
                 </button>
               )}
             </div>
             
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <div className="bg-[var(--sf-blue-50)] border border-blue-200 rounded-lg p-4 mb-6">
               <div className="flex items-start space-x-3">
                 <div className="flex-shrink-0">
                   <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
-                    <span className="text-blue-600 text-sm font-semibold">i</span>
+                    <span className="text-[var(--sf-blue-500)] text-sm font-semibold">i</span>
                   </div>
                 </div>
                 <div>
                   <h4 className="text-sm font-medium text-blue-800 mb-1">Export Options</h4>
-                  <p className="text-sm text-blue-700">
+                  <p className="text-sm text-[var(--sf-blue-500)]">
                     <strong>Export All Jobs:</strong> Leave all filters empty and click "Export Jobs"<br/>
                     <strong>Filtered Export:</strong> Use the filters below to export specific jobs
                   </p>
@@ -181,13 +181,13 @@ const ExportJobsModal = ({ isOpen, onClose, initialFilters = {} }) => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {/* Status Filter */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                   Job Status
                 </label>
                 <select
                   value={filters.status}
                   onChange={(e) => handleFilterChange('status', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                 >
                   {statusOptions.map(option => (
                     <option key={option.value} value={option.value}>
@@ -199,7 +199,7 @@ const ExportJobsModal = ({ isOpen, onClose, initialFilters = {} }) => {
 
               {/* Date Range */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                   <Calendar className="w-4 h-4 inline mr-1" />
                   From Date
                 </label>
@@ -207,12 +207,12 @@ const ExportJobsModal = ({ isOpen, onClose, initialFilters = {} }) => {
                   type="date"
                   value={filters.dateFrom}
                   onChange={(e) => handleFilterChange('dateFrom', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                   <Calendar className="w-4 h-4 inline mr-1" />
                   To Date
                 </label>
@@ -220,19 +220,19 @@ const ExportJobsModal = ({ isOpen, onClose, initialFilters = {} }) => {
                   type="date"
                   value={filters.dateTo}
                   onChange={(e) => handleFilterChange('dateTo', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                 />
               </div>
 
               {/* Invoice Status */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                   Invoice Status
                 </label>
                 <select
                   value={filters.invoiceStatus}
                   onChange={(e) => handleFilterChange('invoiceStatus', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                 >
                   {invoiceStatusOptions.map(option => (
                     <option key={option.value} value={option.value}>
@@ -244,13 +244,13 @@ const ExportJobsModal = ({ isOpen, onClose, initialFilters = {} }) => {
 
               {/* Payment Status */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                   Payment Status
                 </label>
                 <select
                   value={filters.paymentStatus}
                   onChange={(e) => handleFilterChange('paymentStatus', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                 >
                   {paymentStatusOptions.map(option => (
                     <option key={option.value} value={option.value}>
@@ -262,13 +262,13 @@ const ExportJobsModal = ({ isOpen, onClose, initialFilters = {} }) => {
 
               {/* Priority */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                   Priority
                 </label>
                 <select
                   value={filters.priority}
                   onChange={(e) => handleFilterChange('priority', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                 >
                   {priorityOptions.map(option => (
                     <option key={option.value} value={option.value}>
@@ -281,10 +281,10 @@ const ExportJobsModal = ({ isOpen, onClose, initialFilters = {} }) => {
 
             {/* Advanced Filters */}
             <div className="border-t pt-4">
-              <h4 className="text-sm font-medium text-gray-700 mb-3">Advanced Filters</h4>
+              <h4 className="text-sm font-medium text-[var(--sf-text-primary)] mb-3">Advanced Filters</h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                     Customer ID
                   </label>
                   <input
@@ -292,12 +292,12 @@ const ExportJobsModal = ({ isOpen, onClose, initialFilters = {} }) => {
                     value={filters.customerId}
                     onChange={(e) => handleFilterChange('customerId', e.target.value)}
                     placeholder="Enter customer ID"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                     Team Member ID
                   </label>
                   <input
@@ -305,12 +305,12 @@ const ExportJobsModal = ({ isOpen, onClose, initialFilters = {} }) => {
                     value={filters.teamMemberId}
                     onChange={(e) => handleFilterChange('teamMemberId', e.target.value)}
                     placeholder="Enter team member ID"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                     Territory ID
                   </label>
                   <input
@@ -318,7 +318,7 @@ const ExportJobsModal = ({ isOpen, onClose, initialFilters = {} }) => {
                     value={filters.territoryId}
                     onChange={(e) => handleFilterChange('territoryId', e.target.value)}
                     placeholder="Enter territory ID"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                   />
                 </div>
               </div>
@@ -336,15 +336,15 @@ const ExportJobsModal = ({ isOpen, onClose, initialFilters = {} }) => {
           )}
 
           {/* Export Summary */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+          <div className="bg-[var(--sf-blue-50)] border border-blue-200 rounded-lg p-4 mb-6">
             <h4 className="text-sm font-medium text-blue-800 mb-2">Export Summary</h4>
-            <p className="text-sm text-blue-700">
+            <p className="text-sm text-[var(--sf-blue-500)]">
               {hasActiveFilters 
                 ? `Jobs matching your selected filters will be exported as a CSV file.`
                 : `All jobs will be exported as a CSV file.`
               }
             </p>
-            <p className="text-xs text-blue-600 mt-1">
+            <p className="text-xs text-[var(--sf-blue-500)] mt-1">
               The export will include all job fields: Job ID, Customer Info, Service Details, Status, Dates, Team Member, Priority, Invoice/Payment Status, Financial Details, Address, Recurring Settings, and more.
             </p>
             {!hasActiveFilters && (
@@ -363,7 +363,7 @@ const ExportJobsModal = ({ isOpen, onClose, initialFilters = {} }) => {
                   handleExport();
                 }}
                 disabled={isExporting}
-                className="px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                className="px-4 py-2 text-sm font-medium text-[var(--sf-blue-500)] bg-[var(--sf-blue-50)] border border-blue-200 rounded-lg hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--sf-blue-500)] disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
               >
                 <Download className="w-4 h-4" />
                 <span>Export All Jobs</span>
@@ -373,7 +373,7 @@ const ExportJobsModal = ({ isOpen, onClose, initialFilters = {} }) => {
             <div className="flex space-x-3">
               <button
                 onClick={onClose}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                className="px-4 py-2 text-sm font-medium text-[var(--sf-text-primary)] bg-white border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-page)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--sf-blue-500)]"
                 disabled={isExporting}
               >
                 Cancel
@@ -381,7 +381,7 @@ const ExportJobsModal = ({ isOpen, onClose, initialFilters = {} }) => {
               <button
                 onClick={handleExport}
                 disabled={isExporting}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                className="px-4 py-2 text-sm font-medium text-white bg-[var(--sf-blue-500)] rounded-lg hover:bg-[var(--sf-blue-600)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--sf-blue-500)] disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
               >
                 {isExporting ? (
                   <>

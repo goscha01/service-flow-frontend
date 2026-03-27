@@ -119,7 +119,7 @@ const ServicesDisplay = ({
   const renderServiceCard = (service) => (
     <div
       key={service.id}
-      className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+      className="bg-white border border-[var(--sf-border-light)] rounded-lg p-4 hover:shadow-md transition-shadow"
     >
       <div className="flex items-start justify-between">
         <div className="flex items-start space-x-3 flex-1">
@@ -130,11 +130,11 @@ const ServicesDisplay = ({
                 src={getImageUrl(service.image)}
                 alt={safeDecodeText(service.name) || 'Service'}
                 onError={handleImageError}
-                className="w-16 h-16 object-cover rounded-lg border border-gray-200"
+                className="w-16 h-16 object-cover rounded-lg border border-[var(--sf-border-light)]"
               />
             ) : (
-              <div className="w-16 h-16 bg-gray-100 rounded-lg border border-gray-200 flex items-center justify-center">
-                <Wrench className="w-8 h-8 text-gray-400" />
+              <div className="w-16 h-16 bg-[var(--sf-bg-page)] rounded-lg border border-[var(--sf-border-light)] flex items-center justify-center">
+                <Wrench className="w-8 h-8 text-[var(--sf-text-muted)]" />
               </div>
             )}
           </div>
@@ -142,7 +142,7 @@ const ServicesDisplay = ({
           {/* Service Details */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between mb-1">
-              <h3 className="text-lg font-semibold text-gray-900" title={safeDecodeText(service.name)}>
+              <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]" title={safeDecodeText(service.name)}>
                 {safeDecodeText(service.name) || 'Unnamed Service'}
               </h3>
               <button
@@ -162,12 +162,12 @@ const ServicesDisplay = ({
               </button>
             </div>
             {service.description && (
-              <p className="text-sm text-gray-600 mb-2 line-clamp-2" title={safeDecodeText(service.description)}>
+              <p className="text-sm text-[var(--sf-text-secondary)] mb-2 line-clamp-2" title={safeDecodeText(service.description)}>
                 {safeDecodeText(service.description)}
               </p>
             )}
             
-            <div className="flex items-center space-x-4 text-sm text-gray-500">
+            <div className="flex items-center space-x-4 text-sm text-[var(--sf-text-muted)]">
               {service.price && (
                 <span className="flex items-center">
                   <span className="font-medium text-green-600">${service.price}</span>
@@ -186,7 +186,7 @@ const ServicesDisplay = ({
         <div className="flex items-center space-x-2 ml-4">
           <button
             onClick={() => onServiceEdit && onServiceEdit(service)}
-            className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
+            className="p-2 text-[var(--sf-blue-500)] hover:text-blue-800 hover:bg-[var(--sf-blue-50)] rounded-lg transition-colors"
             title="Edit service"
           >
             <Edit className="w-4 h-4" />
@@ -214,8 +214,8 @@ const ServicesDisplay = ({
       {uncategorizedServices.length > 0 && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-gray-900">Uncategorized Services</h2>
-            <span className="text-sm text-gray-500">{uncategorizedServices.length} services</span>
+            <h2 className="text-xl font-semibold text-[var(--sf-text-primary)]">Uncategorized Services</h2>
+            <span className="text-sm text-[var(--sf-text-muted)]">{uncategorizedServices.length} services</span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {uncategorizedServices.map(renderServiceCard)}
@@ -237,10 +237,10 @@ const ServicesDisplay = ({
                   className="w-4 h-4 rounded-full"
                   style={{ backgroundColor: category.color || '#3B82F6' }}
                 ></div>
-                <h2 className="text-xl font-semibold text-gray-900">{category.name}</h2>
-                <span className="text-sm text-gray-500">({categoryServices.length} services)</span>
+                <h2 className="text-xl font-semibold text-[var(--sf-text-primary)]">{category.name}</h2>
+                <span className="text-sm text-[var(--sf-text-muted)]">({categoryServices.length} services)</span>
               </div>
-              <span className="text-xs text-gray-400 font-mono">Category #{categoryIndex + 1}</span>
+              <span className="text-xs text-[var(--sf-text-muted)] font-mono">Category #{categoryIndex + 1}</span>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -254,11 +254,11 @@ const ServicesDisplay = ({
       {services.length === 0 && (
         <div className="text-center py-12">
           <Wrench className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No services yet</h3>
-          <p className="text-gray-500 mb-4">Create your first service to get started</p>
+          <h3 className="text-lg font-medium text-[var(--sf-text-primary)] mb-2">No services yet</h3>
+          <p className="text-[var(--sf-text-muted)] mb-4">Create your first service to get started</p>
           <button
             onClick={onCreateService}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] transition-colors"
           >
             <Plus className="w-4 h-4 inline mr-2" />
             Create Service

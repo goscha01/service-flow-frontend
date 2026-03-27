@@ -108,7 +108,7 @@ const TimeslotTemplateModal = ({ isOpen, onClose, onSave, existingTemplate }) =>
               value={template.name}
               onChange={(e) => setTemplate({ ...template, name: e.target.value })}
               placeholder="e.g., St. Petersburg, Jacksonville"
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              className="w-full rounded-md border border-[var(--sf-border-light)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:ring-offset-2"
             />
             {errors.name && (
               <p className="text-sm text-red-600">{errors.name}</p>
@@ -117,27 +117,27 @@ const TimeslotTemplateModal = ({ isOpen, onClose, onSave, existingTemplate }) =>
 
           {/* Description (optional) */}
           <div className="space-y-1">
-            <label className="text-sm font-medium">Description <span className="text-gray-400">(optional)</span></label>
+            <label className="text-sm font-medium">Description <span className="text-[var(--sf-text-muted)]">(optional)</span></label>
             <input
               type="text"
               value={template.description || ''}
               onChange={(e) => setTemplate({ ...template, description: e.target.value })}
               placeholder="Brief description of this template"
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              className="w-full rounded-md border border-[var(--sf-border-light)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:ring-offset-2"
             />
           </div>
 
           {/* Timeslot Options */}
           <div>
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">Timeslot Options</h3>
-            <div className="border border-gray-200 rounded-lg divide-y divide-gray-200">
+            <h3 className="text-sm font-semibold text-[var(--sf-text-primary)] mb-3">Timeslot Options</h3>
+            <div className="border border-[var(--sf-border-light)] rounded-lg divide-y divide-[var(--sf-border-light)]">
               {/* Timeslot Format */}
               <div className="flex items-center justify-between px-4 py-3">
-                <span className="text-sm text-gray-700">Timeslot format</span>
+                <span className="text-sm text-[var(--sf-text-primary)]">Timeslot format</span>
                 <select
                   value={template.timeslotType}
                   onChange={(e) => setTemplate({ ...template, timeslotType: e.target.value })}
-                  className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="rounded-md border border-[var(--sf-border-light)] bg-white px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)]"
                 >
                   <option value="Arrival windows">Arrival windows</option>
                   <option value="Fixed length">Fixed length</option>
@@ -147,13 +147,13 @@ const TimeslotTemplateModal = ({ isOpen, onClose, onSave, existingTemplate }) =>
               {/* Timeslot Interval (driving time) */}
               <div className="flex items-center justify-between px-4 py-3">
                 <div>
-                  <span className="text-sm text-gray-700">Timeslot interval</span>
-                  <p className="text-xs text-gray-400">Driving time blocked before each job</p>
+                  <span className="text-sm text-[var(--sf-text-primary)]">Timeslot interval</span>
+                  <p className="text-xs text-[var(--sf-text-muted)]">Driving time blocked before each job</p>
                 </div>
                 <select
                   value={template.drivingTime}
                   onChange={(e) => setTemplate({ ...template, drivingTime: parseInt(e.target.value) })}
-                  className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="rounded-md border border-[var(--sf-border-light)] bg-white px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)]"
                 >
                   <option value={0}>No buffer</option>
                   <option value={15}>15 minutes</option>
@@ -165,11 +165,11 @@ const TimeslotTemplateModal = ({ isOpen, onClose, onSave, existingTemplate }) =>
 
               {/* Arrival Window Length */}
               <div className="flex items-center justify-between px-4 py-3">
-                <span className="text-sm text-gray-700">Arrival window length</span>
+                <span className="text-sm text-[var(--sf-text-primary)]">Arrival window length</span>
                 <select
                   value={template.arrivalWindowLength || 60}
                   onChange={(e) => setTemplate({ ...template, arrivalWindowLength: parseInt(e.target.value) })}
-                  className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="rounded-md border border-[var(--sf-border-light)] bg-white px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)]"
                 >
                   <option value={30}>30 minutes</option>
                   <option value={60}>1 hour</option>
@@ -184,10 +184,10 @@ const TimeslotTemplateModal = ({ isOpen, onClose, onSave, existingTemplate }) =>
 
           {/* Example */}
           <div>
-            <p className="text-xs font-medium text-gray-500 mb-2 text-right">EXAMPLE</p>
+            <p className="text-xs font-medium text-[var(--sf-text-muted)] mb-2 text-right">EXAMPLE</p>
             <div className="flex flex-wrap gap-2 justify-end">
               {getExampleSlots().map((slot, i) => (
-                <span key={i} className="px-3 py-1.5 bg-gray-100 border border-gray-200 rounded-md text-xs text-gray-700">
+                <span key={i} className="px-3 py-1.5 bg-[var(--sf-bg-page)] border border-[var(--sf-border-light)] rounded-md text-xs text-[var(--sf-text-primary)]">
                   {slot}
                 </span>
               ))}
@@ -207,7 +207,7 @@ const TimeslotTemplateModal = ({ isOpen, onClose, onSave, existingTemplate }) =>
         <div className="flex justify-end pt-4 border-t">
           <button
             onClick={handleSave}
-            className="inline-flex items-center justify-center whitespace-nowrap rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+            className="inline-flex items-center justify-center whitespace-nowrap rounded-md bg-[var(--sf-blue-500)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--sf-blue-600)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
           >
             {isEditMode ? 'Save Changes' : 'Save Template'}
           </button>

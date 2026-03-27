@@ -33,8 +33,8 @@ export default function IndustriesSection() {
           {/* Left Column - Content */}
           <div className="space-y-8">
             <div className="space-y-6">
-              <h2 className="text-2xl lg:text-3xl font-bold text-gray-900">Who uses Serviceflow?</h2>
-              <p className="text-lg text-gray-600 leading-relaxed">
+              <h2 className="text-2xl lg:text-3xl font-bold text-[var(--sf-text-primary)]">Who uses Serviceflow?</h2>
+              <p className="text-lg text-[var(--sf-text-secondary)] leading-relaxed">
                 From solo operators to national teams, Serviceflow helps service businesses all around the world simplify
                 scheduling and grow.
               </p>
@@ -50,7 +50,7 @@ export default function IndustriesSection() {
                       clipRule="evenodd"
                     />
                   </svg>
-                  <span className="text-gray-700">{industry}</span>
+                  <span className="text-[var(--sf-text-primary)]">{industry}</span>
                 </div>
               ))}
             </div>

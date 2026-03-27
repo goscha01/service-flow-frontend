@@ -235,14 +235,14 @@ const CreateTerritoryModal = ({ isOpen, onClose, onSuccess, territory = null, is
     <div className="fixed inset-0 bg-black/50 flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto">
       <div className="bg-white rounded-xl w-full max-w-4xl relative my-4 sm:my-6 max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3rem)] overflow-hidden flex flex-col">
         {/* Header - Fixed */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <div className="flex items-center justify-between p-6 border-b border-[var(--sf-border-light)]">
           <div className="flex items-center">
-            <MapPin className="h-6 w-6 text-blue-600 mr-2" />
-            <h3 className="text-lg font-medium text-gray-900">
+            <MapPin className="h-6 w-6 text-[var(--sf-blue-500)] mr-2" />
+            <h3 className="text-lg font-medium text-[var(--sf-text-primary)]">
               {isEditing ? "Edit Territory" : "Create Territory"}
             </h3>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+          <button onClick={onClose} className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]">
             <X className="h-6 w-6" />
           </button>
         </div>
@@ -260,21 +260,21 @@ const CreateTerritoryModal = ({ isOpen, onClose, onSuccess, territory = null, is
             {/* Basic Information */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                   Territory Name *
                 </label>
                 <input
                   type="text"
                   value={formData.name}
                   onChange={(e) => handleInputChange('name', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                   placeholder="e.g., Downtown Area"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                   Location *
                 </label>
                 <AddressAutocomplete
@@ -285,39 +285,39 @@ const CreateTerritoryModal = ({ isOpen, onClose, onSuccess, territory = null, is
                   className="w-full"
                   showValidationResults={true}
                 />
-                <p className="mt-1 text-sm text-gray-500">
+                <p className="mt-1 text-sm text-[var(--sf-text-muted)]">
                   Start typing to get address suggestions. ZIP codes will be automatically added.
                 </p>
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                 Description
               </label>
               <textarea
                 value={formData.description}
                 onChange={(e) => handleInputChange('description', e.target.value)}
                 rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                 placeholder="Optional description of this territory"
               />
             </div>
 
             {/* Geographic Settings */}
-            <div className="border-t border-gray-200 pt-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Geographic Settings</h3>
+            <div className="border-t border-[var(--sf-border-light)] pt-6">
+              <h3 className="text-lg font-medium text-[var(--sf-text-primary)] mb-4">Geographic Settings</h3>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                     Service Radius (miles)
                   </label>
                   <input
                     type="number"
                     value={formData.radiusMiles}
                     onChange={(e) => handleInputChange('radiusMiles', parseFloat(e.target.value))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                     min="1"
                     max="100"
                     step="0.5"
@@ -325,13 +325,13 @@ const CreateTerritoryModal = ({ isOpen, onClose, onSuccess, territory = null, is
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                     Timezone
                   </label>
                   <select
                     value={formData.timezone}
                     onChange={(e) => handleInputChange('timezone', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                   >
                     <option value="America/New_York">Eastern Time</option>
                     <option value="America/Chicago">Central Time</option>
@@ -342,7 +342,7 @@ const CreateTerritoryModal = ({ isOpen, onClose, onSuccess, territory = null, is
               </div>
 
               <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                   ZIP Codes
                 </label>
                 <div className="flex space-x-2 mb-2">
@@ -350,13 +350,13 @@ const CreateTerritoryModal = ({ isOpen, onClose, onSuccess, territory = null, is
                     type="text"
                     value={newZipCode}
                     onChange={(e) => setNewZipCode(e.target.value)}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="flex-1 px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                     placeholder="Enter ZIP code"
                   />
                   <button
                     type="button"
                     onClick={addZipCode}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    className="px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)]"
                   >
                     <Plus className="w-4 h-4" />
                   </button>
@@ -371,7 +371,7 @@ const CreateTerritoryModal = ({ isOpen, onClose, onSuccess, territory = null, is
                       <button
                         type="button"
                         onClick={() => removeZipCode(zipCode)}
-                        className="ml-2 text-blue-600 hover:text-blue-800"
+                        className="ml-2 text-[var(--sf-blue-500)] hover:text-blue-800"
                       >
                         <Minus className="w-3 h-3" />
                       </button>
@@ -382,8 +382,8 @@ const CreateTerritoryModal = ({ isOpen, onClose, onSuccess, territory = null, is
             </div>
 
             {/* Business Hours */}
-            <div className="border-t border-gray-200 pt-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Business Hours</h3>
+            <div className="border-t border-[var(--sf-border-light)] pt-6">
+              <h3 className="text-lg font-medium text-[var(--sf-text-primary)] mb-4">Business Hours</h3>
               
               <div className="space-y-3">
                 {days.map((day) => (
@@ -394,9 +394,9 @@ const CreateTerritoryModal = ({ isOpen, onClose, onSuccess, territory = null, is
                           type="checkbox"
                           checked={formData.businessHours[day.key].enabled}
                           onChange={(e) => handleBusinessHoursChange(day.key, 'enabled', e.target.checked)}
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                          className="h-4 w-4 text-[var(--sf-blue-500)] focus:ring-[var(--sf-blue-500)] border-[var(--sf-border-light)] rounded"
                         />
-                        <span className="ml-2 text-sm font-medium text-gray-900">{day.label}</span>
+                        <span className="ml-2 text-sm font-medium text-[var(--sf-text-primary)]">{day.label}</span>
                       </label>
                     </div>
                     
@@ -406,14 +406,14 @@ const CreateTerritoryModal = ({ isOpen, onClose, onSuccess, territory = null, is
                           type="time"
                           value={formData.businessHours[day.key].start}
                           onChange={(e) => handleBusinessHoursChange(day.key, 'start', e.target.value)}
-                          className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                         />
-                        <span className="text-gray-500">to</span>
+                        <span className="text-[var(--sf-text-muted)]">to</span>
                         <input
                           type="time"
                           value={formData.businessHours[day.key].end}
                           onChange={(e) => handleBusinessHoursChange(day.key, 'end', e.target.value)}
-                          className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                         />
                       </>
                     )}
@@ -423,11 +423,11 @@ const CreateTerritoryModal = ({ isOpen, onClose, onSuccess, territory = null, is
             </div>
 
             {/* Pricing */}
-            <div className="border-t border-gray-200 pt-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Pricing</h3>
+            <div className="border-t border-[var(--sf-border-light)] pt-6">
+              <h3 className="text-lg font-medium text-[var(--sf-text-primary)] mb-4">Pricing</h3>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                   Price Multiplier
                 </label>
                 <div className="flex items-center space-x-2">
@@ -435,31 +435,31 @@ const CreateTerritoryModal = ({ isOpen, onClose, onSuccess, territory = null, is
                     type="number"
                     value={formData.pricingMultiplier}
                     onChange={(e) => handleInputChange('pricingMultiplier', parseFloat(e.target.value))}
-                    className="w-32 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-32 px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                     min="0.1"
                     max="5.0"
                     step="0.1"
                   />
-                  <span className="text-sm text-gray-500">x base price</span>
+                  <span className="text-sm text-[var(--sf-text-muted)]">x base price</span>
                 </div>
-                <p className="mt-1 text-sm text-gray-500">
+                <p className="mt-1 text-sm text-[var(--sf-text-muted)]">
                   This multiplier will be applied to all service prices in this territory.
                 </p>
               </div>
             </div>
 
             {/* Status */}
-            <div className="border-t border-gray-200 pt-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Status</h3>
+            <div className="border-t border-[var(--sf-border-light)] pt-6">
+              <h3 className="text-lg font-medium text-[var(--sf-text-primary)] mb-4">Status</h3>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                   Territory Status
                 </label>
                 <select
                   value={formData.status}
                   onChange={(e) => handleInputChange('status', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                 >
                   <option value="active">Active</option>
                   <option value="inactive">Inactive</option>
@@ -471,11 +471,11 @@ const CreateTerritoryModal = ({ isOpen, onClose, onSuccess, territory = null, is
         </div>
 
         {/* Footer - Fixed */}
-        <div className="flex justify-end space-x-3 p-6 border-t border-gray-200 bg-gray-50">
+        <div className="flex justify-end space-x-3 p-6 border-t border-[var(--sf-border-light)] bg-[var(--sf-bg-page)]">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            className="px-4 py-2 text-sm font-medium text-[var(--sf-text-primary)] bg-white border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-page)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--sf-blue-500)]"
           >
             Cancel
           </button>
@@ -483,7 +483,7 @@ const CreateTerritoryModal = ({ isOpen, onClose, onSuccess, territory = null, is
             type="submit"
             onClick={handleSubmit}
             disabled={loading}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 text-sm font-medium text-white bg-[var(--sf-blue-500)] rounded-lg hover:bg-[var(--sf-blue-600)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--sf-blue-500)] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? "Saving..." : (isEditing ? "Update Territory" : "Create Territory")}
           </button>

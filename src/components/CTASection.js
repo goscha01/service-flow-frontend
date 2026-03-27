@@ -16,8 +16,8 @@ export default function CTASection() {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
         <div className="space-y-8">
           <div className="space-y-4">
-            <h2 className="text-3xl lg:text-4xl font-bold text-gray-900">Ready to get started?</h2>
-            <p className="text-lg text-gray-600">Try Serviceflow free for 14 days. No credit card required.</p>
+            <h2 className="text-3xl lg:text-4xl font-bold text-[var(--sf-text-primary)]">Ready to get started?</h2>
+            <p className="text-lg text-[var(--sf-text-secondary)]">Try Serviceflow free for 14 days. No credit card required.</p>
           </div>
 
           <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-4 max-w-md mx-auto">
@@ -26,7 +26,7 @@ export default function CTASection() {
               placeholder="Enter your email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="flex-1 px-4 py-3 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-transparent"
               required
             />
             <button

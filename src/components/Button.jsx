@@ -14,10 +14,10 @@ const Button = ({
   const baseClasses = "inline-flex items-center justify-center font-medium rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2";
   
   const variants = {
-    primary: "bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500 disabled:bg-blue-400",
-    secondary: "bg-gray-200 text-gray-900 hover:bg-gray-300 focus:ring-gray-500 disabled:bg-gray-100 disabled:text-gray-400",
+    primary: "bg-[var(--sf-blue-500)] text-white hover:bg-[var(--sf-blue-600)] focus:ring-[var(--sf-blue-500)] disabled:bg-blue-400",
+    secondary: "bg-gray-200 text-[var(--sf-text-primary)] hover:bg-gray-300 focus:ring-gray-500 disabled:bg-[var(--sf-bg-page)] disabled:text-[var(--sf-text-muted)]",
     danger: "bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 disabled:bg-red-400",
-    ghost: "text-gray-700 hover:bg-gray-100 focus:ring-gray-500 disabled:text-gray-400"
+    ghost: "text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-hover)] focus:ring-gray-500 disabled:text-[var(--sf-text-muted)]"
   };
   
   const sizes = {

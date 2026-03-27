@@ -36,7 +36,7 @@ export default function BookingFlowsSection() {
   }
 
   return (
-    <section className="py-20 bg-blue-50">
+    <section className="py-20 bg-[var(--sf-blue-50)]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Tab Navigation */}
         <div className="flex justify-center mb-12">
@@ -46,7 +46,7 @@ export default function BookingFlowsSection() {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`relative px-6 py-3 rounded-full text-sm font-medium transition-all duration-200 ${
-                  activeTab === tab.id ? "bg-white text-blue-600 shadow-sm" : "text-gray-600 hover:text-gray-900"
+                  activeTab === tab.id ? "bg-white text-[var(--sf-blue-500)] shadow-sm" : "text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]"
                 }`}
               >
                 <span className="mr-2">{tab.icon}</span>
@@ -60,14 +60,14 @@ export default function BookingFlowsSection() {
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           <div className="space-y-6">
             <div className="space-y-4">
-              <h2 className="text-3xl lg:text-4xl font-bold text-gray-900">{content[activeTab].title}</h2>
-              <p className="text-lg text-gray-600 leading-relaxed">{content[activeTab].description}</p>
+              <h2 className="text-3xl lg:text-4xl font-bold text-[var(--sf-text-primary)]">{content[activeTab].title}</h2>
+              <p className="text-lg text-[var(--sf-text-secondary)] leading-relaxed">{content[activeTab].description}</p>
             </div>
 
             <div>
               <a
                 href={content[activeTab].link}
-                className="inline-flex items-center text-blue-600 font-semibold hover:text-blue-700 transition-colors"
+                className="inline-flex items-center text-[var(--sf-blue-500)] font-semibold hover:text-[var(--sf-blue-500)] transition-colors"
               >
                 Learn more
                 <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -143,29 +143,29 @@ const UpdateAvailabilityModal = ({ isOpen, onClose, onSave, teamMemberName = '',
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-lg w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <div className="flex items-center justify-between p-6 border-b border-[var(--sf-border-light)]">
           <button 
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 hover:bg-[var(--sf-bg-hover)] rounded-lg transition-colors"
           >
-            <X className="w-5 h-5 text-gray-600" />
+            <X className="w-5 h-5 text-[var(--sf-text-secondary)]" />
           </button>
           
           <div className="flex-1 text-center">
-            <h2 className="text-xl font-semibold text-gray-900 mb-1">Update Availability</h2>
+            <h2 className="text-xl font-semibold text-[var(--sf-text-primary)] mb-1">Update Availability</h2>
             {teamMemberName && (
               <div className="flex items-center justify-center gap-2">
-                <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center text-white text-xs font-semibold">
+                <div className="w-6 h-6 bg-[var(--sf-blue-500)] rounded-full flex items-center justify-center text-white text-xs font-semibold">
                   {getInitials(teamMemberName)}
                 </div>
-                <span className="text-sm text-gray-600">{teamMemberName}</span>
+                <span className="text-sm text-[var(--sf-text-secondary)]">{teamMemberName}</span>
               </div>
             )}
           </div>
           
           <button 
             onClick={handleSave}
-            className="bg-blue-600 text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+            className="bg-[var(--sf-blue-500)] text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-[var(--sf-blue-600)] transition-colors"
           >
             Save
           </button>
@@ -176,29 +176,29 @@ const UpdateAvailabilityModal = ({ isOpen, onClose, onSave, teamMemberName = '',
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Left Panel - Dates Selection */}
             <div>
-              <h3 className="text-base font-semibold text-gray-900 mb-2">Dates</h3>
-              <p className="text-sm text-gray-600 mb-6">
+              <h3 className="text-base font-semibold text-[var(--sf-text-primary)] mb-2">Dates</h3>
+              <p className="text-sm text-[var(--sf-text-secondary)] mb-6">
                 Select the date(s) you want to assign specific hours
               </p>
               
               {/* Calendar */}
-              <div className="border border-gray-200 rounded-lg p-5 bg-white">
+              <div className="border border-[var(--sf-border-light)] rounded-lg p-5 bg-white">
                 {/* Calendar Header */}
                 <div className="flex items-center justify-between mb-4">
                   <button 
                     onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1))}
-                    className="p-1.5 hover:bg-gray-100 rounded transition-colors"
+                    className="p-1.5 hover:bg-[var(--sf-bg-hover)] rounded transition-colors"
                   >
-                    <ChevronLeft className="w-5 h-5 text-gray-600" />
+                    <ChevronLeft className="w-5 h-5 text-[var(--sf-text-secondary)]" />
                   </button>
-                  <h4 className="text-base font-semibold text-gray-900">
+                  <h4 className="text-base font-semibold text-[var(--sf-text-primary)]">
                     {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
                   </h4>
                   <button 
                     onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1))}
-                    className="p-1.5 hover:bg-gray-100 rounded transition-colors"
+                    className="p-1.5 hover:bg-[var(--sf-bg-hover)] rounded transition-colors"
                   >
-                    <ChevronRight className="w-5 h-5 text-gray-600" />
+                    <ChevronRight className="w-5 h-5 text-[var(--sf-text-secondary)]" />
                   </button>
                 </div>
 
@@ -206,7 +206,7 @@ const UpdateAvailabilityModal = ({ isOpen, onClose, onSave, teamMemberName = '',
                 <div className="grid grid-cols-7 gap-1">
                   {/* Day headers */}
                   {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                    <div key={day} className="p-2 text-center text-xs font-medium text-gray-500">
+                    <div key={day} className="p-2 text-center text-xs font-medium text-[var(--sf-text-muted)]">
                       {day}
                     </div>
                   ))}
@@ -224,9 +224,9 @@ const UpdateAvailabilityModal = ({ isOpen, onClose, onSave, teamMemberName = '',
                         className={`
                           p-2 text-sm rounded transition-all
                           ${isSelectedDate 
-                            ? 'bg-blue-600 text-white font-semibold' 
+                            ? 'bg-[var(--sf-blue-500)] text-white font-semibold' 
                             : isCurrentMonthDate
-                              ? 'text-gray-900 hover:bg-gray-100' 
+                              ? 'text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-hover)]' 
                               : 'text-gray-300 cursor-not-allowed'
                           }
                         `}
@@ -246,9 +246,9 @@ const UpdateAvailabilityModal = ({ isOpen, onClose, onSave, teamMemberName = '',
           </div>
 
           {/* Bottom Panel - Availability Input */}
-          <div className="mt-8 border-t border-gray-200 pt-6">
-            <h3 className="text-base font-semibold text-gray-900 mb-2">Availability</h3>
-            <p className="text-sm text-gray-600 mb-6">
+          <div className="mt-8 border-t border-[var(--sf-border-light)] pt-6">
+            <h3 className="text-base font-semibold text-[var(--sf-text-primary)] mb-2">Availability</h3>
+            <p className="text-sm text-[var(--sf-text-secondary)] mb-6">
               Edit your available hours for the selected date
             </p>
             
@@ -256,8 +256,8 @@ const UpdateAvailabilityModal = ({ isOpen, onClose, onSave, teamMemberName = '',
               <div className="space-y-4">
                 {/* Availability Display */}
                 {isUnavailable && timeSlots.length === 0 ? (
-                  <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg mb-4">
-                    <span className="text-sm text-gray-600">Unavailable</span>
+                  <div className="p-4 bg-[var(--sf-bg-page)] border border-[var(--sf-border-light)] rounded-lg mb-4">
+                    <span className="text-sm text-[var(--sf-text-secondary)]">Unavailable</span>
                   </div>
                 ) : (
                   <div className="space-y-2 mb-4">
@@ -265,7 +265,7 @@ const UpdateAvailabilityModal = ({ isOpen, onClose, onSave, teamMemberName = '',
                     {timeSlots.map((slot, index) => (
                       <div 
                         key={index}
-                        className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg"
+                        className="flex items-center justify-between p-3 bg-[var(--sf-bg-page)] border border-[var(--sf-border-light)] rounded-lg"
                       >
                         <div className="flex items-center gap-2">
                           <input
@@ -276,9 +276,9 @@ const UpdateAvailabilityModal = ({ isOpen, onClose, onSave, teamMemberName = '',
                               updatedSlots[index].start = e.target.value
                               setTimeSlots(updatedSlots)
                             }}
-                            className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="px-3 py-2 border border-[var(--sf-border-light)] rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                           />
-                          <span className="text-gray-500 text-sm">-</span>
+                          <span className="text-[var(--sf-text-muted)] text-sm">-</span>
                           <input
                             type="time"
                             value={slot.end}
@@ -287,12 +287,12 @@ const UpdateAvailabilityModal = ({ isOpen, onClose, onSave, teamMemberName = '',
                               updatedSlots[index].end = e.target.value
                               setTimeSlots(updatedSlots)
                             }}
-                            className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="px-3 py-2 border border-[var(--sf-border-light)] rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                           />
                         </div>
                         <button
                           onClick={() => handleRemoveTimeSlot(index)}
-                          className="text-gray-400 hover:text-red-600 transition-colors ml-2"
+                          className="text-[var(--sf-text-muted)] hover:text-red-600 transition-colors ml-2"
                           type="button"
                         >
                           <X className="w-4 h-4" />
@@ -302,19 +302,19 @@ const UpdateAvailabilityModal = ({ isOpen, onClose, onSave, teamMemberName = '',
                     
                     {/* New time slot input (shown when not unavailable but no slots yet, or when adding) */}
                     {!isUnavailable && (
-                      <div className="flex items-center gap-2 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                      <div className="flex items-center gap-2 p-3 bg-[var(--sf-bg-page)] border border-[var(--sf-border-light)] rounded-lg">
                         <input
                           type="time"
                           value={newTimeSlot.start}
                           onChange={(e) => setNewTimeSlot(prev => ({ ...prev, start: e.target.value }))}
-                          className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="px-3 py-2 border border-[var(--sf-border-light)] rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                         />
-                        <span className="text-gray-500 text-sm">-</span>
+                        <span className="text-[var(--sf-text-muted)] text-sm">-</span>
                         <input
                           type="time"
                           value={newTimeSlot.end}
                           onChange={(e) => setNewTimeSlot(prev => ({ ...prev, end: e.target.value }))}
-                          className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="px-3 py-2 border border-[var(--sf-border-light)] rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                         />
                       </div>
                     )}
@@ -332,7 +332,7 @@ const UpdateAvailabilityModal = ({ isOpen, onClose, onSave, teamMemberName = '',
                       handleAddTimeSlot()
                     }
                   }}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                  className="flex items-center gap-2 px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg text-sm font-medium hover:bg-[var(--sf-blue-600)] transition-colors"
                   type="button"
                 >
                   <Plus className="w-4 h-4" />
@@ -340,8 +340,8 @@ const UpdateAvailabilityModal = ({ isOpen, onClose, onSave, teamMemberName = '',
                 </button>
               </div>
             ) : (
-              <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg text-center">
-                <span className="text-sm text-gray-500">Please select a date from the calendar above</span>
+              <div className="p-4 bg-[var(--sf-bg-page)] border border-[var(--sf-border-light)] rounded-lg text-center">
+                <span className="text-sm text-[var(--sf-text-muted)]">Please select a date from the calendar above</span>
               </div>
             )}
           </div>

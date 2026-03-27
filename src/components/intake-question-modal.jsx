@@ -225,21 +225,21 @@ const IntakeQuestionModal = ({ isOpen, onClose, selectedQuestionType, onSave, ed
   const renderPreview = () => {
     if (!formData.question) {
       return (
-        <div className="flex items-center justify-center h-full text-gray-400 text-sm" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+        <div className="flex items-center justify-center h-full text-[var(--sf-text-muted)] text-sm" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
           Preview will appear here
         </div>
       );
     }
 
     return (
-      <div className="bg-white rounded-lg border border-gray-200 p-4 space-y-4 w-full">
+      <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-4 space-y-4 w-full">
         {/* Question */}
         <div>
-          <label className="block text-sm font-medium text-gray-900 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+          <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
             {formData.question}
           </label>
           {formData.description && (
-            <p className="text-xs text-gray-600 mb-3" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+            <p className="text-xs text-[var(--sf-text-secondary)] mb-3" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
               {formData.description}
             </p>
           )}
@@ -249,7 +249,7 @@ const IntakeQuestionModal = ({ isOpen, onClose, selectedQuestionType, onSave, ed
             <input
               type="text"
               placeholder={formData.placeholder || "Enter your answer..."}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
               disabled
             />
           )}
@@ -258,14 +258,14 @@ const IntakeQuestionModal = ({ isOpen, onClose, selectedQuestionType, onSave, ed
             <textarea
               placeholder={formData.placeholder || "Enter your answer..."}
               rows={4}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+              className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] resize-none"
               disabled
             />
           )}
 
           {formData.questionType === 'dropdown' && (
             <select
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
               disabled
             >
               <option value="">{formData.placeholder || "Select an option..."}</option>
@@ -278,14 +278,14 @@ const IntakeQuestionModal = ({ isOpen, onClose, selectedQuestionType, onSave, ed
           {formData.questionType === 'multiple_choice' && (
             <div className="space-y-2">
               {formData.options.filter(opt => opt.text).map((option) => (
-                <label key={option.id} className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+                <label key={option.id} className="flex items-center space-x-3 p-3 border border-[var(--sf-border-light)] rounded-lg cursor-pointer hover:bg-[var(--sf-bg-page)]">
                   <input 
                     type={formData.selectionType === 'single' ? 'radio' : 'checkbox'} 
                     name="preview-option" 
-                    className="w-4 h-4 text-blue-600" 
+                    className="w-4 h-4 text-[var(--sf-blue-500)]" 
                     disabled
                   />
-                  <span className="text-sm text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                  <span className="text-sm text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                     {option.text}
                   </span>
                 </label>
@@ -296,7 +296,7 @@ const IntakeQuestionModal = ({ isOpen, onClose, selectedQuestionType, onSave, ed
           {formData.questionType === 'picture_choice' && (
             <div className="grid grid-cols-2 gap-3">
               {formData.options.filter(opt => opt.text || opt.image).map((option) => (
-                <label key={option.id} className="relative border border-gray-200 rounded-lg overflow-hidden cursor-pointer hover:border-blue-500">
+                <label key={option.id} className="relative border border-[var(--sf-border-light)] rounded-lg overflow-hidden cursor-pointer hover:border-blue-500">
                   <input 
                     type={formData.selectionType === 'single' ? 'radio' : 'checkbox'} 
                     name="preview-picture" 
@@ -306,13 +306,13 @@ const IntakeQuestionModal = ({ isOpen, onClose, selectedQuestionType, onSave, ed
                   {option.image ? (
                     <img src={option.image} alt={option.text} className="w-full h-32 object-cover" />
                   ) : (
-                    <div className="w-full h-32 bg-gray-100 flex items-center justify-center">
-                      <ImageIcon className="w-8 h-8 text-gray-400" />
+                    <div className="w-full h-32 bg-[var(--sf-bg-page)] flex items-center justify-center">
+                      <ImageIcon className="w-8 h-8 text-[var(--sf-text-muted)]" />
                     </div>
                   )}
                   {option.text && (
-                    <div className="p-2 bg-white border-t border-gray-200">
-                      <span className="text-xs text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                    <div className="p-2 bg-white border-t border-[var(--sf-border-light)]">
+                      <span className="text-xs text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                         {option.text}
                       </span>
                     </div>
@@ -333,7 +333,7 @@ const IntakeQuestionModal = ({ isOpen, onClose, selectedQuestionType, onSave, ed
                     disabled
                   />
                   <div 
-                    className="w-12 h-12 rounded-lg border-2 border-gray-300 cursor-pointer hover:border-blue-500 transition-colors"
+                    className="w-12 h-12 rounded-lg border-2 border-[var(--sf-border-light)] cursor-pointer hover:border-blue-500 transition-colors"
                     style={{ backgroundColor: option.text }}
                     title={option.text}
                   />
@@ -343,12 +343,12 @@ const IntakeQuestionModal = ({ isOpen, onClose, selectedQuestionType, onSave, ed
           )}
 
           {formData.questionType === 'image_upload' && (
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-              <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-              <p className="text-sm text-gray-600" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+            <div className="border-2 border-dashed border-[var(--sf-border-light)] rounded-lg p-8 text-center">
+              <Upload className="w-8 h-8 text-[var(--sf-text-muted)] mx-auto mb-2" />
+              <p className="text-sm text-[var(--sf-text-secondary)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                 Click to upload or drag and drop
               </p>
-              <p className="text-xs text-gray-500 mt-1" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+              <p className="text-xs text-[var(--sf-text-muted)] mt-1" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                 PNG, JPG, GIF up to 10MB
               </p>
             </div>
@@ -377,20 +377,20 @@ const IntakeQuestionModal = ({ isOpen, onClose, selectedQuestionType, onSave, ed
         }`}
       >
         {/* Header - Full Width */}
-        <div className="absolute top-0 left-0 right-0 bg-white border-b border-gray-200 z-10">
+        <div className="absolute top-0 left-0 right-0 bg-white border-b border-[var(--sf-border-light)] z-10">
           <div className="flex items-center justify-between p-6">
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600"
+              className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
             >
               <X className="w-6 h-6" />
             </button>
-            <h2 className="text-xl font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+            <h2 className="text-xl font-semibold text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
               {editingQuestion ? 'Edit Intake Question' : 'Create Intake Question'}
             </h2>
             <button
               onClick={handleSave}
-              className="px-4 py-2 bg-gray-100 hover:bg-blue-600 hover:text-white text-gray-900 rounded-lg font-medium text-sm transition-colors"
+              className="px-4 py-2 bg-[var(--sf-bg-page)] hover:bg-[var(--sf-blue-500)] hover:text-white text-[var(--sf-text-primary)] rounded-lg font-medium text-sm transition-colors"
               style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
             >
               Save
@@ -404,21 +404,21 @@ const IntakeQuestionModal = ({ isOpen, onClose, selectedQuestionType, onSave, ed
           <div className="flex-1 p-6 space-y-6 overflow-y-auto">
             {/* Question Type */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+              <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                 Question type
               </label>
               <div className="relative">
                 <button
                   type="button"
                   onClick={() => setShowQuestionTypeDropdown(!showQuestionTypeDropdown)}
-                  className="w-full flex items-center justify-between px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                  className="w-full flex items-center justify-between px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] bg-white"
                   style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                 >
                   <div className="flex items-center space-x-2">
                     {getQuestionTypeIcon(formData.questionType)}
-                    <span className="text-sm text-gray-900">{getQuestionTypeLabel(formData.questionType)}</span>
+                    <span className="text-sm text-[var(--sf-text-primary)]">{getQuestionTypeLabel(formData.questionType)}</span>
                   </div>
-                  <ChevronDown className="w-4 h-4 text-gray-400" />
+                  <ChevronDown className="w-4 h-4 text-[var(--sf-text-muted)]" />
                 </button>
                 
                 {showQuestionTypeDropdown && (
@@ -427,7 +427,7 @@ const IntakeQuestionModal = ({ isOpen, onClose, selectedQuestionType, onSave, ed
                       className="fixed inset-0" 
                       onClick={() => setShowQuestionTypeDropdown(false)}
                     />
-                    <div className="absolute left-0 right-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
+                    <div className="absolute left-0 right-0 mt-1 bg-white rounded-lg shadow-lg border border-[var(--sf-border-light)] py-2 z-50">
                       {questionTypes.map((type) => {
                         const IconComponent = type.icon;
                         return (
@@ -437,12 +437,12 @@ const IntakeQuestionModal = ({ isOpen, onClose, selectedQuestionType, onSave, ed
                               handleInputChange('questionType', type.value);
                               setShowQuestionTypeDropdown(false);
                             }}
-                            className={`w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 ${
-                              formData.questionType === type.value ? 'bg-blue-50' : ''
+                            className={`w-full px-3 py-2 text-left hover:bg-[var(--sf-bg-page)] flex items-center space-x-2 ${
+                              formData.questionType === type.value ? 'bg-[var(--sf-blue-50)]' : ''
                             }`}
                           >
-                            <IconComponent className="w-4 h-4 text-gray-600" />
-                            <span className="text-sm text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                            <IconComponent className="w-4 h-4 text-[var(--sf-text-secondary)]" />
+                            <span className="text-sm text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                               {type.label}
                             </span>
                           </button>
@@ -457,17 +457,17 @@ const IntakeQuestionModal = ({ isOpen, onClose, selectedQuestionType, onSave, ed
             {/* Question */}
             <div>
               <div className="flex items-center space-x-1 mb-2">
-                <label className="text-sm font-medium text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                <label className="text-sm font-medium text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                   Question
                 </label>
-                <HelpCircle className="w-4 h-4 text-gray-400" />
+                <HelpCircle className="w-4 h-4 text-[var(--sf-text-muted)]" />
               </div>
               <input
                 type="text"
                 value={formData.question}
                 onChange={(e) => handleInputChange('question', e.target.value)}
                 placeholder="ex. Describe the issue"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                 style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
               />
             </div>
@@ -475,24 +475,24 @@ const IntakeQuestionModal = ({ isOpen, onClose, selectedQuestionType, onSave, ed
             {/* Description */}
             <div>
               <div className="flex items-center space-x-1 mb-2">
-                <label className="text-sm font-medium text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                <label className="text-sm font-medium text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                   Description
                 </label>
-                <HelpCircle className="w-4 h-4 text-gray-400" />
+                <HelpCircle className="w-4 h-4 text-[var(--sf-text-muted)]" />
               </div>
               <textarea
                 rows={3}
                 value={formData.description}
                 onChange={(e) => handleInputChange('description', e.target.value)}
                 placeholder="Add an optional description"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] resize-none"
                 style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
               />
             </div>
 
             {/* Placeholder */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+              <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                 Placeholder
               </label>
               <input
@@ -500,7 +500,7 @@ const IntakeQuestionModal = ({ isOpen, onClose, selectedQuestionType, onSave, ed
                 value={formData.placeholder}
                 onChange={(e) => handleInputChange('placeholder', e.target.value)}
                 placeholder="Optional"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                 style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
               />
             </div>
@@ -509,10 +509,10 @@ const IntakeQuestionModal = ({ isOpen, onClose, selectedQuestionType, onSave, ed
             {needsOptions && (
               <div>
                 <div className="flex items-center space-x-1 mb-3">
-                  <label className="block text-sm font-medium text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                  <label className="block text-sm font-medium text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                     Selection type
                   </label>
-                  <HelpCircle className="w-4 h-4 text-gray-400" />
+                  <HelpCircle className="w-4 h-4 text-[var(--sf-text-muted)]" />
                 </div>
                 <div className="flex space-x-2">
                   {[
@@ -525,8 +525,8 @@ const IntakeQuestionModal = ({ isOpen, onClose, selectedQuestionType, onSave, ed
                       onClick={() => handleInputChange('selectionType', type.value)}
                       className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-1 ${
                         formData.selectionType === type.value
-                          ? 'bg-white text-gray-900 border-2 border-blue-500'
-                          : 'bg-white text-gray-600 border-2 border-gray-300 hover:border-gray-400'
+                          ? 'bg-white text-[var(--sf-text-primary)] border-2 border-blue-500'
+                          : 'bg-white text-[var(--sf-text-secondary)] border-2 border-[var(--sf-border-light)] hover:border-gray-400'
                       }`}
                       style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                     >
@@ -540,16 +540,16 @@ const IntakeQuestionModal = ({ isOpen, onClose, selectedQuestionType, onSave, ed
             {/* Required Toggle */}
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-1">
-                <label className="text-sm font-medium text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                <label className="text-sm font-medium text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                   Required
                 </label>
-                <HelpCircle className="w-4 h-4 text-gray-400" />
+                <HelpCircle className="w-4 h-4 text-[var(--sf-text-muted)]" />
               </div>
               <button
                 type="button"
                 onClick={() => handleInputChange('required', !formData.required)}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  formData.required ? 'bg-blue-600' : 'bg-gray-200'
+                  formData.required ? 'bg-[var(--sf-blue-500)]' : 'bg-gray-200'
                 }`}
               >
                 <span
@@ -564,16 +564,16 @@ const IntakeQuestionModal = ({ isOpen, onClose, selectedQuestionType, onSave, ed
             {needsOptions && (
               <div>
                 <div className="flex items-center space-x-1 mb-4">
-                  <h3 className="text-base font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                  <h3 className="text-base font-semibold text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                     OPTIONS
                   </h3>
-                  <HelpCircle className="w-4 h-4 text-gray-400" />
+                  <HelpCircle className="w-4 h-4 text-[var(--sf-text-muted)]" />
                 </div>
 
                 <div className="space-y-3">
                   {formData.options.map((option, index) => (
                     <div key={option.id}>
-                      <label className="block text-sm font-medium text-gray-700 mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                      <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                         Option {index + 1}
                       </label>
                       <div className="flex items-center space-x-2">
@@ -582,13 +582,13 @@ const IntakeQuestionModal = ({ isOpen, onClose, selectedQuestionType, onSave, ed
                           value={option.text}
                           onChange={(e) => handleOptionChange(option.id, 'text', e.target.value)}
                           placeholder="Enter an option..."
-                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="flex-1 px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                           style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                         />
                         {/* Color preview for color choice questions */}
                         {formData.questionType === 'color_choice' && option.text && (
                           <div 
-                            className="w-10 h-10 rounded border border-gray-300"
+                            className="w-10 h-10 rounded border border-[var(--sf-border-light)]"
                             style={{ backgroundColor: option.text }}
                             title={option.text}
                           />
@@ -610,7 +610,7 @@ const IntakeQuestionModal = ({ isOpen, onClose, selectedQuestionType, onSave, ed
                                 <img
                                   src={option.image}
                                   alt={option.text || 'Option image'}
-                                  className="w-10 h-10 object-cover rounded-lg border border-gray-200"
+                                  className="w-10 h-10 object-cover rounded-lg border border-[var(--sf-border-light)]"
                                 />
                                 <button
                                   type="button"
@@ -625,14 +625,14 @@ const IntakeQuestionModal = ({ isOpen, onClose, selectedQuestionType, onSave, ed
                                 htmlFor={`image-upload-${option.id}`}
                                 className={`flex items-center justify-center w-10 h-10 border-2 border-dashed rounded-lg cursor-pointer transition-all ${
                                   imageUploading[option.id] 
-                                    ? 'border-gray-300 bg-gray-50 cursor-not-allowed' 
-                                    : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50'
+                                    ? 'border-[var(--sf-border-light)] bg-[var(--sf-bg-page)] cursor-not-allowed' 
+                                    : 'border-[var(--sf-border-light)] hover:border-blue-400 hover:bg-[var(--sf-blue-50)]'
                                 }`}
                               >
                                 {imageUploading[option.id] ? (
-                                  <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
+                                  <div className="w-4 h-4 border-2 border-[var(--sf-border-light)] border-t-blue-600 rounded-full animate-spin"></div>
                                 ) : (
-                                  <Upload className="w-4 h-4 text-gray-400" />
+                                  <Upload className="w-4 h-4 text-[var(--sf-text-muted)]" />
                                 )}
                               </label>
                             )}
@@ -644,7 +644,7 @@ const IntakeQuestionModal = ({ isOpen, onClose, selectedQuestionType, onSave, ed
                             type="color"
                             value={option.text.startsWith('#') ? option.text : '#000000'}
                             onChange={(e) => handleOptionChange(option.id, 'text', e.target.value)}
-                            className="w-10 h-10 border border-gray-300 rounded cursor-pointer"
+                            className="w-10 h-10 border border-[var(--sf-border-light)] rounded cursor-pointer"
                             title="Choose color"
                           />
                         )}
@@ -666,7 +666,7 @@ const IntakeQuestionModal = ({ isOpen, onClose, selectedQuestionType, onSave, ed
                 <button
                   type="button"
                   onClick={addOption}
-                  className="mt-4 flex items-center space-x-2 px-4 py-2 text-gray-900 hover:text-gray-700 font-medium"
+                  className="mt-4 flex items-center space-x-2 px-4 py-2 text-[var(--sf-text-primary)] hover:text-[var(--sf-text-primary)] font-medium"
                   style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
                 >
                   <Plus className="w-4 h-4" />
@@ -677,10 +677,10 @@ const IntakeQuestionModal = ({ isOpen, onClose, selectedQuestionType, onSave, ed
                 {formData.questionType === 'color_choice' && (
                   <div className="mt-6">
                     <div className="flex items-center space-x-1 mb-3">
-                      <h4 className="text-sm font-medium text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                      <h4 className="text-sm font-medium text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                         Quick Add Colors
                       </h4>
-                      <HelpCircle className="w-4 h-4 text-gray-400" />
+                      <HelpCircle className="w-4 h-4 text-[var(--sf-text-muted)]" />
                     </div>
                     <div className="grid grid-cols-8 gap-2">
                       {predefinedColors.map((color, index) => (
@@ -688,7 +688,7 @@ const IntakeQuestionModal = ({ isOpen, onClose, selectedQuestionType, onSave, ed
                           key={index}
                           type="button"
                           onClick={() => addColorOption(color)}
-                          className="w-8 h-8 rounded border border-gray-300 hover:scale-110 transition-transform"
+                          className="w-8 h-8 rounded border border-[var(--sf-border-light)] hover:scale-110 transition-transform"
                           style={{ backgroundColor: color }}
                           title={color}
                         />
@@ -702,10 +702,10 @@ const IntakeQuestionModal = ({ isOpen, onClose, selectedQuestionType, onSave, ed
         </div>
 
         {/* Preview Sidebar - Right Side */}
-        <div className="bg-gray-50 w-80 border-l border-gray-200 flex flex-col pt-20 h-full">
+        <div className="bg-[var(--sf-bg-page)] w-80 border-l border-[var(--sf-border-light)] flex flex-col pt-20 h-full">
           <div className="flex flex-col flex-1 overflow-hidden">
             <div className="px-6 pt-6 pb-4">
-              <span className="text-base font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+              <span className="text-base font-semibold text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                 PREVIEW
               </span>
             </div>

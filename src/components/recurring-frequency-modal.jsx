@@ -208,13 +208,13 @@ const RecurringFrequencyModal = ({ isOpen, onClose, onSave, currentFrequency = "
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg w-full max-w-md shadow-xl" style={{ fontFamily: 'Montserrat' }}>
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+        <div className="flex items-center justify-between p-6 border-b border-[var(--sf-border-light)]">
+          <h2 className="text-lg font-semibold text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
             Frequency
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -224,7 +224,7 @@ const RecurringFrequencyModal = ({ isOpen, onClose, onSave, currentFrequency = "
         <div className="p-6">
           {/* Section Header */}
           <div className="mb-4">
-            <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
+            <h3 className="text-xs font-bold text-[var(--sf-text-primary)] uppercase tracking-wider" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
               SELECT RECURRING PLAN
             </h3>
           </div>
@@ -234,8 +234,8 @@ const RecurringFrequencyModal = ({ isOpen, onClose, onSave, currentFrequency = "
             <div 
               className={`border rounded-lg p-4 cursor-pointer transition-colors ${
                 isCustomSelected 
-                  ? 'border-blue-600 bg-blue-50' 
-                  : 'border-gray-200 bg-white hover:border-gray-300'
+                  ? 'border-blue-600 bg-[var(--sf-blue-50)]' 
+                  : 'border-[var(--sf-border-light)] bg-white hover:border-[var(--sf-border-light)]'
               }`}
               onClick={() => setIsCustomSelected(true)}
             >
@@ -244,36 +244,36 @@ const RecurringFrequencyModal = ({ isOpen, onClose, onSave, currentFrequency = "
                 <div className="flex-shrink-0">
                   <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
                     isCustomSelected 
-                      ? 'border-blue-600 bg-blue-600' 
-                      : 'border-gray-300 bg-white'
+                      ? 'border-blue-600 bg-[var(--sf-blue-500)]' 
+                      : 'border-[var(--sf-border-light)] bg-white'
                   }`}>
                     {isCustomSelected && (
                       <div className="w-2.5 h-2.5 bg-white rounded-full"></div>
                     )}
                   </div>
                 </div>
-                <span className="text-sm text-gray-900" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                <span className="text-sm text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                   Custom frequency...
                 </span>
               </div>
 
               {/* Frequency Configuration - Only show when selected */}
               {isCustomSelected && (
-                <div className="mt-4 space-y-4 pl-8 border-t border-gray-200 pt-4">
+                <div className="mt-4 space-y-4 pl-8 border-t border-[var(--sf-border-light)] pt-4">
                   {/* Repeat Dropdown */}
                   <div className="flex items-center gap-3">
-                    <label className="text-sm text-gray-700 whitespace-nowrap" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                    <label className="text-sm text-[var(--sf-text-primary)] whitespace-nowrap" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                       Repeat
                     </label>
                     <div className="relative flex-1">
                       <button
                         type="button"
                         onClick={() => setShowRepeatDropdown(!showRepeatDropdown)}
-                        className="w-full flex items-center justify-between px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full flex items-center justify-between px-3 py-2 border border-[var(--sf-border-light)] rounded-lg bg-white text-sm text-[var(--sf-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)]"
                         style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                       >
                         <span className="capitalize">{repeatType}</span>
-                        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${showRepeatDropdown ? 'transform rotate-180' : ''}`} />
+                        <ChevronDown className={`w-4 h-4 text-[var(--sf-text-muted)] transition-transform ${showRepeatDropdown ? 'transform rotate-180' : ''}`} />
                       </button>
                       {showRepeatDropdown && (
                         <>
@@ -281,7 +281,7 @@ const RecurringFrequencyModal = ({ isOpen, onClose, onSave, currentFrequency = "
                             className="fixed inset-0 z-10" 
                             onClick={() => setShowRepeatDropdown(false)}
                           ></div>
-                          <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg">
+                          <div className="absolute z-20 w-full mt-1 bg-white border border-[var(--sf-border-light)] rounded-lg shadow-lg">
                             {['daily', 'weekly', 'monthly'].map((type) => (
                               <button
                                 key={type}
@@ -291,8 +291,8 @@ const RecurringFrequencyModal = ({ isOpen, onClose, onSave, currentFrequency = "
                                   setShowRepeatDropdown(false)
                                   setEveryValue(1)
                                 }}
-                                className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg ${
-                                  repeatType === type ? 'bg-blue-50 text-blue-600' : 'text-gray-900'
+                                className={`w-full text-left px-3 py-2 text-sm hover:bg-[var(--sf-bg-page)] first:rounded-t-lg last:rounded-b-lg ${
+                                  repeatType === type ? 'bg-[var(--sf-blue-50)] text-[var(--sf-blue-500)]' : 'text-[var(--sf-text-primary)]'
                                 }`}
                                 style={{ fontFamily: 'Montserrat', fontWeight: repeatType === type ? 600 : 400 }}
                               >
@@ -307,7 +307,7 @@ const RecurringFrequencyModal = ({ isOpen, onClose, onSave, currentFrequency = "
 
                   {/* Every Input */}
                   <div className="flex items-center gap-3">
-                    <label className="text-sm text-gray-700 whitespace-nowrap" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                    <label className="text-sm text-[var(--sf-text-primary)] whitespace-nowrap" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                       Every
                     </label>
                     <div className="flex items-center gap-2 flex-1">
@@ -317,10 +317,10 @@ const RecurringFrequencyModal = ({ isOpen, onClose, onSave, currentFrequency = "
                         max={repeatType === 'daily' ? 365 : repeatType === 'weekly' ? 52 : 12}
                         value={everyValue}
                         onChange={(e) => setEveryValue(Math.max(1, parseInt(e.target.value) || 1))}
-                        className="w-16 px-3 py-2 border border-gray-300 rounded-lg text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-16 px-3 py-2 border border-[var(--sf-border-light)] rounded-lg text-sm text-center focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)]"
                         style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                       />
-                      <span className="text-sm text-gray-700" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                      <span className="text-sm text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                         {getUnitText()}{everyValue !== 1 ? 's' : ''}
                       </span>
                     </div>
@@ -329,7 +329,7 @@ const RecurringFrequencyModal = ({ isOpen, onClose, onSave, currentFrequency = "
                   {/* Weekly: Day of Week Selection */}
                   {repeatType === 'weekly' && (
                     <div className="flex items-center gap-3">
-                      <label className="text-sm text-gray-700 whitespace-nowrap" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                      <label className="text-sm text-[var(--sf-text-primary)] whitespace-nowrap" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                         On
                       </label>
                       <div className="flex-1 flex gap-1">
@@ -340,8 +340,8 @@ const RecurringFrequencyModal = ({ isOpen, onClose, onSave, currentFrequency = "
                             onClick={() => setSelectedDayOfWeek(day.value)}
                             className={`flex-1 px-2 py-2 text-xs font-medium rounded-lg transition-colors ${
                               selectedDayOfWeek === day.value
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                ? 'bg-[var(--sf-blue-500)] text-white'
+                                : 'bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)] hover:bg-gray-200'
                             }`}
                             style={{ fontFamily: 'Montserrat', fontWeight: selectedDayOfWeek === day.value ? 600 : 400 }}
                           >
@@ -363,9 +363,9 @@ const RecurringFrequencyModal = ({ isOpen, onClose, onSave, currentFrequency = "
                           name="monthlyOption"
                           checked={monthlyOption === 'onDay'}
                           onChange={() => setMonthlyOption('onDay')}
-                          className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                          className="w-4 h-4 text-[var(--sf-blue-500)] border-[var(--sf-border-light)] focus:ring-[var(--sf-blue-500)]"
                         />
-                        <label htmlFor="onDay" className="text-sm text-gray-700 whitespace-nowrap" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                        <label htmlFor="onDay" className="text-sm text-[var(--sf-text-primary)] whitespace-nowrap" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                           On day
                         </label>
                         <input
@@ -374,7 +374,7 @@ const RecurringFrequencyModal = ({ isOpen, onClose, onSave, currentFrequency = "
                           max="31"
                           value={dayOfMonth}
                           onChange={(e) => setDayOfMonth(Math.max(1, Math.min(31, parseInt(e.target.value) || 1)))}
-                          className="w-16 px-3 py-2 border border-gray-300 rounded-lg text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-16 px-3 py-2 border border-[var(--sf-border-light)] rounded-lg text-sm text-center focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)]"
                           style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                         />
                       </div>
@@ -387,9 +387,9 @@ const RecurringFrequencyModal = ({ isOpen, onClose, onSave, currentFrequency = "
                           name="monthlyOption"
                           checked={monthlyOption === 'onThe'}
                           onChange={() => setMonthlyOption('onThe')}
-                          className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                          className="w-4 h-4 text-[var(--sf-blue-500)] border-[var(--sf-border-light)] focus:ring-[var(--sf-blue-500)]"
                         />
-                        <label htmlFor="onThe" className="text-sm text-gray-700 whitespace-nowrap" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                        <label htmlFor="onThe" className="text-sm text-[var(--sf-text-primary)] whitespace-nowrap" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
                           On the
                         </label>
                         <div className="flex-1 flex gap-2">
@@ -397,11 +397,11 @@ const RecurringFrequencyModal = ({ isOpen, onClose, onSave, currentFrequency = "
                             <button
                               type="button"
                               onClick={() => setShowOrdinalDropdown(!showOrdinalDropdown)}
-                              className="w-full flex items-center justify-between px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              className="w-full flex items-center justify-between px-3 py-2 border border-[var(--sf-border-light)] rounded-lg bg-white text-sm text-[var(--sf-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)]"
                               style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                             >
                               <span>{ordinal}</span>
-                              <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${showOrdinalDropdown ? 'transform rotate-180' : ''}`} />
+                              <ChevronDown className={`w-4 h-4 text-[var(--sf-text-muted)] transition-transform ${showOrdinalDropdown ? 'transform rotate-180' : ''}`} />
                             </button>
                             {showOrdinalDropdown && (
                               <>
@@ -409,7 +409,7 @@ const RecurringFrequencyModal = ({ isOpen, onClose, onSave, currentFrequency = "
                                   className="fixed inset-0 z-10" 
                                   onClick={() => setShowOrdinalDropdown(false)}
                                 ></div>
-                                <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg">
+                                <div className="absolute z-20 w-full mt-1 bg-white border border-[var(--sf-border-light)] rounded-lg shadow-lg">
                                   {ordinals.map((ord) => (
                                     <button
                                       key={ord}
@@ -418,8 +418,8 @@ const RecurringFrequencyModal = ({ isOpen, onClose, onSave, currentFrequency = "
                                         setOrdinal(ord)
                                         setShowOrdinalDropdown(false)
                                       }}
-                                      className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg ${
-                                        ordinal === ord ? 'bg-blue-50 text-blue-600' : 'text-gray-900'
+                                      className={`w-full text-left px-3 py-2 text-sm hover:bg-[var(--sf-bg-page)] first:rounded-t-lg last:rounded-b-lg ${
+                                        ordinal === ord ? 'bg-[var(--sf-blue-50)] text-[var(--sf-blue-500)]' : 'text-[var(--sf-text-primary)]'
                                       }`}
                                       style={{ fontFamily: 'Montserrat', fontWeight: ordinal === ord ? 600 : 400 }}
                                     >
@@ -434,11 +434,11 @@ const RecurringFrequencyModal = ({ isOpen, onClose, onSave, currentFrequency = "
                             <button
                               type="button"
                               onClick={() => setShowWeekdayDropdown(!showWeekdayDropdown)}
-                              className="w-full flex items-center justify-between px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              className="w-full flex items-center justify-between px-3 py-2 border border-[var(--sf-border-light)] rounded-lg bg-white text-sm text-[var(--sf-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)]"
                               style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
                             >
                               <span className="capitalize">{weekdays.find(w => w.value === weekdayForMonthly)?.label || 'Friday'}</span>
-                              <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${showWeekdayDropdown ? 'transform rotate-180' : ''}`} />
+                              <ChevronDown className={`w-4 h-4 text-[var(--sf-text-muted)] transition-transform ${showWeekdayDropdown ? 'transform rotate-180' : ''}`} />
                             </button>
                             {showWeekdayDropdown && (
                               <>
@@ -446,7 +446,7 @@ const RecurringFrequencyModal = ({ isOpen, onClose, onSave, currentFrequency = "
                                   className="fixed inset-0 z-10" 
                                   onClick={() => setShowWeekdayDropdown(false)}
                                 ></div>
-                                <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg">
+                                <div className="absolute z-20 w-full mt-1 bg-white border border-[var(--sf-border-light)] rounded-lg shadow-lg">
                                   {weekdays.map((day) => (
                                     <button
                                       key={day.value}
@@ -455,8 +455,8 @@ const RecurringFrequencyModal = ({ isOpen, onClose, onSave, currentFrequency = "
                                         setWeekdayForMonthly(day.value)
                                         setShowWeekdayDropdown(false)
                                       }}
-                                      className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg ${
-                                        weekdayForMonthly === day.value ? 'bg-blue-50 text-blue-600' : 'text-gray-900'
+                                      className={`w-full text-left px-3 py-2 text-sm hover:bg-[var(--sf-bg-page)] first:rounded-t-lg last:rounded-b-lg ${
+                                        weekdayForMonthly === day.value ? 'bg-[var(--sf-blue-50)] text-[var(--sf-blue-500)]' : 'text-[var(--sf-text-primary)]'
                                       }`}
                                       style={{ fontFamily: 'Montserrat', fontWeight: weekdayForMonthly === day.value ? 600 : 400 }}
                                     >
@@ -474,7 +474,7 @@ const RecurringFrequencyModal = ({ isOpen, onClose, onSave, currentFrequency = "
 
                   {/* Preview Text */}
                   <div className="pt-2">
-                    <p className="text-xs text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
+                    <p className="text-xs text-[var(--sf-text-muted)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
                       {getPreviewText()}
                     </p>
                   </div>
@@ -485,17 +485,17 @@ const RecurringFrequencyModal = ({ isOpen, onClose, onSave, currentFrequency = "
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end space-x-3 p-6 border-t border-gray-200">
+        <div className="flex justify-end space-x-3 p-6 border-t border-[var(--sf-border-light)]">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            className="px-4 py-2 text-sm font-medium text-[var(--sf-text-primary)] bg-white border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-page)] transition-colors"
             style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+            className="px-4 py-2 text-sm font-medium text-white bg-[var(--sf-blue-500)] rounded-lg hover:bg-[var(--sf-blue-600)] transition-colors"
             style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
           >
             Save

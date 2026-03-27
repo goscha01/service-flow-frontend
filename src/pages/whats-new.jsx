@@ -73,7 +73,7 @@ const WhatsNewPage = () => {
   ]
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen bg-[var(--sf-bg-page)] overflow-hidden">
       {/* Sidebar */}
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
@@ -82,18 +82,18 @@ const WhatsNewPage = () => {
         {/* Mobile Header */}
 
         {/* Header */}
-        <div className="bg-white border-b border-gray-200 px-6 py-4">
+        <div className="bg-white border-b border-[var(--sf-border-light)] px-6 py-4">
           <div className="flex items-center space-x-4">
             <button
               onClick={() => navigate(-1)}
-              className="flex items-center space-x-2 text-gray-600 hover:text-gray-900"
+              className="flex items-center space-x-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]"
             >
               <ChevronLeft className="w-5 h-5" />
               <span className="text-sm">Back</span>
             </button>
-            <h1 className="text-2xl font-semibold text-gray-900">What's New in Service Flow</h1>
+            <h1 className="text-2xl font-semibold text-[var(--sf-text-primary)]">What's New in Service Flow</h1>
           </div>
-          <p className="text-gray-600 mt-2">Stay up to date with the latest features and improvements</p>
+          <p className="text-[var(--sf-text-secondary)] mt-2">Stay up to date with the latest features and improvements</p>
         </div>
 
         {/* Content */}
@@ -103,27 +103,27 @@ const WhatsNewPage = () => {
               {updates.map((update, index) => {
                 const Icon = update.icon
                 return (
-                  <div key={index} className="bg-white border border-gray-200 rounded-lg p-8 shadow-sm">
+                  <div key={index} className="bg-white border border-[var(--sf-border-light)] rounded-lg p-8 shadow-sm">
                     <div className="flex items-start space-x-6">
                       <div className={`w-16 h-16 ${update.iconBg} rounded-xl flex items-center justify-center flex-shrink-0`}>
                         <Icon className={`w-8 h-8 ${update.iconColor}`} />
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center justify-between mb-4">
-                          <h2 className="text-2xl font-semibold text-gray-900">{update.title}</h2>
+                          <h2 className="text-2xl font-semibold text-[var(--sf-text-primary)]">{update.title}</h2>
                           <div className="flex items-center space-x-3">
                             <span className="text-sm bg-blue-100 text-blue-800 px-3 py-1 rounded-full font-medium">
                               {update.version}
                             </span>
-                            <span className="text-base text-gray-500">{update.date}</span>
+                            <span className="text-base text-[var(--sf-text-muted)]">{update.date}</span>
                           </div>
                         </div>
-                        <p className="text-gray-700 text-lg mb-6">{update.description}</p>
+                        <p className="text-[var(--sf-text-primary)] text-lg mb-6">{update.description}</p>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           {update.features.map((feature, featureIndex) => (
                             <div key={featureIndex} className="flex items-start space-x-3">
-                              <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
-                              <span className="text-gray-700">{feature}</span>
+                              <div className="w-2 h-2 bg-[var(--sf-blue-500)] rounded-full mt-2 flex-shrink-0"></div>
+                              <span className="text-[var(--sf-text-primary)]">{feature}</span>
                             </div>
                           ))}
                         </div>
@@ -137,23 +137,23 @@ const WhatsNewPage = () => {
             {/* Call to Action Section */}
             <div className="mt-12 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-8">
               <div className="text-center">
-                <h3 className="text-2xl font-semibold text-gray-900 mb-4">
+                <h3 className="text-2xl font-semibold text-[var(--sf-text-primary)] mb-4">
                   Want to see what we're working on next?
                 </h3>
-                <p className="text-gray-600 mb-8 text-lg">
+                <p className="text-[var(--sf-text-secondary)] mb-8 text-lg">
                   Join our community and help shape the future of Service Flow
                 </p>
                 <div className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-6">
                   <button
                     onClick={() => window.open("https://feedback.service-flow.com", "_blank")}
-                    className="flex items-center space-x-2 px-6 py-3 text-base font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                    className="flex items-center space-x-2 px-6 py-3 text-base font-medium text-[var(--sf-text-primary)] bg-white border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-page)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--sf-blue-500)] transition-colors"
                   >
                     <span>Request Features</span>
                     <ExternalLink className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => window.open("https://roadmap.service-flow.com", "_blank")}
-                    className="flex items-center space-x-2 px-6 py-3 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                    className="flex items-center space-x-2 px-6 py-3 text-base font-medium text-white bg-[var(--sf-blue-500)] rounded-lg hover:bg-[var(--sf-blue-600)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--sf-blue-500)] transition-colors"
                   >
                     <span>View Roadmap</span>
                     <ExternalLink className="w-4 h-4" />

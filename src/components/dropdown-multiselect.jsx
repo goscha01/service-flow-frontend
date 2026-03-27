@@ -86,9 +86,9 @@ const DropdownMultiselect = ({
         }}
         disabled={disabled}
         className={`
-          w-full px-3 py-2 text-left border border-gray-300 rounded-lg shadow-sm
-          focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
-          ${disabled ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-white hover:bg-gray-50 cursor-pointer'}
+          w-full px-3 py-2 text-left border border-[var(--sf-border-light)] rounded-lg shadow-sm
+          focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]
+          ${disabled ? 'bg-[var(--sf-bg-page)] text-[var(--sf-text-muted)] cursor-not-allowed' : 'bg-white hover:bg-[var(--sf-bg-page)] cursor-pointer'}
           ${isOpen ? 'ring-2 ring-blue-500 border-blue-500' : ''}
         `}
       >
@@ -105,14 +105,14 @@ const DropdownMultiselect = ({
                     <button
                       type="button"
                       onClick={(e) => handleRemoveItem(option.value, e)}
-                      className="ml-1 text-blue-600 hover:text-blue-800"
+                      className="ml-1 text-[var(--sf-blue-500)] hover:text-blue-800"
                     >
                       <X className="w-3 h-3" />
                     </button>
                   </span>
                 ))
               ) : (
-                <span className={selectedValues.length > 0 ? 'text-gray-900' : 'text-gray-500'}>
+                <span className={selectedValues.length > 0 ? 'text-[var(--sf-text-primary)]' : 'text-[var(--sf-text-muted)]'}>
                   {getDisplayText()}
                 </span>
               )}
@@ -124,14 +124,14 @@ const DropdownMultiselect = ({
               <button
                 type="button"
                 onClick={handleClearAll}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
                 title="Clear all"
               >
                 <X className="w-4 h-4" />
               </button>
             )}
             <ChevronDown 
-              className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} 
+              className={`w-4 h-4 text-[var(--sf-text-muted)] transition-transform ${isOpen ? 'rotate-180' : ''}`} 
             />
           </div>
         </div>
@@ -139,16 +139,16 @@ const DropdownMultiselect = ({
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute z-[9999] w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-hidden" style={{top: '100%'}}>
+        <div className="absolute z-[9999] w-full mt-1 bg-white border border-[var(--sf-border-light)] rounded-lg shadow-lg max-h-60 overflow-hidden" style={{top: '100%'}}>
           {/* Search Input (if searchable) */}
           {searchable && (
-            <div className="p-2 border-b border-gray-200">
+            <div className="p-2 border-b border-[var(--sf-border-light)]">
               <input
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Search options..."
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 text-sm border border-[var(--sf-border-light)] rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                 autoFocus
               />
             </div>
@@ -157,7 +157,7 @@ const DropdownMultiselect = ({
           {/* Options List */}
           <div className="max-h-48 overflow-y-auto">
             {filteredOptions.length === 0 ? (
-              <div className="px-3 py-2 text-sm text-gray-500">
+              <div className="px-3 py-2 text-sm text-[var(--sf-text-muted)]">
                 {searchable && searchTerm ? 'No options found' : 'No options available'}
               </div>
             ) : (
@@ -173,8 +173,8 @@ const DropdownMultiselect = ({
                        handleToggleOption(option.value);
                      }}
                      className={`
-                       w-full px-3 py-2 text-left text-sm hover:bg-gray-100 focus:bg-gray-100 focus:outline-none transition-colors
-                       ${isSelected ? 'bg-blue-600 text-white' : 'text-gray-900'}
+                       w-full px-3 py-2 text-left text-sm hover:bg-[var(--sf-bg-hover)] focus:bg-[var(--sf-bg-page)] focus:outline-none transition-colors
+                       ${isSelected ? 'bg-[var(--sf-blue-500)] text-white' : 'text-[var(--sf-text-primary)]'}
                      `}
                    >
                      <span className="flex-1">{option.label}</span>
@@ -191,7 +191,7 @@ const DropdownMultiselect = ({
 
           {/* Footer with selection count */}
           {selectedValues.length > 0 && (
-            <div className="px-3 py-2 border-t border-gray-200 bg-gray-50 text-sm text-gray-600">
+            <div className="px-3 py-2 border-t border-[var(--sf-border-light)] bg-[var(--sf-bg-page)] text-sm text-[var(--sf-text-secondary)]">
               {selectedValues.length} of {options.length} selected
             </div>
           )}

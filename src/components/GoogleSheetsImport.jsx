@@ -154,15 +154,15 @@ const GoogleSheetsImport = ({ importType = 'customers', onSuccess, onError }) =>
 
   const renderStep1 = () => (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold text-gray-900">Select Google Spreadsheet</h3>
-      <p className="text-sm text-gray-600">
+      <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">Select Google Spreadsheet</h3>
+      <p className="text-sm text-[var(--sf-text-secondary)]">
         Choose the Google Spreadsheet you want to import data from.
       </p>
       
       {loading ? (
         <div className="flex items-center justify-center py-8">
-          <Loader className="w-6 h-6 animate-spin text-blue-600" />
-          <span className="ml-2 text-gray-600">Loading spreadsheets...</span>
+          <Loader className="w-6 h-6 animate-spin text-[var(--sf-blue-500)]" />
+          <span className="ml-2 text-[var(--sf-text-secondary)]">Loading spreadsheets...</span>
         </div>
       ) : (
         <div className="space-y-2 max-h-64 overflow-y-auto">
@@ -170,17 +170,17 @@ const GoogleSheetsImport = ({ importType = 'customers', onSuccess, onError }) =>
             <button
               key={spreadsheet.id}
               onClick={() => selectSpreadsheet(spreadsheet)}
-              className="w-full text-left p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+              className="w-full text-left p-4 border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-page)] transition-colors"
             >
               <div className="flex items-center space-x-3">
                 <FileSpreadsheet className="w-5 h-5 text-green-600" />
                 <div className="flex-1">
-                  <h4 className="font-medium text-gray-900">{spreadsheet.name}</h4>
-                  <p className="text-sm text-gray-500">
+                  <h4 className="font-medium text-[var(--sf-text-primary)]">{spreadsheet.name}</h4>
+                  <p className="text-sm text-[var(--sf-text-muted)]">
                     Modified: {new Date(spreadsheet.modifiedTime).toLocaleDateString()}
                   </p>
                 </div>
-                <ArrowRight className="w-4 h-4 text-gray-400" />
+                <ArrowRight className="w-4 h-4 text-[var(--sf-text-muted)]" />
               </div>
             </button>
           ))}
@@ -192,33 +192,33 @@ const GoogleSheetsImport = ({ importType = 'customers', onSuccess, onError }) =>
   const renderStep2 = () => (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-gray-900">Preview Data</h3>
+        <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">Preview Data</h3>
         <button
           onClick={() => setStep(1)}
-          className="flex items-center space-x-2 text-sm text-gray-600 hover:text-gray-800"
+          className="flex items-center space-x-2 text-sm text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Back to Sheets</span>
         </button>
       </div>
       
-      <div className="bg-gray-50 p-4 rounded-lg">
-        <h4 className="font-medium text-gray-900 mb-2">{selectedSpreadsheet?.name}</h4>
-        <p className="text-sm text-gray-600">
+      <div className="bg-[var(--sf-bg-page)] p-4 rounded-lg">
+        <h4 className="font-medium text-[var(--sf-text-primary)] mb-2">{selectedSpreadsheet?.name}</h4>
+        <p className="text-sm text-[var(--sf-text-secondary)]">
           {spreadsheetData?.totalRows} rows found
         </p>
       </div>
       
-      <div className="border border-gray-200 rounded-lg overflow-hidden">
-        <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
-          <h4 className="font-medium text-gray-900">Data Preview (first 10 rows)</h4>
+      <div className="border border-[var(--sf-border-light)] rounded-lg overflow-hidden">
+        <div className="bg-[var(--sf-bg-page)] px-4 py-2 border-b border-[var(--sf-border-light)]">
+          <h4 className="font-medium text-[var(--sf-text-primary)]">Data Preview (first 10 rows)</h4>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50">
+            <thead className="bg-[var(--sf-bg-page)]">
               <tr>
                 {headers.map((header, index) => (
-                  <th key={index} className="px-3 py-2 text-left font-medium text-gray-700 border-r border-gray-200">
+                  <th key={index} className="px-3 py-2 text-left font-medium text-[var(--sf-text-primary)] border-r border-[var(--sf-border-light)]">
                     {header}
                   </th>
                 ))}
@@ -226,9 +226,9 @@ const GoogleSheetsImport = ({ importType = 'customers', onSuccess, onError }) =>
             </thead>
             <tbody>
               {rows.map((row, rowIndex) => (
-                <tr key={rowIndex} className="border-b border-gray-200">
+                <tr key={rowIndex} className="border-b border-[var(--sf-border-light)]">
                   {row.map((cell, cellIndex) => (
-                    <td key={cellIndex} className="px-3 py-2 text-gray-900 border-r border-gray-200">
+                    <td key={cellIndex} className="px-3 py-2 text-[var(--sf-text-primary)] border-r border-[var(--sf-border-light)]">
                       {cell || '-'}
                     </td>
                   ))}
@@ -241,7 +241,7 @@ const GoogleSheetsImport = ({ importType = 'customers', onSuccess, onError }) =>
       
       <button
         onClick={() => setStep(3)}
-        className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+        className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] transition-colors"
       >
         <span>Continue to Field Mapping</span>
         <ArrowRight className="w-4 h-4" />
@@ -252,29 +252,29 @@ const GoogleSheetsImport = ({ importType = 'customers', onSuccess, onError }) =>
   const renderStep3 = () => (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-gray-900">Map Fields</h3>
+        <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">Map Fields</h3>
         <button
           onClick={() => setStep(2)}
-          className="flex items-center space-x-2 text-sm text-gray-600 hover:text-gray-800"
+          className="flex items-center space-x-2 text-sm text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Back to Preview</span>
         </button>
       </div>
       
-      <p className="text-sm text-gray-600">
+      <p className="text-sm text-[var(--sf-text-secondary)]">
         Map the columns from your spreadsheet to the {importType} fields in Serviceflow.
       </p>
       
       <div className="space-y-4">
         {targetFields.map((targetField) => (
-          <div key={targetField.key} className="flex items-center space-x-4 p-4 border border-gray-200 rounded-lg">
+          <div key={targetField.key} className="flex items-center space-x-4 p-4 border border-[var(--sf-border-light)] rounded-lg">
             <div className="flex-1">
-              <label className="block text-sm font-medium text-gray-900">
+              <label className="block text-sm font-medium text-[var(--sf-text-primary)]">
                 {targetField.label}
                 {targetField.required && <span className="text-red-500 ml-1">*</span>}
               </label>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-[var(--sf-text-muted)]">
                 {targetField.key}
               </p>
             </div>
@@ -282,7 +282,7 @@ const GoogleSheetsImport = ({ importType = 'customers', onSuccess, onError }) =>
               <select
                 value={fieldMappings[targetField.key] || ''}
                 onChange={(e) => handleFieldMapping(targetField.key, e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
               >
                 <option value="">Select column...</option>
                 {headers.map((header, index) => (
@@ -297,12 +297,12 @@ const GoogleSheetsImport = ({ importType = 'customers', onSuccess, onError }) =>
       </div>
       
       <div className="flex items-center justify-between">
-        <div className="text-sm text-gray-600">
+        <div className="text-sm text-[var(--sf-text-secondary)]">
           {Object.values(fieldMappings).filter(Boolean).length} of {targetFields.length} fields mapped
         </div>
         <button
           onClick={() => setStep(4)}
-          className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          className="flex items-center space-x-2 px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] transition-colors"
         >
           <span>Continue to Import</span>
           <ArrowRight className="w-4 h-4" />
@@ -313,32 +313,32 @@ const GoogleSheetsImport = ({ importType = 'customers', onSuccess, onError }) =>
 
   const renderStep4 = () => (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold text-gray-900">Import Settings</h3>
+      <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">Import Settings</h3>
       
       <div className="space-y-4">
-        <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+        <div className="flex items-center justify-between p-4 border border-[var(--sf-border-light)] rounded-lg">
           <div>
-            <h4 className="font-medium text-gray-900">Skip Duplicates</h4>
-            <p className="text-sm text-gray-600">Skip rows that already exist</p>
+            <h4 className="font-medium text-[var(--sf-text-primary)]">Skip Duplicates</h4>
+            <p className="text-sm text-[var(--sf-text-secondary)]">Skip rows that already exist</p>
           </div>
           <input
             type="checkbox"
             checked={importSettings.skipDuplicates}
             onChange={(e) => setImportSettings(prev => ({ ...prev, skipDuplicates: e.target.checked }))}
-            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            className="h-4 w-4 text-[var(--sf-blue-500)] focus:ring-[var(--sf-blue-500)] border-[var(--sf-border-light)] rounded"
           />
         </div>
         
-        <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+        <div className="flex items-center justify-between p-4 border border-[var(--sf-border-light)] rounded-lg">
           <div>
-            <h4 className="font-medium text-gray-900">Update Existing</h4>
-            <p className="text-sm text-gray-600">Update existing records instead of skipping</p>
+            <h4 className="font-medium text-[var(--sf-text-primary)]">Update Existing</h4>
+            <p className="text-sm text-[var(--sf-text-secondary)]">Update existing records instead of skipping</p>
           </div>
           <input
             type="checkbox"
             checked={importSettings.updateExisting}
             onChange={(e) => setImportSettings(prev => ({ ...prev, updateExisting: e.target.checked }))}
-            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            className="h-4 w-4 text-[var(--sf-blue-500)] focus:ring-[var(--sf-blue-500)] border-[var(--sf-border-light)] rounded"
           />
         </div>
       </div>
@@ -362,8 +362,8 @@ const GoogleSheetsImport = ({ importType = 'customers', onSuccess, onError }) =>
     return (
       <div className="text-center py-8">
         <CheckCircle className="w-12 h-12 text-green-600 mx-auto mb-4" />
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">Import Complete!</h3>
-        <p className="text-gray-600">
+        <h3 className="text-lg font-semibold text-[var(--sf-text-primary)] mb-2">Import Complete!</h3>
+        <p className="text-[var(--sf-text-secondary)]">
           Your data has been successfully imported from Google Sheets.
         </p>
       </div>
@@ -378,14 +378,14 @@ const GoogleSheetsImport = ({ importType = 'customers', onSuccess, onError }) =>
           <div key={stepNumber} className="flex items-center">
             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
               step >= stepNumber 
-                ? 'bg-blue-600 text-white' 
-                : 'bg-gray-200 text-gray-600'
+                ? 'bg-[var(--sf-blue-500)] text-white' 
+                : 'bg-gray-200 text-[var(--sf-text-secondary)]'
             }`}>
               {stepNumber}
             </div>
             {stepNumber < 4 && (
               <div className={`w-8 h-0.5 ${
-                step > stepNumber ? 'bg-blue-600' : 'bg-gray-200'
+                step > stepNumber ? 'bg-[var(--sf-blue-500)]' : 'bg-gray-200'
               }`} />
             )}
           </div>

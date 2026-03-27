@@ -73,36 +73,36 @@ const JobsFilters = ({ filters, onFilterChange, activeTab }) => {
   const [startDate, endDate] = filters.dateRange ? filters.dateRange.split(":") : ["", ""]
 
   return (
-    <div className="bg-white border-b border-gray-200 px-4 lg:px-6 py-4">
+    <div className="bg-white border-b border-[var(--sf-border-light)] px-4 lg:px-6 py-4">
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
         {/* Search */}
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--sf-text-muted)] w-5 h-5" />
           <input
             type="text"
             placeholder="Search jobs..."
             value={searchValue}
             onChange={(e) => handleSearchChange(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            className="w-full pl-10 pr-4 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] outline-none"
           />
         </div>
 
         {/* Date Range Picker - Show when Date Range tab is active */}
         {activeTab === "daterange" && (
           <div className="flex items-center space-x-2">
-            <Calendar className="w-4 h-4 text-gray-400" />
+            <Calendar className="w-4 h-4 text-[var(--sf-text-muted)]" />
             <input
               type="date"
               value={startDate}
               onChange={(e) => handleDateRangeChange(e.target.value, endDate)}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="border border-[var(--sf-border-light)] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] outline-none"
             />
-            <span className="text-gray-500">to</span>
+            <span className="text-[var(--sf-text-muted)]">to</span>
             <input
               type="date"
               value={endDate}
               onChange={(e) => handleDateRangeChange(startDate, e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="border border-[var(--sf-border-light)] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] outline-none"
             />
           </div>
         )}
@@ -114,7 +114,7 @@ const JobsFilters = ({ filters, onFilterChange, activeTab }) => {
             <select
               value={filters.territoryId || ""}
               onChange={e => onFilterChange({ territoryId: e.target.value })}
-              className="appearance-none bg-white border border-gray-300 rounded-lg px-4 py-2 pr-8 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="appearance-none bg-white border border-[var(--sf-border-light)] rounded-lg px-4 py-2 pr-8 text-sm focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] outline-none"
               disabled={territoryLoading}
             >
               <option value="">All Territories</option>
@@ -122,14 +122,14 @@ const JobsFilters = ({ filters, onFilterChange, activeTab }) => {
                 <option key={t.id} value={t.id}>{t.name}</option>
               ))}
             </select>
-            <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" />
+            <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 text-[var(--sf-text-muted)] w-4 h-4 pointer-events-none" />
           </div>
 
           <div className="relative">
             <select 
               value={filters.invoiceStatus || ""}
               onChange={(e) => handleInvoiceStatusChange(e.target.value)}
-              className="appearance-none bg-white border border-gray-300 rounded-lg px-4 py-2 pr-8 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="appearance-none bg-white border border-[var(--sf-border-light)] rounded-lg px-4 py-2 pr-8 text-sm focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] outline-none"
             >
               <option value="">Any invoice status</option>
               <option value="invoiced">Invoiced</option>
@@ -137,42 +137,42 @@ const JobsFilters = ({ filters, onFilterChange, activeTab }) => {
               <option value="paid">Paid</option>
               <option value="unpaid">Unpaid</option>
             </select>
-            <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" />
+            <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 text-[var(--sf-text-muted)] w-4 h-4 pointer-events-none" />
           </div>
 
           <div className="relative">
             <select 
               value={filters.teamMember || ""}
               onChange={(e) => handleAssignmentChange(e.target.value)}
-              className="appearance-none bg-white border border-gray-300 rounded-lg px-4 py-2 pr-8 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="appearance-none bg-white border border-[var(--sf-border-light)] rounded-lg px-4 py-2 pr-8 text-sm focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] outline-none"
             >
               <option value="">Assigned All</option>
               <option value="assigned">Assigned to me</option>
               <option value="unassigned">Unassigned</option>
               <option value="web">Just web</option>
             </select>
-            <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" />
+            <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 text-[var(--sf-text-muted)] w-4 h-4 pointer-events-none" />
           </div>
 
           <div className="relative">
             <select 
               value={`${filters.sortBy || "scheduled_date"}:${filters.sortOrder || "ASC"}`}
               onChange={(e) => handleSortChange(e.target.value)}
-              className="appearance-none bg-white border border-gray-300 rounded-lg px-4 py-2 pr-8 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="appearance-none bg-white border border-[var(--sf-border-light)] rounded-lg px-4 py-2 pr-8 text-sm focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] outline-none"
             >
               <option value="scheduled_date:ASC">Sort by: Soonest</option>
               <option value="scheduled_date:DESC">Sort by: Latest</option>
               <option value="customer_first_name:ASC">Sort by: Customer</option>
               <option value="service_price:DESC">Sort by: Value</option>
             </select>
-            <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" />
+            <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 text-[var(--sf-text-muted)] w-4 h-4 pointer-events-none" />
           </div>
 
           {/* Clear Filters Button */}
           {hasActiveFilters && (
             <button
               onClick={clearFilters}
-              className="flex items-center space-x-1 px-3 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+              className="flex items-center space-x-1 px-3 py-2 text-sm text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-hover)] rounded-lg transition-colors"
             >
               <X className="w-4 h-4" />
               <span>Clear</span>

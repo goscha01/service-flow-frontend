@@ -12,8 +12,8 @@ export default function TrustedBySection() {
     <section className="py-16 bg-gradient-to-b from-orange-50 to-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
-          <p className="text-lg font-medium text-gray-600">
-            Trusted by home service businesses <span className="text-gray-800">worldwide</span>.
+          <p className="text-lg font-medium text-[var(--sf-text-secondary)]">
+            Trusted by home service businesses <span className="text-[var(--sf-text-primary)]">worldwide</span>.
           </p>
         </div>
 

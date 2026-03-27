@@ -162,27 +162,27 @@ const ImportCustomersModal = ({ isOpen, onClose, onImportSuccess }) => {
       <div className="bg-white rounded-xl w-full max-w-2xl relative my-6">
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold text-gray-900">Import your customers from Excel / CSV</h2>
+            <h2 className="text-xl font-semibold text-[var(--sf-text-primary)]">Import your customers from Excel / CSV</h2>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-500 hover:bg-gray-100 p-1 rounded-full transition-colors"
+              className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-muted)] hover:bg-[var(--sf-bg-hover)] p-1 rounded-full transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
 
-          <p className="text-gray-600 text-sm mb-6">
+          <p className="text-[var(--sf-text-secondary)] text-sm mb-6">
             You can import your customers into Serviceflow by uploading a .CSV file
           </p>
 
           <div className="space-y-8">
             {/* Step 1 */}
-            <div className="bg-gray-50 rounded-lg p-4">
-              <h3 className="text-sm font-medium text-gray-900 mb-2 flex items-center">
+            <div className="bg-[var(--sf-bg-page)] rounded-lg p-4">
+              <h3 className="text-sm font-medium text-[var(--sf-text-primary)] mb-2 flex items-center">
                 <span className="flex items-center justify-center w-5 h-5 rounded-full bg-primary-600 text-white text-xs font-bold mr-2">1</span>
                 Download our CSV template file
               </h3>
-              <p className="text-sm text-gray-600 mb-3 ml-7">
+              <p className="text-sm text-[var(--sf-text-secondary)] mb-3 ml-7">
                 Download and use our customer list template to see exactly how we organize customer data in Serviceflow
               </p>
               <button 
@@ -194,43 +194,43 @@ const ImportCustomersModal = ({ isOpen, onClose, onImportSuccess }) => {
             </div>
 
             {/* Step 2 */}
-            <div className="bg-gray-50 rounded-lg p-4">
-              <h3 className="text-sm font-medium text-gray-900 mb-2 flex items-center">
+            <div className="bg-[var(--sf-bg-page)] rounded-lg p-4">
+              <h3 className="text-sm font-medium text-[var(--sf-text-primary)] mb-2 flex items-center">
                 <span className="flex items-center justify-center w-5 h-5 rounded-full bg-primary-600 text-white text-xs font-bold mr-2">2</span>
                 Fill in the template
               </h3>
-              <p className="text-sm text-gray-600 mb-3 ml-7">Please make sure you use the correct format.</p>
-              <ul className="text-sm text-gray-600 space-y-2 ml-7">
+              <p className="text-sm text-[var(--sf-text-secondary)] mb-3 ml-7">Please make sure you use the correct format.</p>
+              <ul className="text-sm text-[var(--sf-text-secondary)] space-y-2 ml-7">
                 <li className="flex items-start">
-                  <span className="text-gray-400 mr-2">•</span>
+                  <span className="text-[var(--sf-text-muted)] mr-2">•</span>
                   Primary address data — which includes street address, city, state, and postal code — should be formatted as a single line in the address column
                 </li>
                 <li className="flex items-start">
-                  <span className="text-gray-400 mr-2">•</span>
+                  <span className="text-[var(--sf-text-muted)] mr-2">•</span>
                   Secondary address data — like apartment, floor or unit number — should be included in the address_unit column
                 </li>
                 <li className="flex items-start">
-                  <span className="text-gray-400 mr-2">•</span>
+                  <span className="text-[var(--sf-text-muted)] mr-2">•</span>
                   For businesses located outside of the United States and Canada, the preferred phone number format includes the phone's country code — e.g. +61 for Australian businesses
                 </li>
                 <li className="flex items-start">
-                  <span className="text-gray-400 mr-2">•</span>
+                  <span className="text-[var(--sf-text-muted)] mr-2">•</span>
                   If importing customers with a Stripe Customer ID, make sure the Stripe account the customers were created in is the same Stripe account connected to Serviceflow
                 </li>
               </ul>
             </div>
 
             {/* Step 3 */}
-            <div className="bg-gray-50 rounded-lg p-4">
-              <h3 className="text-sm font-medium text-gray-900 mb-2 flex items-center">
+            <div className="bg-[var(--sf-bg-page)] rounded-lg p-4">
+              <h3 className="text-sm font-medium text-[var(--sf-text-primary)] mb-2 flex items-center">
                 <span className="flex items-center justify-center w-5 h-5 rounded-full bg-primary-600 text-white text-xs font-bold mr-2">3</span>
                 Upload customer data
               </h3>
-              <p className="text-sm text-gray-600 mb-3 ml-7">Files must be saved as a .CSV file and match the format in the template file</p>
+              <p className="text-sm text-[var(--sf-text-secondary)] mb-3 ml-7">Files must be saved as a .CSV file and match the format in the template file</p>
               <div className="mt-2 ml-7">
                 <label 
                   htmlFor="file-upload"
-                  className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 cursor-pointer"
+                  className="inline-flex items-center px-4 py-2 border border-[var(--sf-border-light)] rounded-lg shadow-sm text-sm font-medium text-[var(--sf-text-primary)] bg-white hover:bg-[var(--sf-bg-page)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 cursor-pointer"
                 >
                   <span>Upload file</span>
                   <input
@@ -243,7 +243,7 @@ const ImportCustomersModal = ({ isOpen, onClose, onImportSuccess }) => {
                   />
                 </label>
                 {selectedFile && (
-                  <p className="mt-2 text-sm text-gray-600">
+                  <p className="mt-2 text-sm text-[var(--sf-text-secondary)]">
                     Selected file: {selectedFile.name}
                   </p>
                 )}
@@ -289,7 +289,7 @@ const ImportCustomersModal = ({ isOpen, onClose, onImportSuccess }) => {
           <div className="flex justify-end space-x-3 mt-8">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+              className="px-4 py-2 text-sm font-medium text-[var(--sf-text-primary)] bg-white border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-page)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
               disabled={isImporting}
             >
               Cancel

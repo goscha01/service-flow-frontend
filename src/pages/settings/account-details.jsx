@@ -400,13 +400,13 @@ const AccountDetails = () => {
   // Check if user is authenticated
   if (!currentUser) {
     return (
-      <div className="flex h-screen bg-gray-50 overflow-hidden">
+      <div className="flex h-screen bg-[var(--sf-bg-page)] overflow-hidden">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <div className="flex-1 flex flex-col min-w-0">
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-              <p className="mt-4 text-gray-600">Redirecting to sign in...</p>
+              <p className="mt-4 text-[var(--sf-text-secondary)]">Redirecting to sign in...</p>
             </div>
           </div>
         </div>
@@ -416,13 +416,13 @@ const AccountDetails = () => {
 
   if (loading) {
     return (
-      <div className="flex h-screen bg-gray-50 overflow-hidden">
+      <div className="flex h-screen bg-[var(--sf-bg-page)] overflow-hidden">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <div className="flex-1 flex flex-col min-w-0">
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-              <p className="mt-4 text-gray-600">Loading profile...</p>
+              <p className="mt-4 text-[var(--sf-text-secondary)]">Loading profile...</p>
             </div>
           </div>
         </div>
@@ -483,7 +483,7 @@ const AccountDetails = () => {
                       }}
                     />
                   ) : (
-                    <div className="w-20 h-20 bg-blue-500 rounded-lg flex items-center justify-center">
+                    <div className="w-20 h-20 bg-[var(--sf-blue-500)] rounded-lg flex items-center justify-center">
                       <span className="text-white font-medium text-2xl">
                         {formData.fullName.split(' ').map(n => n[0]).join('').toUpperCase()}
                       </span>
@@ -496,7 +496,7 @@ const AccountDetails = () => {
                   )}
                 </div>
                 <div className="flex flex-col space-y-2">
-                  <label className="flex items-center space-x-2 text-blue-600 hover:text-blue-700 font-medium cursor-pointer">
+                  <label className="flex items-center space-x-2 text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] font-medium cursor-pointer">
                     <Camera className="w-4 h-4" />
                     <span>{formData.profilePicture ? 'Change Profile Picture' : 'Add Profile Picture'}</span>
                     <input
@@ -588,17 +588,17 @@ const AccountDetails = () => {
                   // Account owners use modal to change email
                   <>
                     <div className="flex items-center justify-between mb-2">
-                      <label className="block text-sm font-medium text-gray-700">
+                      <label className="block text-sm font-medium text-[var(--sf-text-primary)]">
                         Email
                       </label>
                       <button 
                         onClick={() => setShowEmailModal(true)}
-                        className="text-blue-600 hover:text-blue-700 font-medium text-sm"
+                        className="text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] font-medium text-sm"
                       >
                         Change Email
                       </button>
                     </div>
-                    <div className="text-gray-900">
+                    <div className="text-[var(--sf-text-primary)]">
                       {formData.email}
                     </div>
                   </>
@@ -609,12 +609,12 @@ const AccountDetails = () => {
               <div className="mb-8">
                 <div className="flex items-center justify-between mb-2">
                   <div>
-                    <h3 className="text-sm font-medium text-gray-700">Password</h3>
-                    <p className="text-sm text-gray-500">Change the password you use to login to your account</p>
+                    <h3 className="text-sm font-medium text-[var(--sf-text-primary)]">Password</h3>
+                    <p className="text-sm text-[var(--sf-text-muted)]">Change the password you use to login to your account</p>
                   </div>
                   <button 
                     onClick={() => setShowPasswordModal(true)}
-                    className="text-blue-600 hover:text-blue-700 font-medium text-sm"
+                    className="text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] font-medium text-sm"
                   >
                     Change Password
                   </button>
@@ -624,17 +624,17 @@ const AccountDetails = () => {
               {/* Notification Preferences - Only for account owners */}
               {!currentUser?.teamMemberId && (
               <div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">NOTIFICATION PREFERENCES</h3>
-                <p className="text-gray-600 mb-6">How would you like to be notified when you are assigned to a job?</p>
+                <h3 className="text-lg font-medium text-[var(--sf-text-primary)] mb-2">NOTIFICATION PREFERENCES</h3>
+                <p className="text-[var(--sf-text-secondary)] mb-6">How would you like to be notified when you are assigned to a job?</p>
 
                 <div className="space-y-6">
                   {/* Email Notifications */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-gray-100 rounded flex items-center justify-center">
+                      <div className="w-8 h-8 bg-[var(--sf-bg-page)] rounded flex items-center justify-center">
                         <span className="text-sm">📧</span>
                       </div>
-                      <span className="text-gray-900 font-medium">Emails</span>
+                      <span className="text-[var(--sf-text-primary)] font-medium">Emails</span>
                     </div>
                     <button
                       onClick={() => handleToggle('emailNotifications')}
@@ -653,10 +653,10 @@ const AccountDetails = () => {
                   {/* SMS Notifications */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-gray-100 rounded flex items-center justify-center">
+                      <div className="w-8 h-8 bg-[var(--sf-bg-page)] rounded flex items-center justify-center">
                         <span className="text-sm">💬</span>
                       </div>
-                      <span className="text-gray-900 font-medium">Text Messages (SMS)</span>
+                      <span className="text-[var(--sf-text-primary)] font-medium">Text Messages (SMS)</span>
                     </div>
                     <button
                       onClick={() => handleToggle('smsNotifications')}
@@ -676,7 +676,7 @@ const AccountDetails = () => {
               )}
 
               {/* Save Button */}
-              <div className="mt-8 pt-6 border-t border-gray-200">
+              <div className="mt-8 pt-6 border-t border-[var(--sf-border-light)]">
                 <Button
                   onClick={handleSaveProfile}
                   loading={saving}
@@ -742,7 +742,7 @@ const AccountDetails = () => {
             
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                   Current Password
                 </label>
                 <div className="relative">
@@ -750,11 +750,11 @@ const AccountDetails = () => {
                     type={showPasswords.current ? "text" : "password"}
                     value={passwordData.currentPassword}
                     onChange={(e) => setPasswordData(prev => ({ ...prev, currentPassword: e.target.value }))}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full border border-[var(--sf-border-light)] rounded-md px-3 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                   />
                   <button
                     onClick={() => setShowPasswords(prev => ({ ...prev, current: !prev.current }))}
-                    className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
+                    className="absolute right-3 top-2.5 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
                   >
                     {showPasswords.current ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -762,7 +762,7 @@ const AccountDetails = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                   New Password
                 </label>
                 <div className="relative">
@@ -770,11 +770,11 @@ const AccountDetails = () => {
                     type={showPasswords.new ? "text" : "password"}
                     value={passwordData.newPassword}
                     onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full border border-[var(--sf-border-light)] rounded-md px-3 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                   />
                   <button
                     onClick={() => setShowPasswords(prev => ({ ...prev, new: !prev.new }))}
-                    className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
+                    className="absolute right-3 top-2.5 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
                   >
                     {showPasswords.new ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -782,7 +782,7 @@ const AccountDetails = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                   Confirm New Password
                 </label>
                 <div className="relative">
@@ -790,11 +790,11 @@ const AccountDetails = () => {
                     type={showPasswords.confirm ? "text" : "password"}
                     value={passwordData.confirmPassword}
                     onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full border border-[var(--sf-border-light)] rounded-md px-3 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                   />
                   <button
                     onClick={() => setShowPasswords(prev => ({ ...prev, confirm: !prev.confirm }))}
-                    className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
+                    className="absolute right-3 top-2.5 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
                   >
                     {showPasswords.confirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -805,14 +805,14 @@ const AccountDetails = () => {
             <div className="flex space-x-3 mt-6">
               <button
                 onClick={() => setShowPasswordModal(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                className="flex-1 px-4 py-2 border border-[var(--sf-border-light)] rounded-md text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-page)]"
               >
                 Cancel
               </button>
               <button
                 onClick={handlePasswordChange}
                 disabled={saving}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-md hover:bg-[var(--sf-blue-600)] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {saving ? 'Updating...' : 'Update Password'}
               </button>
@@ -829,14 +829,14 @@ const AccountDetails = () => {
               <AlertTriangle className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" />
               <div className="flex-1">
                 <h3 className="text-xl font-semibold text-red-900 mb-2">Delete Your Account</h3>
-                <p className="text-sm text-gray-700 mb-4">
+                <p className="text-sm text-[var(--sf-text-primary)] mb-4">
                   This action cannot be undone. All your data will be permanently deleted.
                 </p>
               </div>
             </div>
 
             {/* Export Options */}
-            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="mb-6 p-4 bg-[var(--sf-blue-50)] border border-blue-200 rounded-lg">
               <h4 className="text-sm font-semibold text-blue-900 mb-3">Save Your Data Before Deleting</h4>
               <p className="text-xs text-blue-800 mb-4">
                 We strongly recommend exporting your data before deleting your account. Choose one or more options:
@@ -883,13 +883,13 @@ const AccountDetails = () => {
                     }
                   }}
                   disabled={isExporting || isDeleting}
-                  className="w-full flex items-center justify-between p-3 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full flex items-center justify-between p-3 bg-white border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-page)] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <div className="flex items-center space-x-3">
-                    <Download className="w-5 h-5 text-blue-600" />
+                    <Download className="w-5 h-5 text-[var(--sf-blue-500)]" />
                     <div className="text-left">
-                      <div className="text-sm font-medium text-gray-900">Export as CSV</div>
-                      <div className="text-xs text-gray-500">Download jobs and customers as CSV files</div>
+                      <div className="text-sm font-medium text-[var(--sf-text-primary)]">Export as CSV</div>
+                      <div className="text-xs text-[var(--sf-text-muted)]">Download jobs and customers as CSV files</div>
                     </div>
                   </div>
                 </button>
@@ -922,24 +922,24 @@ const AccountDetails = () => {
                     }
                   }}
                   disabled={isExporting || isDeleting}
-                  className="w-full flex items-center justify-between p-3 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full flex items-center justify-between p-3 bg-white border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-page)] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <div className="flex items-center space-x-3">
                     <FileSpreadsheet className="w-5 h-5 text-green-600" />
                     <div className="text-left">
-                      <div className="text-sm font-medium text-gray-900">Sync with Google Sheets</div>
-                      <div className="text-xs text-gray-500">Export data to a new Google Spreadsheet</div>
+                      <div className="text-sm font-medium text-[var(--sf-text-primary)]">Sync with Google Sheets</div>
+                      <div className="text-xs text-[var(--sf-text-muted)]">Export data to a new Google Spreadsheet</div>
                     </div>
                   </div>
                 </button>
 
                 {/* Calendar Sync Note */}
-                <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                <div className="p-3 bg-[var(--sf-bg-page)] border border-[var(--sf-border-light)] rounded-lg">
                   <div className="flex items-start space-x-3">
-                    <Calendar className="w-5 h-5 text-gray-600 flex-shrink-0 mt-0.5" />
+                    <Calendar className="w-5 h-5 text-[var(--sf-text-secondary)] flex-shrink-0 mt-0.5" />
                     <div className="text-left">
-                      <div className="text-sm font-medium text-gray-900">Google Calendar</div>
-                      <div className="text-xs text-gray-500">
+                      <div className="text-sm font-medium text-[var(--sf-text-primary)]">Google Calendar</div>
+                      <div className="text-xs text-[var(--sf-text-muted)]">
                         If you have calendar sync enabled, your events are already in your Google Calendar and will remain there after account deletion.
                       </div>
                     </div>
@@ -977,7 +977,7 @@ const AccountDetails = () => {
                   setExportProgress('')
                 }}
                 disabled={isDeleting || isExporting}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 px-4 py-2 border border-[var(--sf-border-light)] rounded-md text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-page)] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel
               </button>
@@ -1047,20 +1047,20 @@ const AccountDetails = () => {
             
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                   New Email Address
                 </label>
                 <input
                   type="email"
                   value={emailData.newEmail}
                   onChange={(e) => setEmailData(prev => ({ ...prev, newEmail: e.target.value }))}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full border border-[var(--sf-border-light)] rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                   placeholder="Enter new email address"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
                   Current Password
                 </label>
                 <div className="relative">
@@ -1068,12 +1068,12 @@ const AccountDetails = () => {
                     type={showEmailPassword ? "text" : "password"}
                     value={emailData.password}
                     onChange={(e) => setEmailData(prev => ({ ...prev, password: e.target.value }))}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full border border-[var(--sf-border-light)] rounded-md px-3 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                     placeholder="Enter your current password"
                   />
                   <button
                     onClick={() => setShowEmailPassword(!showEmailPassword)}
-                    className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
+                    className="absolute right-3 top-2.5 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]"
                   >
                     {showEmailPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -1084,14 +1084,14 @@ const AccountDetails = () => {
             <div className="flex space-x-3 mt-6">
               <button
                 onClick={() => setShowEmailModal(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                className="flex-1 px-4 py-2 border border-[var(--sf-border-light)] rounded-md text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-page)]"
               >
                 Cancel
               </button>
               <button
                 onClick={handleEmailChange}
                 disabled={saving}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-md hover:bg-[var(--sf-blue-600)] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {saving ? 'Updating...' : 'Update Email'}
               </button>

@@ -49,13 +49,13 @@ const EditJobModal = ({ isOpen, onClose, job, onSave }) => {
   if (!isOpen || !job) return null
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">Edit Job</h2>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
-            <X className="w-5 h-5 text-gray-400" />
+        <div className="flex items-center justify-between p-6 border-b border-[var(--sf-border-light)]">
+          <h2 className="text-xl font-semibold text-[var(--sf-text-primary)]">Edit Job</h2>
+          <button onClick={onClose} className="p-2 hover:bg-[var(--sf-bg-hover)] rounded-lg">
+            <X className="w-5 h-5 text-[var(--sf-text-muted)]" />
           </button>
         </div>
 
@@ -63,24 +63,24 @@ const EditJobModal = ({ isOpen, onClose, job, onSave }) => {
         <div className="p-6 space-y-6">
           {/* Basic Information */}
           <div>
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Basic Information</h3>
+            <h3 className="text-lg font-medium text-[var(--sf-text-primary)] mb-4">Basic Information</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Job Title</label>
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Job Title</label>
                 <input
                   type="text"
                   value={formData.title}
                   onChange={(e) => handleInputChange('title', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Client</label>
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Client</label>
                 <input
                   type="text"
                   value={formData.client}
                   onChange={(e) => handleInputChange('client', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                 />
               </div>
             </div>
@@ -88,34 +88,34 @@ const EditJobModal = ({ isOpen, onClose, job, onSave }) => {
 
           {/* Schedule */}
           <div>
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Schedule</h3>
+            <h3 className="text-lg font-medium text-[var(--sf-text-primary)] mb-4">Schedule</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Time</label>
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Time</label>
                 <input
                   type="text"
                   value={formData.time}
                   onChange={(e) => handleInputChange('time', e.target.value)}
                   placeholder="09:00 - 12:00"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Duration</label>
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Duration</label>
                 <input
                   type="text"
                   value={formData.duration}
                   onChange={(e) => handleInputChange('duration', e.target.value)}
                   placeholder="3h"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Status</label>
                 <select
                   value={formData.status}
                   onChange={(e) => handleInputChange('status', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                 >
                   <option value="pending">Pending</option>
                   <option value="confirmed">Confirmed</option>
@@ -128,25 +128,25 @@ const EditJobModal = ({ isOpen, onClose, job, onSave }) => {
 
           {/* Location & Payment */}
           <div>
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Location & Payment</h3>
+            <h3 className="text-lg font-medium text-[var(--sf-text-primary)] mb-4">Location & Payment</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Location</label>
                 <input
                   type="text"
                   value={formData.location}
                   onChange={(e) => handleInputChange('location', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Earnings</label>
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Earnings</label>
                 <input
                   type="text"
                   value={formData.earnings}
                   onChange={(e) => handleInputChange('earnings', e.target.value)}
                   placeholder="$450"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                 />
               </div>
             </div>
@@ -154,14 +154,14 @@ const EditJobModal = ({ isOpen, onClose, job, onSave }) => {
 
           {/* Service Type */}
           <div>
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Service Details</h3>
+            <h3 className="text-lg font-medium text-[var(--sf-text-primary)] mb-4">Service Details</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Service Type</label>
+                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Service Type</label>
                 <select
                   value={formData.type}
                   onChange={(e) => handleInputChange('type', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
                 >
                   <option value="plumbing">Plumbing</option>
                   <option value="repair">Repair</option>
@@ -175,28 +175,28 @@ const EditJobModal = ({ isOpen, onClose, job, onSave }) => {
 
           {/* Notes */}
           <div>
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Notes</h3>
+            <h3 className="text-lg font-medium text-[var(--sf-text-primary)] mb-4">Notes</h3>
             <textarea
               value={formData.notes}
               onChange={(e) => handleInputChange('notes', e.target.value)}
               rows={4}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
               placeholder="Add any additional notes about this job..."
             />
           </div>
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">
+        <div className="flex items-center justify-end space-x-3 p-6 border-t border-[var(--sf-border-light)]">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium transition-colors"
+            className="px-4 py-2 text-[var(--sf-text-secondary)] bg-white border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-hover)] font-semibold transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
-            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 font-medium transition-colors"
+            className="px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] font-semibold transition-colors"
           >
             Save Changes
           </button>

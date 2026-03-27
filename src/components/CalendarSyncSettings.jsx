@@ -87,7 +87,7 @@ const CalendarSyncSettings = () => {
     return (
       <div className="bg-white rounded-lg shadow p-6">
         <div className="flex items-center justify-center py-8">
-          <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+          <Loader2 className="w-6 h-6 animate-spin text-[var(--sf-blue-500)]" />
         </div>
       </div>
     );
@@ -96,8 +96,8 @@ const CalendarSyncSettings = () => {
   return (
     <div className="bg-white rounded-lg shadow p-6">
       <div className="flex items-center space-x-3 mb-6">
-        <Calendar className="w-6 h-6 text-blue-600" />
-        <h2 className="text-xl font-semibold text-gray-900">Google Calendar Sync</h2>
+        <Calendar className="w-6 h-6 text-[var(--sf-blue-500)]" />
+        <h2 className="text-xl font-semibold text-[var(--sf-text-primary)]">Google Calendar Sync</h2>
       </div>
 
       {settings.migrationRequired && (
@@ -119,8 +119,8 @@ const CalendarSyncSettings = () => {
           {/* Main Toggle Section */}
           <div className={`p-5 border-2 rounded-lg transition-all ${
             settings.enabled 
-              ? 'border-blue-200 bg-blue-50' 
-              : 'border-gray-200 bg-white'
+              ? 'border-blue-200 bg-[var(--sf-blue-50)]' 
+              : 'border-[var(--sf-border-light)] bg-white'
           }`}>
             <div className="flex items-center justify-between">
               <div className="flex-1">
@@ -128,11 +128,11 @@ const CalendarSyncSettings = () => {
                   <div className={`w-2.5 h-2.5 rounded-full ${
                     settings.enabled ? 'bg-green-500 animate-pulse' : 'bg-gray-400'
                   }`}></div>
-                  <h3 className="text-lg font-semibold text-gray-900">
+                  <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">
                     Automatic Calendar Sync
                   </h3>
                 </div>
-                <p className="text-sm text-gray-600 ml-5">
+                <p className="text-sm text-[var(--sf-text-secondary)] ml-5">
                   {settings.enabled 
                     ? 'Jobs will be automatically synced to Google Calendar when created or updated'
                     : 'Enable to automatically sync jobs to Google Calendar when created or updated'
@@ -162,9 +162,9 @@ const CalendarSyncSettings = () => {
                     handleToggle(!settings.enabled);
                   }}
                   disabled={saving || !settings.connected || !settings.hasAccessToken}
-                  className={`relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                  className={`relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:ring-offset-2 ${
                     settings.enabled 
-                      ? 'bg-blue-600 shadow-lg shadow-blue-200' 
+                      ? 'bg-[var(--sf-blue-500)] shadow-lg shadow-blue-200' 
                       : 'bg-gray-300'
                   } ${
                     saving || !settings.connected || !settings.hasAccessToken
@@ -181,7 +181,7 @@ const CalendarSyncSettings = () => {
                     }`}
                   >
                     {saving && (
-                      <Loader2 className="w-3 h-3 text-gray-400 animate-spin" />
+                      <Loader2 className="w-3 h-3 text-[var(--sf-text-muted)] animate-spin" />
                     )}
                   </span>
                 </button>
@@ -191,13 +191,13 @@ const CalendarSyncSettings = () => {
 
           {/* Status Info */}
           {settings.connected && (
-            <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="p-4 bg-[var(--sf-bg-page)] rounded-lg border border-[var(--sf-border-light)]">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-700 mb-1">
+                  <p className="text-sm font-medium text-[var(--sf-text-primary)] mb-1">
                     Calendar Configuration
                   </p>
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-[var(--sf-text-secondary)]">
                     <span className="font-medium">Calendar ID:</span>{' '}
                     <code className="bg-gray-200 px-2 py-0.5 rounded text-xs font-mono">
                       {settings.calendarId}
@@ -207,7 +207,7 @@ const CalendarSyncSettings = () => {
                 <div className={`px-3 py-1 rounded-full text-xs font-medium ${
                   settings.enabled
                     ? 'bg-green-100 text-green-700'
-                    : 'bg-gray-200 text-gray-600'
+                    : 'bg-gray-200 text-[var(--sf-text-secondary)]'
                 }`}>
                   {settings.enabled ? 'Active' : 'Inactive'}
                 </div>
@@ -261,7 +261,7 @@ const CalendarSyncSettings = () => {
                   }}
                   buttonText="connect_with"
                 />
-                <p className="text-xs text-gray-500 mt-2">
+                <p className="text-xs text-[var(--sf-text-muted)] mt-2">
                   Clicking the button will redirect you to Google to authorize calendar access. 
                   You'll be redirected back after authorization.
                 </p>
@@ -289,7 +289,7 @@ const CalendarSyncSettings = () => {
         </div>
       )}
 
-      <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+      <div className="mt-6 p-4 bg-[var(--sf-blue-50)] border border-blue-200 rounded-lg">
         <h3 className="text-sm font-semibold text-blue-900 mb-2">How It Works</h3>
         <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
           <li>When enabled, jobs are automatically synced to Google Calendar when created or updated</li>

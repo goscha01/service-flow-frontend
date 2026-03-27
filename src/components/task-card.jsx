@@ -32,9 +32,9 @@ const TaskCard = ({
       case 'medium':
         return 'bg-yellow-100 text-yellow-800 border-yellow-300';
       case 'low':
-        return 'bg-blue-100 text-blue-800 border-blue-300';
+        return 'bg-[var(--sf-blue-50)] text-[var(--sf-blue-500)] border-[var(--sf-blue-500)]';
       default:
-        return 'bg-gray-100 text-gray-800 border-gray-300';
+        return 'bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)] border-[var(--sf-border-light)]';
     }
   };
 
@@ -43,9 +43,9 @@ const TaskCard = ({
       case 'completed':
         return 'bg-green-100 text-green-800';
       case 'in_progress':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-[var(--sf-blue-50)] text-[var(--sf-blue-500)]';
       case 'cancelled':
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)]';
       default:
         return 'bg-yellow-100 text-yellow-800';
     }
@@ -103,13 +103,13 @@ const TaskCard = ({
   };
 
   return (
-    <div className={`bg-white rounded-lg border-2 p-4 shadow-sm hover:shadow-md transition-shadow ${
-      isOverdue() ? 'border-red-300 bg-red-50' : 'border-gray-200'
+    <div className={`bg-white rounded-xl border-2 p-4 shadow-sm hover:shadow-md transition-shadow ${
+      isOverdue() ? 'border-red-300 bg-red-50' : 'border-[var(--sf-border-light)]'
     }`}>
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center space-x-2 mb-2">
-            <h3 className="font-semibold text-gray-900 text-sm sm:text-base truncate">
+            <h3 className="font-semibold text-[var(--sf-text-primary)] text-sm sm:text-base truncate">
               {task.title}
             </h3>
             <span className={`px-2 py-1 rounded text-xs font-medium border ${getPriorityColor(task.priority)}`}>
@@ -118,13 +118,13 @@ const TaskCard = ({
           </div>
           
           {task.description && (
-            <p className="text-sm text-gray-600 mb-2 line-clamp-2">
+            <p className="text-sm text-[var(--sf-text-secondary)] mb-2 line-clamp-2">
               {task.description}
             </p>
           )}
           
           {showLeadInfo && task.leads && (
-            <div className="text-xs text-gray-500 mb-2">
+            <div className="text-xs text-[var(--sf-text-muted)] mb-2">
               Lead: {task.leads.first_name} {task.leads.last_name}
               {task.leads.company && ` • ${task.leads.company}`}
             </div>
@@ -134,14 +134,14 @@ const TaskCard = ({
         <div className="flex items-center space-x-1 ml-2">
           <button
             onClick={() => onEdit(task)}
-            className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+            className="p-1 text-[var(--sf-text-muted)] hover:text-[var(--sf-blue-500)] transition-colors"
             title="Edit task"
           >
             <Edit className="w-4 h-4" />
           </button>
           <button
             onClick={() => onDelete(task.id)}
-            className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+            className="p-1 text-[var(--sf-text-muted)] hover:text-red-600 transition-colors"
             title="Delete task"
           >
             <Trash2 className="w-4 h-4" />
@@ -149,7 +149,7 @@ const TaskCard = ({
         </div>
       </div>
       
-      <div className="flex flex-wrap items-center gap-3 text-xs sm:text-sm text-gray-600">
+      <div className="flex flex-wrap items-center gap-3 text-xs sm:text-sm text-[var(--sf-text-secondary)]">
         {task.due_date && (
           <div className={`flex items-center space-x-1 ${
             isOverdue() ? 'text-red-600 font-semibold' : ''
@@ -176,7 +176,7 @@ const TaskCard = ({
       
       {/* Finish and Finish & Follow Up buttons - only show for pending tasks */}
       {task.status === 'pending' && (onFinish || onFinishAndFollowUp) && (
-        <div className="mt-3 pt-3 border-t border-gray-200 flex flex-col sm:flex-row gap-2">
+        <div className="mt-3 pt-3 border-t border-[var(--sf-border-light)] flex flex-col sm:flex-row gap-2">
           {onFinish && (
             <button
               onClick={() => onFinish(task)}
@@ -189,7 +189,7 @@ const TaskCard = ({
           {onFinishAndFollowUp && (
             <button
               onClick={() => onFinishAndFollowUp(task)}
-              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center space-x-2 text-sm font-medium transition-colors"
+              className="flex-1 px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] flex items-center justify-center space-x-2 text-sm font-medium transition-colors"
             >
               <CheckCircle className="w-4 h-4" />
               <span>Finish and Follow Up</span>

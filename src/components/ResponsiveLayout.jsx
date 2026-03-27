@@ -59,7 +59,7 @@ const ResponsiveLayout = ({ children, className = "" }) => {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen bg-[var(--sf-bg-page)] overflow-hidden">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
       <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${getContentPadding()}`}>

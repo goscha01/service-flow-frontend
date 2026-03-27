@@ -13,7 +13,7 @@ const PageLayout = ({
   showSidebar = true 
 }) => {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[var(--sf-bg-page)]">
       {/* Desktop Layout */}
       <div className="hidden lg:flex h-screen">
         {showSidebar && <Sidebar />}
@@ -27,7 +27,7 @@ const PageLayout = ({
                     {showBackButton && (
                       <button
                         onClick={onBack}
-                        className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                        className="p-2 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] transition-colors"
                       >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -36,10 +36,10 @@ const PageLayout = ({
                     )}
                     <div>
                       {title && (
-                        <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
+                        <h1 className="text-2xl font-bold text-[var(--sf-text-primary)]">{title}</h1>
                       )}
                       {subtitle && (
-                        <p className="text-sm text-gray-600 mt-1">{subtitle}</p>
+                        <p className="text-sm text-[var(--sf-text-secondary)] mt-1">{subtitle}</p>
                       )}
                     </div>
                   </div>
@@ -69,7 +69,7 @@ const PageLayout = ({
                 {showBackButton && (
                   <button
                     onClick={onBack}
-                    className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                    className="p-2 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] transition-colors"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -78,10 +78,10 @@ const PageLayout = ({
                 )}
                 <div>
                   {title && (
-                    <h1 className="text-xl font-bold text-gray-900">{title}</h1>
+                    <h1 className="text-xl font-bold text-[var(--sf-text-primary)]">{title}</h1>
                   )}
                   {subtitle && (
-                    <p className="text-sm text-gray-600 mt-1">{subtitle}</p>
+                    <p className="text-sm text-[var(--sf-text-secondary)] mt-1">{subtitle}</p>
                   )}
                 </div>
               </div>

@@ -48,10 +48,10 @@ const SMSSettings = () => {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+    <div className="bg-white rounded-lg shadow-sm border border-[var(--sf-border-light)] p-6">
       <div className="mb-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">SMS Notifications</h3>
-        <p className="text-sm text-gray-600">
+        <h3 className="text-lg font-semibold text-[var(--sf-text-primary)] mb-2">SMS Notifications</h3>
+        <p className="text-sm text-[var(--sf-text-secondary)]">
           Configure SMS notifications for your customers and team members.
         </p>
       </div>
@@ -60,13 +60,13 @@ const SMSSettings = () => {
         {/* SMS Enabled Toggle */}
         <div className="flex items-center justify-between">
           <div>
-            <label className="text-sm font-medium text-gray-700">Enable SMS Notifications</label>
-            <p className="text-xs text-gray-500">Turn SMS notifications on or off</p>
+            <label className="text-sm font-medium text-[var(--sf-text-primary)]">Enable SMS Notifications</label>
+            <p className="text-xs text-[var(--sf-text-muted)]">Turn SMS notifications on or off</p>
           </div>
           <button
             onClick={() => setSettings(prev => ({ ...prev, smsEnabled: !prev.smsEnabled }))}
             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-              settings.smsEnabled ? 'bg-blue-600' : 'bg-gray-200'
+              settings.smsEnabled ? 'bg-[var(--sf-blue-500)]' : 'bg-gray-200'
             }`}
           >
             <span
@@ -80,13 +80,13 @@ const SMSSettings = () => {
         {/* Job Confirmation SMS */}
         <div className="flex items-center justify-between">
           <div>
-            <label className="text-sm font-medium text-gray-700">Job Confirmation SMS</label>
-            <p className="text-xs text-gray-500">Send SMS when jobs are confirmed</p>
+            <label className="text-sm font-medium text-[var(--sf-text-primary)]">Job Confirmation SMS</label>
+            <p className="text-xs text-[var(--sf-text-muted)]">Send SMS when jobs are confirmed</p>
           </div>
           <button
             onClick={() => setSettings(prev => ({ ...prev, jobConfirmationSMS: !prev.jobConfirmationSMS }))}
             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-              settings.jobConfirmationSMS ? 'bg-blue-600' : 'bg-gray-200'
+              settings.jobConfirmationSMS ? 'bg-[var(--sf-blue-500)]' : 'bg-gray-200'
             }`}
           >
             <span
@@ -100,13 +100,13 @@ const SMSSettings = () => {
         {/* Payment Reminder SMS */}
         <div className="flex items-center justify-between">
           <div>
-            <label className="text-sm font-medium text-gray-700">Payment Reminder SMS</label>
-            <p className="text-xs text-gray-500">Send SMS for payment reminders</p>
+            <label className="text-sm font-medium text-[var(--sf-text-primary)]">Payment Reminder SMS</label>
+            <p className="text-xs text-[var(--sf-text-muted)]">Send SMS for payment reminders</p>
           </div>
           <button
             onClick={() => setSettings(prev => ({ ...prev, paymentReminderSMS: !prev.paymentReminderSMS }))}
             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-              settings.paymentReminderSMS ? 'bg-blue-600' : 'bg-gray-200'
+              settings.paymentReminderSMS ? 'bg-[var(--sf-blue-500)]' : 'bg-gray-200'
             }`}
           >
             <span
@@ -119,24 +119,24 @@ const SMSSettings = () => {
 
         {/* Test SMS Section */}
         <div className="border-t pt-4">
-          <h4 className="text-sm font-medium text-gray-700 mb-3">Test SMS</h4>
+          <h4 className="text-sm font-medium text-[var(--sf-text-primary)] mb-3">Test SMS</h4>
           <div className="flex space-x-2">
             <input
               type="tel"
               placeholder="+1234567890"
               value={testPhone}
               onChange={(e) => setTestPhone(e.target.value)}
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="flex-1 px-3 py-2 border border-[var(--sf-border-light)] rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)]"
             />
             <button
               onClick={sendTestSMS}
               disabled={loading || !testPhone}
-              className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 bg-[var(--sf-blue-500)] text-white text-sm rounded-md hover:bg-[var(--sf-blue-600)] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Sending...' : 'Send Test'}
             </button>
           </div>
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-[var(--sf-text-muted)] mt-1">
             Enter a phone number in E.164 format (e.g., +1234567890)
           </p>
         </div>
@@ -155,7 +155,7 @@ const SMSSettings = () => {
           <button
             onClick={handleSaveSettings}
             disabled={loading}
-            className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 bg-[var(--sf-blue-500)] text-white text-sm rounded-md hover:bg-[var(--sf-blue-600)] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'Saving...' : 'Save Settings'}
           </button>

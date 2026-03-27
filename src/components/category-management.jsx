@@ -80,7 +80,7 @@ const CategoryManagement = ({ onCategoryChange }) => {
     return (
       <div className="flex items-center justify-center p-8">
         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-        <span className="ml-3 text-gray-600">Loading categories...</span>
+        <span className="ml-3 text-[var(--sf-text-secondary)]">Loading categories...</span>
       </div>
     );
   }
@@ -102,31 +102,31 @@ const CategoryManagement = ({ onCategoryChange }) => {
 
       {/* Categories List */}
       <div className="space-y-2">
-        <h3 className="text-lg font-medium text-gray-900">Service Categories</h3>
+        <h3 className="text-lg font-medium text-[var(--sf-text-primary)]">Service Categories</h3>
         
         {categories.length === 0 ? (
-          <p className="text-gray-500 text-sm">No categories found. Create your first category when creating a service.</p>
+          <p className="text-[var(--sf-text-muted)] text-sm">No categories found. Create your first category when creating a service.</p>
         ) : (
           <div className="space-y-2">
             {categories.map((category, index) => (
               <div
                 key={category.id}
-                className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50"
+                className="flex items-center justify-between p-3 bg-white border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-page)]"
               >
                 <div className="flex items-center space-x-3">
                   <div className="flex items-center space-x-2">
-                    <span className="text-sm text-gray-400 font-mono">#{index + 1}</span>
+                    <span className="text-sm text-[var(--sf-text-muted)] font-mono">#{index + 1}</span>
                     <div
                       className="w-4 h-4 rounded-full"
                       style={{ backgroundColor: category.color || '#3B82F6' }}
                     ></div>
                   </div>
                   <div>
-                    <h4 className="font-medium text-gray-900">{category.name}</h4>
+                    <h4 className="font-medium text-[var(--sf-text-primary)]">{category.name}</h4>
                     {category.description && (
-                      <p className="text-sm text-gray-500">{category.description}</p>
+                      <p className="text-sm text-[var(--sf-text-muted)]">{category.description}</p>
                     )}
-                    <p className="text-xs text-gray-400">
+                    <p className="text-xs text-[var(--sf-text-muted)]">
                       {category.serviceCount || 0} services
                     </p>
                   </div>
@@ -157,7 +157,7 @@ const CategoryManagement = ({ onCategoryChange }) => {
         <button
           onClick={loadCategories}
           disabled={loading}
-          className="px-3 py-1 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors disabled:opacity-50"
+          className="px-3 py-1 text-sm text-[var(--sf-blue-500)] hover:text-blue-800 hover:bg-[var(--sf-blue-50)] rounded transition-colors disabled:opacity-50"
         >
           Refresh
         </button>

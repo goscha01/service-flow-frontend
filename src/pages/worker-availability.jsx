@@ -781,10 +781,10 @@ const WorkerAvailability = () => {
   // Check if user is worker - after all hooks
   if (!user || !isWorker(user)) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--sf-bg-page)] flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+          <p className="mt-4 text-[var(--sf-text-secondary)]">Loading...</p>
         </div>
       </div>
     )
@@ -792,10 +792,10 @@ const WorkerAvailability = () => {
   
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--sf-bg-page)] flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading availability...</p>
+          <p className="mt-4 text-[var(--sf-text-secondary)]">Loading availability...</p>
         </div>
       </div>
     )
@@ -803,30 +803,30 @@ const WorkerAvailability = () => {
   
   return (
     <>
-      <div className="min-h-screen bg-gray-50 pb-24 lg:pb-0">
+      <div className="min-h-screen bg-[var(--sf-bg-page)] pb-24 lg:pb-0">
         {/* Mobile Header */}
         <MobileHeader pageTitle="My Availability" />
         
         {/* Desktop Header */}
-        <div className="hidden lg:block bg-white border-b border-gray-200 sticky top-0 z-10">
+        <div className="hidden lg:block bg-white border-b border-[var(--sf-border-light)] sticky top-0 z-10">
           <div className="px-4 py-4">
             <div className="flex items-center justify-between">
               {/* Profile Icon */}
               <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                <span className="text-blue-600 font-semibold text-sm">
+                <span className="text-[var(--sf-blue-500)] font-semibold text-sm">
                   {getUserInitials()}
                 </span>
               </div>
               
               {/* Title */}
-              <h1 className="text-xl font-semibold text-gray-900 flex-1 text-center">
+              <h1 className="text-xl font-semibold text-[var(--sf-text-primary)] flex-1 text-center">
                 My Availability
               </h1>
               
               {/* Settings Icon - Gear with clock */}
               <button
                 onClick={() => navigate('/settings/availability')}
-                className="w-10 h-10 flex items-center justify-center text-gray-600 hover:text-gray-900 relative"
+                className="w-10 h-10 flex items-center justify-center text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] relative"
               >
                 <Settings className="w-5 h-5" />
                 <Clock className="w-3 h-3 absolute bottom-0 right-0" />
@@ -836,40 +836,40 @@ const WorkerAvailability = () => {
         </div>
         
         {/* Month Navigation */}
-        <div className="bg-white border-b border-gray-200 px-4 py-4">
+        <div className="bg-white border-b border-[var(--sf-border-light)] px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <button
                 onClick={() => setCurrentDate(new Date(currentYear - 1, currentMonth, 1))}
-                className="p-2 text-gray-600 hover:text-gray-900"
+                className="p-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]"
                 title="Previous year"
               >
                 <ChevronsLeft className="w-5 h-5" />
               </button>
               <button
                 onClick={handlePreviousMonth}
-                className="p-2 text-gray-600 hover:text-gray-900"
+                className="p-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]"
                 title="Previous month"
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
             </div>
 
-            <h2 className="text-lg font-semibold text-gray-900">
+            <h2 className="text-lg font-semibold text-[var(--sf-text-primary)]">
               {monthNames[currentMonth]} {currentYear}
             </h2>
 
             <div className="flex items-center">
               <button
                 onClick={handleNextMonth}
-                className="p-2 text-gray-600 hover:text-gray-900"
+                className="p-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]"
                 title="Next month"
               >
                 <ChevronRight className="w-5 h-5" />
               </button>
               <button
                 onClick={() => setCurrentDate(new Date(currentYear + 1, currentMonth, 1))}
-                className="p-2 text-gray-600 hover:text-gray-900"
+                className="p-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]"
                 title="Next year"
               >
                 <ChevronsRight className="w-5 h-5" />
@@ -888,17 +888,17 @@ const WorkerAvailability = () => {
         )}
 
         {/* Weekly Hours Section - Same as Desktop */}
-        <div className="px-4 py-4 border-b border-gray-200 bg-white">
+        <div className="px-4 py-4 border-b border-[var(--sf-border-light)] bg-white">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-base font-semibold text-gray-900">Regular Schedule</h3>
-              <p className="text-sm text-gray-600 mt-1">
+              <h3 className="text-base font-semibold text-[var(--sf-text-primary)]">Regular Schedule</h3>
+              <p className="text-sm text-[var(--sf-text-secondary)] mt-1">
                 Set your weekly availability. This applies to all weeks unless overridden by a specific date.
               </p>
             </div>
             <button
               onClick={() => setShowEditWeeklyHoursModal(true)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
+              className="px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg text-sm font-medium hover:bg-[var(--sf-blue-600)]"
             >
               Edit Weekly Hours
             </button>
@@ -911,12 +911,12 @@ const WorkerAvailability = () => {
               const dayName = dayNamesFull[index]
               
               return (
-                <div key={day} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div key={day} className="flex items-center justify-between p-3 bg-[var(--sf-bg-page)] rounded-lg">
                   <div className="flex items-center space-x-3">
                     <div className={`w-3 h-3 rounded-full ${dayData.available ? 'bg-green-500' : 'bg-gray-300'}`}></div>
-                    <span className="text-sm font-medium text-gray-900 capitalize">{day}</span>
+                    <span className="text-sm font-medium text-[var(--sf-text-primary)] capitalize">{day}</span>
                   </div>
-                  <div className="text-sm text-gray-600">
+                  <div className="text-sm text-[var(--sf-text-secondary)]">
                     {dayData.available && dayData.timeSlots.length > 0 ? (
                       dayData.timeSlots.map((slot, slotIndex) => (
                         <span key={slotIndex}>
@@ -937,8 +937,8 @@ const WorkerAvailability = () => {
         {/* Calendar Section */}
         <div className="px-4 py-4">
           <div className="mb-4">
-            <h3 className="text-base font-semibold text-gray-900">One-Time Dates</h3>
-            <p className="text-sm text-gray-600 mt-1">
+            <h3 className="text-base font-semibold text-[var(--sf-text-primary)]">One-Time Dates</h3>
+            <p className="text-sm text-[var(--sf-text-secondary)] mt-1">
               Override your regular schedule for specific dates (vacations, birthdays, part of day, etc.)
             </p>
           </div>
@@ -958,13 +958,13 @@ const WorkerAvailability = () => {
                 key={day.fullDate}
                 onClick={(e) => handleDayClick(day, e)}
                 className={`bg-white rounded-lg border-2 p-4 flex items-center justify-between cursor-pointer transition-colors ${
-                  isSelected ? 'border-blue-500' : 'border-gray-200'
+                  isSelected ? 'border-blue-500' : 'border-[var(--sf-border-light)]'
                 }`}
               >
                 <div className="flex items-center space-x-3 flex-1">
                   {/* Checkbox-like circle */}
                   <div className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${
-                    isSelected ? 'border-blue-500 bg-blue-500' : 'border-gray-300'
+                    isSelected ? 'border-blue-500 bg-[var(--sf-blue-500)]' : 'border-[var(--sf-border-light)]'
                   }`}>
                     {isSelected && (
                       <div className="w-2 h-2 rounded-full bg-white" />
@@ -972,25 +972,25 @@ const WorkerAvailability = () => {
                   </div>
                   
                   <div className="flex flex-col min-w-[60px]">
-                    <span className="text-xs font-semibold text-gray-500 uppercase">
+                    <span className="text-xs font-semibold text-[var(--sf-text-muted)] uppercase">
                       {dayNames[day.dayOfWeek]}
                     </span>
-                    <span className="text-lg font-bold text-gray-900">
+                    <span className="text-lg font-bold text-[var(--sf-text-primary)]">
                       {day.date}
                     </span>
                   </div>
                   
                   <div className="flex-1">
-                    <div className={`text-sm font-medium ${isAvailable ? 'text-green-600' : 'text-gray-500'}`}>
+                    <div className={`text-sm font-medium ${isAvailable ? 'text-green-600' : 'text-[var(--sf-text-muted)]'}`}>
                       {isAvailable ? 'Available' : 'Unavailable'}
                     </div>
                     {isAvailable && !isAllDay && timeRange && (
-                      <div className="text-xs text-gray-600 mt-1">
+                      <div className="text-xs text-[var(--sf-text-secondary)] mt-1">
                         {formatTime(timeRange.start)} - {formatTime(timeRange.end)}
                       </div>
                     )}
                     {(isAllDay || (!isAvailable && !timeRange)) && (
-                      <div className="text-xs text-gray-600 mt-1">
+                      <div className="text-xs text-[var(--sf-text-secondary)] mt-1">
                         All day
                       </div>
                     )}
@@ -1003,7 +1003,7 @@ const WorkerAvailability = () => {
                     toggleDayAvailability(day.fullDate)
                   }}
                   disabled={saving}
-                  className="p-2 text-gray-400 hover:text-gray-600 disabled:opacity-50"
+                  className="p-2 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] disabled:opacity-50"
                 >
                   <RotateCw className="w-5 h-5" />
                 </button>
@@ -1022,15 +1022,15 @@ const WorkerAvailability = () => {
               onClick={(e) => e.stopPropagation()}
             >
               {/* Modal Header */}
-              <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900">
+              <div className="px-6 py-4 border-b border-[var(--sf-border-light)] flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">
                   {dayNamesFull[selectedDay.dayOfWeek]}, {monthNames[currentMonth]} {selectedDay.date}
                 </h3>
                 <button
                   onClick={() => setSelectedDay(null)}
-                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                  className="p-2 hover:bg-[var(--sf-bg-hover)] rounded-full transition-colors"
                 >
-                  <X className="w-5 h-5 text-gray-600" />
+                  <X className="w-5 h-5 text-[var(--sf-text-secondary)]" />
                 </button>
               </div>
               
@@ -1038,11 +1038,11 @@ const WorkerAvailability = () => {
               <div className="px-6 py-4 space-y-3">
                 <button
                   onClick={() => handleEditDayOfWeek(selectedDay)}
-                  className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
+                  className="w-full flex items-center justify-between p-4 bg-[var(--sf-bg-page)] hover:bg-[var(--sf-bg-hover)] rounded-lg transition-colors"
                 >
                   <div className="flex items-center space-x-3">
-                    <RotateCw className="w-5 h-5 text-gray-600" />
-                    <span className="text-base font-medium text-gray-900">
+                    <RotateCw className="w-5 h-5 text-[var(--sf-text-secondary)]" />
+                    <span className="text-base font-medium text-[var(--sf-text-primary)]">
                       Edit {dayNamesFull[selectedDay.dayOfWeek]}s
                     </span>
                   </div>
@@ -1050,11 +1050,11 @@ const WorkerAvailability = () => {
                 
                 <button
                   onClick={() => handleEditSingleDate(selectedDay)}
-                  className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
+                  className="w-full flex items-center justify-between p-4 bg-[var(--sf-bg-page)] hover:bg-[var(--sf-bg-hover)] rounded-lg transition-colors"
                 >
                   <div className="flex items-center space-x-3">
-                    <Calendar className="w-5 h-5 text-gray-600" />
-                    <span className="text-base font-medium text-gray-900">
+                    <Calendar className="w-5 h-5 text-[var(--sf-text-secondary)]" />
+                    <span className="text-base font-medium text-[var(--sf-text-primary)]">
                       Edit 1 Date
                     </span>
                   </div>
@@ -1070,33 +1070,33 @@ const WorkerAvailability = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 z-[9999] flex items-end justify-center lg:items-center">
           <div className="bg-white rounded-t-2xl lg:rounded-2xl w-full lg:w-[600px] max-h-[90vh] flex flex-col">
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--sf-border-light)]">
               <button
                 onClick={() => setShowEditWeeklyHoursModal(false)}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                className="p-2 hover:bg-[var(--sf-bg-hover)] rounded-full transition-colors"
               >
-                <X className="w-5 h-5 text-gray-600" />
+                <X className="w-5 h-5 text-[var(--sf-text-secondary)]" />
               </button>
               
-              <h2 className="text-lg font-semibold text-gray-900">Edit Weekly Hours</h2>
+              <h2 className="text-lg font-semibold text-[var(--sf-text-primary)]">Edit Weekly Hours</h2>
               
               <button
                 onClick={handleSaveWeeklyHours}
                 disabled={savingWeeklyHours}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg font-medium hover:bg-[var(--sf-blue-600)] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {savingWeeklyHours ? 'Saving...' : 'Save'}
               </button>
             </div>
             
             {/* Service/User Identifier */}
-            <div className="px-6 py-3 border-b border-gray-200 flex items-center space-x-2">
+            <div className="px-6 py-3 border-b border-[var(--sf-border-light)] flex items-center space-x-2">
               <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                <span className="text-blue-600 font-semibold text-xs">
+                <span className="text-[var(--sf-blue-500)] font-semibold text-xs">
                   {getUserInitials()}
                 </span>
               </div>
-              <span className="text-sm text-gray-700">{getUserDisplayName()}</span>
+              <span className="text-sm text-[var(--sf-text-primary)]">{getUserDisplayName()}</span>
             </div>
             
             {/* Modal Content */}
@@ -1123,9 +1123,9 @@ const WorkerAvailability = () => {
                               }
                             }))
                           }}
-                          className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 border-gray-300"
+                          className="w-4 h-4 text-[var(--sf-blue-500)] rounded focus:ring-[var(--sf-blue-500)] border-[var(--sf-border-light)]"
                         />
-                        <span className="text-sm font-medium text-gray-900 capitalize">
+                        <span className="text-sm font-medium text-[var(--sf-text-primary)] capitalize">
                           {day}
                         </span>
                       </div>
@@ -1135,7 +1135,7 @@ const WorkerAvailability = () => {
                           {dayData.timeSlots.length === 0 ? (
                             <button
                               onClick={() => handleAddTimeSlot(day)}
-                              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                              className="text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] font-medium"
                             >
                               + Add Hours
                             </button>
@@ -1146,17 +1146,17 @@ const WorkerAvailability = () => {
                                   <select
                                     value={slot.start}
                                     onChange={(e) => handleTimeSlotChange(day, slot.id, 'start', e.target.value)}
-                                    className="text-sm border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="text-sm border border-[var(--sf-border-light)] rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)]"
                                   >
                                     {timeOptions.map(opt => (
                                       <option key={opt.value} value={opt.value}>{opt.label}</option>
                                     ))}
                                   </select>
-                                  <span className="text-sm text-gray-500">-</span>
+                                  <span className="text-sm text-[var(--sf-text-muted)]">-</span>
                                   <select
                                     value={slot.end}
                                     onChange={(e) => handleTimeSlotChange(day, slot.id, 'end', e.target.value)}
-                                    className="text-sm border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="text-sm border border-[var(--sf-border-light)] rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)]"
                                   >
                                     {timeOptions.map(opt => (
                                       <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -1171,7 +1171,7 @@ const WorkerAvailability = () => {
                                   {slotIndex === dayData.timeSlots.length - 1 && (
                                     <button
                                       onClick={() => handleAddTimeSlot(day)}
-                                      className="text-sm text-blue-600 hover:text-blue-700 font-medium px-2"
+                                      className="text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] font-medium px-2"
                                     >
                                       + Add More
                                     </button>

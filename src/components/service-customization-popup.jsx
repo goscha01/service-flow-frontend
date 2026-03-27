@@ -32,18 +32,18 @@ const ServiceCustomizationPopup = ({
     >
       <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <div className="flex items-center justify-between p-6 border-b border-[var(--sf-border-light)]">
           <div>
-            <h2 className="text-xl font-semibold text-gray-900">
+            <h2 className="text-xl font-semibold text-[var(--sf-text-primary)]">
               Customize {service?.name || 'Service'}
             </h2>
-            <p className="text-sm text-gray-600 mt-1">
+            <p className="text-sm text-[var(--sf-text-secondary)] mt-1">
               Select options and provide additional information for this service
             </p>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-500 hover:bg-gray-100 p-2 rounded-full transition-colors"
+            className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-muted)] hover:bg-[var(--sf-bg-hover)] p-2 rounded-full transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -56,8 +56,8 @@ const ServiceCustomizationPopup = ({
             {modifiers && modifiers.length > 0 && (
               <div>
                 <div className="mb-4">
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">Service Options</h3>
-                  <p className="text-sm text-gray-600">
+                  <h3 className="text-lg font-medium text-[var(--sf-text-primary)] mb-2">Service Options</h3>
+                  <p className="text-sm text-[var(--sf-text-secondary)]">
                     Select any additional options to customize this service.
                   </p>
                 </div>
@@ -76,8 +76,8 @@ const ServiceCustomizationPopup = ({
             {intakeQuestions && intakeQuestions.length > 0 && (
               <div>
                 <div className="mb-4">
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">Customer Information</h3>
-                  <p className="text-sm text-gray-600">
+                  <h3 className="text-lg font-medium text-[var(--sf-text-primary)] mb-2">Customer Information</h3>
+                  <p className="text-sm text-[var(--sf-text-secondary)]">
                     Please provide additional details for this job.
                   </p>
                 </div>
@@ -93,13 +93,13 @@ const ServiceCustomizationPopup = ({
             {/* No customization options */}
             {(!modifiers || modifiers.length === 0) && (!intakeQuestions || intakeQuestions.length === 0) && (
               <div className="text-center py-8">
-                <div className="text-gray-400 mb-2">
+                <div className="text-[var(--sf-text-muted)] mb-2">
                   <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-1">No Customization Options</h3>
-                <p className="text-sm text-gray-600">
+                <h3 className="text-lg font-medium text-[var(--sf-text-primary)] mb-1">No Customization Options</h3>
+                <p className="text-sm text-[var(--sf-text-secondary)]">
                   This service doesn't have any additional options or questions to configure.
                 </p>
               </div>
@@ -108,18 +108,18 @@ const ServiceCustomizationPopup = ({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200 bg-gray-50">
+        <div className="flex items-center justify-end space-x-3 p-6 border-t border-[var(--sf-border-light)] bg-[var(--sf-bg-page)]">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+            className="px-4 py-2 text-sm font-medium text-[var(--sf-text-primary)] bg-white border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-page)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--sf-blue-500)] transition-colors"
           >
             Cancel
           </button>
           <button
             type="button"
             onClick={onSave}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+            className="px-4 py-2 text-sm font-medium text-white bg-[var(--sf-blue-500)] border border-transparent rounded-lg hover:bg-[var(--sf-blue-600)] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--sf-blue-500)] transition-colors"
           >
             Save & Continue
           </button>

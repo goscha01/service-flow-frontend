@@ -540,19 +540,19 @@ const Availability = () => {
 
   if (loading) {
     return (
-      <div className="flex-1 flex items-center justify-center min-h-screen bg-gray-50">
+      <div className="flex-1 flex items-center justify-center min-h-screen bg-[var(--sf-bg-page)]">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading availability settings...</p>
+          <p className="mt-4 text-[var(--sf-text-secondary)]">Loading availability settings...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[var(--sf-bg-page)]">
         {/* Header */}
-        <div className="bg-white border-b border-gray-200 px-6 py-4">
+        <div className="bg-white border-b border-[var(--sf-border-light)] px-6 py-4">
           <div className="flex items-center space-x-4">
             <button
               onClick={() => {
@@ -563,12 +563,12 @@ const Availability = () => {
                   navigate("/settings")
                 }
               }}
-              className="flex items-center space-x-2 text-gray-600 hover:text-gray-900"
+              className="flex items-center space-x-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]"
             >
               <ChevronLeft className="w-5 h-5" />
               <span className="text-sm">{isWorker(user) && user?.teamMemberId ? "Availability" : "Settings"}</span>
             </button>
-            <h1 className="text-2xl font-semibold text-gray-900">Availability</h1>
+            <h1 className="text-2xl font-semibold text-[var(--sf-text-primary)]">Availability</h1>
           </div>
         </div>
 
@@ -592,9 +592,9 @@ const Availability = () => {
         <div className="flex-1 overflow-auto">
           <div className="max-w-6xl mx-auto p-6 space-y-8">
             {/* Hours of Operation */}
-            <div className="bg-gray-50 rounded-lg p-6">
-              <h2 className="text-xl font-semibold text-gray-900">Hours of Operation</h2>
-              <p className="text-gray-600 mt-2 mb-4">
+            <div className="bg-[var(--sf-bg-page)] rounded-lg p-6">
+              <h2 className="text-xl font-semibold text-[var(--sf-text-primary)]">Hours of Operation</h2>
+              <p className="text-[var(--sf-text-secondary)] mt-2 mb-4">
                 This section allows you to set your typical business hours for your locations. Business hours affect the
                 time slots that customers can book online.
               </p>
@@ -602,19 +602,19 @@ const Availability = () => {
               {!showBusinessHoursEditor ? (
                 <div className="space-y-3">
                   {Object.entries(availabilityData.businessHours).map(([day, hours]) => (
-                    <div key={day} className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200">
+                    <div key={day} className="flex items-center justify-between p-3 bg-white rounded-lg border border-[var(--sf-border-light)]">
                       <div className="flex items-center space-x-3">
                         <div className={`w-3 h-3 rounded-full ${hours.enabled ? 'bg-green-500' : 'bg-gray-300'}`}></div>
                         <span className="font-medium capitalize">{day}</span>
                       </div>
-                      <div className="text-sm text-gray-600">
+                      <div className="text-sm text-[var(--sf-text-secondary)]">
                         {hours.enabled ? `${hours.start} - ${hours.end}` : 'Closed'}
                       </div>
                     </div>
                   ))}
                   <button 
                     onClick={() => setShowBusinessHoursEditor(true)}
-                    className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700"
+                    className="w-full bg-[var(--sf-blue-500)] text-white px-4 py-2 rounded-lg font-medium hover:bg-[var(--sf-blue-600)]"
                   >
                     Edit Business Hours
                   </button>
@@ -622,13 +622,13 @@ const Availability = () => {
               ) : (
                 <div className="space-y-4">
                   {Object.entries(availabilityData.businessHours).map(([day, hours]) => (
-                    <div key={day} className="flex items-center justify-between p-4 bg-white rounded-lg border border-gray-200">
+                    <div key={day} className="flex items-center justify-between p-4 bg-white rounded-lg border border-[var(--sf-border-light)]">
                       <div className="flex items-center space-x-3">
                         <input
                           type="checkbox"
                           checked={hours.enabled}
                           onChange={(e) => handleBusinessHoursChange(day, 'enabled', e.target.checked)}
-                          className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                          className="w-4 h-4 text-[var(--sf-blue-500)] rounded focus:ring-[var(--sf-blue-500)]"
                         />
                         <span className="font-medium capitalize">{day}</span>
                       </div>
@@ -638,14 +638,14 @@ const Availability = () => {
                             type="time"
                             value={hours.start}
                             onChange={(e) => handleBusinessHoursChange(day, 'start', e.target.value)}
-                            className="border border-gray-300 rounded px-2 py-1 text-sm"
+                            className="border border-[var(--sf-border-light)] rounded px-2 py-1 text-sm"
                           />
                           <span>to</span>
                           <input
                             type="time"
                             value={hours.end}
                             onChange={(e) => handleBusinessHoursChange(day, 'end', e.target.value)}
-                            className="border border-gray-300 rounded px-2 py-1 text-sm"
+                            className="border border-[var(--sf-border-light)] rounded px-2 py-1 text-sm"
                           />
                         </div>
                       )}
@@ -655,13 +655,13 @@ const Availability = () => {
                     <button 
                       onClick={handleSaveBusinessHours}
                       disabled={saving}
-                      className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50"
+                      className="flex-1 bg-[var(--sf-blue-500)] text-white px-4 py-2 rounded-lg font-medium hover:bg-[var(--sf-blue-600)] disabled:opacity-50"
                     >
                       {saving ? 'Saving...' : 'Save Hours'}
                     </button>
                     <button 
                       onClick={() => setShowBusinessHoursEditor(false)}
-                      className="flex-1 bg-gray-300 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-400"
+                      className="flex-1 bg-gray-300 text-[var(--sf-text-primary)] px-4 py-2 rounded-lg font-medium hover:bg-gray-400"
                     >
                       Cancel
                     </button>
@@ -674,47 +674,47 @@ const Availability = () => {
             <div>
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h2 className="text-xl font-semibold text-gray-900">Date Overrides</h2>
-                  <p className="text-gray-600 mt-1">
+                  <h2 className="text-xl font-semibold text-[var(--sf-text-primary)]">Date Overrides</h2>
+                  <p className="text-[var(--sf-text-secondary)] mt-1">
                     Set specific dates as unavailable (vacations, holidays) or override your regular hours for certain days.
                   </p>
                 </div>
               </div>
 
               {availabilityData.dateOverrides.length === 0 ? (
-                <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
+                <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-8 text-center">
                   <Calendar className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-                  <p className="text-gray-500 mb-4">No date overrides set</p>
+                  <p className="text-[var(--sf-text-muted)] mb-4">No date overrides set</p>
                   <button
                     onClick={() => { setEditingOverrideIndex(null); setShowDateOverrideModal(true) }}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700"
+                    className="bg-[var(--sf-blue-500)] text-white px-4 py-2 rounded-lg font-medium hover:bg-[var(--sf-blue-600)]"
                   >
                     Add Date Override
                   </button>
                 </div>
               ) : (
-                <div className="bg-white rounded-lg border border-gray-200 p-6">
+                <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-6">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-medium text-gray-900">Date Overrides</h3>
+                    <h3 className="text-lg font-medium text-[var(--sf-text-primary)]">Date Overrides</h3>
                     <button
                       onClick={() => { setEditingOverrideIndex(null); setShowDateOverrideModal(true) }}
-                      className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700"
+                      className="bg-[var(--sf-blue-500)] text-white px-4 py-2 rounded-lg font-medium hover:bg-[var(--sf-blue-600)]"
                     >
                       Add Override
                     </button>
                   </div>
                   <div className="space-y-3">
                     {availabilityData.dateOverrides.map((override, index) => (
-                      <div key={index} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                      <div key={index} className="flex items-center justify-between p-4 border border-[var(--sf-border-light)] rounded-lg">
                         <div className="flex items-center gap-3">
                           <div className={`w-3 h-3 rounded-full ${override.available ? 'bg-green-500' : 'bg-red-500'}`}></div>
                           <div>
-                            <p className="font-medium text-gray-900">
+                            <p className="font-medium text-[var(--sf-text-primary)]">
                               {new Date(override.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
                             </p>
                             <div className="flex items-center gap-2 mt-0.5">
                               {override.label && (
-                                <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">{override.label}</span>
+                                <span className="text-xs bg-[var(--sf-bg-page)] text-[var(--sf-text-secondary)] px-2 py-0.5 rounded">{override.label}</span>
                               )}
                               <span className={`text-xs ${override.available ? 'text-green-600' : 'text-red-600'}`}>
                                 {override.available
@@ -729,7 +729,7 @@ const Availability = () => {
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => { setEditingOverrideIndex(index); setShowDateOverrideModal(true) }}
-                            className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                            className="text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] text-sm font-medium"
                           >
                             Edit
                           </button>
@@ -751,45 +751,45 @@ const Availability = () => {
             <div>
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h2 className="text-xl font-semibold text-gray-900">Timeslot Templates</h2>
-                  <p className="text-gray-600 mt-1">
+                  <h2 className="text-xl font-semibold text-[var(--sf-text-primary)]">Timeslot Templates</h2>
+                  <p className="text-[var(--sf-text-secondary)] mt-1">
                     Override your default hours of operation, timeslot settings, and driving time for specific services.
                   </p>
                 </div>
               </div>
 
               {availabilityData.timeslotTemplates.length === 0 ? (
-              <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
-                <p className="text-gray-500 mb-4">No timeslot templates created yet</p>
+              <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-8 text-center">
+                <p className="text-[var(--sf-text-muted)] mb-4">No timeslot templates created yet</p>
                 <button
                   onClick={() => { setEditingTemplateIndex(null); setIsTimeslotTemplateModalOpen(true) }}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700"
+                  className="bg-[var(--sf-blue-500)] text-white px-4 py-2 rounded-lg font-medium hover:bg-[var(--sf-blue-600)]"
                 >
                   New Timeslot Template
                 </button>
               </div>
               ) : (
-                <div className="bg-white rounded-lg border border-gray-200 p-6">
+                <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-6">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-medium text-gray-900">Timeslot Templates</h3>
+                    <h3 className="text-lg font-medium text-[var(--sf-text-primary)]">Timeslot Templates</h3>
                     <button
                       onClick={() => { setEditingTemplateIndex(null); setIsTimeslotTemplateModalOpen(true) }}
-                      className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700"
+                      className="bg-[var(--sf-blue-500)] text-white px-4 py-2 rounded-lg font-medium hover:bg-[var(--sf-blue-600)]"
                     >
                       New Template
                     </button>
                   </div>
                   <div className="space-y-3">
                     {availabilityData.timeslotTemplates.map((template, index) => (
-                      <div key={index} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                      <div key={index} className="flex items-center justify-between p-4 border border-[var(--sf-border-light)] rounded-lg">
                         <div className="flex-1">
-                          <h4 className="font-medium text-gray-900">
+                          <h4 className="font-medium text-[var(--sf-text-primary)]">
                             {template.name || `Template ${index + 1}`}
                           </h4>
                           {template.description && (
-                            <p className="text-sm text-gray-600">{template.description}</p>
+                            <p className="text-sm text-[var(--sf-text-secondary)]">{template.description}</p>
                           )}
-                          <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
+                          <div className="flex items-center gap-3 mt-1 text-xs text-[var(--sf-text-muted)]">
                             <span>{template.timeslotType || 'Arrival windows'}</span>
                             {template.arrivalWindowLength && (
                               <span>{template.arrivalWindowLength >= 60 ? `${template.arrivalWindowLength / 60}h` : `${template.arrivalWindowLength}m`} window</span>
@@ -802,7 +802,7 @@ const Availability = () => {
                         <div className="flex items-center space-x-3">
                           <button
                             onClick={() => handleEditTemplate(index)}
-                            className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                            className="text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] text-sm font-medium"
                           >
                             Edit
                           </button>
