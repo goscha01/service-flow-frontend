@@ -1149,9 +1149,9 @@ const Payroll = () => {
                                           </td>
                                           <td className="py-2 pr-4 text-right text-[var(--sf-text-primary)]">
                                             <input
-                                              type="number" step="0.1" min="0"
+                                              type="text" inputMode="decimal"
                                               className="w-14 text-right bg-transparent border-b border-dashed border-[var(--sf-border)] hover:border-[var(--sf-text-active)] focus:border-[var(--sf-text-active)] focus:outline-none px-0.5 py-0 text-xs"
-                                              defaultValue={job.hours.toFixed(1)}
+                                              defaultValue={parseFloat(job.hours.toFixed(1))}
                                               onBlur={async (e) => {
                                                 const val = parseFloat(e.target.value);
                                                 if (isNaN(val) || val === job.hours) return;
