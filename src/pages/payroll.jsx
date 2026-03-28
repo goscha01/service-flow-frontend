@@ -638,35 +638,62 @@ const Payroll = () => {
     setBackfillTotal(backfillPreview?.would_process || 0)
     setBackfillPhase('jobs')
     setBackfillPreview(null)
-    const interval = startBackfillPolling()
+    setBackfillResult(null)
     try {
-      const result = await ledgerAPI.backfill({ dryRun: false })
-      clearInterval(interval)
-      setBackfillProgress(100)
-      setBackfillResult(result)
-      fetchBalances()
+      await ledgerAPI.backfill({ dryRun: false })
+      // Response is immediate — backfill runs in background. Poll until complete.
+      const interval = setInterval(async () => {
+        try {
+          const progress = await ledgerAPI.getBackfillProgress()
+          setBackfillProcessed(progress.processed || 0)
+          setBackfillTotal(progress.total || 0)
+          setBackfillPhase(progress.phase || 'jobs')
+          const pct = progress.total > 0 ? Math.round((progress.processed / progress.total) * 100) : 0
+          setBackfillProgress(progress.phase === 'manager_salary' ? Math.max(pct, 95) : progress.phase === 'done' ? 100 : pct)
+          if (progress.status === 'complete' || progress.status === 'error') {
+            clearInterval(interval)
+            setBackfillProgress(100)
+            setBackfillResult({ message: 'Backfill complete', processed: progress.processed, errors: progress.errors, manager_salary_entries: progress.manager_salary_entries })
+            setBackfillLoading(false)
+            fetchBalances()
+          }
+        } catch { /* ignore polling errors */ }
+      }, 2000)
     } catch (err) {
-      clearInterval(interval)
       setBackfillProgress(0)
+      setBackfillLoading(false)
       alert(err.response?.data?.error || 'Backfill failed')
-    } finally { setBackfillLoading(false) }
+    }
   }
 
   const handleBackfillReset = async () => {
-    if (!window.confirm('This will delete all existing ledger entries (except payouts) and re-create them with correct manager salary calculations. Continue?')) return
+    if (!window.confirm('This will delete all existing ledger entries (except payouts) and re-create them. Continue?')) return
     setBackfillLoading(true)
     setBackfillProgress(0)
     setBackfillProcessed(0)
     setBackfillTotal(0)
     setBackfillPhase('jobs')
     setBackfillPreview(null)
-    const interval = startBackfillPolling()
+    setBackfillResult(null)
     try {
-      const result = await ledgerAPI.backfill({ dryRun: false, resetExisting: true })
-      clearInterval(interval)
-      setBackfillProgress(100)
-      setBackfillResult(result)
-      fetchBalances()
+      await ledgerAPI.backfill({ dryRun: false, resetExisting: true })
+      const interval = setInterval(async () => {
+        try {
+          const progress = await ledgerAPI.getBackfillProgress()
+          setBackfillProcessed(progress.processed || 0)
+          setBackfillTotal(progress.total || 0)
+          setBackfillPhase(progress.phase || 'jobs')
+          const pct = progress.total > 0 ? Math.round((progress.processed / progress.total) * 100) : 0
+          setBackfillProgress(progress.phase === 'manager_salary' ? Math.max(pct, 95) : progress.phase === 'done' ? 100 : pct)
+          if (progress.status === 'complete' || progress.status === 'error') {
+            clearInterval(interval)
+            setBackfillProgress(100)
+            setBackfillResult({ message: 'Backfill complete', processed: progress.processed, errors: progress.errors, manager_salary_entries: progress.manager_salary_entries })
+            setBackfillLoading(false)
+            fetchBalances()
+          }
+        } catch { /* ignore polling errors */ }
+      }, 2000)
     } catch (err) {
       clearInterval(interval)
       setBackfillProgress(0)
