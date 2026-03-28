@@ -5,13 +5,62 @@ import { useNavigate } from "react-router-dom"
 import {
   ChevronLeft, Calendar, DollarSign, Clock, Users, Download, Filter,
   AlertCircle, ChevronDown, ChevronRight, Plus, Minus, CreditCard,
-  Check, X, ArrowUpDown, BookOpen, Banknote, ClipboardCopy
+  Check, X, ArrowUpDown, BookOpen, Banknote, ClipboardCopy, Pencil
 } from "lucide-react"
 import { payrollAPI, ledgerAPI, teamAPI } from "../services/api"
 import api from "../services/api"
 import { useAuth } from "../context/AuthContext"
 import Sidebar from "../components/sidebar"
 import MobileHeader from "../components/mobile-header"
+
+// Inline editable cell with pen icon → input + save/cancel
+const EditableCell = ({ value, onSave, format = 'number', placeholder = '-' }) => {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState('')
+  const [saving, setSaving] = useState(false)
+  const display = format === 'hours'
+    ? (value > 0 ? parseFloat(value.toFixed(1)) : '0')
+    : (value > 0 ? `$${value.toFixed(0)}` : placeholder)
+
+  const startEdit = (e) => {
+    e.stopPropagation()
+    setDraft(value > 0 ? (format === 'hours' ? parseFloat(value.toFixed(1)) : value.toFixed(0)) : '')
+    setEditing(true)
+  }
+  const cancel = (e) => { e.stopPropagation(); setEditing(false) }
+  const save = async (e) => {
+    e.stopPropagation()
+    const val = parseFloat(draft) || 0
+    if (val === (value || 0)) { setEditing(false); return }
+    setSaving(true)
+    try { await onSave(val); } catch (err) { console.error('Save failed:', err) }
+    setSaving(false)
+    setEditing(false)
+  }
+
+  if (editing) {
+    return (
+      <div className="flex items-center justify-end gap-0.5" onClick={e => e.stopPropagation()}>
+        <input
+          type="text" inputMode="decimal" autoFocus
+          className="w-12 text-right bg-white border border-[var(--sf-text-active)] rounded px-1 py-0 text-xs focus:outline-none"
+          value={draft}
+          onChange={e => setDraft(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') save(e); if (e.key === 'Escape') cancel(e) }}
+          disabled={saving}
+        />
+        <button onClick={save} disabled={saving} className="p-0.5 text-green-600 hover:text-green-800"><Check size={12} /></button>
+        <button onClick={cancel} className="p-0.5 text-red-500 hover:text-red-700"><X size={12} /></button>
+      </div>
+    )
+  }
+  return (
+    <span className="inline-flex items-center gap-1 group cursor-pointer" onClick={startEdit}>
+      <span>{display}</span>
+      <Pencil size={10} className="text-[var(--sf-text-muted)] opacity-0 group-hover:opacity-100 transition-opacity" />
+    </span>
+  )
+}
 
 const toLocalDateString = (d) => {
   const y = d.getFullYear()
@@ -1148,20 +1197,7 @@ const Payroll = () => {
                                             }`}>{job.status}</span>
                                           </td>
                                           <td className="py-2 pr-4 text-right text-[var(--sf-text-primary)]">
-                                            <input
-                                              type="text" inputMode="decimal"
-                                              className="w-14 text-right bg-transparent border-b border-dashed border-[var(--sf-border)] hover:border-[var(--sf-text-active)] focus:border-[var(--sf-text-active)] focus:outline-none px-0.5 py-0 text-xs"
-                                              defaultValue={parseFloat(job.hours.toFixed(1))}
-                                              onBlur={async (e) => {
-                                                const val = parseFloat(e.target.value);
-                                                if (isNaN(val) || val === job.hours) return;
-                                                e.target.disabled = true;
-                                                try { await payrollAPI.updateJobPayroll(job.id, { hoursWorked: val }); fetchPayrollData(); } catch (err) { console.error('Failed to update:', err); }
-                                                e.target.disabled = false;
-                                              }}
-                                              onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
-                                              onClick={(e) => e.stopPropagation()}
-                                            />
+                                            <EditableCell value={job.hours} format="hours" onSave={async (val) => { await payrollAPI.updateJobPayroll(job.id, { hoursWorked: val }); fetchPayrollData(); }} />
                                           </td>
                                           <td className="py-2 pr-4 text-right text-xs">
                                             {job.realHours != null ? (
@@ -1178,38 +1214,10 @@ const Payroll = () => {
                                           <td className="py-2 pr-4 text-right text-[var(--sf-text-primary)]">{formatCurrency(job.hourlySalary)}</td>
                                           <td className="py-2 pr-4 text-right text-[var(--sf-text-primary)]">{formatCurrency(job.commission)}</td>
                                           <td className="py-2 pr-4 text-right text-[var(--sf-text-primary)]">
-                                            <input
-                                              type="number" step="1" min="0"
-                                              className="w-14 text-right bg-transparent border-b border-dashed border-[var(--sf-border)] hover:border-[var(--sf-text-active)] focus:border-[var(--sf-text-active)] focus:outline-none px-0.5 py-0 text-xs"
-                                              defaultValue={job.tip > 0 ? job.tip.toFixed(0) : ''}
-                                              placeholder="-"
-                                              onBlur={async (e) => {
-                                                const val = parseFloat(e.target.value) || 0;
-                                                if (val === (job.tip || 0)) return;
-                                                e.target.disabled = true;
-                                                try { await payrollAPI.updateJobPayroll(job.id, { tipAmount: val * (job.memberCount || 1) }); fetchPayrollData(); } catch (err) { console.error('Failed to update:', err); }
-                                                e.target.disabled = false;
-                                              }}
-                                              onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
-                                              onClick={(e) => e.stopPropagation()}
-                                            />
+                                            <EditableCell value={job.tip || 0} format="dollar" onSave={async (val) => { await payrollAPI.updateJobPayroll(job.id, { tipAmount: val * (job.memberCount || 1) }); fetchPayrollData(); }} />
                                           </td>
                                           <td className="py-2 pr-4 text-right text-[var(--sf-text-primary)]">
-                                            <input
-                                              type="number" step="1" min="0"
-                                              className="w-14 text-right bg-transparent border-b border-dashed border-[var(--sf-border)] hover:border-[var(--sf-text-active)] focus:border-[var(--sf-text-active)] focus:outline-none px-0.5 py-0 text-xs"
-                                              defaultValue={job.incentive > 0 ? job.incentive.toFixed(0) : ''}
-                                              placeholder="-"
-                                              onBlur={async (e) => {
-                                                const val = parseFloat(e.target.value) || 0;
-                                                if (val === (job.incentive || 0)) return;
-                                                e.target.disabled = true;
-                                                try { await payrollAPI.updateJobPayroll(job.id, { incentiveAmount: val * (job.memberCount || 1) }); fetchPayrollData(); } catch (err) { console.error('Failed to update:', err); }
-                                                e.target.disabled = false;
-                                              }}
-                                              onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
-                                              onClick={(e) => e.stopPropagation()}
-                                            />
+                                            <EditableCell value={job.incentive || 0} format="dollar" onSave={async (val) => { await payrollAPI.updateJobPayroll(job.id, { incentiveAmount: val * (job.memberCount || 1) }); fetchPayrollData(); }} />
                                           </td>
                                           <td className="py-2 text-right text-[var(--sf-text-primary)] font-medium">{formatCurrency((job.hourlySalary || 0) + (job.commission || 0) + (job.tip || 0) + (job.incentive || 0))}</td>
                                         </tr>
