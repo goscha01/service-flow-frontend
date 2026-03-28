@@ -1260,11 +1260,12 @@ export const teamAPI = {
 
 // Payroll API functions
 export const payrollAPI = {
-  getPayroll: async (startDate, endDate) => {
+  getPayroll: async (startDate, endDate, jobFilter = 'completed') => {
     try {
       const params = new URLSearchParams();
       if (startDate) params.append('startDate', startDate);
       if (endDate) params.append('endDate', endDate);
+      if (jobFilter && jobFilter !== 'completed') params.append('jobFilter', jobFilter);
       const response = await api.get(`/payroll?${params}`);
       return response.data;
     } catch (error) {

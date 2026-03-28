@@ -239,6 +239,7 @@ const Payroll = () => {
   const [payrollAllTime, setPayrollAllTime] = useState(false)
   const [payrollQuickRange, setPayrollQuickRange] = useState('this_period')
   const [payrollOnlyWithEarnings, setPayrollOnlyWithEarnings] = useState(true)
+  const [payrollJobFilter, setPayrollJobFilter] = useState('completed') // 'completed' or 'all'
   const [startDate, setStartDate] = useState(() => {
     const date = new Date(); date.setDate(1); return toLocalDateString(date)
   })
@@ -377,8 +378,8 @@ const Payroll = () => {
       const s = overrideStart !== undefined ? overrideStart : startDate
       const e = overrideEnd !== undefined ? overrideEnd : endDate
       const data = payrollAllTime
-        ? await payrollAPI.getPayroll('', '')
-        : await payrollAPI.getPayroll(s, e)
+        ? await payrollAPI.getPayroll('', '', payrollJobFilter)
+        : await payrollAPI.getPayroll(s, e, payrollJobFilter)
       setPayrollData(data)
     } catch (err) {
       console.error('Error fetching payroll data:', err)
@@ -503,12 +504,12 @@ const Payroll = () => {
     return () => window.removeEventListener('focus', onFocus)
   }, [user?.id, loadPayoutSettings])
 
-  // ── Auto-refetch when quick range changes dates ──
+  // ── Auto-refetch when quick range changes dates or job filter changes ──
   useEffect(() => {
     if (user?.id && payrollQuickRange !== 'custom' && activeTab === 'payroll') {
       fetchPayrollData()
     }
-  }, [startDate, endDate])
+  }, [startDate, endDate, payrollJobFilter])
 
   // Auto-refetch balances removed — onApply handles it directly
 
@@ -875,6 +876,20 @@ const Payroll = () => {
                       {payrollOnlyWithEarnings && <Check size={12} />}
                       Only with earnings
                     </button>
+                    <button
+                      onClick={() => setPayrollJobFilter(payrollJobFilter === 'completed' ? 'all' : 'completed')}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer',
+                        padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: 500,
+                        border: payrollJobFilter === 'all' ? '1.5px solid var(--sf-blue-500)' : '1.5px solid var(--sf-border-light)',
+                        background: payrollJobFilter === 'all' ? 'var(--sf-blue-50)' : 'white',
+                        color: payrollJobFilter === 'all' ? 'var(--sf-blue-500)' : 'var(--sf-text-secondary)',
+                        boxShadow: 'none'
+                      }}
+                    >
+                      {payrollJobFilter === 'all' && <Check size={12} />}
+                      Incl. Scheduled
+                    </button>
                   </div>
                 </div>
               </div>
@@ -1185,9 +1200,9 @@ const Payroll = () => {
                                     </thead>
                                     <tbody>
                                       {[...member.jobs].sort((a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate)).map(job => (
-                                        <tr key={job.id} className="border-t border-[var(--sf-border-light)] hover:bg-[var(--sf-bg-hover)] cursor-pointer" onClick={(e) => { e.stopPropagation(); navigate(`/job/${job.id}`) }}>
+                                        <tr key={job.id} className="border-t border-[var(--sf-border-light)]">
                                           <td className="py-2 pr-4 text-[var(--sf-text-primary)] whitespace-nowrap">{formatShortDate(job.scheduledDate)}</td>
-                                          <td className="py-2 pr-4 text-[var(--sf-text-primary)] font-medium">{job.customerName}</td>
+                                          <td className="py-2 pr-4 font-medium"><span className="text-[var(--sf-text-active)] hover:underline cursor-pointer" onClick={(e) => { e.stopPropagation(); navigate(`/job/${job.id}`) }}>{job.customerName}</span></td>
                                           <td className="py-2 pr-4">
                                             <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
                                               job.status === 'completed' ? 'bg-green-100 text-green-700' :
@@ -1207,9 +1222,8 @@ const Payroll = () => {
                                             ) : <span className="text-[var(--sf-text-muted)]">—</span>}
                                           </td>
                                           <td className="py-2 pr-4 text-right text-[var(--sf-text-primary)]">
-                                            {job.memberCount > 1 && job.fullRevenue
-                                              ? <span>{formatCurrency(job.revenue)} <span className="text-[var(--sf-text-muted)] text-xs">({formatCurrency(job.fullRevenue)})</span></span>
-                                              : formatCurrency(job.revenue)}
+                                            <EditableCell value={job.fullRevenue || job.revenue || 0} format="dollar" onSave={async (val) => { await payrollAPI.updateJobPayroll(job.id, { servicePrice: val }); fetchPayrollData(); }} />
+                                            {job.memberCount > 1 && <span className="text-[var(--sf-text-muted)] text-xs ml-1">({formatCurrency(job.revenue)}/ea)</span>}
                                           </td>
                                           <td className="py-2 pr-4 text-right text-[var(--sf-text-primary)]">{formatCurrency(job.hourlySalary)}</td>
                                           <td className="py-2 pr-4 text-right text-[var(--sf-text-primary)]">{formatCurrency(job.commission)}</td>
