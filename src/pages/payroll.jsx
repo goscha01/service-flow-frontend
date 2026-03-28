@@ -695,10 +695,10 @@ const Payroll = () => {
         } catch { /* ignore polling errors */ }
       }, 2000)
     } catch (err) {
-      clearInterval(interval)
       setBackfillProgress(0)
+      setBackfillLoading(false)
       alert(err.response?.data?.error || 'Backfill reset failed')
-    } finally { setBackfillLoading(false) }
+    }
   }
 
   const handleExport = () => {
