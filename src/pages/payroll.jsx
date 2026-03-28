@@ -55,9 +55,9 @@ const EditableCell = ({ value, onSave, format = 'number', placeholder = '-' }) =
     )
   }
   return (
-    <span className="inline-flex items-center gap-1 group cursor-pointer" onClick={startEdit}>
+    <span className="inline-flex items-center gap-1 group">
       <span>{display}</span>
-      <Pencil size={10} className="text-[var(--sf-text-muted)] opacity-0 group-hover:opacity-100 transition-opacity" />
+      <Pencil size={10} className="text-[var(--sf-text-muted)] opacity-0 group-hover:opacity-100 cursor-pointer" onClick={startEdit} />
     </span>
   )
 }
