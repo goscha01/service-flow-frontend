@@ -1007,7 +1007,7 @@ const Payroll = () => {
                           {/* Manager/Owner Pay Breakdown */}
                           {isExpanded && member.isManagerOrOwner && (
                             <tr>
-                              <td colSpan="10" className="p-0">
+                              <td colSpan="11" className="p-0">
                                 <div className="bg-purple-50 border-t border-b border-purple-100 px-4 py-3">
                                   <p className="text-xs font-semibold text-purple-700 uppercase mb-2">Pay Breakdown</p>
                                   <table className="w-full text-sm">
@@ -1115,7 +1115,7 @@ const Payroll = () => {
                           {/* Job Breakdown */}
                           {isExpanded && member.jobs && member.jobs.length > 0 && (
                             <tr>
-                              <td colSpan="10" className="p-0">
+                              <td colSpan="11" className="p-0">
                                 <div className="bg-[var(--sf-bg-page)] border-t border-b border-[var(--sf-border-light)] px-3 py-2">
                                   <p className="text-xs font-semibold text-[var(--sf-text-muted)] uppercase mb-1">Job Breakdown</p>
                                   <table className="w-full text-xs">
@@ -1124,7 +1124,8 @@ const Payroll = () => {
                                         <th className="text-left py-2 pr-4 font-medium">Date</th>
                                         <th className="text-left py-2 pr-4 font-medium">Name</th>
                                         <th className="text-left py-2 pr-4 font-medium">Status</th>
-                                        <th className="text-right py-2 pr-4 font-medium">Hours</th>
+                                        <th className="text-right py-2 pr-4 font-medium">Est. Hours</th>
+                                        <th className="text-right py-2 pr-4 font-medium">Real</th>
                                         <th className="text-right py-2 pr-4 font-medium">Price</th>
                                         <th className="text-right py-2 pr-4 font-medium">Hourly</th>
                                         <th className="text-right py-2 pr-4 font-medium">Commission</th>
@@ -1146,7 +1147,34 @@ const Payroll = () => {
                                               'bg-[var(--sf-bg-page)] text-[var(--sf-text-secondary)]'
                                             }`}>{job.status}</span>
                                           </td>
-                                          <td className="py-2 pr-4 text-right text-[var(--sf-text-primary)]">{job.hours.toFixed(2)}</td>
+                                          <td className="py-2 pr-4 text-right text-[var(--sf-text-primary)]">
+                                            <input
+                                              type="number"
+                                              step="0.25"
+                                              min="0"
+                                              className="w-14 text-right bg-transparent border-b border-dashed border-[var(--sf-border)] hover:border-[var(--sf-text-active)] focus:border-[var(--sf-text-active)] focus:outline-none px-0.5 py-0 text-xs"
+                                              defaultValue={job.hours.toFixed(2)}
+                                              onBlur={async (e) => {
+                                                const val = parseFloat(e.target.value);
+                                                if (isNaN(val) || val === job.hours) return;
+                                                e.target.disabled = true;
+                                                try {
+                                                  await payrollAPI.updateJobHours(job.id, val);
+                                                  fetchPayrollData();
+                                                } catch (err) { console.error('Failed to update hours:', err); }
+                                                e.target.disabled = false;
+                                              }}
+                                              onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
+                                              onClick={(e) => e.stopPropagation()}
+                                            />
+                                          </td>
+                                          <td className="py-2 pr-4 text-right text-xs">
+                                            {job.realHours != null ? (
+                                              <span className={job.realHours > job.hours * 1.1 ? 'text-red-600 font-medium' : job.realHours < job.hours * 0.9 ? 'text-green-600 font-medium' : 'text-[var(--sf-text-muted)]'}>
+                                                {job.realHours.toFixed(2)}
+                                              </span>
+                                            ) : <span className="text-[var(--sf-text-muted)]">—</span>}
+                                          </td>
                                           <td className="py-2 pr-4 text-right text-[var(--sf-text-primary)]">
                                             {job.memberCount > 1 && job.fullRevenue
                                               ? <span>{formatCurrency(job.revenue)} <span className="text-[var(--sf-text-muted)] text-xs">({formatCurrency(job.fullRevenue)})</span></span>
