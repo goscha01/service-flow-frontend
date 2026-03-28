@@ -623,7 +623,7 @@ const JobDetails = () => {
       customer_zip_code: jobData.customers?.zip_code || jobData.customer_zip_code,
       customer_source: jobData.customers?.source || jobData.customer_source,
       service_name: decodeHtmlEntities(jobData.services?.name || jobData.service_name || ''),
-      service_price: jobData.services?.price || jobData.service_price,
+      service_price: jobData.service_price || jobData.services?.price,
       service_duration: jobData.services?.duration || jobData.service_duration,
       // Handle multiple services - check if service_name contains multiple services
       service_names: jobData.service_name && jobData.service_name.includes(', ') 
@@ -2435,9 +2435,9 @@ const JobDetails = () => {
               <div className="flex justify-between items-start">
                 <div>
                   <p className="text-sm font-medium text-[var(--sf-text-primary)]">{job?.service_name || 'Service'}</p>
-                  <p className="text-xs text-[var(--sf-text-secondary)]">Base Price (${(parseFloat(job?.services?.price) || parseFloat(job?.total) || 0).toFixed(2)})</p>
+                  <p className="text-xs text-[var(--sf-text-secondary)]">Base Price (${(parseFloat(job?.service_price) || parseFloat(job?.services?.price) || parseFloat(job?.total) || 0).toFixed(2)})</p>
                 </div>
-                <span className="text-sm font-medium text-[var(--sf-text-primary)]">${(parseFloat(job?.services?.price) || parseFloat(job?.total) || 0).toFixed(2)}</span>
+                <span className="text-sm font-medium text-[var(--sf-text-primary)]">${(parseFloat(job?.service_price) || parseFloat(job?.services?.price) || parseFloat(job?.total) || 0).toFixed(2)}</span>
               </div>
               {canEditJobDetails(user) && (
                 <button 
@@ -3851,9 +3851,9 @@ const JobDetails = () => {
                   {/* Base Price */}
                   <div className="flex justify-between items-center">
                     <div>
-                      <p className="text-sm text-[var(--sf-text-secondary)]">Base Price (${(parseFloat(job.services?.price) || 0).toFixed(2)})</p>
+                      <p className="text-sm text-[var(--sf-text-secondary)]">Base Price (${(parseFloat(job.service_price) || parseFloat(job.services?.price) || 0).toFixed(2)})</p>
                   </div>
-                    <span className="text-sm font-medium text-[var(--sf-text-primary)]">${(parseFloat(job.services?.price) || 0).toFixed(2)}</span>
+                    <span className="text-sm font-medium text-[var(--sf-text-primary)]">${(parseFloat(job.service_price) || parseFloat(job.services?.price) || 0).toFixed(2)}</span>
                   </div>
                   
                   {/* Modifiers */}
