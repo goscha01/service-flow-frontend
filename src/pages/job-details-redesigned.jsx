@@ -3473,7 +3473,16 @@ const JobDetails = () => {
                   <p className="text-[var(--sf-text-secondary)] text-sm mb-2">
                     {job.service_names && job.service_names.length > 1 ? `${job.service_names.length} services` : 'Default service category'}
                   </p>
-                  <p className="text-sm text-[var(--sf-text-secondary)] mt-2">{formatDuration(job.duration || 0)}</p>
+                  <p className="text-sm text-[var(--sf-text-secondary)] mt-2">
+                    {formatDuration(job.duration || 0)}
+                    {job.status === 'completed' && job.start_time && job.end_time && (() => {
+                      const realMin = Math.round((new Date(job.end_time) - new Date(job.start_time)) / 60000);
+                      const estMin = job.duration || 0;
+                      const diff = realMin - estMin;
+                      const color = diff > estMin * 0.1 ? 'text-red-600' : diff < -estMin * 0.1 ? 'text-green-600' : 'text-[var(--sf-text-muted)]';
+                      return <span className={`ml-2 text-xs font-medium ${color}`}>(Actual: {formatDuration(realMin)})</span>;
+                    })()}
+                  </p>
                   {(() => {
                 const serviceModifiers = getServiceModifiers();
                 if (!serviceModifiers || serviceModifiers.length === 0) return null;
