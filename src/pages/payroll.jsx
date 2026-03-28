@@ -1153,7 +1153,7 @@ const Payroll = () => {
                                               step="0.25"
                                               min="0"
                                               className="w-14 text-right bg-transparent border-b border-dashed border-[var(--sf-border)] hover:border-[var(--sf-text-active)] focus:border-[var(--sf-text-active)] focus:outline-none px-0.5 py-0 text-xs"
-                                              defaultValue={job.hours.toFixed(2)}
+                                              defaultValue={job.hours.toFixed(1)}
                                               onBlur={async (e) => {
                                                 const val = parseFloat(e.target.value);
                                                 if (isNaN(val) || val === job.hours) return;
@@ -1171,7 +1171,7 @@ const Payroll = () => {
                                           <td className="py-2 pr-4 text-right text-xs">
                                             {job.realHours != null ? (
                                               <span className={job.realHours > job.hours * 1.1 ? 'text-red-600 font-medium' : job.realHours < job.hours * 0.9 ? 'text-green-600 font-medium' : 'text-[var(--sf-text-muted)]'}>
-                                                {job.realHours.toFixed(2)}
+                                                {job.realHours.toFixed(1)}
                                               </span>
                                             ) : <span className="text-[var(--sf-text-muted)]">—</span>}
                                           </td>
