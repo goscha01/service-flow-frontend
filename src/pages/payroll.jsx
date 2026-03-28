@@ -1149,19 +1149,14 @@ const Payroll = () => {
                                           </td>
                                           <td className="py-2 pr-4 text-right text-[var(--sf-text-primary)]">
                                             <input
-                                              type="number"
-                                              step="0.25"
-                                              min="0"
+                                              type="number" step="0.1" min="0"
                                               className="w-14 text-right bg-transparent border-b border-dashed border-[var(--sf-border)] hover:border-[var(--sf-text-active)] focus:border-[var(--sf-text-active)] focus:outline-none px-0.5 py-0 text-xs"
                                               defaultValue={job.hours.toFixed(1)}
                                               onBlur={async (e) => {
                                                 const val = parseFloat(e.target.value);
                                                 if (isNaN(val) || val === job.hours) return;
                                                 e.target.disabled = true;
-                                                try {
-                                                  await payrollAPI.updateJobHours(job.id, val);
-                                                  fetchPayrollData();
-                                                } catch (err) { console.error('Failed to update hours:', err); }
+                                                try { await payrollAPI.updateJobPayroll(job.id, { hoursWorked: val }); fetchPayrollData(); } catch (err) { console.error('Failed to update:', err); }
                                                 e.target.disabled = false;
                                               }}
                                               onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
@@ -1182,8 +1177,40 @@ const Payroll = () => {
                                           </td>
                                           <td className="py-2 pr-4 text-right text-[var(--sf-text-primary)]">{formatCurrency(job.hourlySalary)}</td>
                                           <td className="py-2 pr-4 text-right text-[var(--sf-text-primary)]">{formatCurrency(job.commission)}</td>
-                                          <td className="py-2 pr-4 text-right text-[var(--sf-text-primary)]">{job.tip > 0 ? formatCurrency(job.tip) : '-'}</td>
-                                          <td className="py-2 pr-4 text-right text-[var(--sf-text-primary)]">{job.incentive > 0 ? formatCurrency(job.incentive) : '-'}</td>
+                                          <td className="py-2 pr-4 text-right text-[var(--sf-text-primary)]">
+                                            <input
+                                              type="number" step="1" min="0"
+                                              className="w-14 text-right bg-transparent border-b border-dashed border-[var(--sf-border)] hover:border-[var(--sf-text-active)] focus:border-[var(--sf-text-active)] focus:outline-none px-0.5 py-0 text-xs"
+                                              defaultValue={job.tip > 0 ? job.tip.toFixed(0) : ''}
+                                              placeholder="-"
+                                              onBlur={async (e) => {
+                                                const val = parseFloat(e.target.value) || 0;
+                                                if (val === (job.tip || 0)) return;
+                                                e.target.disabled = true;
+                                                try { await payrollAPI.updateJobPayroll(job.id, { tipAmount: val * (job.memberCount || 1) }); fetchPayrollData(); } catch (err) { console.error('Failed to update:', err); }
+                                                e.target.disabled = false;
+                                              }}
+                                              onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
+                                              onClick={(e) => e.stopPropagation()}
+                                            />
+                                          </td>
+                                          <td className="py-2 pr-4 text-right text-[var(--sf-text-primary)]">
+                                            <input
+                                              type="number" step="1" min="0"
+                                              className="w-14 text-right bg-transparent border-b border-dashed border-[var(--sf-border)] hover:border-[var(--sf-text-active)] focus:border-[var(--sf-text-active)] focus:outline-none px-0.5 py-0 text-xs"
+                                              defaultValue={job.incentive > 0 ? job.incentive.toFixed(0) : ''}
+                                              placeholder="-"
+                                              onBlur={async (e) => {
+                                                const val = parseFloat(e.target.value) || 0;
+                                                if (val === (job.incentive || 0)) return;
+                                                e.target.disabled = true;
+                                                try { await payrollAPI.updateJobPayroll(job.id, { incentiveAmount: val * (job.memberCount || 1) }); fetchPayrollData(); } catch (err) { console.error('Failed to update:', err); }
+                                                e.target.disabled = false;
+                                              }}
+                                              onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
+                                              onClick={(e) => e.stopPropagation()}
+                                            />
+                                          </td>
                                           <td className="py-2 text-right text-[var(--sf-text-primary)] font-medium">{formatCurrency((job.hourlySalary || 0) + (job.commission || 0) + (job.tip || 0) + (job.incentive || 0))}</td>
                                         </tr>
                                       ))}

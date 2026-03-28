@@ -1283,8 +1283,8 @@ export const payrollAPI = {
       throw error;
     }
   },
-  updateJobHours: async (jobId, hoursWorked) => {
-    const response = await api.patch(`/jobs/${jobId}/hours`, { hoursWorked });
+  updateJobPayroll: async (jobId, data) => {
+    const response = await api.patch(`/jobs/${jobId}/payroll`, data);
     return response.data;
   }
 };
