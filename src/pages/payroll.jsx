@@ -137,21 +137,21 @@ const getQuickRange = (rangeId, payoutFrequency, startDay = 1) => {
         return { start: today, end: today }
       } else if (payoutFrequency === 'weekly') {
         const d = lastOccurrence(startDay)
-        return { start: toLocalDateString(d), end: today }
+        const endD = new Date(d); endD.setDate(endD.getDate() + 6)
+        return { start: toLocalDateString(d), end: toLocalDateString(endD) }
       } else if (payoutFrequency === 'biweekly') {
-        // Go back to most recent startDay, then check if it's within 14 days
         const d = lastOccurrence(startDay)
-        // If less than 7 days ago, that's this period start; otherwise go back another week
         const daysAgo = Math.floor((now - d) / (1000 * 60 * 60 * 24))
         if (daysAgo >= 7) {
-          // We're in the second week of the biweekly period, start is 2 weeks ago
           d.setDate(d.getDate() - 7)
         }
-        return { start: toLocalDateString(d), end: today }
+        const endD = new Date(d); endD.setDate(endD.getDate() + 13)
+        return { start: toLocalDateString(d), end: toLocalDateString(endD) }
       } else {
-        // manual / monthly — use 1st of month
+        // manual / monthly — use 1st to last day of month
         const d = new Date(now); d.setDate(1)
-        return { start: toLocalDateString(d), end: today }
+        const endD = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+        return { start: toLocalDateString(d), end: toLocalDateString(endD) }
       }
     }
     case 'last_period': {
