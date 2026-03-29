@@ -499,10 +499,18 @@ const Payroll = () => {
 
   // ── Re-fetch settings when page regains focus (e.g. after changing settings) ──
   useEffect(() => {
-    const onFocus = () => { if (user?.id) loadPayoutSettings() }
+    const onFocus = () => {
+      if (!user?.id) return
+      // Only update frequency/day — don't override current date range
+      api.get('/user/payout-settings').then(res => {
+        const d = res.data || {}
+        setPayoutFrequency(d.payout_frequency || 'manual')
+        setPayoutStartDay(d.pay_period_start_day ?? 1)
+      }).catch(() => {})
+    }
     window.addEventListener('focus', onFocus)
     return () => window.removeEventListener('focus', onFocus)
-  }, [user?.id, loadPayoutSettings])
+  }, [user?.id])
 
   // ── Auto-refetch when quick range changes dates or job filter changes ──
   useEffect(() => {
