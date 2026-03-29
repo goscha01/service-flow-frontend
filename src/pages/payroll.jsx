@@ -1248,6 +1248,7 @@ const Payroll = () => {
                                           </td>
                                           <td className="py-2 pr-4 text-right text-[var(--sf-text-primary)]">
                                             <EditableCell value={job.hours} format="hours" onSave={async (val) => { await payrollAPI.updateJobPayroll(job.id, { hoursWorked: val }); fetchPayrollData(); }} />
+                                            {job.hoursOverridden && <span className="text-[9px] text-orange-500 ml-0.5">*</span>}
                                           </td>
                                           <td className="py-2 pr-4 text-right text-xs">
                                             {job.realHours != null ? (
