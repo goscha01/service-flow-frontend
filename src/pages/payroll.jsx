@@ -600,9 +600,22 @@ const Payroll = () => {
     }
     setModalLoading(true); setModalError('')
     try {
-      await ledgerAPI.createPayoutBatch({ teamMemberId: payTeamMember, periodStart: payPeriodStart, periodEnd: payPeriodEnd, note: payNote || undefined })
-      setShowPayoutModal(false)
-      setPayTeamMember(''); setPayPeriodStart(''); setPayPeriodEnd(''); setPayNote('')
+      if (payTeamMember === 'all') {
+        // Create payout batch for each active team member
+        let created = 0, errors = 0
+        for (const tm of teamMembers) {
+          try {
+            await ledgerAPI.createPayoutBatch({ teamMemberId: tm.id, periodStart: payPeriodStart, periodEnd: payPeriodEnd, note: payNote || undefined })
+            created++
+          } catch { errors++ }
+        }
+        if (errors > 0) setModalError(`Created ${created} payouts, ${errors} failed (no unpaid entries)`)
+        else { setShowPayoutModal(false); setPayTeamMember(''); setPayPeriodStart(''); setPayPeriodEnd(''); setPayNote('') }
+      } else {
+        await ledgerAPI.createPayoutBatch({ teamMemberId: payTeamMember, periodStart: payPeriodStart, periodEnd: payPeriodEnd, note: payNote || undefined })
+        setShowPayoutModal(false)
+        setPayTeamMember(''); setPayPeriodStart(''); setPayPeriodEnd(''); setPayNote('')
+      }
       fetchBatches(); fetchBalances()
     } catch (err) {
       setModalError(err.response?.data?.error || 'Failed to create payout batch')
@@ -1942,6 +1955,7 @@ const Payroll = () => {
                 <select value={payTeamMember} onChange={e => setPayTeamMember(e.target.value)}
                   className="w-full border border-[var(--sf-border-light)] rounded-lg px-3 py-2 text-sm bg-white">
                   <option value="">Select...</option>
+                  <option value="all">All Team Members</option>
                   {teamMembers.map(tm => (
                     <option key={tm.id} value={tm.id}>{tm.first_name} {tm.last_name}</option>
                   ))}
