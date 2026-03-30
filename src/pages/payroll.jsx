@@ -512,12 +512,12 @@ const Payroll = () => {
     return () => window.removeEventListener('focus', onFocus)
   }, [user?.id])
 
-  // ── Auto-refetch when quick range changes dates or job filter changes ──
+  // ── Auto-refetch when job filter changes (dates handled by loadPayoutSettings and quick range buttons) ──
   useEffect(() => {
-    if (user?.id && payrollQuickRange !== 'custom' && activeTab === 'payroll') {
+    if (user?.id && activeTab === 'payroll' && payoutFrequency !== 'manual') {
       fetchPayrollData()
     }
-  }, [startDate, endDate, payrollJobFilter])
+  }, [payrollJobFilter])
 
   // Auto-refetch balances removed — onApply handles it directly
 
