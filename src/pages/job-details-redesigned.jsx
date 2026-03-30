@@ -4017,10 +4017,10 @@ const JobDetails = () => {
                 {paymentHistory && paymentHistory.length > 0 ? (
                   <div className="space-y-3">
                     {paymentHistory.map((payment, index) => (
-                      <div key={payment.id || payment.transaction_id || index} className="flex items-center justify-between p-3 bg-[var(--sf-bg-page)] rounded-lg border border-[var(--sf-border-light)]">
+                      <div key={payment.id || payment.transaction_id || index} className={`flex items-center justify-between p-3 rounded-lg border ${payment.status === 'voided' ? 'bg-red-50 border-red-200 opacity-60' : 'bg-[var(--sf-bg-page)] border-[var(--sf-border-light)]'}`}>
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="text-sm font-semibold text-[var(--sf-text-primary)]">
+                            <span className={`text-sm font-semibold ${payment.status === 'voided' ? 'line-through text-[var(--sf-text-muted)]' : 'text-[var(--sf-text-primary)]'}`}>
                               ${parseFloat(payment.amount || 0).toFixed(2)}
                             </span>
                             {parseFloat(payment.tip_amount || 0) > 0 && (
@@ -4048,18 +4048,31 @@ const JobDetails = () => {
                           )}
                         </div>
                         <div className="flex flex-col items-end space-y-2">
-                          <span className="text-xs text-green-600 font-semibold">
-                            Completed
+                          <span className={`text-xs font-semibold ${payment.status === 'voided' ? 'text-red-500' : 'text-green-600'}`}>
+                            {payment.status === 'voided' ? 'Voided' : 'Completed'}
                           </span>
-                          <button
-                            type="button"
-                            onClick={() => (payment.id || payment.transaction_id) && handleDeletePayment(payment.id || payment.transaction_id)}
-                            className="text-xs text-red-600 hover:text-red-800 flex items-center gap-1"
-                            title="Delete payment"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            Delete
-                          </button>
+                          {payment.status !== 'voided' && (
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                const txId = payment.id || payment.transaction_id;
+                                if (!txId || !window.confirm('Void this payment? This cannot be undone.')) return;
+                                try {
+                                  await api.post(`/transactions/${txId}/void`);
+                                  const resp = await api.get(`/transactions/job/${job.id}`);
+                                  if (resp.data) {
+                                    setPaymentHistory(resp.data.transactions || []);
+                                    setJob(prev => ({ ...prev, total_paid_amount: resp.data.totalPaid || 0 }));
+                                  }
+                                } catch (err) { console.error('Void failed:', err); alert('Failed to void payment'); }
+                              }}
+                              className="text-xs text-orange-600 hover:text-orange-800 flex items-center gap-1"
+                              title="Void payment"
+                            >
+                              <XCircle className="w-3.5 h-3.5" />
+                              Void
+                            </button>
+                          )}
                         </div>
                       </div>
                     ))}
