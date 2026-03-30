@@ -507,15 +507,30 @@ const TeamMemberDetailsRedesigned = () => {
                   <HelpCircle className="w-4 h-4 text-[var(--sf-text-muted)]" />
                 </div>
                 <div className="space-y-2">
-                  {Object.entries(workingHours).map(([day, hours]) => (
-                    <div key={day} className="flex justify-between items-center text-sm">
-                      <span className="capitalize font-medium text-[var(--sf-text-primary)]">{day}</span>
-                      <span className="text-[var(--sf-text-secondary)]">
-                        {hours.available ? hours.hours : 'Unavailable'}
-                      </span>
-                    </div>
-                  ))}
+                  {Object.entries(workingHours).map(([day, hours]) => {
+                    const displayHours = hours.available
+                      ? (hours.start && hours.end
+                        ? `${hours.start.replace(/^0/, '')} - ${hours.end.replace(/^0/, '')}`
+                        : hours.hours || (hours.timeSlots?.length > 0
+                          ? hours.timeSlots.map(ts => `${ts.start} - ${ts.end}`).join(', ')
+                          : 'Available'))
+                      : 'Unavailable';
+                    return (
+                      <div key={day} className="flex justify-between items-center text-sm">
+                        <span className="capitalize font-medium text-[var(--sf-text-primary)]">{day}</span>
+                        <span className={hours.available ? 'text-[var(--sf-text-secondary)]' : 'text-[var(--sf-text-muted)]'}>
+                          {displayHours}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
+                {memberAvailabilityRaw?.break && (
+                  <div className="mt-3 flex justify-between items-center text-sm bg-[var(--sf-bg-page)] rounded px-3 py-1.5">
+                    <span className="font-medium text-[var(--sf-text-primary)]">Break</span>
+                    <span className="text-[var(--sf-text-secondary)]">{memberAvailabilityRaw.break.start} - {memberAvailabilityRaw.break.end}</span>
+                  </div>
+                )}
                 <button
                   onClick={() => setShowAvailabilityModal(true)}
                   className="mt-4 text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] text-sm font-medium"
@@ -958,6 +973,112 @@ const TeamMemberDetailsRedesigned = () => {
         onSave={handleSaveDateOverride}
         existingOverride={editingOverrideIndex !== null ? customAvailability[editingOverrideIndex] : null}
       />
+
+      {/* Availability Edit Modal */}
+      {showAvailabilityModal && (() => {
+        const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        const initHours = {};
+        days.forEach(day => {
+          const dh = workingHours[day] || {};
+          initHours[day] = {
+            available: dh.available !== false,
+            start: dh.start || (dh.timeSlots?.[0]?.start) || '09:00',
+            end: dh.end || (dh.timeSlots?.[dh.timeSlots?.length - 1]?.end) || '18:00'
+          };
+        });
+        const initBreak = memberAvailabilityRaw?.break || { start: '13:00', end: '14:00' };
+
+        const AvailModal = () => {
+          const [hrs, setHrs] = useState(initHours);
+          const [brk, setBrk] = useState(initBreak);
+          const [breakEnabled, setBreakEnabled] = useState(!!memberAvailabilityRaw?.break);
+          const [saving, setSaving] = useState(false);
+
+          const updateDay = (day, field, value) => setHrs(prev => ({ ...prev, [day]: { ...prev[day], [field]: value } }));
+
+          const handleSave = async () => {
+            setSaving(true);
+            const newAvail = {
+              workingHours: {},
+              customAvailability: customAvailability || []
+            };
+            if (breakEnabled) newAvail.break = brk;
+            days.forEach(day => {
+              const d = hrs[day];
+              newAvail.workingHours[day] = d.available
+                ? { available: true, start: d.start, end: d.end, hours: `${d.start} - ${d.end}` }
+                : { available: false, hours: '' };
+            });
+            try {
+              await teamAPI.updateAvailability(memberId, newAvail);
+              setWorkingHours(newAvail.workingHours);
+              setMemberAvailabilityRaw(newAvail);
+              setShowAvailabilityModal(false);
+            } catch (err) {
+              console.error('Failed to save availability:', err);
+              alert('Failed to save availability');
+            } finally { setSaving(false); }
+          };
+
+          return (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowAvailabilityModal(false)}>
+              <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between p-4 border-b border-[var(--sf-border)]">
+                  <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">Edit Working Hours</h3>
+                  <button onClick={() => setShowAvailabilityModal(false)} className="p-1 hover:bg-[var(--sf-bg-hover)] rounded"><X size={18} /></button>
+                </div>
+                <div className="p-4 space-y-3">
+                  {days.map(day => (
+                    <div key={day} className="flex items-center gap-3">
+                      <label className="flex items-center gap-2 w-24">
+                        <input type="checkbox" checked={hrs[day].available} onChange={e => updateDay(day, 'available', e.target.checked)}
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                        <span className="text-sm font-medium capitalize text-[var(--sf-text-primary)]">{day.slice(0, 3)}</span>
+                      </label>
+                      {hrs[day].available ? (
+                        <div className="flex items-center gap-1 flex-1">
+                          <input type="time" value={hrs[day].start} onChange={e => updateDay(day, 'start', e.target.value)}
+                            className="text-sm border border-[var(--sf-border)] rounded px-2 py-1 w-28" />
+                          <span className="text-[var(--sf-text-muted)] text-xs">to</span>
+                          <input type="time" value={hrs[day].end} onChange={e => updateDay(day, 'end', e.target.value)}
+                            className="text-sm border border-[var(--sf-border)] rounded px-2 py-1 w-28" />
+                        </div>
+                      ) : (
+                        <span className="text-sm text-[var(--sf-text-muted)] flex-1">Unavailable</span>
+                      )}
+                    </div>
+                  ))}
+                  <div className="border-t border-[var(--sf-border)] pt-3 mt-3">
+                    <label className="flex items-center gap-2 mb-2">
+                      <input type="checkbox" checked={breakEnabled} onChange={e => setBreakEnabled(e.target.checked)}
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                      <span className="text-sm font-medium text-[var(--sf-text-primary)]">Daily Break</span>
+                    </label>
+                    {breakEnabled && (
+                      <div className="flex items-center gap-1 ml-6">
+                        <input type="time" value={brk.start} onChange={e => setBrk(prev => ({ ...prev, start: e.target.value }))}
+                          className="text-sm border border-[var(--sf-border)] rounded px-2 py-1 w-28" />
+                        <span className="text-[var(--sf-text-muted)] text-xs">to</span>
+                        <input type="time" value={brk.end} onChange={e => setBrk(prev => ({ ...prev, end: e.target.value }))}
+                          className="text-sm border border-[var(--sf-border)] rounded px-2 py-1 w-28" />
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2 p-4 border-t border-[var(--sf-border)]">
+                  <button onClick={() => setShowAvailabilityModal(false)}
+                    className="px-4 py-2 text-sm text-[var(--sf-text-secondary)] hover:bg-[var(--sf-bg-hover)] rounded-lg">Cancel</button>
+                  <button onClick={handleSave} disabled={saving}
+                    className="px-4 py-2 text-sm text-white bg-[var(--sf-blue-500)] hover:bg-blue-700 rounded-lg disabled:opacity-50">
+                    {saving ? 'Saving...' : 'Save'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        };
+        return <AvailModal />;
+      })()}
     </div>
   )
 }
