@@ -507,7 +507,8 @@ const TeamMemberDetailsRedesigned = () => {
                   <HelpCircle className="w-4 h-4 text-[var(--sf-text-muted)]" />
                 </div>
                 <div className="space-y-2">
-                  {Object.entries(workingHours).map(([day, hours]) => {
+                  {['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'].map(day => {
+                    const hours = workingHours[day] || { available: false };
                     const displayHours = hours.available
                       ? (hours.start && hours.end
                         ? `${hours.start.replace(/^0/, '')} - ${hours.end.replace(/^0/, '')}`
