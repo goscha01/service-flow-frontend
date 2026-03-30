@@ -108,6 +108,10 @@ const QUICK_RANGES = [
   { id: 'this_week', label: 'This Week' },
   { id: 'this_period', label: 'This Pay Period' },
   { id: 'last_period', label: 'Last Pay Period' },
+  { id: 'this_month', label: 'This Month' },
+  { id: 'last_month', label: 'Last Month' },
+  { id: 'last_year', label: 'Last Year' },
+  { id: 'all_time', label: 'All Time' },
   { id: 'custom', label: 'Custom Range' },
 ]
 
@@ -179,6 +183,23 @@ const getQuickRange = (rangeId, payoutFrequency, startDay = 1) => {
         return { start: toLocalDateString(d), end: toLocalDateString(end) }
       }
     }
+    case 'this_month': {
+      const d = new Date(now); d.setDate(1)
+      const endD = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+      return { start: toLocalDateString(d), end: toLocalDateString(endD) }
+    }
+    case 'last_month': {
+      const d = new Date(now); d.setMonth(d.getMonth() - 1); d.setDate(1)
+      const endD = new Date(now.getFullYear(), now.getMonth(), 0)
+      return { start: toLocalDateString(d), end: toLocalDateString(endD) }
+    }
+    case 'last_year': {
+      const d = new Date(now.getFullYear() - 1, 0, 1)
+      const endD = new Date(now.getFullYear() - 1, 11, 31)
+      return { start: toLocalDateString(d), end: toLocalDateString(endD) }
+    }
+    case 'all_time':
+      return { start: '', end: '' }
     default:
       return null
   }
@@ -879,7 +900,7 @@ const Payroll = () => {
                   <QuickTimeFilter
                     payoutFrequency={payoutFrequency} payoutStartDay={payoutStartDay}
                     activeRange={payrollQuickRange}
-                    onSelect={(id) => { setPayrollQuickRange(id); setPayrollAllTime(false) }}
+                    onSelect={(id) => { setPayrollQuickRange(id); setPayrollAllTime(id === 'all_time') }}
                     startDate={startDate}
                     endDate={endDate}
                     onStartChange={setStartDate}
