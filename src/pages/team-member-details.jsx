@@ -60,6 +60,7 @@ const TeamMemberDetails = () => {
     saturday: { available: false, hours: "" }
   })
   const [customAvailability, setCustomAvailability] = useState([])
+  const [memberAvailabilityRaw, setMemberAvailabilityRaw] = useState(null)
   const [editingHours, setEditingHours] = useState(false)
   const [editingAvailability, setEditingAvailability] = useState(false)
   const [savingHours, setSavingHours] = useState(false)
@@ -258,6 +259,7 @@ const TeamMemberDetails = () => {
             }
             
             if (parsedAvailability && typeof parsedAvailability === 'object') {
+              setMemberAvailabilityRaw(parsedAvailability)
               if (parsedAvailability.workingHours) {
                 // Normalize: ensure days with legacy "hours" string get a timeSlots array so they display and save correctly
                 const normalized = { ...parsedAvailability.workingHours }
@@ -648,7 +650,9 @@ const TeamMemberDetails = () => {
       setSavingHours(true)
       
       console.log('Saving recurring hours via updateAvailability')
-      await teamAPI.updateAvailability(memberId, { workingHours, customAvailability })
+      const availData = { workingHours, customAvailability }
+      if (memberAvailabilityRaw?.break) availData.break = memberAvailabilityRaw.break
+      await teamAPI.updateAvailability(memberId, availData)
       
       // Refresh team member data
       await fetchTeamMemberDetails()
@@ -1494,11 +1498,13 @@ const TeamMemberDetails = () => {
                     </div>
 
                     <div className="space-y-0 border border-[var(--sf-border-light)] rounded-lg overflow-hidden">
-                      {Object.entries(workingHours).map(([day, { available, hours, timeSlots = [] }], index) => (
+                      {['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'].map((day, index) => {
+                        const { available = false, hours = '', timeSlots = [], start, end } = workingHours[day] || {};
+                        return (
                         <div
                           key={day}
                           className={`flex items-center justify-between px-4 py-3 ${
-                            index !== Object.entries(workingHours).length - 1 ? 'border-b border-[var(--sf-border-light)]' : ''
+                            index !== 6 ? 'border-b border-[var(--sf-border-light)]' : ''
                           }`}
                         >
                           <span className="text-sm font-medium text-[var(--sf-text-primary)] capitalize w-24">
@@ -1506,9 +1512,11 @@ const TeamMemberDetails = () => {
                           </span>
                           <span className="text-sm text-[var(--sf-text-secondary)] text-right flex-1">
                             {available ? (
-                              timeSlots.length > 0 ? (
+                              start && end ? (
+                                `${start} - ${end}`
+                              ) : timeSlots.length > 0 ? (
                                 timeSlots.map((slot, slotIndex) => (
-                                  <span key={slot.id}>
+                                  <span key={slot.id || slotIndex}>
                                     {slot.start} - {slot.end}
                                     {slotIndex < timeSlots.length - 1 && ', '}
                                   </span>
@@ -1521,8 +1529,15 @@ const TeamMemberDetails = () => {
                             )}
                           </span>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
+                    {memberAvailabilityRaw?.break && (
+                      <div className="mt-3 flex justify-between items-center text-sm bg-[var(--sf-bg-page)] rounded-lg px-4 py-2.5 border border-[var(--sf-border-light)]">
+                        <span className="font-medium text-[var(--sf-text-primary)]">Break</span>
+                        <span className="text-[var(--sf-text-secondary)]">{memberAvailabilityRaw.break.start} - {memberAvailabilityRaw.break.end}</span>
+                      </div>
+                    )}
 
                     <button
                       onClick={() => setShowWeeklyHoursModal(true)}
@@ -1899,6 +1914,48 @@ const TeamMemberDetails = () => {
                     )}
                   </div>
                 ))}
+              </div>
+
+              {/* Common Break */}
+              <div className="mt-4 p-4 bg-[var(--sf-bg-page)] rounded-lg">
+                <label className="flex items-center space-x-3">
+                  <input
+                    type="checkbox"
+                    checked={!!memberAvailabilityRaw?.break}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setMemberAvailabilityRaw(prev => ({ ...prev, break: { start: '13:00', end: '14:00' } }))
+                      } else {
+                        setMemberAvailabilityRaw(prev => { const { break: _, ...rest } = prev || {}; return rest; })
+                      }
+                    }}
+                    className="h-4 w-4 text-[var(--sf-blue-500)] focus:ring-[var(--sf-blue-500)] border-[var(--sf-border-light)] rounded"
+                  />
+                  <span className="text-sm font-medium text-[var(--sf-text-primary)]">Daily Break</span>
+                </label>
+                {memberAvailabilityRaw?.break && (
+                  <div className="flex items-center space-x-2 mt-3 ml-7">
+                    <select
+                      value={memberAvailabilityRaw.break.start}
+                      onChange={(e) => setMemberAvailabilityRaw(prev => ({ ...prev, break: { ...prev.break, start: e.target.value } }))}
+                      className="text-sm border border-[var(--sf-border-light)] rounded px-2 py-1"
+                    >
+                      {Array.from({ length: 24 }, (_, h) => [`${String(h).padStart(2,'0')}:00`, `${String(h).padStart(2,'0')}:30`]).flat().map(t => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
+                    <span className="text-sm text-[var(--sf-text-muted)]">to</span>
+                    <select
+                      value={memberAvailabilityRaw.break.end}
+                      onChange={(e) => setMemberAvailabilityRaw(prev => ({ ...prev, break: { ...prev.break, end: e.target.value } }))}
+                      className="text-sm border border-[var(--sf-border-light)] rounded px-2 py-1"
+                    >
+                      {Array.from({ length: 24 }, (_, h) => [`${String(h).padStart(2,'0')}:00`, `${String(h).padStart(2,'0')}:30`]).flat().map(t => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
             </div>
 
