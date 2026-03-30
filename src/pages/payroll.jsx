@@ -189,8 +189,8 @@ const getQuickRange = (rangeId, payoutFrequency, startDay = 1) => {
       return { start: toLocalDateString(d), end: toLocalDateString(endD) }
     }
     case 'last_month': {
-      const d = new Date(now); d.setMonth(d.getMonth() - 1); d.setDate(1)
-      const endD = new Date(now.getFullYear(), now.getMonth(), 0)
+      const d = new Date(now.getFullYear(), now.getMonth() - 1, 1) // 1st of prev month
+      const endD = new Date(now.getFullYear(), now.getMonth(), 0) // last day of prev month
       return { start: toLocalDateString(d), end: toLocalDateString(endD) }
     }
     case 'last_year': {
