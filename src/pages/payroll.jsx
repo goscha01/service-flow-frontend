@@ -398,9 +398,7 @@ const Payroll = () => {
       setError("")
       const s = overrideStart !== undefined ? overrideStart : startDate
       const e = overrideEnd !== undefined ? overrideEnd : endDate
-      const data = payrollAllTime
-        ? await payrollAPI.getPayroll('', '', payrollJobFilter)
-        : await payrollAPI.getPayroll(s, e, payrollJobFilter)
+      const data = await payrollAPI.getPayroll(s, e, payrollJobFilter)
       setPayrollData(data)
     } catch (err) {
       console.error('Error fetching payroll data:', err)
