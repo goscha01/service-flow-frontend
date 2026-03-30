@@ -412,7 +412,7 @@ const Payroll = () => {
   const fetchTeamMembers = useCallback(async () => {
     if (!user?.id) return
     try {
-      const data = await teamAPI.getAll(user.id, { status: 'active' })
+      const data = await teamAPI.getAll(user.id) // all members (active + inactive) for payouts
       setTeamMembers(data.teamMembers || data || [])
     } catch (err) {
       console.error('Error fetching team members:', err)
@@ -1957,7 +1957,7 @@ const Payroll = () => {
                   <option value="">Select...</option>
                   <option value="all">All Team Members</option>
                   {teamMembers.map(tm => (
-                    <option key={tm.id} value={tm.id}>{tm.first_name} {tm.last_name}</option>
+                    <option key={tm.id} value={tm.id}>{tm.first_name} {tm.last_name}{tm.status === 'inactive' ? ' (inactive)' : ''}</option>
                   ))}
                 </select>
               </div>
