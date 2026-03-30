@@ -404,10 +404,12 @@ const Payroll = () => {
     try {
       setBalancesLoading(true)
       const params = {}
-      const s = overrideStart !== undefined ? overrideStart : balancesStartDate
-      const e = overrideEnd !== undefined ? overrideEnd : balancesEndDate
-      if (s) params.startDate = s
-      if (e) params.endDate = e
+      if (!balancesAllTime) {
+        const s = overrideStart !== undefined ? overrideStart : balancesStartDate
+        const e = overrideEnd !== undefined ? overrideEnd : balancesEndDate
+        if (s) params.startDate = s
+        if (e) params.endDate = e
+      }
       console.log('📊 fetchBalances params:', JSON.stringify(params), 'overrides:', overrideStart, overrideEnd, 'state:', balancesStartDate, balancesEndDate)
       const data = await ledgerAPI.getBalances(params)
       console.log('📊 fetchBalances response entries:', Array.isArray(data) ? data.length : data?.balances?.length, 'total:', Array.isArray(data) ? data.reduce((s,b) => s + (b.current_balance||0), 0) : '?')
@@ -475,9 +477,7 @@ const Payroll = () => {
       if (range) {
         setStartDate(range.start)
         setEndDate(range.end)
-        setBalancesStartDate(range.start)
-        setBalancesEndDate(range.end)
-        setBalancesAllTime(false)
+        // Don't override balances dates — balances default to all-time
         setFilterStartDate(range.start)
         setFilterEndDate(range.end)
         setPayoutsStartDate(range.start)
