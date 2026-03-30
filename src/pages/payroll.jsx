@@ -609,8 +609,11 @@ const Payroll = () => {
             created++
           } catch { errors++ }
         }
-        if (errors > 0) setModalError(`Created ${created} payouts, ${errors} failed (no unpaid entries)`)
-        else { setShowPayoutModal(false); setPayTeamMember(''); setPayPeriodStart(''); setPayPeriodEnd(''); setPayNote('') }
+        if (created > 0) {
+          setShowPayoutModal(false); setPayTeamMember(''); setPayPeriodStart(''); setPayPeriodEnd(''); setPayNote('')
+        } else {
+          setModalError('No team members have unpaid entries for this period')
+        }
       } else {
         await ledgerAPI.createPayoutBatch({ teamMemberId: payTeamMember, periodStart: payPeriodStart, periodEnd: payPeriodEnd, note: payNote || undefined })
         setShowPayoutModal(false)
