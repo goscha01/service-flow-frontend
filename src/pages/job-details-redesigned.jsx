@@ -3176,8 +3176,10 @@ const JobDetails = () => {
                     {canResetJobStatuses(user) && (
                       <button
                         onClick={() => {
-                          handleStatusUpdate('pending')
-                          setMoreDropdown(false)
+                          if (window.confirm('Reset this completed job? Ledger entries (earnings, tips, incentives) will be removed. Job goes back to pending.')) {
+                            handleStatusUpdate('pending')
+                            setMoreDropdown(false)
+                          }
                         }}
                         className="w-full text-left px-4 py-2.5 hover:bg-[var(--sf-bg-page)] transition-colors flex items-center gap-3 text-[var(--sf-text-primary)] font-medium text-sm"
                       >
@@ -3185,30 +3187,6 @@ const JobDetails = () => {
                         Reset Job Status
                       </button>
                     )}
-                    <button
-                      onClick={() => {
-                        if (window.confirm('Cancel this job? Ledger entries (earnings, tips, incentives) will be removed.')) {
-                          handleStatusUpdate('cancelled')
-                          setMoreDropdown(false)
-                        }
-                      }}
-                      className="w-full text-left px-4 py-2.5 hover:bg-red-50 transition-colors flex items-center gap-3 text-red-600 font-medium text-sm"
-                    >
-                      <X size={18} />
-                      Cancel Job
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (window.confirm('Reschedule this job? Ledger entries will be removed. You can then set a new date.')) {
-                          handleStatusUpdate('rescheduled')
-                          setMoreDropdown(false)
-                        }
-                      }}
-                      className="w-full text-left px-4 py-2.5 hover:bg-purple-50 transition-colors flex items-center gap-3 text-purple-600 font-medium text-sm"
-                    >
-                      <Calendar size={18} />
-                      Reschedule
-                    </button>
                   </>
                 )
               }
@@ -3229,13 +3207,15 @@ const JobDetails = () => {
             </button>
             )}
             {canRescheduleJobs(user) && (
-            <button className="w-full text-left px-4 py-2.5 hover:bg-[var(--sf-bg-page)] transition-colors flex items-center gap-3 text-[var(--sf-text-primary)] font-medium text-sm">
+            <button onClick={() => { handleStatusUpdate('rescheduled'); setMoreDropdown(false) }}
+              className="w-full text-left px-4 py-2.5 hover:bg-[var(--sf-bg-page)] transition-colors flex items-center gap-3 text-[var(--sf-text-primary)] font-medium text-sm">
               <Calendar size={18} className="text-[var(--sf-text-secondary)]" />
               Reschedule
             </button>
             )}
-            <button className="w-full text-left px-4 py-2.5 hover:bg-[var(--sf-bg-page)] transition-colors flex items-center gap-3 text-[var(--sf-text-primary)] font-medium text-sm">
-              <XCircle size={18} className="text-[var(--sf-text-secondary)]" />
+            <button onClick={() => { if (window.confirm('Cancel this job?')) { handleStatusUpdate('cancelled'); setMoreDropdown(false) } }}
+              className="w-full text-left px-4 py-2.5 hover:bg-red-50 transition-colors flex items-center gap-3 text-red-600 font-medium text-sm">
+              <XCircle size={18} className="text-red-400" />
               Cancel Job
             </button>
             <div className="border-t border-[var(--sf-border-light)] my-1"></div>
