@@ -1723,21 +1723,23 @@ const Payroll = () => {
               batchesByMember[mid].push(b)
             })
 
-            // Build rows for active team members only
-            const activeMembers = teamMembers.filter(tm => tm.status !== 'inactive')
-            const memberRows = activeMembers.map(tm => {
-              const memberBatches = batchesByMember[tm.id] || []
-              const paidBatch = memberBatches.find(b => b.status === 'paid')
-              const pendingBatch = memberBatches.find(b => b.status === 'pending')
-              let status = 'skipped'
-              let activeBatch = null
-              if (paidBatch) { status = 'paid'; activeBatch = paidBatch }
-              else if (pendingBatch) { status = 'pending'; activeBatch = pendingBatch }
-              return { tm, status, activeBatch, batches: memberBatches }
-            }).sort((a, b) => {
-              const order = { pending: 0, paid: 1, skipped: 2 }
-              return (order[a.status] ?? 3) - (order[b.status] ?? 3)
-            })
+            // Build rows: active members always, inactive only if they have a batch
+            const memberRows = teamMembers
+              .filter(tm => tm.status !== 'inactive' || batchesByMember[tm.id]?.length > 0)
+              .map(tm => {
+                const memberBatches = batchesByMember[tm.id] || []
+                const paidBatch = memberBatches.find(b => b.status === 'paid')
+                const pendingBatch = memberBatches.find(b => b.status === 'pending')
+                let status = 'skipped'
+                let activeBatch = null
+                if (paidBatch) { status = 'paid'; activeBatch = paidBatch }
+                else if (pendingBatch) { status = 'pending'; activeBatch = pendingBatch }
+                return { tm, status, activeBatch, batches: memberBatches }
+              }).sort((a, b) => {
+                const order = { pending: 0, paid: 1, skipped: 2 }
+                if (order[a.status] !== order[b.status]) return (order[a.status] ?? 3) - (order[b.status] ?? 3)
+                return (a.tm.first_name || '').localeCompare(b.tm.first_name || '')
+              })
 
             // Apply filter
             const filteredRows = payoutsFilter === 'all' ? memberRows : memberRows.filter(r => r.status === payoutsFilter)
@@ -1778,7 +1780,7 @@ const Payroll = () => {
               <div className="bg-white rounded-xl border border-[var(--sf-border-light)] shadow-sm overflow-hidden">
                 <div className="px-5 py-4 border-b border-[var(--sf-border-light)] flex items-center justify-between">
                   <h2 className="text-lg font-semibold text-[var(--sf-text-primary)]">Team Payouts</h2>
-                  <button onClick={() => { setShowPayoutModal(true); setModalError('') }}
+                  <button onClick={() => { setPayPeriodStart(payoutsStartDate); setPayPeriodEnd(payoutsEndDate); setShowPayoutModal(true); setModalError('') }}
                     className="px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-1">
                     <Plus size={16} /> Create Payout
                   </button>
@@ -1807,6 +1809,7 @@ const Payroll = () => {
                             <div>
                               <div className="font-medium text-[var(--sf-text-primary)]">
                                 {tm.first_name} {tm.last_name || ''}
+                                {tm.status === 'inactive' && <span className="ml-1.5 text-xs text-gray-400 font-normal">(inactive)</span>}
                               </div>
                               {activeBatch ? (
                                 <div className="text-xs text-[var(--sf-text-muted)]">
