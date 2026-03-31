@@ -2623,6 +2623,12 @@ export const ledgerAPI = {
     return response.data;
   },
 
+  // Create payout batches for ALL team members at once (server-side loop)
+  createPayoutBatchAll: async (data) => {
+    const response = await api.post('/ledger/payout-batch/all', data);
+    return response.data;
+  },
+
   // Mark payout batch as paid
   markBatchPaid: async (batchId, note) => {
     const response = await api.patch(`/ledger/payout-batch/${batchId}/pay`, { note });
