@@ -3174,7 +3174,7 @@ const JobDetails = () => {
                       </button>
                     )}
                     {canResetJobStatuses(user) && (
-                      <button 
+                      <button
                         onClick={() => {
                           handleStatusUpdate('pending')
                           setMoreDropdown(false)
@@ -3185,6 +3185,30 @@ const JobDetails = () => {
                         Reset Job Status
                       </button>
                     )}
+                    <button
+                      onClick={() => {
+                        if (window.confirm('Cancel this job? Ledger entries (earnings, tips, incentives) will be removed.')) {
+                          handleStatusUpdate('cancelled')
+                          setMoreDropdown(false)
+                        }
+                      }}
+                      className="w-full text-left px-4 py-2.5 hover:bg-red-50 transition-colors flex items-center gap-3 text-red-600 font-medium text-sm"
+                    >
+                      <X size={18} />
+                      Cancel Job
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (window.confirm('Reschedule this job? Ledger entries will be removed. You can then set a new date.')) {
+                          handleStatusUpdate('rescheduled')
+                          setMoreDropdown(false)
+                        }
+                      }}
+                      className="w-full text-left px-4 py-2.5 hover:bg-purple-50 transition-colors flex items-center gap-3 text-purple-600 font-medium text-sm"
+                    >
+                      <Calendar size={18} />
+                      Reschedule
+                    </button>
                   </>
                 )
               }
