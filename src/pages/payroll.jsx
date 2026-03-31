@@ -602,25 +602,17 @@ const Payroll = () => {
     setModalLoading(true); setModalError('')
     try {
       if (payTeamMember === 'all') {
-        // Create payout batch for each team member
-        let created = 0
-        const skipped = []
-        for (const tm of teamMembers) {
-          try {
-            await ledgerAPI.createPayoutBatch({ teamMemberId: tm.id, periodStart: payPeriodStart, periodEnd: payPeriodEnd, note: payNote || undefined })
-            created++
-          } catch (err) {
-            const reason = err.response?.data?.error || 'Unknown error'
-            skipped.push(`${tm.first_name} ${tm.last_name || ''}`.trim() + ': ' + reason)
-          }
-        }
+        // Single server-side call to create batches for all members
+        const result = await ledgerAPI.createPayoutBatchAll({ periodStart: payPeriodStart, periodEnd: payPeriodEnd, note: payNote || undefined })
+        const created = result.created?.length || 0
+        const skipped = result.skipped || []
         if (created > 0) {
           setShowPayoutModal(false); setPayTeamMember(''); setPayPeriodStart(''); setPayPeriodEnd(''); setPayNote('')
           if (skipped.length > 0) {
-            setTimeout(() => alert(`Created ${created} payouts.\n\nSkipped ${skipped.length}:\n${skipped.join('\n')}`), 300)
+            setTimeout(() => alert(`Created ${created} payouts.\n\nSkipped ${skipped.length}:\n${skipped.map(s => `${s.name}: ${s.reason}`).join('\n')}`), 300)
           }
         } else {
-          setModalError(`No payouts created.\n\n${skipped.join('\n')}`)
+          setModalError(`No payouts created. ${skipped.length} members had no unpaid entries for this period.`)
         }
       } else {
         await ledgerAPI.createPayoutBatch({ teamMemberId: payTeamMember, periodStart: payPeriodStart, periodEnd: payPeriodEnd, note: payNote || undefined })
