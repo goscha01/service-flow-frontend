@@ -2635,6 +2635,12 @@ export const ledgerAPI = {
     return response.data;
   },
 
+  // Delete a pending payout batch entirely
+  deleteBatch: async (batchId) => {
+    const response = await api.delete(`/ledger/payout-batch/${batchId}`);
+    return response.data;
+  },
+
   // Bulk mark all unpaid entries as paid up to a cutoff date
   bulkMarkPaid: async (cutoffDate, note) => {
     const response = await api.post('/ledger/bulk-mark-paid', { cutoffDate, note });
