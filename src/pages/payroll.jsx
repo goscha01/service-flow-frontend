@@ -1894,6 +1894,19 @@ const Payroll = () => {
                                   className="px-2 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600" title="Delete batch — entries become unpaid">
                                   <Trash2 size={12} className="inline mr-1" />Delete
                                 </button>
+                                {parseFloat(activeBatch.total_amount) < 0 && (
+                                  <button onClick={(e) => {
+                                    e.stopPropagation()
+                                    setAdjTeamMember(String(tm.id))
+                                    setAdjAmount(Math.abs(parseFloat(activeBatch.total_amount)).toFixed(2))
+                                    setAdjDirection('positive')
+                                    setAdjNote(`Write off negative balance for ${tm.first_name} ${tm.last_name || ''}`.trim())
+                                    setShowAdjustmentModal(true); setModalError('')
+                                  }}
+                                    className="px-2 py-1 text-xs bg-yellow-500 text-white rounded hover:bg-yellow-600" title="Create adjustment to zero out balance">
+                                    <ArrowUpDown size={12} className="inline mr-1" />Adjust
+                                  </button>
+                                )}
                               </div>
                             )}
                           </div>
