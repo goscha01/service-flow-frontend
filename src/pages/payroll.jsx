@@ -412,7 +412,7 @@ const Payroll = () => {
   const fetchTeamMembers = useCallback(async () => {
     if (!user?.id) return
     try {
-      const data = await teamAPI.getAll(user.id, null, null, 1, 1000) // all members, no pagination
+      const data = await teamAPI.getAll(user.id, { limit: 1000 }) // all members, no status filter
       setTeamMembers(data.teamMembers || data || [])
     } catch (err) {
       console.error('Error fetching team members:', err)
