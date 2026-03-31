@@ -1899,15 +1899,22 @@ const Payroll = () => {
                                   <Trash2 size={12} className="inline mr-1" />Delete
                                 </button>
                                 {parseFloat(activeBatch.total_amount) < 0 && (
-                                  <button onClick={(e) => {
+                                  <button onClick={async (e) => {
                                     e.stopPropagation()
-                                    setAdjTeamMember(String(tm.id))
-                                    setAdjAmount(Math.abs(parseFloat(activeBatch.total_amount)).toFixed(2))
-                                    setAdjDirection('positive')
-                                    setAdjNote(`Write off negative balance for ${tm.first_name} ${tm.last_name || ''}`.trim())
-                                    setShowAdjustmentModal(true); setModalError('')
+                                    const amt = Math.abs(parseFloat(activeBatch.total_amount))
+                                    const name = `${tm.first_name} ${tm.last_name || ''}`.trim()
+                                    if (!window.confirm(`Write off ${formatCurrency(amt)} for ${name}?\n\nThis creates a +${formatCurrency(amt)} adjustment and rebuilds the batch to $0.00.`)) return
+                                    try {
+                                      await ledgerAPI.adjustAndRebuildBatch({
+                                        batchId: activeBatch.id,
+                                        amount: amt,
+                                        note: `Write off negative balance for ${name}`
+                                      })
+                                      fetchBatches(); fetchBalances()
+                                      alert(`Done — ${name} adjusted by +${formatCurrency(amt)}, batch rebuilt to $0.00`)
+                                    } catch (err) { alert(err.response?.data?.error || 'Failed to adjust') }
                                   }}
-                                    className="px-2 py-1 text-xs bg-yellow-500 text-white rounded hover:bg-yellow-600" title="Create adjustment to zero out balance">
+                                    className="px-2 py-1 text-xs bg-yellow-500 text-white rounded hover:bg-yellow-600" title="Write off and rebuild batch to $0">
                                     <ArrowUpDown size={12} className="inline mr-1" />Adjust
                                   </button>
                                 )}

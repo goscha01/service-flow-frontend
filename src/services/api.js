@@ -2617,6 +2617,12 @@ export const ledgerAPI = {
     return response.data;
   },
 
+  // Create adjustment + rebuild payout batch in one call
+  adjustAndRebuildBatch: async (data) => {
+    const response = await api.post('/ledger/adjust-and-rebuild-batch', data);
+    return response.data;
+  },
+
   // Create payout batch
   createPayoutBatch: async (data) => {
     const response = await api.post('/ledger/payout-batch', data);
