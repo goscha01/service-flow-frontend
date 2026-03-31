@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom"
 import {
   ChevronLeft, Calendar, DollarSign, Clock, Users, Download, Filter,
   AlertCircle, ChevronDown, ChevronRight, Plus, Minus, CreditCard,
-  Check, X, ArrowUpDown, BookOpen, Banknote, ClipboardCopy, Pencil
+  Check, X, ArrowUpDown, BookOpen, Banknote, ClipboardCopy, Pencil, Trash2
 } from "lucide-react"
 import { payrollAPI, ledgerAPI, teamAPI } from "../services/api"
 import api from "../services/api"
@@ -312,6 +312,7 @@ const Payroll = () => {
   const [batchesLoading, setBatchesLoading] = useState(false)
   const [expandedBatch, setExpandedBatch] = useState(null)
   const [batchDetail, setBatchDetail] = useState(null)
+  const [payoutsFilter, setPayoutsFilter] = useState('all') // all | paid | pending | skipped
 
   // ── Shared state ──
   const [teamMembers, setTeamMembers] = useState([])
@@ -642,6 +643,12 @@ const Payroll = () => {
     if (!window.confirm('Cancel this payout batch? Entries will become unpaid again.')) return
     try { await ledgerAPI.cancelBatch(batchId); fetchBatches(); fetchBalances() }
     catch (err) { alert(err.response?.data?.error || 'Failed to cancel batch') }
+  }
+
+  const handleDeleteBatch = async (batchId) => {
+    if (!window.confirm('Delete this payout batch? Entries will become unpaid again and the batch will be removed.')) return
+    try { await ledgerAPI.deleteBatch(batchId); fetchBatches(); fetchBalances() }
+    catch (err) { alert(err.response?.data?.error || 'Failed to delete batch') }
   }
 
   const handleViewBatch = async (batchId) => {
@@ -1696,7 +1703,49 @@ const Payroll = () => {
           )}
 
           {/* ═══════════════ PAYOUTS TAB ═══════════════ */}
-          {activeTab === 'payouts' && (
+          {activeTab === 'payouts' && (() => {
+            // Build per-member payout status from batches + team members
+            const periodBatches = batches.filter(batch => {
+              const batchStart = batch.period_start
+              const batchEnd = batch.period_end
+              if (!batchStart || !batchEnd) return true
+              // Batch overlaps selected period if its range intersects
+              if (payoutsEndDate && batchStart > payoutsEndDate) return false
+              if (payoutsStartDate && batchEnd < payoutsStartDate) return false
+              return true
+            }).filter(b => b.status !== 'cancelled')
+
+            // Group batches by team member
+            const batchesByMember = {}
+            periodBatches.forEach(b => {
+              const mid = b.team_member_id
+              if (!batchesByMember[mid]) batchesByMember[mid] = []
+              batchesByMember[mid].push(b)
+            })
+
+            // Build rows for ALL team members
+            const memberRows = teamMembers.map(tm => {
+              const memberBatches = batchesByMember[tm.id] || []
+              const paidBatch = memberBatches.find(b => b.status === 'paid')
+              const pendingBatch = memberBatches.find(b => b.status === 'pending')
+              let status = 'skipped'
+              let activeBatch = null
+              if (paidBatch) { status = 'paid'; activeBatch = paidBatch }
+              else if (pendingBatch) { status = 'pending'; activeBatch = pendingBatch }
+              return { tm, status, activeBatch, batches: memberBatches }
+            }).sort((a, b) => {
+              const order = { pending: 0, paid: 1, skipped: 2 }
+              return (order[a.status] ?? 3) - (order[b.status] ?? 3)
+            })
+
+            // Apply filter
+            const filteredRows = payoutsFilter === 'all' ? memberRows : memberRows.filter(r => r.status === payoutsFilter)
+
+            // Counts for filter badges
+            const counts = { all: memberRows.length, paid: 0, pending: 0, skipped: 0 }
+            memberRows.forEach(r => counts[r.status]++)
+
+            return (
             <div>
               <div className="bg-white rounded-xl border border-[var(--sf-border-light)] shadow-sm p-4 mb-4">
                 <QuickTimeFilter
@@ -1709,9 +1758,25 @@ const Payroll = () => {
                   onEndChange={setPayoutsEndDate}
                 />
               </div>
+
+              {/* Filter buttons */}
+              <div className="flex gap-2 mb-4">
+                {[
+                  { key: 'all', label: 'All', color: 'bg-gray-100 text-gray-700', activeColor: 'bg-gray-700 text-white' },
+                  { key: 'paid', label: 'Paid', color: 'bg-green-50 text-green-700', activeColor: 'bg-green-600 text-white' },
+                  { key: 'pending', label: 'Pending', color: 'bg-yellow-50 text-yellow-700', activeColor: 'bg-yellow-500 text-white' },
+                  { key: 'skipped', label: 'Skipped', color: 'bg-gray-50 text-gray-500', activeColor: 'bg-gray-500 text-white' },
+                ].map(f => (
+                  <button key={f.key} onClick={() => setPayoutsFilter(f.key)}
+                    className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-colors ${payoutsFilter === f.key ? f.activeColor : f.color} hover:opacity-90`}>
+                    {f.label} <span className="ml-1 opacity-75">({counts[f.key]})</span>
+                  </button>
+                ))}
+              </div>
+
               <div className="bg-white rounded-xl border border-[var(--sf-border-light)] shadow-sm overflow-hidden">
                 <div className="px-5 py-4 border-b border-[var(--sf-border-light)] flex items-center justify-between">
-                  <h2 className="text-lg font-semibold text-[var(--sf-text-primary)]">Payout Batches</h2>
+                  <h2 className="text-lg font-semibold text-[var(--sf-text-primary)]">Team Payouts</h2>
                   <button onClick={() => { setShowPayoutModal(true); setModalError('') }}
                     className="px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-1">
                     <Plus size={16} /> Create Payout
@@ -1719,64 +1784,74 @@ const Payroll = () => {
                 </div>
                 {batchesLoading ? (
                   <div className="p-8 text-center text-[var(--sf-text-muted)]">Loading...</div>
-                ) : batches.length === 0 ? (
+                ) : filteredRows.length === 0 ? (
                   <div className="p-8 text-center text-[var(--sf-text-muted)]">
                     <Banknote size={40} className="mx-auto mb-3 text-gray-300" />
-                    <p>No payout batches yet. Create one to settle cleaner balances.</p>
+                    <p>No team members match the selected filter.</p>
                   </div>
                 ) : (
                   <div className="divide-y divide-[var(--sf-border-light)]">
-                    {batches.filter(batch => {
-                      const batchDate = batch.period_end || batch.created_at?.split('T')[0]
-                      if (!batchDate) return true
-                      if (payoutsStartDate && batchDate < payoutsStartDate) return false
-                      if (payoutsEndDate && batchDate > payoutsEndDate) return false
-                      return true
-                    }).map(batch => (
-                      <div key={batch.id}>
-                        <div className="px-5 py-4 flex items-center justify-between hover:bg-[var(--sf-bg-hover)] cursor-pointer"
-                          onClick={() => handleViewBatch(batch.id)}>
+                    {filteredRows.map(({ tm, status, activeBatch }) => (
+                      <div key={tm.id}>
+                        <div className={`px-5 py-4 flex items-center justify-between ${activeBatch ? 'hover:bg-[var(--sf-bg-hover)] cursor-pointer' : ''}`}
+                          onClick={() => activeBatch && handleViewBatch(activeBatch.id)}>
                           <div className="flex items-center gap-4">
-                            <button className="text-[var(--sf-text-muted)]">
-                              {expandedBatch === batch.id ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                            </button>
+                            {activeBatch ? (
+                              <button className="text-[var(--sf-text-muted)]">
+                                {expandedBatch === activeBatch.id ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                              </button>
+                            ) : (
+                              <div className="w-4" />
+                            )}
                             <div>
                               <div className="font-medium text-[var(--sf-text-primary)]">
-                                {batch.team_members ? `${batch.team_members.first_name} ${batch.team_members.last_name}` : `Batch #${batch.id}`}
+                                {tm.first_name} {tm.last_name || ''}
                               </div>
-                              <div className="text-xs text-[var(--sf-text-muted)]">
-                                {formatDate(batch.period_start)} - {formatDate(batch.period_end)}
-                              </div>
+                              {activeBatch ? (
+                                <div className="text-xs text-[var(--sf-text-muted)]">
+                                  {formatDate(activeBatch.period_start)} - {formatDate(activeBatch.period_end)}
+                                </div>
+                              ) : (
+                                <div className="text-xs text-[var(--sf-text-muted)]">No entries</div>
+                              )}
                             </div>
                           </div>
                           <div className="flex items-center gap-4">
-                            <div className={`text-lg font-bold ${parseFloat(batch.total_amount) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                              {formatCurrency(batch.total_amount)}
-                            </div>
+                            {activeBatch ? (
+                              <div className={`text-lg font-bold ${parseFloat(activeBatch.total_amount) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                {formatCurrency(activeBatch.total_amount)}
+                              </div>
+                            ) : (
+                              <div className="text-lg font-bold text-gray-300">—</div>
+                            )}
                             <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                              batch.status === 'paid' ? 'bg-green-100 text-green-700' :
-                              batch.status === 'cancelled' ? 'bg-red-100 text-red-700' :
-                              'bg-yellow-100 text-yellow-700'
-                            }`}>{batch.status}</span>
-                            {batch.status === 'pending' && (
+                              status === 'paid' ? 'bg-green-100 text-green-700' :
+                              status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                              'bg-gray-100 text-gray-500'
+                            }`}>{status}</span>
+                            {status === 'pending' && activeBatch && (
                               <div className="flex gap-1">
-                                <button onClick={(e) => { e.stopPropagation(); handleMarkPaid(batch.id) }}
+                                <button onClick={(e) => { e.stopPropagation(); handleMarkPaid(activeBatch.id) }}
                                   className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700">
                                   <Check size={12} className="inline mr-1" />Pay
                                 </button>
-                                <button onClick={(e) => { e.stopPropagation(); handleCancelBatch(batch.id) }}
+                                <button onClick={(e) => { e.stopPropagation(); handleCancelBatch(activeBatch.id) }}
                                   className="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600">
                                   <X size={12} className="inline mr-1" />Cancel
+                                </button>
+                                <button onClick={(e) => { e.stopPropagation(); handleDeleteBatch(activeBatch.id) }}
+                                  className="px-2 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600" title="Delete batch">
+                                  <Trash2 size={12} className="inline mr-1" />Delete
                                 </button>
                               </div>
                             )}
                           </div>
                         </div>
-                        {expandedBatch === batch.id && batchDetail && (
+                        {activeBatch && expandedBatch === activeBatch.id && batchDetail && (
                           <div className="px-5 pb-4 bg-[var(--sf-bg-page)] border-t border-[var(--sf-border-light)]">
                             <div className="mt-3">
-                              {batch.paid_at && <p className="text-xs text-[var(--sf-text-muted)] mb-2">Paid on: {formatDate(batch.paid_at)}</p>}
-                              {batch.note && <p className="text-xs text-[var(--sf-text-muted)] mb-2">Note: {batch.note}</p>}
+                              {activeBatch.paid_at && <p className="text-xs text-[var(--sf-text-muted)] mb-2">Paid on: {formatDate(activeBatch.paid_at)}</p>}
+                              {activeBatch.note && <p className="text-xs text-[var(--sf-text-muted)] mb-2">Note: {activeBatch.note}</p>}
                               <table className="w-full text-xs mt-2">
                                 <thead className="text-[var(--sf-text-muted)] uppercase">
                                   <tr>
@@ -1812,7 +1887,8 @@ const Payroll = () => {
                 )}
               </div>
             </div>
-          )}
+            )
+          })()}
 
         </div>
       </div>
