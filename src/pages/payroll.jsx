@@ -2055,7 +2055,7 @@ const Payroll = () => {
                   ))}
                 </select>
               </div>
-              <div className="flex gap-3">
+              <div className="flex gap-3 items-end">
                 <div className="flex-1">
                   <label className="text-sm text-[var(--sf-text-secondary)] mb-1 block">Period Start *</label>
                   <input type="date" value={payPeriodStart} onChange={e => setPayPeriodStart(e.target.value)}
@@ -2066,6 +2066,10 @@ const Payroll = () => {
                   <input type="date" value={payPeriodEnd} onChange={e => setPayPeriodEnd(e.target.value)}
                     className="w-full border border-[var(--sf-border-light)] rounded-lg px-3 py-2 text-sm" />
                 </div>
+                <button type="button" onClick={() => { setPayPeriodStart('2024-01-01'); setPayPeriodEnd(toLocalDateString(new Date())) }}
+                  className="px-3 py-2 text-xs bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 whitespace-nowrap">
+                  All Time
+                </button>
               </div>
               <div>
                 <label className="text-sm text-[var(--sf-text-secondary)] mb-1 block">Note</label>
