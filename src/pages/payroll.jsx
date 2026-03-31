@@ -651,6 +651,16 @@ const Payroll = () => {
     } catch (err) { console.error('Error fetching batch detail:', err) }
   }
 
+  const handleMarkAllPaid = async (batchIds) => {
+    if (!window.confirm(`Mark ${batchIds.length} pending batches as paid?`)) return
+    try {
+      for (const id of batchIds) {
+        await ledgerAPI.markBatchPaid(id)
+      }
+      fetchBatches(); fetchBalances()
+    } catch (err) { alert(err.response?.data?.error || 'Failed to mark batches as paid') }
+  }
+
   const handleBackfillPreview = async () => {
     setBackfillLoading(true)
     setBackfillResult(null)
@@ -1736,9 +1746,14 @@ const Payroll = () => {
             // Apply filter
             const filteredRows = payoutsFilter === 'all' ? memberRows : memberRows.filter(r => r.status === payoutsFilter)
 
-            // Counts for filter badges
+            // Counts and totals for summary
             const counts = { all: memberRows.length, paid: 0, pending: 0, skipped: 0 }
-            memberRows.forEach(r => counts[r.status]++)
+            const totals = { paid: 0, pending: 0 }
+            memberRows.forEach(r => {
+              counts[r.status]++
+              if (r.activeBatch) totals[r.status] += parseFloat(r.activeBatch.total_amount) || 0
+            })
+            const pendingBatchIds = memberRows.filter(r => r.status === 'pending' && r.activeBatch).map(r => r.activeBatch.id)
 
             return (
             <div>
@@ -1768,6 +1783,37 @@ const Payroll = () => {
                   </button>
                 ))}
               </div>
+
+              {/* Summary panel */}
+              {(counts.paid > 0 || counts.pending > 0) && (
+                <div className="bg-white rounded-xl border border-[var(--sf-border-light)] shadow-sm p-4 mb-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div>
+                      <div className="text-xs text-[var(--sf-text-muted)] uppercase">Pending</div>
+                      <div className="text-xl font-bold text-yellow-600">{formatCurrency(totals.pending)}</div>
+                      <div className="text-xs text-[var(--sf-text-muted)]">{counts.pending} members</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-[var(--sf-text-muted)] uppercase">Paid</div>
+                      <div className="text-xl font-bold text-green-600">{formatCurrency(totals.paid)}</div>
+                      <div className="text-xs text-[var(--sf-text-muted)]">{counts.paid} members</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-[var(--sf-text-muted)] uppercase">Total</div>
+                      <div className="text-xl font-bold text-[var(--sf-text-primary)]">{formatCurrency(totals.pending + totals.paid)}</div>
+                      <div className="text-xs text-[var(--sf-text-muted)]">{counts.paid + counts.pending} members</div>
+                    </div>
+                    <div className="flex items-center">
+                      {pendingBatchIds.length > 0 && (
+                        <button onClick={() => handleMarkAllPaid(pendingBatchIds)}
+                          className="px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-1.5">
+                          <Check size={16} /> Mark All as Paid ({counts.pending})
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="bg-white rounded-xl border border-[var(--sf-border-light)] shadow-sm overflow-hidden">
                 <div className="px-5 py-4 border-b border-[var(--sf-border-light)] flex items-center justify-between">
