@@ -470,7 +470,7 @@ const Payroll = () => {
   const fetchBatches = useCallback(async () => {
     try {
       setBatchesLoading(true)
-      const data = await ledgerAPI.getPayoutBatches()
+      const data = await ledgerAPI.getPayoutBatches({ limit: 1000 })
       setBatches(data.batches || [])
     } catch (err) {
       console.error('Error fetching batches:', err)
@@ -646,7 +646,7 @@ const Payroll = () => {
   }
 
   const handleDeleteBatch = async (batchId) => {
-    if (!window.confirm('Delete this payout batch? Entries will become unpaid again and the batch will be removed.')) return
+    if (!window.confirm('Delete this payout batch?\n\nAll entries will become unpaid again and the batch record will be removed. Balances will update accordingly.')) return
     try { await ledgerAPI.deleteBatch(batchId); fetchBatches(); fetchBalances() }
     catch (err) { alert(err.response?.data?.error || 'Failed to delete batch') }
   }
@@ -1723,8 +1723,9 @@ const Payroll = () => {
               batchesByMember[mid].push(b)
             })
 
-            // Build rows for ALL team members
-            const memberRows = teamMembers.map(tm => {
+            // Build rows for active team members only
+            const activeMembers = teamMembers.filter(tm => tm.status !== 'inactive')
+            const memberRows = activeMembers.map(tm => {
               const memberBatches = batchesByMember[tm.id] || []
               const paidBatch = memberBatches.find(b => b.status === 'paid')
               const pendingBatch = memberBatches.find(b => b.status === 'pending')
@@ -1829,18 +1830,22 @@ const Payroll = () => {
                               status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
                               'bg-gray-100 text-gray-500'
                             }`}>{status}</span>
-                            {status === 'pending' && activeBatch && (
+                            {activeBatch && (
                               <div className="flex gap-1">
-                                <button onClick={(e) => { e.stopPropagation(); handleMarkPaid(activeBatch.id) }}
-                                  className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700">
-                                  <Check size={12} className="inline mr-1" />Pay
-                                </button>
-                                <button onClick={(e) => { e.stopPropagation(); handleCancelBatch(activeBatch.id) }}
-                                  className="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600">
-                                  <X size={12} className="inline mr-1" />Cancel
-                                </button>
+                                {status === 'pending' && (
+                                  <>
+                                    <button onClick={(e) => { e.stopPropagation(); handleMarkPaid(activeBatch.id) }}
+                                      className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700">
+                                      <Check size={12} className="inline mr-1" />Pay
+                                    </button>
+                                    <button onClick={(e) => { e.stopPropagation(); handleCancelBatch(activeBatch.id) }}
+                                      className="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600">
+                                      <X size={12} className="inline mr-1" />Cancel
+                                    </button>
+                                  </>
+                                )}
                                 <button onClick={(e) => { e.stopPropagation(); handleDeleteBatch(activeBatch.id) }}
-                                  className="px-2 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600" title="Delete batch">
+                                  className="px-2 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600" title="Delete batch — entries become unpaid">
                                   <Trash2 size={12} className="inline mr-1" />Delete
                                 </button>
                               </div>
