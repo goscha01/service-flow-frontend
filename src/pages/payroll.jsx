@@ -874,7 +874,7 @@ const Payroll = () => {
                       className="px-3 py-2 text-sm bg-orange-500 text-white rounded-lg hover:bg-orange-600 flex items-center gap-1">
                       <Banknote size={16} /> Cash
                     </button>
-                    <button onClick={() => { setShowAdjustmentModal(true); setModalError('') }}
+                    <button onClick={() => { if (balances.length === 0) fetchBalances(); setShowAdjustmentModal(true); setModalError('') }}
                       className="px-3 py-2 text-sm bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 flex items-center gap-1">
                       <ArrowUpDown size={16} /> Adjust
                     </button>
@@ -1955,12 +1955,31 @@ const Payroll = () => {
             <div className="space-y-3">
               <div>
                 <label className="text-sm text-[var(--sf-text-secondary)] mb-1 block">Team Member *</label>
-                <select value={adjTeamMember} onChange={e => setAdjTeamMember(e.target.value)}
+                <select value={adjTeamMember} onChange={e => {
+                  const tmId = e.target.value
+                  setAdjTeamMember(tmId)
+                  if (tmId) {
+                    const bal = balances.find(b => String(b.team_member_id) === tmId)
+                    if (bal && parseFloat(bal.current_balance) !== 0) {
+                      const amt = parseFloat(bal.current_balance)
+                      setAdjAmount(Math.abs(amt).toFixed(2))
+                      setAdjDirection(amt < 0 ? 'positive' : 'negative')
+                      if (!adjNote) setAdjNote(amt < 0 ? 'Write off negative balance (owes company)' : 'Balance adjustment')
+                    }
+                  }
+                }}
                   className="w-full border border-[var(--sf-border-light)] rounded-lg px-3 py-2 text-sm bg-white">
                   <option value="">Select...</option>
-                  {teamMembers.map(tm => (
-                    <option key={tm.id} value={tm.id}>{tm.first_name} {tm.last_name}</option>
-                  ))}
+                  {teamMembers.map(tm => {
+                    const bal = balances.find(b => b.team_member_id === tm.id)
+                    const amt = bal ? parseFloat(bal.current_balance) : 0
+                    const marker = amt < 0 ? ` [owes ${formatCurrency(Math.abs(amt))}]` : amt > 0 ? ` [owed ${formatCurrency(amt)}]` : ''
+                    return (
+                      <option key={tm.id} value={tm.id}>
+                        {tm.first_name} {tm.last_name}{tm.status === 'inactive' ? ' (inactive)' : ''}{marker}
+                      </option>
+                    )
+                  })}
                 </select>
               </div>
               <div className="flex gap-3">
