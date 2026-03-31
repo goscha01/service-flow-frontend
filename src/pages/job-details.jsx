@@ -665,11 +665,19 @@ const JobDetails = () => {
   const statusOptions = [
     { key: 'confirmed', label: 'Mark as En Route', color: 'bg-[var(--sf-blue-500)]' },
     { key: 'in_progress', label: 'Mark as In Progress', color: 'bg-orange-500' },
-    { key: 'completed', label: 'Mark as Complete', color: 'bg-green-500' }
+    { key: 'completed', label: 'Mark as Complete', color: 'bg-green-500' },
+    { key: 'rescheduled', label: 'Reschedule', color: 'bg-purple-500' },
+    { key: 'cancelled', label: 'Cancel Job', color: 'bg-red-500' }
   ]
 
   const handleStatusChange = async (newStatus) => {
     if (!job) return
+    if (newStatus === 'cancelled') {
+      if (!window.confirm('Cancel this job? This will remove all ledger entries (earnings, tips, incentives) for this job.')) return
+    }
+    if (newStatus === 'rescheduled' && (job.status === 'completed' || job.status === 'complete')) {
+      if (!window.confirm('Reschedule this completed job? This will remove its ledger entries. You can then set a new date.')) return
+    }
     try {
       setLoading(true)
       await jobsAPI.updateStatus(job.id, newStatus)
