@@ -1366,9 +1366,9 @@ const Payroll = () => {
                   <div className="text-xs text-[var(--sf-text-muted)] mt-1">Owed to all cleaners</div>
                 </div>
                 <div className="bg-white rounded-xl border border-[var(--sf-border-light)] shadow-sm p-5">
-                  <div className="text-sm text-[var(--sf-text-muted)] mb-1">Active Cleaners</div>
+                  <div className="text-sm text-[var(--sf-text-muted)] mb-1">Team Members</div>
                   <div className="text-2xl font-bold text-[var(--sf-text-primary)]">{balances.length}</div>
-                  <div className="text-xs text-[var(--sf-text-muted)] mt-1">With ledger activity</div>
+                  <div className="text-xs text-[var(--sf-text-muted)] mt-1">{balances.filter(b => b.status !== 'inactive').length} active, {balances.filter(b => b.status === 'inactive').length} inactive</div>
                 </div>
                 <div className="bg-white rounded-xl border border-[var(--sf-border-light)] shadow-sm p-5">
                   <div className="flex items-center justify-between mb-2">
