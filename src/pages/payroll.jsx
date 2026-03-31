@@ -1860,8 +1860,13 @@ const Payroll = () => {
                           </div>
                           <div className="flex items-center gap-4">
                             {activeBatch ? (
-                              <div className={`text-lg font-bold ${parseFloat(activeBatch.total_amount) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                {formatCurrency(activeBatch.total_amount)}
+                              <div className="text-right">
+                                <div className={`text-lg font-bold ${parseFloat(activeBatch.total_amount) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                  {formatCurrency(activeBatch.total_amount)}
+                                </div>
+                                {parseFloat(activeBatch.total_amount) < 0 && (
+                                  <div className="text-[10px] text-red-500">owes company</div>
+                                )}
                               </div>
                             ) : (
                               <div className="text-lg font-bold text-gray-300">—</div>
