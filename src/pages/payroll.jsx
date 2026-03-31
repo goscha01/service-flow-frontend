@@ -568,8 +568,9 @@ const Payroll = () => {
       await ledgerAPI.createAdjustment({ teamMemberId: adjTeamMember, amount, note: adjNote, jobId: adjJobId || undefined })
       setShowAdjustmentModal(false)
       setAdjTeamMember(''); setAdjAmount(''); setAdjNote(''); setAdjJobId('')
-      if (activeTab === 'balances') fetchBalances()
+      fetchBalances()
       if (activeTab === 'ledger') fetchEntries()
+      if (activeTab === 'payouts') fetchBatches()
     } catch (err) {
       setModalError(err.response?.data?.error || 'Failed to create adjustment')
     } finally { setModalLoading(false) }
