@@ -565,12 +565,15 @@ const Payroll = () => {
     setModalLoading(true); setModalError('')
     try {
       const amount = adjDirection === 'negative' ? -Math.abs(parseFloat(adjAmount)) : Math.abs(parseFloat(adjAmount))
+      const tmName = teamMembers.find(t => String(t.id) === String(adjTeamMember))
+      const name = tmName ? `${tmName.first_name} ${tmName.last_name || ''}`.trim() : ''
       await ledgerAPI.createAdjustment({ teamMemberId: adjTeamMember, amount, note: adjNote, jobId: adjJobId || undefined })
       setShowAdjustmentModal(false)
       setAdjTeamMember(''); setAdjAmount(''); setAdjNote(''); setAdjJobId('')
       fetchBalances()
       if (activeTab === 'ledger') fetchEntries()
       if (activeTab === 'payouts') fetchBatches()
+      setTimeout(() => alert(`Adjustment created: ${amount >= 0 ? '+' : ''}$${amount.toFixed(2)} for ${name}`), 200)
     } catch (err) {
       setModalError(err.response?.data?.error || 'Failed to create adjustment')
     } finally { setModalLoading(false) }
