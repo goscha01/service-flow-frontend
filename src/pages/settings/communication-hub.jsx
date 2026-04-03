@@ -1,43 +1,39 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import Sidebar from "../../components/sidebar"
+import { openPhoneAPI, communicationsAPI } from "../../services/api"
 import {
   ChevronLeft, Phone, PhoneCall, Star, ThumbsUp, Mail,
   MessageSquare, MessageCircle, Info, Check, X, ExternalLink,
-  Radio, Settings, Zap, Shield, Clock
+  Radio, Settings, Zap, Shield, Clock, Loader2, RefreshCw
 } from "lucide-react"
 
 // ═══════════════════════════════════════════════════════════════
-// Mock data — replace with API calls when backend is ready
+// Provider config (static definitions — status comes from API)
 // ═══════════════════════════════════════════════════════════════
 
-const PROVIDERS = [
-  { key: 'leadbridge', name: 'LeadBridge', description: 'Import Yelp and Thumbtack conversations into CRM', status: 'connected', connectedLabel: 'Connected via API key', Icon: Zap },
-  { key: 'openphone', name: 'OpenPhone', description: 'Sync texts, calls, and contacts from your OpenPhone workspace', status: 'connected', connectedLabel: 'Workspace: My Business', Icon: Phone },
-  { key: 'callio', name: 'Callio', description: 'Connect your native communication workspace and business number', status: 'not_connected', connectedLabel: null, Icon: PhoneCall },
-  { key: 'twilio', name: 'Twilio', description: 'Connect a Twilio account for advanced communication workflows', status: 'not_connected', connectedLabel: null, Icon: Settings },
-  { key: 'whatsapp', name: 'WhatsApp', description: 'Connect WhatsApp business messaging when available', status: 'coming_soon', connectedLabel: null, Icon: MessageCircle },
-  { key: 'messenger', name: 'Messenger', description: 'Connect Facebook Messenger when available', status: 'coming_soon', connectedLabel: null, Icon: MessageSquare },
+const PROVIDER_DEFS = [
+  { key: 'openphone', name: 'OpenPhone', description: 'Sync texts, calls, and contacts from your OpenPhone workspace', Icon: Phone },
+  { key: 'leadbridge', name: 'LeadBridge', description: 'Import Yelp and Thumbtack conversations into CRM', Icon: Zap },
+  { key: 'callio', name: 'Callio', description: 'Connect your native communication workspace and business number', Icon: PhoneCall },
+  { key: 'twilio', name: 'Twilio', description: 'Connect a Twilio account for advanced communication workflows', Icon: Settings },
+  { key: 'whatsapp', name: 'WhatsApp', description: 'Connect WhatsApp business messaging when available', Icon: MessageCircle },
+  { key: 'messenger', name: 'Messenger', description: 'Connect Facebook Messenger when available', Icon: MessageSquare },
 ]
 
-const CHANNELS = [
-  { channel: 'yelp', name: 'Yelp', provider: 'LeadBridge', enabled: true, statusLabel: 'Active' },
-  { channel: 'thumbtack', name: 'Thumbtack', provider: 'LeadBridge', enabled: true, statusLabel: 'Active' },
-  { channel: 'openphone_sms', name: 'OpenPhone SMS', provider: 'OpenPhone', enabled: true, statusLabel: 'Active' },
-  { channel: 'calls', name: 'Calls', provider: 'Callio / Twilio', enabled: false, statusLabel: 'Not configured' },
-  { channel: 'email', name: 'Email', provider: 'Direct', enabled: false, statusLabel: 'Coming soon' },
-  { channel: 'whatsapp', name: 'WhatsApp', provider: 'WhatsApp Business', enabled: false, statusLabel: 'Coming soon' },
-  { channel: 'messenger', name: 'Messenger', provider: 'Facebook', enabled: false, statusLabel: 'Coming soon' },
+const CHANNEL_DEFS = [
+  { channel: 'openphone_sms', name: 'OpenPhone SMS', providerKey: 'openphone' },
+  { channel: 'calls', name: 'Calls', providerKey: 'openphone' },
+  { channel: 'yelp', name: 'Yelp', providerKey: 'leadbridge' },
+  { channel: 'thumbtack', name: 'Thumbtack', providerKey: 'leadbridge' },
+  { channel: 'email', name: 'Email', providerKey: 'email' },
+  { channel: 'whatsapp', name: 'WhatsApp', providerKey: 'whatsapp' },
+  { channel: 'messenger', name: 'Messenger', providerKey: 'messenger' },
 ]
 
-const BUSINESS_NUMBERS = [
-  { number: '(555) 100-2000', owner: 'OpenPhone', capabilities: ['SMS', 'Voice'], role: 'Main inbox' },
-  { number: '(555) 200-3000', owner: 'LeadBridge', capabilities: ['SMS'], role: 'Lead response' },
-]
-
-const DEFAULT_SETTINGS = {
+const DEFAULT_PREFERENCES = {
   defaultSendChannel: 'last_used',
   preferredOutboundBehavior: 'original_channel',
   autoLinkByPhone: true,
@@ -58,21 +54,9 @@ const DEFAULT_SETTINGS = {
 // ═══════════════════════════════════════════════════════════════
 
 function StatusBadge({ status }) {
-  const styles = {
-    connected: 'bg-green-100 text-green-700',
-    not_connected: 'bg-gray-100 text-gray-600',
-    coming_soon: 'bg-yellow-50 text-yellow-600',
-  }
-  const labels = {
-    connected: 'Connected',
-    not_connected: 'Not connected',
-    coming_soon: 'Coming soon',
-  }
-  return (
-    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${styles[status] || styles.not_connected}`}>
-      {labels[status] || status}
-    </span>
-  )
+  const styles = { connected: 'bg-green-100 text-green-700', not_connected: 'bg-gray-100 text-gray-600', coming_soon: 'bg-yellow-50 text-yellow-600' }
+  const labels = { connected: 'Connected', not_connected: 'Not connected', coming_soon: 'Coming soon' }
+  return <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${styles[status] || styles.not_connected}`}>{labels[status] || status}</span>
 }
 
 function SectionHeader({ title, subtitle }) {
@@ -121,18 +105,101 @@ function SelectControl({ label, helpText, value, onChange, options }) {
 const CommunicationHub = () => {
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [settings, setSettings] = useState(DEFAULT_SETTINGS)
+  const [loading, setLoading] = useState(true)
+
+  // Connection state
+  const [connected, setConnected] = useState(false)
+  const [phoneNumbers, setPhoneNumbers] = useState([])
+  const [connectedAt, setConnectedAt] = useState(null)
+
+  // Connect modal
+  const [showConnectModal, setShowConnectModal] = useState(false)
+  const [apiKeyInput, setApiKeyInput] = useState('')
+  const [connecting, setConnecting] = useState(false)
+  const [connectError, setConnectError] = useState('')
+
+  // Sync
+  const [syncing, setSyncing] = useState(false)
+  const [syncResult, setSyncResult] = useState(null)
+
+  // Preferences
+  const [prefs, setPrefs] = useState(DEFAULT_PREFERENCES)
   const [hasChanges, setHasChanges] = useState(false)
 
-  const updateSetting = (key, value) => {
-    setSettings(prev => ({ ...prev, [key]: value }))
+  // Load status on mount
+  useEffect(() => {
+    loadStatus()
+  }, [])
+
+  const loadStatus = async () => {
+    try {
+      setLoading(true)
+      const status = await openPhoneAPI.getStatus()
+      setConnected(status.connected)
+      setPhoneNumbers(status.phoneNumbers || [])
+      setConnectedAt(status.connectedAt)
+      if (status.preferences && Object.keys(status.preferences).length > 0) {
+        setPrefs(prev => ({ ...prev, ...status.preferences }))
+      }
+    } catch (e) {
+      console.error('Failed to load status:', e)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleConnect = async () => {
+    if (!apiKeyInput.trim()) { setConnectError('API key is required'); return }
+    setConnecting(true); setConnectError('')
+    try {
+      const result = await openPhoneAPI.connect(apiKeyInput.trim())
+      setConnected(true)
+      setPhoneNumbers(result.phoneNumbers || [])
+      setConnectedAt(new Date().toISOString())
+      setShowConnectModal(false)
+      setApiKeyInput('')
+      alert(`OpenPhone connected! ${(result.phoneNumbers || []).length} phone numbers found.`)
+    } catch (e) {
+      setConnectError(e.response?.data?.error || 'Failed to connect. Check your API key.')
+    } finally {
+      setConnecting(false)
+    }
+  }
+
+  const handleDisconnect = async () => {
+    if (!window.confirm('Disconnect OpenPhone? Webhooks will stop and no new messages will sync.')) return
+    try {
+      await openPhoneAPI.disconnect()
+      setConnected(false); setPhoneNumbers([]); setConnectedAt(null)
+    } catch (e) { alert('Failed to disconnect') }
+  }
+
+  const handleSync = async () => {
+    setSyncing(true); setSyncResult(null)
+    try {
+      const result = await openPhoneAPI.sync()
+      setSyncResult(result)
+    } catch (e) { alert('Sync failed: ' + (e.response?.data?.error || e.message)) }
+    finally { setSyncing(false) }
+  }
+
+  const updatePref = (key, value) => {
+    setPrefs(prev => ({ ...prev, [key]: value }))
     setHasChanges(true)
   }
 
-  const handleSave = () => {
-    console.log('Saving communication settings:', settings)
-    setHasChanges(false)
-    // TODO: call PUT /communication-settings/preferences
+  const handleSavePrefs = async () => {
+    try {
+      await communicationsAPI.savePreferences(prefs)
+      setHasChanges(false)
+    } catch (e) { alert('Failed to save preferences') }
+  }
+
+  // Determine provider statuses
+  const getProviderStatus = (key) => {
+    if (key === 'openphone') return connected ? 'connected' : 'not_connected'
+    if (['whatsapp', 'messenger'].includes(key)) return 'coming_soon'
+    return 'not_connected'
   }
 
   return (
@@ -140,70 +207,81 @@ const CommunicationHub = () => {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="lg:pl-[260px]">
-        {/* Header with back button */}
+        {/* Header */}
         <div className="bg-white border-b border-[var(--sf-border-light)] px-6 py-4 sticky top-0 z-10">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <button onClick={() => navigate("/settings")}
-                className="flex items-center space-x-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]">
-                <ChevronLeft className="w-5 h-5" />
-                <span className="text-sm">Settings</span>
+              <button onClick={() => navigate("/settings")} className="flex items-center space-x-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]">
+                <ChevronLeft className="w-5 h-5" /><span className="text-sm">Settings</span>
               </button>
               <h1 className="text-xl font-semibold text-[var(--sf-text-primary)]">Communication Hub</h1>
             </div>
             {hasChanges && (
-              <button onClick={handleSave}
-                className="px-4 py-2 bg-[var(--sf-blue-500)] text-white text-sm font-medium rounded-lg hover:bg-[var(--sf-blue-600)] transition-colors">
+              <button onClick={handleSavePrefs} className="px-4 py-2 bg-[var(--sf-blue-500)] text-white text-sm font-medium rounded-lg hover:bg-[var(--sf-blue-600)]">
                 Save Changes
               </button>
             )}
           </div>
         </div>
 
-        {/* Content */}
+        {loading ? (
+          <div className="flex items-center justify-center p-20"><Loader2 size={32} className="animate-spin text-[var(--sf-text-muted)]" /></div>
+        ) : (
         <div className="max-w-4xl mx-auto p-6 space-y-8">
 
           {/* ═══ Section 1: Connected Providers ═══ */}
           <section>
             <SectionHeader title="Connected Communication Providers" subtitle="Manage the communication platforms connected to your CRM" />
             <div className="grid gap-3">
-              {PROVIDERS.map(p => (
-                <div key={p.key} className={`bg-white rounded-xl border border-[var(--sf-border-light)] p-4 flex items-center justify-between ${p.status === 'coming_soon' ? 'opacity-60' : ''}`}>
-                  <div className="flex items-center gap-4">
-                    <div className={`p-2.5 rounded-lg ${
-                      p.status === 'connected' ? 'bg-green-50 text-green-600' :
-                      p.status === 'coming_soon' ? 'bg-yellow-50 text-yellow-500' :
-                      'bg-gray-100 text-gray-400'
-                    }`}>
-                      <p.Icon size={22} />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold text-[var(--sf-text-primary)]">{p.name}</span>
-                        <StatusBadge status={p.status} />
+              {PROVIDER_DEFS.map(p => {
+                const status = getProviderStatus(p.key)
+                return (
+                  <div key={p.key} className={`bg-white rounded-xl border border-[var(--sf-border-light)] p-4 flex items-center justify-between ${status === 'coming_soon' ? 'opacity-60' : ''}`}>
+                    <div className="flex items-center gap-4">
+                      <div className={`p-2.5 rounded-lg ${status === 'connected' ? 'bg-green-50 text-green-600' : status === 'coming_soon' ? 'bg-yellow-50 text-yellow-500' : 'bg-gray-100 text-gray-400'}`}>
+                        <p.Icon size={22} />
                       </div>
-                      <p className="text-xs text-[var(--sf-text-muted)] mt-0.5">{p.description}</p>
-                      {p.connectedLabel && <p className="text-xs text-green-600 mt-0.5">{p.connectedLabel}</p>}
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold text-[var(--sf-text-primary)]">{p.name}</span>
+                          <StatusBadge status={status} />
+                        </div>
+                        <p className="text-xs text-[var(--sf-text-muted)] mt-0.5">{p.description}</p>
+                        {status === 'connected' && connectedAt && p.key === 'openphone' && (
+                          <p className="text-xs text-green-600 mt-0.5">Connected since {new Date(connectedAt).toLocaleDateString()}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      {status === 'connected' && p.key === 'openphone' && (
+                        <>
+                          <button onClick={handleSync} disabled={syncing}
+                            className="px-3 py-1.5 text-xs font-medium border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-hover)] text-[var(--sf-text-secondary)] flex items-center gap-1">
+                            {syncing ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />} Sync
+                          </button>
+                          <button onClick={handleDisconnect}
+                            className="px-3 py-1.5 text-xs font-medium border border-red-200 rounded-lg hover:bg-red-50 text-red-600">
+                            Disconnect
+                          </button>
+                        </>
+                      )}
+                      {status === 'not_connected' && p.key === 'openphone' && (
+                        <button onClick={() => { setShowConnectModal(true); setConnectError('') }}
+                          className="px-3 py-1.5 text-xs font-medium bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)]">
+                          Connect
+                        </button>
+                      )}
+                      {status === 'coming_soon' && <span className="text-xs text-[var(--sf-text-muted)]">Coming soon</span>}
                     </div>
                   </div>
-                  <div>
-                    {p.status === 'connected' && (
-                      <button className="px-3 py-1.5 text-xs font-medium border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-hover)] text-[var(--sf-text-secondary)]">
-                        Manage
-                      </button>
-                    )}
-                    {p.status === 'not_connected' && (
-                      <button className="px-3 py-1.5 text-xs font-medium bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)]">
-                        Connect
-                      </button>
-                    )}
-                    {p.status === 'coming_soon' && (
-                      <span className="text-xs text-[var(--sf-text-muted)]">Coming soon</span>
-                    )}
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
+            {syncResult && (
+              <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
+                Synced {syncResult.conversations} conversations, {syncResult.messages} messages
+              </div>
+            )}
           </section>
 
           {/* ═══ Section 2: Available Channels ═══ */}
@@ -219,63 +297,48 @@ const CommunicationHub = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--sf-border-light)]">
-                  {CHANNELS.map(ch => (
-                    <tr key={ch.channel} className={ch.enabled ? '' : 'opacity-50'}>
-                      <td className="px-4 py-3 font-medium text-[var(--sf-text-primary)]">{ch.name}</td>
-                      <td className="px-4 py-3 text-[var(--sf-text-muted)]">{ch.provider}</td>
-                      <td className="px-4 py-3">
-                        {ch.enabled ? (
-                          <span className="inline-flex items-center gap-1 text-xs text-green-600"><Check size={14} /> {ch.statusLabel}</span>
-                        ) : (
-                          <span className="text-xs text-[var(--sf-text-muted)]">{ch.statusLabel}</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                  {CHANNEL_DEFS.map(ch => {
+                    const providerConnected = getProviderStatus(ch.providerKey) === 'connected'
+                    return (
+                      <tr key={ch.channel} className={providerConnected ? '' : 'opacity-50'}>
+                        <td className="px-4 py-3 font-medium text-[var(--sf-text-primary)]">{ch.name}</td>
+                        <td className="px-4 py-3 text-[var(--sf-text-muted)]">{PROVIDER_DEFS.find(p => p.key === ch.providerKey)?.name || ch.providerKey}</td>
+                        <td className="px-4 py-3">
+                          {providerConnected ? (
+                            <span className="inline-flex items-center gap-1 text-xs text-green-600"><Check size={14} /> Active</span>
+                          ) : (
+                            <span className="text-xs text-[var(--sf-text-muted)]">Not configured</span>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
           </section>
 
-          {/* ═══ Section 3: Default Communication Behavior ═══ */}
+          {/* ═══ Section 3: Default Behavior ═══ */}
           <section>
-            <SectionHeader title="Default Communication Behavior" subtitle="Control how CRM chooses communication methods in the unified inbox" />
+            <SectionHeader title="Default Communication Behavior" subtitle="Control how CRM chooses communication methods" />
             <div className="bg-white rounded-xl border border-[var(--sf-border-light)] p-5 space-y-1 divide-y divide-[var(--sf-border-light)]">
-              <SelectControl
-                label="Default send channel"
-                helpText="The default channel selected in the conversation composer"
-                value={settings.defaultSendChannel}
-                onChange={v => updateSetting('defaultSendChannel', v)}
-                options={[
-                  { value: 'last_used', label: 'Last used channel' },
-                  { value: 'openphone', label: 'OpenPhone' },
-                  { value: 'leadbridge', label: 'LeadBridge channel (when available)' },
-                  { value: 'callio', label: 'Callio (when available)' },
-                ]}
-              />
-              <SelectControl
-                label="Preferred outbound channel for ongoing conversations"
-                helpText="How to choose the channel when continuing an existing conversation"
-                value={settings.preferredOutboundBehavior}
-                onChange={v => updateSetting('preferredOutboundBehavior', v)}
-                options={[
-                  { value: 'original_channel', label: 'Keep using original source channel when possible' },
-                  { value: 'prefer_openphone', label: 'Prefer OpenPhone for direct messaging' },
-                  { value: 'prefer_callio', label: 'Prefer Callio' },
-                  { value: 'ask_each_time', label: 'Ask user each time' },
-                ]}
-              />
+              <SelectControl label="Default send channel" helpText="The default channel selected in the conversation composer"
+                value={prefs.defaultSendChannel} onChange={v => updatePref('defaultSendChannel', v)}
+                options={[{ value: 'last_used', label: 'Last used channel' }, { value: 'openphone', label: 'OpenPhone' }, { value: 'leadbridge', label: 'LeadBridge channel' }]} />
+              <SelectControl label="Preferred outbound channel" helpText="How to choose the channel for ongoing conversations"
+                value={prefs.preferredOutboundBehavior} onChange={v => updatePref('preferredOutboundBehavior', v)}
+                options={[{ value: 'original_channel', label: 'Keep using original source channel' }, { value: 'prefer_openphone', label: 'Prefer OpenPhone' }, { value: 'ask_each_time', label: 'Ask each time' }]} />
             </div>
           </section>
 
-          {/* ═══ Section 4: Conversation Linking Rules ═══ */}
+          {/* ═══ Section 4: Linking Rules ═══ */}
           <section>
-            <SectionHeader title="Conversation Linking Rules" subtitle="How messages and calls from connected providers attach to CRM leads" />
+            <SectionHeader title="Conversation Linking Rules" subtitle="How messages and calls attach to CRM leads and customers" />
             <div className="bg-white rounded-xl border border-[var(--sf-border-light)] p-5 divide-y divide-[var(--sf-border-light)]">
-              <Toggle label="Auto-link by exact phone match" helpText="Automatically match conversations to leads with the same phone number" checked={settings.autoLinkByPhone} onChange={v => updateSetting('autoLinkByPhone', v)} />
-              <Toggle label="Auto-link by exact email match" helpText="Automatically match conversations to leads with the same email" checked={settings.autoLinkByEmail} onChange={v => updateSetting('autoLinkByEmail', v)} />
-              <Toggle label="Auto-link by existing source mapping" helpText="Match conversations using known provider IDs (e.g., Yelp lead ID)" checked={settings.autoLinkBySource} onChange={v => updateSetting('autoLinkBySource', v)} />
-              <Toggle label="Show unlinked conversations in inbox" helpText="Display conversations that haven't been matched to a CRM lead" checked={settings.showUnlinkedConversations} onChange={v => updateSetting('showUnlinkedConversations', v)} />
+              <Toggle label="Auto-link by exact phone match" helpText="Match conversations to customers/leads with the same phone number" checked={prefs.autoLinkByPhone} onChange={v => updatePref('autoLinkByPhone', v)} />
+              <Toggle label="Auto-link by exact email match" checked={prefs.autoLinkByEmail} onChange={v => updatePref('autoLinkByEmail', v)} />
+              <Toggle label="Auto-link by existing source mapping" helpText="Match using known provider IDs" checked={prefs.autoLinkBySource} onChange={v => updatePref('autoLinkBySource', v)} />
+              <Toggle label="Show unlinked conversations in inbox" helpText="Display conversations not matched to a CRM lead" checked={prefs.showUnlinkedConversations} onChange={v => updatePref('showUnlinkedConversations', v)} />
             </div>
           </section>
 
@@ -283,47 +346,35 @@ const CommunicationHub = () => {
           <section>
             <SectionHeader title="Inbox Preferences" subtitle="Configure how the Communications screen behaves" />
             <div className="bg-white rounded-xl border border-[var(--sf-border-light)] p-5 divide-y divide-[var(--sf-border-light)]">
-              <SelectControl
-                label="Default inbox filter on load"
-                value={settings.defaultInboxFilter}
-                onChange={v => updateSetting('defaultInboxFilter', v)}
-                options={[
-                  { value: 'unread', label: 'Unread' },
-                  { value: 'recents', label: 'Recents' },
-                  { value: 'all', label: 'All' },
-                ]}
-              />
-              <Toggle label="Mark conversation as read when opened" checked={settings.markReadOnOpen} onChange={v => updateSetting('markReadOnOpen', v)} />
-              <Toggle label="Display channel badges in conversation list" helpText="Show small icons for each channel on conversation rows" checked={settings.showChannelBadges} onChange={v => updateSetting('showChannelBadges', v)} />
-              <Toggle label="Group conversations by lead when possible" helpText="Merge related conversations from different channels into one thread" checked={settings.groupByLeadWhenPossible} onChange={v => updateSetting('groupByLeadWhenPossible', v)} />
-              <Toggle label="Show archived conversations" checked={settings.showArchivedConversations} onChange={v => updateSetting('showArchivedConversations', v)} />
-              <Toggle label="Show call events in timeline" checked={settings.showCallEvents} onChange={v => updateSetting('showCallEvents', v)} />
-              <Toggle label="Show system events in timeline" helpText="Display auto-replies, lead creation, and other system events" checked={settings.showSystemEvents} onChange={v => updateSetting('showSystemEvents', v)} />
+              <SelectControl label="Default inbox filter on load" value={prefs.defaultInboxFilter} onChange={v => updatePref('defaultInboxFilter', v)}
+                options={[{ value: 'unread', label: 'Unread' }, { value: 'recents', label: 'Recents' }, { value: 'all', label: 'All' }]} />
+              <Toggle label="Mark conversation as read when opened" checked={prefs.markReadOnOpen} onChange={v => updatePref('markReadOnOpen', v)} />
+              <Toggle label="Display channel badges in conversation list" checked={prefs.showChannelBadges} onChange={v => updatePref('showChannelBadges', v)} />
+              <Toggle label="Group conversations by lead when possible" checked={prefs.groupByLeadWhenPossible} onChange={v => updatePref('groupByLeadWhenPossible', v)} />
+              <Toggle label="Show archived conversations" checked={prefs.showArchivedConversations} onChange={v => updatePref('showArchivedConversations', v)} />
+              <Toggle label="Show call events in timeline" checked={prefs.showCallEvents} onChange={v => updatePref('showCallEvents', v)} />
+              <Toggle label="Show system events in timeline" checked={prefs.showSystemEvents} onChange={v => updatePref('showSystemEvents', v)} />
             </div>
           </section>
 
           {/* ═══ Section 6: Business Numbers ═══ */}
           <section>
-            <SectionHeader title="Connected Business Numbers" subtitle="Communication numbers available to your business from connected providers" />
-            {BUSINESS_NUMBERS.length > 0 ? (
-              <div className="bg-white rounded-xl border border-[var(--sf-border-light)] overflow-hidden">
-                <div className="divide-y divide-[var(--sf-border-light)]">
-                  {BUSINESS_NUMBERS.map((bn, i) => (
-                    <div key={i} className="px-4 py-3 flex items-center justify-between">
-                      <div>
-                        <div className="text-sm font-medium text-[var(--sf-text-primary)]">{bn.number}</div>
-                        <div className="text-xs text-[var(--sf-text-muted)]">
-                          via {bn.owner} &middot; {bn.role}
-                        </div>
-                      </div>
-                      <div className="flex gap-1.5">
-                        {bn.capabilities.map(cap => (
-                          <span key={cap} className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--sf-blue-50)] text-[var(--sf-blue-500)] font-medium">{cap}</span>
-                        ))}
-                      </div>
+            <SectionHeader title="Connected Business Numbers" subtitle="Communication numbers available from connected providers" />
+            {phoneNumbers.length > 0 ? (
+              <div className="bg-white rounded-xl border border-[var(--sf-border-light)] overflow-hidden divide-y divide-[var(--sf-border-light)]">
+                {phoneNumbers.map((pn, i) => (
+                  <div key={i} className="px-4 py-3 flex items-center justify-between">
+                    <div>
+                      <div className="text-sm font-medium text-[var(--sf-text-primary)]">{pn.number || pn.phoneNumber || pn}</div>
+                      <div className="text-xs text-[var(--sf-text-muted)]">via OpenPhone {pn.name ? `· ${pn.name}` : ''}</div>
                     </div>
-                  ))}
-                </div>
+                    <div className="flex gap-1.5">
+                      {(pn.capabilities || ['SMS', 'Voice']).map(cap => (
+                        <span key={cap} className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--sf-blue-50)] text-[var(--sf-blue-500)] font-medium">{typeof cap === 'string' ? cap : cap.type || 'SMS'}</span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : (
               <div className="bg-white rounded-xl border border-[var(--sf-border-light)] p-6 text-center text-[var(--sf-text-muted)] text-sm">
@@ -337,24 +388,36 @@ const CommunicationHub = () => {
             <SectionHeader title="Coming Soon" subtitle="Features planned for future releases" />
             <div className="bg-white rounded-xl border border-dashed border-[var(--sf-border)] p-5">
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {[
-                  { icon: Zap, label: 'Channel-specific routing' },
-                  { icon: Shield, label: 'Assignment rules' },
-                  { icon: Clock, label: 'SLA rules' },
-                  { icon: MessageSquare, label: 'AI reply behavior' },
-                  { icon: Mail, label: 'Templates by channel' },
-                  { icon: Settings, label: 'Shared inbox permissions' },
-                ].map(f => (
-                  <div key={f.label} className="flex items-center gap-2 text-xs text-[var(--sf-text-muted)] p-2">
-                    <f.icon size={14} /> {f.label}
-                  </div>
+                {[{ icon: Zap, label: 'Channel-specific routing' }, { icon: Shield, label: 'Assignment rules' }, { icon: Clock, label: 'SLA rules' }, { icon: MessageSquare, label: 'AI reply behavior' }, { icon: Mail, label: 'Templates by channel' }, { icon: Settings, label: 'Shared inbox permissions' }].map(f => (
+                  <div key={f.label} className="flex items-center gap-2 text-xs text-[var(--sf-text-muted)] p-2"><f.icon size={14} /> {f.label}</div>
                 ))}
               </div>
             </div>
           </section>
 
         </div>
+        )}
       </div>
+
+      {/* Connect Modal */}
+      {showConnectModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <h3 className="text-lg font-bold text-[var(--sf-text-primary)] mb-2">Connect OpenPhone</h3>
+            <p className="text-sm text-[var(--sf-text-muted)] mb-4">Enter your OpenPhone API key. You can find it in OpenPhone Settings → API.</p>
+            {connectError && <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded text-sm text-red-600">{connectError}</div>}
+            <input type="password" value={apiKeyInput} onChange={e => setApiKeyInput(e.target.value)} placeholder="Enter OpenPhone API key"
+              className="w-full border border-[var(--sf-border-light)] rounded-lg px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-1 focus:ring-[var(--sf-blue-500)]" />
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setShowConnectModal(false)} className="px-4 py-2 text-sm text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]">Cancel</button>
+              <button onClick={handleConnect} disabled={connecting}
+                className="px-4 py-2 text-sm bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] disabled:opacity-50 flex items-center gap-2">
+                {connecting && <Loader2 size={14} className="animate-spin" />} {connecting ? 'Connecting...' : 'Connect'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

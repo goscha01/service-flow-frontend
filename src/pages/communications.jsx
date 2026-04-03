@@ -11,6 +11,7 @@ import {
 import { useAuth } from "../context/AuthContext"
 import Sidebar from "../components/sidebar"
 import MobileHeader from "../components/mobile-header"
+import { communicationsAPI, openPhoneAPI } from "../services/api"
 
 // ═══════════════════════════════════════════════════════════════
 // Channel configuration
@@ -444,12 +445,77 @@ const Communications = () => {
   const [selectedId, setSelectedId] = useState(null)
   const [sendChannel, setSendChannel] = useState(null)
   const [composerText, setComposerText] = useState('')
-  const [mobileView, setMobileView] = useState('list') // 'list' | 'thread'
+  const [mobileView, setMobileView] = useState('list')
   const [showLeadPanel, setShowLeadPanel] = useState(false)
   const timelineEndRef = useRef(null)
 
-  const detail = selectedId ? MOCK_DETAILS[selectedId] : null
-  const selectedConv = MOCK_CONVERSATIONS.find(c => c.id === selectedId)
+  // Real data state
+  const [conversations, setConversations] = useState([])
+  const [detail, setDetail] = useState(null)
+  const [isConnected, setIsConnected] = useState(null) // null = loading, true/false = known
+  const [convLoading, setConvLoading] = useState(false)
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [sending, setSending] = useState(false)
+
+  const selectedConv = conversations.find(c => String(c.id) === String(selectedId))
+
+  // Check connection status + load conversations
+  useEffect(() => {
+    if (!user?.id) return
+    openPhoneAPI.getStatus().then(status => {
+      setIsConnected(status.connected)
+      if (status.connected) loadConversations()
+      else {
+        // Use mock data when not connected
+        setConversations(MOCK_CONVERSATIONS)
+        setIsConnected(false)
+      }
+    }).catch(() => {
+      setConversations(MOCK_CONVERSATIONS)
+      setIsConnected(false)
+    })
+  }, [user?.id])
+
+  const loadConversations = async (filter, search) => {
+    try {
+      setConvLoading(true)
+      const data = await communicationsAPI.getConversations({ filter: filter || (activeFilter === 'unread' ? 'unread' : undefined), search })
+      setConversations(data.conversations || [])
+    } catch (e) {
+      console.error('Failed to load conversations:', e)
+      setConversations(MOCK_CONVERSATIONS) // fallback
+    } finally {
+      setConvLoading(false)
+    }
+  }
+
+  // Reload on filter/search change (only when connected)
+  useEffect(() => {
+    if (isConnected) loadConversations(activeFilter === 'unread' ? 'unread' : undefined, searchQuery || undefined)
+  }, [activeFilter, searchQuery, isConnected])
+
+  // Polling for new messages (every 20s when connected)
+  useEffect(() => {
+    if (!isConnected) return
+    const interval = setInterval(() => loadConversations(), 20000)
+    return () => clearInterval(interval)
+  }, [isConnected])
+
+  // Load conversation detail when selected
+  useEffect(() => {
+    if (!selectedId) { setDetail(null); return }
+    if (!isConnected) {
+      setDetail(MOCK_DETAILS[selectedId] || null)
+      return
+    }
+    setDetailLoading(true)
+    communicationsAPI.getConversation(selectedId).then(data => {
+      setDetail(data)
+    }).catch(e => {
+      console.error('Failed to load conversation:', e)
+      setDetail(null)
+    }).finally(() => setDetailLoading(false))
+  }, [selectedId, isConnected])
 
   // Auto-scroll timeline to bottom
   useEffect(() => {
@@ -458,7 +524,7 @@ const Communications = () => {
     }
   }, [selectedId, detail])
 
-  // Default to the last channel used by the customer (last inbound event)
+  // Default send channel = last customer inbound channel
   useEffect(() => {
     if (detail?.events?.length) {
       const lastInbound = [...detail.events].reverse().find(e => e.senderRole === 'customer' && e.channel !== 'system')
@@ -466,34 +532,28 @@ const Communications = () => {
     }
   }, [selectedId, detail])
 
-  // Filtered conversations
+  // Filtered conversations (client-side for mock, server-side for real — but still apply for consistency)
   const filteredConversations = useMemo(() => {
-    let list = [...MOCK_CONVERSATIONS]
-
-    // Search
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase()
-      list = list.filter(c =>
-        (c.displayName || '').toLowerCase().includes(q) ||
-        (c.fallbackIdentifier || '').toLowerCase().includes(q) ||
-        (c.lastPreview || '').toLowerCase().includes(q)
-      )
+    let list = [...conversations]
+    if (!isConnected) {
+      // Client-side filtering for mock
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase()
+        list = list.filter(c =>
+          (c.displayName || '').toLowerCase().includes(q) ||
+          (c.fallbackIdentifier || '').toLowerCase().includes(q) ||
+          (c.lastPreview || '').toLowerCase().includes(q)
+        )
+      }
+      if (activeFilter === 'unread') list = list.filter(c => c.unreadCount > 0)
     }
-
-    // Filter
-    if (activeFilter === 'unread') {
-      list = list.filter(c => c.unreadCount > 0)
-    }
-
-    // Sort
     list.sort((a, b) => new Date(b.lastEventAt) - new Date(a.lastEventAt))
-
     return list
-  }, [activeFilter, searchQuery])
+  }, [conversations, activeFilter, searchQuery, isConnected])
 
   // Group events by date for timeline
   const groupedEvents = useMemo(() => {
-    if (!detail) return []
+    if (!detail?.events) return []
     const groups = []
     let currentDate = null
     for (const evt of detail.events) {
@@ -514,10 +574,24 @@ const Communications = () => {
     setShowLeadPanel(false)
   }
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!composerText.trim()) return
-    console.log('Send via', sendChannel, ':', composerText)
-    setComposerText('')
+    if (!isConnected) { console.log('Send via', sendChannel, ':', composerText); setComposerText(''); return }
+    setSending(true)
+    try {
+      const sentMsg = await communicationsAPI.sendMessage(selectedId, { text: composerText.trim(), channel: sendChannel })
+      // Append to local detail
+      if (detail) {
+        setDetail(prev => ({ ...prev, events: [...(prev?.events || []), sentMsg] }))
+      }
+      setComposerText('')
+      // Refresh conversation list to update preview
+      loadConversations()
+    } catch (e) {
+      alert(e.response?.data?.error || 'Failed to send message')
+    } finally {
+      setSending(false)
+    }
   }
 
   if (!user) {

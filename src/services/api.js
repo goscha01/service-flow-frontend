@@ -2701,4 +2701,29 @@ export const ledgerAPI = {
   }
 };
 
+// ═══ Communications API (Sigcore-backed) ═══
+
+export const openPhoneAPI = {
+  connect: async (apiKey) => { const r = await api.post('/communications/connect-openphone', { apiKey }); return r.data; },
+  getStatus: async () => { const r = await api.get('/communications/status'); return r.data; },
+  getNumbers: async () => { const r = await api.get('/communications/phone-numbers'); return r.data; },
+  disconnect: async () => { const r = await api.delete('/communications/disconnect-openphone'); return r.data; },
+  sync: async () => { const r = await api.post('/communications/sync'); return r.data; },
+};
+
+export const communicationsAPI = {
+  getConversations: async (params = {}) => {
+    const query = new URLSearchParams();
+    if (params.filter) query.append('filter', params.filter);
+    if (params.search) query.append('search', params.search);
+    if (params.archived) query.append('archived', params.archived);
+    const r = await api.get(`/communications/conversations?${query}`);
+    return r.data;
+  },
+  getConversation: async (id) => { const r = await api.get(`/communications/conversations/${id}`); return r.data; },
+  sendMessage: async (id, data) => { const r = await api.post(`/communications/conversations/${id}/send`, data); return r.data; },
+  updateConversation: async (id, data) => { const r = await api.patch(`/communications/conversations/${id}`, data); return r.data; },
+  savePreferences: async (prefs) => { const r = await api.put('/communications/settings/preferences', prefs); return r.data; },
+};
+
 export default api;
