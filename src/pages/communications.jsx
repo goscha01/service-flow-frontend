@@ -535,7 +535,7 @@ const Communications = () => {
     <div className="flex h-screen bg-[var(--sf-bg-page)] overflow-hidden">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <div className="flex-1 flex flex-col overflow-hidden lg:ml-[260px]">
+      <div className="flex-1 flex flex-col overflow-hidden md:ml-20 lg:ml-[260px]">
         {/* Mobile header */}
         <div className="lg:hidden sticky top-0 z-30">
           <MobileHeader pageTitle="Communications" />
@@ -626,6 +626,9 @@ const Communications = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
+                    <button onClick={() => setShowLeadPanel(!showLeadPanel)} className="xl:hidden p-2 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-hover)] rounded-lg" title="Lead info">
+                      <User size={18} />
+                    </button>
                     <button onClick={() => console.log('Archive')} className="p-2 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-hover)] rounded-lg" title="Archive">
                       <Archive size={18} />
                     </button>
@@ -668,6 +671,24 @@ const Communications = () => {
             )}
           </div>
 
+          {/* ═══ RIGHT COLUMN: Lead Context ═══ */}
+          <div className={`w-80 flex-shrink-0 bg-white border-l border-[var(--sf-border-light)] overflow-y-auto ${
+            showLeadPanel ? 'fixed inset-0 z-40 w-full sm:w-80 sm:static' : 'hidden xl:block'
+          }`}>
+            {showLeadPanel && (
+              <div className="xl:hidden flex items-center justify-between p-3 border-b border-[var(--sf-border-light)]">
+                <h3 className="text-sm font-bold text-[var(--sf-text-primary)]">Lead Info</h3>
+                <button onClick={() => setShowLeadPanel(false)} className="p-1 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-primary)]">
+                  <X size={18} />
+                </button>
+              </div>
+            )}
+            {selectedId ? (
+              <LeadPanel lead={detail?.lead} />
+            ) : (
+              <EmptyState icon={User} title="No lead selected" subtitle="Select a conversation to see lead details" />
+            )}
+          </div>
 
         </div>
       </div>
