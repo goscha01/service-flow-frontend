@@ -158,7 +158,6 @@ const CommunicationHub = () => {
       setConnectedAt(new Date().toISOString())
       setShowConnectModal(false)
       setApiKeyInput('')
-      alert(`OpenPhone connected! ${(result.phoneNumbers || []).length} phone numbers found.`)
     } catch (e) {
       setConnectError(e.response?.data?.error || 'Failed to connect. Check your API key.')
     } finally {
@@ -204,9 +203,7 @@ const CommunicationHub = () => {
 
   return (
     <div className="min-h-screen bg-[var(--sf-bg-page)]">
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
-      <div className="lg:pl-[260px]">
+      <div>
         {/* Header */}
         <div className="bg-white border-b border-[var(--sf-border-light)] px-6 py-4 sticky top-0 z-10">
           <div className="flex items-center justify-between">
