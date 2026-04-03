@@ -35,11 +35,11 @@ const Sidebar = ({ isOpen, onClose }) => {
   const allSidebarItems = [
     { icon: Home, label: "Dashboard", path: "/dashboard", section: "main" },
     { icon: Target, label: "Leads", path: "/leads", section: "main" },
-    { icon: MessageSquare, label: "Communications", path: "/communications", section: "main" },
     { icon: CalendarDays, label: "Tasks", path: "/calendar", section: "main" },
     { icon: Users, label: "Customers", path: "/customers", section: "main" },
     { icon: Briefcase, label: "Jobs", path: "/jobs", section: "main" },
     { icon: Calendar, label: "Schedule", path: "/schedule", section: "main" },
+    { icon: MessageSquare, label: "Communications", path: "/communications", section: "main" },
     { icon: FileText, label: "Estimates", path: "/estimates", hidden: true, section: "main" },
     { icon: FileText, label: "Invoices", path: "/invoices", hidden: true, section: "main" },
     { icon: RotateCcw, label: "Recurring", path: "/recurring", hidden: true, section: "main" },
