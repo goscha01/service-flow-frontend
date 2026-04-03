@@ -532,14 +532,8 @@ const Communications = () => {
   }
 
   return (
-    <div className="flex h-screen bg-[var(--sf-bg-page)] overflow-hidden">
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
-      <div className="flex-1 flex flex-col overflow-hidden md:ml-20 lg:ml-[260px]">
-        {/* Mobile header */}
-        <div className="lg:hidden sticky top-0 z-30">
-          <MobileHeader pageTitle="Communications" />
-        </div>
+    <div className="flex flex-col h-screen bg-[var(--sf-bg-page)] overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden">
 
         {/* 3-column layout */}
         <div className="flex-1 flex overflow-hidden">
