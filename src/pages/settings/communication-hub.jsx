@@ -248,73 +248,83 @@ const CommunicationHub = () => {
             <div className="grid gap-3">
               {PROVIDER_DEFS.map(p => {
                 const status = getProviderStatus(p.key)
+                const isOpenPhone = p.key === 'openphone'
                 return (
-                  <div key={p.key} className={`bg-white rounded-xl border border-[var(--sf-border-light)] p-4 flex items-center justify-between ${status === 'coming_soon' ? 'opacity-60' : ''}`}>
-                    <div className="flex items-center gap-4">
-                      <div className={`p-2.5 rounded-lg ${status === 'connected' ? 'bg-green-50 text-green-600' : status === 'coming_soon' ? 'bg-yellow-50 text-yellow-500' : 'bg-gray-100 text-gray-400'}`}>
-                        <p.Icon size={22} />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-semibold text-[var(--sf-text-primary)]">{p.name}</span>
-                          <StatusBadge status={status} />
+                  <div key={p.key} className={`bg-white rounded-xl border border-[var(--sf-border-light)] overflow-hidden ${status === 'coming_soon' ? 'opacity-60' : ''}`}>
+                    <div className="p-4 flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className={`p-2.5 rounded-lg ${status === 'connected' ? 'bg-green-50 text-green-600' : status === 'coming_soon' ? 'bg-yellow-50 text-yellow-500' : 'bg-gray-100 text-gray-400'}`}>
+                          <p.Icon size={22} />
                         </div>
-                        <p className="text-xs text-[var(--sf-text-muted)] mt-0.5">{p.description}</p>
-                        {status === 'connected' && connectedAt && p.key === 'openphone' && (
-                          <p className="text-xs text-green-600 mt-0.5">Connected since {new Date(connectedAt).toLocaleDateString()}</p>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-semibold text-[var(--sf-text-primary)]">{p.name}</span>
+                            <StatusBadge status={status} />
+                          </div>
+                          <p className="text-xs text-[var(--sf-text-muted)] mt-0.5">{p.description}</p>
+                          {status === 'connected' && connectedAt && isOpenPhone && (
+                            <p className="text-xs text-green-600 mt-0.5">Connected since {new Date(connectedAt).toLocaleDateString()}</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        {status === 'connected' && isOpenPhone && (
+                          <>
+                            <button onClick={() => handleSync(10)} disabled={syncing}
+                              className="px-3 py-1.5 text-xs font-medium bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] disabled:opacity-50 flex items-center gap-1">
+                              {syncing ? <Loader2 size={12} className="animate-spin" /> : <Zap size={12} />} Test (10)
+                            </button>
+                            <button onClick={() => handleSync()} disabled={syncing}
+                              className="px-3 py-1.5 text-xs font-medium border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-hover)] text-[var(--sf-text-secondary)] disabled:opacity-50 flex items-center gap-1">
+                              {syncing ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />} Sync All
+                            </button>
+                            <button onClick={handleDisconnect}
+                              className="px-3 py-1.5 text-xs font-medium border border-red-200 rounded-lg hover:bg-red-50 text-red-600">
+                              Disconnect
+                            </button>
+                          </>
                         )}
+                        {status === 'not_connected' && isOpenPhone && (
+                          <button onClick={() => { setShowConnectModal(true); setConnectError('') }}
+                            className="px-3 py-1.5 text-xs font-medium bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)]">
+                            Connect
+                          </button>
+                        )}
+                        {status === 'coming_soon' && <span className="text-xs text-[var(--sf-text-muted)]">Coming soon</span>}
                       </div>
                     </div>
-                    <div className="flex gap-2">
-                      {status === 'connected' && p.key === 'openphone' && (
-                        <>
-                          <button onClick={() => handleSync(10)} disabled={syncing}
-                            className="px-3 py-1.5 text-xs font-medium bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] disabled:opacity-50 flex items-center gap-1">
-                            {syncing ? <Loader2 size={12} className="animate-spin" /> : <Zap size={12} />} Test (10)
-                          </button>
-                          <button onClick={() => handleSync()} disabled={syncing}
-                            className="px-3 py-1.5 text-xs font-medium border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-hover)] text-[var(--sf-text-secondary)] disabled:opacity-50 flex items-center gap-1">
-                            {syncing ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />} Sync All
-                          </button>
-                          <button onClick={handleDisconnect}
-                            className="px-3 py-1.5 text-xs font-medium border border-red-200 rounded-lg hover:bg-red-50 text-red-600">
-                            Disconnect
-                          </button>
-                        </>
-                      )}
-                      {status === 'not_connected' && p.key === 'openphone' && (
-                        <button onClick={() => { setShowConnectModal(true); setConnectError('') }}
-                          className="px-3 py-1.5 text-xs font-medium bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)]">
-                          Connect
-                        </button>
-                      )}
-                      {status === 'coming_soon' && <span className="text-xs text-[var(--sf-text-muted)]">Coming soon</span>}
-                    </div>
+                    {/* Progress bar inside OpenPhone card */}
+                    {isOpenPhone && syncing && (
+                      <div className="px-4 pb-4">
+                        <div className="bg-[var(--sf-bg-input)] rounded-lg p-3">
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-xs font-medium text-[var(--sf-text-primary)]">
+                              {syncProgress?.phase === 'fetching' ? 'Counting conversations...' : 'Syncing...'}
+                            </span>
+                            <span className="text-xs text-[var(--sf-text-muted)]">
+                              {syncProgress ? `${syncProgress.synced}/${syncProgress.total} convs, ${syncProgress.messages} msgs` : 'Starting...'}
+                            </span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-1.5">
+                            <div className="bg-[var(--sf-blue-500)] h-1.5 rounded-full transition-all"
+                              style={{ width: `${syncProgress?.total > 0 ? Math.round((syncProgress.synced / syncProgress.total) * 100) : 5}%` }} />
+                          </div>
+                          {syncProgress?.errors > 0 && <p className="text-[10px] text-red-500 mt-1">{syncProgress.errors} errors</p>}
+                        </div>
+                      </div>
+                    )}
+                    {/* Sync result inside OpenPhone card */}
+                    {isOpenPhone && syncResult && !syncing && (
+                      <div className="px-4 pb-4">
+                        <div className="bg-green-50 rounded-lg p-3 text-xs text-green-700">
+                          Synced {syncResult.conversations} conversations, {syncResult.messages} messages
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )
               })}
             </div>
-
-            {/* Sync progress bar */}
-            {syncing && syncProgress && (
-              <div className="mt-3 bg-white rounded-xl border border-[var(--sf-border-light)] p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-[var(--sf-text-primary)]">
-                    Syncing conversations...
-                  </span>
-                  <span className="text-xs text-[var(--sf-text-muted)]">
-                    {syncProgress.synced}/{syncProgress.total} conversations, {syncProgress.messages} messages
-                  </span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div className="bg-[var(--sf-blue-500)] h-2 rounded-full transition-all"
-                    style={{ width: `${syncProgress.total > 0 ? Math.round((syncProgress.synced / syncProgress.total) * 100) : 0}%` }} />
-                </div>
-                {syncProgress.errors > 0 && (
-                  <p className="text-xs text-red-500 mt-1">{syncProgress.errors} errors</p>
-                )}
-              </div>
-            )}
             {syncResult && (
               <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
                 Synced {syncResult.conversations} conversations, {syncResult.messages} messages
