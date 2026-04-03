@@ -106,6 +106,7 @@ import ImportCustomersPage from "./pages/import-customers"
 import ImportJobsPage from "./pages/import-jobs"
 import UnifiedImportJobsPage from "./pages/import-jobs-unified"
 import LeadsPipeline from "./pages/leads-pipeline"
+import Communications from "./pages/communications"
 import LandingPageLegacy from "./pages/LandingPage"
 import Notifications from "./pages/notifications"
 import { TeamMemberAuthProvider } from "./context/TeamMemberAuthContext"
@@ -141,6 +142,7 @@ root.render(
       <Route path="/customers" element={<ServiceFlowCustomers />} />
       <Route path="/customer/:customerId" element={<ProtectedRoute><CustomerDetails /></ProtectedRoute>} />
       <Route path="/leads" element={<ProtectedRoute><LeadsPipeline /></ProtectedRoute>} />
+      <Route path="/communications" element={<ProtectedRoute><Communications /></ProtectedRoute>} />
       <Route path="/invoices/:invoiceId" element={<ProtectedRoute><InvoiceDetails /></ProtectedRoute>} />
       <Route path="/invoices/:invoiceId/edit" element={<ProtectedRoute><InvoiceEdit /></ProtectedRoute>} />
       <Route path="/team" element={<ServiceFlowTeam />} />
