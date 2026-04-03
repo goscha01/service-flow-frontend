@@ -120,6 +120,7 @@ const CommunicationHub = () => {
 
   // Sync
   const [syncing, setSyncing] = useState(false)
+  const [syncProgress, setSyncProgress] = useState(null) // { status, total, synced, messages }
   const [syncResult, setSyncResult] = useState(null)
 
   // Preferences
@@ -173,13 +174,28 @@ const CommunicationHub = () => {
     } catch (e) { alert('Failed to disconnect') }
   }
 
-  const handleSync = async () => {
-    setSyncing(true); setSyncResult(null)
+  const handleSync = async (limit) => {
+    setSyncing(true); setSyncResult(null); setSyncProgress(null)
     try {
-      const result = await openPhoneAPI.sync()
-      setSyncResult(result)
-    } catch (e) { alert('Sync failed: ' + (e.response?.data?.error || e.message)) }
-    finally { setSyncing(false) }
+      await openPhoneAPI.sync(limit || undefined)
+      // Poll progress
+      const pollInterval = setInterval(async () => {
+        try {
+          const progress = await openPhoneAPI.getSyncProgress()
+          setSyncProgress(progress)
+          if (progress.status === 'complete' || progress.status === 'error' || progress.status === 'idle') {
+            clearInterval(pollInterval)
+            setSyncing(false)
+            if (progress.status === 'complete') {
+              setSyncResult({ conversations: progress.synced, messages: progress.messages })
+            }
+          }
+        } catch (e) { clearInterval(pollInterval); setSyncing(false) }
+      }, 1500)
+    } catch (e) {
+      alert('Sync failed: ' + (e.response?.data?.error || e.message))
+      setSyncing(false)
+    }
   }
 
   const updatePref = (key, value) => {
@@ -252,9 +268,13 @@ const CommunicationHub = () => {
                     <div className="flex gap-2">
                       {status === 'connected' && p.key === 'openphone' && (
                         <>
-                          <button onClick={handleSync} disabled={syncing}
-                            className="px-3 py-1.5 text-xs font-medium border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-hover)] text-[var(--sf-text-secondary)] flex items-center gap-1">
-                            {syncing ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />} Sync
+                          <button onClick={() => handleSync(10)} disabled={syncing}
+                            className="px-3 py-1.5 text-xs font-medium bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] disabled:opacity-50 flex items-center gap-1">
+                            {syncing ? <Loader2 size={12} className="animate-spin" /> : <Zap size={12} />} Test (10)
+                          </button>
+                          <button onClick={() => handleSync()} disabled={syncing}
+                            className="px-3 py-1.5 text-xs font-medium border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-hover)] text-[var(--sf-text-secondary)] disabled:opacity-50 flex items-center gap-1">
+                            {syncing ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />} Sync All
                           </button>
                           <button onClick={handleDisconnect}
                             className="px-3 py-1.5 text-xs font-medium border border-red-200 rounded-lg hover:bg-red-50 text-red-600">
@@ -274,6 +294,27 @@ const CommunicationHub = () => {
                 )
               })}
             </div>
+
+            {/* Sync progress bar */}
+            {syncing && syncProgress && (
+              <div className="mt-3 bg-white rounded-xl border border-[var(--sf-border-light)] p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-[var(--sf-text-primary)]">
+                    Syncing conversations...
+                  </span>
+                  <span className="text-xs text-[var(--sf-text-muted)]">
+                    {syncProgress.synced}/{syncProgress.total} conversations, {syncProgress.messages} messages
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div className="bg-[var(--sf-blue-500)] h-2 rounded-full transition-all"
+                    style={{ width: `${syncProgress.total > 0 ? Math.round((syncProgress.synced / syncProgress.total) * 100) : 0}%` }} />
+                </div>
+                {syncProgress.errors > 0 && (
+                  <p className="text-xs text-red-500 mt-1">{syncProgress.errors} errors</p>
+                )}
+              </div>
+            )}
             {syncResult && (
               <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
                 Synced {syncResult.conversations} conversations, {syncResult.messages} messages
