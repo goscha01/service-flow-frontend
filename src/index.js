@@ -52,6 +52,7 @@ import PaymentProcessing from "./pages/payment-processing"
 // Settings Pages
 import FeedbackReviews from "./pages/settings/feedback-reviews"
 import CommunicationHub from "./pages/settings/communication-hub"
+import AdminDashboard from "./pages/admin-dashboard"
 import ClientTeamNotifications from "./pages/settings/client-team-notifications"
 import JobAssignment from "./pages/settings/job-assignment"
 import Availability from "./pages/settings/availability"
@@ -177,6 +178,7 @@ root.render(
       <Route path="/settings/branding" element={<BrandingSettings />} />
       <Route path="/settings/feedback-reviews" element={<FeedbackReviews />} />
       <Route path="/settings/communication-hub" element={<CommunicationHub />} />
+      <Route path="/admin" element={<AdminDashboard />} />
       <Route path="/settings/client-team-notifications" element={<ClientTeamNotifications />} />
       <Route path="/settings/client-team-notifications/notification-testing" element={<NotificationTestingSettings />} />
       <Route path="/settings/client-team-notifications/quote-request-processing" element={<QuoteRequestProcessing />} />
