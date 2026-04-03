@@ -219,6 +219,7 @@ export const getAllowedSidebarItems = (user) => {
       '/payments',
       '/customers',
       '/leads',
+      '/communications',
       '/team',
       '/payroll',
       '/services',
