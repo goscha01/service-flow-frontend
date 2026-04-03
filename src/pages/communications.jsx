@@ -301,34 +301,20 @@ function TimelineEvent({ event }) {
   )
 }
 
-// ── Composer with channel tabs ──
-function Composer({ availableChannels, sendChannel, setSendChannel, text, setText, onSend }) {
-  const allChannels = ['all', ...availableChannels]
+// ── Composer ──
+function Composer({ sendChannel, text, setText, onSend }) {
+  const ch = CHANNELS[sendChannel]
 
   return (
     <div className="border-t border-[var(--sf-border-light)] bg-white">
-      {/* Channel tabs */}
-      <div className="flex border-b border-[var(--sf-border-light)] px-3 pt-1">
-        {allChannels.map(c => {
-          const isAll = c === 'all'
-          const ch = isAll ? null : CHANNELS[c]
-          const isActive = sendChannel === c
-          return (
-            <button key={c} onClick={() => setSendChannel(c)}
-              className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 transition-colors ${
-                isActive
-                  ? 'border-[var(--sf-blue-500)] text-[var(--sf-blue-500)]'
-                  : 'border-transparent text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]'
-              }`}>
-              {isAll ? (
-                <><MessageSquare size={13} /> All</>
-              ) : (
-                <><ch.Icon size={13} /> {ch.label}</>
-              )}
-            </button>
-          )
-        })}
-      </div>
+      {/* Channel indicator */}
+      {ch && (
+        <div className="px-3 pt-2 pb-0">
+          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${ch.color}`}>
+            <ch.Icon size={12} /> Replying via {ch.label}
+          </span>
+        </div>
+      )}
       {/* Input row */}
       <div className="flex items-end gap-2 p-3">
         <div className="flex gap-1 pb-1.5">
@@ -342,7 +328,7 @@ function Composer({ availableChannels, sendChannel, setSendChannel, text, setTex
         <textarea
           value={text}
           onChange={e => setText(e.target.value)}
-          placeholder={sendChannel === 'all' ? 'Type a message...' : `Send via ${CHANNELS[sendChannel]?.label || sendChannel}...`}
+          placeholder={`Send via ${ch?.label || 'message'}...`}
           rows={1}
           className="flex-1 resize-none border border-[var(--sf-border-light)] rounded-lg px-3 py-2 text-sm bg-[var(--sf-bg-input)] focus:outline-none focus:ring-1 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend() } }}
@@ -464,9 +450,12 @@ const Communications = () => {
     }
   }, [selectedId, detail])
 
-  // Set default send channel to 'all' when selecting conversation
+  // Default to the last channel used by the customer (last inbound event)
   useEffect(() => {
-    if (detail) setSendChannel('all')
+    if (detail?.events?.length) {
+      const lastInbound = [...detail.events].reverse().find(e => e.senderRole === 'customer' && e.channel !== 'system')
+      setSendChannel(lastInbound?.channel || detail.availableSendChannels?.[0] || 'openphone')
+    }
   }, [selectedId, detail])
 
   // Filtered conversations
@@ -654,9 +643,7 @@ const Communications = () => {
 
                 {/* Composer */}
                 <Composer
-                  availableChannels={detail?.availableSendChannels || ['openphone']}
-                  sendChannel={sendChannel || 'all'}
-                  setSendChannel={setSendChannel}
+                  sendChannel={sendChannel || 'openphone'}
                   text={composerText}
                   setText={setComposerText}
                   onSend={handleSend}
