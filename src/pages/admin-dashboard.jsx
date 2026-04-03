@@ -8,7 +8,8 @@ import {
   Shield, Eye, EyeOff, Database, Zap, LogIn, LogOut
 } from "lucide-react"
 
-const API_BASE = process.env.REACT_APP_API_URL || 'https://service-flow-backend-staging-303f.up.railway.app'
+// REACT_APP_API_URL already ends with /api, so admin paths should NOT include /api prefix
+const API_BASE = process.env.REACT_APP_API_URL || 'https://service-flow-backend-staging-303f.up.railway.app/api'
 
 // Admin-specific axios instance (separate from SF user auth)
 function getAdminApi() {
@@ -33,7 +34,7 @@ function AdminLogin({ onLogin }) {
     e.preventDefault()
     setLoading(true); setError('')
     try {
-      const { data } = await axios.post(`${API_BASE}/api/admin/login`, { email, password })
+      const { data } = await axios.post(`${API_BASE}/admin/login`, { email, password })
       localStorage.setItem('sf_admin_token', data.token)
       onLogin(data)
     } catch (err) {
@@ -107,7 +108,7 @@ const AdminDashboard = () => {
   const loadGlobalSettings = async () => {
     try {
       setGlobalLoading(true)
-      const { data } = await getAdminApi().get('/api/admin/global-settings')
+      const { data } = await getAdminApi().get('/admin/global-settings')
       setSigcoreUrl(data.sigcoreUrl || '')
       setSigcoreWorkspaceKey(data.sigcoreWorkspaceKey || '')
       setSigcoreStatus(data.sigcoreConnected ? 'connected' : null)
@@ -119,7 +120,7 @@ const AdminDashboard = () => {
   const loadUsers = async () => {
     try {
       setUsersLoading(true)
-      const { data } = await getAdminApi().get('/api/admin/users')
+      const { data } = await getAdminApi().get('/admin/users')
       setUsers(data.users || [])
     } catch (e) {
       if (e.response?.status === 401 || e.response?.status === 403) handleLogout()
@@ -129,7 +130,7 @@ const AdminDashboard = () => {
   const handleSaveGlobal = async () => {
     setSaving(true)
     try {
-      await getAdminApi().put('/api/admin/global-settings', { sigcoreUrl, sigcoreWorkspaceKey })
+      await getAdminApi().put('/admin/global-settings', { sigcoreUrl, sigcoreWorkspaceKey })
       alert('Settings saved')
     } catch (e) { alert('Failed to save: ' + (e.response?.data?.error || e.message)) }
     finally { setSaving(false) }
@@ -138,7 +139,7 @@ const AdminDashboard = () => {
   const handleTestSigcore = async () => {
     setTestingConnection(true); setSigcoreStatus(null)
     try {
-      const { data } = await getAdminApi().post('/api/admin/test-sigcore')
+      const { data } = await getAdminApi().post('/admin/test-sigcore')
       setSigcoreStatus(data.connected ? 'connected' : 'error')
       if (data.connected) alert(`Connected! ${data.tenants || 0} tenants found.`)
       else alert('Connection failed: ' + (data.error || 'Unknown error'))
