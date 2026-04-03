@@ -2708,7 +2708,8 @@ export const openPhoneAPI = {
   getStatus: async () => { const r = await api.get('/communications/status'); return r.data; },
   getNumbers: async () => { const r = await api.get('/communications/phone-numbers'); return r.data; },
   disconnect: async () => { const r = await api.delete('/communications/disconnect-openphone'); return r.data; },
-  sync: async () => { const r = await api.post('/communications/sync'); return r.data; },
+  sync: async (limit) => { const r = await api.post('/communications/sync', limit ? { limit } : {}); return r.data; },
+  getSyncProgress: async () => { const r = await api.get('/communications/sync/progress'); return r.data; },
 };
 
 export const communicationsAPI = {
