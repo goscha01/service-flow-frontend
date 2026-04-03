@@ -301,14 +301,36 @@ function TimelineEvent({ event }) {
   )
 }
 
-// ── Composer ──
+// ── Composer with channel tabs ──
 function Composer({ availableChannels, sendChannel, setSendChannel, text, setText, onSend }) {
-  const [showDropdown, setShowDropdown] = useState(false)
-  const ch = CHANNELS[sendChannel] || CHANNELS.openphone
+  const allChannels = ['all', ...availableChannels]
 
   return (
-    <div className="border-t border-[var(--sf-border-light)] bg-white p-3">
-      <div className="flex items-end gap-2">
+    <div className="border-t border-[var(--sf-border-light)] bg-white">
+      {/* Channel tabs */}
+      <div className="flex border-b border-[var(--sf-border-light)] px-3 pt-1">
+        {allChannels.map(c => {
+          const isAll = c === 'all'
+          const ch = isAll ? null : CHANNELS[c]
+          const isActive = sendChannel === c
+          return (
+            <button key={c} onClick={() => setSendChannel(c)}
+              className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 transition-colors ${
+                isActive
+                  ? 'border-[var(--sf-blue-500)] text-[var(--sf-blue-500)]'
+                  : 'border-transparent text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]'
+              }`}>
+              {isAll ? (
+                <><MessageSquare size={13} /> All</>
+              ) : (
+                <><ch.Icon size={13} /> {ch.label}</>
+              )}
+            </button>
+          )
+        })}
+      </div>
+      {/* Input row */}
+      <div className="flex items-end gap-2 p-3">
         <div className="flex gap-1 pb-1.5">
           <button className="p-1.5 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] rounded" title="Attach file">
             <Paperclip size={18} />
@@ -320,37 +342,11 @@ function Composer({ availableChannels, sendChannel, setSendChannel, text, setTex
         <textarea
           value={text}
           onChange={e => setText(e.target.value)}
-          placeholder="Type a message..."
+          placeholder={sendChannel === 'all' ? 'Type a message...' : `Send via ${CHANNELS[sendChannel]?.label || sendChannel}...`}
           rows={1}
           className="flex-1 resize-none border border-[var(--sf-border-light)] rounded-lg px-3 py-2 text-sm bg-[var(--sf-bg-input)] focus:outline-none focus:ring-1 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend() } }}
         />
-        {/* Channel selector */}
-        <div className="relative pb-0.5">
-          <button
-            onClick={() => setShowDropdown(!showDropdown)}
-            className={`flex items-center gap-1.5 px-2.5 py-2 rounded-lg border text-xs font-medium ${ch.color} border-transparent hover:opacity-90`}
-          >
-            <ch.Icon size={14} />
-            <span className="hidden sm:inline">{ch.label}</span>
-            <ChevronDown size={12} />
-          </button>
-          {showDropdown && (
-            <div className="absolute bottom-full mb-1 right-0 bg-white border border-[var(--sf-border-light)] rounded-lg shadow-lg py-1 min-w-[160px] z-20">
-              {availableChannels.map(c => {
-                const opt = CHANNELS[c]
-                if (!opt) return null
-                return (
-                  <button key={c} onClick={() => { setSendChannel(c); setShowDropdown(false) }}
-                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-[var(--sf-bg-hover)] ${c === sendChannel ? 'font-semibold bg-[var(--sf-bg-active)]' : ''}`}>
-                    <span className={`inline-flex items-center justify-center rounded-full p-0.5 ${opt.color}`}><opt.Icon size={14} /></span>
-                    {opt.label}
-                  </button>
-                )
-              })}
-            </div>
-          )}
-        </div>
         <button onClick={onSend} disabled={!text.trim()}
           className="p-2.5 rounded-lg bg-[var(--sf-blue-500)] text-white hover:bg-[var(--sf-blue-600)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
           <Send size={18} />
@@ -468,13 +464,9 @@ const Communications = () => {
     }
   }, [selectedId, detail])
 
-  // Set default send channel when selecting conversation
+  // Set default send channel to 'all' when selecting conversation
   useEffect(() => {
-    if (detail?.availableSendChannels?.length) {
-      // Default to last outbound channel from events, or first available
-      const lastOutbound = [...(detail.events || [])].reverse().find(e => e.type === 'message_out')
-      setSendChannel(lastOutbound?.channel || detail.availableSendChannels[0])
-    }
+    if (detail) setSendChannel('all')
   }, [selectedId, detail])
 
   // Filtered conversations
@@ -634,9 +626,6 @@ const Communications = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
-                    <button onClick={() => setShowLeadPanel(!showLeadPanel)} className="xl:hidden p-2 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-hover)] rounded-lg" title="Lead info">
-                      <User size={18} />
-                    </button>
                     <button onClick={() => console.log('Archive')} className="p-2 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-hover)] rounded-lg" title="Archive">
                       <Archive size={18} />
                     </button>
@@ -669,7 +658,7 @@ const Communications = () => {
                 {/* Composer */}
                 <Composer
                   availableChannels={detail?.availableSendChannels || ['openphone']}
-                  sendChannel={sendChannel || 'openphone'}
+                  sendChannel={sendChannel || 'all'}
                   setSendChannel={setSendChannel}
                   text={composerText}
                   setText={setComposerText}
@@ -679,24 +668,6 @@ const Communications = () => {
             )}
           </div>
 
-          {/* ═══ RIGHT COLUMN: Lead Context ═══ */}
-          <div className={`w-80 flex-shrink-0 bg-white border-l border-[var(--sf-border-light)] overflow-y-auto ${
-            showLeadPanel ? 'fixed inset-0 z-40 w-full sm:w-80 sm:static' : 'hidden xl:block'
-          }`}>
-            {showLeadPanel && (
-              <div className="xl:hidden flex items-center justify-between p-3 border-b border-[var(--sf-border-light)]">
-                <h3 className="text-sm font-bold text-[var(--sf-text-primary)]">Lead Info</h3>
-                <button onClick={() => setShowLeadPanel(false)} className="p-1 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-primary)]">
-                  <X size={18} />
-                </button>
-              </div>
-            )}
-            {selectedId ? (
-              <LeadPanel lead={detail?.lead} />
-            ) : (
-              <EmptyState icon={User} title="No lead selected" subtitle="Select a conversation to see lead details" />
-            )}
-          </div>
 
         </div>
       </div>
