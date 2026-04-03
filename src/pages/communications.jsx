@@ -301,20 +301,28 @@ function TimelineEvent({ event }) {
   )
 }
 
-// ── Composer ──
-function Composer({ sendChannel, text, setText, onSend }) {
-  const ch = CHANNELS[sendChannel]
-
+// ── Composer with channel tabs (no "All") ──
+function Composer({ availableChannels, sendChannel, setSendChannel, text, setText, onSend }) {
   return (
     <div className="border-t border-[var(--sf-border-light)] bg-white">
-      {/* Channel indicator */}
-      {ch && (
-        <div className="px-3 pt-2 pb-0">
-          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${ch.color}`}>
-            <ch.Icon size={12} /> Replying via {ch.label}
-          </span>
-        </div>
-      )}
+      {/* Channel tabs */}
+      <div className="flex border-b border-[var(--sf-border-light)] px-3 pt-1">
+        {availableChannels.map(c => {
+          const ch = CHANNELS[c]
+          if (!ch) return null
+          const isActive = sendChannel === c
+          return (
+            <button key={c} onClick={() => setSendChannel(c)}
+              className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 transition-colors ${
+                isActive
+                  ? 'border-[var(--sf-blue-500)] text-[var(--sf-blue-500)]'
+                  : 'border-transparent text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]'
+              }`}>
+              <ch.Icon size={13} /> {ch.label}
+            </button>
+          )
+        })}
+      </div>
       {/* Input row */}
       <div className="flex items-end gap-2 p-3">
         <div className="flex gap-1 pb-1.5">
@@ -328,7 +336,7 @@ function Composer({ sendChannel, text, setText, onSend }) {
         <textarea
           value={text}
           onChange={e => setText(e.target.value)}
-          placeholder={`Send via ${ch?.label || 'message'}...`}
+          placeholder={`Send via ${CHANNELS[sendChannel]?.label || 'message'}...`}
           rows={1}
           className="flex-1 resize-none border border-[var(--sf-border-light)] rounded-lg px-3 py-2 text-sm bg-[var(--sf-bg-input)] focus:outline-none focus:ring-1 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend() } }}
@@ -643,7 +651,9 @@ const Communications = () => {
 
                 {/* Composer */}
                 <Composer
+                  availableChannels={detail?.availableSendChannels || ['openphone']}
                   sendChannel={sendChannel || 'openphone'}
+                  setSendChannel={setSendChannel}
                   text={composerText}
                   setText={setComposerText}
                   onSend={handleSend}
