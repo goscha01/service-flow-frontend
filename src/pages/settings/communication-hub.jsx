@@ -366,8 +366,13 @@ const CommunicationHub = () => {
                       <div className="text-xs text-[var(--sf-text-muted)]">via OpenPhone {pn.name ? `· ${pn.name}` : ''}</div>
                     </div>
                     <div className="flex gap-1.5">
-                      {(pn.capabilities || ['SMS', 'Voice']).map(cap => (
-                        <span key={cap} className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--sf-blue-50)] text-[var(--sf-blue-500)] font-medium">{typeof cap === 'string' ? cap : cap.type || 'SMS'}</span>
+                      {(Array.isArray(pn.capabilities)
+                        ? pn.capabilities.map(c => typeof c === 'string' ? c : c.type || 'SMS')
+                        : typeof pn.capabilities === 'object' && pn.capabilities
+                          ? Object.keys(pn.capabilities).filter(k => pn.capabilities[k])
+                          : ['SMS', 'Voice']
+                      ).map(cap => (
+                        <span key={cap} className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--sf-blue-50)] text-[var(--sf-blue-500)] font-medium uppercase">{cap}</span>
                       ))}
                     </div>
                   </div>
