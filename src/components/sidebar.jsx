@@ -23,6 +23,7 @@ import {
   X,
   Target,
   Receipt,
+  MessageSquare,
 } from "lucide-react"
 
 const Sidebar = ({ isOpen, onClose }) => {
@@ -34,6 +35,7 @@ const Sidebar = ({ isOpen, onClose }) => {
   const allSidebarItems = [
     { icon: Home, label: "Dashboard", path: "/dashboard", section: "main" },
     { icon: Target, label: "Leads", path: "/leads", section: "main" },
+    { icon: MessageSquare, label: "Communications", path: "/communications", section: "main" },
     { icon: CalendarDays, label: "Tasks", path: "/calendar", section: "main" },
     { icon: Users, label: "Customers", path: "/customers", section: "main" },
     { icon: Briefcase, label: "Jobs", path: "/jobs", section: "main" },
