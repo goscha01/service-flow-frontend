@@ -86,6 +86,7 @@ const AdminDashboard = () => {
   const [adminEmail, setAdminEmail] = useState('')
 
   // Global settings
+  const [sigcoreUrl, setSigcoreUrl] = useState('')
   const [sigcoreWorkspaceKey, setSigcoreWorkspaceKey] = useState('')
   const [showKey, setShowKey] = useState(false)
   const [globalLoading, setGlobalLoading] = useState(true)
@@ -108,6 +109,7 @@ const AdminDashboard = () => {
     try {
       setGlobalLoading(true)
       const { data } = await getAdminApi().get('/admin/global-settings')
+      setSigcoreUrl(data.sigcoreUrl || '')
       setSigcoreWorkspaceKey(data.sigcoreWorkspaceKey || '')
       setSigcoreStatus(data.sigcoreConnected ? 'connected' : null)
     } catch (e) {
@@ -128,7 +130,7 @@ const AdminDashboard = () => {
   const handleSaveGlobal = async () => {
     setSaving(true)
     try {
-      await getAdminApi().put('/admin/global-settings', { sigcoreWorkspaceKey })
+      await getAdminApi().put('/admin/global-settings', { sigcoreUrl, sigcoreWorkspaceKey })
       alert('Settings saved')
     } catch (e) { alert('Failed to save: ' + (e.response?.data?.error || e.message)) }
     finally { setSaving(false) }
@@ -191,6 +193,12 @@ const AdminDashboard = () => {
             <div className="p-8 text-center"><Loader2 size={24} className="animate-spin mx-auto text-gray-400" /></div>
           ) : (
             <div className="p-6 space-y-4">
+              <div>
+                <label className="text-sm font-medium text-gray-700 block mb-1">Sigcore API URL</label>
+                <input type="text" value={sigcoreUrl} onChange={e => setSigcoreUrl(e.target.value)}
+                  placeholder="https://sigcore-production.up.railway.app/api"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-purple-500" />
+              </div>
               <div>
                 <label className="text-sm font-medium text-gray-700 block mb-1">Workspace API Key</label>
                 <div className="relative">
