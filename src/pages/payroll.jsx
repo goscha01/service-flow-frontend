@@ -1349,7 +1349,9 @@ const Payroll = () => {
                                           <td className="py-2 pr-4 text-right text-[var(--sf-text-primary)]">
                                             <EditableCell value={job.incentive || 0} format="dollar" onSave={async (val) => { await payrollAPI.updateJobPayroll(job.id, { incentiveAmount: val * (job.memberCount || 1) }); fetchPayrollData(); }} />
                                           </td>
-                                          <td className="py-2 pr-4 text-right">{(job.cashCollected || 0) < 0 ? <span className="text-orange-600">{formatCurrency(job.cashCollected)}</span> : <span className="text-[var(--sf-text-muted)]">—</span>}</td>
+                                          <td className="py-2 pr-4 text-right text-orange-600">
+                                            <EditableCell value={Math.abs(job.cashCollected || 0)} format="dollar" onSave={async (val) => { await ledgerAPI.updateCashCollected(job.id, member.teamMember.id, val); fetchPayrollData(); }} />
+                                          </td>
                                           <td className="py-2 text-right text-[var(--sf-text-primary)] font-medium">{formatCurrency((job.hourlySalary || 0) + (job.commission || 0) + (job.tip || 0) + (job.incentive || 0) + (job.cashCollected || 0))}</td>
                                         </tr>
                                       ))}

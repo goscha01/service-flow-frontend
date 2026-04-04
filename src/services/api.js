@@ -2611,6 +2611,11 @@ export const ledgerAPI = {
     return response.data;
   },
 
+  updateCashCollected: async (jobId, teamMemberId, amount) => {
+    const response = await api.patch(`/ledger/cash-collected/${jobId}/${teamMemberId}`, { amount });
+    return response.data;
+  },
+
   // Record cash delivered to company (no salary impact)
   recordCashToCompany: async (data) => {
     const response = await api.post('/ledger/cash-to-company', data);
