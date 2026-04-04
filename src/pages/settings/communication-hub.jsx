@@ -7,7 +7,7 @@ import { openPhoneAPI, communicationsAPI } from "../../services/api"
 import {
   ChevronLeft, Phone, PhoneCall, Star, ThumbsUp, Mail,
   MessageSquare, MessageCircle, Info, Check, X, ExternalLink,
-  Radio, Settings, Zap, Shield, Clock, Loader2, RefreshCw
+  Radio, Settings, Zap, Shield, Clock, Loader2, RefreshCw, Users
 } from "lucide-react"
 
 // ═══════════════════════════════════════════════════════════════
@@ -287,6 +287,15 @@ const CommunicationHub = () => {
                             <button onClick={() => handleSync()} disabled={syncing}
                               className="px-3 py-1.5 text-xs font-medium border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-hover)] text-[var(--sf-text-secondary)] disabled:opacity-50 flex items-center gap-1">
                               {syncing ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />} Sync All
+                            </button>
+                            <button onClick={async () => {
+                                try {
+                                  const r = await openPhoneAPI.relink()
+                                  alert(`Re-linked ${r.linked}/${r.total} conversations to customers`)
+                                } catch (e) { alert('Re-link failed') }
+                              }}
+                              className="px-3 py-1.5 text-xs font-medium border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-hover)] text-[var(--sf-text-secondary)] flex items-center gap-1">
+                              <Users size={12} /> Re-link
                             </button>
                             <button onClick={handleDisconnect}
                               className="px-3 py-1.5 text-xs font-medium border border-red-200 rounded-lg hover:bg-red-50 text-red-600">

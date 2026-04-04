@@ -2710,6 +2710,7 @@ export const openPhoneAPI = {
   disconnect: async () => { const r = await api.delete('/communications/disconnect-openphone'); return r.data; },
   sync: async (limit) => { const r = await api.post('/communications/sync', limit ? { limit } : {}); return r.data; },
   getSyncProgress: async () => { const r = await api.get('/communications/sync/progress'); return r.data; },
+  relink: async () => { const r = await api.post('/communications/relink'); return r.data; },
 };
 
 export const communicationsAPI = {
