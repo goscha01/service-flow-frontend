@@ -175,23 +175,28 @@ const CommunicationHub = () => {
   }
 
   const handleSync = async (limit) => {
-    setSyncing(true); setSyncResult(null); setSyncProgress(null)
+    setSyncing(true); setSyncResult(null); setSyncProgress({ status: 'running', total: 0, synced: 0, messages: 0, phase: 'starting' })
     try {
-      await openPhoneAPI.sync(limit || undefined)
-      // Poll progress
+      // Fire and forget — don't await, start polling immediately
+      openPhoneAPI.sync(limit || undefined).catch(e => console.warn('Sync request:', e.message))
+      // Poll progress every 1.5s
       const pollInterval = setInterval(async () => {
         try {
           const progress = await openPhoneAPI.getSyncProgress()
           setSyncProgress(progress)
-          if (progress.status === 'complete' || progress.status === 'error' || progress.status === 'idle') {
+          if (progress.status === 'complete' || progress.status === 'error') {
             clearInterval(pollInterval)
             setSyncing(false)
             if (progress.status === 'complete') {
               setSyncResult({ conversations: progress.synced, messages: progress.messages })
+            } else if (progress.status === 'error') {
+              alert('Sync error: ' + (progress.error || 'Unknown'))
             }
           }
-        } catch (e) { clearInterval(pollInterval); setSyncing(false) }
+        } catch (e) { /* keep polling */ }
       }, 1500)
+      // Safety timeout: stop polling after 10 minutes
+      setTimeout(() => { clearInterval(pollInterval); if (syncing) setSyncing(false) }, 600000)
     } catch (e) {
       alert('Sync failed: ' + (e.response?.data?.error || e.message))
       setSyncing(false)
