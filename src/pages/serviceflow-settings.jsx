@@ -30,6 +30,7 @@ import {
   Phone,
   Zap,
   Banknote,
+  Radio,
 } from "lucide-react"
 
 const ServiceFlowSettings = () => {
@@ -87,6 +88,9 @@ const ServiceFlowSettings = () => {
         break
       case "sms-settings":
         navigate("/settings/sms-settings")
+        break
+      case "communication-hub":
+        navigate("/settings/communication-hub")
         break
       case "feedback-reviews":
         navigate("/settings/feedback-reviews")
@@ -221,6 +225,13 @@ const ServiceFlowSettings = () => {
           icon: MessageSquare,
           title: "SMS Settings",
           description: "Configure Twilio SMS integration for customer notifications",
+          active: true,
+        },
+        {
+          id: "communication-hub",
+          icon: Radio,
+          title: "Communication Hub",
+          description: "Connect communication providers, manage inbox behavior, and control how conversations sync into CRM",
           active: true,
         },
         {
