@@ -350,7 +350,7 @@ const Payroll = () => {
 
   const copyPayrollTable = () => {
     if (!payrollData?.teamMembers) return
-    const header = ['Name', 'Role', 'Pay Method', 'Jobs', 'Hours', 'Total', 'Hourly Salary', 'Commission', 'Tips', 'Incentives', 'Total Salary'].join('\t')
+    const header = ['Name', 'Role', 'Pay Method', 'Jobs', 'Hours', 'Total', 'Hourly Salary', 'Commission', 'Tips', 'Incentives', 'Cash', 'Total Salary'].join('\t')
     const rows = (payrollData.teamMembers || []).map(m => [
       m.teamMember.name,
       m.teamMember.role || '',
@@ -362,6 +362,7 @@ const Payroll = () => {
       (m.commissionSalary || 0).toFixed(2),
       (m.totalTips || 0).toFixed(2),
       (m.totalIncentives || 0).toFixed(2),
+      (m.totalCashCollected || 0).toFixed(2),
       (m.totalSalary || 0).toFixed(2)
     ].join('\t'))
     navigator.clipboard.writeText([header, ...rows].join('\n'))
@@ -766,11 +767,11 @@ const Payroll = () => {
 
   const handleExport = () => {
     if (!payrollData) return
-    let csv = 'Team Member,Role,Job Count,Hours Worked,Job Revenue,Hourly Rate,Commission %,Commission Revenue Base,Hourly Salary,Commission,Tips,Incentives,Total Salary,Payment Method\n'
+    let csv = 'Team Member,Role,Job Count,Hours Worked,Job Revenue,Hourly Rate,Commission %,Commission Revenue Base,Hourly Salary,Commission,Tips,Incentives,Cash Collected,Total Salary,Payment Method\n'
     filteredMembers.forEach(member => {
       const hourlyRate = member.teamMember.hourlyRate ? formatCurrency(member.teamMember.hourlyRate) : 'N/A'
       const commissionPct = member.teamMember.commissionPercentage ? `${member.teamMember.commissionPercentage}%` : 'N/A'
-      csv += `"${member.teamMember.name}","${member.teamMember.role || 'Service Provider'}",${member.jobCount},${member.totalHours},${formatCurrency(member.totalJobRevenue || 0)},${hourlyRate},${commissionPct},${formatCurrency(member.commissionRevenueBase || 0)},${formatCurrency(member.hourlySalary || 0)},${formatCurrency(member.commissionSalary || 0)},${formatCurrency(member.totalTips || 0)},${formatCurrency(member.totalIncentives || 0)},${formatCurrency(member.totalSalary)},${member.paymentMethod || 'none'}\n`
+      csv += `"${member.teamMember.name}","${member.teamMember.role || 'Service Provider'}",${member.jobCount},${member.totalHours},${formatCurrency(member.totalJobRevenue || 0)},${hourlyRate},${commissionPct},${formatCurrency(member.commissionRevenueBase || 0)},${formatCurrency(member.hourlySalary || 0)},${formatCurrency(member.commissionSalary || 0)},${formatCurrency(member.totalTips || 0)},${formatCurrency(member.totalIncentives || 0)},${formatCurrency(member.totalCashCollected || 0)},${formatCurrency(member.totalSalary)},${member.paymentMethod || 'none'}\n`
     })
     csv += `\nSummary\n`
     csv += `Total Business Revenue,${formatCurrency(payrollData?.totalBusinessRevenue || 0)}\n`
@@ -781,6 +782,7 @@ const Payroll = () => {
     csv += `Total Commission,${formatCurrency(filteredSummary.totalCommission || 0)}\n`
     csv += `Total Tips,${formatCurrency(filteredSummary.totalTips || 0)}\n`
     csv += `Total Incentives,${formatCurrency(filteredSummary.totalIncentives || 0)}\n`
+    csv += `Total Cash Collected,${formatCurrency(filteredSummary.totalCashCollected || 0)}\n`
     csv += `Total Salary,${formatCurrency(filteredSummary.totalSalary)}\n`
     const blob = new Blob([csv], { type: 'text/csv' })
     const url = window.URL.createObjectURL(blob)
@@ -817,6 +819,7 @@ const Payroll = () => {
     totalCommission: parseFloat(filteredMembers.reduce((s, m) => s + (m.commissionSalary || 0), 0).toFixed(2)),
     totalTips: parseFloat(filteredMembers.reduce((s, m) => s + (m.totalTips || 0), 0).toFixed(2)),
     totalIncentives: parseFloat(filteredMembers.reduce((s, m) => s + (m.totalIncentives || 0), 0).toFixed(2)),
+    totalCashCollected: parseFloat(filteredMembers.reduce((s, m) => s + (m.totalCashCollected || 0), 0).toFixed(2)),
     totalSalary: parseFloat(filteredMembers.reduce((s, m) => s + (m.totalSalary || 0), 0).toFixed(2)),
     totalJobCount: filteredMembers.reduce((s, m) => s + (m.jobCount || 0), 0),
   }) : null
@@ -1050,6 +1053,15 @@ const Payroll = () => {
                       </div>
                       <p className="text-lg font-bold text-purple-900">{formatCurrency(filteredSummary.totalIncentives || 0)}</p>
                     </div>
+                    {(filteredSummary.totalCashCollected || 0) < 0 && (
+                    <div className="bg-orange-50 rounded-lg p-3">
+                      <div className="flex items-center space-x-1.5 mb-1">
+                        <Banknote className="w-3.5 h-3.5 text-orange-400 flex-shrink-0" />
+                        <span className="text-xs text-orange-600 truncate">Cash Collected</span>
+                      </div>
+                      <p className="text-lg font-bold text-orange-900">{formatCurrency(filteredSummary.totalCashCollected)}</p>
+                    </div>
+                    )}
                     <div className="bg-[var(--sf-bg-page)] rounded-lg p-3">
                       <div className="flex items-center space-x-1.5 mb-1">
                         <DollarSign className="w-3.5 h-3.5 text-[var(--sf-text-muted)] flex-shrink-0" />
@@ -1105,6 +1117,7 @@ const Payroll = () => {
                           <th className="px-2 py-3 text-right text-xs font-semibold text-[var(--sf-text-muted)] uppercase tracking-wider">Comm</th>
                           <th className="px-2 py-3 text-right text-xs font-semibold text-[var(--sf-text-muted)] uppercase tracking-wider">Tips</th>
                           <th className="px-2 py-3 text-right text-xs font-semibold text-[var(--sf-text-muted)] uppercase tracking-wider">Incentives</th>
+                          <th className="px-2 py-3 text-right text-xs font-semibold text-[var(--sf-text-muted)] uppercase tracking-wider">Cash</th>
                           <th className="px-3 py-3 text-right text-xs font-semibold text-[var(--sf-text-muted)] uppercase tracking-wider">Total</th>
                         </tr>
                       </thead>
@@ -1156,12 +1169,13 @@ const Payroll = () => {
                             </td>
                             <td className="px-2 py-3 text-sm text-[var(--sf-text-primary)] text-right">{formatCurrency(member.totalTips || 0)}</td>
                             <td className="px-2 py-3 text-sm text-[var(--sf-text-primary)] text-right">{formatCurrency(member.totalIncentives || 0)}</td>
+                            <td className="px-2 py-3 text-sm text-right">{(member.totalCashCollected || 0) < 0 ? <span className="text-orange-600 font-medium">{formatCurrency(member.totalCashCollected)}</span> : <span className="text-[var(--sf-text-muted)]">—</span>}</td>
                             <td className="px-3 py-3 text-sm font-semibold text-[var(--sf-text-primary)] text-right">{formatCurrency(member.totalSalary)}</td>
                           </tr>
                           {/* Manager/Owner Pay Breakdown */}
                           {isExpanded && member.isManagerOrOwner && (
                             <tr>
-                              <td colSpan="11" className="p-0">
+                              <td colSpan="12" className="p-0">
                                 <div className="bg-purple-50 border-t border-b border-purple-100 px-4 py-3">
                                   <p className="text-xs font-semibold text-purple-700 uppercase mb-2">Pay Breakdown</p>
                                   <table className="w-full text-sm">
@@ -1204,6 +1218,14 @@ const Payroll = () => {
                                           <td className="py-2 pr-4 text-right text-[var(--sf-text-muted)]">—</td>
                                           <td className="py-2 pr-4 text-right text-[var(--sf-text-muted)]">—</td>
                                           <td className="py-2 text-right font-semibold text-purple-700">{formatCurrency(member.totalIncentives)}</td>
+                                        </tr>
+                                      )}
+                                      {(member.totalCashCollected || 0) < 0 && (
+                                        <tr>
+                                          <td className="py-2 pr-4 text-[var(--sf-text-primary)]">Cash Collected</td>
+                                          <td className="py-2 pr-4 text-right text-[var(--sf-text-muted)]">—</td>
+                                          <td className="py-2 pr-4 text-right text-[var(--sf-text-muted)]">—</td>
+                                          <td className="py-2 text-right font-semibold text-orange-600">{formatCurrency(member.totalCashCollected)}</td>
                                         </tr>
                                       )}
                                     </tbody>
@@ -1269,7 +1291,7 @@ const Payroll = () => {
                           {/* Job Breakdown */}
                           {isExpanded && member.jobs && member.jobs.length > 0 && (
                             <tr>
-                              <td colSpan="11" className="p-0">
+                              <td colSpan="12" className="p-0">
                                 <div className="bg-[var(--sf-bg-page)] border-t border-b border-[var(--sf-border-light)] px-3 py-2">
                                   <p className="text-xs font-semibold text-[var(--sf-text-muted)] uppercase mb-1">Job Breakdown</p>
                                   <table className="w-full text-xs">
@@ -1285,6 +1307,7 @@ const Payroll = () => {
                                         <th className="text-right py-2 pr-4 font-medium">Commission</th>
                                         <th className="text-right py-2 pr-4 font-medium">Tips</th>
                                         <th className="text-right py-2 pr-4 font-medium">Incentives</th>
+                                        <th className="text-right py-2 pr-4 font-medium">Cash</th>
                                         <th className="text-right py-2 font-medium">Total</th>
                                       </tr>
                                     </thead>
@@ -1324,7 +1347,8 @@ const Payroll = () => {
                                           <td className="py-2 pr-4 text-right text-[var(--sf-text-primary)]">
                                             <EditableCell value={job.incentive || 0} format="dollar" onSave={async (val) => { await payrollAPI.updateJobPayroll(job.id, { incentiveAmount: val * (job.memberCount || 1) }); fetchPayrollData(); }} />
                                           </td>
-                                          <td className="py-2 text-right text-[var(--sf-text-primary)] font-medium">{formatCurrency((job.hourlySalary || 0) + (job.commission || 0) + (job.tip || 0) + (job.incentive || 0))}</td>
+                                          <td className="py-2 pr-4 text-right">{(job.cashCollected || 0) < 0 ? <span className="text-orange-600">{formatCurrency(job.cashCollected)}</span> : <span className="text-[var(--sf-text-muted)]">—</span>}</td>
+                                          <td className="py-2 text-right text-[var(--sf-text-primary)] font-medium">{formatCurrency((job.hourlySalary || 0) + (job.commission || 0) + (job.tip || 0) + (job.incentive || 0) + (job.cashCollected || 0))}</td>
                                         </tr>
                                       ))}
                                     </tbody>
@@ -1347,6 +1371,7 @@ const Payroll = () => {
                           <td className="px-2 py-3 text-sm font-semibold text-[var(--sf-text-primary)] text-right">{formatCurrency(filteredSummary.totalCommission || 0)}</td>
                           <td className="px-2 py-3 text-sm font-semibold text-[var(--sf-text-primary)] text-right">{formatCurrency(filteredSummary.totalTips || 0)}</td>
                           <td className="px-2 py-3 text-sm font-semibold text-[var(--sf-text-primary)] text-right">{formatCurrency(filteredSummary.totalIncentives || 0)}</td>
+                          <td className="px-2 py-3 text-sm font-semibold text-right">{(filteredSummary.totalCashCollected || 0) < 0 ? <span className="text-orange-600">{formatCurrency(filteredSummary.totalCashCollected)}</span> : '—'}</td>
                           <td className="px-3 py-3 text-sm font-semibold text-[var(--sf-text-primary)] text-right">{formatCurrency(filteredSummary.totalSalary)}</td>
                         </tr>
                       </tfoot>
