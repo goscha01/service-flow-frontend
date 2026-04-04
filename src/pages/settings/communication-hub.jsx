@@ -262,8 +262,18 @@ const CommunicationHub = () => {
                             <StatusBadge status={status} />
                           </div>
                           <p className="text-xs text-[var(--sf-text-muted)] mt-0.5">{p.description}</p>
-                          {status === 'connected' && connectedAt && isOpenPhone && (
-                            <p className="text-xs text-green-600 mt-0.5">Connected since {new Date(connectedAt).toLocaleDateString()}</p>
+                          {status === 'connected' && isOpenPhone && (
+                            <div className="mt-1 flex flex-wrap gap-2">
+                              {phoneNumbers.map((pn, i) => (
+                                <span key={i} className="inline-flex items-center gap-1 text-xs bg-green-50 text-green-700 px-2 py-0.5 rounded-full">
+                                  <Phone size={10} />
+                                  {pn.name}: {pn.number}
+                                  <span className="text-green-500">
+                                    {pn.capabilities?.sms ? ' SMS' : ''}{pn.capabilities?.voice ? ' Voice' : ''}
+                                  </span>
+                                </span>
+                              ))}
+                            </div>
                           )}
                         </div>
                       </div>
