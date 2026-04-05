@@ -569,7 +569,7 @@ const DashboardRedesigned = () => {
         
         // Check if job is incomplete (not completed or cancelled)
         const status = (job.status || 'pending')?.toLowerCase().trim()
-        const isCompleted = status === 'completed' || status === 'complete' || status === 'done' || status === 'finished'
+        const isCompleted = status === 'completed' || status === 'complete' || status === 'done' || status === 'finished' || status === 'paid'
         const isCancelled = status === 'cancelled' || status === 'canceled' || status === 'cancel'
         
         // Return true if job is from the past AND NOT completed and NOT cancelled
@@ -1189,6 +1189,7 @@ const DashboardRedesigned = () => {
                                   <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-1">
                                     <span className="text-xs font-medium text-[var(--sf-text-muted)]">Job #{job.id}</span>
                                     <span className={`text-xs px-1.5 sm:px-2 py-0.5 rounded ${
+                                      job.status === 'paid' ? 'bg-emerald-100 text-emerald-700' :
                                       job.status === 'completed' ? 'bg-green-100 text-green-700' :
                                       job.status === 'in_progress' || job.status === 'in-progress' ? 'bg-blue-100 text-[var(--sf-blue-500)]' :
                                       job.status === 'confirmed' ? 'bg-purple-100 text-purple-700' :

@@ -418,13 +418,13 @@ const TeamMemberFieldApp = () => {
 
         {activeTab === 'completed' && (
           <div className="space-y-4">
-            {dashboardData?.jobs?.filter(job => job.status === 'completed').length === 0 ? (
+            {dashboardData?.jobs?.filter(job => job.status === 'completed' || job.status === 'paid').length === 0 ? (
               <div className="text-center py-8">
                 <CheckCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                 <p className="text-gray-600">No completed jobs</p>
               </div>
             ) : (
-              dashboardData?.jobs?.filter(job => job.status === 'completed').map((job) => (
+              dashboardData?.jobs?.filter(job => job.status === 'completed' || job.status === 'paid').map((job) => (
                 <div key={job.id} className="bg-white rounded-lg border border-gray-200 p-4">
                   <div className="flex items-start justify-between mb-3">
                     <div>

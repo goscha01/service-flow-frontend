@@ -491,6 +491,7 @@ const ServiceFlowSchedule = () => {
   // Universal function to get status color for a job
   const getStatusColor = (status) => {
     switch (status) {
+      case 'paid': return 'bg-emerald-100 text-emerald-800 border-emerald-200';
       case 'completed': return 'bg-green-100 text-green-800 border-green-200';
       case 'in_progress': return 'bg-blue-100 text-blue-800 border-blue-200';
       case 'confirmed': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
@@ -610,7 +611,7 @@ const ServiceFlowSchedule = () => {
     const filteredJobs = getFilteredJobs()
     
     const totalJobs = filteredJobs.length
-    const completedJobs = filteredJobs.filter(job => job.status === 'completed').length
+    const completedJobs = filteredJobs.filter(job => job.status === 'completed' || job.status === 'paid').length
     const inProgressJobs = filteredJobs.filter(job => job.status === 'in_progress').length
     const pendingJobs = filteredJobs.filter(job => job.status === 'pending').length
     const confirmedJobs = filteredJobs.filter(job => job.status === 'confirmed').length

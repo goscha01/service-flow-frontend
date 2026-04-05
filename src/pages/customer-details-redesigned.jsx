@@ -161,7 +161,7 @@ const CustomerDetailsRedesigned = () => {
     const scheduledDate = new Date(job.scheduled_date)
     const now = new Date()
     
-    if (job.status === 'completed') return 'completed'
+    if (job.status === 'completed' || job.status === 'paid') return 'completed'
     if (job.status === 'cancelled') return 'cancelled'
     if (scheduledDate < now) return 'past'
     return 'upcoming'

@@ -528,6 +528,7 @@ const ServiceFlowJobs = () => {
 
   const getStatusColor = (status) => {
     switch (status) {
+      case 'paid': return 'bg-emerald-50 text-emerald-700 border-emerald-200'
       case 'completed':
       case 'complete': return 'bg-green-50 text-green-700 border-green-200'
       case 'in_progress':
