@@ -1170,7 +1170,12 @@ const Payroll = () => {
                             </td>
                             <td className="px-2 py-3 text-sm text-[var(--sf-text-primary)] text-right">{formatCurrency(member.totalTips || 0)}</td>
                             <td className="px-2 py-3 text-sm text-[var(--sf-text-primary)] text-right">{formatCurrency(member.totalIncentives || 0)}</td>
-                            <td className="px-2 py-3 text-sm text-right">{(member.totalCashCollected || 0) < 0 ? <span className="text-orange-600 font-medium">{formatCurrency(member.totalCashCollected)}</span> : <span className="text-[var(--sf-text-muted)]">—</span>}</td>
+                            <td className="px-2 py-3 text-sm text-right">
+                              {(member.totalCashCollected || 0) < 0 ? <span className="text-orange-600 font-medium">{formatCurrency(member.totalCashCollected)}</span> : <span className="text-[var(--sf-text-muted)]">—</span>}
+                              {(member.priorCashCollected || 0) < 0 && (
+                                <div className="text-[10px] text-orange-400" title="Unpaid cash from previous periods">prior: {formatCurrency(member.priorCashCollected)}</div>
+                              )}
+                            </td>
                             <td className="px-3 py-3 text-sm font-semibold text-[var(--sf-text-primary)] text-right">{formatCurrency(member.totalSalary)}</td>
                           </tr>
                           {/* Manager/Owner Pay Breakdown */}
