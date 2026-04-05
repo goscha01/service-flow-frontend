@@ -1093,20 +1093,19 @@ const Payroll = () => {
                   </div>
                 ) : (
                   <div className="bg-white rounded-xl border border-[var(--sf-border-light)] shadow-sm overflow-x-auto">
-                    <table className="w-full divide-y divide-[var(--sf-border-light)] min-w-[900px]" style={{ tableLayout: 'fixed' }}>
+                    <table className="w-full divide-y divide-[var(--sf-border-light)]" style={{ tableLayout: 'auto' }}>
                       <colgroup>
-                        <col className="w-[17%]" />
-                        <col className="w-[10%]" />
-                        <col className="w-[4%]" />
-                        <col className="w-[6%]" />
-                        <col className="w-[7%]" />
-                        <col className="w-[7%]" />
-                        <col className="w-[8%]" />
-                        <col className="w-[6%]" />
-                        <col className="w-[7%]" />
-                        <col className="w-[8%]" />
-                        <col className="w-[8%]" />
-                        <col className="w-[8%]" />
+                        <col style={{ minWidth: 160 }} />
+                        <col style={{ minWidth: 80 }} />
+                        <col style={{ minWidth: 40 }} />
+                        <col style={{ minWidth: 55 }} />
+                        <col style={{ minWidth: 75 }} />
+                        <col style={{ minWidth: 70 }} />
+                        <col style={{ minWidth: 75 }} />
+                        <col style={{ minWidth: 55 }} />
+                        <col style={{ minWidth: 70 }} />
+                        <col style={{ minWidth: 70 }} />
+                        <col style={{ minWidth: 70 }} />
                       </colgroup>
                       <thead className="bg-[var(--sf-bg-page)]">
                         <tr>
