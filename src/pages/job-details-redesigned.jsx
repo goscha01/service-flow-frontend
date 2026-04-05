@@ -921,20 +921,16 @@ const JobDetails = () => {
         
         if (hasPayment && totalPaid > 0) {
           setJob(prev => {
-            // job.total is already (subtotal - discount) per backend; tip is separate
-            const jobPrice = parseFloat(prev?.total) || 0
-            const existingTip = parseFloat(prev?.tip_amount || 0) || 0
-            const totalTipsFromTx = data.totalTips ?? (data.transactions || []).reduce((s, tx) => s + parseFloat(tx.tip_amount || 0), 0)
-            const tipAmount = Math.max(existingTip, totalTipsFromTx)
-            const invoiceTotal = jobPrice + tipAmount
-            const isFullyPaid = totalPaid >= invoiceTotal - 0.01
+            // job.total already includes tip (from ZB: subtotal + fees + tip = total)
+            // Don't add tip_amount again — it's already in total
+            const jobTotal = parseFloat(prev?.total) || parseFloat(prev?.total_amount) || 0
+            const isFullyPaid = totalPaid >= jobTotal - 0.01
             return {
               ...prev,
               invoice_status: isFullyPaid ? 'paid' : 'invoiced',
               payment_status: isFullyPaid ? 'paid' : 'pending',
               total_paid_amount: totalPaid,
-              total_invoice_amount: invoiceTotal,
-              tip_amount: tipAmount,
+              total_invoice_amount: jobTotal,
               transaction_count: data.transactionCount
             }
           })
