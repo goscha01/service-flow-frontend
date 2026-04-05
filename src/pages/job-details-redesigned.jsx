@@ -3077,6 +3077,10 @@ const JobDetails = () => {
             isDisabled = false
             buttonLabel = 'Job Complete'
             buttonColor = 'bg-green-600 hover:bg-green-700'
+          } else if (normalizedStatus === 'paid') {
+            isDisabled = false
+            buttonLabel = 'Job Paid'
+            buttonColor = 'bg-emerald-600 hover:bg-emerald-700'
           } else if (normalizedStatus === 'cancelled' || normalizedStatus === 'canceled') {
             isDisabled = true
             buttonLabel = 'Job Cancelled'
@@ -3118,6 +3122,7 @@ const JobDetails = () => {
                 currentStatus === 'en_route' || currentStatus === 'enroute' ? 'confirmed' :
                 currentStatus === 'started' || currentStatus === 'in_progress' || currentStatus === 'in_prog' || currentStatus === 'in-progress' ? 'in_progress' :
                 currentStatus === 'complete' || currentStatus === 'completed' ? 'completed' :
+                currentStatus === 'paid' ? 'paid' :
                 currentStatus
               const isCurrentStatus = normalizedCurrent === statusOption.backendStatus
               
@@ -3155,9 +3160,9 @@ const JobDetails = () => {
         {moreDropdown && (
           <div className="absolute top-full mt-2 right-0 bg-white rounded-lg shadow-xl border border-[var(--sf-border-light)] py-2 min-w-[200px] z-10">
             {(() => {
-              const isCompleted = (job?.status || '').toLowerCase() === 'completed' || (job?.status || '').toLowerCase() === 'complete';
-              
-              // If job is completed, only show Duplicate and Reset options
+              const isCompleted = ['completed', 'complete', 'paid'].includes((job?.status || '').toLowerCase());
+
+              // If job is completed/paid, only show Duplicate and Reset options
               if (isCompleted) {
                 return (
                   <>
@@ -3494,7 +3499,7 @@ const JobDetails = () => {
                   </p>
                   <p className="text-sm text-[var(--sf-text-secondary)] mt-2">
                     {formatDuration(job.duration || 0)}
-                    {job.status === 'completed' && job.start_time && job.end_time && (() => {
+                    {(job.status === 'completed' || job.status === 'paid') && job.start_time && job.end_time && (() => {
                       const realMin = Math.round((new Date(job.end_time) - new Date(job.start_time)) / 60000);
                       const estMin = job.duration || 0;
                       const diff = realMin - estMin;
