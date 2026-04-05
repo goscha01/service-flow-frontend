@@ -2105,7 +2105,7 @@ const JobDetails = () => {
   const isJobLate = () => {
     if (!job?.scheduled_date) return false
     const status = (job?.status || '').toLowerCase()
-    if (status === 'completed' || status === 'cancelled') return false
+    if (status === 'completed' || status === 'paid' || status === 'cancelled') return false
     let startDate
     if (typeof job.scheduled_date === 'string' && job.scheduled_date.includes(' ')) {
       const [datePart, timePart] = job.scheduled_date.split(' ')

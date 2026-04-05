@@ -95,6 +95,7 @@ export const JobStatusChart = ({ data }) => {
   // Map status colors
   const getStatusColor = (statusKey) => {
     const status = statusKey.toLowerCase()
+    if (status === 'paid') return '#059669' // emerald
     if (status === 'completed') return '#10B981' // green
     if (status === 'pending') return '#F59E0B' // yellow
     if (status === 'in_progress') return '#3B82F6' // blue

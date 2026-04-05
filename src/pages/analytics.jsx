@@ -219,13 +219,13 @@ const Analytics = () => {
       console.log('Revenue calculated from jobs:', totalRevenue)
     }
     
-    const completedJobs = filteredJobs.filter(job => job.status === 'completed').length
+    const completedJobs = filteredJobs.filter(job => job.status === 'completed' || job.status === 'paid').length
     const totalJobs = filteredJobs.length
     const completionRate = totalJobs > 0 ? (completedJobs / totalJobs * 100).toFixed(1) : 0
     
     // Calculate avg job value from completed jobs with prices
     const completedJobsWithPrices = filteredJobs.filter(job => {
-      if (job.status !== 'completed') return false
+      if (job.status !== 'completed' && job.status !== 'paid') return false
       const jobPrice = parseFloat(job.total_amount) || 
                       parseFloat(job.total) || 
                       parseFloat(job.service_price) || 
@@ -433,7 +433,7 @@ const Analytics = () => {
       pending: allJobs.filter(job => job.status === 'pending').length,
       confirmed: allJobs.filter(job => job.status === 'confirmed').length,
       in_progress: allJobs.filter(job => job.status === 'in_progress').length,
-      completed: allJobs.filter(job => job.status === 'completed').length,
+      completed: allJobs.filter(job => job.status === 'completed' || job.status === 'paid').length,
       cancelled: allJobs.filter(job => job.status === 'cancelled').length
     }
     
@@ -665,7 +665,7 @@ const Analytics = () => {
         })))
       }
       
-      const completedJobs = memberJobs.filter(job => job.status === 'completed')
+      const completedJobs = memberJobs.filter(job => job.status === 'completed' || job.status === 'paid')
       const completionRate = memberJobs.length > 0 ? (completedJobs.length / memberJobs.length * 100).toFixed(1) : 0
       
       // Calculate average job value from completed jobs with prices
@@ -940,6 +940,8 @@ const Analytics = () => {
 
   const getStatusColor = (status) => {
     switch (status) {
+      case 'paid':
+        return 'text-emerald-600 bg-emerald-100'
       case 'completed':
         return 'text-green-600 bg-green-100'
       case 'pending':

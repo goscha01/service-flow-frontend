@@ -1149,11 +1149,13 @@ const ServiceFlowSchedule = () => {
   const getStatusIcon = (status, job = null) => {
     // Late override — but in-progress jobs aren't late until they exceed their duration
     const normSt = normalizeStatus(status)
-    if (job && isJobPast(job) && normSt !== 'completed' && normSt !== 'cancelled' && normSt !== 'in_progress') {
+    if (job && isJobPast(job) && normSt !== 'completed' && normSt !== 'paid' && normSt !== 'cancelled' && normSt !== 'in_progress') {
       return <Clock className="w-3 h-3 text-orange-500 flex-shrink-0" />
     }
     const normalized = normalizeStatus(status)
     switch (normalized) {
+      case 'paid':
+        return <CheckCheck className="w-3 h-3 text-emerald-600 flex-shrink-0" />
       case 'completed':
         return <CheckCheck className="w-3 h-3 text-green-600 flex-shrink-0" />
       case 'in_progress':
@@ -1174,7 +1176,7 @@ const ServiceFlowSchedule = () => {
   const getStatusColor = (status, job = null) => {
     // If job is past scheduled end time and not completed/cancelled/in-progress, show orange for "Late"
     const normStatus = normalizeStatus(status)
-    if (job && isJobPast(job) && normStatus !== 'completed' && normStatus !== 'cancelled' && normStatus !== 'in_progress') {
+    if (job && isJobPast(job) && normStatus !== 'completed' && normStatus !== 'paid' && normStatus !== 'cancelled' && normStatus !== 'in_progress') {
       return 'bg-orange-100 text-orange-800 border-orange-200'
     }
     
@@ -1185,6 +1187,7 @@ const ServiceFlowSchedule = () => {
       'confirmed': 'bg-green-100 text-green-800 border-green-200',
       'in_progress': 'bg-purple-100 text-purple-800 border-purple-200',
       'completed': 'bg-gray-100 text-gray-800 border-gray-200',
+      'paid': 'bg-emerald-100 text-emerald-800 border-emerald-200',
       'cancelled': 'bg-red-100 text-red-800 border-red-200'
     }
     return colorMap[normalized] || 'bg-gray-100 text-gray-800 border-gray-200'

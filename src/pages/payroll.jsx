@@ -1270,6 +1270,7 @@ const Payroll = () => {
                                                 <td className="py-1.5 pr-3 text-[var(--sf-text-primary)] truncate max-w-[120px]">{rj.customerName}</td>
                                                 <td className="py-1.5 pr-3">
                                                   <span className={`inline-block px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
+                                                    rj.status === 'paid' ? 'bg-emerald-100 text-emerald-700' :
                                                     rj.status === 'completed' ? 'bg-green-100 text-green-700' :
                                                     rj.status === 'in-progress' ? 'bg-blue-100 text-[var(--sf-blue-500)]' :
                                                     rj.status === 'scheduled' ? 'bg-yellow-100 text-yellow-700' :
@@ -1326,6 +1327,7 @@ const Payroll = () => {
                                           <td className="py-2 pr-4 font-medium"><span className="text-[var(--sf-text-active)] hover:underline cursor-pointer" onClick={(e) => { e.stopPropagation(); navigate(`/job/${job.id}`) }}>{job.customerName}</span></td>
                                           <td className="py-2 pr-4">
                                             <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
+                                              job.status === 'paid' ? 'bg-emerald-100 text-emerald-700' :
                                               job.status === 'completed' ? 'bg-green-100 text-green-700' :
                                               job.status === 'in-progress' ? 'bg-blue-100 text-[var(--sf-blue-500)]' :
                                               job.status === 'scheduled' ? 'bg-yellow-100 text-yellow-700' :

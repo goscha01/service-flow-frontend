@@ -165,7 +165,7 @@ const CustomerDetails = () => {
 
   // Calculate total revenue from completed jobs
   const calculateTotalRevenue = () => {
-    const completedJobs = jobs.filter(job => job.status === 'completed')
+    const completedJobs = jobs.filter(job => job.status === 'completed' || job.status === 'paid')
     const total = completedJobs.reduce((sum, job) => {
       // Use total if available, otherwise use price, otherwise 0
       const jobTotal = parseFloat(job.total) || parseFloat(job.price) || 0
@@ -176,6 +176,7 @@ const CustomerDetails = () => {
 
   const getStatusColor = (status) => {
     switch (status) {
+      case 'paid': return 'bg-emerald-100 text-emerald-800'
       case 'completed': return 'bg-green-100 text-green-800'
       case 'pending': return 'bg-yellow-100 text-yellow-800'
       case 'cancelled': return 'bg-red-100 text-red-800'
@@ -196,7 +197,7 @@ const CustomerDetails = () => {
     } else if (jobFilter === "past") {
       // Show completed jobs AND jobs with past dates (not cancelled)
       return jobs.filter(job =>
-        job.status === 'completed' ||
+        job.status === 'completed' || job.status === 'paid' ||
         (new Date(job.scheduled_date) < now && job.status !== 'cancelled')
       )
     } else if (jobFilter === "canceled") {
@@ -209,12 +210,13 @@ const CustomerDetails = () => {
     const now = new Date()
     return new Date(job.scheduled_date) >= now &&
            job.status !== 'cancelled' &&
-           job.status !== 'completed'
+           job.status !== 'completed' &&
+           job.status !== 'paid'
   }).length
 
   const pastCount = jobs.filter(job => {
     const now = new Date()
-    return job.status === 'completed' ||
+    return job.status === 'completed' || job.status === 'paid' ||
            (new Date(job.scheduled_date) < now && job.status !== 'cancelled')
   }).length
   const canceledCount = jobs.filter(job => job.status === 'cancelled').length
