@@ -2168,9 +2168,15 @@ const Payroll = () => {
                 <select value={payTeamMember} onChange={e => setPayTeamMember(e.target.value)}
                   className="w-full border border-[var(--sf-border-light)] rounded-lg px-3 py-2 text-sm bg-white">
                   <option value="">Select...</option>
-                  <option value="all">All Team Members</option>
-                  {teamMembers.map(tm => (
-                    <option key={tm.id} value={tm.id}>{tm.first_name} {tm.last_name}{tm.status === 'inactive' ? ' (inactive)' : ''}</option>
+                  <option value="all">All Active Members</option>
+                  {teamMembers.filter(tm => tm.status === 'active').map(tm => (
+                    <option key={tm.id} value={tm.id}>{tm.first_name} {tm.last_name}</option>
+                  ))}
+                  {teamMembers.some(tm => tm.status === 'inactive') && (
+                    <option disabled>── Inactive ──</option>
+                  )}
+                  {teamMembers.filter(tm => tm.status === 'inactive').map(tm => (
+                    <option key={tm.id} value={tm.id}>{tm.first_name} {tm.last_name} (inactive)</option>
                   ))}
                 </select>
               </div>
