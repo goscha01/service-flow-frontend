@@ -269,13 +269,28 @@ function TimelineEvent({ event }) {
   if (event.type === 'call_in' || event.type === 'call_out') {
     const isInbound = event.type === 'call_in'
     const CallIcon = isInbound ? PhoneIncoming : PhoneOutgoing
+    const audioUrl = event.recordingUrl || event.voicemailUrl
     return (
       <div className="flex justify-center py-2 px-4">
-        <div className="inline-flex items-center gap-2 bg-purple-50 text-purple-700 rounded-full px-4 py-1.5 text-xs">
-          <CallIcon size={14} />
-          <span className="font-medium">{isInbound ? 'Inbound call' : 'Outbound call'}</span>
-          <span className="text-purple-500">{formatCallDuration(event.callDurationSeconds)}</span>
-          <span className="text-purple-400">{formatTimestamp(event.timestamp)}</span>
+        <div className="inline-flex flex-col items-center gap-1.5">
+          <div className="inline-flex items-center gap-2 bg-purple-50 text-purple-700 rounded-full px-4 py-1.5 text-xs">
+            <CallIcon size={14} />
+            <span className="font-medium">
+              {event.voicemailUrl ? 'Voicemail' : isInbound ? 'Inbound call' : 'Outbound call'}
+            </span>
+            <span className="text-purple-500">{formatCallDuration(event.callDurationSeconds)}</span>
+            <span className="text-purple-400">{formatTimestamp(event.timestamp)}</span>
+          </div>
+          {audioUrl && (
+            <audio controls preload="none" className="h-8 w-64">
+              <source src={audioUrl} />
+            </audio>
+          )}
+          {event.transcription && (
+            <div className="max-w-sm text-xs text-purple-600 bg-purple-50 rounded-lg px-3 py-2 italic">
+              "{event.transcription}"
+            </div>
+          )}
         </div>
       </div>
     )
@@ -283,16 +298,28 @@ function TimelineEvent({ event }) {
 
   // Message bubble
   const isOutbound = event.type === 'message_out'
+  const mediaUrls = event.mediaUrls || []
   return (
     <div className={`flex px-4 py-1 ${isOutbound ? 'justify-end' : 'justify-start'}`}>
       <div className={`max-w-[75%] ${isOutbound ? 'order-1' : ''}`}>
-        <div className={`rounded-2xl px-4 py-2.5 text-sm ${
-          isOutbound
-            ? 'bg-[var(--sf-blue-500)] text-white rounded-br-md'
-            : 'bg-[var(--sf-bg-input)] text-[var(--sf-text-primary)] border border-[var(--sf-border-light)] rounded-bl-md'
-        }`}>
-          {event.text}
-        </div>
+        {mediaUrls.length > 0 && (
+          <div className={`flex flex-wrap gap-1.5 mb-1 ${isOutbound ? 'justify-end' : 'justify-start'}`}>
+            {mediaUrls.map((url, i) => (
+              <a key={i} href={url} target="_blank" rel="noopener noreferrer">
+                <img src={url} alt="" className="max-w-[240px] max-h-[200px] rounded-xl object-cover border border-[var(--sf-border-light)]" />
+              </a>
+            ))}
+          </div>
+        )}
+        {event.text && (
+          <div className={`rounded-2xl px-4 py-2.5 text-sm ${
+            isOutbound
+              ? 'bg-[var(--sf-blue-500)] text-white rounded-br-md'
+              : 'bg-[var(--sf-bg-input)] text-[var(--sf-text-primary)] border border-[var(--sf-border-light)] rounded-bl-md'
+          }`}>
+            {event.text}
+          </div>
+        )}
         <div className={`flex items-center gap-1.5 mt-1 ${isOutbound ? 'justify-end' : 'justify-start'}`}>
           <ChannelBadge channel={event.channel} size={11} />
           <span className="text-[10px] text-[var(--sf-text-muted)]">{formatTimestamp(event.timestamp)}</span>
