@@ -819,8 +819,8 @@ const Payroll = () => {
     totalCommission: parseFloat(filteredMembers.reduce((s, m) => s + (m.commissionSalary || 0), 0).toFixed(2)),
     totalTips: parseFloat(filteredMembers.reduce((s, m) => s + (m.totalTips || 0), 0).toFixed(2)),
     totalIncentives: parseFloat(filteredMembers.reduce((s, m) => s + (m.totalIncentives || 0), 0).toFixed(2)),
-    totalCashCollected: parseFloat(filteredMembers.reduce((s, m) => s + (m.totalCashCollected || 0), 0).toFixed(2)),
-    totalSalary: parseFloat(filteredMembers.reduce((s, m) => s + (m.totalSalary || 0), 0).toFixed(2)),
+    totalCashCollected: parseFloat(filteredMembers.reduce((s, m) => s + (m.totalCashCollected || 0) + (m.priorCashCollected || 0), 0).toFixed(2)),
+    totalSalary: parseFloat(filteredMembers.reduce((s, m) => s + (m.totalSalary || 0) + (m.priorCashCollected || 0), 0).toFixed(2)),
     totalJobCount: filteredMembers.reduce((s, m) => s + (m.jobCount || 0), 0),
   }) : null
 
@@ -1171,12 +1171,14 @@ const Payroll = () => {
                             <td className="px-2 py-3 text-sm text-[var(--sf-text-primary)] text-right">{formatCurrency(member.totalTips || 0)}</td>
                             <td className="px-2 py-3 text-sm text-[var(--sf-text-primary)] text-right">{formatCurrency(member.totalIncentives || 0)}</td>
                             <td className="px-2 py-3 text-sm text-right">
-                              {(member.totalCashCollected || 0) < 0 ? <span className="text-orange-600 font-medium">{formatCurrency(member.totalCashCollected)}</span> : <span className="text-[var(--sf-text-muted)]">—</span>}
+                              {((member.totalCashCollected || 0) + (member.priorCashCollected || 0)) < 0
+                                ? <span className="text-orange-600 font-medium">{formatCurrency((member.totalCashCollected || 0) + (member.priorCashCollected || 0))}</span>
+                                : <span className="text-[var(--sf-text-muted)]">—</span>}
                               {(member.priorCashCollected || 0) < 0 && (
-                                <div className="text-[10px] text-orange-400" title="Unpaid cash from previous periods">prior: {formatCurrency(member.priorCashCollected)}</div>
+                                <div className="text-[10px] text-orange-400">incl. prior {formatCurrency(member.priorCashCollected)}</div>
                               )}
                             </td>
-                            <td className="px-3 py-3 text-sm font-semibold text-[var(--sf-text-primary)] text-right">{formatCurrency(member.totalSalary)}</td>
+                            <td className="px-3 py-3 text-sm font-semibold text-[var(--sf-text-primary)] text-right">{formatCurrency(member.totalSalary + (member.priorCashCollected || 0))}</td>
                           </tr>
                           {/* Manager/Owner Pay Breakdown */}
                           {isExpanded && member.isManagerOrOwner && (
