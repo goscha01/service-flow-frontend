@@ -255,13 +255,19 @@ function ConversationRow({ conv, isSelected, onClick }) {
     >
       {/* Avatar */}
       {(() => {
-        const name = conv.displayName || conv.fallbackIdentifier
         const style = getAvatarStyle(conv.displayName, conv.fallbackIdentifier)
         const isBrand = conv.displayName && SOURCE_BRANDS[Object.keys(SOURCE_BRANDS).find(b => conv.displayName.toLowerCase().startsWith(b.toLowerCase()))]
         return (
-          <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold flex-shrink-0"
-            style={{ backgroundColor: style.bg, color: style.text }}>
-            {isBrand ? isBrand.icon : getInitials(conv.displayName)}
+          <div className="relative flex-shrink-0">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold"
+              style={{ backgroundColor: style.bg, color: style.text }}>
+              {isBrand ? isBrand.icon : getInitials(conv.displayName)}
+            </div>
+            {conv.endpointSymbol && (
+              <span className="absolute -bottom-0.5 -right-0.5 text-xs" title={conv.endpointPhone}>
+                {conv.endpointSymbol}
+              </span>
+            )}
           </div>
         )
       })()}
