@@ -178,6 +178,42 @@ function getInitials(name) {
   return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
 }
 
+// Consistent color per contact name/phone — matches OpenPhone's colored avatars
+const AVATAR_COLORS = [
+  { bg: '#E8F5E9', text: '#2E7D32' }, // green
+  { bg: '#E3F2FD', text: '#1565C0' }, // blue
+  { bg: '#FCE4EC', text: '#C62828' }, // red
+  { bg: '#F3E5F5', text: '#6A1B9A' }, // purple
+  { bg: '#FFF3E0', text: '#E65100' }, // orange
+  { bg: '#E0F7FA', text: '#00838F' }, // teal
+  { bg: '#FFF8E1', text: '#F9A825' }, // amber
+  { bg: '#F1F8E9', text: '#558B2F' }, // light green
+  { bg: '#EDE7F6', text: '#4527A0' }, // deep purple
+  { bg: '#FFEBEE', text: '#B71C1C' }, // deep red
+]
+
+// Known source brands with custom styling
+const SOURCE_BRANDS = {
+  'Thumbtack': { bg: '#E8EAF6', text: '#283593', icon: '📌' },
+  'LeadBridge': { bg: '#E3F2FD', text: '#0D47A1', icon: '⚡' },
+  'Yelp': { bg: '#FFEBEE', text: '#C62828', icon: '★' },
+  'HomeAdvisor': { bg: '#FFF3E0', text: '#E65100', icon: '🏠' },
+}
+
+function getAvatarStyle(name, phone) {
+  // Check for known source brands
+  if (name) {
+    for (const [brand, style] of Object.entries(SOURCE_BRANDS)) {
+      if (name.toLowerCase().startsWith(brand.toLowerCase())) return style
+    }
+  }
+  // Hash-based color from name or phone
+  const str = name || phone || '?'
+  let hash = 0
+  for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash)
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length]
+}
+
 // ═══════════════════════════════════════════════════════════════
 // Sub-components
 // ═══════════════════════════════════════════════════════════════
@@ -218,9 +254,17 @@ function ConversationRow({ conv, isSelected, onClick }) {
       }`}
     >
       {/* Avatar */}
-      <div className="w-10 h-10 rounded-full bg-[var(--sf-blue-50)] text-[var(--sf-blue-500)] flex items-center justify-center text-sm font-semibold flex-shrink-0">
-        {getInitials(conv.displayName)}
-      </div>
+      {(() => {
+        const name = conv.displayName || conv.fallbackIdentifier
+        const style = getAvatarStyle(conv.displayName, conv.fallbackIdentifier)
+        const isBrand = conv.displayName && SOURCE_BRANDS[Object.keys(SOURCE_BRANDS).find(b => conv.displayName.toLowerCase().startsWith(b.toLowerCase()))]
+        return (
+          <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold flex-shrink-0"
+            style={{ backgroundColor: style.bg, color: style.text }}>
+            {isBrand ? isBrand.icon : getInitials(conv.displayName)}
+          </div>
+        )
+      })()}
       {/* Content */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between mb-0.5">
