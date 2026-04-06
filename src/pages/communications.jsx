@@ -538,6 +538,7 @@ const Communications = () => {
   const { user } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [activeFilter, setActiveFilter] = useState('recents')
+  const [channelFilter, setChannelFilter] = useState(null) // null = all, 'openphone', 'thumbtack', 'yelp'
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedId, setSelectedId] = useState(null)
   const [sendChannel, setSendChannel] = useState(null)
@@ -575,10 +576,14 @@ const Communications = () => {
     })
   }, [user?.id])
 
-  const loadConversations = async (filter, search) => {
+  const loadConversations = async (filter, search, channel) => {
     try {
       setConvLoading(true)
-      const data = await communicationsAPI.getConversations({ filter: filter || (activeFilter === 'unread' ? 'unread' : undefined), search })
+      const data = await communicationsAPI.getConversations({
+        filter: filter || (activeFilter === 'unread' ? 'unread' : undefined),
+        search,
+        channel: channel !== undefined ? channel : channelFilter,
+      })
       setConversations(data.conversations || [])
     } catch (e) {
       console.error('Failed to load conversations:', e)
@@ -590,8 +595,8 @@ const Communications = () => {
 
   // Reload on filter/search change (only when connected)
   useEffect(() => {
-    if (isConnected) loadConversations(activeFilter === 'unread' ? 'unread' : undefined, searchQuery || undefined)
-  }, [activeFilter, searchQuery, isConnected])
+    if (isConnected) loadConversations(activeFilter === 'unread' ? 'unread' : undefined, searchQuery || undefined, channelFilter)
+  }, [activeFilter, searchQuery, channelFilter, isConnected])
 
   // Light refresh: conversation list only, every 10s (webhooks update the DB, this refreshes the UI)
   // No thread polling — thread refreshes on conversation select
@@ -775,6 +780,24 @@ const Communications = () => {
                     {f === 'unread' && (
                       <span className="ml-1">({MOCK_CONVERSATIONS.filter(c => c.unreadCount > 0).length})</span>
                     )}
+                  </button>
+                ))}
+              </div>
+              {/* Channel tabs */}
+              <div className="flex gap-1 mb-3">
+                {[
+                  { key: null, label: 'All' },
+                  { key: 'openphone', label: 'OpenPhone', Icon: Phone },
+                  { key: 'thumbtack', label: 'Thumbtack', Icon: ThumbsUp },
+                  { key: 'yelp', label: 'Yelp', Icon: Star },
+                ].map(ch => (
+                  <button key={ch.key || 'all'} onClick={() => setChannelFilter(ch.key)}
+                    className={`px-2.5 py-1 text-[11px] font-medium rounded-full flex items-center gap-1 transition-colors ${
+                      channelFilter === ch.key
+                        ? 'bg-[var(--sf-text-primary)] text-white'
+                        : 'bg-[var(--sf-bg-input)] text-[var(--sf-text-muted)] hover:bg-[var(--sf-bg-hover)]'
+                    }`}>
+                    {ch.Icon && <ch.Icon size={11} />} {ch.label}
                   </button>
                 ))}
               </div>

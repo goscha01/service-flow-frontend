@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import Sidebar from "../../components/sidebar"
-import { openPhoneAPI, communicationsAPI } from "../../services/api"
+import { openPhoneAPI, leadbridgeAPI, communicationsAPI } from "../../services/api"
 import {
   ChevronLeft, Phone, PhoneCall, Star, ThumbsUp, Mail,
   MessageSquare, MessageCircle, Info, Check, X, ExternalLink,
@@ -16,7 +16,7 @@ import {
 
 const PROVIDER_DEFS = [
   { key: 'openphone', name: 'OpenPhone', description: 'Sync texts, calls, and contacts from your OpenPhone workspace', Icon: Phone },
-  { key: 'leadbridge', name: 'LeadBridge', description: 'Import Yelp and Thumbtack conversations into CRM', Icon: Zap },
+  { key: 'leadbridge', name: 'Thumbtack / Yelp via LeadBridge', description: 'Connect your Thumbtack and Yelp accounts to receive leads and messages', Icon: Zap },
   { key: 'callio', name: 'Callio', description: 'Connect your native communication workspace and business number', Icon: PhoneCall },
   { key: 'twilio', name: 'Twilio', description: 'Connect a Twilio account for advanced communication workflows', Icon: Settings },
   { key: 'whatsapp', name: 'WhatsApp', description: 'Connect WhatsApp business messaging when available', Icon: MessageCircle },
@@ -123,6 +123,18 @@ const CommunicationHub = () => {
   const [syncProgress, setSyncProgress] = useState(null) // { status, total, synced, messages }
   const [syncResult, setSyncResult] = useState(null)
 
+  // LeadBridge state
+  const [lbConnected, setLbConnected] = useState(false)
+  const [lbAccounts, setLbAccounts] = useState([])
+  const [lbConnectedAt, setLbConnectedAt] = useState(null)
+  const [showLbConnectModal, setShowLbConnectModal] = useState(false)
+  const [lbEmail, setLbEmail] = useState('')
+  const [lbPassword, setLbPassword] = useState('')
+  const [lbConnecting, setLbConnecting] = useState(false)
+  const [lbConnectError, setLbConnectError] = useState('')
+  const [lbSyncing, setLbSyncing] = useState(false)
+  const [lbSyncProgress, setLbSyncProgress] = useState(null)
+
   // Preferences
   const [prefs, setPrefs] = useState(DEFAULT_PREFERENCES)
   const [hasChanges, setHasChanges] = useState(false)
@@ -130,7 +142,61 @@ const CommunicationHub = () => {
   // Load status on mount
   useEffect(() => {
     loadStatus()
+    loadLbStatus()
   }, [])
+
+  const loadLbStatus = async () => {
+    try {
+      const status = await leadbridgeAPI.getStatus()
+      setLbConnected(status.connected)
+      setLbAccounts(status.accounts || [])
+      setLbConnectedAt(status.connectedAt)
+    } catch (e) { /* not connected */ }
+  }
+
+  const handleLbConnect = async () => {
+    if (!lbEmail.trim() || !lbPassword.trim()) { setLbConnectError('Email and password required'); return }
+    setLbConnecting(true); setLbConnectError('')
+    try {
+      const result = await leadbridgeAPI.connect(lbEmail.trim(), lbPassword.trim())
+      setLbConnected(true)
+      setLbAccounts(result.accounts?.map(a => ({
+        id: a.id, channel: a.platform?.toLowerCase() || 'thumbtack',
+        displayName: a.businessName, externalAccountId: a.id,
+      })) || [])
+      setLbConnectedAt(new Date().toISOString())
+      setShowLbConnectModal(false)
+      setLbEmail(''); setLbPassword('')
+    } catch (e) {
+      setLbConnectError(e.response?.data?.error || 'Failed to connect. Check your credentials.')
+    } finally { setLbConnecting(false) }
+  }
+
+  const handleLbDisconnect = async () => {
+    if (!window.confirm('Disconnect LeadBridge? Thumbtack and Yelp messages will stop syncing.')) return
+    try {
+      await leadbridgeAPI.disconnect()
+      setLbConnected(false); setLbAccounts([]); setLbConnectedAt(null)
+    } catch (e) { alert('Failed to disconnect') }
+  }
+
+  const handleLbSync = async (limit) => {
+    setLbSyncing(true); setLbSyncProgress({ status: 'running', total: 0, synced: 0, messages: 0 })
+    try {
+      leadbridgeAPI.sync(null, limit || undefined).catch(() => {})
+      const pollInterval = setInterval(async () => {
+        try {
+          const progress = await leadbridgeAPI.getSyncProgress()
+          setLbSyncProgress(progress)
+          if (progress.status === 'complete' || progress.status === 'error') {
+            clearInterval(pollInterval)
+            setLbSyncing(false)
+          }
+        } catch (e) { /* keep polling */ }
+      }, 3000)
+      setTimeout(() => { clearInterval(pollInterval); setLbSyncing(false) }, 300000)
+    } catch (e) { alert('Sync failed'); setLbSyncing(false) }
+  }
 
   const loadStatus = async () => {
     try {
@@ -218,6 +284,7 @@ const CommunicationHub = () => {
   // Determine provider statuses
   const getProviderStatus = (key) => {
     if (key === 'openphone') return connected ? 'connected' : 'not_connected'
+    if (key === 'leadbridge') return lbConnected ? 'connected' : 'not_connected'
     if (['whatsapp', 'messenger'].includes(key)) return 'coming_soon'
     return 'not_connected'
   }
@@ -254,6 +321,7 @@ const CommunicationHub = () => {
               {PROVIDER_DEFS.map(p => {
                 const status = getProviderStatus(p.key)
                 const isOpenPhone = p.key === 'openphone'
+                const isLeadBridge = p.key === 'leadbridge'
                 return (
                   <div key={p.key} className={`bg-white rounded-xl border border-[var(--sf-border-light)] overflow-hidden ${status === 'coming_soon' ? 'opacity-60' : ''}`}>
                     <div className="p-4 flex items-center justify-between">
@@ -276,6 +344,16 @@ const CommunicationHub = () => {
                                   <span className="text-green-500">
                                     {pn.capabilities?.sms ? ' SMS' : ''}{pn.capabilities?.voice ? ' Voice' : ''}
                                   </span>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          {status === 'connected' && isLeadBridge && (
+                            <div className="mt-1 flex flex-wrap gap-2">
+                              {lbAccounts.map((a, i) => (
+                                <span key={i} className="inline-flex items-center gap-1 text-xs bg-green-50 text-green-700 px-2 py-0.5 rounded-full">
+                                  {a.channel === 'yelp' ? <Star size={10} /> : <ThumbsUp size={10} />}
+                                  {a.displayName || a.channel}
                                 </span>
                               ))}
                             </div>
@@ -310,6 +388,29 @@ const CommunicationHub = () => {
                         )}
                         {status === 'not_connected' && isOpenPhone && (
                           <button onClick={() => { setShowConnectModal(true); setConnectError('') }}
+                            className="px-3 py-1.5 text-xs font-medium bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)]">
+                            Connect
+                          </button>
+                        )}
+                        {/* LeadBridge actions */}
+                        {status === 'connected' && isLeadBridge && (
+                          <>
+                            <button onClick={() => handleLbSync(10)} disabled={lbSyncing}
+                              className="px-3 py-1.5 text-xs font-medium bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] disabled:opacity-50 flex items-center gap-1">
+                              {lbSyncing ? <><Loader2 size={12} className="animate-spin" /> Syncing...</> : <><RefreshCw size={12} /> Test (10)</>}
+                            </button>
+                            <button onClick={() => handleLbSync()} disabled={lbSyncing}
+                              className="px-3 py-1.5 text-xs font-medium border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-hover)] text-[var(--sf-text-secondary)] disabled:opacity-50 flex items-center gap-1">
+                              <RefreshCw size={12} /> Sync All
+                            </button>
+                            <button onClick={handleLbDisconnect}
+                              className="px-3 py-1.5 text-xs font-medium border border-red-200 rounded-lg hover:bg-red-50 text-red-600">
+                              Disconnect
+                            </button>
+                          </>
+                        )}
+                        {status === 'not_connected' && isLeadBridge && (
+                          <button onClick={() => { setShowLbConnectModal(true); setLbConnectError('') }}
                             className="px-3 py-1.5 text-xs font-medium bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)]">
                             Connect
                           </button>
@@ -476,7 +577,7 @@ const CommunicationHub = () => {
         )}
       </div>
 
-      {/* Connect Modal */}
+      {/* OpenPhone Connect Modal */}
       {showConnectModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
@@ -490,6 +591,29 @@ const CommunicationHub = () => {
               <button onClick={handleConnect} disabled={connecting}
                 className="px-4 py-2 text-sm bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] disabled:opacity-50 flex items-center gap-2">
                 {connecting && <Loader2 size={14} className="animate-spin" />} {connecting ? 'Connecting...' : 'Connect'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* LeadBridge Connect Modal */}
+      {showLbConnectModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <h3 className="text-lg font-bold text-[var(--sf-text-primary)] mb-2">Connect Thumbtack / Yelp</h3>
+            <p className="text-sm text-[var(--sf-text-muted)] mb-4">Sign in with your LeadBridge account to import Thumbtack and Yelp conversations.</p>
+            {lbConnectError && <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded text-sm text-red-600">{lbConnectError}</div>}
+            <input type="email" value={lbEmail} onChange={e => setLbEmail(e.target.value)} placeholder="LeadBridge email"
+              className="w-full border border-[var(--sf-border-light)] rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-1 focus:ring-[var(--sf-blue-500)]" />
+            <input type="password" value={lbPassword} onChange={e => setLbPassword(e.target.value)} placeholder="Password"
+              onKeyDown={e => e.key === 'Enter' && handleLbConnect()}
+              className="w-full border border-[var(--sf-border-light)] rounded-lg px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-1 focus:ring-[var(--sf-blue-500)]" />
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setShowLbConnectModal(false)} className="px-4 py-2 text-sm text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]">Cancel</button>
+              <button onClick={handleLbConnect} disabled={lbConnecting}
+                className="px-4 py-2 text-sm bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] disabled:opacity-50 flex items-center gap-2">
+                {lbConnecting && <Loader2 size={14} className="animate-spin" />} {lbConnecting ? 'Connecting...' : 'Connect'}
               </button>
             </div>
           </div>
