@@ -593,29 +593,15 @@ const Communications = () => {
     if (isConnected) loadConversations(activeFilter === 'unread' ? 'unread' : undefined, searchQuery || undefined)
   }, [activeFilter, searchQuery, isConnected])
 
-  // Polling for new messages (every 5s when connected)
+  // Light refresh: conversation list only, every 10s (webhooks update the DB, this refreshes the UI)
+  // No thread polling — thread refreshes on conversation select
   useEffect(() => {
     if (!isConnected) return
-    const interval = setInterval(() => {
-      loadConversations()
-      // Also refresh the active conversation thread
-      if (selectedId) {
-        communicationsAPI.getConversation(selectedId).then(data => {
-          setDetail(prev => {
-            if (!prev) return data
-            // Only update if new events arrived (avoid resetting scroll)
-            if (data?.events?.length !== prev?.events?.length) return data
-            // Check if last event changed
-            const prevLast = prev.events?.[prev.events.length - 1]
-            const newLast = data.events?.[data.events.length - 1]
-            if (prevLast?.id !== newLast?.id) return data
-            return prev
-          })
-        }).catch(() => {})
-      }
-    }, 5000)
-    return () => clearInterval(interval)
-  }, [isConnected, selectedId])
+    const interval = setInterval(() => loadConversations(), 10000)
+    const onFocus = () => loadConversations()
+    window.addEventListener('focus', onFocus)
+    return () => { clearInterval(interval); window.removeEventListener('focus', onFocus) }
+  }, [isConnected])
 
   // Load conversation detail when selected
   useEffect(() => {
