@@ -441,61 +441,69 @@ function Composer({ availableChannels, sendChannel, setSendChannel, text, setTex
 }
 
 // ── Lead Context Panel ──
-function LeadPanel({ lead }) {
-  if (!lead) {
-    return (
-      <div className="p-6">
-        <div className="text-center text-[var(--sf-text-muted)] py-8">
-          <User size={32} className="mx-auto mb-2 text-gray-300" />
-          <p className="text-sm">No linked lead</p>
-          <p className="text-xs mt-1">This conversation hasn't been matched to a CRM lead yet.</p>
-        </div>
-      </div>
-    )
-  }
+function LeadPanel({ lead, conversation }) {
+  const displayName = lead?.name || conversation?.displayName || ''
+  const phone = lead?.phone || conversation?.participantPhone || ''
+  const email = lead?.email || ''
+  const style = getAvatarStyle(displayName, phone)
 
   return (
     <div className="p-4 space-y-5">
-      {/* Lead summary */}
-      <div>
-        <h3 className="text-base font-bold text-[var(--sf-text-primary)] mb-3">{lead.name}</h3>
-        <div className="space-y-2 text-sm">
-          {lead.phone && (
-            <div className="flex items-center gap-2 text-[var(--sf-text-secondary)]">
-              <Phone size={14} className="text-[var(--sf-text-muted)]" /> {lead.phone}
-            </div>
-          )}
-          {lead.email && (
-            <div className="flex items-center gap-2 text-[var(--sf-text-secondary)]">
-              <Mail size={14} className="text-[var(--sf-text-muted)]" /> {lead.email}
-            </div>
-          )}
-          {lead.source && (
-            <div className="flex items-center gap-2 text-[var(--sf-text-secondary)]">
-              <Info size={14} className="text-[var(--sf-text-muted)]" /> Source: {lead.source}
-            </div>
-          )}
+      {/* Contact header — always shown */}
+      <div className="text-center">
+        <div className="w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold mx-auto mb-3"
+          style={{ backgroundColor: style.bg, color: style.text }}>
+          {getInitials(displayName)}
         </div>
-        {/* Tags + Status */}
-        <div className="flex flex-wrap gap-1.5 mt-3">
-          {lead.status && (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--sf-blue-50)] text-[var(--sf-blue-500)] font-medium">{lead.status}</span>
-          )}
-          {(lead.tags || []).map(t => (
-            <span key={t} className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-[var(--sf-text-secondary)]">{t}</span>
-          ))}
-        </div>
+        <h3 className="text-base font-bold text-[var(--sf-text-primary)]">{displayName || 'Unknown'}</h3>
+        {phone && <p className="text-sm text-[var(--sf-text-muted)] mt-0.5">{phone}</p>}
       </div>
 
-      {/* Quick actions */}
+      {/* Contact details */}
+      <div className="space-y-2 text-sm">
+        {phone && (
+          <div className="flex items-center gap-2 text-[var(--sf-text-secondary)]">
+            <Phone size={14} className="text-[var(--sf-text-muted)]" /> {phone}
+          </div>
+        )}
+        {email && (
+          <div className="flex items-center gap-2 text-[var(--sf-text-secondary)]">
+            <Mail size={14} className="text-[var(--sf-text-muted)]" /> {email}
+          </div>
+        )}
+        {lead?.source && (
+          <div className="flex items-center gap-2 text-[var(--sf-text-secondary)]">
+            <Info size={14} className="text-[var(--sf-text-muted)]" /> Source: {lead.source}
+          </div>
+        )}
+      </div>
+
+      {/* Status */}
+      <div className="flex flex-wrap gap-1.5">
+        {lead?.status ? (
+          <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--sf-blue-50)] text-[var(--sf-blue-500)] font-medium">{lead.status}</span>
+        ) : (
+          <span className="text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 font-medium">No lead linked</span>
+        )}
+        {(lead?.tags || []).map(t => (
+          <span key={t} className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-[var(--sf-text-secondary)]">{t}</span>
+        ))}
+      </div>
+
+      {/* Quick actions — always shown */}
       <div>
         <h4 className="text-xs font-semibold text-[var(--sf-text-muted)] uppercase mb-2">Quick Actions</h4>
         <div className="grid grid-cols-2 gap-2">
           {[
-            { icon: Plus, label: 'Create Opportunity' },
+            ...(lead ? [
+              { icon: User, label: 'Open Lead' },
+              { icon: Briefcase, label: 'Create Job' },
+            ] : [
+              { icon: User, label: 'Connect Lead' },
+              { icon: Star, label: 'Convert to Customer' },
+            ]),
             { icon: Calendar, label: 'Schedule' },
-            { icon: User, label: 'Open Lead' },
-            { icon: Briefcase, label: 'Create Job' },
+            { icon: Plus, label: 'Create Opportunity' },
           ].map(a => (
             <button key={a.label}
               onClick={() => console.log('Action:', a.label)}
@@ -901,7 +909,7 @@ const Communications = () => {
               </div>
             )}
             {selectedId ? (
-              <LeadPanel lead={detail?.lead} />
+              <LeadPanel lead={detail?.lead} conversation={detail?.conversation} />
             ) : (
               <EmptyState icon={User} title="No lead selected" subtitle="Select a conversation to see lead details" />
             )}
