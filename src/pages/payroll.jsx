@@ -212,6 +212,14 @@ const QuickTimeFilter = ({ activeRange, onSelect, startDate, endDate, onStartCha
         key={r.id}
         onClick={() => {
           if (r.id === 'custom') {
+            // If dates are empty (e.g. from All Time), initialize to this month
+            if (!startDate) {
+              const d = new Date(); d.setDate(1)
+              onStartChange(toLocalDateString(d))
+            }
+            if (!endDate) {
+              onEndChange(toLocalDateString(new Date()))
+            }
             onSelect('custom')
           } else {
             const range = getQuickRange(r.id, payoutFrequency, payoutStartDay)
