@@ -194,7 +194,7 @@ const CommunicationHub = () => {
             }
           }
         } catch (e) { /* keep polling */ }
-      }, 1500)
+      }, 3000)
       // Safety timeout: stop polling after 10 minutes
       setTimeout(() => { clearInterval(pollInterval); if (syncing) setSyncing(false) }, 600000)
     } catch (e) {
