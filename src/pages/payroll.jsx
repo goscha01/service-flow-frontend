@@ -936,7 +936,7 @@ const Payroll = () => {
                       <Filter className="w-4 h-4 text-[var(--sf-text-muted)]" />
                       <span className="text-sm font-medium text-[var(--sf-text-primary)]">Filters:</span>
                     </div>
-                    <button onClick={fetchPayrollData} disabled={refreshing}
+                    <button onClick={() => fetchPayrollData()} disabled={refreshing}
                       className="sf-btn-primary px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 flex items-center gap-2">
                       {refreshing && <div className="animate-spin rounded-full h-3 w-3 border-2 border-white border-t-transparent"></div>}
                       Apply
@@ -1529,7 +1529,7 @@ const Payroll = () => {
                       onApply={(s, e) => fetchBalances(s, e)}
                     />
                   </div>
-                  <button onClick={fetchBalances} disabled={balancesLoading}
+                  <button onClick={() => fetchBalances()} disabled={balancesLoading}
                     className="sf-btn-primary px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50">
                     Apply
                   </button>
