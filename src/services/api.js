@@ -2718,12 +2718,22 @@ export const openPhoneAPI = {
   relink: async () => { const r = await api.post('/communications/relink'); return r.data; },
 };
 
+export const leadbridgeAPI = {
+  connect: async (email, password) => { const r = await api.post('/integrations/leadbridge/connect', { email, password }); return r.data; },
+  getStatus: async () => { const r = await api.get('/integrations/leadbridge/status'); return r.data; },
+  getAccounts: async () => { const r = await api.get('/integrations/leadbridge/accounts'); return r.data; },
+  disconnect: async () => { const r = await api.delete('/integrations/leadbridge/disconnect'); return r.data; },
+  sync: async (accountId, limit) => { const r = await api.post('/integrations/leadbridge/sync', { accountId, limit }); return r.data; },
+  getSyncProgress: async () => { const r = await api.get('/integrations/leadbridge/sync/progress'); return r.data; },
+};
+
 export const communicationsAPI = {
   getConversations: async (params = {}) => {
     const query = new URLSearchParams();
     if (params.filter) query.append('filter', params.filter);
     if (params.search) query.append('search', params.search);
     if (params.archived) query.append('archived', params.archived);
+    if (params.channel) query.append('channel', params.channel);
     const r = await api.get(`/communications/conversations?${query}`);
     return r.data;
   },
