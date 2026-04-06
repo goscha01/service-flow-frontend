@@ -2727,7 +2727,7 @@ export const communicationsAPI = {
     const r = await api.get(`/communications/conversations?${query}`);
     return r.data;
   },
-  getConversation: async (id) => { const r = await api.get(`/communications/conversations/${id}`); return r.data; },
+  getConversation: async (id, params) => { const r = await api.get(`/communications/conversations/${id}`, { params }); return r.data; },
   sendMessage: async (id, data) => { const r = await api.post(`/communications/conversations/${id}/send`, data); return r.data; },
   updateConversation: async (id, data) => { const r = await api.patch(`/communications/conversations/${id}`, data); return r.data; },
   savePreferences: async (prefs) => { const r = await api.put('/communications/settings/preferences', prefs); return r.data; },
