@@ -6,7 +6,7 @@ import {
   Mail, MessageSquare, MessageCircle, Star, ThumbsUp,
   Info, Send, Paperclip, FileText, Smile, ChevronDown,
   Archive, CheckCheck, Trash2, Plus, Calendar, Briefcase,
-  User, Tag, Clock, ArrowLeft, MoreVertical, X
+  User, Tag, Clock, ArrowLeft, MoreVertical, X, Image, ExternalLink
 } from "lucide-react"
 import { useAuth } from "../context/AuthContext"
 import Sidebar from "../components/sidebar"
@@ -310,6 +310,18 @@ function TimelineEvent({ event }) {
               </a>
             ))}
           </div>
+        )}
+        {!event.text && mediaUrls.length === 0 && (
+          <a href="https://my.openphone.com" target="_blank" rel="noopener noreferrer"
+            className={`flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm ${
+              isOutbound
+                ? 'bg-[var(--sf-blue-500)] text-white/80 rounded-br-md'
+                : 'bg-[var(--sf-bg-input)] text-[var(--sf-text-muted)] border border-[var(--sf-border-light)] rounded-bl-md'
+            }`}>
+            <Image size={16} />
+            <span>MMS Attachment</span>
+            <ExternalLink size={12} className="opacity-60" />
+          </a>
         )}
         {event.text && (
           <div className={`rounded-2xl px-4 py-2.5 text-sm ${
