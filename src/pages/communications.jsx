@@ -487,6 +487,7 @@ const Communications = () => {
   const [mobileView, setMobileView] = useState('list')
   const [showLeadPanel, setShowLeadPanel] = useState(false)
   const timelineEndRef = useRef(null)
+  const timelineScrollRef = useRef(null)
 
   // Real data state
   const [conversations, setConversations] = useState([])
@@ -495,6 +496,7 @@ const Communications = () => {
   const [convLoading, setConvLoading] = useState(false)
   const [detailLoading, setDetailLoading] = useState(false)
   const [sending, setSending] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
 
   const selectedConv = conversations.find(c => String(c.id) === String(selectedId))
 
@@ -556,12 +558,51 @@ const Communications = () => {
     }).finally(() => setDetailLoading(false))
   }, [selectedId, isConnected])
 
-  // Auto-scroll timeline to bottom
+  // Load older messages (infinite scroll)
+  const loadMore = async () => {
+    if (!detail?.hasMore || !detail?.oldestTimestamp || loadingMore) return
+    const el = timelineScrollRef.current
+    const prevHeight = el?.scrollHeight || 0
+    setLoadingMore(true)
+    try {
+      const older = await communicationsAPI.getConversation(selectedId, { before: detail.oldestTimestamp, limit: 20 })
+      if (older?.events?.length) {
+        setDetail(prev => ({
+          ...prev,
+          events: [...older.events, ...prev.events],
+          hasMore: older.hasMore,
+          oldestTimestamp: older.oldestTimestamp,
+        }))
+        // Preserve scroll position after prepending
+        requestAnimationFrame(() => {
+          if (el) el.scrollTop = el.scrollHeight - prevHeight
+        })
+      } else {
+        setDetail(prev => ({ ...prev, hasMore: false }))
+      }
+    } catch (e) { console.error('Load more failed:', e) }
+    setLoadingMore(false)
+  }
+
+  // Auto-scroll timeline to bottom on conversation change
   useEffect(() => {
     if (detail && timelineEndRef.current) {
       timelineEndRef.current.scrollIntoView({ behavior: 'smooth' })
     }
-  }, [selectedId, detail])
+  }, [selectedId])
+
+  // Infinite scroll: load older messages when scrolled to top
+  useEffect(() => {
+    const el = timelineScrollRef.current
+    if (!el) return
+    const onScroll = () => {
+      if (el.scrollTop < 50 && detail?.hasMore && !loadingMore) {
+        loadMore()
+      }
+    }
+    el.addEventListener('scroll', onScroll)
+    return () => el.removeEventListener('scroll', onScroll)
+  }, [detail?.hasMore, detail?.oldestTimestamp, loadingMore])
 
   // Default send channel = last customer inbound channel
   useEffect(() => {
@@ -746,7 +787,12 @@ const Communications = () => {
                 </div>
 
                 {/* Timeline */}
-                <div className="flex-1 overflow-y-auto bg-[var(--sf-bg-page)] py-3">
+                <div ref={timelineScrollRef} className="flex-1 overflow-y-auto bg-[var(--sf-bg-page)] py-3">
+                  {loadingMore && (
+                    <div className="flex justify-center py-2">
+                      <span className="text-xs text-[var(--sf-text-muted)]">Loading older messages...</span>
+                    </div>
+                  )}
                   {groupedEvents.map(item => {
                     if (item.type === 'date') {
                       return (
