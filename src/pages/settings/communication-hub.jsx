@@ -501,6 +501,34 @@ const CommunicationHub = () => {
                         </div>
                       </div>
                     )}
+                    {/* LeadBridge sync progress */}
+                    {isLeadBridge && lbSyncing && (
+                      <div className="px-4 pb-4">
+                        <div className="bg-[var(--sf-bg-input)] rounded-lg p-3">
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-xs font-medium text-[var(--sf-text-primary)]">
+                              {lbSyncProgress?.phase?.startsWith('syncing_') ? `Syncing ${lbSyncProgress.phase.replace('syncing_', '')}...` : 'Syncing...'}
+                            </span>
+                            <span className="text-xs text-[var(--sf-text-muted)]">
+                              {lbSyncProgress ? `${lbSyncProgress.synced}/${lbSyncProgress.total} leads, ${lbSyncProgress.messages} msgs` : 'Starting...'}
+                            </span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-1.5">
+                            <div className="bg-[var(--sf-blue-500)] h-1.5 rounded-full transition-all"
+                              style={{ width: `${lbSyncProgress?.total > 0 ? Math.round((lbSyncProgress.synced / lbSyncProgress.total) * 100) : 5}%` }} />
+                          </div>
+                          {lbSyncProgress?.errors > 0 && <p className="text-[10px] text-red-500 mt-1">{lbSyncProgress.errors} errors</p>}
+                        </div>
+                      </div>
+                    )}
+                    {/* LeadBridge sync result */}
+                    {isLeadBridge && lbSyncProgress?.status === 'complete' && !lbSyncing && (
+                      <div className="px-4 pb-4">
+                        <div className="bg-green-50 rounded-lg p-3 text-xs text-green-700">
+                          Synced {lbSyncProgress.synced} conversations, {lbSyncProgress.messages} messages
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )
               })}
