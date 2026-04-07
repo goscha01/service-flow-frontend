@@ -904,8 +904,8 @@ const Communications = () => {
 
                 {/* Composer */}
                 <Composer
-                  availableChannels={detail?.availableSendChannels || ['openphone']}
-                  sendChannel={sendChannel || 'openphone'}
+                  availableChannels={['openphone', 'thumbtack', 'yelp']}
+                  sendChannel={sendChannel || channelFilter || 'openphone'}
                   setSendChannel={setSendChannel}
                   text={composerText}
                   setText={setComposerText}
