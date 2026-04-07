@@ -2727,6 +2727,14 @@ export const leadbridgeAPI = {
   getSyncProgress: async () => { const r = await api.get('/integrations/leadbridge/sync/progress'); return r.data; },
 };
 
+export const locationsAPI = {
+  list: async () => { const r = await api.get('/locations'); return r.data; },
+  create: async (data) => { const r = await api.post('/locations', data); return r.data; },
+  update: async (id, data) => { const r = await api.patch(`/locations/${id}`, data); return r.data; },
+  getMappings: async () => { const r = await api.get('/communications/location-mappings'); return r.data; },
+  createMapping: async (data) => { const r = await api.post('/communications/location-mappings', data); return r.data; },
+};
+
 export const communicationsAPI = {
   getProviderAccounts: async () => { const r = await api.get('/communications/provider-accounts'); return r.data; },
   getConversations: async (params = {}) => {
@@ -2736,6 +2744,7 @@ export const communicationsAPI = {
     if (params.archived) query.append('archived', params.archived);
     if (params.accountId) query.append('accountId', params.accountId);
     if (params.channel) query.append('channel', params.channel);
+    if (params.locationId) query.append('locationId', params.locationId);
     const r = await api.get(`/communications/conversations?${query}`);
     return r.data;
   },
