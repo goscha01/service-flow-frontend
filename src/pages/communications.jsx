@@ -11,7 +11,7 @@ import {
 import { useAuth } from "../context/AuthContext"
 import Sidebar from "../components/sidebar"
 import MobileHeader from "../components/mobile-header"
-import { communicationsAPI, openPhoneAPI, locationsAPI } from "../services/api"
+import { communicationsAPI, openPhoneAPI, territoriesAPI } from "../services/api"
 
 // ═══════════════════════════════════════════════════════════════
 // Channel configuration
@@ -590,9 +590,11 @@ const Communications = () => {
   // Check connection status + load conversations + load provider accounts
   useEffect(() => {
     if (!user?.id) return
-    // Load locations for dropdown
-    locationsAPI.list().then(data => {
-      setSfLocations(data.locations || [])
+    // Load territories as locations for dropdown
+    territoriesAPI.getAll(user?.id, { status: 'active', limit: 100 }).then(data => {
+      // territoriesAPI returns { territories: [...] } or array directly
+      const territories = data?.territories || data || []
+      setSfLocations(territories.map(t => ({ id: t.id, name: t.name })))
     }).catch(() => {})
 
     openPhoneAPI.getStatus().then(status => {
