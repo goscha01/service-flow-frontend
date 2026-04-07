@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import Sidebar from "../../components/sidebar"
-import { openPhoneAPI, leadbridgeAPI, communicationsAPI } from "../../services/api"
+import { openPhoneAPI, leadbridgeAPI, communicationsAPI, territoriesAPI, locationsAPI } from "../../services/api"
 import {
   ChevronLeft, Phone, PhoneCall, Star, ThumbsUp, Mail,
   MessageSquare, MessageCircle, Info, Check, X, ExternalLink,
@@ -134,6 +134,8 @@ const CommunicationHub = () => {
   const [lbConnectError, setLbConnectError] = useState('')
   const [lbSyncing, setLbSyncing] = useState(false)
   const [lbSyncProgress, setLbSyncProgress] = useState(null)
+  const [territories, setTerritories] = useState([]) // [{id, name}]
+  const [locationMappings, setLocationMappings] = useState([]) // [{providerAccountId, sfLocationId, ...}]
 
   // Preferences
   const [prefs, setPrefs] = useState(DEFAULT_PREFERENCES)
@@ -152,6 +154,33 @@ const CommunicationHub = () => {
       setLbAccounts(status.accounts || [])
       setLbConnectedAt(status.connectedAt)
     } catch (e) { /* not connected */ }
+    // Load territories + mappings for location assignment
+    try {
+      const user = JSON.parse(localStorage.getItem('user') || '{}')
+      const terrData = await territoriesAPI.getAll(user.id, { status: 'active', limit: 100 })
+      setTerritories((terrData?.territories || terrData || []).map(t => ({ id: t.id, name: t.name })))
+    } catch (e) { /* no territories */ }
+    try {
+      const mappingData = await locationsAPI.getMappings()
+      setLocationMappings(mappingData.mappings || [])
+    } catch (e) { /* no mappings */ }
+  }
+
+  const handleLocationMapping = async (accountId, territoryId, channel) => {
+    try {
+      await locationsAPI.createMapping({
+        providerAccountId: accountId,
+        sfLocationId: parseInt(territoryId),
+        provider: 'leadbridge',
+        channel: channel || 'thumbtack',
+        mappingType: 'account_level',
+      })
+      // Reload mappings
+      const mappingData = await locationsAPI.getMappings()
+      setLocationMappings(mappingData.mappings || [])
+    } catch (e) {
+      alert('Failed to save location mapping: ' + (e.response?.data?.error || e.message))
+    }
   }
 
   const handleLbConnect = async () => {
@@ -348,14 +377,42 @@ const CommunicationHub = () => {
                               ))}
                             </div>
                           )}
-                          {status === 'connected' && isLeadBridge && (
-                            <div className="mt-1 flex flex-wrap gap-2">
-                              {lbAccounts.map((a, i) => (
-                                <span key={i} className="inline-flex items-center gap-1 text-xs bg-green-50 text-green-700 px-2 py-0.5 rounded-full">
-                                  {a.channel === 'yelp' ? <Star size={10} /> : <ThumbsUp size={10} />}
-                                  {a.displayName || a.channel}
-                                </span>
-                              ))}
+                          {status === 'connected' && isLeadBridge && lbAccounts.length > 0 && (
+                            <div className="mt-2 space-y-2 w-full">
+                              {lbAccounts.map((a, i) => {
+                                const mapping = locationMappings.find(m => m.providerAccountId === a.id)
+                                const mappedTerritoryId = mapping?.sfLocationId || ''
+                                return (
+                                  <div key={i} className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2">
+                                    <span className={`p-1 rounded ${a.channel === 'yelp' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
+                                      {a.channel === 'yelp' ? <Star size={12} /> : <ThumbsUp size={12} />}
+                                    </span>
+                                    <span className="text-xs font-medium text-[var(--sf-text-primary)] flex-1 truncate">
+                                      {a.displayName || a.channel}
+                                    </span>
+                                    {territories.length > 0 ? (
+                                      <select
+                                        value={mappedTerritoryId}
+                                        onChange={e => {
+                                          if (e.target.value) handleLocationMapping(a.id, e.target.value, a.channel)
+                                        }}
+                                        className="text-[11px] border border-[var(--sf-border-light)] rounded px-2 py-1 bg-white min-w-[120px]">
+                                        <option value="">{mappedTerritoryId ? 'Change location...' : 'Assign location'}</option>
+                                        {territories.map(t => (
+                                          <option key={t.id} value={t.id}>{t.name}</option>
+                                        ))}
+                                      </select>
+                                    ) : (
+                                      <span className="text-[10px] text-[var(--sf-text-muted)]">No locations</span>
+                                    )}
+                                    {mapping && (
+                                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600">
+                                        {mapping.locationName}
+                                      </span>
+                                    )}
+                                  </div>
+                                )
+                              })}
                             </div>
                           )}
                         </div>
