@@ -392,23 +392,33 @@ function TimelineEvent({ event }) {
 }
 
 // ── Composer with channel tabs (no "All") ──
-function Composer({ availableChannels, sendChannel, setSendChannel, text, setText, onSend }) {
+function Composer({ availableChannels, sendChannel, setSendChannel, text, setText, onSend, channelFilter, onChannelFilter }) {
+  // Source tabs = communication sources. Clicking one filters the conversation list AND sets the send channel.
+  const sourceTabs = [
+    { key: 'openphone', label: 'OpenPhone', Icon: Phone },
+    ...availableChannels.filter(c => c === 'thumbtack' || c === 'yelp').map(c => {
+      const ch = CHANNELS[c]
+      return ch ? { key: c, label: ch.label, Icon: ch.Icon } : null
+    }).filter(Boolean),
+  ]
+
   return (
     <div className="border-t border-[var(--sf-border-light)] bg-white">
-      {/* Channel tabs */}
+      {/* Source tabs — filters conversation list + sets send channel */}
       <div className="flex border-b border-[var(--sf-border-light)] px-3 pt-1">
-        {availableChannels.map(c => {
-          const ch = CHANNELS[c]
-          if (!ch) return null
-          const isActive = sendChannel === c
+        {sourceTabs.map(tab => {
+          const isActive = (channelFilter || 'openphone') === tab.key
           return (
-            <button key={c} onClick={() => setSendChannel(c)}
+            <button key={tab.key} onClick={() => {
+              onChannelFilter(tab.key === 'openphone' ? null : tab.key)
+              setSendChannel(tab.key)
+            }}
               className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 transition-colors ${
                 isActive
                   ? 'border-[var(--sf-blue-500)] text-[var(--sf-blue-500)]'
                   : 'border-transparent text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]'
               }`}>
-              <ch.Icon size={13} /> {ch.label}
+              <tab.Icon size={13} /> {tab.label}
             </button>
           )
         })}
@@ -783,24 +793,6 @@ const Communications = () => {
                   </button>
                 ))}
               </div>
-              {/* Channel tabs */}
-              <div className="flex gap-1 mb-3">
-                {[
-                  { key: null, label: 'All' },
-                  { key: 'openphone', label: 'OpenPhone', Icon: Phone },
-                  { key: 'thumbtack', label: 'Thumbtack', Icon: ThumbsUp },
-                  { key: 'yelp', label: 'Yelp', Icon: Star },
-                ].map(ch => (
-                  <button key={ch.key || 'all'} onClick={() => setChannelFilter(ch.key)}
-                    className={`px-2.5 py-1 text-[11px] font-medium rounded-full flex items-center gap-1 transition-colors ${
-                      channelFilter === ch.key
-                        ? 'bg-[var(--sf-text-primary)] text-white'
-                        : 'bg-[var(--sf-bg-input)] text-[var(--sf-text-muted)] hover:bg-[var(--sf-bg-hover)]'
-                    }`}>
-                    {ch.Icon && <ch.Icon size={11} />} {ch.label}
-                  </button>
-                ))}
-              </div>
               {/* Search */}
               <div className="relative">
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--sf-text-muted)]" />
@@ -836,7 +828,21 @@ const Communications = () => {
             mobileView === 'list' ? 'hidden sm:flex' : 'flex'
           }`}>
             {!selectedId ? (
-              <EmptyState icon={MessageSquare} title="Select a conversation" subtitle="Choose a conversation from the list to view the thread" />
+              <div className="flex-1 flex flex-col">
+                <div className="flex-1 flex items-center justify-center">
+                  <EmptyState icon={MessageSquare} title="Select a conversation" subtitle="Choose a conversation from the list to view the thread" />
+                </div>
+                <Composer
+                  availableChannels={['openphone', 'thumbtack', 'yelp']}
+                  sendChannel={sendChannel || 'openphone'}
+                  setSendChannel={setSendChannel}
+                  text={composerText}
+                  setText={setComposerText}
+                  onSend={() => {}}
+                  channelFilter={channelFilter}
+                  onChannelFilter={setChannelFilter}
+                />
+              </div>
             ) : (
               <>
                 {/* Thread header */}
@@ -900,6 +906,8 @@ const Communications = () => {
                   text={composerText}
                   setText={setComposerText}
                   onSend={handleSend}
+                  channelFilter={channelFilter}
+                  onChannelFilter={setChannelFilter}
                 />
               </>
             )}
