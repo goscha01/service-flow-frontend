@@ -189,11 +189,9 @@ const CommunicationHub = () => {
     try {
       const result = await leadbridgeAPI.connect(lbEmail.trim(), lbPassword.trim())
       setLbConnected(true)
-      setLbAccounts(result.accounts?.map(a => ({
-        id: a.id, channel: a.platform?.toLowerCase() || 'thumbtack',
-        displayName: a.businessName, externalAccountId: a.id,
-      })) || [])
       setLbConnectedAt(new Date().toISOString())
+      // Reload status to get SF provider account IDs (connect returns LB UUIDs)
+      await loadLbStatus()
       setShowLbConnectModal(false)
       setLbEmail(''); setLbPassword('')
     } catch (e) {
