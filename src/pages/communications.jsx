@@ -609,14 +609,18 @@ const Communications = () => {
   }, [activeFilter, searchQuery, channelFilter, isConnected])
 
   // Light refresh: conversation list only, every 10s (webhooks update the DB, this refreshes the UI)
-  // No thread polling — thread refreshes on conversation select
+  // Preserves current channel filter — doesn't reset to "all"
   useEffect(() => {
     if (!isConnected) return
-    const interval = setInterval(() => loadConversations(), 10000)
-    const onFocus = () => loadConversations()
-    window.addEventListener('focus', onFocus)
-    return () => { clearInterval(interval); window.removeEventListener('focus', onFocus) }
-  }, [isConnected])
+    const refresh = () => loadConversations(
+      activeFilter === 'unread' ? 'unread' : undefined,
+      searchQuery || undefined,
+      channelFilter
+    )
+    const interval = setInterval(refresh, 10000)
+    window.addEventListener('focus', refresh)
+    return () => { clearInterval(interval); window.removeEventListener('focus', refresh) }
+  }, [isConnected, activeFilter, searchQuery, channelFilter])
 
   // Load conversation detail when selected
   useEffect(() => {
