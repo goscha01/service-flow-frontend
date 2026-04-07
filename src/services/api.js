@@ -2728,11 +2728,13 @@ export const leadbridgeAPI = {
 };
 
 export const communicationsAPI = {
+  getProviderAccounts: async () => { const r = await api.get('/communications/provider-accounts'); return r.data; },
   getConversations: async (params = {}) => {
     const query = new URLSearchParams();
     if (params.filter) query.append('filter', params.filter);
     if (params.search) query.append('search', params.search);
     if (params.archived) query.append('archived', params.archived);
+    if (params.accountId) query.append('accountId', params.accountId);
     if (params.channel) query.append('channel', params.channel);
     const r = await api.get(`/communications/conversations?${query}`);
     return r.data;

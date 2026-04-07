@@ -274,9 +274,16 @@ function ConversationRow({ conv, isSelected, onClick }) {
       {/* Content */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between mb-0.5">
-          <span className={`text-sm truncate ${conv.unreadCount > 0 ? 'font-bold text-[var(--sf-text-primary)]' : 'font-medium text-[var(--sf-text-primary)]'}`}>
-            {name}
-          </span>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className={`text-sm truncate ${conv.unreadCount > 0 ? 'font-bold text-[var(--sf-text-primary)]' : 'font-medium text-[var(--sf-text-primary)]'}`}>
+              {name}
+            </span>
+            {conv.accountName && (
+              <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-100 text-[var(--sf-text-muted)] flex-shrink-0 truncate max-w-[100px]">
+                {conv.accountName}
+              </span>
+            )}
+          </div>
           <span className="text-[10px] text-[var(--sf-text-muted)] flex-shrink-0 ml-2">{relativeTime(conv.lastEventAt)}</span>
         </div>
         <div className="flex items-center justify-between">
@@ -555,6 +562,8 @@ const Communications = () => {
   const [composerText, setComposerText] = useState('')
   const [mobileView, setMobileView] = useState('list')
   const [showLeadPanel, setShowLeadPanel] = useState(false)
+  const [accountFilter, setAccountFilter] = useState(null) // null = all accounts
+  const [providerAccounts, setProviderAccounts] = useState([]) // [{id, provider, channel, displayName}]
   const timelineEndRef = useRef(null)
   const timelineScrollRef = useRef(null)
 
@@ -569,9 +578,14 @@ const Communications = () => {
 
   const selectedConv = conversations.find(c => String(c.id) === String(selectedId))
 
-  // Check connection status + load conversations
+  // Check connection status + load conversations + load provider accounts
   useEffect(() => {
     if (!user?.id) return
+    // Load provider accounts for dropdown
+    communicationsAPI.getProviderAccounts().then(data => {
+      setProviderAccounts(data.accounts || [])
+    }).catch(() => {})
+
     openPhoneAPI.getStatus().then(status => {
       setIsConnected(status.connected)
       if (status.connected) loadConversations()
@@ -586,13 +600,14 @@ const Communications = () => {
     })
   }, [user?.id])
 
-  const loadConversations = async (filter, search, channel) => {
+  const loadConversations = async (filter, search, channel, acctId) => {
     try {
       setConvLoading(true)
       const data = await communicationsAPI.getConversations({
         filter: filter || (activeFilter === 'unread' ? 'unread' : undefined),
         search,
         channel: channel !== undefined ? channel : channelFilter,
+        accountId: acctId !== undefined ? acctId : accountFilter,
       })
       setConversations(data.conversations || [])
     } catch (e) {
@@ -605,8 +620,8 @@ const Communications = () => {
 
   // Reload on filter/search change (only when connected)
   useEffect(() => {
-    if (isConnected) loadConversations(activeFilter === 'unread' ? 'unread' : undefined, searchQuery || undefined, channelFilter)
-  }, [activeFilter, searchQuery, channelFilter, isConnected])
+    if (isConnected) loadConversations(activeFilter === 'unread' ? 'unread' : undefined, searchQuery || undefined, channelFilter, accountFilter)
+  }, [activeFilter, searchQuery, channelFilter, accountFilter, isConnected])
 
   // Light refresh: conversation list only, every 10s (webhooks update the DB, this refreshes the UI)
   // Preserves current channel filter — doesn't reset to "all"
@@ -615,12 +630,13 @@ const Communications = () => {
     const refresh = () => loadConversations(
       activeFilter === 'unread' ? 'unread' : undefined,
       searchQuery || undefined,
-      channelFilter
+      channelFilter,
+      accountFilter
     )
     const interval = setInterval(refresh, 10000)
     window.addEventListener('focus', refresh)
     return () => { clearInterval(interval); window.removeEventListener('focus', refresh) }
-  }, [isConnected, activeFilter, searchQuery, channelFilter])
+  }, [isConnected, activeFilter, searchQuery, channelFilter, accountFilter])
 
   // Load conversation detail when selected
   useEffect(() => {
@@ -809,6 +825,23 @@ const Communications = () => {
               </div>
             </div>
 
+            {/* Account filter — shown only when on Thumbtack or Yelp tab */}
+            {(channelFilter === 'thumbtack' || channelFilter === 'yelp') && (() => {
+              const channelAccounts = providerAccounts.filter(a => a.channel === channelFilter)
+              if (channelAccounts.length <= 1) return null
+              return (
+                <div className="px-4 pb-2">
+                  <select value={accountFilter || ''} onChange={e => setAccountFilter(e.target.value || null)}
+                    className="w-full text-xs border border-[var(--sf-border-light)] rounded-lg px-2 py-1.5 bg-white text-[var(--sf-text-secondary)] focus:outline-none focus:ring-1 focus:ring-[var(--sf-blue-500)]">
+                    <option value="">All Accounts ({channelAccounts.length})</option>
+                    {channelAccounts.map(a => (
+                      <option key={a.id} value={a.id}>{a.displayName}</option>
+                    ))}
+                  </select>
+                </div>
+              )
+            })()}
+
             {/* Conversation list */}
             <div className="flex-1 overflow-y-auto">
               {filteredConversations.length === 0 ? (
@@ -844,7 +877,7 @@ const Communications = () => {
                   setText={setComposerText}
                   onSend={() => {}}
                   channelFilter={channelFilter}
-                  onChannelFilter={setChannelFilter}
+                  onChannelFilter={(ch) => { setChannelFilter(ch); setAccountFilter(null) }}
                 />
               </div>
             ) : (
@@ -911,7 +944,7 @@ const Communications = () => {
                   setText={setComposerText}
                   onSend={handleSend}
                   channelFilter={channelFilter}
-                  onChannelFilter={setChannelFilter}
+                  onChannelFilter={(ch) => { setChannelFilter(ch); setAccountFilter(null) }}
                 />
               </>
             )}
