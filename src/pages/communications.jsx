@@ -674,14 +674,22 @@ const Communications = () => {
     setDetailLoading(true)
     communicationsAPI.getConversation(selectedId).then(data => {
       setDetail(data)
-      // Update local unread count + refresh channel badges
-      setConversations(prev => prev.map(c =>
-        String(c.id) === String(selectedId) ? { ...c, unreadCount: 0 } : c
-      ))
-      // Refresh unread counts from server
-      communicationsAPI.getConversations({ channel: channelFilter }).then(d => {
-        if (d.channelUnread) setChannelUnread(d.channelUnread)
-      }).catch(() => {})
+      // Update local unread count + recalculate channel badges immediately
+      setConversations(prev => {
+        const updated = prev.map(c =>
+          String(c.id) === String(selectedId) ? { ...c, unreadCount: 0 } : c
+        )
+        // Recalculate channel unread from local state (instant, no server round-trip)
+        const counts = {}
+        for (const c of updated) {
+          if (c.unreadCount > 0) {
+            const key = c.provider === 'openphone' ? 'openphone' : c.channel
+            counts[key] = (counts[key] || 0) + 1
+          }
+        }
+        setChannelUnread(counts)
+        return updated
+      })
     }).catch(e => {
       console.error('Failed to load conversation:', e)
       setDetail(null)
