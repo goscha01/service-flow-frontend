@@ -408,10 +408,10 @@ function TimelineEvent({ event }) {
   )
 }
 
-// ── Composer with channel tabs (no "All") ──
-function Composer({ availableChannels, sendChannel, setSendChannel, text, setText, onSend, channelFilter, onChannelFilter }) {
-  // Source tabs = communication sources. Clicking one filters the conversation list AND sets the send channel.
+// ── Composer with channel tabs ──
+function Composer({ availableChannels, sendChannel, setSendChannel, text, setText, onSend, channelFilter, onChannelFilter, channelUnread }) {
   const sourceTabs = [
+    { key: 'all', label: 'All', Icon: MessageSquare },
     { key: 'openphone', label: 'OpenPhone', Icon: Phone },
     ...availableChannels.filter(c => c === 'thumbtack' || c === 'yelp').map(c => {
       const ch = CHANNELS[c]
@@ -421,14 +421,17 @@ function Composer({ availableChannels, sendChannel, setSendChannel, text, setTex
 
   return (
     <div className="border-t border-[var(--sf-border-light)] bg-white">
-      {/* Source tabs — filters conversation list + sets send channel */}
+      {/* Source tabs — All shows everything, others filter by channel */}
       <div className="flex border-b border-[var(--sf-border-light)] px-3 pt-1">
         {sourceTabs.map(tab => {
-          const isActive = (channelFilter || 'openphone') === tab.key
+          const isActive = (channelFilter || 'all') === tab.key
+          const unread = tab.key === 'all'
+            ? Object.values(channelUnread || {}).reduce((s, n) => s + n, 0)
+            : (channelUnread || {})[tab.key] || 0
           return (
             <button key={tab.key} onClick={() => {
-              onChannelFilter(tab.key)
-              setSendChannel(tab.key)
+              onChannelFilter(tab.key === 'all' ? null : tab.key)
+              if (tab.key !== 'all') setSendChannel(tab.key)
             }}
               className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 transition-colors ${
                 isActive
@@ -436,6 +439,11 @@ function Composer({ availableChannels, sendChannel, setSendChannel, text, setTex
                   : 'border-transparent text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)]'
               }`}>
               <tab.Icon size={13} /> {tab.label}
+              {unread > 0 && (
+                <span className="ml-0.5 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
+                  {unread > 9 ? '9+' : unread}
+                </span>
+              )}
             </button>
           )
         })}
@@ -569,7 +577,8 @@ const Communications = () => {
   const { user } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [activeFilter, setActiveFilter] = useState('recents')
-  const [channelFilter, setChannelFilter] = useState('openphone') // 'openphone' default, 'thumbtack', 'yelp'
+  const [channelFilter, setChannelFilter] = useState(null) // null = all, 'openphone', 'thumbtack', 'yelp'
+  const [channelUnread, setChannelUnread] = useState({}) // { openphone: 2, thumbtack: 1, yelp: 0 }
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedId, setSelectedId] = useState(null)
   const [sendChannel, setSendChannel] = useState(null)
@@ -626,6 +635,7 @@ const Communications = () => {
         locationId: locId !== undefined ? locId : locationFilter,
       })
       setConversations(data.conversations || [])
+      if (data.channelUnread) setChannelUnread(data.channelUnread)
     } catch (e) {
       console.error('Failed to load conversations:', e)
       setConversations(MOCK_CONVERSATIONS) // fallback
@@ -891,6 +901,7 @@ const Communications = () => {
                   onSend={() => {}}
                   channelFilter={channelFilter}
                   onChannelFilter={(ch) => { setChannelFilter(ch); setLocationFilter(null) }}
+                  channelUnread={channelUnread}
                 />
               </div>
             ) : (
@@ -958,6 +969,7 @@ const Communications = () => {
                   onSend={handleSend}
                   channelFilter={channelFilter}
                   onChannelFilter={(ch) => { setChannelFilter(ch); setLocationFilter(null) }}
+                  channelUnread={channelUnread}
                 />
               </>
             )}
