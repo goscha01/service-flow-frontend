@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import Sidebar from "../../components/sidebar"
-import { openPhoneAPI, leadbridgeAPI, communicationsAPI, territoriesAPI, locationsAPI } from "../../services/api"
+import { openPhoneAPI, leadbridgeAPI, communicationsAPI, territoriesAPI, locationsAPI, leadAutomationAPI } from "../../services/api"
 import {
   ChevronLeft, Phone, PhoneCall, Star, ThumbsUp, Mail,
   MessageSquare, MessageCircle, Info, Check, X, ExternalLink,
@@ -134,8 +134,10 @@ const CommunicationHub = () => {
   const [lbConnectError, setLbConnectError] = useState('')
   const [lbSyncing, setLbSyncing] = useState(false)
   const [lbSyncProgress, setLbSyncProgress] = useState(null)
-  const [territories, setTerritories] = useState([]) // [{id, name}]
-  const [locationMappings, setLocationMappings] = useState([]) // [{providerAccountId, sfLocationId, ...}]
+  const [territories, setTerritories] = useState([])
+  const [locationMappings, setLocationMappings] = useState([])
+  const [automationRules, setAutomationRules] = useState([])
+  const [automationStages, setAutomationStages] = useState([])
 
   // Preferences
   const [prefs, setPrefs] = useState(DEFAULT_PREFERENCES)
@@ -164,6 +166,12 @@ const CommunicationHub = () => {
       const mappingData = await locationsAPI.getMappings()
       setLocationMappings(mappingData.mappings || [])
     } catch (e) { /* no mappings */ }
+    // Load automation rules
+    try {
+      const autoData = await leadAutomationAPI.getRules()
+      setAutomationRules(autoData.rules || [])
+      setAutomationStages(autoData.stages || [])
+    } catch (e) { /* no rules */ }
   }
 
   const handleLocationMapping = async (accountId, territoryId, channel) => {
@@ -573,6 +581,75 @@ const CommunicationHub = () => {
               </table>
             </div>
           </section>
+
+          {/* ═══ Lead Stage Automation ═══ */}
+          {lbConnected && (
+            <section>
+              <SectionHeader title="Lead Stage Automation" subtitle="Configure how leads progress through your pipeline based on communication events" />
+              <div className="bg-white rounded-xl border border-[var(--sf-border-light)] p-5">
+                {automationRules.length === 0 ? (
+                  <div className="text-center py-4">
+                    <p className="text-sm text-[var(--sf-text-muted)] mb-3">No automation rules configured yet.</p>
+                    <button onClick={async () => {
+                      try {
+                        await leadAutomationAPI.seedDefaults()
+                        const data = await leadAutomationAPI.getRules()
+                        setAutomationRules(data.rules || [])
+                        setAutomationStages(data.stages || [])
+                      } catch (e) { alert('Failed to create defaults') }
+                    }} className="px-4 py-2 text-sm bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)]">
+                      Create Default Rules
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {[
+                      { event: 'lead_received', label: 'Lead Received', desc: 'New lead arrives from platform' },
+                      { event: 'first_reply_sent', label: 'First Reply Sent', desc: 'Agent sends first message' },
+                      { event: 'conversation_ongoing', label: 'Conversation Ongoing', desc: 'Further messages exchanged' },
+                      { event: 'proposal_sent', label: 'Proposal Sent', desc: 'Quote or proposal sent to customer' },
+                      { event: 'job_created', label: 'Job Created', desc: 'Job created for this lead' },
+                    ].map(evt => {
+                      // Show rules for both thumbtack and yelp combined (they should match)
+                      const rule = automationRules.find(r => r.eventType === evt.event && r.channel === 'thumbtack')
+                        || automationRules.find(r => r.eventType === evt.event)
+                      return (
+                        <div key={evt.event} className="flex items-center justify-between py-2 border-b border-[var(--sf-border-light)] last:border-0">
+                          <div>
+                            <div className="text-sm font-medium text-[var(--sf-text-primary)]">{evt.label}</div>
+                            <div className="text-xs text-[var(--sf-text-muted)]">{evt.desc}</div>
+                          </div>
+                          <select
+                            value={rule?.targetStageId || ''}
+                            onChange={async (e) => {
+                              const stageId = parseInt(e.target.value)
+                              if (!stageId) return
+                              try {
+                                // Save for both channels
+                                for (const ch of ['thumbtack', 'yelp']) {
+                                  await leadAutomationAPI.saveRule({
+                                    channel: ch, eventType: evt.event, targetStageId: stageId,
+                                    enabled: true, autoConvertToCustomer: evt.event === 'job_created',
+                                  })
+                                }
+                                const data = await leadAutomationAPI.getRules()
+                                setAutomationRules(data.rules || [])
+                              } catch (e) { alert('Failed to save rule') }
+                            }}
+                            className="text-xs border border-[var(--sf-border-light)] rounded-lg px-3 py-1.5 bg-white min-w-[150px]">
+                            <option value="">Select stage...</option>
+                            {automationStages.map(s => (
+                              <option key={s.id} value={s.id}>{s.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
 
           {/* ═══ Section 3: Default Behavior ═══ */}
           <section>
