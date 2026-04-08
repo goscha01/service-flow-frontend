@@ -12,7 +12,7 @@ import {
 import { useAuth } from "../context/AuthContext"
 import Sidebar from "../components/sidebar"
 import MobileHeader from "../components/mobile-header"
-import { communicationsAPI, openPhoneAPI, territoriesAPI } from "../services/api"
+import { communicationsAPI, openPhoneAPI, whatsappAPI, territoriesAPI } from "../services/api"
 
 // ═══════════════════════════════════════════════════════════════
 // Channel configuration
@@ -413,7 +413,7 @@ function Composer({ availableChannels, sendChannel, setSendChannel, text, setTex
   const sourceTabs = [
     { key: 'all', label: 'All', Icon: MessageSquare },
     { key: 'openphone', label: 'OpenPhone', Icon: Phone },
-    ...availableChannels.filter(c => c === 'thumbtack' || c === 'yelp').map(c => {
+    ...availableChannels.filter(c => c === 'thumbtack' || c === 'yelp' || c === 'whatsapp').map(c => {
       const ch = CHANNELS[c]
       return ch ? { key: c, label: ch.label, Icon: ch.Icon } : null
     }).filter(Boolean),
@@ -598,8 +598,10 @@ const Communications = () => {
   const [detailLoading, setDetailLoading] = useState(false)
   const [sending, setSending] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
+  const [whatsappConnected, setWhatsappConnected] = useState(false)
 
   const selectedConv = conversations.find(c => String(c.id) === String(selectedId))
+  const availableChannels = ['openphone', 'thumbtack', 'yelp', ...(whatsappConnected ? ['whatsapp'] : [])]
 
   // Check connection status + load conversations + load provider accounts
   useEffect(() => {
@@ -623,6 +625,9 @@ const Communications = () => {
       setConversations(MOCK_CONVERSATIONS)
       setIsConnected(false)
     })
+
+    // Check WhatsApp connection
+    whatsappAPI.getStatus().then(s => setWhatsappConnected(s.connected || false)).catch(() => {})
   }, [user?.id])
 
   const loadConversations = async (filter, search, channel, locId) => {
@@ -909,7 +914,7 @@ const Communications = () => {
                   <EmptyState icon={MessageSquare} title="Select a conversation" subtitle="Choose a conversation from the list to view the thread" />
                 </div>
                 <Composer
-                  availableChannels={['openphone', 'thumbtack', 'yelp']}
+                  availableChannels={availableChannels}
                   sendChannel={sendChannel || 'openphone'}
                   setSendChannel={setSendChannel}
                   text={composerText}
@@ -977,7 +982,7 @@ const Communications = () => {
 
                 {/* Composer */}
                 <Composer
-                  availableChannels={['openphone', 'thumbtack', 'yelp']}
+                  availableChannels={availableChannels}
                   sendChannel={sendChannel || channelFilter || 'openphone'}
                   setSendChannel={setSendChannel}
                   text={composerText}

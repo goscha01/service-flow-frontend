@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import Sidebar from "../../components/sidebar"
-import { openPhoneAPI, leadbridgeAPI, communicationsAPI, territoriesAPI, locationsAPI, leadAutomationAPI } from "../../services/api"
+import { openPhoneAPI, leadbridgeAPI, whatsappAPI, communicationsAPI, territoriesAPI, locationsAPI, leadAutomationAPI } from "../../services/api"
 import {
   ChevronLeft, Phone, PhoneCall, Star, ThumbsUp, Mail,
   MessageSquare, MessageCircle, Info, Check, X, ExternalLink,
@@ -132,6 +132,14 @@ const CommunicationHub = () => {
   const [lbPassword, setLbPassword] = useState('')
   const [lbConnecting, setLbConnecting] = useState(false)
   const [lbConnectError, setLbConnectError] = useState('')
+
+  // WhatsApp state
+  const [waConnected, setWaConnected] = useState(false)
+  const [waPhoneNumber, setWaPhoneNumber] = useState(null)
+  const [waConnecting, setWaConnecting] = useState(false)
+  const [showWaQrModal, setShowWaQrModal] = useState(false)
+  const [waQrCode, setWaQrCode] = useState(null)
+  const [waStatus, setWaStatus] = useState('disconnected')
   const [lbSyncing, setLbSyncing] = useState(false)
   const [lbSyncProgress, setLbSyncProgress] = useState(null)
   const [territories, setTerritories] = useState([])
@@ -155,6 +163,13 @@ const CommunicationHub = () => {
       setLbConnected(status.connected)
       setLbAccounts(status.accounts || [])
       setLbConnectedAt(status.connectedAt)
+    } catch (e) { /* not connected */ }
+    // WhatsApp status
+    try {
+      const waRes = await whatsappAPI.getStatus()
+      setWaConnected(waRes.connected || false)
+      setWaPhoneNumber(waRes.phoneNumber || null)
+      setWaStatus(waRes.status || 'disconnected')
     } catch (e) { /* not connected */ }
     // Load territories + mappings for location assignment
     try {
@@ -320,7 +335,8 @@ const CommunicationHub = () => {
   const getProviderStatus = (key) => {
     if (key === 'openphone') return connected ? 'connected' : 'not_connected'
     if (key === 'leadbridge') return lbConnected ? 'connected' : 'not_connected'
-    if (['whatsapp', 'messenger'].includes(key)) return 'coming_soon'
+    if (key === 'whatsapp') return waConnected ? 'connected' : 'not_connected'
+    if (key === 'messenger') return 'coming_soon'
     return 'not_connected'
   }
 
@@ -476,6 +492,35 @@ const CommunicationHub = () => {
                           <button onClick={() => { setShowLbConnectModal(true); setLbConnectError('') }}
                             className="px-3 py-1.5 text-xs font-medium bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)]">
                             Connect
+                          </button>
+                        )}
+                        {/* WhatsApp actions */}
+                        {status === 'connected' && p.key === 'whatsapp' && (
+                          <>
+                            <span className="text-xs text-green-600 font-medium">{waPhoneNumber}</span>
+                            <button onClick={async () => {
+                                try {
+                                  await whatsappAPI.disconnect()
+                                  setWaConnected(false); setWaPhoneNumber(null); setWaStatus('disconnected')
+                                } catch (e) { alert('Failed to disconnect WhatsApp') }
+                              }}
+                              className="px-3 py-1.5 text-xs font-medium border border-red-200 rounded-lg hover:bg-red-50 text-red-600">
+                              Disconnect
+                            </button>
+                          </>
+                        )}
+                        {status === 'not_connected' && p.key === 'whatsapp' && (
+                          <button onClick={async () => {
+                              setWaConnecting(true)
+                              try {
+                                await whatsappAPI.connect()
+                                setShowWaQrModal(true)
+                              } catch (e) { alert(e.response?.data?.error || 'Failed to connect WhatsApp') }
+                              finally { setWaConnecting(false) }
+                            }}
+                            disabled={waConnecting}
+                            className="px-3 py-1.5 text-xs font-medium bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] disabled:opacity-50 flex items-center gap-1">
+                            {waConnecting ? <Loader2 size={12} className="animate-spin" /> : <MessageCircle size={12} />} Connect
                           </button>
                         )}
                         {status === 'coming_soon' && <span className="text-xs text-[var(--sf-text-muted)]">Coming soon</span>}
@@ -710,6 +755,94 @@ const CommunicationHub = () => {
           </div>
         </div>
       )}
+
+      {/* WhatsApp QR Code Modal */}
+      {showWaQrModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-bold text-[var(--sf-text-primary)]">Connect WhatsApp</h3>
+              <button onClick={() => setShowWaQrModal(false)} className="p-1 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-primary)]">
+                <X size={18} />
+              </button>
+            </div>
+            <WhatsAppQrPanel onConnected={(phone) => {
+              setWaConnected(true)
+              setWaPhoneNumber(phone)
+              setWaStatus('connected')
+              setShowWaQrModal(false)
+            }} />
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function WhatsAppQrPanel({ onConnected }) {
+  const [qrCode, setQrCode] = useState(null)
+  const [status, setStatus] = useState('loading')
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    let active = true
+    let interval = null
+
+    const poll = async () => {
+      try {
+        const res = await whatsappAPI.getQR()
+        if (!active) return
+        if (res.connected) {
+          onConnected(res.phoneNumber)
+          return
+        }
+        if (res.qrCode) {
+          setQrCode(res.qrCode)
+          setStatus('qr_ready')
+        } else {
+          setStatus(res.status || 'initializing')
+        }
+        setError(null)
+      } catch (e) {
+        if (!active) return
+        setError('Failed to get QR code')
+        setStatus('error')
+      }
+    }
+
+    poll()
+    interval = setInterval(poll, 3000)
+    return () => { active = false; clearInterval(interval) }
+  }, [])
+
+  if (status === 'error') return (
+    <div className="text-center py-6">
+      <p className="text-sm text-red-600">{error}</p>
+      <p className="text-xs text-[var(--sf-text-muted)] mt-1">Check that OpenPhone is connected first</p>
+    </div>
+  )
+
+  if (status === 'loading' || status === 'initializing') return (
+    <div className="flex flex-col items-center py-8 gap-3">
+      <Loader2 size={32} className="animate-spin text-[var(--sf-blue-500)]" />
+      <p className="text-sm text-[var(--sf-text-muted)]">Initializing WhatsApp...</p>
+    </div>
+  )
+
+  if (status === 'qr_ready' && qrCode) return (
+    <div className="flex flex-col items-center gap-4">
+      <img src={qrCode} alt="WhatsApp QR Code" className="w-56 h-56 rounded-lg border border-[var(--sf-border-light)]" />
+      <div className="text-center">
+        <p className="text-sm font-medium text-[var(--sf-text-primary)]">Scan with WhatsApp</p>
+        <p className="text-xs text-[var(--sf-text-muted)] mt-1">Open WhatsApp → Settings → Linked Devices → Link a Device</p>
+      </div>
+    </div>
+  )
+
+  return (
+    <div className="flex flex-col items-center py-6 gap-2">
+      <Loader2 size={24} className="animate-spin text-[var(--sf-text-muted)]" />
+      <p className="text-xs text-[var(--sf-text-muted)]">Status: {status}</p>
     </div>
   )
 }
