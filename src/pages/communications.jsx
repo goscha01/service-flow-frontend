@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useMemo, useRef, useEffect } from "react"
+import { useNavigate } from "react-router-dom"
 import {
   Search, Phone, PhoneCall, PhoneIncoming, PhoneOutgoing,
   Mail, MessageSquare, MessageCircle, Star, ThumbsUp,
@@ -468,6 +469,7 @@ function Composer({ availableChannels, sendChannel, setSendChannel, text, setTex
 
 // ── Lead Context Panel ──
 function LeadPanel({ lead, conversation }) {
+  const navigate = useNavigate()
   const displayName = lead?.name || conversation?.displayName || ''
   const phone = lead?.phone || conversation?.participantPhone || ''
   const email = lead?.email || ''
@@ -521,18 +523,21 @@ function LeadPanel({ lead, conversation }) {
         <h4 className="text-xs font-semibold text-[var(--sf-text-muted)] uppercase mb-2">Quick Actions</h4>
         <div className="grid grid-cols-2 gap-2">
           {[
-            ...(lead ? [
-              { icon: User, label: 'Open Lead' },
-              { icon: Briefcase, label: 'Create Job' },
+            ...(lead?.entityType === 'customer' ? [
+              { icon: User, label: 'Open Customer', action: () => navigate(`/customer/${lead.id}`) },
+              { icon: Briefcase, label: 'Create Job', action: () => navigate(`/jobs?customerId=${lead.id}`) },
+            ] : lead?.entityType === 'lead' ? [
+              { icon: User, label: 'Open Lead', action: () => navigate('/leads') },
+              { icon: Briefcase, label: 'Create Job', action: () => navigate('/jobs') },
             ] : [
-              { icon: User, label: 'Connect Lead' },
-              { icon: Star, label: 'Convert to Customer' },
+              { icon: User, label: 'View Leads', action: () => navigate('/leads') },
+              { icon: Star, label: 'View Customers', action: () => navigate('/customers') },
             ]),
-            { icon: Calendar, label: 'Schedule' },
-            { icon: Plus, label: 'Create Opportunity' },
+            { icon: Calendar, label: 'Schedule', action: () => navigate('/schedule') },
+            { icon: Plus, label: 'Create Job', action: () => navigate('/jobs') },
           ].map(a => (
             <button key={a.label}
-              onClick={() => console.log('Action:', a.label)}
+              onClick={a.action}
               className="flex flex-col items-center gap-1 p-3 border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-hover)] transition-colors text-[var(--sf-text-secondary)]">
               <a.icon size={18} />
               <span className="text-[10px] font-medium text-center leading-tight">{a.label}</span>
