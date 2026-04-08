@@ -21,6 +21,8 @@ const LeadsSettings = () => {
   const [saving, setSaving] = useState(null) // event being saved
   const [rules, setRules] = useState([])
   const [stages, setStages] = useState([])
+  const [backfilling, setBackfilling] = useState(false)
+  const [backfillResult, setBackfillResult] = useState(null)
 
   useEffect(() => {
     loadRules()
@@ -156,15 +158,36 @@ const LeadsSettings = () => {
                     Update existing leads based on their conversation history. Only advances forward.
                   </p>
                 </div>
-                <button onClick={async () => {
+                <button disabled={backfilling} onClick={async () => {
+                  setBackfilling(true)
+                  setBackfillResult(null)
                   try {
                     const result = await leadAutomationAPI.backfill()
-                    alert(`Updated ${result.updated} of ${result.total} leads`)
-                  } catch (e) { alert('Failed: ' + (e.response?.data?.error || e.message)) }
-                }} className="px-4 py-2 text-sm border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-hover)] text-[var(--sf-text-secondary)]">
-                  Apply Now
+                    setBackfillResult(result)
+                  } catch (e) {
+                    setBackfillResult({ error: e.response?.data?.error || e.message })
+                  } finally { setBackfilling(false) }
+                }} className="px-4 py-2 text-sm border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-hover)] text-[var(--sf-text-secondary)] disabled:opacity-50 flex items-center gap-2">
+                  {backfilling && <Loader2 size={14} className="animate-spin" />}
+                  {backfilling ? 'Applying...' : 'Apply Now'}
                 </button>
               </div>
+              {backfilling && (
+                <div className="mt-3">
+                  <div className="w-full bg-gray-200 rounded-full h-1.5">
+                    <div className="bg-[var(--sf-blue-500)] h-1.5 rounded-full animate-pulse" style={{ width: '60%' }} />
+                  </div>
+                  <p className="text-xs text-[var(--sf-text-muted)] mt-1">Processing leads...</p>
+                </div>
+              )}
+              {backfillResult && !backfilling && (
+                <div className={`mt-3 rounded-lg p-3 text-xs ${backfillResult.error ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'}`}>
+                  {backfillResult.error
+                    ? `Error: ${backfillResult.error}`
+                    : `Updated ${backfillResult.updated} of ${backfillResult.total} leads`
+                  }
+                </div>
+              )}
             </div>
           </section>
         </div>
