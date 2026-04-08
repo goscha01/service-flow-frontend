@@ -2727,6 +2727,12 @@ export const leadbridgeAPI = {
   getSyncProgress: async () => { const r = await api.get('/integrations/leadbridge/sync/progress'); return r.data; },
 };
 
+export const leadAutomationAPI = {
+  getRules: async () => { const r = await api.get('/lead-automation/rules'); return r.data; },
+  saveRule: async (data) => { const r = await api.post('/lead-automation/rules', data); return r.data; },
+  seedDefaults: async () => { const r = await api.post('/lead-automation/seed-defaults'); return r.data; },
+};
+
 export const locationsAPI = {
   list: async () => { const r = await api.get('/locations'); return r.data; },
   create: async (data) => { const r = await api.post('/locations', data); return r.data; },
