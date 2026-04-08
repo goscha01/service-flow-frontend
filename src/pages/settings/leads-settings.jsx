@@ -145,6 +145,28 @@ const LeadsSettings = () => {
               These rules apply to both Thumbtack and Yelp leads.
             </p>
           </section>
+
+          {/* Apply to existing leads */}
+          <section>
+            <div className="bg-white rounded-xl border border-[var(--sf-border-light)] p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold text-[var(--sf-text-primary)]">Apply Rules to Existing Leads</h3>
+                  <p className="text-xs text-[var(--sf-text-muted)] mt-0.5">
+                    Update existing leads based on their conversation history. Only advances forward.
+                  </p>
+                </div>
+                <button onClick={async () => {
+                  try {
+                    const result = await leadAutomationAPI.backfill()
+                    alert(`Updated ${result.updated} of ${result.total} leads`)
+                  } catch (e) { alert('Failed: ' + (e.response?.data?.error || e.message)) }
+                }} className="px-4 py-2 text-sm border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-hover)] text-[var(--sf-text-secondary)]">
+                  Apply Now
+                </button>
+              </div>
+            </div>
+          </section>
         </div>
       </div>
     </div>
