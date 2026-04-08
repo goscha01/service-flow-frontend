@@ -2731,6 +2731,7 @@ export const leadAutomationAPI = {
   getRules: async () => { const r = await api.get('/lead-automation/rules'); return r.data; },
   saveRule: async (data) => { const r = await api.post('/lead-automation/rules', data); return r.data; },
   seedDefaults: async () => { const r = await api.post('/lead-automation/seed-defaults'); return r.data; },
+  backfill: async () => { const r = await api.post('/lead-automation/backfill'); return r.data; },
 };
 
 export const locationsAPI = {
