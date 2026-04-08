@@ -1383,6 +1383,23 @@ const ServiceFlowSchedule = () => {
   }
 
   // Helper to convert time string to minutes since midnight
+  // Parse "9:00 AM - 6:00 PM" hours string into { start: "09:00", end: "18:00" }
+  const parseHoursString = (hoursStr) => {
+    if (!hoursStr || typeof hoursStr !== 'string') return null
+    const match = hoursStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)\s*-\s*(\d{1,2}):(\d{2})\s*(AM|PM)/i)
+    if (!match) return null
+    let startH = parseInt(match[1]), startM = match[2], startP = match[3].toUpperCase()
+    let endH = parseInt(match[4]), endM = match[5], endP = match[6].toUpperCase()
+    if (startP === 'PM' && startH !== 12) startH += 12
+    if (startP === 'AM' && startH === 12) startH = 0
+    if (endP === 'PM' && endH !== 12) endH += 12
+    if (endP === 'AM' && endH === 12) endH = 0
+    return {
+      start: `${String(startH).padStart(2, '0')}:${startM}`,
+      end: `${String(endH).padStart(2, '0')}:${endM}`
+    }
+  }
+
   const timeToMinutes = (timeStr) => {
     if (!timeStr) return 0
     const [hours, minutes] = timeStr.split(':').map(Number)
@@ -1530,58 +1547,57 @@ const ServiceFlowSchedule = () => {
   // Helper to get Personal Cleaner Availability (#3) for a specific day
   // Personal Cleaner Availability: When a cleaner is willing to work (set in app/settings)
   // This is independent of booked jobs - it's when the cleaner is available at all
+  // Extract start/end from dayHours which may be in different formats:
+  // 1. { timeSlots: [{ start: "09:00", end: "17:00" }] }
+  // 2. { start: "09:00", end: "17:00" }
+  // 3. { hours: "9:00 AM - 6:00 PM" } (synced from business hours)
+  const extractDaySlot = (dayHours) => {
+    if (!dayHours || dayHours.available === false) return null
+    if (dayHours.timeSlots && dayHours.timeSlots.length > 0) {
+      return dayHours.timeSlots[0]
+    }
+    if (dayHours.start && dayHours.end) {
+      return { start: dayHours.start, end: dayHours.end }
+    }
+    if (dayHours.hours && typeof dayHours.hours === 'string') {
+      return parseHoursString(dayHours.hours)
+    }
+    return null
+  }
+
   const getPersonalAvailabilityForDay = (memberId, dayOfWeek) => {
     const member = teamMembers.find(m => m.id === memberId)
     if (!member) return null
-    
+
     // Check if we have cached availability
     if (teamMemberAvailability[memberId]) {
       const avail = teamMemberAvailability[memberId]
       if (typeof avail === 'string') {
         try {
           const parsed = JSON.parse(avail)
-          const workingHours = parsed.workingHours || {}
-          const dayHours = workingHours[dayOfWeek]
-          if (dayHours && dayHours.available !== false) {
-            if (dayHours.timeSlots && dayHours.timeSlots.length > 0) {
-              return dayHours.timeSlots[0] // Use first time slot
-            } else if (dayHours.start && dayHours.end) {
-              return { start: dayHours.start, end: dayHours.end }
-            }
-          }
+          const dayHours = (parsed.workingHours || {})[dayOfWeek]
+          const slot = extractDaySlot(dayHours)
+          if (slot) return slot
         } catch (e) {
           console.error('Error parsing team member availability:', e)
         }
       } else if (avail && avail.workingHours) {
-        const dayHours = avail.workingHours[dayOfWeek]
-        if (dayHours && dayHours.available !== false) {
-          if (dayHours.timeSlots && dayHours.timeSlots.length > 0) {
-            return dayHours.timeSlots[0]
-          } else if (dayHours.start && dayHours.end) {
-            return { start: dayHours.start, end: dayHours.end }
-          }
-        }
+        const slot = extractDaySlot(avail.workingHours[dayOfWeek])
+        if (slot) return slot
       }
     }
-    
+
     // If member has availability in their object
     if (member.availability) {
       try {
         const avail = typeof member.availability === 'string' ? JSON.parse(member.availability) : member.availability
-        const workingHours = avail.workingHours || {}
-        const dayHours = workingHours[dayOfWeek]
-        if (dayHours && dayHours.available !== false) {
-          if (dayHours.timeSlots && dayHours.timeSlots.length > 0) {
-            return dayHours.timeSlots[0]
-          } else if (dayHours.start && dayHours.end) {
-            return { start: dayHours.start, end: dayHours.end }
-          }
-        }
+        const slot = extractDaySlot((avail.workingHours || {})[dayOfWeek])
+        if (slot) return slot
       } catch (e) {
         console.error('Error parsing member availability:', e)
       }
     }
-    
+
     return null // No personal availability set
   }
 
