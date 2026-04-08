@@ -2718,6 +2718,13 @@ export const openPhoneAPI = {
   relink: async () => { const r = await api.post('/communications/relink'); return r.data; },
 };
 
+export const whatsappAPI = {
+  getStatus: async () => { const r = await api.get('/integrations/whatsapp/status'); return r.data; },
+  connect: async () => { const r = await api.post('/integrations/whatsapp/connect'); return r.data; },
+  getQR: async () => { const r = await api.get('/integrations/whatsapp/qr'); return r.data; },
+  disconnect: async () => { const r = await api.post('/integrations/whatsapp/disconnect'); return r.data; },
+};
+
 export const leadbridgeAPI = {
   connect: async (email, password) => { const r = await api.post('/integrations/leadbridge/connect', { email, password }); return r.data; },
   getStatus: async () => { const r = await api.get('/integrations/leadbridge/status'); return r.data; },
