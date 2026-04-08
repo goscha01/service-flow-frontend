@@ -426,7 +426,7 @@ function Composer({ availableChannels, sendChannel, setSendChannel, text, setTex
           const isActive = (channelFilter || 'openphone') === tab.key
           return (
             <button key={tab.key} onClick={() => {
-              onChannelFilter(tab.key === 'openphone' ? null : tab.key)
+              onChannelFilter(tab.key)
               setSendChannel(tab.key)
             }}
               className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 transition-colors ${
@@ -564,7 +564,7 @@ const Communications = () => {
   const { user } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [activeFilter, setActiveFilter] = useState('recents')
-  const [channelFilter, setChannelFilter] = useState(null) // null = all, 'openphone', 'thumbtack', 'yelp'
+  const [channelFilter, setChannelFilter] = useState('openphone') // 'openphone' default, 'thumbtack', 'yelp'
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedId, setSelectedId] = useState(null)
   const [sendChannel, setSendChannel] = useState(null)
