@@ -380,6 +380,7 @@ const CommunicationHub = () => {
                 const status = getProviderStatus(p.key)
                 const isOpenPhone = p.key === 'openphone'
                 const isLeadBridge = p.key === 'leadbridge'
+                const isWhatsApp = p.key === 'whatsapp'
                 return (
                   <div key={p.key} className={`bg-white rounded-xl border border-[var(--sf-border-light)] overflow-hidden ${status === 'coming_soon' ? 'opacity-60' : ''}`}>
                     <div className="p-4 flex items-center justify-between">
@@ -625,6 +626,34 @@ const CommunicationHub = () => {
                       <div className="px-4 pb-4">
                         <div className="bg-green-50 rounded-lg p-3 text-xs text-green-700">
                           Synced {lbSyncProgress.synced} conversations, {lbSyncProgress.messages} messages
+                        </div>
+                      </div>
+                    )}
+                    {/* WhatsApp sync progress */}
+                    {isWhatsApp && waSyncing && (
+                      <div className="px-4 pb-4">
+                        <div className="bg-[var(--sf-bg-input)] rounded-lg p-3">
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-xs font-medium text-[var(--sf-text-primary)]">
+                              {waSyncProgress?.phase === 'fetching' ? 'Fetching chats from WhatsApp...' : waSyncProgress?.phase === 'syncing' ? 'Syncing conversations...' : waSyncProgress?.phase === 'done' ? 'Complete!' : 'Starting...'}
+                            </span>
+                            <span className="text-xs text-[var(--sf-text-muted)]">
+                              {waSyncProgress?.total > 0 ? `${waSyncProgress.chats || 0}/${waSyncProgress.total} chats, ${waSyncProgress.messages || 0} msgs` : waSyncProgress?.phase === 'fetching' ? 'Fetching...' : 'Starting...'}
+                            </span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-1.5">
+                            <div className="bg-emerald-500 h-1.5 rounded-full transition-all"
+                              style={{ width: `${waSyncProgress?.total > 0 ? Math.round(((waSyncProgress.chats || 0) / waSyncProgress.total) * 100) : 5}%` }} />
+                          </div>
+                          {waSyncProgress?.skipped > 0 && <p className="text-[10px] text-amber-500 mt-1">{waSyncProgress.skipped} skipped (groups/invalid)</p>}
+                        </div>
+                      </div>
+                    )}
+                    {/* WhatsApp sync result */}
+                    {isWhatsApp && waSyncProgress?.phase === 'done' && !waSyncing && (
+                      <div className="px-4 pb-4">
+                        <div className="bg-green-50 rounded-lg p-3 text-xs text-green-700">
+                          Synced {waSyncProgress.chats} chats, {waSyncProgress.messages} messages{waSyncProgress.linked > 0 ? `, ${waSyncProgress.linked} linked` : ''}
                         </div>
                       </div>
                     )}
