@@ -295,30 +295,35 @@ const CommunicationHub = () => {
   const handleSync = async (limit) => {
     setSyncing(true); setSyncResult(null); setSyncProgress({ status: 'running', total: 0, synced: 0, messages: 0, phase: 'starting' })
     try {
-      // Fire and forget — don't await, start polling immediately
       openPhoneAPI.sync(limit || undefined).catch(e => console.warn('Sync request:', e.message))
-      // Poll progress every 1.5s
       const pollInterval = setInterval(async () => {
         try {
           const progress = await openPhoneAPI.getSyncProgress()
           setSyncProgress(progress)
-          if (progress.status === 'complete' || progress.status === 'error' || progress.phase === 'done') {
+          if (progress.status === 'complete' || progress.status === 'error' || progress.status === 'cancelled' || progress.phase === 'done' || progress.phase === 'cancelled') {
             clearInterval(pollInterval)
             setSyncing(false)
             if (progress.status === 'complete' || progress.phase === 'done') {
               setSyncResult({ conversations: progress.synced, messages: progress.messages })
+            } else if (progress.status === 'cancelled') {
+              setSyncResult({ conversations: progress.synced, messages: progress.messages, cancelled: true })
             } else if (progress.status === 'error') {
               alert('Sync error: ' + (progress.error || 'Unknown'))
             }
           }
         } catch (e) { /* keep polling */ }
       }, 1500)
-      // Safety timeout: stop polling after 10 minutes
       setTimeout(() => { clearInterval(pollInterval); setSyncing(false) }, 600000)
     } catch (e) {
       alert('Sync failed: ' + (e.response?.data?.error || e.message))
       setSyncing(false)
     }
+  }
+
+  const handleCancelSync = async () => {
+    try {
+      await openPhoneAPI.cancelSync()
+    } catch (e) { /* ignore */ }
   }
 
   const updatePref = (key, value) => {
@@ -578,15 +583,20 @@ const CommunicationHub = () => {
                             <div className="bg-[var(--sf-blue-500)] h-1.5 rounded-full transition-all"
                               style={{ width: `${syncProgress?.total > 0 ? Math.round((syncProgress.synced / syncProgress.total) * 100) : 5}%` }} />
                           </div>
-                          {syncProgress?.errors > 0 && <p className="text-[10px] text-red-500 mt-1">{syncProgress.errors} errors</p>}
+                          <div className="flex items-center justify-between mt-1.5">
+                            {syncProgress?.errors > 0 && <p className="text-[10px] text-red-500">{syncProgress.errors} errors</p>}
+                            <button onClick={handleCancelSync} className="text-[10px] text-red-500 hover:text-red-700 font-medium">
+                              Cancel Sync
+                            </button>
+                          </div>
                         </div>
                       </div>
                     )}
                     {/* Sync result inside OpenPhone card */}
                     {isOpenPhone && syncResult && !syncing && (
                       <div className="px-4 pb-4">
-                        <div className="bg-green-50 rounded-lg p-3 text-xs text-green-700">
-                          Synced {syncResult.conversations} conversations, {syncResult.messages} messages
+                        <div className={`${syncResult.cancelled ? 'bg-amber-50 text-amber-700' : 'bg-green-50 text-green-700'} rounded-lg p-3 text-xs`}>
+                          {syncResult.cancelled ? 'Cancelled' : 'Synced'}: {syncResult.conversations} conversations, {syncResult.messages} messages
                         </div>
                       </div>
                     )}
