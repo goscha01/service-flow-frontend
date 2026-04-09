@@ -576,7 +576,7 @@ const CommunicationHub = () => {
                               {syncProgress?.phase === 'fetching' || syncProgress?.phase === 'full_sync' ? 'Fetching from Sigcore...' : syncProgress?.phase === 'syncing' ? 'Syncing conversations...' : syncProgress?.phase === 'done' ? 'Complete!' : 'Starting...'}
                             </span>
                             <span className="text-xs text-[var(--sf-text-muted)]">
-                              {syncProgress?.total > 0 ? `${syncProgress.synced || 0}/${syncProgress.total} convs, ${syncProgress.messages || 0} msgs` : syncProgress?.status === 'running' ? 'Fetching...' : 'Starting...'}
+                              {syncProgress?.total > 0 ? `${syncProgress.synced || 0}/${syncProgress.total} convs, ${syncProgress.messages || 0} msgs${syncProgress.etaSeconds > 0 ? ` · ~${syncProgress.etaSeconds > 60 ? Math.round(syncProgress.etaSeconds / 60) + 'm' : syncProgress.etaSeconds + 's'} left` : ''}` : syncProgress?.status === 'running' ? 'Fetching...' : 'Starting...'}
                             </span>
                           </div>
                           <div className="w-full bg-gray-200 rounded-full h-1.5">
