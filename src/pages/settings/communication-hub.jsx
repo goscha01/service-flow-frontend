@@ -140,6 +140,8 @@ const CommunicationHub = () => {
   const [showWaQrModal, setShowWaQrModal] = useState(false)
   const [waQrCode, setWaQrCode] = useState(null)
   const [waStatus, setWaStatus] = useState('disconnected')
+  const [waSyncing, setWaSyncing] = useState(false)
+  const [waSyncProgress, setWaSyncProgress] = useState(null)
   const [lbSyncing, setLbSyncing] = useState(false)
   const [lbSyncProgress, setLbSyncProgress] = useState(null)
   const [territories, setTerritories] = useState([])
@@ -300,19 +302,19 @@ const CommunicationHub = () => {
         try {
           const progress = await openPhoneAPI.getSyncProgress()
           setSyncProgress(progress)
-          if (progress.status === 'complete' || progress.status === 'error') {
+          if (progress.status === 'complete' || progress.status === 'error' || progress.phase === 'done') {
             clearInterval(pollInterval)
             setSyncing(false)
-            if (progress.status === 'complete') {
+            if (progress.status === 'complete' || progress.phase === 'done') {
               setSyncResult({ conversations: progress.synced, messages: progress.messages })
             } else if (progress.status === 'error') {
               alert('Sync error: ' + (progress.error || 'Unknown'))
             }
           }
         } catch (e) { /* keep polling */ }
-      }, 3000)
+      }, 1500)
       // Safety timeout: stop polling after 10 minutes
-      setTimeout(() => { clearInterval(pollInterval); if (syncing) setSyncing(false) }, 600000)
+      setTimeout(() => { clearInterval(pollInterval); setSyncing(false) }, 600000)
     } catch (e) {
       alert('Sync failed: ' + (e.response?.data?.error || e.message))
       setSyncing(false)
@@ -499,6 +501,40 @@ const CommunicationHub = () => {
                           <>
                             <span className="text-xs text-green-600 font-medium">{waPhoneNumber}</span>
                             <button onClick={async () => {
+                                setWaSyncing(true); setWaSyncProgress(null)
+                                try {
+                                  await whatsappAPI.sync(10)
+                                  const poll = setInterval(async () => {
+                                    const p = await whatsappAPI.getSyncProgress()
+                                    setWaSyncProgress(p)
+                                    if (p.phase === 'done' || p.phase === 'error' || p.phase === 'idle') {
+                                      clearInterval(poll); setWaSyncing(false)
+                                    }
+                                  }, 1500)
+                                } catch (e) { alert('Sync failed'); setWaSyncing(false) }
+                              }}
+                              disabled={waSyncing}
+                              className="px-3 py-1.5 text-xs font-medium bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] disabled:opacity-50 flex items-center gap-1">
+                              {waSyncing ? <Loader2 size={12} className="animate-spin" /> : <Zap size={12} />} Test (10)
+                            </button>
+                            <button onClick={async () => {
+                                setWaSyncing(true); setWaSyncProgress(null)
+                                try {
+                                  await whatsappAPI.sync()
+                                  const poll = setInterval(async () => {
+                                    const p = await whatsappAPI.getSyncProgress()
+                                    setWaSyncProgress(p)
+                                    if (p.phase === 'done' || p.phase === 'error' || p.phase === 'idle') {
+                                      clearInterval(poll); setWaSyncing(false)
+                                    }
+                                  }, 1500)
+                                } catch (e) { alert('Sync failed'); setWaSyncing(false) }
+                              }}
+                              disabled={waSyncing}
+                              className="px-3 py-1.5 text-xs font-medium border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-hover)] text-[var(--sf-text-secondary)] disabled:opacity-50 flex items-center gap-1">
+                              <RefreshCw size={12} /> Sync All
+                            </button>
+                            <button onClick={async () => {
                                 try {
                                   await whatsappAPI.disconnect()
                                   setWaConnected(false); setWaPhoneNumber(null); setWaStatus('disconnected')
@@ -532,10 +568,10 @@ const CommunicationHub = () => {
                         <div className="bg-[var(--sf-bg-input)] rounded-lg p-3">
                           <div className="flex items-center justify-between mb-1.5">
                             <span className="text-xs font-medium text-[var(--sf-text-primary)]">
-                              {syncProgress?.phase === 'fetching' ? 'Counting conversations...' : 'Syncing...'}
+                              {syncProgress?.phase === 'fetching' || syncProgress?.phase === 'full_sync' ? 'Fetching from Sigcore...' : syncProgress?.phase === 'syncing' ? 'Syncing conversations...' : syncProgress?.phase === 'done' ? 'Complete!' : 'Starting...'}
                             </span>
                             <span className="text-xs text-[var(--sf-text-muted)]">
-                              {syncProgress ? `${syncProgress.synced}/${syncProgress.total} convs, ${syncProgress.messages} msgs` : 'Starting...'}
+                              {syncProgress?.total > 0 ? `${syncProgress.synced || 0}/${syncProgress.total} convs, ${syncProgress.messages || 0} msgs` : syncProgress?.status === 'running' ? 'Fetching...' : 'Starting...'}
                             </span>
                           </div>
                           <div className="w-full bg-gray-200 rounded-full h-1.5">
