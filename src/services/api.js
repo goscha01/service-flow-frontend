@@ -2723,6 +2723,8 @@ export const whatsappAPI = {
   connect: async () => { const r = await api.post('/integrations/whatsapp/connect'); return r.data; },
   getQR: async () => { const r = await api.get('/integrations/whatsapp/qr'); return r.data; },
   disconnect: async () => { const r = await api.post('/integrations/whatsapp/disconnect'); return r.data; },
+  sync: async (messageLimit) => { const r = await api.post('/integrations/whatsapp/sync', messageLimit ? { messageLimit } : {}); return r.data; },
+  getSyncProgress: async () => { const r = await api.get('/integrations/whatsapp/sync/progress'); return r.data; },
 };
 
 export const leadbridgeAPI = {
