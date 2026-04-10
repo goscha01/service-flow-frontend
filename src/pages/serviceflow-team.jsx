@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 import Sidebar from "../components/sidebar"
-import { Plus, Search, Filter, Users, TrendingUp, Calendar, DollarSign, Clock, Eye, Edit, Trash2, UserPlus, BarChart3, AlertCircle, MapPin, Loader2, Power, PowerOff, Zap, Settings, ChevronLeft, ChevronRight, HelpCircle, EyeOff } from "lucide-react"
+import { Plus, Search, Filter, Users, TrendingUp, Calendar, DollarSign, Clock, Eye, Edit, Trash2, UserPlus, BarChart3, AlertCircle, MapPin, Loader2, Power, PowerOff, Zap, Settings, ChevronLeft, ChevronRight, HelpCircle, EyeOff, Mail } from "lucide-react"
 import { useAuth } from "../context/AuthContext"
 import { teamAPI } from "../services/api"
 import { isAccountOwner } from "../utils/roleUtils"
@@ -841,6 +841,19 @@ const ServiceFlowTeam = () => {
                                             >
                                               <Power className="w-4 h-4" />
                                               <span>Activate</span>
+                                            </button>
+                                          )}
+                                          {member.email && (
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleResendInvite(member);
+                                              }}
+                                              className="text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-600)] transition-colors flex items-center gap-1 px-2 py-1 rounded text-xs font-medium"
+                                              title="Resend invitation"
+                                            >
+                                              <Mail className="w-4 h-4" />
+                                              <span>Invite</span>
                                             </button>
                                           )}
                                           <button
