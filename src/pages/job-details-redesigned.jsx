@@ -4103,8 +4103,15 @@ const JobDetails = () => {
                 )}
                 </div>
               )}
+
+              {/* Expenses / Reimbursements Section */}
+              {job?.id && (
+                <div className="mt-8">
+                  <JobExpensesSection jobId={job.id} teamMembers={teamMembers} />
+                </div>
+              )}
             </div>
-           
+
           </div>
            {/* Right Sidebar - Mobile Collapsible */}
            <div className="lg:block w-full lg:w-80 xl:w-96 p-3 sm:p-4 lg:p-6 space-y-4 lg:space-y-6">
