@@ -1102,20 +1102,21 @@ const Payroll = () => {
                     </button>
                   </div>
                 ) : (
-                  <div className="bg-white rounded-xl border border-[var(--sf-border-light)] shadow-sm overflow-x-auto">
-                    <table className="w-full divide-y divide-[var(--sf-border-light)]" style={{ tableLayout: 'auto' }}>
+                  <div className="bg-white rounded-xl border border-[var(--sf-border-light)] shadow-sm overflow-x-auto xl:overflow-x-visible">
+                    <table className="w-full divide-y divide-[var(--sf-border-light)]" style={{ tableLayout: 'fixed' }}>
                       <colgroup>
-                        <col style={{ minWidth: 160 }} />
-                        <col style={{ minWidth: 80 }} />
-                        <col style={{ minWidth: 40 }} />
-                        <col style={{ minWidth: 55 }} />
-                        <col style={{ minWidth: 75 }} />
-                        <col style={{ minWidth: 70 }} />
-                        <col style={{ minWidth: 75 }} />
-                        <col style={{ minWidth: 55 }} />
-                        <col style={{ minWidth: 70 }} />
-                        <col style={{ minWidth: 70 }} />
-                        <col style={{ minWidth: 70 }} />
+                        <col style={{ width: '14%', minWidth: 130 }} />
+                        <col style={{ width: '7%',  minWidth: 70 }} />
+                        <col style={{ width: '5%',  minWidth: 40 }} />
+                        <col style={{ width: '6%',  minWidth: 50 }} />
+                        <col style={{ width: '8%',  minWidth: 65 }} />
+                        <col style={{ width: '8%',  minWidth: 65 }} />
+                        <col style={{ width: '8%',  minWidth: 65 }} />
+                        <col style={{ width: '7%',  minWidth: 55 }} />
+                        <col style={{ width: '8%',  minWidth: 65 }} />
+                        <col style={{ width: '8%',  minWidth: 65 }} />
+                        <col style={{ width: '7%',  minWidth: 60 }} />
+                        <col style={{ width: '14%', minWidth: 80 }} />
                       </colgroup>
                       <thead className="bg-[var(--sf-bg-page)]">
                         <tr>
