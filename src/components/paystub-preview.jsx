@@ -79,6 +79,10 @@ export default function PaystubPreview({ snapshot }) {
               <td className="px-4 py-2.5 text-right font-medium">{fmt(totals.incentives)}</td>
             </tr>
             <tr className="border-t border-gray-200">
+              <td className="px-4 py-2.5 text-[var(--sf-text-secondary)]">Reimbursements</td>
+              <td className="px-4 py-2.5 text-right font-medium">{fmt(totals.reimbursements)}</td>
+            </tr>
+            <tr className="border-t border-gray-200">
               <td className="px-4 py-2.5 text-[var(--sf-text-secondary)]">Adjustments</td>
               <td className="px-4 py-2.5 text-right font-medium">{fmtNeg(totals.adjustments)}</td>
             </tr>

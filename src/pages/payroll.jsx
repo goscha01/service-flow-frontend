@@ -1128,6 +1128,7 @@ const Payroll = () => {
                           <th className="px-2 py-3 text-right text-xs font-semibold text-[var(--sf-text-muted)] uppercase tracking-wider">Comm</th>
                           <th className="px-2 py-3 text-right text-xs font-semibold text-[var(--sf-text-muted)] uppercase tracking-wider">Tips</th>
                           <th className="px-2 py-3 text-right text-xs font-semibold text-[var(--sf-text-muted)] uppercase tracking-wider">Incentives</th>
+                          <th className="px-2 py-3 text-right text-xs font-semibold text-[var(--sf-text-muted)] uppercase tracking-wider">Reimb.</th>
                           <th className="px-2 py-3 text-right text-xs font-semibold text-[var(--sf-text-muted)] uppercase tracking-wider">Cash</th>
                           <th className="px-3 py-3 text-right text-xs font-semibold text-[var(--sf-text-muted)] uppercase tracking-wider">Total</th>
                         </tr>
@@ -1180,6 +1181,11 @@ const Payroll = () => {
                             </td>
                             <td className="px-2 py-3 text-sm text-[var(--sf-text-primary)] text-right">{formatCurrency(member.totalTips || 0)}</td>
                             <td className="px-2 py-3 text-sm text-[var(--sf-text-primary)] text-right">{formatCurrency(member.totalIncentives || 0)}</td>
+                            <td className="px-2 py-3 text-sm text-right">
+                              {(member.totalReimbursements || 0) > 0
+                                ? <span className="text-[var(--sf-blue-500)] font-medium">{formatCurrency(member.totalReimbursements)}</span>
+                                : <span className="text-[var(--sf-text-muted)]">—</span>}
+                            </td>
                             <td className="px-2 py-3 text-sm text-right">
                               {((member.totalCashCollected || 0) + (member.priorCashCollected || 0)) < 0
                                 ? <span className="text-orange-600 font-medium">{formatCurrency((member.totalCashCollected || 0) + (member.priorCashCollected || 0))}</span>
@@ -1393,6 +1399,7 @@ const Payroll = () => {
                           <td className="px-2 py-3 text-sm font-semibold text-[var(--sf-text-primary)] text-right">{formatCurrency(filteredSummary.totalCommission || 0)}</td>
                           <td className="px-2 py-3 text-sm font-semibold text-[var(--sf-text-primary)] text-right">{formatCurrency(filteredSummary.totalTips || 0)}</td>
                           <td className="px-2 py-3 text-sm font-semibold text-[var(--sf-text-primary)] text-right">{formatCurrency(filteredSummary.totalIncentives || 0)}</td>
+                          <td className="px-2 py-3 text-sm font-semibold text-[var(--sf-blue-500)] text-right">{(filteredSummary.totalReimbursements || 0) > 0 ? formatCurrency(filteredSummary.totalReimbursements) : '—'}</td>
                           <td className="px-2 py-3 text-sm font-semibold text-right">{(filteredSummary.totalCashCollected || 0) < 0 ? <span className="text-orange-600">{formatCurrency(filteredSummary.totalCashCollected)}</span> : '—'}</td>
                           <td className="px-3 py-3 text-sm font-semibold text-[var(--sf-text-primary)] text-right">{formatCurrency(filteredSummary.totalSalary)}</td>
                         </tr>
@@ -1588,6 +1595,7 @@ const Payroll = () => {
                           <th className="px-4 py-3 text-right hidden sm:table-cell">Earnings</th>
                           <th className="px-4 py-3 text-right hidden sm:table-cell">Tips</th>
                           <th className="px-4 py-3 text-right hidden sm:table-cell">Incentives</th>
+                          <th className="px-4 py-3 text-right hidden md:table-cell">Reimb.</th>
                           <th className="px-4 py-3 text-right hidden md:table-cell">Cash Offset</th>
                           <th className="px-4 py-3 text-right hidden md:table-cell">Adjustments</th>
                           <th className="px-4 py-3 text-center">Schedule</th>
@@ -1604,6 +1612,7 @@ const Payroll = () => {
                             <td className="px-4 py-3 text-right hidden sm:table-cell text-[var(--sf-text-secondary)]">{formatCurrency(b.unpaid_earnings)}</td>
                             <td className="px-4 py-3 text-right hidden sm:table-cell text-[var(--sf-text-secondary)]">{formatCurrency(b.unpaid_tips)}</td>
                             <td className="px-4 py-3 text-right hidden sm:table-cell text-[var(--sf-text-secondary)]">{formatCurrency(b.unpaid_incentives)}</td>
+                            <td className="px-4 py-3 text-right hidden md:table-cell text-[var(--sf-text-secondary)]">{formatCurrency(b.unpaid_reimbursements || 0)}</td>
                             <td className="px-4 py-3 text-right hidden md:table-cell text-[var(--sf-text-secondary)]">{formatCurrency(b.unpaid_cash_offsets)}</td>
                             <td className="px-4 py-3 text-right hidden md:table-cell text-[var(--sf-text-secondary)]">{formatCurrency(b.unpaid_adjustments)}</td>
                             <td className="px-4 py-3 text-center">
@@ -1622,6 +1631,7 @@ const Payroll = () => {
                           <td className="px-4 py-3 text-right hidden sm:table-cell">{formatCurrency(balances.reduce((s, b) => s + (b.unpaid_earnings || 0), 0))}</td>
                           <td className="px-4 py-3 text-right hidden sm:table-cell">{formatCurrency(balances.reduce((s, b) => s + (b.unpaid_tips || 0), 0))}</td>
                           <td className="px-4 py-3 text-right hidden sm:table-cell">{formatCurrency(balances.reduce((s, b) => s + (b.unpaid_incentives || 0), 0))}</td>
+                          <td className="px-4 py-3 text-right hidden md:table-cell">{formatCurrency(balances.reduce((s, b) => s + (b.unpaid_reimbursements || 0), 0))}</td>
                           <td className="px-4 py-3 text-right hidden md:table-cell">{formatCurrency(balances.reduce((s, b) => s + (b.unpaid_cash_offsets || 0), 0))}</td>
                           <td className="px-4 py-3 text-right hidden md:table-cell">{formatCurrency(balances.reduce((s, b) => s + (b.unpaid_adjustments || 0), 0))}</td>
                           <td className="px-4 py-3"></td>
