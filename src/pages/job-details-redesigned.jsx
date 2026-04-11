@@ -80,6 +80,7 @@ import { calculateJobTotal, resolveDiscount } from "../utils/priceUtils"
 import ConvertToRecurringModal from "../components/convert-to-recurring-modal"
 import AssignJobModal from "../components/assign-job-modal"
 import DuplicateJobModal from "../components/duplicate-job-modal"
+import JobExpensesSection from "../components/job-expenses-section"
 import { 
   canViewCustomerContact, 
   canViewCustomerNotes,
@@ -2616,6 +2617,13 @@ const JobDetails = () => {
                 </p>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Expenses / Reimbursements Section */}
+        {job?.id && (
+          <div className="bg-white border-b border-[var(--sf-border-light)] px-4 py-4 mt-2">
+            <JobExpensesSection jobId={job.id} teamMembers={teamMembers} />
           </div>
         )}
 
