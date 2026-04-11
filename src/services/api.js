@@ -2738,6 +2738,15 @@ export const paystubsAPI = {
   htmlUrl: (id) => `/paystubs/${id}/html`,
 };
 
+export const jobExpensesAPI = {
+  list: async (jobId) => { const r = await api.get(`/jobs/${jobId}/expenses`); return r.data; },
+  create: async (jobId, data) => { const r = await api.post(`/jobs/${jobId}/expenses`, data); return r.data; },
+  update: async (id, data) => { const r = await api.patch(`/job-expenses/${id}`, data); return r.data; },
+  approve: async (id) => { const r = await api.post(`/job-expenses/${id}/approve`); return r.data; },
+  reject: async (id) => { const r = await api.post(`/job-expenses/${id}/reject`); return r.data; },
+  delete: async (id) => { const r = await api.delete(`/job-expenses/${id}`); return r.data; },
+};
+
 export const leadbridgeAPI = {
   connect: async (email, password) => { const r = await api.post('/integrations/leadbridge/connect', { email, password }); return r.data; },
   getStatus: async () => { const r = await api.get('/integrations/leadbridge/status'); return r.data; },

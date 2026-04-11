@@ -58,6 +58,7 @@ import {
 } from "lucide-react"
 import { jobsAPI, notificationAPI, territoriesAPI, teamAPI, invoicesAPI, twilioAPI, notificationSettingsAPI } from "../services/api"
 import api, { stripeAPI } from "../services/api"
+import JobExpensesSection from "../components/job-expenses-section"
 import { useAuth } from "../context/AuthContext"
 import Sidebar from "../components/sidebar"
 import AddressAutocomplete from "../components/address-autocomplete"
@@ -2200,6 +2201,9 @@ const JobDetails = () => {
                     </p>
                   </div>
                 </div>
+
+              {/* Expenses / Reimbursements Section */}
+              {job?.id && <JobExpensesSection jobId={job.id} teamMembers={teamMembers} />}
               </div>
             </div>
             {/* Desktop Right Sidebar */}
