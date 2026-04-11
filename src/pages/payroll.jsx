@@ -1105,18 +1105,18 @@ const Payroll = () => {
                   <div className="bg-white rounded-xl border border-[var(--sf-border-light)] shadow-sm overflow-x-auto xl:overflow-x-visible">
                     <table className="w-full divide-y divide-[var(--sf-border-light)]" style={{ tableLayout: 'fixed' }}>
                       <colgroup>
-                        <col style={{ width: '14%', minWidth: 130 }} />
+                        <col style={{ width: '20%', minWidth: 180 }} />
                         <col style={{ width: '7%',  minWidth: 70 }} />
-                        <col style={{ width: '5%',  minWidth: 40 }} />
-                        <col style={{ width: '6%',  minWidth: 50 }} />
-                        <col style={{ width: '8%',  minWidth: 65 }} />
-                        <col style={{ width: '8%',  minWidth: 65 }} />
-                        <col style={{ width: '8%',  minWidth: 65 }} />
-                        <col style={{ width: '7%',  minWidth: 55 }} />
-                        <col style={{ width: '8%',  minWidth: 65 }} />
-                        <col style={{ width: '8%',  minWidth: 65 }} />
-                        <col style={{ width: '7%',  minWidth: 60 }} />
-                        <col style={{ width: '14%', minWidth: 80 }} />
+                        <col style={{ width: '4%',  minWidth: 40 }} />
+                        <col style={{ width: '5%',  minWidth: 50 }} />
+                        <col style={{ width: '7%',  minWidth: 65 }} />
+                        <col style={{ width: '7%',  minWidth: 65 }} />
+                        <col style={{ width: '7%',  minWidth: 65 }} />
+                        <col style={{ width: '6%',  minWidth: 55 }} />
+                        <col style={{ width: '7%',  minWidth: 65 }} />
+                        <col style={{ width: '7%',  minWidth: 65 }} />
+                        <col style={{ width: '6%',  minWidth: 60 }} />
+                        <col style={{ width: '10%', minWidth: 80 }} />
                       </colgroup>
                       <thead className="bg-[var(--sf-bg-page)]">
                         <tr>
@@ -1141,16 +1141,16 @@ const Payroll = () => {
                           <React.Fragment key={member.teamMember.id}>
                           <tr className="border-b border-[var(--sf-border-light)] hover:bg-[var(--sf-bg-hover)] cursor-pointer" onClick={() => toggleExpanded(member.teamMember.id)}>
                             <td className="px-3 py-3">
-                              <div className="flex items-center min-w-0">
-                                <div className="flex-shrink-0 h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
+                              <div className="flex items-start min-w-0">
+                                <div className="flex-shrink-0 h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center mt-0.5">
                                   <span className="text-[var(--sf-blue-500)] font-semibold text-xs">
                                     {member.teamMember.name.split(' ').map(n => n[0]).join('').toUpperCase()}
                                   </span>
                                 </div>
-                                <div className="ml-2 min-w-0">
-                                  <div className="text-sm font-medium text-[var(--sf-text-primary)] flex items-center gap-1 truncate">
-                                    {isExpanded ? <ChevronDown className="w-3 h-3 text-[var(--sf-text-muted)] flex-shrink-0" /> : <ChevronRight className="w-3 h-3 text-[var(--sf-text-muted)] flex-shrink-0" />}
-                                    <span className="truncate">{member.teamMember.name}</span>
+                                <div className="ml-2 min-w-0 flex-1">
+                                  <div className="text-sm font-medium text-[var(--sf-text-primary)] flex items-start gap-1">
+                                    {isExpanded ? <ChevronDown className="w-3 h-3 text-[var(--sf-text-muted)] flex-shrink-0 mt-1" /> : <ChevronRight className="w-3 h-3 text-[var(--sf-text-muted)] flex-shrink-0 mt-1" />}
+                                    <span className="break-words leading-tight">{member.teamMember.name}</span>
                                     {member.isManagerOrOwner && (
                                       <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded-full flex-shrink-0">
                                         {member.teamMember.role}
