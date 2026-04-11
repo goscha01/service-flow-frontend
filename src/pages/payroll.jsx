@@ -1372,7 +1372,7 @@ const Payroll = () => {
                                             <EditableCell value={job.tip || 0} format="dollar" onSave={async (val) => { await payrollAPI.updateJobPayroll(job.id, { tipAmount: val * (job.memberCount || 1) }); await fetchPayrollData(); }} />
                                           </td>
                                           <td className="py-2 pr-4 text-right text-[var(--sf-text-primary)]">
-                                            <EditableCell value={job.incentive || 0} format="dollar" onSave={async (val) => { await payrollAPI.updateJobPayroll(job.id, { incentiveAmount: val * (job.memberCount || 1) }); await fetchPayrollData(); }} />
+                                            <EditableCell value={job.incentive || 0} format="dollar" onSave={async (val) => { await payrollAPI.updateJobPayroll(job.id, { incentiveAmount: val, teamMemberId: member.teamMember.id }); await fetchPayrollData(); }} />
                                           </td>
                                           <td className="py-2 pr-4 text-right text-orange-600">
                                             <EditableCell value={Math.abs(job.cashCollected || 0)} format="dollar" onSave={async (val) => { await ledgerAPI.updateCashCollected(job.id, member.teamMember.id, val); await fetchPayrollData(); }} />
