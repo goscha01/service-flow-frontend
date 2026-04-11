@@ -5,13 +5,14 @@ import { useNavigate } from "react-router-dom"
 import {
   ChevronLeft, Calendar, DollarSign, Clock, Users, Download, Filter,
   AlertCircle, ChevronDown, ChevronRight, Plus, Minus, CreditCard,
-  Check, X, ArrowUpDown, BookOpen, Banknote, ClipboardCopy, Pencil, Trash2
+  Check, X, ArrowUpDown, BookOpen, Banknote, ClipboardCopy, Pencil, Trash2, FileText
 } from "lucide-react"
 import { payrollAPI, ledgerAPI, teamAPI } from "../services/api"
 import api from "../services/api"
 import { useAuth } from "../context/AuthContext"
 import Sidebar from "../components/sidebar"
 import MobileHeader from "../components/mobile-header"
+import PaystubsTab from "../components/paystubs-tab"
 
 // Inline editable cell with pen icon → input + save/cancel
 const EditableCell = ({ value, onSave, format = 'number', placeholder = '-' }) => {
@@ -562,7 +563,7 @@ const Payroll = () => {
   }, [activeTab, fetchEntries])
 
   useEffect(() => {
-    if (activeTab === 'payouts') fetchBatches()
+    if (activeTab === 'payouts' || activeTab === 'paystubs') fetchBatches()
   }, [activeTab, fetchBatches])
 
   // ── Handlers ──
@@ -839,6 +840,7 @@ const Payroll = () => {
     { id: 'payroll', label: 'Payroll', icon: DollarSign },
     { id: 'balances', label: 'Balances', icon: Users },
     { id: 'payouts', label: 'Payouts', icon: Banknote },
+    { id: 'paystubs', label: 'Paystubs', icon: FileText },
     { id: 'ledger', label: 'Ledger', icon: BookOpen }
   ]
 
@@ -2009,6 +2011,15 @@ const Payroll = () => {
             </div>
             )
           })()}
+
+          {activeTab === 'paystubs' && (
+            <PaystubsTab
+              teamMembers={payrollData?.teamMembers?.map(r => r.teamMember) || []}
+              payoutBatches={batches || []}
+              periodStart={startDate}
+              periodEnd={endDate}
+            />
+          )}
 
         </div>
       </div>
