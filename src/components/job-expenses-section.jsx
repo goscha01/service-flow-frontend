@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from "react"
-import { Plus, Check, X, Trash2, Loader2, AlertCircle, Receipt } from "lucide-react"
+import { Plus, Check, X, Trash2, Loader2, AlertCircle, Receipt, Pencil } from "lucide-react"
 import { jobExpensesAPI } from "../services/api"
 
 const EXPENSE_TYPES = [
@@ -49,6 +49,10 @@ export default function JobExpensesSection({ jobId, teamMembers = [], onTotalCha
     reimbursable_to_team_member: true,
     note: '',
   })
+
+  // Inline edit state
+  const [editingId, setEditingId] = useState(null)
+  const [editForm, setEditForm] = useState({})
 
   const load = async () => {
     if (!jobId) return
@@ -134,6 +138,48 @@ export default function JobExpensesSection({ jobId, teamMembers = [], onTotalCha
       await load()
     } catch (e) {
       setError(e.response?.data?.error || 'Failed to delete expense')
+    } finally {
+      setActionId(null)
+    }
+  }
+
+  const startEdit = (expense) => {
+    setEditingId(expense.id)
+    setEditForm({
+      expense_type: expense.expense_type,
+      description: expense.description || '',
+      amount: String(expense.amount),
+      team_member_id: expense.team_member_id ? String(expense.team_member_id) : '',
+      paid_by: expense.paid_by,
+      reimbursable_to_team_member: !!expense.reimbursable_to_team_member,
+      note: expense.note || '',
+    })
+    setError(null)
+  }
+
+  const cancelEdit = () => {
+    setEditingId(null)
+    setEditForm({})
+  }
+
+  const handleSaveEdit = async (expense) => {
+    if (!editForm.amount) { setError('Amount is required'); return }
+    setActionId(expense.id); setError(null)
+    try {
+      await jobExpensesAPI.update(expense.id, {
+        expense_type: editForm.expense_type,
+        description: editForm.description || null,
+        amount: parseFloat(editForm.amount),
+        team_member_id: editForm.team_member_id ? parseInt(editForm.team_member_id) : null,
+        paid_by: editForm.paid_by,
+        reimbursable_to_team_member: !!editForm.reimbursable_to_team_member,
+        note: editForm.note || null,
+      })
+      setEditingId(null)
+      setEditForm({})
+      await load()
+    } catch (e) {
+      setError(e.response?.data?.error || 'Failed to update expense')
     } finally {
       setActionId(null)
     }
@@ -292,6 +338,85 @@ export default function JobExpensesSection({ jobId, teamMembers = [], onTotalCha
               {expenses.map(e => {
                 const memberName = e.team_members ? `${e.team_members.first_name || ''} ${e.team_members.last_name || ''}`.trim() : getMemberName(e.team_member_id)
                 const isBusy = actionId === e.id
+                const isEditing = editingId === e.id
+
+                if (isEditing) {
+                  return (
+                    <tr key={e.id} className="bg-blue-50/40">
+                      <td className="px-3 py-2">
+                        <select
+                          value={editForm.expense_type}
+                          onChange={ev => setEditForm({ ...editForm, expense_type: ev.target.value })}
+                          className="w-full text-xs border border-[var(--sf-border-light)] rounded px-2 py-1 bg-white"
+                        >
+                          {EXPENSE_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                        </select>
+                      </td>
+                      <td className="px-3 py-2">
+                        <input
+                          type="text"
+                          value={editForm.description}
+                          onChange={ev => setEditForm({ ...editForm, description: ev.target.value })}
+                          placeholder="Description"
+                          className="w-full text-xs border border-[var(--sf-border-light)] rounded px-2 py-1 bg-white"
+                        />
+                      </td>
+                      <td className="px-3 py-2">
+                        <select
+                          value={editForm.team_member_id}
+                          onChange={ev => setEditForm({ ...editForm, team_member_id: ev.target.value })}
+                          className="w-full text-xs border border-[var(--sf-border-light)] rounded px-2 py-1 bg-white"
+                        >
+                          <option value="">—</option>
+                          {teamMembers.map(m => (
+                            <option key={m.id} value={m.id}>{m.first_name} {m.last_name}</option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="px-3 py-2">
+                        <select
+                          value={editForm.paid_by}
+                          onChange={ev => setEditForm({ ...editForm, paid_by: ev.target.value })}
+                          className="w-full text-xs border border-[var(--sf-border-light)] rounded px-2 py-1 bg-white"
+                        >
+                          {PAID_BY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                        </select>
+                      </td>
+                      <td className="px-3 py-2">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={editForm.amount}
+                          onChange={ev => setEditForm({ ...editForm, amount: ev.target.value })}
+                          className="w-full text-xs border border-[var(--sf-border-light)] rounded px-2 py-1 text-right bg-white"
+                        />
+                      </td>
+                      <td className="px-3 py-2"><StatusBadge status={e.status} /></td>
+                      <td className="px-3 py-2 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => handleSaveEdit(e)}
+                            disabled={isBusy}
+                            className="p-1 text-green-600 hover:text-green-700 disabled:opacity-30"
+                            title="Save changes"
+                          >
+                            {isBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                          </button>
+                          <button
+                            onClick={cancelEdit}
+                            disabled={isBusy}
+                            className="p-1 text-[var(--sf-text-muted)] hover:text-red-600 disabled:opacity-30"
+                            title="Cancel"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                }
+
                 return (
                   <tr key={e.id}>
                     <td className="px-3 py-2 capitalize">{e.expense_type}</td>
@@ -332,6 +457,14 @@ export default function JobExpensesSection({ jobId, teamMembers = [], onTotalCha
                             {isBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
                           </button>
                         )}
+                        <button
+                          onClick={() => startEdit(e)}
+                          disabled={isBusy || editingId !== null}
+                          className="p-1 text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-600)] disabled:opacity-30"
+                          title="Edit"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
                         <button
                           onClick={() => handleDelete(e)}
                           disabled={isBusy}
