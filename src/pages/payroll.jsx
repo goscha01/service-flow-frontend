@@ -1352,7 +1352,7 @@ const Payroll = () => {
                                             }`}>{job.status}</span>
                                           </td>
                                           <td className="py-2 pr-4 text-right text-[var(--sf-text-primary)]">
-                                            <EditableCell value={job.hours} format="hours" onSave={async (val) => { await payrollAPI.updateJobPayroll(job.id, { hoursWorked: val }); fetchPayrollData(); }} />
+                                            <EditableCell value={job.hours} format="hours" onSave={async (val) => { await payrollAPI.updateJobPayroll(job.id, { hoursWorked: val }); await fetchPayrollData(); }} />
                                             {job.hoursOverridden && <span className="text-[9px] text-orange-500 ml-0.5">*</span>}
                                           </td>
                                           <td className="py-2 pr-4 text-right text-xs">
@@ -1363,19 +1363,19 @@ const Payroll = () => {
                                             ) : <span className="text-[var(--sf-text-muted)]">—</span>}
                                           </td>
                                           <td className="py-2 pr-4 text-right text-[var(--sf-text-primary)]">
-                                            <EditableCell value={job.fullRevenue || job.revenue || 0} format="dollar" onSave={async (val) => { await payrollAPI.updateJobPayroll(job.id, { servicePrice: val }); fetchPayrollData(); }} />
+                                            <EditableCell value={job.fullRevenue || job.revenue || 0} format="dollar" onSave={async (val) => { await payrollAPI.updateJobPayroll(job.id, { servicePrice: val }); await fetchPayrollData(); }} />
                                             {job.memberCount > 1 && <span className="text-[var(--sf-text-muted)] text-xs ml-1">({formatCurrency(job.revenue)}/ea)</span>}
                                           </td>
                                           <td className="py-2 pr-4 text-right text-[var(--sf-text-primary)]">{formatCurrency(job.hourlySalary)}</td>
                                           <td className="py-2 pr-4 text-right text-[var(--sf-text-primary)]">{formatCurrency(job.commission)}</td>
                                           <td className="py-2 pr-4 text-right text-[var(--sf-text-primary)]">
-                                            <EditableCell value={job.tip || 0} format="dollar" onSave={async (val) => { await payrollAPI.updateJobPayroll(job.id, { tipAmount: val * (job.memberCount || 1) }); fetchPayrollData(); }} />
+                                            <EditableCell value={job.tip || 0} format="dollar" onSave={async (val) => { await payrollAPI.updateJobPayroll(job.id, { tipAmount: val * (job.memberCount || 1) }); await fetchPayrollData(); }} />
                                           </td>
                                           <td className="py-2 pr-4 text-right text-[var(--sf-text-primary)]">
-                                            <EditableCell value={job.incentive || 0} format="dollar" onSave={async (val) => { await payrollAPI.updateJobPayroll(job.id, { incentiveAmount: val * (job.memberCount || 1) }); fetchPayrollData(); }} />
+                                            <EditableCell value={job.incentive || 0} format="dollar" onSave={async (val) => { await payrollAPI.updateJobPayroll(job.id, { incentiveAmount: val * (job.memberCount || 1) }); await fetchPayrollData(); }} />
                                           </td>
                                           <td className="py-2 pr-4 text-right text-orange-600">
-                                            <EditableCell value={Math.abs(job.cashCollected || 0)} format="dollar" onSave={async (val) => { await ledgerAPI.updateCashCollected(job.id, member.teamMember.id, val); fetchPayrollData(); }} />
+                                            <EditableCell value={Math.abs(job.cashCollected || 0)} format="dollar" onSave={async (val) => { await ledgerAPI.updateCashCollected(job.id, member.teamMember.id, val); await fetchPayrollData(); }} />
                                           </td>
                                           <td className="py-2 text-right text-[var(--sf-text-primary)] font-medium">{formatCurrency((job.hourlySalary || 0) + (job.commission || 0) + (job.tip || 0) + (job.incentive || 0) + (job.cashCollected || 0))}</td>
                                         </tr>
