@@ -2728,6 +2728,16 @@ export const whatsappAPI = {
   getSyncProgress: async () => { const r = await api.get('/integrations/whatsapp/sync/progress'); return r.data; },
 };
 
+export const paystubsAPI = {
+  list: async (params = {}) => { const r = await api.get('/paystubs', { params }); return r.data; },
+  get: async (id) => { const r = await api.get(`/paystubs/${id}`); return r.data; },
+  create: async (data) => { const r = await api.post('/paystubs', data); return r.data; },
+  send: async (id) => { const r = await api.post(`/paystubs/${id}/send`); return r.data; },
+  resend: async (id) => { const r = await api.post(`/paystubs/${id}/resend`); return r.data; },
+  delete: async (id) => { const r = await api.delete(`/paystubs/${id}`); return r.data; },
+  htmlUrl: (id) => `/paystubs/${id}/html`,
+};
+
 export const leadbridgeAPI = {
   connect: async (email, password) => { const r = await api.post('/integrations/leadbridge/connect', { email, password }); return r.data; },
   getStatus: async () => { const r = await api.get('/integrations/leadbridge/status'); return r.data; },
