@@ -260,8 +260,12 @@ function ConversationRow({ conv, isSelected, onClick }) {
         const isBrand = conv.displayName && SOURCE_BRANDS[Object.keys(SOURCE_BRANDS).find(b => conv.displayName.toLowerCase().startsWith(b.toLowerCase()))]
         return (
           <div className="relative flex-shrink-0">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold"
-              style={{ backgroundColor: style.bg, color: style.text }}>
+            {conv.avatarUrl ? (
+              <img src={conv.avatarUrl} alt="" className="w-10 h-10 rounded-full object-cover"
+                onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }} />
+            ) : null}
+            <div className="w-10 h-10 rounded-full items-center justify-center text-sm font-semibold"
+              style={{ backgroundColor: style.bg, color: style.text, display: conv.avatarUrl ? 'none' : 'flex' }}>
               {isBrand ? isBrand.icon : getInitials(conv.displayName)}
             </div>
             {conv.endpointSymbol && (
@@ -487,9 +491,15 @@ function LeadPanel({ lead, conversation }) {
     <div className="p-4 space-y-5">
       {/* Contact header — always shown */}
       <div className="text-center">
-        <div className="w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold mx-auto mb-3"
-          style={{ backgroundColor: style.bg, color: style.text }}>
-          {getInitials(displayName)}
+        <div className="mx-auto mb-3 relative w-16 h-16">
+          {conversation?.avatarUrl ? (
+            <img src={conversation.avatarUrl} alt="" className="w-16 h-16 rounded-full object-cover"
+              onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }} />
+          ) : null}
+          <div className="w-16 h-16 rounded-full items-center justify-center text-xl font-bold"
+            style={{ backgroundColor: style.bg, color: style.text, display: conversation?.avatarUrl ? 'none' : 'flex' }}>
+            {getInitials(displayName)}
+          </div>
         </div>
         <h3 className="text-base font-bold text-[var(--sf-text-primary)]">{displayName || 'Unknown'}</h3>
         {phone && <p className="text-sm text-[var(--sf-text-muted)] mt-0.5">{phone}</p>}
