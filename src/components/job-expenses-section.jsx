@@ -321,16 +321,16 @@ export default function JobExpensesSection({ jobId, teamMembers = [], onTotalCha
           No expenses recorded for this job yet.
         </div>
       ) : (
-        <div className="border border-[var(--sf-border-light)] rounded-lg overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="border border-[var(--sf-border-light)] rounded-lg overflow-x-auto">
+          <table className="w-full text-sm" style={{ minWidth: 600 }}>
             <thead className="bg-gray-50 border-b border-[var(--sf-border-light)]">
               <tr>
                 <th className="px-3 py-2 text-left text-xs font-semibold text-[var(--sf-text-muted)]">Type</th>
                 <th className="px-3 py-2 text-left text-xs font-semibold text-[var(--sf-text-muted)]">Description</th>
-                <th className="px-3 py-2 text-left text-xs font-semibold text-[var(--sf-text-muted)]">Team Member</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-[var(--sf-text-muted)]">Member</th>
                 <th className="px-3 py-2 text-left text-xs font-semibold text-[var(--sf-text-muted)]">Paid By</th>
                 <th className="px-3 py-2 text-right text-xs font-semibold text-[var(--sf-text-muted)]">Amount</th>
-                <th className="px-3 py-2 text-left text-xs font-semibold text-[var(--sf-text-muted)]">Status</th>
+                <th className="px-3 py-2 text-center text-xs font-semibold text-[var(--sf-text-muted)]">Status</th>
                 <th className="px-3 py-2 text-right text-xs font-semibold text-[var(--sf-text-muted)]">Actions</th>
               </tr>
             </thead>
@@ -392,8 +392,8 @@ export default function JobExpensesSection({ jobId, teamMembers = [], onTotalCha
                           className="w-full text-xs border border-[var(--sf-border-light)] rounded px-2 py-1 text-right bg-white"
                         />
                       </td>
-                      <td className="px-3 py-2"><StatusBadge status={e.status} /></td>
-                      <td className="px-3 py-2 text-right">
+                      <td className="px-3 py-2 text-center"><StatusBadge status={e.status} /></td>
+                      <td className="px-3 py-2 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1">
                           <button
                             onClick={() => handleSaveEdit(e)}
@@ -424,8 +424,8 @@ export default function JobExpensesSection({ jobId, teamMembers = [], onTotalCha
                     <td className="px-3 py-2 text-[var(--sf-text-secondary)]">{memberName || '—'}</td>
                     <td className="px-3 py-2 text-[var(--sf-text-secondary)] capitalize">{e.paid_by.replace('_', ' ')}</td>
                     <td className="px-3 py-2 text-right font-semibold">{fmt(e.amount)}</td>
-                    <td className="px-3 py-2"><StatusBadge status={e.status} /></td>
-                    <td className="px-3 py-2 text-right">
+                    <td className="px-3 py-2 text-center"><StatusBadge status={e.status} /></td>
+                    <td className="px-3 py-2 text-right whitespace-nowrap">
                       <div className="flex items-center justify-end gap-1">
                         {e.status === 'pending' && (
                           <>
