@@ -635,17 +635,19 @@ const CommunicationHub = () => {
                         <div className="bg-[var(--sf-bg-input)] rounded-lg p-3">
                           <div className="flex items-center justify-between mb-1.5">
                             <span className="text-xs font-medium text-[var(--sf-text-primary)]">
-                              {waSyncProgress?.phase === 'fetching' ? 'Fetching chats from WhatsApp...' : waSyncProgress?.phase === 'syncing' ? 'Syncing conversations...' : waSyncProgress?.phase === 'done' ? 'Complete!' : 'Starting...'}
+                              {waSyncProgress?.phase === 'receiving' ? 'Receiving messages from WhatsApp...' : waSyncProgress?.phase === 'fetching' ? 'Fetching conversations...' : waSyncProgress?.phase === 'syncing' ? 'Syncing conversations...' : waSyncProgress?.phase === 'done' ? 'Complete!' : 'Starting...'}
                             </span>
                             <span className="text-xs text-[var(--sf-text-muted)]">
-                              {waSyncProgress?.total > 0 ? `${waSyncProgress.chats || 0}/${waSyncProgress.total} chats, ${waSyncProgress.messages || 0} msgs` : waSyncProgress?.phase === 'fetching' ? 'Fetching...' : 'Starting...'}
+                              {waSyncProgress?.phase === 'receiving'
+                                ? `${waSyncProgress.chats || 0} conversations, ${waSyncProgress.messages || 0} messages`
+                                : waSyncProgress?.total > 0 ? `${waSyncProgress.chats || 0}/${waSyncProgress.total} chats, ${waSyncProgress.messages || 0} msgs` : waSyncProgress?.phase === 'fetching' ? 'Fetching...' : 'Starting...'}
                             </span>
                           </div>
                           <div className="w-full bg-gray-200 rounded-full h-1.5">
-                            <div className="bg-emerald-500 h-1.5 rounded-full transition-all"
-                              style={{ width: `${waSyncProgress?.total > 0 ? Math.round(((waSyncProgress.chats || 0) / waSyncProgress.total) * 100) : 5}%` }} />
+                            <div className={waSyncProgress?.phase === 'receiving' ? 'bg-emerald-500 h-1.5 rounded-full animate-pulse w-full' : 'bg-emerald-500 h-1.5 rounded-full transition-all'}
+                              style={waSyncProgress?.phase !== 'receiving' ? { width: `${waSyncProgress?.total > 0 ? Math.round(((waSyncProgress.chats || 0) / waSyncProgress.total) * 100) : 5}%` } : undefined} />
                           </div>
-                          {waSyncProgress?.skipped > 0 && <p className="text-[10px] text-amber-500 mt-1">{waSyncProgress.skipped} skipped (groups/invalid)</p>}
+                          {waSyncProgress?.skipped > 0 && <p className="text-[10px] text-amber-500 mt-1">{waSyncProgress.skipped} skipped</p>}
                         </div>
                       </div>
                     )}
@@ -841,11 +843,29 @@ const CommunicationHub = () => {
                 <X size={18} />
               </button>
             </div>
-            <WhatsAppQrPanel onConnected={(phone) => {
+            <WhatsAppQrPanel onConnected={async (phone) => {
               setWaConnected(true)
               setWaPhoneNumber(phone)
               setWaStatus('connected')
               setShowWaQrModal(false)
+              // Auto-trigger sync with progress bar
+              setWaSyncing(true); setWaSyncProgress({ phase: 'receiving', chats: 0, messages: 0 })
+              try {
+                // Start polling progress immediately — webhooks are delivering messages
+                const poll = setInterval(async () => {
+                  try {
+                    const p = await whatsappAPI.getSyncProgress()
+                    setWaSyncProgress(p)
+                    if (p.phase === 'done' || p.phase === 'error' || p.phase === 'idle') {
+                      clearInterval(poll); setWaSyncing(false)
+                    }
+                  } catch (e) { /* poll failed, keep trying */ }
+                }, 2000)
+                // After 90s, trigger full API sync for avatars + catch-up
+                setTimeout(async () => {
+                  try { await whatsappAPI.sync() } catch (e) { /* non-fatal */ }
+                }, 90000)
+              } catch (e) { setWaSyncing(false) }
             }} />
           </div>
         </div>
