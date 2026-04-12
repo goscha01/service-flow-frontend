@@ -513,7 +513,7 @@ const CommunicationHub = () => {
                                   const poll = setInterval(async () => {
                                     const p = await whatsappAPI.getSyncProgress()
                                     setWaSyncProgress(p)
-                                    if (p.phase === 'done' || p.phase === 'error' || p.phase === 'idle') {
+                                    if (p.phase === 'done' || p.phase === 'error') {
                                       clearInterval(poll); setWaSyncing(false)
                                     }
                                   }, 1500)
@@ -530,7 +530,7 @@ const CommunicationHub = () => {
                                   const poll = setInterval(async () => {
                                     const p = await whatsappAPI.getSyncProgress()
                                     setWaSyncProgress(p)
-                                    if (p.phase === 'done' || p.phase === 'error' || p.phase === 'idle') {
+                                    if (p.phase === 'done' || p.phase === 'error') {
                                       clearInterval(poll); setWaSyncing(false)
                                     }
                                   }, 1500)
@@ -851,12 +851,20 @@ const CommunicationHub = () => {
               // Auto-trigger sync with progress bar
               setWaSyncing(true); setWaSyncProgress({ phase: 'receiving', chats: 0, messages: 0 })
               try {
-                // Start polling progress immediately — webhooks are delivering messages
+                // Start polling progress — webhooks are delivering messages
+                let idleCount = 0
                 const poll = setInterval(async () => {
                   try {
                     const p = await whatsappAPI.getSyncProgress()
+                    // 'idle' means server hasn't set progress yet — keep waiting
+                    if (p.phase === 'idle') {
+                      idleCount++
+                      if (idleCount > 60) { clearInterval(poll); setWaSyncing(false) } // 2 min timeout
+                      return
+                    }
+                    idleCount = 0
                     setWaSyncProgress(p)
-                    if (p.phase === 'done' || p.phase === 'error' || p.phase === 'idle') {
+                    if (p.phase === 'done' || p.phase === 'error') {
                       clearInterval(poll); setWaSyncing(false)
                     }
                   } catch (e) { /* poll failed, keep trying */ }
