@@ -2728,6 +2728,13 @@ export const whatsappAPI = {
   getSyncProgress: async () => { const r = await api.get('/integrations/whatsapp/sync/progress'); return r.data; },
 };
 
+export const notificationEmailAPI = {
+  getSettings: async () => { const r = await api.get('/notification-email/settings'); return r.data; },
+  saveSettings: async (data) => { const r = await api.put('/notification-email/settings', data); return r.data; },
+  sendTest: async (testEmail) => { const r = await api.post('/notification-email/test', { testEmail }); return r.data; },
+  getLogs: async (params) => { const r = await api.get('/notification-email/logs', { params }); return r.data; },
+};
+
 export const paystubsAPI = {
   list: async (params = {}) => { const r = await api.get('/paystubs', { params }); return r.data; },
   get: async (id) => { const r = await api.get(`/paystubs/${id}`); return r.data; },

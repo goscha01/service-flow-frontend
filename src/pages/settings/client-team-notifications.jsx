@@ -1,9 +1,163 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import Sidebar from "../../components/sidebar"
-import { ChevronLeft, ChevronRight } from "lucide-react"
+import { notificationEmailAPI } from "../../services/api"
+import { ChevronLeft, ChevronRight, Mail, Shield, Send, Check, X, Loader2 } from "lucide-react"
+
+function EmailDeliverySettings() {
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [testing, setTesting] = useState(false)
+
+  const [configured, setConfigured] = useState(false)
+  const [source, setSource] = useState('none')
+  const [apiKey, setApiKey] = useState('')
+  const [fromEmail, setFromEmail] = useState('')
+  const [fromName, setFromName] = useState('')
+  const [replyToEmail, setReplyToEmail] = useState('')
+  const [hasApiKey, setHasApiKey] = useState(false)
+
+  const [testEmail, setTestEmail] = useState('')
+  const [testStatus, setTestStatus] = useState(null)
+  const [testError, setTestError] = useState('')
+  const [saveMsg, setSaveMsg] = useState(null)
+
+  useEffect(() => { loadSettings() }, [])
+
+  const loadSettings = async () => {
+    try {
+      setLoading(true)
+      const data = await notificationEmailAPI.getSettings()
+      setConfigured(data.configured || false)
+      setSource(data.source || 'none')
+      if (data.settings) {
+        setFromEmail(data.settings.fromEmail || '')
+        setFromName(data.settings.fromName || '')
+        setReplyToEmail(data.settings.replyToEmail || '')
+        setHasApiKey(data.settings.hasApiKey || false)
+        setTestStatus(data.settings.lastTestStatus || null)
+      }
+    } catch (e) { /* not configured */ }
+    finally { setLoading(false) }
+  }
+
+  const handleSave = async () => {
+    setSaving(true); setSaveMsg(null)
+    try {
+      await notificationEmailAPI.saveSettings({
+        apiKey: apiKey || undefined, fromEmail, fromName, replyToEmail,
+      })
+      setSaveMsg({ type: 'success', text: 'Saved' })
+      setApiKey('')
+      await loadSettings()
+    } catch (e) {
+      setSaveMsg({ type: 'error', text: e.response?.data?.error || 'Failed to save' })
+    } finally { setSaving(false) }
+  }
+
+  const handleTest = async () => {
+    if (!testEmail?.trim()) return
+    setTesting(true); setTestStatus(null); setTestError('')
+    try {
+      await notificationEmailAPI.sendTest(testEmail.trim())
+      setTestStatus('success')
+    } catch (e) {
+      setTestStatus('failed')
+      setTestError(e.response?.data?.error || 'Test failed')
+    } finally { setTesting(false) }
+  }
+
+  if (loading) return (
+    <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-6 flex items-center justify-center">
+      <Loader2 size={20} className="animate-spin text-[var(--sf-text-muted)]" />
+    </div>
+  )
+
+  const statusBadge = source === 'none' && !hasApiKey
+    ? { text: 'Not configured', color: 'bg-gray-100 text-gray-600' }
+    : source === 'environment' && !hasApiKey
+    ? { text: 'Using default', color: 'bg-yellow-100 text-yellow-700' }
+    : testStatus === 'success'
+    ? { text: 'Connected', color: 'bg-green-100 text-green-700' }
+    : hasApiKey
+    ? { text: 'Configured', color: 'bg-blue-100 text-blue-700' }
+    : { text: 'Not configured', color: 'bg-gray-100 text-gray-600' }
+
+  return (
+    <div className="space-y-4">
+      <div className="mb-6">
+        <div className="flex items-center gap-3">
+          <h2 className="text-xl font-semibold text-[var(--sf-text-primary)]">Email Delivery Settings</h2>
+          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusBadge.color}`}>{statusBadge.text}</span>
+        </div>
+        <p className="text-[var(--sf-text-secondary)] mt-1">
+          Configure SendGrid to send notification emails. This controls the sender address for all customer and team emails.
+        </p>
+      </div>
+
+      {/* SendGrid API Key + Sender */}
+      <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-6 space-y-4">
+        <div>
+          <label className="text-sm font-medium text-[var(--sf-text-primary)] block mb-1">SendGrid API Key</label>
+          <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)}
+            placeholder={hasApiKey ? '••••••••••••• (saved)' : 'Enter your SendGrid API key'}
+            className="w-full max-w-lg border border-[var(--sf-border-light)] rounded-lg px-3 py-2 text-sm bg-[var(--sf-bg-input)] focus:outline-none focus:ring-1 focus:ring-[var(--sf-blue-500)]" />
+          {hasApiKey && <p className="text-[10px] text-green-600 mt-1">API key saved. Leave blank to keep current.</p>}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg">
+          <div>
+            <label className="text-sm font-medium text-[var(--sf-text-primary)] block mb-1">From Email</label>
+            <input type="email" value={fromEmail} onChange={e => setFromEmail(e.target.value)}
+              placeholder="info@yourcompany.com"
+              className="w-full border border-[var(--sf-border-light)] rounded-lg px-3 py-2 text-sm bg-[var(--sf-bg-input)] focus:outline-none focus:ring-1 focus:ring-[var(--sf-blue-500)]" />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-[var(--sf-text-primary)] block mb-1">From Name</label>
+            <input type="text" value={fromName} onChange={e => setFromName(e.target.value)}
+              placeholder="Your Company Name"
+              className="w-full border border-[var(--sf-border-light)] rounded-lg px-3 py-2 text-sm bg-[var(--sf-bg-input)] focus:outline-none focus:ring-1 focus:ring-[var(--sf-blue-500)]" />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="text-sm font-medium text-[var(--sf-text-primary)] block mb-1">Reply-to Email <span className="text-[var(--sf-text-muted)] font-normal">(optional)</span></label>
+            <input type="email" value={replyToEmail} onChange={e => setReplyToEmail(e.target.value)}
+              placeholder="support@yourcompany.com"
+              className="w-full border border-[var(--sf-border-light)] rounded-lg px-3 py-2 text-sm bg-[var(--sf-bg-input)] focus:outline-none focus:ring-1 focus:ring-[var(--sf-blue-500)]" />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 pt-2">
+          <button onClick={handleSave} disabled={saving}
+            className="bg-[var(--sf-blue-500)] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[var(--sf-blue-600)] disabled:opacity-50 flex items-center gap-2">
+            {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+            {saving ? 'Saving...' : 'Save'}
+          </button>
+          {saveMsg && <span className={`text-sm ${saveMsg.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>{saveMsg.text}</span>}
+        </div>
+      </div>
+
+      {/* Test Email */}
+      <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-6">
+        <h3 className="text-sm font-semibold text-[var(--sf-text-primary)] mb-3">Test Email Delivery</h3>
+        <div className="flex gap-2 max-w-lg">
+          <input type="email" value={testEmail} onChange={e => setTestEmail(e.target.value)}
+            placeholder="Enter test email address"
+            onKeyDown={e => e.key === 'Enter' && handleTest()}
+            className="flex-1 border border-[var(--sf-border-light)] rounded-lg px-3 py-2 text-sm bg-[var(--sf-bg-input)] focus:outline-none focus:ring-1 focus:ring-[var(--sf-blue-500)]" />
+          <button onClick={handleTest} disabled={testing || !testEmail?.trim()}
+            className="bg-[var(--sf-blue-500)] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[var(--sf-blue-600)] disabled:opacity-50 flex items-center gap-2">
+            {testing ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+            {testing ? 'Sending...' : 'Send Test'}
+          </button>
+        </div>
+        {testStatus === 'success' && <p className="mt-2 text-sm text-green-600 flex items-center gap-1"><Check size={14} /> Test email sent successfully</p>}
+        {testStatus === 'failed' && <p className="mt-2 text-sm text-red-600 flex items-center gap-1"><X size={14} /> {testError}</p>}
+      </div>
+    </div>
+  )
+}
 
 const ClientTeamNotifications = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -217,26 +371,8 @@ const ClientTeamNotifications = () => {
               </div>
             </div>
 
-            {/* Custom Email Domain */}
-            <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-6">
-              <h3 className="text-lg font-semibold text-[var(--sf-text-primary)] mb-4">Custom Email Domain</h3>
-              <p className="text-[var(--sf-text-secondary)] mb-4">
-                Customize the domain used when sending emails to customers and team members.{" "}
-                <button className="text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)]">Learn about using custom email addresses</button>
-              </p>
-
-              <div className="flex items-center space-x-4">
-                <div className="flex-1 max-w-md">
-                  <div className="bg-[var(--sf-bg-page)] border border-[var(--sf-border-light)] rounded-lg px-3 py-2 text-sm text-[var(--sf-text-secondary)]">
-                    From: JustKen &lt;booking@justken.com&gt;
-                  </div>
-                  <div className="mt-2 text-xs text-[var(--sf-text-muted)]">Subject</div>
-                </div>
-                <button className="bg-[var(--sf-blue-500)] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[var(--sf-blue-600)]">
-                  Add a Custom Address
-                </button>
-              </div>
-            </div>
+            {/* Email Delivery Settings */}
+            <EmailDeliverySettings />
           </div>
         </div>
       </div>
