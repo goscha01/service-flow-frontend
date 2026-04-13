@@ -413,7 +413,7 @@ function TimelineEvent({ event }) {
 }
 
 // ── Composer with channel tabs ──
-function Composer({ availableChannels, sendChannel, setSendChannel, text, setText, onSend, channelFilter, onChannelFilter, channelUnread }) {
+function Composer({ availableChannels, sendChannel, setSendChannel, text, setText, onSend, channelFilter, onChannelFilter, channelUnread, emailSubject, onEmailSubjectChange }) {
   const sourceTabs = [
     { key: 'all', label: 'All', Icon: MessageSquare },
     { key: 'openphone', label: 'OpenPhone', Icon: Phone },
@@ -593,6 +593,7 @@ const Communications = () => {
   const [selectedId, setSelectedId] = useState(null)
   const [sendChannel, setSendChannel] = useState(null)
   const [composerText, setComposerText] = useState('')
+  const [emailSubject, setEmailSubject] = useState('')
   const [mobileView, setMobileView] = useState('list')
   const [showLeadPanel, setShowLeadPanel] = useState(false)
   const [locationFilter, setLocationFilter] = useState(null) // null = all, 'unassigned', or location id
@@ -762,6 +763,14 @@ const Communications = () => {
     if (detail?.events?.length) {
       const lastInbound = [...detail.events].reverse().find(e => e.senderRole === 'customer' && e.channel !== 'system')
       setSendChannel(lastInbound?.channel || detail.availableSendChannels?.[0] || 'openphone')
+      // Pre-fill email subject for replies
+      const lastEmailWithSubject = [...detail.events].reverse().find(e => e.channel === 'email' && e.email_subject)
+      if (lastEmailWithSubject?.email_subject) {
+        const subj = lastEmailWithSubject.email_subject
+        setEmailSubject(subj.startsWith('Re: ') ? subj : `Re: ${subj}`)
+      } else {
+        setEmailSubject('')
+      }
     }
   }, [selectedId, detail])
 
@@ -812,7 +821,9 @@ const Communications = () => {
     if (!isConnected) { console.log('Send via', sendChannel, ':', composerText); setComposerText(''); return }
     setSending(true)
     try {
-      const sentMsg = await communicationsAPI.sendMessage(selectedId, { text: composerText.trim(), channel: sendChannel })
+      const payload = { text: composerText.trim(), channel: sendChannel }
+      if (sendChannel === 'email' && emailSubject?.trim()) payload.subject = emailSubject.trim()
+      const sentMsg = await communicationsAPI.sendMessage(selectedId, payload)
       // Append to local detail
       if (detail) {
         setDetail(prev => ({ ...prev, events: [...(prev?.events || []), sentMsg] }))
@@ -933,6 +944,8 @@ const Communications = () => {
                   channelFilter={channelFilter}
                   onChannelFilter={(ch) => { setChannelFilter(ch); setLocationFilter(null) }}
                   channelUnread={channelUnread}
+                  emailSubject={emailSubject}
+                  onEmailSubjectChange={setEmailSubject}
                 />
               </div>
             ) : (
@@ -1001,6 +1014,8 @@ const Communications = () => {
                   channelFilter={channelFilter}
                   onChannelFilter={(ch) => { setChannelFilter(ch); setLocationFilter(null) }}
                   channelUnread={channelUnread}
+                  emailSubject={emailSubject}
+                  onEmailSubjectChange={setEmailSubject}
                 />
               </>
             )}

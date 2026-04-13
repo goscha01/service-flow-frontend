@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import Sidebar from "../../components/sidebar"
-import { openPhoneAPI, leadbridgeAPI, whatsappAPI, emailAPI, communicationsAPI, territoriesAPI, locationsAPI, leadAutomationAPI } from "../../services/api"
+import { openPhoneAPI, leadbridgeAPI, whatsappAPI, communicationsAPI, territoriesAPI, locationsAPI, leadAutomationAPI } from "../../services/api"
 import {
   ChevronLeft, Phone, PhoneCall, Star, ThumbsUp, Mail,
   MessageSquare, MessageCircle, Info, Check, X, ExternalLink,
@@ -19,7 +19,6 @@ const PROVIDER_DEFS = [
   { key: 'leadbridge', name: 'Thumbtack / Yelp via LeadBridge', description: 'Connect your Thumbtack and Yelp accounts to receive leads and messages', Icon: Zap },
   { key: 'callio', name: 'Callio', description: 'Connect your native communication workspace and business number', Icon: PhoneCall },
   { key: 'twilio', name: 'Twilio', description: 'Connect a Twilio account for advanced communication workflows', Icon: Settings },
-  { key: 'email', name: 'Email (SendGrid)', description: 'Connect email addresses for inbound & outbound email', Icon: Mail },
   { key: 'whatsapp', name: 'WhatsApp', description: 'Connect WhatsApp business messaging when available', Icon: MessageCircle },
   { key: 'messenger', name: 'Messenger', description: 'Connect Facebook Messenger when available', Icon: MessageSquare },
 ]
@@ -146,21 +145,6 @@ const CommunicationHub = () => {
   const [lbSyncing, setLbSyncing] = useState(false)
   const [lbSyncProgress, setLbSyncProgress] = useState(null)
 
-  // Email (SendGrid) state
-  const [emConnected, setEmConnected] = useState(false)
-  const [emSenders, setEmSenders] = useState([])
-  const [emConnectedAt, setEmConnectedAt] = useState(null)
-  const [showEmConnectModal, setShowEmConnectModal] = useState(false)
-  const [emApiKeyInput, setEmApiKeyInput] = useState('')
-  const [emSenderInput, setEmSenderInput] = useState('')
-  const [emSenderNameInput, setEmSenderNameInput] = useState('')
-  const [emConnecting, setEmConnecting] = useState(false)
-  const [emConnectError, setEmConnectError] = useState('')
-  const [showEmAddSenderModal, setShowEmAddSenderModal] = useState(false)
-  const [emAddSenderEmail, setEmAddSenderEmail] = useState('')
-  const [emAddSenderName, setEmAddSenderName] = useState('')
-  const [emAddingSender, setEmAddingSender] = useState(false)
-
   const [territories, setTerritories] = useState([])
   const [locationMappings, setLocationMappings] = useState([])
   const [automationRules, setAutomationRules] = useState([])
@@ -189,13 +173,6 @@ const CommunicationHub = () => {
       setWaConnected(waRes.connected || false)
       setWaPhoneNumber(waRes.phoneNumber || null)
       setWaStatus(waRes.status || 'disconnected')
-    } catch (e) { /* not connected */ }
-    // Email (SendGrid) status
-    try {
-      const emRes = await emailAPI.getStatus()
-      setEmConnected(emRes.connected || false)
-      setEmSenders(emRes.senderEmails || [])
-      setEmConnectedAt(emRes.connectedAt || null)
     } catch (e) { /* not connected */ }
     // Load territories + mappings for location assignment
     try {
@@ -230,42 +207,6 @@ const CommunicationHub = () => {
     } catch (e) {
       alert('Failed to save location mapping: ' + (e.response?.data?.error || e.message))
     }
-  }
-
-  // ── Email (SendGrid) handlers ──
-  const handleEmConnect = async () => {
-    if (!emApiKeyInput.trim() || !emSenderInput.trim()) { setEmConnectError('API key and sender email are required'); return }
-    setEmConnecting(true); setEmConnectError('')
-    try {
-      const result = await emailAPI.connect({
-        apiKey: emApiKeyInput.trim(),
-        senderEmail: emSenderInput.trim(),
-        senderName: emSenderNameInput.trim() || undefined,
-      })
-      setEmConnected(true)
-      setEmConnectedAt(new Date().toISOString())
-      setEmSenders(result.sender ? [result.sender] : [])
-      setShowEmConnectModal(false)
-      setEmApiKeyInput(''); setEmSenderInput(''); setEmSenderNameInput('')
-    } catch (e) {
-      setEmConnectError(e.response?.data?.error || 'Failed to connect. Check your API key.')
-    } finally { setEmConnecting(false) }
-  }
-
-  const handleEmAddSender = async () => {
-    if (!emAddSenderEmail.trim()) return
-    setEmAddingSender(true)
-    try {
-      const result = await emailAPI.addSender({
-        senderEmail: emAddSenderEmail.trim(),
-        senderName: emAddSenderName.trim() || undefined,
-      })
-      if (result.sender) setEmSenders(prev => [...prev, result.sender])
-      setShowEmAddSenderModal(false)
-      setEmAddSenderEmail(''); setEmAddSenderName('')
-    } catch (e) {
-      alert(e.response?.data?.error || 'Failed to add sender')
-    } finally { setEmAddingSender(false) }
   }
 
   const handleLbConnect = async () => {
@@ -402,7 +343,6 @@ const CommunicationHub = () => {
   const getProviderStatus = (key) => {
     if (key === 'openphone') return connected ? 'connected' : 'not_connected'
     if (key === 'leadbridge') return lbConnected ? 'connected' : 'not_connected'
-    if (key === 'email') return emConnected ? 'connected' : 'not_connected'
     if (key === 'whatsapp') return waConnected ? 'connected' : 'not_connected'
     if (key === 'messenger') return 'coming_soon'
     return 'not_connected'
@@ -441,7 +381,6 @@ const CommunicationHub = () => {
                 const status = getProviderStatus(p.key)
                 const isOpenPhone = p.key === 'openphone'
                 const isLeadBridge = p.key === 'leadbridge'
-                const isEmail = p.key === 'email'
                 const isWhatsApp = p.key === 'whatsapp'
                 return (
                   <div key={p.key} className={`bg-white rounded-xl border border-[var(--sf-border-light)] overflow-hidden ${status === 'coming_soon' ? 'opacity-60' : ''}`}>
@@ -505,32 +444,6 @@ const CommunicationHub = () => {
                                   </div>
                                 )
                               })}
-                            </div>
-                          )}
-                          {status === 'connected' && isEmail && emSenders.length > 0 && (
-                            <div className="mt-2 space-y-1.5 w-full">
-                              {emSenders.map(s => (
-                                <div key={s.id} className="flex items-center gap-2 bg-yellow-50 rounded-lg px-3 py-2">
-                                  <Mail size={12} className="text-yellow-600 flex-shrink-0" />
-                                  <span className="text-xs font-medium text-[var(--sf-text-primary)] flex-1 truncate">
-                                    {s.displayName ? `${s.displayName} (${s.email})` : s.email}
-                                  </span>
-                                  <button onClick={async () => {
-                                      if (!window.confirm(`Remove sender ${s.email}?`)) return
-                                      try {
-                                        await emailAPI.removeSender(s.id)
-                                        setEmSenders(prev => prev.filter(x => x.id !== s.id))
-                                      } catch (e) { alert('Failed to remove sender') }
-                                    }}
-                                    className="text-[10px] text-red-500 hover:text-red-700 px-1.5 py-0.5 rounded hover:bg-red-50">
-                                    Remove
-                                  </button>
-                                </div>
-                              ))}
-                              <button onClick={() => { setShowEmAddSenderModal(true); setEmAddSenderEmail(''); setEmAddSenderName('') }}
-                                className="text-xs text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-600)] font-medium mt-1">
-                                + Add another sender
-                              </button>
                             </div>
                           )}
                         </div>
@@ -651,25 +564,6 @@ const CommunicationHub = () => {
                             disabled={waConnecting}
                             className="px-3 py-1.5 text-xs font-medium bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] disabled:opacity-50 flex items-center gap-1">
                             {waConnecting ? <Loader2 size={12} className="animate-spin" /> : <MessageCircle size={12} />} Connect
-                          </button>
-                        )}
-                        {/* Email (SendGrid) actions */}
-                        {status === 'connected' && isEmail && (
-                          <button onClick={async () => {
-                              if (!window.confirm('Disconnect Email (SendGrid)? Inbound and outbound email will stop.')) return
-                              try {
-                                await emailAPI.disconnect()
-                                setEmConnected(false); setEmSenders([]); setEmConnectedAt(null)
-                              } catch (e) { alert('Failed to disconnect email') }
-                            }}
-                            className="px-3 py-1.5 text-xs font-medium border border-red-200 rounded-lg hover:bg-red-50 text-red-600">
-                            Disconnect
-                          </button>
-                        )}
-                        {status === 'not_connected' && isEmail && (
-                          <button onClick={() => { setShowEmConnectModal(true); setEmConnectError(''); setEmApiKeyInput(''); setEmSenderInput(''); setEmSenderNameInput('') }}
-                            className="px-3 py-1.5 text-xs font-medium bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)]">
-                            Connect
                           </button>
                         )}
                         {status === 'coming_soon' && <span className="text-xs text-[var(--sf-text-muted)]">Coming soon</span>}
@@ -936,53 +830,6 @@ const CommunicationHub = () => {
               <button onClick={handleLbConnect} disabled={lbConnecting}
                 className="px-4 py-2 text-sm bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] disabled:opacity-50 flex items-center gap-2">
                 {lbConnecting && <Loader2 size={14} className="animate-spin" />} {lbConnecting ? 'Connecting...' : 'Connect'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Email (SendGrid) Connect Modal */}
-      {showEmConnectModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-            <h3 className="text-lg font-bold text-[var(--sf-text-primary)] mb-2">Connect Email (SendGrid)</h3>
-            <p className="text-sm text-[var(--sf-text-muted)] mb-4">Enter your SendGrid API key and the first sender email address. The sender must be verified in SendGrid.</p>
-            {emConnectError && <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded text-sm text-red-600">{emConnectError}</div>}
-            <input type="password" value={emApiKeyInput} onChange={e => setEmApiKeyInput(e.target.value)} placeholder="SendGrid API Key"
-              className="w-full border border-[var(--sf-border-light)] rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-1 focus:ring-[var(--sf-blue-500)]" />
-            <input type="email" value={emSenderInput} onChange={e => setEmSenderInput(e.target.value)} placeholder="Sender email (e.g. info@company.com)"
-              className="w-full border border-[var(--sf-border-light)] rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-1 focus:ring-[var(--sf-blue-500)]" />
-            <input type="text" value={emSenderNameInput} onChange={e => setEmSenderNameInput(e.target.value)} placeholder="Display name (optional)"
-              onKeyDown={e => e.key === 'Enter' && !emConnecting && emApiKeyInput.trim() && emSenderInput.trim() && handleEmConnect()}
-              className="w-full border border-[var(--sf-border-light)] rounded-lg px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-1 focus:ring-[var(--sf-blue-500)]" />
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setShowEmConnectModal(false)} className="px-4 py-2 text-sm text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]">Cancel</button>
-              <button onClick={handleEmConnect} disabled={emConnecting || !emApiKeyInput.trim() || !emSenderInput.trim()}
-                className="px-4 py-2 text-sm bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] disabled:opacity-50 flex items-center gap-2">
-                {emConnecting && <Loader2 size={14} className="animate-spin" />} {emConnecting ? 'Connecting...' : 'Connect'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Email Add Sender Modal */}
-      {showEmAddSenderModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-            <h3 className="text-lg font-bold text-[var(--sf-text-primary)] mb-2">Add Sender Email</h3>
-            <p className="text-sm text-[var(--sf-text-muted)] mb-4">Add another verified sender email address. It must be verified in your SendGrid account.</p>
-            <input type="email" value={emAddSenderEmail} onChange={e => setEmAddSenderEmail(e.target.value)} placeholder="Sender email"
-              className="w-full border border-[var(--sf-border-light)] rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-1 focus:ring-[var(--sf-blue-500)]" />
-            <input type="text" value={emAddSenderName} onChange={e => setEmAddSenderName(e.target.value)} placeholder="Display name (optional)"
-              onKeyDown={e => e.key === 'Enter' && !emAddingSender && emAddSenderEmail.trim() && handleEmAddSender()}
-              className="w-full border border-[var(--sf-border-light)] rounded-lg px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-1 focus:ring-[var(--sf-blue-500)]" />
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setShowEmAddSenderModal(false)} className="px-4 py-2 text-sm text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]">Cancel</button>
-              <button onClick={handleEmAddSender} disabled={emAddingSender || !emAddSenderEmail.trim()}
-                className="px-4 py-2 text-sm bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] disabled:opacity-50 flex items-center gap-2">
-                {emAddingSender && <Loader2 size={14} className="animate-spin" />} {emAddingSender ? 'Adding...' : 'Add Sender'}
               </button>
             </div>
           </div>
