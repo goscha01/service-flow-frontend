@@ -3498,9 +3498,23 @@ const JobDetails = () => {
                   ) : (
                   <p className="font-semibold text-[var(--sf-text-primary)]">{decodeHtmlEntities(job.service_name || '')}</p>
                   )}
-                  <p className="text-[var(--sf-text-secondary)] text-sm mb-2">
+                  <p className="text-[var(--sf-text-secondary)] text-sm mb-1">
                     {job.service_names && job.service_names.length > 1 ? `${job.service_names.length} services` : 'Default service category'}
                   </p>
+                  {(job.bedroom_count || job.bathroom_count) && (
+                    <p className="text-sm text-[var(--sf-text-primary)] mb-1">
+                      {job.bedroom_count ? `${job.bedroom_count} bed` : ''}{job.bedroom_count && job.bathroom_count ? ' / ' : ''}{job.bathroom_count ? `${job.bathroom_count} bath` : ''}
+                    </p>
+                  )}
+                  {job.addons && Array.isArray(job.addons) && job.addons.length > 0 && (
+                    <div className="mb-1">
+                      {job.addons.map((addon, idx) => (
+                        <p key={idx} className="text-sm text-[var(--sf-text-secondary)]">
+                          + {addon.name}{addon.quantity > 1 ? ` ×${addon.quantity}` : ''}{addon.price > 0 ? ` ($${addon.price.toFixed(2)})` : ''}
+                        </p>
+                      ))}
+                    </div>
+                  )}
                   <p className="text-sm text-[var(--sf-text-secondary)] mt-2">
                     {formatDuration(job.duration || 0)}
                     {(job.status === 'completed' || job.status === 'paid') && job.start_time && job.end_time && (() => {
