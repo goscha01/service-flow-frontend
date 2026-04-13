@@ -7,7 +7,7 @@ import {
   Mail, MessageSquare, MessageCircle, Star, ThumbsUp,
   Info, Send, Paperclip, FileText, Smile, ChevronDown,
   Archive, CheckCheck, Trash2, Plus, Calendar, Briefcase,
-  User, Tag, Clock, ArrowLeft, MoreVertical, X, Image, ExternalLink
+  User, Users, Tag, Clock, ArrowLeft, MoreVertical, X, Image, ExternalLink
 } from "lucide-react"
 import { useAuth } from "../context/AuthContext"
 import Sidebar from "../components/sidebar"
@@ -260,14 +260,20 @@ function ConversationRow({ conv, isSelected, onClick }) {
         const isBrand = conv.displayName && SOURCE_BRANDS[Object.keys(SOURCE_BRANDS).find(b => conv.displayName.toLowerCase().startsWith(b.toLowerCase()))]
         return (
           <div className="relative flex-shrink-0">
-            {conv.avatarUrl ? (
+            {conv.isGroup ? (
+              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-violet-100 text-violet-600">
+                <Users size={18} />
+              </div>
+            ) : conv.avatarUrl ? (
               <img src={conv.avatarUrl} alt="" className="w-10 h-10 rounded-full object-cover"
                 onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }} />
             ) : null}
-            <div className="w-10 h-10 rounded-full items-center justify-center text-sm font-semibold"
-              style={{ backgroundColor: style.bg, color: style.text, display: conv.avatarUrl ? 'none' : 'flex' }}>
-              {isBrand ? isBrand.icon : getInitials(conv.displayName)}
-            </div>
+            {!conv.isGroup && (
+              <div className="w-10 h-10 rounded-full items-center justify-center text-sm font-semibold"
+                style={{ backgroundColor: style.bg, color: style.text, display: conv.avatarUrl ? 'none' : 'flex' }}>
+                {isBrand ? isBrand.icon : getInitials(conv.displayName)}
+              </div>
+            )}
             {conv.endpointSymbol && (
               <span className="absolute -bottom-0.5 -right-0.5 text-xs" title={conv.endpointPhone}>
                 {conv.endpointSymbol}
@@ -492,14 +498,20 @@ function LeadPanel({ lead, conversation }) {
       {/* Contact header — always shown */}
       <div className="text-center">
         <div className="mx-auto mb-3 relative w-16 h-16">
-          {conversation?.avatarUrl ? (
+          {conversation?.isGroup ? (
+            <div className="w-16 h-16 rounded-full flex items-center justify-center bg-violet-100 text-violet-600">
+              <Users size={28} />
+            </div>
+          ) : conversation?.avatarUrl ? (
             <img src={conversation.avatarUrl} alt="" className="w-16 h-16 rounded-full object-cover"
               onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }} />
           ) : null}
-          <div className="w-16 h-16 rounded-full items-center justify-center text-xl font-bold"
-            style={{ backgroundColor: style.bg, color: style.text, display: conversation?.avatarUrl ? 'none' : 'flex' }}>
-            {getInitials(displayName)}
-          </div>
+          {!conversation?.isGroup && (
+            <div className="w-16 h-16 rounded-full items-center justify-center text-xl font-bold"
+              style={{ backgroundColor: style.bg, color: style.text, display: conversation?.avatarUrl ? 'none' : 'flex' }}>
+              {getInitials(displayName)}
+            </div>
+          )}
         </div>
         <h3 className="text-base font-bold text-[var(--sf-text-primary)]">{displayName || 'Unknown'}</h3>
         {phone && <p className="text-sm text-[var(--sf-text-muted)] mt-0.5">{phone}</p>}
