@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import axios from "axios"
 import {
-  Users, Server, Check, X, Loader2, RefreshCw,
+  Users, Server, Check, X, Loader2, RefreshCw, Mail, Send,
   Shield, Eye, EyeOff, Database, Zap, LogIn, LogOut
 } from "lucide-react"
 
@@ -94,12 +94,25 @@ const AdminDashboard = () => {
   const [testingConnection, setTestingConnection] = useState(false)
   const [sigcoreStatus, setSigcoreStatus] = useState(null)
 
+  // SendGrid
+  const [sgApiKey, setSgApiKey] = useState('')
+  const [sgFromEmail, setSgFromEmail] = useState('')
+  const [sgHasKey, setSgHasKey] = useState(false)
+  const [sgKeyMask, setSgKeyMask] = useState('')
+  const [sgLoading, setSgLoading] = useState(true)
+  const [sgSaving, setSgSaving] = useState(false)
+  const [sgTesting, setSgTesting] = useState(false)
+  const [sgTestEmail, setSgTestEmail] = useState('')
+  const [sgTestStatus, setSgTestStatus] = useState(null)
+  const [sgTestError, setSgTestError] = useState('')
+  const [showSgKey, setShowSgKey] = useState(false)
+
   // Users
   const [users, setUsers] = useState([])
   const [usersLoading, setUsersLoading] = useState(true)
 
   useEffect(() => {
-    if (authed) { loadGlobalSettings(); loadUsers() }
+    if (authed) { loadGlobalSettings(); loadUsers(); loadSendGrid() }
   }, [authed])
 
   const handleLogin = (data) => { setAuthed(true); setAdminEmail(data.email) }
@@ -145,6 +158,44 @@ const AdminDashboard = () => {
       else alert('Connection failed: ' + (data.error || 'Unknown error'))
     } catch (e) { setSigcoreStatus('error'); alert('Test failed: ' + (e.response?.data?.error || e.message)) }
     finally { setTestingConnection(false) }
+  }
+
+  const loadSendGrid = async () => {
+    try {
+      setSgLoading(true)
+      const { data } = await getAdminApi().get('/admin/sendgrid')
+      setSgHasKey(data.hasKey || false)
+      setSgKeyMask(data.apiKey || '')
+      setSgFromEmail(data.fromEmail || '')
+    } catch (e) {
+      if (e.response?.status === 401 || e.response?.status === 403) handleLogout()
+    } finally { setSgLoading(false) }
+  }
+
+  const handleSaveSendGrid = async () => {
+    setSgSaving(true)
+    try {
+      await getAdminApi().put('/admin/sendgrid', {
+        apiKey: sgApiKey || undefined,
+        fromEmail: sgFromEmail || undefined,
+      })
+      setSgApiKey('')
+      await loadSendGrid()
+      alert('SendGrid settings saved')
+    } catch (e) { alert('Failed to save: ' + (e.response?.data?.error || e.message)) }
+    finally { setSgSaving(false) }
+  }
+
+  const handleTestSendGrid = async () => {
+    if (!sgTestEmail?.trim()) return
+    setSgTesting(true); setSgTestStatus(null); setSgTestError('')
+    try {
+      await getAdminApi().post('/admin/test-sendgrid', { testEmail: sgTestEmail.trim() })
+      setSgTestStatus('success')
+    } catch (e) {
+      setSgTestStatus('error')
+      setSgTestError(e.response?.data?.error || 'Test failed')
+    } finally { setSgTesting(false) }
   }
 
   if (!authed) return <AdminLogin onLogin={handleLogin} />
@@ -220,6 +271,69 @@ const AdminDashboard = () => {
                   className="px-4 py-2 text-sm border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 flex items-center gap-2">
                   {testingConnection ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />} Test Connection
                 </button>
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* ═══ SendGrid Email ═══ */}
+        <section className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-yellow-50 rounded-lg"><Mail size={20} className="text-yellow-600" /></div>
+              <div>
+                <h2 className="text-base font-semibold text-gray-900">SendGrid Email</h2>
+                <p className="text-xs text-gray-500">Application-level email delivery — powers all notification emails</p>
+              </div>
+            </div>
+            {sgHasKey && (
+              <span className="flex items-center gap-1.5 text-xs font-medium text-green-600 bg-green-50 px-3 py-1 rounded-full"><Check size={14} /> Configured</span>
+            )}
+          </div>
+          {sgLoading ? (
+            <div className="p-8 text-center"><Loader2 size={24} className="animate-spin mx-auto text-gray-400" /></div>
+          ) : (
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="text-sm font-medium text-gray-700 block mb-1">SendGrid API Key</label>
+                <div className="relative">
+                  <input type={showSgKey ? 'text' : 'password'} value={sgApiKey} onChange={e => setSgApiKey(e.target.value)}
+                    placeholder={sgHasKey ? sgKeyMask : 'SG.xxxxxxxxxx...'}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 pr-10 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-purple-500" />
+                  <button onClick={() => setShowSgKey(!showSgKey)} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                    {showSgKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+                {sgHasKey && <p className="text-xs text-green-600 mt-1">Key is set. Leave blank to keep current.</p>}
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 block mb-1">Default From Email</label>
+                <input type="email" value={sgFromEmail} onChange={e => setSgFromEmail(e.target.value)}
+                  placeholder="info@spotless.homes"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-purple-500" />
+                <p className="text-xs text-gray-400 mt-1">Used when a tenant hasn't configured their own sender email</p>
+              </div>
+              <div className="flex gap-2 pt-2">
+                <button onClick={handleSaveSendGrid} disabled={sgSaving}
+                  className="px-4 py-2 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 flex items-center gap-2">
+                  {sgSaving ? <Loader2 size={14} className="animate-spin" /> : <Database size={14} />} Save
+                </button>
+              </div>
+              {/* Test */}
+              <div className="border-t border-gray-100 pt-4">
+                <label className="text-sm font-medium text-gray-700 block mb-2">Test Email Delivery</label>
+                <div className="flex gap-2">
+                  <input type="email" value={sgTestEmail} onChange={e => setSgTestEmail(e.target.value)}
+                    placeholder="test@example.com"
+                    onKeyDown={e => e.key === 'Enter' && handleTestSendGrid()}
+                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-purple-500" />
+                  <button onClick={handleTestSendGrid} disabled={sgTesting || !sgTestEmail?.trim()}
+                    className="px-4 py-2 text-sm border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 flex items-center gap-2">
+                    {sgTesting ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} Test
+                  </button>
+                </div>
+                {sgTestStatus === 'success' && <p className="mt-2 text-sm text-green-600 flex items-center gap-1"><Check size={14} /> Test email sent</p>}
+                {sgTestStatus === 'error' && <p className="mt-2 text-sm text-red-600 flex items-center gap-1"><X size={14} /> {sgTestError}</p>}
               </div>
             </div>
           )}
