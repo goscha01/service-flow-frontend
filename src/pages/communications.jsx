@@ -179,18 +179,22 @@ function getInitials(name) {
   return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
 }
 
-// Consistent color per contact name/phone — matches OpenPhone's colored avatars
+// WhatsApp-style avatar colors — matches WhatsApp's contact color scheme
 const AVATAR_COLORS = [
-  { bg: '#E8F5E9', text: '#2E7D32' }, // green
-  { bg: '#E3F2FD', text: '#1565C0' }, // blue
-  { bg: '#FCE4EC', text: '#C62828' }, // red
-  { bg: '#F3E5F5', text: '#6A1B9A' }, // purple
-  { bg: '#FFF3E0', text: '#E65100' }, // orange
-  { bg: '#E0F7FA', text: '#00838F' }, // teal
-  { bg: '#FFF8E1', text: '#F9A825' }, // amber
-  { bg: '#F1F8E9', text: '#558B2F' }, // light green
-  { bg: '#EDE7F6', text: '#4527A0' }, // deep purple
-  { bg: '#FFEBEE', text: '#B71C1C' }, // deep red
+  { bg: '#25D366', text: '#FFFFFF' }, // whatsapp green
+  { bg: '#128C7E', text: '#FFFFFF' }, // whatsapp teal
+  { bg: '#075E54', text: '#FFFFFF' }, // whatsapp dark teal
+  { bg: '#34B7F1', text: '#FFFFFF' }, // whatsapp light blue
+  { bg: '#00A884', text: '#FFFFFF' }, // whatsapp sea green
+  { bg: '#FF6B6B', text: '#FFFFFF' }, // coral red
+  { bg: '#7C4DFF', text: '#FFFFFF' }, // purple
+  { bg: '#FF7043', text: '#FFFFFF' }, // deep orange
+  { bg: '#26A69A', text: '#FFFFFF' }, // teal
+  { bg: '#5C6BC0', text: '#FFFFFF' }, // indigo
+  { bg: '#EC407A', text: '#FFFFFF' }, // pink
+  { bg: '#42A5F5', text: '#FFFFFF' }, // blue
+  { bg: '#66BB6A', text: '#FFFFFF' }, // green
+  { bg: '#FFA726', text: '#FFFFFF' }, // amber
 ]
 
 // Known source brands with custom styling
@@ -213,6 +217,40 @@ function getAvatarStyle(name, phone) {
   let hash = 0
   for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash)
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length]
+}
+
+// ── Avatar component with image fallback ──
+function ConversationAvatar({ conv, size = 40 }) {
+  const [imgFailed, setImgFailed] = React.useState(false)
+  const style = getAvatarStyle(conv?.displayName, conv?.fallbackIdentifier)
+  const isBrand = conv?.displayName && SOURCE_BRANDS[Object.keys(SOURCE_BRANDS).find(b => conv.displayName.toLowerCase().startsWith(b.toLowerCase()))]
+  const isGroup = conv?.isGroup
+  const avatarUrl = conv?.avatarUrl
+  const sizeClass = size >= 48 ? 'w-16 h-16' : 'w-10 h-10'
+  const textSize = size >= 48 ? 'text-xl font-bold' : 'text-sm font-semibold'
+  const iconSize = size >= 48 ? 28 : 18
+
+  if (isGroup) {
+    return (
+      <div className={`${sizeClass} rounded-full flex items-center justify-center bg-violet-100 text-violet-600`}>
+        <Users size={iconSize} />
+      </div>
+    )
+  }
+
+  if (avatarUrl && !imgFailed) {
+    return (
+      <img src={avatarUrl} alt="" className={`${sizeClass} rounded-full object-cover`}
+        onError={() => setImgFailed(true)} />
+    )
+  }
+
+  return (
+    <div className={`${sizeClass} rounded-full flex items-center justify-center ${textSize}`}
+      style={{ backgroundColor: style.bg, color: style.text }}>
+      {isBrand ? isBrand.icon : getInitials(conv?.displayName)}
+    </div>
+  )
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -255,33 +293,14 @@ function ConversationRow({ conv, isSelected, onClick }) {
       }`}
     >
       {/* Avatar */}
-      {(() => {
-        const style = getAvatarStyle(conv.displayName, conv.fallbackIdentifier)
-        const isBrand = conv.displayName && SOURCE_BRANDS[Object.keys(SOURCE_BRANDS).find(b => conv.displayName.toLowerCase().startsWith(b.toLowerCase()))]
-        return (
-          <div className="relative flex-shrink-0">
-            {conv.isGroup ? (
-              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-violet-100 text-violet-600">
-                <Users size={18} />
-              </div>
-            ) : conv.avatarUrl ? (
-              <img src={conv.avatarUrl} alt="" className="w-10 h-10 rounded-full object-cover"
-                onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }} />
-            ) : null}
-            {!conv.isGroup && (
-              <div className="w-10 h-10 rounded-full items-center justify-center text-sm font-semibold"
-                style={{ backgroundColor: style.bg, color: style.text, display: conv.avatarUrl ? 'none' : 'flex' }}>
-                {isBrand ? isBrand.icon : getInitials(conv.displayName)}
-              </div>
-            )}
-            {conv.endpointSymbol && (
-              <span className="absolute -bottom-0.5 -right-0.5 text-xs" title={conv.endpointPhone}>
-                {conv.endpointSymbol}
-              </span>
-            )}
-          </div>
-        )
-      })()}
+      <div className="relative flex-shrink-0">
+        <ConversationAvatar conv={conv} size={40} />
+        {conv.endpointSymbol && (
+          <span className="absolute -bottom-0.5 -right-0.5 text-xs" title={conv.endpointPhone}>
+            {conv.endpointSymbol}
+          </span>
+        )}
+      </div>
       {/* Content */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between mb-0.5">
@@ -497,21 +516,8 @@ function LeadPanel({ lead, conversation }) {
     <div className="p-4 space-y-5">
       {/* Contact header — always shown */}
       <div className="text-center">
-        <div className="mx-auto mb-3 relative w-16 h-16">
-          {conversation?.isGroup ? (
-            <div className="w-16 h-16 rounded-full flex items-center justify-center bg-violet-100 text-violet-600">
-              <Users size={28} />
-            </div>
-          ) : conversation?.avatarUrl ? (
-            <img src={conversation.avatarUrl} alt="" className="w-16 h-16 rounded-full object-cover"
-              onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }} />
-          ) : null}
-          {!conversation?.isGroup && (
-            <div className="w-16 h-16 rounded-full items-center justify-center text-xl font-bold"
-              style={{ backgroundColor: style.bg, color: style.text, display: conversation?.avatarUrl ? 'none' : 'flex' }}>
-              {getInitials(displayName)}
-            </div>
-          )}
+        <div className="mx-auto mb-3">
+          <ConversationAvatar conv={conversation} size={64} />
         </div>
         <h3 className="text-base font-bold text-[var(--sf-text-primary)]">{displayName || 'Unknown'}</h3>
         {phone && <p className="text-sm text-[var(--sf-text-muted)] mt-0.5">{phone}</p>}
