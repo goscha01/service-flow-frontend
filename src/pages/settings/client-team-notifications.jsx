@@ -12,12 +12,9 @@ function EmailDeliverySettings() {
   const [testing, setTesting] = useState(false)
 
   const [configured, setConfigured] = useState(false)
-  const [source, setSource] = useState('none')
-  const [apiKey, setApiKey] = useState('')
   const [fromEmail, setFromEmail] = useState('')
   const [fromName, setFromName] = useState('')
   const [replyToEmail, setReplyToEmail] = useState('')
-  const [hasApiKey, setHasApiKey] = useState(false)
 
   const [testEmail, setTestEmail] = useState('')
   const [testStatus, setTestStatus] = useState(null)
@@ -31,12 +28,10 @@ function EmailDeliverySettings() {
       setLoading(true)
       const data = await notificationEmailAPI.getSettings()
       setConfigured(data.configured || false)
-      setSource(data.source || 'none')
       if (data.settings) {
         setFromEmail(data.settings.fromEmail || '')
         setFromName(data.settings.fromName || '')
         setReplyToEmail(data.settings.replyToEmail || '')
-        setHasApiKey(data.settings.hasApiKey || false)
         setTestStatus(data.settings.lastTestStatus || null)
       }
     } catch (e) { /* not configured */ }
@@ -46,11 +41,8 @@ function EmailDeliverySettings() {
   const handleSave = async () => {
     setSaving(true); setSaveMsg(null)
     try {
-      await notificationEmailAPI.saveSettings({
-        apiKey: apiKey || undefined, fromEmail, fromName, replyToEmail,
-      })
+      await notificationEmailAPI.saveSettings({ fromEmail, fromName, replyToEmail })
       setSaveMsg({ type: 'success', text: 'Saved' })
-      setApiKey('')
       await loadSettings()
     } catch (e) {
       setSaveMsg({ type: 'error', text: e.response?.data?.error || 'Failed to save' })
@@ -75,15 +67,11 @@ function EmailDeliverySettings() {
     </div>
   )
 
-  const statusBadge = source === 'none' && !hasApiKey
-    ? { text: 'Not configured', color: 'bg-gray-100 text-gray-600' }
-    : source === 'environment' && !hasApiKey
+  const statusBadge = !configured
     ? { text: 'Using default', color: 'bg-yellow-100 text-yellow-700' }
     : testStatus === 'success'
     ? { text: 'Connected', color: 'bg-green-100 text-green-700' }
-    : hasApiKey
-    ? { text: 'Configured', color: 'bg-blue-100 text-blue-700' }
-    : { text: 'Not configured', color: 'bg-gray-100 text-gray-600' }
+    : { text: 'Configured', color: 'bg-blue-100 text-blue-700' }
 
   return (
     <div className="space-y-4">
@@ -97,16 +85,8 @@ function EmailDeliverySettings() {
         </p>
       </div>
 
-      {/* SendGrid API Key + Sender */}
+      {/* Sender Configuration */}
       <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-6 space-y-4">
-        <div>
-          <label className="text-sm font-medium text-[var(--sf-text-primary)] block mb-1">SendGrid API Key</label>
-          <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)}
-            placeholder={hasApiKey ? '••••••••••••• (saved)' : 'Enter your SendGrid API key'}
-            className="w-full max-w-lg border border-[var(--sf-border-light)] rounded-lg px-3 py-2 text-sm bg-[var(--sf-bg-input)] focus:outline-none focus:ring-1 focus:ring-[var(--sf-blue-500)]" />
-          {hasApiKey && <p className="text-[10px] text-green-600 mt-1">API key saved. Leave blank to keep current.</p>}
-        </div>
-
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg">
           <div>
             <label className="text-sm font-medium text-[var(--sf-text-primary)] block mb-1">From Email</label>
