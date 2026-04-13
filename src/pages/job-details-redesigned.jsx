@@ -3508,9 +3508,9 @@ const JobDetails = () => {
                   )}
                   {job.addons && Array.isArray(job.addons) && job.addons.length > 0 && (
                     <div className="mb-1">
-                      {job.addons.map((addon, idx) => (
+                      {job.addons.filter(a => a.price > 0 || (a.value && a.value !== 'No')).map((addon, idx) => (
                         <p key={idx} className="text-sm text-[var(--sf-text-secondary)]">
-                          + {addon.name}{addon.quantity > 1 ? ` ×${addon.quantity}` : ''}{addon.price > 0 ? ` ($${addon.price.toFixed(2)})` : ''}
+                          {addon.name}: {addon.value || addon.name}{addon.price > 0 ? ` (+$${parseFloat(addon.price).toFixed(0)})` : ''}
                         </p>
                       ))}
                     </div>
