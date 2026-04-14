@@ -1058,7 +1058,46 @@ export default function CreateJobPage() {
       setCustomers(customersData.customers || customersData);
       setLeads(leadsData.leads || leadsData || []);
       setServices(decodedServices);
-      setTeamMembers(teamData.teamMembers || teamData);
+      const allTeam = teamData.teamMembers || teamData || [];
+      console.log('[createjob] raw teamData:', teamData);
+      console.log('[createjob] allTeam array:', allTeam);
+      if (Array.isArray(allTeam) && allTeam.length > 0) {
+        console.log('[createjob] first member keys:', Object.keys(allTeam[0]));
+        console.log('[createjob] sample members:', allTeam.slice(0, 5).map(m => ({
+          id: m.id,
+          name: `${m.first_name || ''} ${m.last_name || ''}`.trim(),
+          email: m.email,
+          role: m.role,
+          status: m.status,
+          is_active: m.is_active,
+          active: m.active,
+          deleted_at: m.deleted_at,
+          is_service_provider: m.is_service_provider
+        })));
+      }
+      // Only workers/owners can be assigned to jobs. Exclude inactive,
+      // managers, and schedulers (dispatchers).
+      const ASSIGNABLE_ROLES = new Set(['worker', 'technician', 'field_worker', 'cleaner', 'owner', 'account owner', 'admin']);
+      const assignable = Array.isArray(allTeam)
+        ? allTeam.filter(m => {
+            const isInactive = m.status === 'inactive'
+              || m.is_active === false
+              || m.active === false
+              || !!m.deleted_at;
+            if (isInactive) {
+              console.log('[createjob] EXCLUDED (inactive):', m.id, m.first_name, m.last_name, { status: m.status, is_active: m.is_active, active: m.active, deleted_at: m.deleted_at });
+              return false;
+            }
+            const role = (m.role || '').toLowerCase();
+            if (role && !ASSIGNABLE_ROLES.has(role)) {
+              console.log('[createjob] EXCLUDED (role):', m.id, m.first_name, m.last_name, 'role=', m.role);
+              return false;
+            }
+            return true;
+          })
+        : allTeam;
+      console.log('[createjob] assignable after filter:', assignable.length, 'of', allTeam.length);
+      setTeamMembers(assignable);
       setTerritories(territoriesData.territories || territoriesData);
       setFilteredCustomers(customersData.customers || customersData);
       setFilteredLeads(leadsData.leads || leadsData || []);
