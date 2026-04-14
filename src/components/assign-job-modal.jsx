@@ -19,7 +19,6 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign, companyDrivingTimeMinu
   const [expandedSchedules, setExpandedSchedules] = useState({})
   const [allSkills, setAllSkills] = useState([])
   const [companyDrivingTime, setCompanyDrivingTime] = useState(companyDrivingTimeMinutes ?? null)
-  const [includeInactive, setIncludeInactive] = useState(false)
 
   // Determine if this is a past job (scheduled before today)
   const isPastJob = useMemo(() => {
@@ -82,12 +81,6 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign, companyDrivingTimeMinu
     }
   }, [isOpen, job])
 
-  // Re-fetch when includeInactive changes
-  useEffect(() => {
-    if (isOpen && job) {
-      fetchTeamMembers()
-    }
-  }, [includeInactive])
 
   // Fetch availability for all members when modal opens (skip for past jobs — all members shown)
   useEffect(() => {
@@ -99,8 +92,9 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign, companyDrivingTimeMinu
   const fetchTeamMembers = async () => {
     try {
       setLoading(true)
+      // Fetch without backend status filter — filter client-side so members with
+      // NULL/undefined status are still included (only explicit 'inactive' is excluded).
       const response = await teamAPI.getAll(user.id, {
-        status: includeInactive ? undefined : 'active',
         page: 1,
         limit: 100
       })
@@ -108,11 +102,21 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign, companyDrivingTimeMinu
       // Normalize the response
       const teamMembersData = normalizeAPIResponse(response, 'teamMembers') || []
 
-      // Filter to only service providers (workers, schedulers, managers, account owner)
-      const providers = teamMembersData.filter(member =>
-        (member.is_service_provider || member.role === 'owner' || member.role === 'account owner') &&
-        (includeInactive || member.status === 'active')
-      )
+      // Only workers and owners can be assigned to jobs.
+      // Managers and schedulers (dispatchers) are excluded.
+      // Inactive members are excluded.
+      const providers = teamMembersData.filter(member => {
+        if (member.status === 'inactive') return false
+        const role = (member.role || '').toLowerCase()
+        return role === 'worker'
+          || role === 'technician'
+          || role === 'field_worker'
+          || role === 'cleaner'
+          || role === 'owner'
+          || role === 'account owner'
+          || role === 'admin'
+          || !role // legacy members without a role default to worker
+      })
       
       // Log for debugging
       console.log('Fetched team members:', providers.map(m => ({
@@ -891,18 +895,6 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign, companyDrivingTimeMinu
               <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[var(--sf-text-muted)] pointer-events-none" />
             </div>
 
-            {/* Include deactivated checkbox */}
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={includeInactive}
-                onChange={(e) => setIncludeInactive(e.target.checked)}
-                className="w-4 h-4 text-[var(--sf-blue-500)] border-[var(--sf-border-light)] rounded focus:ring-[var(--sf-blue-500)]"
-              />
-              <span className="text-xs text-[var(--sf-text-secondary)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
-                Include deactivated members
-              </span>
-            </label>
           </div>
 
           {/* Available Providers Section */}

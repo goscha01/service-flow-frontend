@@ -190,6 +190,10 @@ export default function JobExpensesSection({ jobId, teamMembers = [], onTotalCha
     return m ? `${m.first_name || ''} ${m.last_name || ''}`.trim() : '—'
   }
 
+  // For selection dropdowns: only active members. Name lookup above still
+  // resolves deactivated members so historical expense rows display correctly.
+  const activeTeamMembers = teamMembers.filter(m => m.status !== 'inactive')
+
   const totalApproved = expenses.filter(e => e.status === 'approved').reduce((s, e) => s + parseFloat(e.amount || 0), 0)
 
   return (
@@ -264,7 +268,7 @@ export default function JobExpensesSection({ jobId, teamMembers = [], onTotalCha
                 className="w-full text-sm border border-[var(--sf-border-light)] rounded-lg px-3 py-2"
               >
                 <option value="">Select...</option>
-                {teamMembers.map(m => (
+                {activeTeamMembers.map(m => (
                   <option key={m.id} value={m.id}>{m.first_name} {m.last_name}</option>
                 ))}
               </select>
@@ -368,7 +372,7 @@ export default function JobExpensesSection({ jobId, teamMembers = [], onTotalCha
                           className="w-full text-xs border border-[var(--sf-border-light)] rounded px-2 py-1 bg-white"
                         >
                           <option value="">—</option>
-                          {teamMembers.map(m => (
+                          {activeTeamMembers.map(m => (
                             <option key={m.id} value={m.id}>{m.first_name} {m.last_name}</option>
                           ))}
                         </select>
