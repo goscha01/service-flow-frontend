@@ -2797,4 +2797,13 @@ export const communicationsAPI = {
   savePreferences: async (prefs) => { const r = await api.put('/communications/settings/preferences', prefs); return r.data; },
 };
 
+// Connected Email (Gmail/Outlook OAuth) — System 2 mailbox integration for Communications Hub.
+// Separate from notificationEmailAPI (System 1 / SendGrid).
+export const connectedEmailAPI = {
+  listAccounts: async () => { const r = await api.get('/connected-email/accounts'); return r.data; },
+  startOAuth: async (provider) => { const r = await api.post(`/connected-email/oauth/${provider}/start`); return r.data; },
+  disconnect: async (accountId, reason) => { const r = await api.post(`/connected-email/accounts/${accountId}/disconnect`, { reason }); return r.data; },
+  resync: async (accountId) => { const r = await api.post(`/connected-email/accounts/${accountId}/resync`); return r.data; },
+};
+
 export default api;
