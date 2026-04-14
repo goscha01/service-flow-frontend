@@ -1042,7 +1042,7 @@ export default function CreateJobPage() {
       const [customersData, servicesData, teamData, territoriesData, leadsData] = await Promise.all([
         customersAPI.getAll(user.id, { limit: 10000, page: 1, sortBy: 'created_at', sortOrder: 'DESC' }),
         servicesAPI.getAll(user.id),
-        teamAPI.getAll(user.id),
+        teamAPI.getAll(user.id, { limit: 1000, page: 1 }),
         territoriesAPI.getAll(user.id),
         leadsAPI.getAll().catch(() => []) // Fetch leads, but don't fail if it errors
       ]);
