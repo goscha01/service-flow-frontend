@@ -12,7 +12,7 @@ import {
 import { useAuth } from "../context/AuthContext"
 import Sidebar from "../components/sidebar"
 import MobileHeader from "../components/mobile-header"
-import { communicationsAPI, openPhoneAPI, whatsappAPI, territoriesAPI } from "../services/api"
+import { communicationsAPI, openPhoneAPI, whatsappAPI, territoriesAPI, connectedEmailAPI } from "../services/api"
 
 // ═══════════════════════════════════════════════════════════════
 // Channel configuration
@@ -254,6 +254,57 @@ function ConversationAvatar({ conv, size = 40 }) {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// Email body renderer — minimal sanitizer, no external dep.
+// Strips <script>, <style>, on* handlers, and javascript: URLs.
+// Renders in a sandboxed container with expand/collapse.
+// ═══════════════════════════════════════════════════════════════
+function sanitizeHtml(html) {
+  if (!html) return ''
+  let s = String(html)
+  s = s.replace(/<script[\s\S]*?<\/script>/gi, '')
+  s = s.replace(/<style[\s\S]*?<\/style>/gi, '')
+  s = s.replace(/\son[a-z]+\s*=\s*"[^"]*"/gi, '')
+  s = s.replace(/\son[a-z]+\s*=\s*'[^']*'/gi, '')
+  s = s.replace(/\son[a-z]+\s*=\s*[^\s>]+/gi, '')
+  s = s.replace(/javascript:/gi, 'blocked:')
+  s = s.replace(/<iframe[\s\S]*?<\/iframe>/gi, '')
+  s = s.replace(/<object[\s\S]*?<\/object>/gi, '')
+  s = s.replace(/<embed[\s\S]*?>/gi, '')
+  return s
+}
+
+function EmailBody({ html, text }) {
+  const [expanded, setExpanded] = React.useState(false)
+  const preview = (text || '').replace(/\s+/g, ' ').slice(0, 200)
+
+  if (!expanded) {
+    return (
+      <div className="px-4 py-3">
+        <p className="text-sm text-[var(--sf-text-secondary)] line-clamp-2">{preview || '(no preview)'}</p>
+        {(html || (text && text.length > 200)) && (
+          <button onClick={() => setExpanded(true)} className="mt-2 text-xs font-medium text-[var(--sf-blue-500)] hover:underline">
+            Show more
+          </button>
+        )}
+      </div>
+    )
+  }
+  return (
+    <div className="px-4 py-3">
+      {html ? (
+        <div className="email-body text-sm text-[var(--sf-text-primary)] prose prose-sm max-w-none"
+          dangerouslySetInnerHTML={{ __html: sanitizeHtml(html) }} />
+      ) : (
+        <pre className="text-sm text-[var(--sf-text-primary)] whitespace-pre-wrap font-sans">{text || ''}</pre>
+      )}
+      <button onClick={() => setExpanded(false)} className="mt-2 text-xs font-medium text-[var(--sf-blue-500)] hover:underline">
+        Show less
+      </button>
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════
 // Sub-components
 // ═══════════════════════════════════════════════════════════════
 
@@ -392,6 +443,33 @@ function TimelineEvent({ event }) {
     )
   }
 
+  // Email message — full-width card with subject header + sanitized html body.
+  if (event.channel === 'email') {
+    const isOutbound = event.type === 'message_out' || event.direction === 'outbound'
+    const subject = event.email_subject || event.subject
+    const from = event.from_email
+    const to = event.to_email
+    return (
+      <div className="px-4 py-2">
+        <div className={`border border-[var(--sf-border-light)] rounded-xl bg-white overflow-hidden ${isOutbound ? 'ml-8' : 'mr-8'}`}>
+          <div className="px-4 py-2 border-b border-[var(--sf-border-light)] bg-[var(--sf-bg-input)]">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <ChannelBadge channel="email" size={12} />
+                <span className="text-xs font-semibold text-[var(--sf-text-primary)] truncate">{subject || '(no subject)'}</span>
+              </div>
+              <span className="text-[10px] text-[var(--sf-text-muted)] flex-shrink-0">{formatTimestamp(event.timestamp)}</span>
+            </div>
+            <div className="text-[11px] text-[var(--sf-text-muted)] mt-0.5 truncate">
+              {isOutbound ? `To: ${to || '—'}` : `From: ${from || '—'}`}
+            </div>
+          </div>
+          <EmailBody html={event.body_html} text={event.body_text || event.text || event.body} />
+        </div>
+      </div>
+    )
+  }
+
   // Message bubble
   const isOutbound = event.type === 'message_out'
   const mediaUrls = event.mediaUrls || []
@@ -438,15 +516,16 @@ function TimelineEvent({ event }) {
 }
 
 // ── Composer with channel tabs ──
-function Composer({ availableChannels, sendChannel, setSendChannel, text, setText, onSend, channelFilter, onChannelFilter, channelUnread, emailSubject, onEmailSubjectChange }) {
+function Composer({ availableChannels, sendChannel, setSendChannel, text, setText, onSend, channelFilter, onChannelFilter, channelUnread, emailSubject, onEmailSubjectChange, endpointEmail }) {
   const sourceTabs = [
     { key: 'all', label: 'All', Icon: MessageSquare },
     { key: 'openphone', label: 'OpenPhone', Icon: Phone },
-    ...availableChannels.filter(c => c === 'thumbtack' || c === 'yelp' || c === 'whatsapp').map(c => {
+    ...availableChannels.filter(c => c === 'thumbtack' || c === 'yelp' || c === 'whatsapp' || c === 'email').map(c => {
       const ch = CHANNELS[c]
       return ch ? { key: c, label: ch.label, Icon: ch.Icon } : null
     }).filter(Boolean),
   ]
+  const isEmail = sendChannel === 'email'
 
   return (
     <div className="border-t border-[var(--sf-border-light)] bg-white">
@@ -477,6 +556,20 @@ function Composer({ availableChannels, sendChannel, setSendChannel, text, setTex
           )
         })}
       </div>
+      {/* Email subject + mailbox indicator (only for email channel) */}
+      {isEmail && (
+        <div className="px-3 pt-2 space-y-1">
+          {endpointEmail && (
+            <div className="text-[11px] text-[var(--sf-text-muted)]">Sending from: <span className="font-medium">{endpointEmail}</span></div>
+          )}
+          <input
+            value={emailSubject || ''}
+            onChange={e => onEmailSubjectChange && onEmailSubjectChange(e.target.value)}
+            placeholder="Subject"
+            className="w-full border border-[var(--sf-border-light)] rounded-lg px-3 py-1.5 text-sm bg-[var(--sf-bg-input)] focus:outline-none focus:ring-1 focus:ring-[var(--sf-blue-500)]"
+          />
+        </div>
+      )}
       {/* Input row */}
       <div className="flex items-end gap-2 p-3">
         <div className="flex gap-1 pb-1.5">
@@ -628,9 +721,20 @@ const Communications = () => {
   const [sending, setSending] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
   const [whatsappConnected, setWhatsappConnected] = useState(false)
+  const [connectedEmailAccounts, setConnectedEmailAccounts] = useState([])
 
   const selectedConv = conversations.find(c => String(c.id) === String(selectedId))
-  const availableChannels = ['openphone', 'thumbtack', 'yelp', ...(whatsappConnected ? ['whatsapp'] : [])]
+  const hasConnectedEmail = connectedEmailAccounts.some(a => a.status === 'connected')
+  const availableChannels = [
+    'openphone',
+    'thumbtack',
+    'yelp',
+    ...(whatsappConnected ? ['whatsapp'] : []),
+    ...(hasConnectedEmail ? ['email'] : []),
+  ]
+  // Endpoint email for the currently selected conversation (if it's an email thread)
+  const selectedConvEndpointEmail = detail?.conversation?.endpoint_email
+    || (selectedConv?.channel === 'email' ? selectedConv?.endpoint_email : null)
 
   // Check connection status + load conversations + load provider accounts
   useEffect(() => {
@@ -657,6 +761,11 @@ const Communications = () => {
 
     // Check WhatsApp connection
     whatsappAPI.getStatus().then(s => setWhatsappConnected(s.connected || false)).catch(() => {})
+
+    // Load connected email accounts to enable the Email tab / composer.
+    connectedEmailAPI.listAccounts()
+      .then(data => setConnectedEmailAccounts(data.accounts || []))
+      .catch(() => setConnectedEmailAccounts([]))
   }, [user?.id])
 
   const loadConversations = async (filter, search, channel, locId) => {
@@ -964,6 +1073,7 @@ const Communications = () => {
                   channelUnread={channelUnread}
                   emailSubject={emailSubject}
                   onEmailSubjectChange={setEmailSubject}
+                  endpointEmail={selectedConvEndpointEmail}
                 />
               </div>
             ) : (
@@ -1034,6 +1144,7 @@ const Communications = () => {
                   channelUnread={channelUnread}
                   emailSubject={emailSubject}
                   onEmailSubjectChange={setEmailSubject}
+                  endpointEmail={selectedConvEndpointEmail}
                 />
               </>
             )}

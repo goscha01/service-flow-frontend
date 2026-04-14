@@ -110,6 +110,7 @@ import ImportJobsPage from "./pages/import-jobs"
 import UnifiedImportJobsPage from "./pages/import-jobs-unified"
 import LeadsPipeline from "./pages/leads-pipeline"
 import Communications from "./pages/communications"
+import ConnectedInboxes from "./pages/settings/ConnectedInboxes"
 import LandingPageLegacy from "./pages/LandingPage"
 import Notifications from "./pages/notifications"
 import { TeamMemberAuthProvider } from "./context/TeamMemberAuthContext"
@@ -179,6 +180,7 @@ root.render(
       <Route path="/settings/branding" element={<BrandingSettings />} />
       <Route path="/settings/feedback-reviews" element={<FeedbackReviews />} />
       <Route path="/settings/communication-hub" element={<CommunicationHub />} />
+      <Route path="/settings/connected-inboxes" element={<ProtectedRoute><ConnectedInboxes /></ProtectedRoute>} />
       <Route path="/settings/leads" element={<LeadsSettings />} />
       <Route path="/admin" element={<AdminDashboard />} />
       <Route path="/settings/client-team-notifications" element={<ClientTeamNotifications />} />
