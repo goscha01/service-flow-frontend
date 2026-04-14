@@ -2803,6 +2803,7 @@ export const connectedEmailAPI = {
   listAccounts: async () => { const r = await api.get('/connected-email/accounts'); return r.data; },
   startOAuth: async (provider) => { const r = await api.post(`/connected-email/oauth/${provider}/start`); return r.data; },
   disconnect: async (accountId, reason) => { const r = await api.post(`/connected-email/accounts/${accountId}/disconnect`, { reason }); return r.data; },
+  deleteAccount: async (accountId) => { const r = await api.delete(`/connected-email/accounts/${accountId}`); return r.data; },
   resync: async (accountId) => { const r = await api.post(`/connected-email/accounts/${accountId}/resync`); return r.data; },
   testSync: async (accountId, { days = 7, maxMessages = 50 } = {}) => {
     const r = await api.post(`/connected-email/accounts/${accountId}/test-sync`, { days, maxMessages });
