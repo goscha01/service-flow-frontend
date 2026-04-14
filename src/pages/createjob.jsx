@@ -734,14 +734,29 @@ export default function CreateJobPage() {
   useEffect(() => {
     // Filter customers and leads based on search
     if (customerSearch) {
-      const filteredCustomers = (customers || []).filter(customer =>
-        `${customer.first_name} ${customer.last_name}`.toLowerCase().includes(customerSearch.toLowerCase()) ||
-        customer.email?.toLowerCase().includes(customerSearch.toLowerCase())
-      );
-      const filteredLeads = (leads || []).filter(lead =>
-        `${lead.first_name} ${lead.last_name}`.toLowerCase().includes(customerSearch.toLowerCase()) ||
-        lead.email?.toLowerCase().includes(customerSearch.toLowerCase())
-      );
+      const q = customerSearch.trim().toLowerCase().replace(/\s+/g, ' ');
+      const qDigits = customerSearch.replace(/\D/g, '');
+      const norm = (v) => (v ? String(v).trim().toLowerCase().replace(/\s+/g, ' ') : '');
+      const matches = (p) => {
+        const first = norm(p.first_name);
+        const last = norm(p.last_name);
+        const full = `${first} ${last}`.trim();
+        const email = norm(p.email);
+        const city = norm(p.city);
+        const state = norm(p.state);
+        const phone = p.phone ? String(p.phone).replace(/\D/g, '') : '';
+        return (
+          first.includes(q) ||
+          last.includes(q) ||
+          full.includes(q) ||
+          email.includes(q) ||
+          city.includes(q) ||
+          state.includes(q) ||
+          (phone && qDigits && phone.includes(qDigits))
+        );
+      };
+      const filteredCustomers = (customers || []).filter(matches);
+      const filteredLeads = (leads || []).filter(matches);
       setFilteredCustomers(filteredCustomers);
       setFilteredLeads(filteredLeads);
       // Show dropdown when there's a search term and results
@@ -1027,7 +1042,7 @@ export default function CreateJobPage() {
     try {
       setDataLoading(true);
       const [customersData, servicesData, teamData, territoriesData, leadsData] = await Promise.all([
-        customersAPI.getAll(user.id),
+        customersAPI.getAll(user.id, { limit: 10000, page: 1, sortBy: 'created_at', sortOrder: 'DESC' }),
         servicesAPI.getAll(user.id),
         teamAPI.getAll(user.id),
         territoriesAPI.getAll(user.id),
