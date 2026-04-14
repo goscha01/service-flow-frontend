@@ -355,26 +355,35 @@ export default function CreateJobPage() {
       const duplicateJob = location.state.duplicateJob;
       console.log('📋 Loading duplicate job data:', duplicateJob);
       
-      // Set customer
+      // Set customer (coerce to string to tolerate number/string id mismatch)
       if (duplicateJob.customer_id) {
-        const customer = customers.find(c => c.id === duplicateJob.customer_id);
+        const customer = customers.find(c => String(c.id) === String(duplicateJob.customer_id));
         if (customer) {
           setSelectedCustomer(customer);
           setCustomerSelected(true);
+        } else {
+          console.warn('⚠️ Duplicate: customer_id not found in loaded customers:', duplicateJob.customer_id);
         }
       }
-      
+
       // Set service
       if (duplicateJob.service_id) {
-        const service = services.find(s => s.id === duplicateJob.service_id);
+        const service = services.find(s => String(s.id) === String(duplicateJob.service_id));
         if (service) {
           setSelectedService(service);
           setSelectedServices([service]);
           setServiceSelected(true);
           setJobselected(true);
+        } else if (duplicateJob.service_name) {
+          const byName = services.find(s => s.name === duplicateJob.service_name);
+          if (byName) {
+            setSelectedService(byName);
+            setSelectedServices([byName]);
+            setServiceSelected(true);
+            setJobselected(true);
+          }
         }
       } else if (duplicateJob.service_name) {
-        // If no service_id, try to find by name
         const service = services.find(s => s.name === duplicateJob.service_name);
         if (service) {
           setSelectedService(service);
@@ -383,37 +392,20 @@ export default function CreateJobPage() {
           setJobselected(true);
         }
       }
-      
+
       // Set team member
       if (duplicateJob.team_member_id && teamMembers.length > 0) {
-        const teamMember = teamMembers.find(tm => tm.id === duplicateJob.team_member_id);
+        const teamMember = teamMembers.find(tm => String(tm.id) === String(duplicateJob.team_member_id));
         if (teamMember) {
           setSelectedTeamMember(teamMember);
           setSelectedTeamMembers([teamMember]);
         }
       }
       
-      // Parse scheduled date and time
-      let scheduledDate = '';
-      let scheduledTime = '09:00';
-      if (duplicateJob.scheduled_date) {
-        const dateStr = duplicateJob.scheduled_date;
-        if (dateStr.includes('T')) {
-          const [datePart, timePart] = dateStr.split('T');
-          scheduledDate = datePart;
-          if (timePart) {
-            scheduledTime = timePart.substring(0, 5); // Get HH:MM
-          }
-        } else if (dateStr.includes(' ')) {
-          const [datePart, timePart] = dateStr.split(' ');
-          scheduledDate = datePart;
-          if (timePart) {
-            scheduledTime = timePart.substring(0, 5);
-          }
-        } else {
-          scheduledDate = dateStr;
-        }
-      }
+      // Duplicate intentionally does NOT carry over scheduled_date/scheduled_time —
+      // the user lands on the Schedule section specifically to pick a new date/time.
+      const scheduledDate = '';
+      const scheduledTime = '';
       
       // Set form data
       setFormData(prev => ({
@@ -458,7 +450,13 @@ export default function CreateJobPage() {
       if (duplicateJob.territory_id) {
         setDetectedTerritory(duplicateJob.territory_id);
       }
-      
+
+      // Scroll to the Schedule section after the form renders
+      setTimeout(() => {
+        const el = document.getElementById('schedule-section');
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 300);
+
       // Clear location state to prevent re-loading on refresh
       window.history.replaceState({}, document.title);
     }
@@ -3236,7 +3234,7 @@ setIntakeQuestionAnswers(answers);
 
                 {/* Schedule Section - Only show if service is selected */}
                 {selectedServices.length > 0 && (
-              <div className="bg-white rounded-xl shadow-sm border border-[var(--sf-border-light)]">
+              <div id="schedule-section" className="bg-white rounded-xl shadow-sm border border-[var(--sf-border-light)]">
                   <div className="px-5 py-4 border-b border-[var(--sf-border-light)]">
                     <div className="flex items-center justify-between flex-wrap gap-3">
                       <h2 className="text-lg font-bold text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>Schedule</h2>

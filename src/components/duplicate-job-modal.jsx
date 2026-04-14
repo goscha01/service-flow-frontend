@@ -30,8 +30,8 @@ const DuplicateJobModal = ({ isOpen, onClose, job, onDuplicate }) => {
         <div className="p-4 space-y-4">
           <div>
             <p className="text-sm text-[var(--sf-text-secondary)] mb-4">
-              This will open the Create Job page with all details from job #{job.id || job.job_id} pre-filled. 
-              You can review and modify the details before saving.
+              This will open the Create Job page with all details from job #{job.id || job.job_id} pre-filled
+              and scroll to the Schedule section. Pick a new date/time and save.
             </p>
           </div>
 
