@@ -1,12 +1,48 @@
 import React, { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Mail, Plus, RefreshCw, Trash2, CheckCircle2, AlertCircle, Clock } from 'lucide-react'
+import { Mail, Plus, RefreshCw, Trash2, CheckCircle2, AlertCircle, Clock, Zap, ChevronDown } from 'lucide-react'
 import { connectedEmailAPI } from '../../services/api'
 
 const PROVIDERS = [
   { key: 'gmail', label: 'Gmail', description: 'Connect a Google / Gmail mailbox', color: 'bg-red-50 text-red-700' },
   { key: 'outlook', label: 'Outlook / Microsoft 365', description: 'Connect Outlook or Microsoft 365', color: 'bg-blue-50 text-blue-700' },
 ]
+
+function SyncMenu({ disabled, onPick }) {
+  const [open, setOpen] = useState(false)
+  const options = [
+    { label: 'Test: last 24h (10 msgs)', days: 1, max: 10 },
+    { label: 'Test: last 7 days (50 msgs)', days: 7, max: 50 },
+    { label: 'Test: last 30 days (100 msgs)', days: 30, max: 100 },
+    { label: 'Full: last 90 days (200 msgs)', days: 90, max: 200 },
+  ]
+  return (
+    <div className="relative">
+      <button
+        disabled={disabled}
+        onClick={() => setOpen(o => !o)}
+        title="Test sync"
+        className="inline-flex items-center gap-0.5 p-1.5 text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-600)] rounded hover:bg-blue-50 disabled:opacity-50">
+        <Zap size={16} />
+        <ChevronDown size={12} />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-8 z-20 w-56 bg-white border border-[var(--sf-border-light)] rounded-lg shadow-lg py-1">
+            {options.map(o => (
+              <button key={o.label}
+                onClick={() => { setOpen(false); onPick(o.days, o.max) }}
+                className="w-full text-left px-3 py-2 text-xs text-[var(--sf-text-primary)] hover:bg-[var(--sf-bg-hover)]">
+                {o.label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
 
 function statusPill(status) {
   const map = {
@@ -81,6 +117,17 @@ export default function ConnectedInboxes() {
     } finally { setBusy(null) }
   }
 
+  const testSync = async (id, days, maxMessages) => {
+    try {
+      setBusy(id)
+      const r = await connectedEmailAPI.testSync(id, { days, maxMessages })
+      alert(`Test sync done: scanned ${r.scanned} messages from last ${r.days} day${r.days === 1 ? '' : 's'}, imported ${r.synced} new`)
+      await load()
+    } catch (e) {
+      alert(e.response?.data?.error || 'Test sync failed')
+    } finally { setBusy(null) }
+  }
+
   const byProvider = (p) => accounts.filter(a => a.provider === p && a.status !== 'disconnected')
 
   return (
@@ -145,10 +192,11 @@ export default function ConnectedInboxes() {
                           </div>
                         </div>
                         <div className="flex items-center gap-1">
+                          <SyncMenu disabled={busy === a.id} onPick={(days, max) => testSync(a.id, days, max)} />
                           <button
                             onClick={() => resync(a.id)}
                             disabled={busy === a.id}
-                            title="Resync"
+                            title="Resync (full incremental)"
                             className="p-1.5 text-[var(--sf-text-muted)] hover:text-[var(--sf-text-primary)] rounded hover:bg-[var(--sf-bg-hover)]">
                             <RefreshCw size={16} />
                           </button>
