@@ -80,10 +80,14 @@ input, textarea, select {
   font-family: 'Montserrat', sans-serif !important;
   border-radius: var(--sf-radius) !important;
   border: 1.5px solid var(--sf-border-light) !important;
-  padding: 10px 14px !important;
   font-size: 14px !important;
   transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
   background-color: white !important;
+}
+/* Default padding using :where() — zero specificity so any Tailwind padding
+   class (p-*, px-*, py-*, pl-*, pr-*) overrides it without needing !important */
+:where(input, textarea, select) {
+  padding: 10px 14px;
 }
 /* Search inputs need extra left padding for the search icon */
 input.sf-search-input {
@@ -106,6 +110,24 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 input[type="date"]::-webkit-date-and-time-value {
   text-align: left !important;
+}
+/* Style native time inputs consistently — ensure selected value stays visible */
+input[type="time"] {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  position: relative !important;
+  color: var(--sf-text-primary) !important;
+  min-width: 130px !important;
+  font-variant-numeric: tabular-nums !important;
+}
+input[type="time"]::-webkit-date-and-time-value {
+  text-align: left !important;
+  min-width: 0 !important;
+}
+input[type="time"]::-webkit-calendar-picker-indicator {
+  opacity: 0.6 !important;
+  cursor: pointer !important;
+  margin-left: 4px !important;
 }
 input:focus, textarea:focus, select:focus {
   border-color: var(--sf-blue-500) !important;
