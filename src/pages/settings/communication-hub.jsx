@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import Sidebar from "../../components/sidebar"
-import { openPhoneAPI, leadbridgeAPI, whatsappAPI, communicationsAPI, territoriesAPI, locationsAPI, leadAutomationAPI } from "../../services/api"
+import { openPhoneAPI, leadbridgeAPI, whatsappAPI, communicationsAPI, territoriesAPI, locationsAPI, leadAutomationAPI, connectedEmailAPI } from "../../services/api"
 import {
   ChevronLeft, Phone, PhoneCall, Star, ThumbsUp, Mail,
   MessageSquare, MessageCircle, Info, Check, X, ExternalLink,
@@ -20,6 +20,7 @@ const PROVIDER_DEFS = [
   { key: 'callio', name: 'Callio', description: 'Connect your native communication workspace and business number', Icon: PhoneCall },
   { key: 'twilio', name: 'Twilio', description: 'Connect a Twilio account for advanced communication workflows', Icon: Settings },
   { key: 'whatsapp', name: 'WhatsApp', description: 'Connect WhatsApp business messaging when available', Icon: MessageCircle },
+  { key: 'email', name: 'Email (Gmail / Outlook)', description: 'Connect Gmail or Outlook mailboxes to read and reply to email conversations', Icon: Mail },
   { key: 'messenger', name: 'Messenger', description: 'Connect Facebook Messenger when available', Icon: MessageSquare },
 ]
 
@@ -145,6 +146,11 @@ const CommunicationHub = () => {
   const [lbSyncing, setLbSyncing] = useState(false)
   const [lbSyncProgress, setLbSyncProgress] = useState(null)
 
+  // Connected Email (Gmail/Outlook) state
+  const [emailAccounts, setEmailAccounts] = useState([])
+  const [emailProvidersAvail, setEmailProvidersAvail] = useState({ gmail: true, outlook: true })
+  const [emailConfigured, setEmailConfigured] = useState(true)
+
   const [territories, setTerritories] = useState([])
   const [locationMappings, setLocationMappings] = useState([])
   const [automationRules, setAutomationRules] = useState([])
@@ -173,6 +179,13 @@ const CommunicationHub = () => {
       setWaConnected(waRes.connected || false)
       setWaPhoneNumber(waRes.phoneNumber || null)
       setWaStatus(waRes.status || 'disconnected')
+    } catch (e) { /* not connected */ }
+    // Connected Email status
+    try {
+      const ceRes = await connectedEmailAPI.listAccounts()
+      setEmailAccounts(ceRes.accounts || [])
+      setEmailConfigured(ceRes.configured !== false)
+      if (ceRes.providers) setEmailProvidersAvail(ceRes.providers)
     } catch (e) { /* not connected */ }
     // Load territories + mappings for location assignment
     try {
@@ -344,6 +357,10 @@ const CommunicationHub = () => {
     if (key === 'openphone') return connected ? 'connected' : 'not_connected'
     if (key === 'leadbridge') return lbConnected ? 'connected' : 'not_connected'
     if (key === 'whatsapp') return waConnected ? 'connected' : 'not_connected'
+    if (key === 'email') {
+      const active = emailAccounts.filter(a => a.status === 'connected')
+      return active.length > 0 ? 'connected' : 'not_connected'
+    }
     if (key === 'messenger') return 'coming_soon'
     return 'not_connected'
   }
@@ -565,6 +582,23 @@ const CommunicationHub = () => {
                             className="px-3 py-1.5 text-xs font-medium bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] disabled:opacity-50 flex items-center gap-1">
                             {waConnecting ? <Loader2 size={12} className="animate-spin" /> : <MessageCircle size={12} />} Connect
                           </button>
+                        )}
+                        {/* Connected Email actions */}
+                        {p.key === 'email' && (
+                          <>
+                            {status === 'connected' && (
+                              <span className="text-xs text-green-700 font-medium truncate max-w-[180px]" title={emailAccounts.map(a => a.email_address).join(', ')}>
+                                {emailAccounts.filter(a => a.status === 'connected').length} mailbox{emailAccounts.filter(a => a.status === 'connected').length === 1 ? '' : 'es'}
+                              </span>
+                            )}
+                            <button
+                              onClick={() => navigate('/settings/connected-inboxes')}
+                              disabled={!emailConfigured || (!emailProvidersAvail.gmail && !emailProvidersAvail.outlook)}
+                              title={!emailConfigured ? 'Email OAuth not configured on server' : undefined}
+                              className="px-3 py-1.5 text-xs font-medium bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] disabled:opacity-50 flex items-center gap-1">
+                              <Mail size={12} /> {status === 'connected' ? 'Manage' : (emailConfigured ? 'Connect' : 'Not configured')}
+                            </button>
+                          </>
                         )}
                         {status === 'coming_soon' && <span className="text-xs text-[var(--sf-text-muted)]">Coming soon</span>}
                       </div>
