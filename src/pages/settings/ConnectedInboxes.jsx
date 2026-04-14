@@ -27,6 +27,7 @@ function statusPill(status) {
 export default function ConnectedInboxes() {
   const [accounts, setAccounts] = useState([])
   const [configured, setConfigured] = useState(true)
+  const [providerAvail, setProviderAvail] = useState({ gmail: true, outlook: true })
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(null)
   const [params] = useSearchParams()
@@ -38,6 +39,7 @@ export default function ConnectedInboxes() {
       const data = await connectedEmailAPI.listAccounts()
       setAccounts(data.accounts || [])
       setConfigured(data.configured !== false)
+      if (data.providers) setProviderAvail(data.providers)
     } catch (e) {
       console.error('Failed to load connected inboxes:', e)
     } finally {
@@ -121,10 +123,11 @@ export default function ConnectedInboxes() {
                     </div>
                   </div>
                   <button
-                    disabled={busy === p.key || !configured}
+                    disabled={busy === p.key || !configured || !providerAvail[p.key]}
                     onClick={() => connect(p.key)}
+                    title={!providerAvail[p.key] ? `${p.label} OAuth credentials not configured on server` : undefined}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-[var(--sf-blue-500)] text-white hover:bg-[var(--sf-blue-600)] disabled:opacity-50">
-                    <Plus size={14} /> {busy === p.key ? 'Redirecting…' : 'Connect'}
+                    <Plus size={14} /> {busy === p.key ? 'Redirecting…' : (providerAvail[p.key] ? 'Connect' : 'Not configured')}
                   </button>
                 </div>
 
