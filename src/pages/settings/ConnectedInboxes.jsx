@@ -64,6 +64,7 @@ export default function ConnectedInboxes() {
   const [accounts, setAccounts] = useState([])
   const [configured, setConfigured] = useState(true)
   const [providerAvail, setProviderAvail] = useState({ gmail: true, outlook: true })
+  const [progress, setProgress] = useState({}) // { [accountId]: { phase, scanned, synced, total, startedAt } }
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(null)
   const [params] = useSearchParams()
@@ -84,6 +85,26 @@ export default function ConnectedInboxes() {
   }
 
   useEffect(() => { load() }, [])
+
+  // Poll progress every 1.5s for any account that has an active or recently-finished sync.
+  useEffect(() => {
+    if (accounts.length === 0) return
+    const interval = setInterval(async () => {
+      const next = {}
+      for (const a of accounts) {
+        if (a.status !== 'connected' && a.status !== 'syncing') continue
+        try {
+          const r = await connectedEmailAPI.getSyncProgress(a.id)
+          if (r?.progress) next[a.id] = r.progress
+        } catch {}
+      }
+      setProgress(next)
+      // If any just finished, refresh account list to pick up last_sync_at
+      const hadDone = Object.values(next).some(p => p.phase === 'done')
+      if (hadDone) load()
+    }, 1500)
+    return () => clearInterval(interval)
+  }, [accounts.map(a => a.id).join(',')])
 
   const connect = async (provider) => {
     try {
@@ -180,12 +201,17 @@ export default function ConnectedInboxes() {
 
                 {existing.length > 0 && (
                   <div className="mt-4 border-t border-[var(--sf-border-light)] pt-3 space-y-2">
-                    {existing.map(a => (
-                      <div key={a.id} className="flex items-center justify-between py-1">
+                    {existing.map(a => {
+                      const prog = progress[a.id]
+                      const isActive = prog && prog.phase !== 'done' && prog.phase !== 'error'
+                      const pct = prog?.total ? Math.round((prog.scanned || 0) / prog.total * 100) : (isActive ? 5 : 0)
+                      return (
+                      <div key={a.id} className="py-2 border-b border-[var(--sf-border-light)] last:border-0">
+                       <div className="flex items-center justify-between">
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
                             <span className="text-sm font-medium text-[var(--sf-text-primary)] truncate">{a.email_address}</span>
-                            {statusPill(a.status)}
+                            {statusPill(isActive ? 'syncing' : a.status)}
                           </div>
                           <div className="text-xs text-[var(--sf-text-muted)] mt-0.5">
                             {a.last_sync_at ? `Last sync: ${new Date(a.last_sync_at).toLocaleString()}` : 'No sync yet'}
@@ -208,8 +234,35 @@ export default function ConnectedInboxes() {
                             <Trash2 size={16} />
                           </button>
                         </div>
+                       </div>
+                       {/* Progress bar */}
+                       {prog && (
+                         <div className="mt-2">
+                           <div className="flex items-center justify-between mb-1">
+                             <span className="text-[11px] text-[var(--sf-text-muted)]">
+                               {prog.phase === 'starting' && 'Starting sync…'}
+                               {prog.phase === 'initial_list' && 'Listing messages (initial sync)…'}
+                               {prog.phase === 'incremental_list' && 'Listing new messages…'}
+                               {prog.phase === 'fetching' && (prog.isTest ? 'Test sync…' : (prog.isInitial ? 'Initial sync…' : 'Syncing…'))}
+                               {prog.phase === 'done' && `Done — imported ${prog.synced || 0} new${prog.scanned ? ` (scanned ${prog.scanned})` : ''}`}
+                               {prog.phase === 'error' && `Error: ${prog.error || 'unknown'}`}
+                             </span>
+                             {prog.total != null && (
+                               <span className="text-[11px] text-[var(--sf-text-muted)]">
+                                 {prog.scanned || 0}/{prog.total}
+                                 {prog.synced > 0 ? ` · +${prog.synced} new` : ''}
+                               </span>
+                             )}
+                           </div>
+                           <div className="w-full bg-gray-200 rounded-full h-1.5">
+                             <div className={`h-1.5 rounded-full transition-all ${prog.phase === 'error' ? 'bg-red-500' : prog.phase === 'done' ? 'bg-green-500' : 'bg-[var(--sf-blue-500)]'}`}
+                               style={{ width: `${prog.phase === 'done' ? 100 : pct}%` }} />
+                           </div>
+                         </div>
+                       )}
                       </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 )}
               </div>
