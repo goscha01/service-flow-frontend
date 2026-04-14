@@ -1486,7 +1486,26 @@ export default function CreateJobPage() {
         totalPrice: calculateTotalPrice()
       };
 
-      const result = await jobsAPI.create(jobData);
+      let result;
+      try {
+        result = await jobsAPI.create(jobData);
+      } catch (err) {
+        // Backend returns 409 with canForceBook=true when there's a scheduling
+        // conflict the admin can override (e.g. overlap with another job).
+        const data = err?.response?.data;
+        if (err?.response?.status === 409 && data?.canForceBook) {
+          const warnings = Array.isArray(data.warnings) && data.warnings.length
+            ? data.warnings.join('\n• ')
+            : (data.error || 'Scheduling conflict');
+          const ok = window.confirm(
+            `Scheduling conflict detected:\n\n• ${warnings}\n\nBook anyway?`
+          );
+          if (!ok) throw err;
+          result = await jobsAPI.create({ ...jobData, forceBook: true });
+        } else {
+          throw err;
+        }
+      }
       
       console.log('Job creation result:', result);
       console.log('Job ID from result:', result.job?.id || result.id || result.job_id);
