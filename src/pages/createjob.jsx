@@ -1077,7 +1077,12 @@ export default function CreateJobPage() {
       }
       // Only workers/owners can be assigned to jobs. Exclude inactive,
       // managers, and schedulers (dispatchers).
-      const ASSIGNABLE_ROLES = new Set(['worker', 'technician', 'field_worker', 'cleaner', 'owner', 'account owner', 'admin']);
+      // Note: 'account owner' intentionally excluded. The backend synthesizes a
+      // virtual account-owner entry with id = users.id, which has no matching
+      // row in team_members — assigning it to a job triggers "Team member not
+      // found" at validation. Owners who want to work jobs must be added as a
+      // real team_members row with role='worker'.
+      const ASSIGNABLE_ROLES = new Set(['worker', 'technician', 'field_worker', 'cleaner', 'owner', 'admin']);
       const assignable = Array.isArray(allTeam)
         ? allTeam.filter(m => {
             const isInactive = m.status === 'inactive'
