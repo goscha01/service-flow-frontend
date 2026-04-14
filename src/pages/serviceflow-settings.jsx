@@ -31,6 +31,7 @@ import {
   Zap,
   Banknote,
   Radio,
+  Mail,
 } from "lucide-react"
 
 const ServiceFlowSettings = () => {
@@ -94,6 +95,9 @@ const ServiceFlowSettings = () => {
         break
       case "communication-hub":
         navigate("/settings/communication-hub")
+        break
+      case "connected-inboxes":
+        navigate("/settings/connected-inboxes")
         break
       case "feedback-reviews":
         navigate("/settings/feedback-reviews")
@@ -242,6 +246,13 @@ const ServiceFlowSettings = () => {
           icon: Radio,
           title: "Communication Hub",
           description: "Connect communication providers, manage inbox behavior, and control how conversations sync into CRM",
+          active: true,
+        },
+        {
+          id: "connected-inboxes",
+          icon: Mail,
+          title: "Connected Inboxes",
+          description: "Connect Gmail or Outlook to read and reply to email conversations in the Communications Hub",
           active: true,
         },
         {
