@@ -102,8 +102,10 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign, companyDrivingTimeMinu
       // Normalize the response
       const teamMembersData = normalizeAPIResponse(response, 'teamMembers') || []
 
-      // Only workers and owners can be assigned to jobs.
+      // Only workers can be assigned to jobs.
       // Managers and schedulers (dispatchers) are excluded.
+      // The virtual 'account owner' entry is excluded — its id doesn't exist
+      // in the team_members table so the backend rejects any job assigned to it.
       // Inactive members are excluded.
       const providers = teamMembersData.filter(member => {
         if (member.status === 'inactive') return false
@@ -113,7 +115,6 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign, companyDrivingTimeMinu
           || role === 'field_worker'
           || role === 'cleaner'
           || role === 'owner'
-          || role === 'account owner'
           || role === 'admin'
           || !role // legacy members without a role default to worker
       })
