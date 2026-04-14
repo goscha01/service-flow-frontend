@@ -708,6 +708,7 @@ const Communications = () => {
   const [mobileView, setMobileView] = useState('list')
   const [showLeadPanel, setShowLeadPanel] = useState(false)
   const [locationFilter, setLocationFilter] = useState(null) // null = all, 'unassigned', or location id
+  const [emailFolder, setEmailFolder] = useState('inbox') // 'inbox' | 'archived' | 'all'
   const [sfLocations, setSfLocations] = useState([]) // [{id, name, shortName}]
   const timelineEndRef = useRef(null)
   const timelineScrollRef = useRef(null)
@@ -916,9 +917,17 @@ const Communications = () => {
       }
       if (activeFilter === 'unread') list = list.filter(c => c.unreadCount > 0)
     }
+    // Email folder filter — applies to all channels (server-synced or mock).
+    // Only affects the email tab; if another tab is active the conversations
+    // list is already channel-filtered by the server.
+    if (channelFilter === 'email') {
+      if (emailFolder === 'inbox') list = list.filter(c => !c.isArchived && !c.is_archived)
+      else if (emailFolder === 'archived') list = list.filter(c => c.isArchived || c.is_archived)
+      // 'all' — no filter
+    }
     list.sort((a, b) => new Date(b.lastEventAt) - new Date(a.lastEventAt))
     return list
-  }, [conversations, activeFilter, searchQuery, isConnected])
+  }, [conversations, activeFilter, searchQuery, isConnected, channelFilter, emailFolder])
 
   // Group events by date for timeline
   const groupedEvents = useMemo(() => {
@@ -1008,15 +1017,28 @@ const Communications = () => {
                   </button>
                 ))}
               </div>
-              {/* Search */}
-              <div className="relative">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--sf-text-muted)]" />
-                <input
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  placeholder="Search conversations..."
-                  className="w-full pl-9 pr-3 py-2 text-sm border border-[var(--sf-border-light)] rounded-lg bg-[var(--sf-bg-input)] focus:outline-none focus:ring-1 focus:ring-[var(--sf-blue-500)]"
-                />
+              {/* Search + (Email only) folder selector */}
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--sf-text-muted)]" />
+                  <input
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    placeholder="Search conversations..."
+                    className="w-full pl-9 pr-3 py-2 text-sm border border-[var(--sf-border-light)] rounded-lg bg-[var(--sf-bg-input)] focus:outline-none focus:ring-1 focus:ring-[var(--sf-blue-500)]"
+                  />
+                </div>
+                {channelFilter === 'email' && (
+                  <select
+                    value={emailFolder}
+                    onChange={e => setEmailFolder(e.target.value)}
+                    title="Folder"
+                    className="text-xs border border-[var(--sf-border-light)] rounded-lg px-2 py-1.5 bg-white text-[var(--sf-text-secondary)] focus:outline-none focus:ring-1 focus:ring-[var(--sf-blue-500)]">
+                    <option value="inbox">📥 Inbox</option>
+                    <option value="archived">🗄 Archived</option>
+                    <option value="all">All</option>
+                  </select>
+                )}
               </div>
             </div>
 
