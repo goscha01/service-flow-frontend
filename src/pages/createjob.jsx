@@ -3985,6 +3985,20 @@ setIntakeQuestionAnswers(answers);
                 </div>
               ) : (
                 <>
+                  {(() => {
+                    console.log('[AssignModal] rendering', teamMembers.length, 'members:', teamMembers.map(m => ({
+                      id: m.id,
+                      name: `${m.first_name || ''} ${m.last_name || ''}`.trim(),
+                      email: m.email,
+                      role: m.role,
+                      status: m.status,
+                      is_active: m.is_active,
+                      active: m.active,
+                      deleted_at: m.deleted_at,
+                      is_service_provider: m.is_service_provider
+                    })));
+                    return null;
+                  })()}
                   <div className="max-h-60 overflow-y-auto space-y-2">
                     {teamMembers.map((member) => {
                       const isSelected = selectedTeamMembers.find(m => m.id === member.id);
