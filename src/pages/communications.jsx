@@ -8,12 +8,13 @@ import {
   Mail, MessageSquare, MessageCircle, Star, ThumbsUp,
   Info, Send, Paperclip, FileText, Smile, ChevronDown,
   Archive, CheckCheck, Trash2, Plus, Calendar, Briefcase,
-  User, Users, Tag, Clock, ArrowLeft, MoreVertical, X, Image, ExternalLink
+  User, Users, Tag, Clock, ArrowLeft, MoreVertical, X, Image, ExternalLink,
+  AlertCircle, RefreshCw, Loader2, Download
 } from "lucide-react"
 import { useAuth } from "../context/AuthContext"
 import Sidebar from "../components/sidebar"
 import MobileHeader from "../components/mobile-header"
-import { communicationsAPI, openPhoneAPI, whatsappAPI, territoriesAPI, connectedEmailAPI } from "../services/api"
+import api, { communicationsAPI, openPhoneAPI, whatsappAPI, territoriesAPI, connectedEmailAPI } from "../services/api"
 
 // ═══════════════════════════════════════════════════════════════
 // Channel configuration
@@ -396,6 +397,133 @@ function ConversationRow({ conv, isSelected, onClick }) {
   )
 }
 
+// ── WhatsApp media (new contract) ──
+const MEDIA_STATUS_MESSAGES = {
+  skipped_too_large: 'File too large (>5 MB)',
+  unsupported_store_message: 'Media unavailable for this chat',
+  not_found: 'Media unavailable',
+  failed: 'Media unavailable',
+}
+
+function MediaPlaceholder({ icon: Icon = AlertCircle, label, onRetry }) {
+  return (
+    <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[var(--sf-bg-input)] border border-[var(--sf-border-light)] text-xs text-[var(--sf-text-muted)] max-w-[280px]">
+      <Icon size={14} className="flex-shrink-0 opacity-70" />
+      <span className="flex-1 truncate">{label}</span>
+      {onRetry && (
+        <button
+          onClick={onRetry}
+          className="flex-shrink-0 p-1 rounded hover:bg-black/5 text-[var(--sf-text-primary)]"
+          title="Retry"
+        >
+          <RefreshCw size={12} />
+        </button>
+      )}
+    </div>
+  )
+}
+
+function stripApiPrefix(url) {
+  // backend returns /api/..., axios baseURL already ends in /api — strip to avoid double prefix
+  if (!url) return url
+  return url.startsWith('/api/') ? url.slice(4) : url
+}
+
+function AuthedMedia({ url, type, mimetype, filename }) {
+  const [objectUrl, setObjectUrl] = useState(null)
+  const [state, setState] = useState('loading') // loading | ready | error
+  const [attempt, setAttempt] = useState(0)
+
+  useEffect(() => {
+    let active = true
+    let localUrl = null
+    setState('loading')
+    setObjectUrl(null)
+
+    api.get(stripApiPrefix(url), { responseType: 'blob' })
+      .then(({ data }) => {
+        if (!active) return
+        // Prefer blob's own type; fall back to declared mimetype
+        const blob = (mimetype && data.type !== mimetype)
+          ? new Blob([data], { type: mimetype })
+          : data
+        localUrl = URL.createObjectURL(blob)
+        setObjectUrl(localUrl)
+        setState('ready')
+      })
+      .catch(() => {
+        if (!active) return
+        setState('error')
+      })
+
+    return () => {
+      active = false
+      if (localUrl) URL.revokeObjectURL(localUrl)
+    }
+  }, [url, mimetype, attempt])
+
+  const retry = () => setAttempt(a => a + 1)
+
+  if (state === 'loading') {
+    return (
+      <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[var(--sf-bg-input)] border border-[var(--sf-border-light)] text-xs text-[var(--sf-text-muted)] max-w-[280px]">
+        <Loader2 size={14} className="animate-spin opacity-70" />
+        <span>Loading…</span>
+      </div>
+    )
+  }
+  if (state === 'error' || !objectUrl) {
+    return <MediaPlaceholder label="Media unavailable" onRetry={retry} />
+  }
+
+  if (type === 'image') {
+    return (
+      <a href={objectUrl} target="_blank" rel="noopener noreferrer">
+        <img src={objectUrl} alt={filename || ''} className="max-w-[240px] max-h-[280px] rounded-xl object-cover border border-[var(--sf-border-light)]" />
+      </a>
+    )
+  }
+  if (type === 'video') {
+    return <video src={objectUrl} controls className="max-w-[280px] max-h-[320px] rounded-xl border border-[var(--sf-border-light)]" />
+  }
+  if (type === 'audio') {
+    return <audio src={objectUrl} controls className="max-w-[280px]" />
+  }
+  // document (or unknown): download link
+  return (
+    <a
+      href={objectUrl}
+      download={filename || 'download'}
+      className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[var(--sf-bg-input)] border border-[var(--sf-border-light)] text-xs text-[var(--sf-text-primary)] hover:bg-black/5 max-w-[280px]"
+    >
+      <Download size={14} />
+      <span className="flex-1 truncate">{filename || 'Download attachment'}</span>
+    </a>
+  )
+}
+
+function WhatsAppMedia({ event }) {
+  const status = event.mediaStatus
+  const url = event.mediaUrl
+
+  // Non-downloaded states: surface mediaStatus with placeholder
+  if (status && status !== 'downloaded') {
+    const label = MEDIA_STATUS_MESSAGES[status] || 'Media unavailable'
+    const retryable = status === 'not_found' || status === 'failed'
+    // retryable statuses still have a URL — force a fresh AuthedMedia mount on retry
+    return retryable && url
+      ? <AuthedMedia url={url} type={event.mediaType} mimetype={event.mediaMimetype} filename={event.mediaFilename} />
+      : <MediaPlaceholder label={label} />
+  }
+
+  // Media present but no URL (missing sigcore_message_id) — log contract violation
+  if (!url) {
+    return <MediaPlaceholder label="Media unavailable" />
+  }
+
+  return <AuthedMedia url={url} type={event.mediaType} mimetype={event.mediaMimetype} filename={event.mediaFilename} />
+}
+
 // ── Timeline Event ──
 function TimelineEvent({ event }) {
   const ch = CHANNELS[event.channel]
@@ -473,20 +601,26 @@ function TimelineEvent({ event }) {
 
   // Message bubble
   const isOutbound = event.type === 'message_out'
-  const mediaUrls = event.mediaUrls || []
+  const legacyMediaUrls = event.mediaUrls || []
+  // Priority: new WhatsApp contract → legacy OpenPhone mediaUrls → text-only
+  const hasNewMedia = !!event.hasMedia
   return (
     <div className={`flex px-4 py-1 ${isOutbound ? 'justify-end' : 'justify-start'}`}>
       <div className={`max-w-[75%] ${isOutbound ? 'order-1' : ''}`}>
-        {mediaUrls.length > 0 && (
+        {hasNewMedia ? (
+          <div className={`mb-1 ${isOutbound ? 'flex justify-end' : ''}`}>
+            <WhatsAppMedia event={event} />
+          </div>
+        ) : legacyMediaUrls.length > 0 ? (
           <div className={`flex flex-wrap gap-1.5 mb-1 ${isOutbound ? 'justify-end' : 'justify-start'}`}>
-            {mediaUrls.map((url, i) => (
+            {legacyMediaUrls.map((url, i) => (
               <a key={i} href={url} target="_blank" rel="noopener noreferrer">
                 <img src={url} alt="" className="max-w-[240px] max-h-[200px] rounded-xl object-cover border border-[var(--sf-border-light)]" />
               </a>
             ))}
           </div>
-        )}
-        {!event.text && mediaUrls.length === 0 && (
+        ) : null}
+        {!event.text && !hasNewMedia && legacyMediaUrls.length === 0 && (
           <a href="https://my.openphone.com" target="_blank" rel="noopener noreferrer"
             className={`flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm ${
               isOutbound
