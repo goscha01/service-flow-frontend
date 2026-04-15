@@ -2935,7 +2935,18 @@ const JobDetails = () => {
                 {job.service_names && job.service_names.length > 1 
                   ? `${job.service_names.length} Services` 
                   : decodeHtmlEntities(job.service_name || 'Service')
-                } <span style={{fontFamily: 'Montserrat', fontWeight: 400}} className="font-normal text-[var(--sf-text-muted)]">for</span> {job.customer_first_name} {job.customer_last_name}
+                } <span style={{fontFamily: 'Montserrat', fontWeight: 400}} className="font-normal text-[var(--sf-text-muted)]">for</span>{' '}
+                {job.customer_id ? (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); navigate(`/customer/${job.customer_id}`) }}
+                    className="text-[var(--sf-blue-500)] hover:underline"
+                  >
+                    {job.customer_first_name} {job.customer_last_name}
+                  </button>
+                ) : (
+                  <>{job.customer_first_name} {job.customer_last_name}</>
+                )}
               </h1>
               <div className="flex items-center space-x-3">
               <p className="text-sm text-[var(--sf-text-muted)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Job #{job.id || job.job_id}</p>
@@ -3443,11 +3454,6 @@ const JobDetails = () => {
                         })()}
                       </p>
                     </div>
-                    {job.recurring_end_date && (
-                      <p className="mt-1 text-xs text-[var(--sf-text-muted)]" style={{fontFamily: 'Montserrat'}}>
-                        Ends: {new Date(job.recurring_end_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                      </p>
-                    )}
                     <button
                       onClick={() => navigate('/recurring')}
                       className="mt-2 text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] text-sm font-medium flex items-center gap-1"
