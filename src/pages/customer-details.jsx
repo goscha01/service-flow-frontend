@@ -189,19 +189,26 @@ const CustomerDetails = () => {
   const getFilteredJobs = () => {
     const now = new Date()
     if (jobFilter === "upcoming") {
-      return jobs.filter(job =>
-        new Date(job.scheduled_date) >= now &&
-        job.status !== 'cancelled' &&
-        job.status !== 'completed'
-      )
+      // Closest upcoming date on top (ascending)
+      return jobs
+        .filter(job =>
+          new Date(job.scheduled_date) >= now &&
+          job.status !== 'cancelled' &&
+          job.status !== 'completed'
+        )
+        .sort((a, b) => new Date(a.scheduled_date) - new Date(b.scheduled_date))
     } else if (jobFilter === "past") {
-      // Show completed jobs AND jobs with past dates (not cancelled)
-      return jobs.filter(job =>
-        job.status === 'completed' || job.status === 'paid' ||
-        (new Date(job.scheduled_date) < now && job.status !== 'cancelled')
-      )
+      // Most recent past date on top (descending)
+      return jobs
+        .filter(job =>
+          job.status === 'completed' || job.status === 'paid' ||
+          (new Date(job.scheduled_date) < now && job.status !== 'cancelled')
+        )
+        .sort((a, b) => new Date(b.scheduled_date) - new Date(a.scheduled_date))
     } else if (jobFilter === "canceled") {
-      return jobs.filter(job => job.status === 'cancelled')
+      return jobs
+        .filter(job => job.status === 'cancelled')
+        .sort((a, b) => new Date(b.scheduled_date) - new Date(a.scheduled_date))
     }
     return jobs
   }
