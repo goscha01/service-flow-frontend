@@ -397,7 +397,7 @@ const ServiceFlowCustomers = () => {
       {/* Mobile Header */}
       <MobileHeader pageTitle="Customers" />
 
-        <div className="flex-1 w-full lg:px-40 xl:px-44 2xl:px-48">
+        <div className="flex-1 w-full">
           <div className="p-4 sm:p-6">
             {/* Header */}
             <div className="mb-4 sm:mb-6">
@@ -409,10 +409,10 @@ const ServiceFlowCustomers = () => {
                 </p>
               </div>
 
-              {/* Row 2: Tab toggle + Search + Filters + Actions */}
+              {/* Row 2: Tabs + Search (own line) */}
               <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-3">
                 {/* View Toggle */}
-                <div className="flex items-center bg-gray-100 rounded-lg p-1 flex-shrink-0">
+                <div className="flex items-center bg-gray-100 rounded-lg p-1 flex-shrink-0 self-start sm:self-auto w-fit">
                   <button
                     onClick={() => setViewTab('contacts')}
                     className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
@@ -438,7 +438,7 @@ const ServiceFlowCustomers = () => {
                 </div>
 
                 {/* Search */}
-                <div className="relative flex-1">
+                <div className="relative flex-1 min-w-[180px]">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--sf-text-muted)] w-4 h-4" />
                   <input
                     type="text"
@@ -448,7 +448,10 @@ const ServiceFlowCustomers = () => {
                     className="w-full pl-10 pr-4 py-2 bg-white border border-[var(--sf-border-light)] rounded-lg text-sm focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] focus:bg-white transition-colors"
                   />
                 </div>
+              </div>
 
+              {/* Row 3: Filters + Actions */}
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-3">
                 {/* Recurring Filter */}
                 <select
                   value={recurringFilter}
@@ -473,7 +476,7 @@ const ServiceFlowCustomers = () => {
                 </select>
 
                 {/* Action Buttons */}
-                <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex items-center gap-2 flex-shrink-0 sm:ml-auto">
                   <button
                     onClick={handleExport}
                     className="px-3 py-2 text-sm font-medium text-[var(--sf-text-secondary)] bg-white border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-hover)] transition-colors"
