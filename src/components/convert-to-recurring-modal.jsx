@@ -79,6 +79,7 @@ const ConvertToRecurringModal = ({
   });
   const [endDate, setEndDate] = useState('');
   const [hasEndDate, setHasEndDate] = useState(false);
+  const [scheduledTime, setScheduledTime] = useState('09:00');
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [apiError, setApiError] = useState('');
@@ -91,15 +92,53 @@ const ConvertToRecurringModal = ({
       setErrors({});
       setApiError('');
 
+      // Pre-fill time from scheduled_date or scheduled_time
+      const pickTime = () => {
+        if (job.scheduled_time && /^\d{2}:\d{2}/.test(job.scheduled_time)) {
+          return job.scheduled_time.slice(0, 5);
+        }
+        if (job.scheduled_date) {
+          const raw = String(job.scheduled_date);
+          const m = raw.match(/T(\d{2}:\d{2})/) || raw.match(/\s(\d{2}:\d{2})/);
+          if (m) return m[1];
+          const d = new Date(raw);
+          if (!isNaN(d.getTime())) {
+            const hh = String(d.getHours()).padStart(2, '0');
+            const mm = String(d.getMinutes()).padStart(2, '0');
+            return `${hh}:${mm}`;
+          }
+        }
+        return '09:00';
+      };
+      setScheduledTime(pickTime());
+
+      // Derive weekday and day-of-month from the job's scheduled_date as a
+      // fallback when the frequency string alone doesn't carry them.
+      const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+      let derivedDayOfWeek = '';
+      let derivedDayOfMonth = '';
+      if (job.scheduled_date) {
+        const raw = String(job.scheduled_date);
+        // Normalize "YYYY-MM-DD HH:mm:ss" to ISO so Date parses reliably
+        const iso = raw.includes('T') ? raw : raw.replace(' ', 'T');
+        const base = /T/.test(iso) ? iso : `${iso}T00:00:00`;
+        const d = new Date(base);
+        if (!isNaN(d.getTime())) {
+          derivedDayOfWeek = dayNames[d.getDay()];
+          derivedDayOfMonth = d.getDate().toString();
+        }
+      }
+
       if (isEditMode && job.recurring_frequency) {
-        // Edit mode: pre-fill from existing frequency
+        // Edit mode: pre-fill from existing frequency, falling back to the
+        // scheduled date's weekday/day when the frequency string omits it.
         const parsed = parseFrequencyString(job.recurring_frequency || job.recurringFrequency);
         setFrequency(parsed.frequency);
         setCustomFrequency({
           type: parsed.frequency,
           interval: parsed.interval,
-          dayOfWeek: parsed.dayOfWeek,
-          dayOfMonth: parsed.dayOfMonth,
+          dayOfWeek: parsed.dayOfWeek || (parsed.frequency === 'weekly' ? derivedDayOfWeek : ''),
+          dayOfMonth: parsed.dayOfMonth || (parsed.frequency === 'monthly' && !parsed.ordinal ? derivedDayOfMonth : ''),
           ordinal: parsed.ordinal,
           weekday: parsed.weekday
         });
@@ -116,23 +155,14 @@ const ConvertToRecurringModal = ({
       } else {
         // Convert mode: default to weekly, pre-fill from scheduled date
         setFrequency('weekly');
-        const defaultState = {
+        setCustomFrequency({
           type: 'weekly',
           interval: 1,
-          dayOfWeek: '',
-          dayOfMonth: '',
+          dayOfWeek: derivedDayOfWeek,
+          dayOfMonth: derivedDayOfMonth,
           ordinal: '',
           weekday: ''
-        };
-
-        if (job.scheduled_date) {
-          const scheduledDate = new Date(job.scheduled_date + (job.scheduled_date.includes('T') ? '' : 'T00:00:00'));
-          const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-          defaultState.dayOfWeek = dayNames[scheduledDate.getDay()];
-          defaultState.dayOfMonth = scheduledDate.getDate().toString();
-        }
-
-        setCustomFrequency(defaultState);
+        });
         setEndDate('');
         setHasEndDate(false);
       }
@@ -225,7 +255,8 @@ const ConvertToRecurringModal = ({
       const frequencyString = buildFrequencyString();
       await onConvert({
         frequency: frequencyString,
-        endDate: hasEndDate && endDate ? endDate : null
+        endDate: hasEndDate && endDate ? endDate : null,
+        time: scheduledTime
       });
       onClose();
     } catch (err) {
@@ -239,7 +270,14 @@ const ConvertToRecurringModal = ({
 
   if (!isOpen || !job) return null;
 
-  const scheduledDate = job.scheduled_date ? new Date(job.scheduled_date + (job.scheduled_date.includes('T') ? '' : 'T00:00:00')) : null;
+  const scheduledDate = (() => {
+    if (!job.scheduled_date) return null;
+    const raw = String(job.scheduled_date);
+    const iso = raw.includes('T') ? raw : raw.replace(' ', 'T');
+    const base = /T/.test(iso) ? iso : `${iso}T00:00:00`;
+    const d = new Date(base);
+    return isNaN(d.getTime()) ? null : d;
+  })();
   const previewFrequency = buildFrequencyString();
   const previewDate = scheduledDate || new Date();
 
@@ -500,6 +538,23 @@ const ConvertToRecurringModal = ({
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Time of Day */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">
+              Time of Day
+            </label>
+            <input
+              type="time"
+              value={scheduledTime}
+              onChange={(e) => setScheduledTime(e.target.value)}
+              className="w-full sm:w-48 px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
+              disabled={loading}
+            />
+            <p className="text-xs text-[var(--sf-text-secondary)] mt-1">
+              All future recurring jobs will be scheduled at this time.
+            </p>
           </div>
 
           {/* End Date Option */}
