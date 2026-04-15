@@ -3450,7 +3450,14 @@ const JobDetails = () => {
                         {(() => {
                           const frequency = job.recurring_frequency || job.recurringFrequency || ''
                           const scheduledDate = job.scheduled_date ? new Date(job.scheduled_date) : null
-                          return formatRecurringFrequency(frequency, scheduledDate)
+                          const formatted = formatRecurringFrequency(frequency, scheduledDate)
+                          if (formatted && formatted !== 'Never') return formatted
+                          // Frequency missing: derive weekday from scheduled_date
+                          if (scheduledDate && !isNaN(scheduledDate.getTime())) {
+                            const weekday = scheduledDate.toLocaleDateString('en-US', { weekday: 'long' })
+                            return `Every week on ${weekday}`
+                          }
+                          return 'Recurring'
                         })()}
                       </p>
                     </div>
