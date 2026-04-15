@@ -3,11 +3,12 @@
 import { useState, useEffect } from "react"
 import { X, ChevronDown } from "lucide-react"
 
-const RecurringFrequencyModal = ({ isOpen, onClose, onSave, currentFrequency = "", scheduledDate = null }) => {
+const RecurringFrequencyModal = ({ isOpen, onClose, onSave, currentFrequency = "", scheduledDate = null, scheduledTime = "" }) => {
   const [isCustomSelected, setIsCustomSelected] = useState(false)
   const [repeatType, setRepeatType] = useState("weekly") // daily, weekly, monthly
   const [everyValue, setEveryValue] = useState(1)
   const [showRepeatDropdown, setShowRepeatDropdown] = useState(false)
+  const [selectedTime, setSelectedTime] = useState(scheduledTime || "09:00")
   
   // Weekly options
   const [selectedDayOfWeek, setSelectedDayOfWeek] = useState("friday") // sun, mon, tue, wed, thu, fri, sat
@@ -121,11 +122,16 @@ const RecurringFrequencyModal = ({ isOpen, onClose, onSave, currentFrequency = "
     }
   }, [currentFrequency, scheduledDate])
 
+  useEffect(() => {
+    if (scheduledTime) setSelectedTime(scheduledTime)
+  }, [scheduledTime])
+
   const handleSave = () => {
     if (!isCustomSelected) {
       onSave({
         frequency: "",
-        endDate: null
+        endDate: null,
+        time: selectedTime
       })
       onClose()
       return
@@ -148,7 +154,8 @@ const RecurringFrequencyModal = ({ isOpen, onClose, onSave, currentFrequency = "
     
     onSave({
       frequency,
-      endDate: null
+      endDate: null,
+      time: selectedTime
     })
     onClose()
   }
@@ -324,6 +331,20 @@ const RecurringFrequencyModal = ({ isOpen, onClose, onSave, currentFrequency = "
                         {getUnitText()}{everyValue !== 1 ? 's' : ''}
                       </span>
                     </div>
+                  </div>
+
+                  {/* Time of day */}
+                  <div className="flex items-center gap-3">
+                    <label className="text-sm text-[var(--sf-text-primary)] whitespace-nowrap" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                      At
+                    </label>
+                    <input
+                      type="time"
+                      value={selectedTime}
+                      onChange={(e) => setSelectedTime(e.target.value)}
+                      className="flex-1 px-3 py-2 border border-[var(--sf-border-light)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)]"
+                      style={{ fontFamily: 'Montserrat', fontWeight: 400 }}
+                    />
                   </div>
 
                   {/* Weekly: Day of Week Selection */}

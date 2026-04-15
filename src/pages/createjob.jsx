@@ -3907,11 +3907,13 @@ setIntakeQuestionAnswers(answers);
             ...prev,
             recurringFrequency: data.frequency,
             recurringEndDate: data.endDate || '',
-            recurringJob: true
+            recurringJob: true,
+            scheduledTime: data.time || prev.scheduledTime
           }))
         }}
         currentFrequency={formData.recurringFrequency}
         scheduledDate={formData.scheduledDate}
+        scheduledTime={formData.scheduledTime}
       />
       
       <DiscountModal
