@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { formatTime as formatTimeShared } from "../utils/formatTime"
 import { useNavigate } from "react-router-dom"
 import Sidebar from "../components/sidebar"
 import { Plus, RotateCcw, ChevronLeft, ChevronRight, RotateCw } from "lucide-react"
@@ -73,11 +74,7 @@ const ServiceFlowRecurring = () => {
       const month = jobDate.toLocaleDateString('en-US', { month: 'short' })
       const day = jobDate.getDate()
       const year = jobDate.getFullYear()
-      const time = booking.scheduledDate ? new Date(booking.scheduledDate).toLocaleTimeString('en-US', { 
-        hour: 'numeric', 
-        minute: '2-digit',
-        hour12: true 
-      }) : ''
+      const time = booking.scheduledDate ? formatTimeShared(booking.scheduledDate) : ''
       
       return `${time} ${weekday} - ${month} ${day}, ${year} Job #${booking.nextJobId || booking.jobId}`
     } catch (e) {

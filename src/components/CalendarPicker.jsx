@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react"
+import { formatTime as formatTimeShared } from "../utils/formatTime"
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, X, Clock } from "lucide-react"
 import { jobsAPI } from "../services/api"
 
@@ -323,31 +324,20 @@ const CalendarPicker = ({
   }
 
   const formatTimeRange = (startTime, endTime) => {
-    const formatTime = (time) => {
-      if (!time) return ''
-      
-      // Handle 24-hour format (HH:MM)
-      let hours, minutes
-      if (time.includes(' ')) {
-        // 12-hour format with AM/PM
-        const [timePart, period] = time.split(' ')
-        const [h, m] = timePart.split(':')
-        hours = parseInt(h)
-        minutes = m || '00'
-        if (period === 'PM' && hours !== 12) hours += 12
-        if (period === 'AM' && hours === 12) hours = 0
-      } else {
-        // 24-hour format
-        [hours, minutes] = time.split(':').map(Number)
+    const norm = (t) => {
+      if (!t) return ''
+      // 12-hour with AM/PM: convert to 24h "HH:mm" before handing to the util
+      if (typeof t === 'string' && /\s(am|pm)$/i.test(t)) {
+        const [timePart, period] = t.split(' ')
+        let [h, m] = timePart.split(':')
+        h = parseInt(h, 10); m = m || '00'
+        if (/pm/i.test(period) && h !== 12) h += 12
+        if (/am/i.test(period) && h === 12) h = 0
+        return `${String(h).padStart(2, '0')}:${m}`
       }
-      
-      const hour = parseInt(hours)
-      const ampm = hour >= 12 ? 'PM' : 'AM'
-      const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour
-      return `${displayHour}:${String(minutes || 0).padStart(2, '0')} ${ampm}`
+      return t
     }
-
-    return `${formatTime(startTime)} - ${formatTime(endTime)}`
+    return `${formatTimeShared(norm(startTime))} - ${formatTimeShared(norm(endTime))}`
   }
 
   const generateTimeOptions = () => {
@@ -355,11 +345,7 @@ const CalendarPicker = ({
     for (let hour = 6; hour <= 20; hour++) {
       for (let minute = 0; minute < 60; minute += 30) {
         const time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
-        const displayTime = new Date(`2000-01-01 ${time}`).toLocaleTimeString('en-US', {
-          hour: 'numeric',
-          minute: '2-digit',
-          hour12: true
-        })
+        const displayTime = formatTimeShared(`2000-01-01 ${time}`)
         times.push({ value: time, display: displayTime })
       }
     }

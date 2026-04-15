@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useMemo, useRef, useEffect } from "react"
+import { formatTime as formatTimeShared } from "../utils/formatTime"
 import { useNavigate } from "react-router-dom"
 import {
   Search, Phone, PhoneCall, PhoneIncoming, PhoneOutgoing,
@@ -155,7 +156,7 @@ function relativeTime(dateStr) {
 
 function formatTimestamp(dateStr) {
   const d = new Date(dateStr)
-  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+  return formatTimeShared(d)
 }
 
 function formatCallDuration(seconds) {

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react"
+import { formatTime as formatTimeShared } from "../utils/formatTime"
 import { useNavigate } from "react-router-dom"
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronDown, Calendar, CalendarDays, Clock, Users, Filter, Edit, X, Check, CheckCircle, AlertCircle, List, Grid, Phone, Mail, DollarSign, Search, Plus } from "lucide-react"
 import { teamAPI, jobsAPI, leadsAPI } from "../services/api"
@@ -1360,14 +1361,7 @@ const UnifiedCalendar = () => {
     return 'TM'
   }
 
-  const formatTime = (time) => {
-    if (!time) return ''
-    const [hours, minutes] = time.split(':')
-    const hour = parseInt(hours, 10)
-    const ampm = hour >= 12 ? 'PM' : 'AM'
-    const displayHour = hour % 12 || 12
-    return `${displayHour}:${minutes} ${ampm}`
-  }
+  const formatTime = (time) => formatTimeShared(time)
 
   const getAvailabilityDisplay = (memberId, dateStr) => {
     const memberData = availabilityData[memberId]?.[dateStr]

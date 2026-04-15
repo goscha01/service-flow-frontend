@@ -2,6 +2,7 @@ import ReactDOM from "react-dom/client"
 import App from "./App"
 import { BrowserRouter, Routes, Route } from "react-router-dom"
 import { AuthProvider } from "./context/AuthContext"
+import { TimeFormatProvider } from "./context/TimeFormatContext"
 import ProtectedRoute from "./components/ProtectedRoute"
 import RoleProtectedRoute from "./components/RoleProtectedRoute"
 import SignupForm from "./pages/Signup"
@@ -121,6 +122,7 @@ const root = ReactDOM.createRoot(document.getElementById("root"))
 root.render(
   <BrowserRouter style={{fontFamily: 'Montserrat', fontWeight: 500}}>
     <AuthProvider>
+      <TimeFormatProvider>
       <CategoryProvider>
         <TeamMemberAuthProvider>
         <Routes>
@@ -253,6 +255,7 @@ root.render(
       </Routes>
         </TeamMemberAuthProvider>
       </CategoryProvider>
+      </TimeFormatProvider>
     </AuthProvider>
   </BrowserRouter>,
 )

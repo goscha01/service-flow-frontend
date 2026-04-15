@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
+import { formatTime as formatTimeShared } from "../utils/formatTime"
 import { useNavigate } from "react-router-dom"
 import Sidebar from "../components/sidebar-collapsible"
 import { teamAPI, territoriesAPI, availabilityAPI, invoicesAPI, notificationAPI, notificationSettingsAPI, paymentMethodsAPI, paymentSettingsAPI } from "../services/api"
@@ -1685,14 +1686,7 @@ const ServiceFlowSchedule = () => {
     
     // STEP 5: Subtract Cleaner Job Schedule (#2) from the intersection
     // Scheduled jobs always block time, even if the cleaner is "available"
-    const formatTime = (time24) => {
-      const parts = time24.split(':')
-      const hour = parseInt(parts[0], 10)
-      const min = parts[1] ? parseInt(parts[1], 10) : 0
-      const ampm = hour >= 12 ? 'PM' : 'AM'
-      const hour12 = hour % 12 || 12
-      return min ? `${hour12}:${String(min).padStart(2, '0')} ${ampm}` : `${hour12} ${ampm}`
-    }
+    const formatTime = (time24) => formatTimeShared(time24)
     
     // Extract job time ranges (Job Schedule #1 for each job in Cleaner Job Schedule #2)
     const jobTimeRanges = dayJobs.map(job => {
@@ -1985,14 +1979,7 @@ const ServiceFlowSchedule = () => {
       })
 
       // Format the merged slots for display (include minutes so 9:30 shows correctly)
-      const formatTime = (time24) => {
-        const parts = time24.split(':')
-        const hour = parseInt(parts[0], 10)
-        const min = parts[1] ? parseInt(parts[1], 10) : 0
-        const ampm = hour >= 12 ? 'PM' : 'AM'
-        const hour12 = hour % 12 || 12
-        return min ? `${hour12}:${String(min).padStart(2, '0')} ${ampm}` : `${hour12} ${ampm}`
-      }
+      const formatTime = (time24) => formatTimeShared(time24)
 
       const formattedSlots = validMergedSlots.map(slot =>
         `${formatTime(slot.start)} - ${formatTime(slot.end)}`
@@ -2134,14 +2121,7 @@ const ServiceFlowSchedule = () => {
         })
 
         // Format the merged slots for display (include minutes so 9:30, 1:30 show correctly)
-        const formatTime = (time24) => {
-          const parts = time24.split(':')
-          const hour = parseInt(parts[0], 10)
-          const min = parts[1] ? parseInt(parts[1], 10) : 0
-          const ampm = hour >= 12 ? 'PM' : 'AM'
-          const hour12 = hour % 12 || 12
-          return min ? `${hour12}:${String(min).padStart(2, '0')} ${ampm}` : `${hour12} ${ampm}`
-        }
+        const formatTime = (time24) => formatTimeShared(time24)
 
         const formattedSlots = validMergedSlots.map(slot =>
           `${formatTime(slot.start)} - ${formatTime(slot.end)}`
@@ -2178,14 +2158,7 @@ const ServiceFlowSchedule = () => {
     }
 
     // Format hours (e.g., "09:00" -> "9 AM", "09:30" -> "9:30 AM", "13:30" -> "1:30 PM")
-    const formatTime = (time24) => {
-      const parts = time24.split(':')
-      const hour = parseInt(parts[0], 10)
-      const min = parts[1] ? parseInt(parts[1], 10) : 0
-      const ampm = hour >= 12 ? 'PM' : 'AM'
-      const hour12 = hour % 12 || 12
-      return min ? `${hour12}:${String(min).padStart(2, '0')} ${ampm}` : `${hour12} ${ampm}`
-    }
+    const formatTime = (time24) => formatTimeShared(time24)
 
     // In availability tab, ALWAYS calculate available time slots by subtracting jobs
     // This matches the logic from unified-calendar.jsx
@@ -4577,11 +4550,11 @@ const ServiceFlowSchedule = () => {
               const cityStateZip = [city, state, zip].filter(Boolean).join(', ')
               const fullLocation = cityStateZip ? `${cityStateZip}, ${country}` : country
               const isRecurring = job.is_recurring === true || job.is_recurring === 'true' || job.is_recurring === 1 || job.is_recurring === '1'
-              const timeStr = jobDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+              const timeStr = formatTimeShared(jobDate)
               const durationMin = getJobDuration(job)
               const durationStr = formatDuration(durationMin)
               const endDate = durationMin ? new Date(jobDate.getTime() + durationMin * 60 * 1000) : null
-              const endStr = endDate ? endDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : null
+              const endStr = endDate ? formatTimeShared(endDate) : null
 
               return (
                 <div
@@ -6376,7 +6349,7 @@ const ServiceFlowSchedule = () => {
                           }
 
                           const customerName = getCustomerName(job) || 'Customer'
-                          const timeStr = jobTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+                          const timeStr = formatTimeShared(jobTime)
                           const durationStr = formatDuration(getJobDuration(job))
                           const territory = territories.find(t => t.id === job.territory_id)
                           const territoryName = territory?.name || null
@@ -6594,7 +6567,7 @@ const ServiceFlowSchedule = () => {
                           const customerName = getCustomerName(job) || 'Customer'
                           const territory = territories.find(t => t.id === job.territory_id)
                           const territoryName = territory?.name || null
-                          const timeStr = jobTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+                          const timeStr = formatTimeShared(jobTime)
                           const durationStr = formatDuration(getJobDuration(job))
                           
                           const isRecurring = job.is_recurring === true || job.is_recurring === 'true' || job.is_recurring === 1 || job.is_recurring === '1'
@@ -6764,11 +6737,11 @@ const ServiceFlowSchedule = () => {
               const statusColor = getStatusColor(job.status, job)
               const territory = territories.find(t => t.id === job.territory_id)
               const territoryName = territory?.name || null
-              const timeStr = jobDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+              const timeStr = formatTimeShared(jobDate)
               const durationMin = getJobDuration(job)
               const durationStr = formatDuration(durationMin)
               const endDate = durationMin ? new Date(jobDate.getTime() + durationMin * 60 * 1000) : null
-              const endStr = endDate ? endDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : null
+              const endStr = endDate ? formatTimeShared(endDate) : null
               
               return (
                 <div key={job.id} className="bg-white rounded-lg border border-gray-200 p-2 sm:p-2 relative mb-4 last:mb-0 cursor-pointer hover:shadow-md transition-shadow" onClick={() => handleJobClick(job)}>
@@ -7380,20 +7353,12 @@ const ServiceFlowSchedule = () => {
                           jobDate = new Date(selectedJobDetails.scheduled_date);
                         }
                         
-                        const startTimeString = jobDate.toLocaleTimeString('en-US', { 
-                        hour: 'numeric', 
-                        minute: '2-digit',
-                        hour12: true 
-                        });
+                        const startTimeString = formatTimeShared(jobDate);
                         
                         // Duration is in minutes, ensure it's a number - check all possible duration fields
                         const duration = getJobDuration(selectedJobDetails);
                         const endTime = new Date(jobDate.getTime() + duration * 60000);
-                        const endTimeString = endTime.toLocaleTimeString('en-US', { 
-                        hour: 'numeric', 
-                        minute: '2-digit',
-                        hour12: true 
-                        });
+                        const endTimeString = formatTimeShared(endTime);
                         // Don't show duration here - it has its own section
                         return `${startTimeString} - ${endTimeString}`;
                       })()}

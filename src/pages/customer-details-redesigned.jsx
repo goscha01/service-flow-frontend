@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
+import { formatTime as formatTimeShared } from "../utils/formatTime"
 import { useParams, useNavigate } from "react-router-dom"
 import { 
   ChevronLeft, 
@@ -150,11 +151,7 @@ const CustomerDetailsRedesigned = () => {
   }
 
   const formatTime = (dateString) => {
-    return new Date(dateString).toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    })
+    return formatTimeShared(dateString)
   }
 
   const getJobStatus = (job) => {

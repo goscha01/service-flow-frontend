@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { formatTime as formatTimeShared } from "../utils/formatTime"
 import { useNavigate } from "react-router-dom"
 import { jobsAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
@@ -108,11 +109,7 @@ const AvailableJobs = () => {
     if (!dateString) return "N/A"
     try {
       const date = new Date(dateString)
-      return date.toLocaleTimeString('en-US', { 
-        hour: 'numeric', 
-        minute: '2-digit',
-        hour12: true 
-      })
+      return formatTimeShared(date)
     } catch (e) {
       return "N/A"
     }

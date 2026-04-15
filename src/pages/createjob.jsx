@@ -1,8 +1,9 @@
 "use client"
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { 
-  Search, 
+import { formatTime as formatTimeShared } from "../utils/formatTime";
+import {
+  Search,
   Plus, 
   X, 
   Calendar, 
@@ -3458,11 +3459,7 @@ setIntakeQuestionAnswers(answers);
                                 placeholder="Select a date & time"
                                 value={formData.scheduledDate && formData.scheduledTime ? 
                                   `${formatDateDisplay(formData.scheduledDate)} at ${
-                                    new Date(`2000-01-01 ${formData.scheduledTime}`).toLocaleTimeString('en-US', {
-                                      hour: 'numeric',
-                                      minute: '2-digit',
-                                      hour12: true
-                                    })
+                                    formatTimeShared(`2000-01-01 ${formData.scheduledTime}`)
                                   }` : ''
                                 }
                                 onClick={() => setShowDatePicker(true)}
