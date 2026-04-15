@@ -1,4 +1,5 @@
 import React from 'react'
+import { formatTime as formatTimeShared } from "../utils/formatTime"
 import { formatPhoneNumber } from "../utils/phoneFormatter"
 
 const BookingConfirmationEmail = ({ booking, businessInfo }) => {
@@ -21,11 +22,7 @@ const BookingConfirmationEmail = ({ booking, businessInfo }) => {
 
   const formatTime = (timeString) => {
     if (!timeString) return 'N/A'
-    return new Date(`2000-01-01T${timeString}`).toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    })
+    return formatTimeShared(`2000-01-01T${timeString}`)
   }
 
   return (

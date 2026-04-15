@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { formatTime as formatTimeShared } from "../utils/formatTime"
 import { useNavigate } from "react-router-dom"
 import { 
   Calendar, 
@@ -98,25 +99,7 @@ const TeamMemberFieldApp = () => {
     })
   }
 
-  const formatTime = (dateString) => {
-    if (!dateString) return 'Time placeholder'
-    // Extract time part directly from the string (format: "2024-01-15 10:00:00")
-    const timePart = dateString.split(' ')[1]
-    if (!timePart) return 'Time placeholder'
-    
-    const [hours, minutes] = timePart.split(':')
-    const hour = parseInt(hours, 10)
-    const minute = parseInt(minutes, 10)
-    
-    if (isNaN(hour) || isNaN(minute)) return 'Time placeholder'
-    
-    // Convert to 12-hour format
-    const ampm = hour >= 12 ? 'PM' : 'AM'
-    const displayHour = hour % 12 || 12
-    const displayMinute = minute.toString().padStart(2, '0')
-    
-    return `${displayHour}:${displayMinute} ${ampm}`
-  }
+  const formatTime = (dateString) => formatTimeShared(dateString) || 'Time placeholder'
 
   const getStatusColor = (status) => {
     switch (status) {

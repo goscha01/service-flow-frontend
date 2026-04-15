@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react"
+import { formatTime as formatTimeShared } from "../utils/formatTime"
 import Sidebar from "../components/sidebar"
 import CustomerModal from "../components/customer-modal"
 import CalendarPicker from "../components/CalendarPicker"
@@ -1146,24 +1147,7 @@ const DashboardRedesigned = () => {
                     <div className="h-64 md:h-80 w-full md:w-1/2 relative bg-[var(--sf-bg-page)] overflow-y-auto">
                       <div className="p-3 sm:p-4 space-y-2 sm:space-y-3">
                         {todayJobsList.map((job) => {
-                          const formatTime = (dateString) => {
-                            if (!dateString) return 'Time not set'
-                            let timePart = ''
-                            if (dateString.includes('T')) {
-                              timePart = dateString.split('T')[1]
-                            } else {
-                              timePart = dateString.split(' ')[1]
-                            }
-                            if (!timePart) return 'Time not set'
-                            const [hours, minutes] = timePart.split(':')
-                            const hour = parseInt(hours, 10)
-                            const minute = parseInt(minutes, 10)
-                            if (isNaN(hour) || isNaN(minute)) return 'Time not set'
-                            const ampm = hour >= 12 ? 'PM' : 'AM'
-                            const displayHour = hour % 12 || 12
-                            const displayMinute = minute.toString().padStart(2, '0')
-                            return `${displayHour}:${displayMinute} ${ampm}`
-                          }
+                          const formatTime = (dateString) => formatTimeShared(dateString) || 'Time not set'
                           
                           const formatDate = (dateString) => {
                             if (!dateString) return ''

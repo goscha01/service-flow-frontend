@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo, useCallback } from "react"
+import { formatTime as formatTimeShared } from "../utils/formatTime"
 import { useNavigate } from "react-router-dom"
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Calendar, Clock, Users, Filter, Edit, X, Check, AlertCircle } from "lucide-react"
 import { teamAPI, jobsAPI, availabilityAPI } from "../services/api"
@@ -573,14 +574,7 @@ const TeamAvailabilityCalendar = () => {
     return 'TM'
   }
 
-  const formatTime = (time) => {
-    if (!time) return ''
-    const [hours, minutes] = time.split(':')
-    const hour = parseInt(hours, 10)
-    const ampm = hour >= 12 ? 'PM' : 'AM'
-    const displayHour = hour % 12 || 12
-    return `${displayHour}:${minutes} ${ampm}`
-  }
+  const formatTime = (time) => formatTimeShared(time)
 
   const getAvailabilityDisplay = (memberId, dateStr) => {
     const memberData = availabilityData[memberId]?.[dateStr]

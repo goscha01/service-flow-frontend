@@ -13,6 +13,7 @@ import { decodeHtmlEntities } from "../utils/htmlUtils"
 import MobileBottomNav from "../components/mobile-bottom-nav"
 import MobileHeader from "../components/mobile-header"
 import RecurringIndicator from "../components/recurring-indicator"
+import { formatTime as formatTimeShared } from "../utils/formatTime"
 
 const ServiceFlowJobs = () => {
   const { user, loading: authLoading } = useAuth()
@@ -471,60 +472,7 @@ const ServiceFlowJobs = () => {
     }
   }
 
-  const formatTime = (dateString) => {
-    if (!dateString) return 'Time not set'
-
-    try {
-      // Handle both ISO format (2025-08-20T09:00:00) and space format (2025-08-20 09:00:00)
-      let timePart = ''
-      if (dateString.includes('T')) {
-        // ISO format: 2025-08-20T09:00:00
-        timePart = dateString.split('T')[1]
-      } else {
-        // Space format: 2025-08-20 09:00:00 or 12/20/2025 02:00 PM:00
-        const parts = dateString.split(' ')
-        // Find the time part (usually the second part, but could be later if date has spaces)
-        // Look for pattern like "HH:MM" or "HH:MM:SS" or "HH:MM AM/PM"
-        for (let i = 1; i < parts.length; i++) {
-          if (parts[i].match(/^\d{1,2}:\d{2}/)) {
-            timePart = parts.slice(i).join(' ')
-            break
-          }
-        }
-      }
-
-      if (!timePart) return 'Time not set'
-
-      // Check if time already has AM/PM (incorrectly stored format like "02:00 PM:00")
-      const ampmMatch = timePart.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(am|pm|AM|PM)/i)
-      if (ampmMatch) {
-        // Already has AM/PM, just clean it up and return
-        const hour = parseInt(ampmMatch[1], 10)
-        const minute = ampmMatch[2]
-        const ampm = ampmMatch[4].toUpperCase()
-        return `${hour}:${minute} ${ampm}`
-      }
-
-      // Normal format: HH:MM:SS or HH:MM
-      const timeParts = timePart.split(':')
-      if (timeParts.length < 2) return 'Time not set'
-
-      const hour = parseInt(timeParts[0], 10)
-      const minute = parseInt(timeParts[1], 10)
-
-      if (isNaN(hour) || isNaN(minute)) return 'Time not set'
-
-      // Convert to 12-hour format
-      const ampm = hour >= 12 ? 'PM' : 'AM'
-      const displayHour = hour % 12 || 12
-      const displayMinute = minute.toString().padStart(2, '0')
-
-      return `${displayHour}:${displayMinute} ${ampm}`
-    } catch (error) {
-      console.error('Error formatting time:', dateString, error)
-      return 'Time not set'
-    }
-  }
+  const formatTime = (dateString) => formatTimeShared(dateString) || 'Time not set'
 
   const getStatusColor = (status) => {
     switch (status) {

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react"
+import { formatTime as formatTimeShared } from "../utils/formatTime"
 import { Plus, ChevronLeft, ChevronRight, Calendar, MapPin, Clock, DollarSign, User, Filter, AlertTriangle, RefreshCw, Map, Users } from "lucide-react"
 import ScheduleSidebar from "../components/schedule-sidebar"
 import { useNavigate } from "react-router-dom"
@@ -433,34 +434,7 @@ const ServiceFlowSchedule = () => {
     }
   }
 
-  const formatTime = (dateString) => {
-    if (!dateString) return 'Time placeholder'
-    
-    // Handle both ISO format (2025-08-20T09:00:00) and space format (2025-08-20 09:00:00)
-    let timePart = ''
-    if (dateString.includes('T')) {
-      // ISO format: 2025-08-20T09:00:00
-      timePart = dateString.split('T')[1]
-    } else {
-      // Space format: 2025-08-20 09:00:00
-      timePart = dateString.split(' ')[1]
-    }
-    
-    if (!timePart) return 'Time placeholder'
-    
-    const [hours, minutes] = timePart.split(':')
-    const hour = parseInt(hours, 10)
-    const minute = parseInt(minutes, 10)
-    
-    if (isNaN(hour) || isNaN(minute)) return 'Time placeholder'
-    
-    // Convert to 12-hour format
-    const ampm = hour >= 12 ? 'PM' : 'AM'
-    const displayHour = hour % 12 || 12
-    const displayMinute = minute.toString().padStart(2, '0')
-    
-    return `${displayHour}:${displayMinute} ${ampm}`
-  }
+  const formatTime = (dateString) => formatTimeShared(dateString) || 'Time placeholder'
 
   // Universal function to get jobs for a specific date
   const getJobsForDate = (date) => {

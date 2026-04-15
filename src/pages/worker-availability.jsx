@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react"
+import { formatTime as formatTimeShared } from "../utils/formatTime"
 import { useNavigate, useLocation } from "react-router-dom"
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Settings, RefreshCw, Clock, User, X, Plus, Trash2, RotateCw, Calendar } from "lucide-react"
 import { availabilityAPI, teamAPI } from "../services/api"
@@ -747,14 +748,7 @@ const WorkerAvailability = () => {
     }
   }
   
-  const formatTime = (time) => {
-    if (!time) return ''
-    const [hours, minutes] = time.split(':')
-    const hour = parseInt(hours, 10)
-    const ampm = hour >= 12 ? 'PM' : 'AM'
-    const displayHour = hour % 12 || 12
-    return `${displayHour}:${minutes} ${ampm}`
-  }
+  const formatTime = (time) => formatTimeShared(time)
   
   // Get user's team member data for display
   const getUserInitials = () => {

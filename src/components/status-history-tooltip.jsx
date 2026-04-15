@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { formatTime as formatTimeShared } from "../utils/formatTime"
 
 const StatusHistoryTooltip = ({ statusHistory, status, children, isReached = false, jobCreatedAt = null }) => {
   const [isVisible, setIsVisible] = useState(false);
@@ -94,11 +95,7 @@ const StatusHistoryTooltip = ({ statusHistory, status, children, isReached = fal
       const weekday = date.toLocaleDateString('en-US', { weekday: 'short' });
       const month = date.toLocaleDateString('en-US', { month: 'short' });
       const day = date.getDate();
-      const time = date.toLocaleTimeString('en-US', { 
-        hour: 'numeric', 
-        minute: '2-digit',
-        hour12: true 
-      });
+      const time = formatTimeShared(date);
       return `${weekday}, ${month} ${day} at ${time}`;
     } catch (e) {
       return dateString;

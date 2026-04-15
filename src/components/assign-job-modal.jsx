@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
+import { formatTime as formatTimeShared } from "../utils/formatTime"
 import { X, Check, MapPin, Clock, User, Wrench, Search, ChevronDown, ChevronUp } from 'lucide-react'
 import { teamAPI, jobsAPI, availabilityAPI } from '../services/api'
 import { useAuth } from '../context/AuthContext'
@@ -678,19 +679,11 @@ const AssignJobModal = ({ job, isOpen, onClose, onAssign, companyDrivingTimeMinu
   const formatTime = (dateString) => {
     if (!dateString) return ''
     const date = new Date(dateString)
-    const startTime = date.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
-      minute: '2-digit',
-      hour12: true 
-    })
+    const startTime = formatTimeShared(date)
     
     const duration = job?.service_duration || job?.duration || 360
     const endDate = new Date(date.getTime() + duration * 60000)
-    const endTime = endDate.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
-      minute: '2-digit',
-      hour12: true 
-    })
+    const endTime = formatTimeShared(endDate)
     return `${startTime} - ${endTime}`
   }
 

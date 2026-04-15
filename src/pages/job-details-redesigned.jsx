@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react"
 import { useParams, useNavigate } from "react-router-dom"
+import { formatTime as formatTimeShared } from "../utils/formatTime"
 import { 
   ArrowLeft, 
   Edit, 
@@ -1841,33 +1842,7 @@ const JobDetails = () => {
     return `${weekday}, ${monthName} ${d}, ${y}`
   }
 
-  const formatTime = (dateString) => {
-    if (!dateString) return 'Time placeholder'
-    
-    // Handle both ISO format (2025-08-29T09:00:00) and space format (2025-08-29 09:00:00)
-    let timePart
-    if (dateString.includes('T')) {
-      timePart = dateString.split('T')[1]
-    } else {
-      timePart = dateString.split(' ')[1]
-    }
-    
-    if (!timePart) return 'Time placeholder'
-    
-    const [hours, minutes] = timePart.split(':')
-    const hour = parseInt(hours, 10)
-    const minute = parseInt(minutes, 10)
-    
-    if (isNaN(hour) || isNaN(minute)) return 'Time placeholder'
-    
-    // Convert to 12-hour format
-    const ampm = hour >= 12 ? 'PM' : 'AM'
-    const displayHour = hour % 12 || 12
-    const displayMinute = minute.toString().padStart(2, '0')
-    
-    const formatted = `${displayHour}:${displayMinute} ${ampm}`
-    return formatted
-  }
+  const formatTime = (dateString) => formatTimeShared(dateString) || 'Time placeholder'
 
   // Helper function to calculate total price consistently
   const calculateTotalPriceHelper = (servicePrice, modifierPrice, additionalFees, taxes, discount) => {
@@ -2150,8 +2125,8 @@ const JobDetails = () => {
     const startTime = new Date(scheduledDate)
     const endTime = new Date(scheduledDate.getTime() + duration * 60000)
     
-    const start = startTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
-    const end = endTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+    const start = formatTimeShared(startTime)
+    const end = formatTimeShared(endTime)
     return `${start} - ${end}`
   }
 
@@ -6144,11 +6119,7 @@ const JobDetails = () => {
                                 month: 'long', 
                                 day: 'numeric', 
                                 year: 'numeric' 
-                              })} at {new Date(job?.scheduled_date).toLocaleTimeString('en-US', { 
-                                hour: 'numeric', 
-                                minute: '2-digit',
-                                hour12: true 
-                              })}</strong>.
+                              })} at {formatTimeShared(job?.scheduled_date)}</strong>.
                             </div>
                             <div className="text-[var(--sf-text-primary)]">
                               <strong>Service:</strong> {job?.service_name || 'Service'}
@@ -6175,11 +6146,7 @@ const JobDetails = () => {
                                 month: 'long', 
                                 day: 'numeric', 
                                 year: 'numeric' 
-                              })} at {new Date(job?.scheduled_date).toLocaleTimeString('en-US', { 
-                                hour: 'numeric', 
-                                minute: '2-digit',
-                                hour12: true 
-                              })}</strong>.
+                              })} at {formatTimeShared(job?.scheduled_date)}</strong>.
                             </div>
                             <div className="text-[var(--sf-text-primary)]">
                               <strong>Service:</strong> {job?.service_name || 'Service'}
@@ -6204,11 +6171,7 @@ const JobDetails = () => {
                               weekday: 'long', 
                               month: 'long', 
                               day: 'numeric' 
-                            })} at {new Date(job?.scheduled_date).toLocaleTimeString('en-US', { 
-                              hour: 'numeric', 
-                              minute: '2-digit',
-                              hour12: true 
-                            })}. We'll see you soon! - Your Service Team
+                            })} at {formatTimeShared(job?.scheduled_date)}. We'll see you soon! - Your Service Team
                           </div>
                         ) : (
                           <div className="text-[var(--sf-text-primary)]">
@@ -6216,11 +6179,7 @@ const JobDetails = () => {
                               weekday: 'long', 
                               month: 'long', 
                               day: 'numeric' 
-                            })} at {new Date(job?.scheduled_date).toLocaleTimeString('en-US', { 
-                              hour: 'numeric', 
-                              minute: '2-digit',
-                              hour12: true 
-                            })}. Please arrive on time! - Your Service Team
+                            })} at {formatTimeShared(job?.scheduled_date)}. Please arrive on time! - Your Service Team
                           </div>
                         )
                       )}
@@ -6328,20 +6287,12 @@ const JobDetails = () => {
                                     weekday: 'long', 
                                     month: 'long', 
                                     day: 'numeric' 
-                                  })} at ${new Date(job?.scheduled_date).toLocaleTimeString('en-US', { 
-                                    hour: 'numeric', 
-                                    minute: '2-digit',
-                                    hour12: true 
-                                  })}. We'll see you soon! - Your Service Team`
+                                  })} at ${formatTimeShared(job?.scheduled_date)}. We'll see you soon! - Your Service Team`
                                 : `Hi ${job?.customer_first_name || 'Customer'}! Reminder: You have an appointment for ${job?.service_name || 'Service'} on ${new Date(job?.scheduled_date).toLocaleDateString('en-US', { 
                                     weekday: 'long', 
                                     month: 'long', 
                                     day: 'numeric' 
-                                  })} at ${new Date(job?.scheduled_date).toLocaleTimeString('en-US', { 
-                                    hour: 'numeric', 
-                                    minute: '2-digit',
-                                    hour12: true 
-                                  })}. Please arrive on time! - Your Service Team`;
+                                  })} at ${formatTimeShared(job?.scheduled_date)}. Please arrive on time! - Your Service Team`;
 
                               const response = await twilioAPI.sendSMS(notificationPhone, smsMessage);
 
@@ -6469,11 +6420,7 @@ const JobDetails = () => {
                           month: 'long', 
                           day: 'numeric', 
                           year: 'numeric' 
-                        }) : 'Date TBD'} at {job?.scheduled_date ? new Date(job.scheduled_date).toLocaleTimeString('en-US', { 
-                          hour: 'numeric', 
-                          minute: '2-digit',
-                          hour12: true 
-                        }) : 'Time TBD'}</strong>.
+                        }) : 'Date TBD'} at {job?.scheduled_date ? formatTimeShared(job.scheduled_date) : 'Time TBD'}</strong>.
                       </div>
                       <div className="text-[var(--sf-text-primary)]">
                         <strong>Service:</strong> {job?.service_name || 'Service'}
@@ -6500,11 +6447,7 @@ const JobDetails = () => {
                           month: 'long', 
                           day: 'numeric', 
                           year: 'numeric' 
-                        }) : 'Date TBD'} at {job?.scheduled_date ? new Date(job.scheduled_date).toLocaleTimeString('en-US', { 
-                          hour: 'numeric', 
-                          minute: '2-digit',
-                          hour12: true 
-                        }) : 'Time TBD'}</strong>.
+                        }) : 'Date TBD'} at {job?.scheduled_date ? formatTimeShared(job.scheduled_date) : 'Time TBD'}</strong>.
                       </div>
                       <div className="text-[var(--sf-text-primary)]">
                         <strong>Service:</strong> {job?.service_name || 'Service'}

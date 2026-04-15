@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { formatTime as formatTimeShared } from "../utils/formatTime"
 import { Calendar, Clock, User, Phone, Mail, MapPin, CreditCard, CheckCircle, AlertCircle, FileText, Eye, Download, RefreshCw } from "lucide-react"
 import { formatPhoneNumber } from "../utils/phoneFormatter"
 
@@ -125,11 +126,7 @@ const CustomerPortal = () => {
 
   const formatTime = (timeString) => {
     if (!timeString) return 'N/A'
-    return new Date(`2000-01-01T${timeString}`).toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    })
+    return formatTimeShared(`2000-01-01T${timeString}`)
   }
 
   const getStatusColor = (status) => {

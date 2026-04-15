@@ -4,13 +4,15 @@ import { useState, useEffect } from "react"
 import { X, ChevronDown } from "lucide-react"
 import { businessDetailsAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
+import { useTimeFormat } from "../context/TimeFormatContext"
 
 const BusinessDetailsModal = ({ isOpen, onClose }) => {
   const { user } = useAuth();
+  const { timeFormat: ctxTimeFormat, setTimeFormat: setCtxTimeFormat } = useTimeFormat();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
-  
+
   const [formData, setFormData] = useState({
     businessName: "",
     businessEmail: "",
@@ -25,6 +27,7 @@ const BusinessDetailsModal = ({ isOpen, onClose }) => {
     notificationEmail: "",
     phoneNumber: "",
     website: "",
+    timeFormat: "12h",
   })
 
   // Load business details when modal opens
@@ -46,6 +49,7 @@ const BusinessDetailsModal = ({ isOpen, onClose }) => {
         email: businessData.email || "",
         firstName: businessData.firstName || "",
         lastName: businessData.lastName || "",
+        timeFormat: businessData.timeFormat === '24h' ? '24h' : '12h',
       }));
     } catch (error) {
       console.error('Error loading business details:', error);
@@ -71,9 +75,11 @@ const BusinessDetailsModal = ({ isOpen, onClose }) => {
         phone: formData.phone,
         email: formData.email,
         firstName: formData.firstName,
-        lastName: formData.lastName
+        lastName: formData.lastName,
+        timeFormat: formData.timeFormat
       });
-      
+
+      setCtxTimeFormat(formData.timeFormat);
       setMessage({ type: 'success', text: 'Business details saved successfully!' });
       setTimeout(() => {
         setMessage({ type: '', text: '' });
@@ -227,6 +233,40 @@ const BusinessDetailsModal = ({ isOpen, onClose }) => {
               </select>
               <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 text-[var(--sf-text-muted)] w-4 h-4 pointer-events-none" />
             </div>
+          </div>
+
+          {/* Time Format */}
+          <div>
+            <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Time Format</label>
+            <div className="flex items-center gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="timeFormat"
+                  value="12h"
+                  checked={formData.timeFormat === '12h'}
+                  onChange={() => handleInputChange('timeFormat', '12h')}
+                  disabled={loading}
+                  className="w-4 h-4 text-[var(--sf-blue-500)]"
+                />
+                <span className="text-sm text-[var(--sf-text-primary)]">12-hour (2:30 PM)</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="timeFormat"
+                  value="24h"
+                  checked={formData.timeFormat === '24h'}
+                  onChange={() => handleInputChange('timeFormat', '24h')}
+                  disabled={loading}
+                  className="w-4 h-4 text-[var(--sf-blue-500)]"
+                />
+                <span className="text-sm text-[var(--sf-text-primary)]">24-hour (14:30)</span>
+              </label>
+            </div>
+            <p className="text-xs text-[var(--sf-text-muted)] mt-1">
+              Applies to everyone in the business. Overrides each user's browser locale.
+            </p>
           </div>
 
           {/* Currency */}
