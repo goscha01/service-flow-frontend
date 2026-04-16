@@ -361,6 +361,13 @@ function ConversationRow({ conv, isSelected, onClick }) {
             <span className={`text-sm truncate ${conv.unreadCount > 0 ? 'font-bold text-[var(--sf-text-primary)]' : 'font-medium text-[var(--sf-text-primary)]'}`}>
               {name}
             </span>
+            {/* Company / lead source badge (from OpenPhone contact) */}
+            {conv.company && (
+              <span className="text-[9px] px-1.5 py-0.5 rounded bg-violet-50 text-violet-600 flex-shrink-0 truncate max-w-[120px]"
+                title={`Source: ${conv.company}`}>
+                {conv.company}
+              </span>
+            )}
             {/* Location badge (primary) + account tooltip (secondary) */}
             {conv.provider === 'leadbridge' && (
               conv.locationName ? (
@@ -763,9 +770,9 @@ function LeadPanel({ lead, conversation }) {
             <Mail size={14} className="text-[var(--sf-text-muted)]" /> {email}
           </div>
         )}
-        {lead?.source && (
+        {(lead?.source || conversation?.company) && (
           <div className="flex items-center gap-2 text-[var(--sf-text-secondary)]">
-            <Info size={14} className="text-[var(--sf-text-muted)]" /> Source: {lead.source}
+            <Info size={14} className="text-[var(--sf-text-muted)]" /> Source: {lead?.source || conversation?.company}
           </div>
         )}
       </div>
@@ -1047,7 +1054,8 @@ const Communications = () => {
         list = list.filter(c =>
           (c.displayName || '').toLowerCase().includes(q) ||
           (c.fallbackIdentifier || '').toLowerCase().includes(q) ||
-          (c.lastPreview || '').toLowerCase().includes(q)
+          (c.lastPreview || '').toLowerCase().includes(q) ||
+          (c.company || '').toLowerCase().includes(q)
         )
       }
       if (activeFilter === 'unread') list = list.filter(c => c.unreadCount > 0)
