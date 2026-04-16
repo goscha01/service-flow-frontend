@@ -2770,6 +2770,15 @@ export const leadAutomationAPI = {
   backfill: async () => { const r = await api.post('/lead-automation/backfill'); return r.data; },
 };
 
+export const leadSourcesAPI = {
+  list: async () => { const r = await api.get('/lead-sources'); return r.data; },
+  create: async (name) => { const r = await api.post('/lead-sources', { name }); return r.data; },
+  update: async (id, data) => { const r = await api.put(`/lead-sources/${id}`, data); return r.data; },
+  remove: async (id) => { const r = await api.delete(`/lead-sources/${id}`); return r.data; },
+  seed: async () => { const r = await api.post('/lead-sources/seed'); return r.data; },
+  importFromOpenPhone: async () => { const r = await api.post('/lead-sources/import-from-openphone'); return r.data; },
+};
+
 export const locationsAPI = {
   list: async () => { const r = await api.get('/locations'); return r.data; },
   create: async (data) => { const r = await api.post('/locations', data); return r.data; },

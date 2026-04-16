@@ -3,8 +3,8 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import Sidebar from "../../components/sidebar"
-import { leadAutomationAPI } from "../../services/api"
-import { ChevronLeft, Zap, Loader2 } from "lucide-react"
+import { leadAutomationAPI, leadSourcesAPI } from "../../services/api"
+import { ChevronLeft, Zap, Loader2, Plus, X, Download, GripVertical, Pencil, Check, Trash2 } from "lucide-react"
 
 const EVENT_DEFS = [
   { event: 'lead_received', label: 'Lead Received', desc: 'New lead arrives from Thumbtack or Yelp' },
@@ -18,14 +18,26 @@ const LeadsSettings = () => {
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(null) // event being saved
+  const [saving, setSaving] = useState(null)
   const [rules, setRules] = useState([])
   const [stages, setStages] = useState([])
   const [backfilling, setBackfilling] = useState(false)
   const [backfillResult, setBackfillResult] = useState(null)
 
+  // Sources state
+  const [sources, setSources] = useState([])
+  const [sourcesLoading, setSourcesLoading] = useState(true)
+  const [newSourceName, setNewSourceName] = useState('')
+  const [addingSource, setAddingSource] = useState(false)
+  const [editingId, setEditingId] = useState(null)
+  const [editName, setEditName] = useState('')
+  const [savingSource, setSavingSource] = useState(null)
+  const [importing, setImporting] = useState(false)
+  const [importResult, setImportResult] = useState(null)
+
   useEffect(() => {
     loadRules()
+    loadSources()
   }, [])
 
   const loadRules = async () => {
@@ -34,8 +46,6 @@ const LeadsSettings = () => {
       const data = await leadAutomationAPI.getRules()
       setRules(data.rules || [])
       setStages(data.stages || [])
-
-      // Auto-seed defaults if no rules exist
       if ((data.rules || []).length === 0) {
         await leadAutomationAPI.seedDefaults()
         const refreshed = await leadAutomationAPI.getRules()
@@ -46,6 +56,80 @@ const LeadsSettings = () => {
       console.error('Failed to load rules:', e)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadSources = async () => {
+    setSourcesLoading(true)
+    try {
+      const data = await leadSourcesAPI.list()
+      let list = data.sources || []
+      if (list.length === 0) {
+        const seeded = await leadSourcesAPI.seed()
+        list = seeded.sources || []
+      }
+      setSources(list)
+    } catch (e) {
+      console.error('Failed to load sources:', e)
+    } finally {
+      setSourcesLoading(false)
+    }
+  }
+
+  const handleAddSource = async () => {
+    if (!newSourceName.trim()) return
+    setSavingSource('new')
+    try {
+      await leadSourcesAPI.create(newSourceName.trim())
+      setNewSourceName('')
+      setAddingSource(false)
+      await loadSources()
+    } catch (e) {
+      alert('Failed to add source: ' + (e.response?.data?.error || e.message))
+    } finally {
+      setSavingSource(null)
+    }
+  }
+
+  const handleRenameSource = async (id) => {
+    if (!editName.trim()) return
+    setSavingSource(id)
+    try {
+      await leadSourcesAPI.update(id, { name: editName.trim() })
+      setEditingId(null)
+      setEditName('')
+      await loadSources()
+    } catch (e) {
+      alert('Failed to rename: ' + (e.response?.data?.error || e.message))
+    } finally {
+      setSavingSource(null)
+    }
+  }
+
+  const handleDeleteSource = async (id, name) => {
+    if (!confirm(`Delete "${name}"? Existing leads with this source won't be affected.`)) return
+    setSavingSource(id)
+    try {
+      await leadSourcesAPI.remove(id)
+      await loadSources()
+    } catch (e) {
+      alert('Failed to delete: ' + (e.response?.data?.error || e.message))
+    } finally {
+      setSavingSource(null)
+    }
+  }
+
+  const handleImportFromOpenPhone = async () => {
+    setImporting(true)
+    setImportResult(null)
+    try {
+      const result = await leadSourcesAPI.importFromOpenPhone()
+      setImportResult(result)
+      if (result.imported > 0) await loadSources()
+    } catch (e) {
+      setImportResult({ error: e.response?.data?.error || e.message })
+    } finally {
+      setImporting(false)
     }
   }
 
@@ -92,7 +176,130 @@ const LeadsSettings = () => {
         </div>
 
         <div className="max-w-3xl mx-auto px-6 py-6 space-y-6">
-          {/* Lead Stage Automation */}
+
+          {/* ── Lead Sources Management ── */}
+          <section>
+            <div className="mb-4">
+              <h2 className="text-lg font-semibold text-[var(--sf-text-primary)]">Lead Sources</h2>
+              <p className="text-sm text-[var(--sf-text-muted)] mt-0.5">
+                Manage the sources available when creating or editing leads. Sources from OpenPhone contacts can be imported automatically.
+              </p>
+            </div>
+
+            <div className="bg-white rounded-xl border border-[var(--sf-border-light)] overflow-hidden">
+              {sourcesLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 size={24} className="animate-spin text-[var(--sf-text-muted)]" />
+                </div>
+              ) : (
+                <>
+                  {/* Source list */}
+                  <div className="divide-y divide-[var(--sf-border-light)]">
+                    {sources.map(s => (
+                      <div key={s.id} className="flex items-center gap-3 px-5 py-3 group">
+                        {editingId === s.id ? (
+                          <>
+                            <input
+                              autoFocus
+                              value={editName}
+                              onChange={e => setEditName(e.target.value)}
+                              onKeyDown={e => { if (e.key === 'Enter') handleRenameSource(s.id); if (e.key === 'Escape') setEditingId(null); }}
+                              className="flex-1 text-sm border border-[var(--sf-blue-500)] rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-[var(--sf-blue-500)]"
+                            />
+                            <button onClick={() => handleRenameSource(s.id)} disabled={savingSource === s.id}
+                              className="p-1.5 rounded-lg hover:bg-green-50 text-green-600">
+                              {savingSource === s.id ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                            </button>
+                            <button onClick={() => setEditingId(null)} className="p-1.5 rounded-lg hover:bg-gray-100 text-[var(--sf-text-muted)]">
+                              <X size={14} />
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <span className="flex-1 text-sm text-[var(--sf-text-primary)]">{s.name}</span>
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button onClick={() => { setEditingId(s.id); setEditName(s.name); }}
+                                className="p-1.5 rounded-lg hover:bg-[var(--sf-bg-hover)] text-[var(--sf-text-muted)]" title="Rename">
+                                <Pencil size={13} />
+                              </button>
+                              <button onClick={() => handleDeleteSource(s.id, s.name)} disabled={savingSource === s.id}
+                                className="p-1.5 rounded-lg hover:bg-red-50 text-[var(--sf-text-muted)] hover:text-red-500" title="Delete">
+                                {savingSource === s.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    ))}
+                    {sources.length === 0 && (
+                      <div className="px-5 py-8 text-center text-sm text-[var(--sf-text-muted)]">
+                        No sources yet. Add one below or import from OpenPhone.
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Add source inline */}
+                  <div className="border-t border-[var(--sf-border-light)] px-5 py-3">
+                    {addingSource ? (
+                      <div className="flex items-center gap-2">
+                        <input
+                          autoFocus
+                          value={newSourceName}
+                          onChange={e => setNewSourceName(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') handleAddSource(); if (e.key === 'Escape') { setAddingSource(false); setNewSourceName(''); } }}
+                          placeholder="Source name..."
+                          className="flex-1 text-sm border border-[var(--sf-border-light)] rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-[var(--sf-blue-500)]"
+                        />
+                        <button onClick={handleAddSource} disabled={savingSource === 'new' || !newSourceName.trim()}
+                          className="px-3 py-1.5 text-sm bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] disabled:opacity-50 flex items-center gap-1.5">
+                          {savingSource === 'new' ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
+                          Add
+                        </button>
+                        <button onClick={() => { setAddingSource(false); setNewSourceName(''); }}
+                          className="p-1.5 rounded-lg hover:bg-gray-100 text-[var(--sf-text-muted)]">
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ) : (
+                      <button onClick={() => setAddingSource(true)}
+                        className="flex items-center gap-1.5 text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-600)] font-medium">
+                        <Plus size={14} /> Add Source
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Import from OpenPhone */}
+            <div className="bg-white rounded-xl border border-[var(--sf-border-light)] p-5 mt-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold text-[var(--sf-text-primary)]">Import from OpenPhone</h3>
+                  <p className="text-xs text-[var(--sf-text-muted)] mt-0.5">
+                    Import company tags from your OpenPhone contacts as lead sources. Duplicates are skipped.
+                  </p>
+                </div>
+                <button disabled={importing} onClick={handleImportFromOpenPhone}
+                  className="px-4 py-2 text-sm border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-hover)] text-[var(--sf-text-secondary)] disabled:opacity-50 flex items-center gap-2">
+                  {importing ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                  {importing ? 'Importing...' : 'Import'}
+                </button>
+              </div>
+              {importResult && !importing && (
+                <div className={`mt-3 rounded-lg p-3 text-xs ${importResult.error ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'}`}>
+                  {importResult.error
+                    ? `Error: ${importResult.error}`
+                    : importResult.imported > 0
+                      ? `Imported ${importResult.imported} new source${importResult.imported > 1 ? 's' : ''} (${importResult.sources?.length || 0} total)`
+                      : 'All OpenPhone sources already imported'
+                  }
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* ── Lead Stage Automation ── */}
           <section>
             <div className="mb-4">
               <h2 className="text-lg font-semibold text-[var(--sf-text-primary)]">Lead Stage Automation</h2>
