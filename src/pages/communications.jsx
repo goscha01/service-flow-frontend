@@ -868,11 +868,13 @@ const Communications = () => {
 
   const selectedConv = conversations.find(c => String(c.id) === String(selectedId))
   const hasConnectedEmail = connectedEmailAccounts.some(a => a.status === 'connected')
+  // Show WhatsApp tab if connected OR if any WhatsApp conversations already loaded
+  const hasWhatsAppConvs = conversations.some(c => c.channel === 'whatsapp' || c.provider === 'whatsapp')
   const availableChannels = [
     'openphone',
     'thumbtack',
     'yelp',
-    ...(whatsappConnected ? ['whatsapp'] : []),
+    ...(whatsappConnected || hasWhatsAppConvs ? ['whatsapp'] : []),
     ...(hasConnectedEmail ? ['email'] : []),
   ]
   // Endpoint email for the currently selected conversation (if it's an email thread)
