@@ -107,7 +107,7 @@ const LeadsSettings = () => {
   }
 
   const handleDeleteSource = async (id, name) => {
-    if (!confirm(`Delete "${name}"? Existing leads with this source won't be affected.`)) return
+    if (!window.confirm(`Delete "${name}"? Existing leads with this source won't be affected.`)) return
     setSavingSource(id)
     try {
       await leadSourcesAPI.remove(id)
