@@ -864,17 +864,20 @@ const Communications = () => {
   const [sending, setSending] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
   const [whatsappConnected, setWhatsappConnected] = useState(false)
+  const whatsappSeenRef = useRef(false) // sticky: once WhatsApp convos are seen, tab stays
   const [connectedEmailAccounts, setConnectedEmailAccounts] = useState([])
 
   const selectedConv = conversations.find(c => String(c.id) === String(selectedId))
   const hasConnectedEmail = connectedEmailAccounts.some(a => a.status === 'connected')
-  // Show WhatsApp tab if connected OR if any WhatsApp conversations already loaded
-  const hasWhatsAppConvs = conversations.some(c => c.channel === 'whatsapp' || c.provider === 'whatsapp')
+  // Show WhatsApp tab if connected OR if WhatsApp conversations were ever seen this session
+  if (conversations.some(c => c.channel === 'whatsapp' || c.provider === 'whatsapp')) {
+    whatsappSeenRef.current = true
+  }
   const availableChannels = [
     'openphone',
     'thumbtack',
     'yelp',
-    ...(whatsappConnected || hasWhatsAppConvs ? ['whatsapp'] : []),
+    ...(whatsappConnected || whatsappSeenRef.current ? ['whatsapp'] : []),
     ...(hasConnectedEmail ? ['email'] : []),
   ]
   // Endpoint email for the currently selected conversation (if it's an email thread)
