@@ -29,7 +29,7 @@ import {
   Calendar as CalendarIcon,
   Clock
 } from 'lucide-react';
-import { leadsAPI, teamAPI, servicesAPI } from '../services/api';
+import { leadsAPI, teamAPI, servicesAPI, leadSourcesAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { formatPhoneNumber } from '../utils/phoneFormatter';
 import Notification, { useNotification } from '../components/notification';
@@ -101,31 +101,38 @@ const LeadsPipeline = () => {
   const [zillowLoading, setZillowLoading] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState(null);
   
-  // Lead sources - customizable list (load from localStorage or use defaults)
-  const [leadSources, setLeadSources] = useState(() => {
-    const saved = localStorage.getItem('leadSources');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        return ['Website', 'Referral', 'Cold Call', 'Social Media', 'Email Campaign', 'Trade Show', 'Partner', 'Other'];
-      }
-    }
-    return ['Website', 'Referral', 'Cold Call', 'Social Media', 'Email Campaign', 'Trade Show', 'Partner', 'Other'];
-  });
+  // Lead sources - loaded from API (server-persisted)
+  const [leadSources, setLeadSources] = useState([]);
   const [showSourceDropdown, setShowSourceDropdown] = useState(false);
   const [showEditSourceDropdown, setShowEditSourceDropdown] = useState(false);
   const [customSource, setCustomSource] = useState('');
   const [editCustomSource, setEditCustomSource] = useState('');
-  
+
   // Name autocomplete state
   const [nameSuggestions, setNameSuggestions] = useState([]);
   const [showNameSuggestions, setShowNameSuggestions] = useState(false);
-  
-  // Save lead sources to localStorage when they change
+
+  // Load lead sources from API on mount
   useEffect(() => {
-    localStorage.setItem('leadSources', JSON.stringify(leadSources));
-  }, [leadSources]);
+    (async () => {
+      try {
+        const data = await leadSourcesAPI.list();
+        let list = (data.sources || []).map(s => s.name);
+        if (list.length === 0) {
+          const seeded = await leadSourcesAPI.seed();
+          list = (seeded.sources || []).map(s => s.name);
+        }
+        setLeadSources(list);
+      } catch (e) {
+        // Fallback to localStorage if API fails
+        try {
+          const saved = localStorage.getItem('leadSources');
+          if (saved) setLeadSources(JSON.parse(saved));
+          else setLeadSources(['Website', 'Referral', 'Cold Call', 'Social Media', 'Google', 'Thumbtack', 'Yelp', 'Facebook', 'Other']);
+        } catch { setLeadSources(['Website', 'Referral', 'Cold Call', 'Social Media', 'Google', 'Thumbtack', 'Yelp', 'Facebook', 'Other']); }
+      }
+    })();
+  }, []);
 
   // Helper function to add a custom source and set it as selected
   const addCustomSource = (newSource, isEdit = false) => {
@@ -146,10 +153,10 @@ const LeadsPipeline = () => {
       return;
     }
 
-    // Add new source to the list
+    // Add new source to the list (persist to API)
     const updatedSources = [...leadSources, trimmedSource];
     setLeadSources(updatedSources);
-    localStorage.setItem('leadSources', JSON.stringify(updatedSources));
+    leadSourcesAPI.create(trimmedSource).catch(() => {});
     
     // Use setTimeout to ensure the select has re-rendered with the new option
     setTimeout(() => {
@@ -1683,7 +1690,7 @@ const LeadsPipeline = () => {
                             if (newSource && !leadSources.includes(newSource)) {
                               const updatedSources = [...leadSources, newSource];
                               setLeadSources(updatedSources);
-                              localStorage.setItem('leadSources', JSON.stringify(updatedSources));
+                              leadSourcesAPI.create(newSource).catch(() => {});
                             }
                           }}
                           className="text-xs text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)]"
@@ -2221,7 +2228,7 @@ const LeadsPipeline = () => {
                             if (newSource && !leadSources.includes(newSource)) {
                               const updatedSources = [...leadSources, newSource];
                               setLeadSources(updatedSources);
-                              localStorage.setItem('leadSources', JSON.stringify(updatedSources));
+                              leadSourcesAPI.create(newSource).catch(() => {});
                             }
                           }}
                           className="text-xs text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)]"
