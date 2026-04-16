@@ -3,8 +3,8 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import Sidebar from "../../components/sidebar"
-import { leadAutomationAPI, leadSourcesAPI } from "../../services/api"
-import { ChevronLeft, Zap, Loader2, Plus, X, Download, GripVertical, Pencil, Check, Trash2 } from "lucide-react"
+import { leadAutomationAPI, leadSourcesAPI, leadSourceMappingsAPI } from "../../services/api"
+import { ChevronLeft, Zap, Loader2, Plus, X, Download, GripVertical, Pencil, Check, Trash2, ArrowRight, Wand2, Phone, MessageSquare } from "lucide-react"
 
 const EVENT_DEFS = [
   { event: 'lead_received', label: 'Lead Received', desc: 'New lead arrives from Thumbtack or Yelp' },
@@ -35,9 +35,19 @@ const LeadsSettings = () => {
   const [importing, setImporting] = useState(false)
   const [importResult, setImportResult] = useState(null)
 
+  // Source mappings state
+  const [mappings, setMappings] = useState([])
+  const [unmapped, setUnmapped] = useState([])
+  const [mappingsLoading, setMappingsLoading] = useState(true)
+  const [suggestions, setSuggestions] = useState([])
+  const [suggesting, setSuggesting] = useState(false)
+  const [savingMapping, setSavingMapping] = useState(null)
+  const [pendingMappings, setPendingMappings] = useState({}) // raw_value:provider → source_name
+
   useEffect(() => {
     loadRules()
     loadSources()
+    loadMappings()
   }, [])
 
   const loadRules = async () => {
@@ -73,6 +83,84 @@ const LeadsSettings = () => {
       console.error('Failed to load sources:', e)
     } finally {
       setSourcesLoading(false)
+    }
+  }
+
+  const loadMappings = async () => {
+    setMappingsLoading(true)
+    try {
+      const data = await leadSourceMappingsAPI.list()
+      setMappings(data.mappings || [])
+      setUnmapped(data.unmapped || [])
+    } catch (e) {
+      console.error('Failed to load mappings:', e)
+    } finally {
+      setMappingsLoading(false)
+    }
+  }
+
+  const handleAutoSuggest = async () => {
+    setSuggesting(true)
+    try {
+      const data = await leadSourceMappingsAPI.autoSuggest()
+      const suggs = data.suggestions || []
+      // Pre-fill pending mappings with suggestions
+      const pending = {}
+      for (const s of suggs) {
+        pending[`${s.provider}:${s.raw_value}`] = s.source_name
+      }
+      setPendingMappings(prev => ({ ...prev, ...pending }))
+      setSuggestions(suggs)
+    } catch (e) {
+      console.error('Failed to auto-suggest:', e)
+    } finally {
+      setSuggesting(false)
+    }
+  }
+
+  const handleSaveMapping = async (raw_value, provider) => {
+    const key = `${provider}:${raw_value}`
+    const source_name = pendingMappings[key]
+    if (!source_name) return
+    setSavingMapping(key)
+    try {
+      await leadSourceMappingsAPI.save({ raw_value, source_name, provider })
+      setPendingMappings(prev => { const n = { ...prev }; delete n[key]; return n })
+      await loadMappings()
+    } catch (e) {
+      alert('Failed to save: ' + (e.response?.data?.error || e.message))
+    } finally {
+      setSavingMapping(null)
+    }
+  }
+
+  const handleSaveAllMappings = async () => {
+    const toSave = Object.entries(pendingMappings).map(([key, source_name]) => {
+      const [provider, ...rest] = key.split(':')
+      return { raw_value: rest.join(':'), source_name, provider }
+    }).filter(m => m.source_name)
+    if (!toSave.length) return
+    setSavingMapping('all')
+    try {
+      await leadSourceMappingsAPI.saveBulk(toSave)
+      setPendingMappings({})
+      await loadMappings()
+    } catch (e) {
+      alert('Failed to save: ' + (e.response?.data?.error || e.message))
+    } finally {
+      setSavingMapping(null)
+    }
+  }
+
+  const handleDeleteMapping = async (id) => {
+    setSavingMapping(id)
+    try {
+      await leadSourceMappingsAPI.remove(id)
+      await loadMappings()
+    } catch (e) {
+      alert('Failed to delete: ' + (e.response?.data?.error || e.message))
+    } finally {
+      setSavingMapping(null)
     }
   }
 
@@ -297,6 +385,123 @@ const LeadsSettings = () => {
                 </div>
               )}
             </div>
+          </section>
+
+          {/* ── Source Mapping ── */}
+          <section>
+            <div className="mb-4">
+              <h2 className="text-lg font-semibold text-[var(--sf-text-primary)]">Source Mapping</h2>
+              <p className="text-sm text-[var(--sf-text-muted)] mt-0.5">
+                Map raw values from OpenPhone and LeadBridge to your canonical lead sources.
+                For example, "Thumbtack S", "Thumbtack J", and "Tumbtack J" can all map to "Thumbtack".
+              </p>
+            </div>
+
+            {mappingsLoading ? (
+              <div className="bg-white rounded-xl border border-[var(--sf-border-light)] flex items-center justify-center py-12">
+                <Loader2 size={24} className="animate-spin text-[var(--sf-text-muted)]" />
+              </div>
+            ) : (
+              <>
+                {/* Unmapped values */}
+                {unmapped.length > 0 && (
+                  <div className="bg-white rounded-xl border border-[var(--sf-border-light)] overflow-hidden mb-3">
+                    <div className="px-5 py-3 border-b border-[var(--sf-border-light)] flex items-center justify-between">
+                      <div>
+                        <h3 className="text-sm font-semibold text-[var(--sf-text-primary)]">
+                          Unmapped Values ({unmapped.length})
+                        </h3>
+                        <p className="text-xs text-[var(--sf-text-muted)]">Assign each raw value to a canonical source</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button onClick={handleAutoSuggest} disabled={suggesting}
+                          className="px-3 py-1.5 text-xs border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-hover)] text-[var(--sf-text-secondary)] disabled:opacity-50 flex items-center gap-1.5">
+                          {suggesting ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />}
+                          Auto-suggest
+                        </button>
+                        {Object.keys(pendingMappings).length > 0 && (
+                          <button onClick={handleSaveAllMappings} disabled={savingMapping === 'all'}
+                            className="px-3 py-1.5 text-xs bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] disabled:opacity-50 flex items-center gap-1.5">
+                            {savingMapping === 'all' ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                            Save All ({Object.keys(pendingMappings).length})
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="divide-y divide-[var(--sf-border-light)] max-h-[400px] overflow-y-auto">
+                      {unmapped.map(u => {
+                        const key = `${u.provider}:${u.raw_value}`
+                        const providerIcon = u.provider === 'leadbridge' ? MessageSquare : Phone
+                        const ProvIcon = providerIcon
+                        return (
+                          <div key={key} className="flex items-center gap-3 px-5 py-2.5">
+                            <ProvIcon size={13} className="text-[var(--sf-text-muted)] flex-shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <span className="text-sm text-[var(--sf-text-primary)]">{u.raw_value}</span>
+                              <span className="text-[10px] text-[var(--sf-text-muted)] ml-2">({u.count})</span>
+                            </div>
+                            <ArrowRight size={14} className="text-[var(--sf-text-muted)] flex-shrink-0" />
+                            <select
+                              value={pendingMappings[key] || ''}
+                              onChange={e => setPendingMappings(prev => ({ ...prev, [key]: e.target.value }))}
+                              className="text-sm border border-[var(--sf-border-light)] rounded-lg px-2.5 py-1.5 bg-white min-w-[140px] focus:outline-none focus:ring-1 focus:ring-[var(--sf-blue-500)]">
+                              <option value="">Select source...</option>
+                              {sources.map(s => (
+                                <option key={s.id} value={s.name}>{s.name}</option>
+                              ))}
+                            </select>
+                            {pendingMappings[key] && (
+                              <button onClick={() => handleSaveMapping(u.raw_value, u.provider)}
+                                disabled={savingMapping === key}
+                                className="p-1.5 rounded-lg hover:bg-green-50 text-green-600 flex-shrink-0">
+                                {savingMapping === key ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+                              </button>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Existing mappings */}
+                {mappings.length > 0 && (
+                  <div className="bg-white rounded-xl border border-[var(--sf-border-light)] overflow-hidden">
+                    <div className="px-5 py-3 border-b border-[var(--sf-border-light)]">
+                      <h3 className="text-sm font-semibold text-[var(--sf-text-primary)]">
+                        Active Mappings ({mappings.length})
+                      </h3>
+                    </div>
+                    <div className="divide-y divide-[var(--sf-border-light)] max-h-[300px] overflow-y-auto">
+                      {mappings.map(m => {
+                        const ProvIcon = m.provider === 'leadbridge' ? MessageSquare : Phone
+                        return (
+                          <div key={m.id} className="flex items-center gap-3 px-5 py-2.5 group">
+                            <ProvIcon size={13} className="text-[var(--sf-text-muted)] flex-shrink-0" />
+                            <span className="text-sm text-[var(--sf-text-secondary)] min-w-0">{m.raw_value}</span>
+                            <ArrowRight size={14} className="text-[var(--sf-text-muted)] flex-shrink-0" />
+                            <span className="text-sm font-medium text-[var(--sf-text-primary)]">{m.source_name}</span>
+                            <div className="flex-1" />
+                            <button onClick={() => handleDeleteMapping(m.id)} disabled={savingMapping === m.id}
+                              className="p-1.5 rounded-lg hover:bg-red-50 text-[var(--sf-text-muted)] hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                              {savingMapping === m.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                            </button>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {unmapped.length === 0 && mappings.length === 0 && (
+                  <div className="bg-white rounded-xl border border-[var(--sf-border-light)] p-8 text-center">
+                    <p className="text-sm text-[var(--sf-text-muted)]">
+                      No source values found. Run a sync from Communications Settings first, then come back to map the values.
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
           </section>
 
           {/* ── Lead Stage Automation ── */}

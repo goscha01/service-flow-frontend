@@ -2779,6 +2779,14 @@ export const leadSourcesAPI = {
   importFromOpenPhone: async () => { const r = await api.post('/lead-sources/import-from-openphone'); return r.data; },
 };
 
+export const leadSourceMappingsAPI = {
+  list: async () => { const r = await api.get('/lead-source-mappings'); return r.data; },
+  save: async (data) => { const r = await api.post('/lead-source-mappings', data); return r.data; },
+  saveBulk: async (mappings) => { const r = await api.post('/lead-source-mappings/bulk', { mappings }); return r.data; },
+  remove: async (id) => { const r = await api.delete(`/lead-source-mappings/${id}`); return r.data; },
+  autoSuggest: async () => { const r = await api.post('/lead-source-mappings/auto-suggest'); return r.data; },
+};
+
 export const locationsAPI = {
   list: async () => { const r = await api.get('/locations'); return r.data; },
   create: async (data) => { const r = await api.post('/locations', data); return r.data; },
