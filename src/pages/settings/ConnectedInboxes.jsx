@@ -67,8 +67,14 @@ export default function ConnectedInboxes() {
   const [progress, setProgress] = useState({}) // { [accountId]: { phase, scanned, synced, total, startedAt } }
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(null)
-  const [params] = useSearchParams()
+  const [params, setParams] = useSearchParams()
   const flash = params.get('connected') || params.get('error')
+
+  // Shared mailbox selection
+  const [selectingMailboxFor, setSelectingMailboxFor] = useState(null)
+  const [sharedMailboxInput, setSharedMailboxInput] = useState('')
+  const [validating, setValidating] = useState(false)
+  const [validateError, setValidateError] = useState('')
 
   const load = async () => {
     try {
@@ -84,7 +90,12 @@ export default function ConnectedInboxes() {
     }
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load()
+    if (params.get('selectMailbox') === '1' && params.get('accountId')) {
+      setSelectingMailboxFor(params.get('accountId'))
+    }
+  }, [])
 
   // Poll progress every 1.5s for any account that has an active or recently-finished sync.
   useEffect(() => {
@@ -136,6 +147,29 @@ export default function ConnectedInboxes() {
     } catch (e) {
       alert(e.response?.data?.error || 'Failed to queue resync')
     } finally { setBusy(null) }
+  }
+
+  const selectPrimaryMailbox = async (accountId) => {
+    try {
+      setBusy(accountId)
+      await connectedEmailAPI.selectMailbox(accountId, null)
+      setSelectingMailboxFor(null)
+      await load()
+    } catch (e) { alert(e.response?.data?.error || 'Failed') }
+    finally { setBusy(null) }
+  }
+
+  const selectSharedMailbox = async (accountId) => {
+    if (!sharedMailboxInput.trim()) return setValidateError('Enter a mailbox email')
+    try {
+      setValidating(true); setValidateError('')
+      const check = await connectedEmailAPI.validateMailbox(accountId, sharedMailboxInput.trim())
+      if (!check.accessible) return setValidateError(check.error || 'Access denied')
+      await connectedEmailAPI.selectMailbox(accountId, sharedMailboxInput.trim())
+      setSelectingMailboxFor(null); setSharedMailboxInput('')
+      await load()
+    } catch (e) { setValidateError(e.response?.data?.error || 'Failed to select mailbox') }
+    finally { setValidating(false) }
   }
 
   const testSync = async (id, days, maxMessages) => {
@@ -210,14 +244,27 @@ export default function ConnectedInboxes() {
                        <div className="flex items-center justify-between">
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-[var(--sf-text-primary)] truncate">{a.email_address}</span>
+                            <span className="text-sm font-medium text-[var(--sf-text-primary)] truncate">{a.target_mailbox_email || a.email_address}</span>
+                            {a.mailbox_type === 'shared' && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-50 text-purple-600 font-medium">Shared</span>
+                            )}
                             {statusPill(isActive ? 'syncing' : a.status)}
                           </div>
+                          {a.auth_email_address && a.auth_email_address !== (a.target_mailbox_email || a.email_address) && (
+                            <div className="text-[11px] text-[var(--sf-text-muted)] mt-0.5">Signed in as: {a.auth_email_address}</div>
+                          )}
                           <div className="text-xs text-[var(--sf-text-muted)] mt-0.5">
                             {a.last_sync_at ? `Last sync: ${new Date(a.last_sync_at).toLocaleString()}` : 'No sync yet'}
                           </div>
                         </div>
                         <div className="flex items-center gap-1">
+                          {a.provider === 'outlook' && (
+                            <button onClick={() => { setSelectingMailboxFor(a.id); setSharedMailboxInput(''); setValidateError('') }}
+                              disabled={busy === a.id} title="Change mailbox (primary or shared)"
+                              className="p-1.5 text-xs text-purple-600 hover:bg-purple-50 rounded font-medium">
+                              {a.mailbox_type === 'shared' ? '✉ Change' : '✉ Shared'}
+                            </button>
+                          )}
                           <SyncMenu disabled={busy === a.id} onPick={(days, max) => testSync(a.id, days, max)} />
                           <button
                             onClick={() => resync(a.id)}
@@ -235,6 +282,32 @@ export default function ConnectedInboxes() {
                           </button>
                         </div>
                        </div>
+                       {/* Mailbox selection (Outlook shared mailbox) */}
+                       {selectingMailboxFor === a.id && (
+                         <div className="mt-3 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                           <h4 className="text-xs font-semibold text-purple-800 mb-2">Select mailbox to sync</h4>
+                           <div className="flex flex-col gap-2">
+                             <button onClick={() => selectPrimaryMailbox(a.id)} disabled={busy === a.id}
+                               className="text-left px-3 py-2 text-xs bg-white border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-hover)]">
+                               <span className="font-medium text-[var(--sf-text-primary)]">Use my own mailbox</span>
+                               <span className="text-[var(--sf-text-muted)] ml-1">({a.auth_email_address || a.email_address})</span>
+                             </button>
+                             <div className="text-xs text-purple-700 font-medium mt-1">Or enter a shared mailbox:</div>
+                             <div className="flex gap-2">
+                               <input value={sharedMailboxInput}
+                                 onChange={e => { setSharedMailboxInput(e.target.value); setValidateError('') }}
+                                 placeholder="e.g. sales@company.com"
+                                 className="flex-1 text-xs border border-[var(--sf-border-light)] rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-purple-400" />
+                               <button onClick={() => selectSharedMailbox(a.id)} disabled={validating || !sharedMailboxInput.trim()}
+                                 className="px-3 py-1.5 text-xs font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50">
+                                 {validating ? 'Checking…' : 'Connect'}
+                               </button>
+                             </div>
+                             {validateError && <div className="text-xs text-red-600 bg-red-50 px-3 py-1.5 rounded">{validateError}</div>}
+                             <button onClick={() => setSelectingMailboxFor(null)} className="text-xs text-[var(--sf-text-muted)] hover:underline self-end mt-1">Cancel</button>
+                           </div>
+                         </div>
+                       )}
                        {/* Progress bar */}
                        {prog && (
                          <div className="mt-2">
