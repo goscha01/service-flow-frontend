@@ -164,6 +164,24 @@ const LeadsSettings = () => {
     }
   }
 
+  // Promote a raw value as a new canonical source + auto-map it to itself
+  const handlePromoteAsSource = async (raw_value, provider) => {
+    const key = `${provider}:${raw_value}`
+    setSavingMapping(key)
+    try {
+      // 1. Add to lead_sources table
+      await leadSourcesAPI.create(raw_value)
+      // 2. Create mapping: raw_value → itself
+      await leadSourceMappingsAPI.save({ raw_value, source_name: raw_value, provider })
+      // 3. Refresh both lists
+      await Promise.all([loadSources(), loadMappings()])
+    } catch (e) {
+      alert('Failed: ' + (e.response?.data?.error || e.message))
+    } finally {
+      setSavingMapping(null)
+    }
+  }
+
   const handleAddSource = async () => {
     if (!newSourceName.trim()) return
     setSavingSource('new')
@@ -431,30 +449,39 @@ const LeadsSettings = () => {
                     <div className="divide-y divide-[var(--sf-border-light)] max-h-[400px] overflow-y-auto">
                       {unmapped.map(u => {
                         const key = `${u.provider}:${u.raw_value}`
-                        const providerIcon = u.provider === 'leadbridge' ? MessageSquare : Phone
-                        const ProvIcon = providerIcon
+                        const ProvIcon = u.provider === 'leadbridge' ? MessageSquare : Phone
+                        const provLabel = u.provider === 'leadbridge' ? 'LB' : 'OP'
                         return (
-                          <div key={key} className="flex items-center gap-3 px-5 py-2.5">
-                            <ProvIcon size={13} className="text-[var(--sf-text-muted)] flex-shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <span className="text-sm text-[var(--sf-text-primary)]">{u.raw_value}</span>
-                              <span className="text-[10px] text-[var(--sf-text-muted)] ml-2">({u.count})</span>
+                          <div key={key} className="flex items-center gap-2.5 px-5 py-2.5">
+                            <span className="text-[9px] font-medium px-1.5 py-0.5 rounded bg-gray-100 text-[var(--sf-text-muted)] flex-shrink-0" title={u.provider}>
+                              {provLabel}
+                            </span>
+                            <div className="min-w-0 flex items-center gap-1.5">
+                              <span className="text-sm text-[var(--sf-text-primary)] font-medium">{u.raw_value}</span>
+                              <span className="text-[10px] text-[var(--sf-text-muted)]">({u.count})</span>
                             </div>
-                            <ArrowRight size={14} className="text-[var(--sf-text-muted)] flex-shrink-0" />
+                            <ArrowRight size={14} className="text-[var(--sf-text-muted)] flex-shrink-0 ml-auto" />
                             <select
                               value={pendingMappings[key] || ''}
                               onChange={e => setPendingMappings(prev => ({ ...prev, [key]: e.target.value }))}
                               className="text-sm border border-[var(--sf-border-light)] rounded-lg px-2.5 py-1.5 bg-white min-w-[140px] focus:outline-none focus:ring-1 focus:ring-[var(--sf-blue-500)]">
-                              <option value="">Select source...</option>
+                              <option value="">Map to...</option>
                               {sources.map(s => (
                                 <option key={s.id} value={s.name}>{s.name}</option>
                               ))}
                             </select>
-                            {pendingMappings[key] && (
+                            {pendingMappings[key] ? (
                               <button onClick={() => handleSaveMapping(u.raw_value, u.provider)}
                                 disabled={savingMapping === key}
-                                className="p-1.5 rounded-lg hover:bg-green-50 text-green-600 flex-shrink-0">
+                                className="p-1.5 rounded-lg hover:bg-green-50 text-green-600 flex-shrink-0" title="Save mapping">
                                 {savingMapping === key ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+                              </button>
+                            ) : (
+                              <button onClick={() => handlePromoteAsSource(u.raw_value, u.provider)}
+                                disabled={savingMapping === key}
+                                className="px-2 py-1 text-[10px] rounded border border-[var(--sf-border-light)] hover:bg-violet-50 hover:border-violet-200 text-[var(--sf-text-secondary)] hover:text-violet-600 flex-shrink-0 whitespace-nowrap"
+                                title="Add as a new source">
+                                {savingMapping === key ? <Loader2 size={11} className="animate-spin" /> : '+ Add as source'}
                               </button>
                             )}
                           </div>
