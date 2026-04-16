@@ -159,14 +159,20 @@ export default function ConnectedInboxes() {
     finally { setBusy(null) }
   }
 
+  const [validateHelp, setValidateHelp] = useState(null) // { helpUrl, helpSteps }
+
   const selectSharedMailbox = async (accountId) => {
     if (!sharedMailboxInput.trim()) return setValidateError('Enter a mailbox email')
     try {
-      setValidating(true); setValidateError('')
+      setValidating(true); setValidateError(''); setValidateHelp(null)
       const check = await connectedEmailAPI.validateMailbox(accountId, sharedMailboxInput.trim())
-      if (!check.accessible) return setValidateError(check.error || 'Access denied')
+      if (!check.accessible) {
+        setValidateError(check.error || 'Access denied')
+        if (check.helpUrl || check.helpSteps) setValidateHelp({ helpUrl: check.helpUrl, helpSteps: check.helpSteps })
+        return
+      }
       await connectedEmailAPI.selectMailbox(accountId, sharedMailboxInput.trim())
-      setSelectingMailboxFor(null); setSharedMailboxInput('')
+      setSelectingMailboxFor(null); setSharedMailboxInput(''); setValidateHelp(null)
       await load()
     } catch (e) { setValidateError(e.response?.data?.error || 'Failed to select mailbox') }
     finally { setValidating(false) }
@@ -303,7 +309,25 @@ export default function ConnectedInboxes() {
                                  {validating ? 'Checking…' : 'Connect'}
                                </button>
                              </div>
-                             {validateError && <div className="text-xs text-red-600 bg-red-50 px-3 py-1.5 rounded">{validateError}</div>}
+                             {validateError && (
+                               <div className="text-xs bg-red-50 rounded overflow-hidden">
+                                 <div className="px-3 py-2 text-red-700 font-medium">{validateError}</div>
+                                 {validateHelp?.helpSteps && (
+                                   <div className="px-3 pb-2 space-y-1">
+                                     <div className="text-red-600 font-semibold mt-1">How to fix:</div>
+                                     <ol className="list-decimal list-inside space-y-0.5 text-red-600">
+                                       {validateHelp.helpSteps.map((s, i) => <li key={i}>{s}</li>)}
+                                     </ol>
+                                     {validateHelp.helpUrl && (
+                                       <a href={validateHelp.helpUrl} target="_blank" rel="noopener noreferrer"
+                                         className="inline-block mt-1 text-[var(--sf-blue-500)] hover:underline font-medium">
+                                         Open Exchange Admin Center →
+                                       </a>
+                                     )}
+                                   </div>
+                                 )}
+                               </div>
+                             )}
                              <button onClick={() => setSelectingMailboxFor(null)} className="text-xs text-[var(--sf-text-muted)] hover:underline self-end mt-1">Cancel</button>
                            </div>
                          </div>
