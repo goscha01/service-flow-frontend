@@ -15,7 +15,15 @@ const PAID_BY_OPTIONS = [
   { value: 'team_member', label: 'Team member' },
   { value: 'company', label: 'Company' },
   { value: 'customer', label: 'Customer' },
+  { value: 'deduction', label: 'Deduction (charge cleaner)' },
 ]
+
+const PAID_BY_HINTS = {
+  customer: 'Added to cleaner payroll. No company cost.',
+  company: 'Added to cleaner payroll. Company expense.',
+  team_member: 'Reimbursed to cleaner if checked below.',
+  deduction: 'Deducted from cleaner payroll.',
+}
 
 const fmt = (n) => `$${(parseFloat(n) || 0).toFixed(2)}`
 
@@ -87,13 +95,19 @@ export default function JobExpensesSection({ jobId, teamMembers = [], onTotalCha
     if (!form.expense_type || !form.amount) { setError('Type and amount are required'); return }
     setSaving(true); setError(null)
     try {
+      // Auto-set reimbursable based on paid_by:
+      // customer/company/deduction always flow to ledger, only team_member uses the checkbox
+      const reimbursable = form.paid_by === 'team_member'
+        ? !!form.reimbursable_to_team_member
+        : form.paid_by !== 'deduction' // customer/company = true (add), deduction = false (uses negative ledger)
+
       await jobExpensesAPI.create(jobId, {
         expense_type: form.expense_type,
         description: form.description || null,
         amount: parseFloat(form.amount),
         team_member_id: form.team_member_id ? parseInt(form.team_member_id) : null,
         paid_by: form.paid_by,
-        reimbursable_to_team_member: !!form.reimbursable_to_team_member,
+        reimbursable_to_team_member: reimbursable,
         note: form.note || null,
       })
       resetForm()
@@ -166,13 +180,17 @@ export default function JobExpensesSection({ jobId, teamMembers = [], onTotalCha
     if (!editForm.amount) { setError('Amount is required'); return }
     setActionId(expense.id); setError(null)
     try {
+      const editReimbursable = editForm.paid_by === 'team_member'
+        ? !!editForm.reimbursable_to_team_member
+        : editForm.paid_by !== 'deduction'
+
       await jobExpensesAPI.update(expense.id, {
         expense_type: editForm.expense_type,
         description: editForm.description || null,
         amount: parseFloat(editForm.amount),
         team_member_id: editForm.team_member_id ? parseInt(editForm.team_member_id) : null,
         paid_by: editForm.paid_by,
-        reimbursable_to_team_member: !!editForm.reimbursable_to_team_member,
+        reimbursable_to_team_member: editReimbursable,
         note: editForm.note || null,
       })
       setEditingId(null)
@@ -284,18 +302,23 @@ export default function JobExpensesSection({ jobId, teamMembers = [], onTotalCha
               </select>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="reimbursable"
-              checked={form.reimbursable_to_team_member}
-              onChange={e => setForm({ ...form, reimbursable_to_team_member: e.target.checked })}
-              className="rounded"
-            />
-            <label htmlFor="reimbursable" className="text-sm text-[var(--sf-text-secondary)]">
-              Reimbursable to team member
-            </label>
-          </div>
+          {form.paid_by && PAID_BY_HINTS[form.paid_by] && (
+            <p className="text-xs text-[var(--sf-text-muted)] -mt-1">{PAID_BY_HINTS[form.paid_by]}</p>
+          )}
+          {form.paid_by === 'team_member' && (
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="reimbursable"
+                checked={form.reimbursable_to_team_member}
+                onChange={e => setForm({ ...form, reimbursable_to_team_member: e.target.checked })}
+                className="rounded"
+              />
+              <label htmlFor="reimbursable" className="text-sm text-[var(--sf-text-secondary)]">
+                Reimbursable to team member
+              </label>
+            </div>
+          )}
           <div className="flex justify-end gap-2 pt-2">
             <button
               onClick={() => { setShowAddForm(false); resetForm() }}
@@ -427,7 +450,9 @@ export default function JobExpensesSection({ jobId, teamMembers = [], onTotalCha
                     <td className="px-3 py-2 text-[var(--sf-text-secondary)]">{e.description || '—'}</td>
                     <td className="px-3 py-2 text-[var(--sf-text-secondary)]">{memberName || '—'}</td>
                     <td className="px-3 py-2 text-[var(--sf-text-secondary)] capitalize">{e.paid_by.replace('_', ' ')}</td>
-                    <td className="px-3 py-2 text-right font-semibold">{fmt(e.amount)}</td>
+                    <td className={`px-3 py-2 text-right font-semibold ${e.paid_by === 'deduction' ? 'text-red-600' : ''}`}>
+                      {e.paid_by === 'deduction' ? `-${fmt(e.amount)}` : fmt(e.amount)}
+                    </td>
                     <td className="px-3 py-2 text-center"><StatusBadge status={e.status} /></td>
                     <td className="px-3 py-2 text-right whitespace-nowrap">
                       <div className="flex items-center justify-end gap-1">
