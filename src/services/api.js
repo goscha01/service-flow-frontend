@@ -2810,6 +2810,15 @@ export const connectedEmailAPI = {
     const r = await api.post(`/connected-email/accounts/${accountId}/test-sync`, { days, maxMessages });
     return r.data;
   },
+  validateMailbox: async (accountId, mailboxEmail) => {
+    const r = await api.post(`/connected-email/accounts/${accountId}/validate-mailbox`, { mailboxEmail });
+    return r.data;
+  },
+  selectMailbox: async (accountId, mailboxEmail) => {
+    const r = await api.post(`/connected-email/accounts/${accountId}/select-mailbox`, { mailboxEmail });
+    return r.data;
+  },
+  deleteAccount: async (accountId) => { const r = await api.delete(`/connected-email/accounts/${accountId}`); return r.data; },
 };
 
 export default api;
