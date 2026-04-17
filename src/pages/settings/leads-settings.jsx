@@ -1,10 +1,10 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
 import Sidebar from "../../components/sidebar"
 import { leadAutomationAPI, leadSourcesAPI, leadSourceMappingsAPI } from "../../services/api"
-import { ChevronLeft, Zap, Loader2, Plus, X, Download, GripVertical, Pencil, Check, Trash2, ArrowRight, Wand2, Phone, MessageSquare } from "lucide-react"
+import { ChevronLeft, Zap, Loader2, Plus, X, Pencil, Check, Trash2, ArrowRight, Wand2, ChevronDown, ChevronRight } from "lucide-react"
 
 const EVENT_DEFS = [
   { event: 'lead_received', label: 'Lead Received', desc: 'New lead arrives from Thumbtack or Yelp' },
@@ -14,9 +14,12 @@ const EVENT_DEFS = [
   { event: 'job_created', label: 'Job Created', desc: 'Job created for this lead — converts to customer' },
 ]
 
+const PROV_LABEL = { openphone: 'OpenPhone', leadbridge: 'LeadBridge' }
+const PROV_SHORT = { openphone: 'OP', leadbridge: 'LB' }
+const PROV_COLOR = { openphone: 'bg-blue-50 text-blue-600', leadbridge: 'bg-amber-50 text-amber-600' }
+
 const LeadsSettings = () => {
   const navigate = useNavigate()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(null)
   const [rules, setRules] = useState([])
@@ -24,7 +27,7 @@ const LeadsSettings = () => {
   const [backfilling, setBackfilling] = useState(false)
   const [backfillResult, setBackfillResult] = useState(null)
 
-  // Sources state
+  // Sources
   const [sources, setSources] = useState([])
   const [sourcesLoading, setSourcesLoading] = useState(true)
   const [newSourceName, setNewSourceName] = useState('')
@@ -32,17 +35,15 @@ const LeadsSettings = () => {
   const [editingId, setEditingId] = useState(null)
   const [editName, setEditName] = useState('')
   const [savingSource, setSavingSource] = useState(null)
-  const [importing, setImporting] = useState(false)
-  const [importResult, setImportResult] = useState(null)
 
-  // Source mappings state
+  // Mappings
   const [mappings, setMappings] = useState([])
   const [unmapped, setUnmapped] = useState([])
   const [mappingsLoading, setMappingsLoading] = useState(true)
-  const [suggestions, setSuggestions] = useState([])
   const [suggesting, setSuggesting] = useState(false)
   const [savingMapping, setSavingMapping] = useState(null)
-  const [pendingMappings, setPendingMappings] = useState({}) // raw_value:provider → source_name
+  const [pendingMappings, setPendingMappings] = useState({})
+  const [expandedSources, setExpandedSources] = useState({})
 
   useEffect(() => {
     loadRules()
@@ -50,6 +51,7 @@ const LeadsSettings = () => {
     loadMappings()
   }, [])
 
+  // ── Data loaders ──
   const loadRules = async () => {
     setLoading(true)
     try {
@@ -62,11 +64,8 @@ const LeadsSettings = () => {
         setRules(refreshed.rules || [])
         setStages(refreshed.stages || [])
       }
-    } catch (e) {
-      console.error('Failed to load rules:', e)
-    } finally {
-      setLoading(false)
-    }
+    } catch (e) { console.error('Failed to load rules:', e) }
+    finally { setLoading(false) }
   }
 
   const loadSources = async () => {
@@ -79,11 +78,8 @@ const LeadsSettings = () => {
         list = seeded.sources || []
       }
       setSources(list)
-    } catch (e) {
-      console.error('Failed to load sources:', e)
-    } finally {
-      setSourcesLoading(false)
-    }
+    } catch (e) { console.error('Failed to load sources:', e) }
+    finally { setSourcesLoading(false) }
   }
 
   const loadMappings = async () => {
@@ -92,32 +88,59 @@ const LeadsSettings = () => {
       const data = await leadSourceMappingsAPI.list()
       setMappings(data.mappings || [])
       setUnmapped(data.unmapped || [])
-    } catch (e) {
-      console.error('Failed to load mappings:', e)
-    } finally {
-      setMappingsLoading(false)
-    }
+    } catch (e) { console.error('Failed to load mappings:', e) }
+    finally { setMappingsLoading(false) }
   }
 
-  const handleAutoSuggest = async () => {
-    setSuggesting(true)
+  const reload = () => Promise.all([loadSources(), loadMappings()])
+
+  // ── Source-centric view: group mappings by source_name ──
+  const sourceWithMappings = useMemo(() => {
+    const map = {}
+    for (const s of sources) map[s.name] = { ...s, mappedValues: [] }
+    for (const m of mappings) {
+      if (!map[m.source_name]) map[m.source_name] = { id: null, name: m.source_name, mappedValues: [] }
+      map[m.source_name].mappedValues.push(m)
+    }
+    return Object.values(map)
+  }, [sources, mappings])
+
+  // ── Source actions ──
+  const handleAddSource = async () => {
+    if (!newSourceName.trim()) return
+    setSavingSource('new')
     try {
-      const data = await leadSourceMappingsAPI.autoSuggest()
-      const suggs = data.suggestions || []
-      // Pre-fill pending mappings with suggestions
-      const pending = {}
-      for (const s of suggs) {
-        pending[`${s.provider}:${s.raw_value}`] = s.source_name
-      }
-      setPendingMappings(prev => ({ ...prev, ...pending }))
-      setSuggestions(suggs)
-    } catch (e) {
-      console.error('Failed to auto-suggest:', e)
-    } finally {
-      setSuggesting(false)
-    }
+      await leadSourcesAPI.create(newSourceName.trim())
+      setNewSourceName('')
+      setAddingSource(false)
+      await reload()
+    } catch (e) { alert('Failed: ' + (e.response?.data?.error || e.message)) }
+    finally { setSavingSource(null) }
   }
 
+  const handleRenameSource = async (id) => {
+    if (!editName.trim()) return
+    setSavingSource(id)
+    try {
+      await leadSourcesAPI.update(id, { name: editName.trim() })
+      setEditingId(null)
+      setEditName('')
+      await reload()
+    } catch (e) { alert('Failed: ' + (e.response?.data?.error || e.message)) }
+    finally { setSavingSource(null) }
+  }
+
+  const handleDeleteSource = async (id, name) => {
+    if (!window.confirm(`Delete "${name}"? Existing leads with this source won't be affected.`)) return
+    setSavingSource(id)
+    try {
+      await leadSourcesAPI.remove(id)
+      await reload()
+    } catch (e) { alert('Failed: ' + (e.response?.data?.error || e.message)) }
+    finally { setSavingSource(null) }
+  }
+
+  // ── Mapping actions ──
   const handleSaveMapping = async (raw_value, provider) => {
     const key = `${provider}:${raw_value}`
     const source_name = pendingMappings[key]
@@ -127,11 +150,8 @@ const LeadsSettings = () => {
       await leadSourceMappingsAPI.save({ raw_value, source_name, provider })
       setPendingMappings(prev => { const n = { ...prev }; delete n[key]; return n })
       await loadMappings()
-    } catch (e) {
-      alert('Failed to save: ' + (e.response?.data?.error || e.message))
-    } finally {
-      setSavingMapping(null)
-    }
+    } catch (e) { alert('Failed: ' + (e.response?.data?.error || e.message)) }
+    finally { setSavingMapping(null) }
   }
 
   const handleSaveAllMappings = async () => {
@@ -145,11 +165,8 @@ const LeadsSettings = () => {
       await leadSourceMappingsAPI.saveBulk(toSave)
       setPendingMappings({})
       await loadMappings()
-    } catch (e) {
-      alert('Failed to save: ' + (e.response?.data?.error || e.message))
-    } finally {
-      setSavingMapping(null)
-    }
+    } catch (e) { alert('Failed: ' + (e.response?.data?.error || e.message)) }
+    finally { setSavingMapping(null) }
   }
 
   const handleDeleteMapping = async (id) => {
@@ -157,114 +174,53 @@ const LeadsSettings = () => {
     try {
       await leadSourceMappingsAPI.remove(id)
       await loadMappings()
-    } catch (e) {
-      alert('Failed to delete: ' + (e.response?.data?.error || e.message))
-    } finally {
-      setSavingMapping(null)
-    }
+    } catch (e) { alert('Failed: ' + (e.response?.data?.error || e.message)) }
+    finally { setSavingMapping(null) }
   }
 
-  // Promote a raw value as a new canonical source + auto-map it to itself
   const handlePromoteAsSource = async (raw_value, provider) => {
     const key = `${provider}:${raw_value}`
     setSavingMapping(key)
     try {
-      // 1. Add to lead_sources table
       await leadSourcesAPI.create(raw_value)
-      // 2. Create mapping: raw_value → itself
       await leadSourceMappingsAPI.save({ raw_value, source_name: raw_value, provider })
-      // 3. Refresh both lists
-      await Promise.all([loadSources(), loadMappings()])
-    } catch (e) {
-      alert('Failed: ' + (e.response?.data?.error || e.message))
-    } finally {
-      setSavingMapping(null)
-    }
+      await reload()
+    } catch (e) { alert('Failed: ' + (e.response?.data?.error || e.message)) }
+    finally { setSavingMapping(null) }
   }
 
-  const handleAddSource = async () => {
-    if (!newSourceName.trim()) return
-    setSavingSource('new')
+  const handleAutoSuggest = async () => {
+    setSuggesting(true)
     try {
-      await leadSourcesAPI.create(newSourceName.trim())
-      setNewSourceName('')
-      setAddingSource(false)
-      await loadSources()
-    } catch (e) {
-      alert('Failed to add source: ' + (e.response?.data?.error || e.message))
-    } finally {
-      setSavingSource(null)
-    }
+      const data = await leadSourceMappingsAPI.autoSuggest()
+      const pending = {}
+      for (const s of (data.suggestions || [])) {
+        pending[`${s.provider}:${s.raw_value}`] = s.source_name
+      }
+      setPendingMappings(prev => ({ ...prev, ...pending }))
+    } catch (e) { console.error('Failed to auto-suggest:', e) }
+    finally { setSuggesting(false) }
   }
 
-  const handleRenameSource = async (id) => {
-    if (!editName.trim()) return
-    setSavingSource(id)
-    try {
-      await leadSourcesAPI.update(id, { name: editName.trim() })
-      setEditingId(null)
-      setEditName('')
-      await loadSources()
-    } catch (e) {
-      alert('Failed to rename: ' + (e.response?.data?.error || e.message))
-    } finally {
-      setSavingSource(null)
-    }
-  }
-
-  const handleDeleteSource = async (id, name) => {
-    if (!window.confirm(`Delete "${name}"? Existing leads with this source won't be affected.`)) return
-    setSavingSource(id)
-    try {
-      await leadSourcesAPI.remove(id)
-      await loadSources()
-    } catch (e) {
-      alert('Failed to delete: ' + (e.response?.data?.error || e.message))
-    } finally {
-      setSavingSource(null)
-    }
-  }
-
-  const handleImportFromOpenPhone = async () => {
-    setImporting(true)
-    setImportResult(null)
-    try {
-      const result = await leadSourcesAPI.importFromOpenPhone()
-      setImportResult(result)
-      if (result.imported > 0) await loadSources()
-    } catch (e) {
-      setImportResult({ error: e.response?.data?.error || e.message })
-    } finally {
-      setImporting(false)
-    }
-  }
-
+  // ── Automation ──
   const handleStageChange = async (eventType, stageId) => {
     if (!stageId) return
     setSaving(eventType)
     try {
       for (const ch of ['thumbtack', 'yelp']) {
-        await leadAutomationAPI.saveRule({
-          channel: ch,
-          eventType,
-          targetStageId: parseInt(stageId),
-          enabled: true,
-          autoConvertToCustomer: eventType === 'job_created',
-        })
+        await leadAutomationAPI.saveRule({ channel: ch, eventType, targetStageId: parseInt(stageId), enabled: true, autoConvertToCustomer: eventType === 'job_created' })
       }
       const data = await leadAutomationAPI.getRules()
       setRules(data.rules || [])
-    } catch (e) {
-      alert('Failed to save: ' + (e.response?.data?.error || e.message))
-    } finally {
-      setSaving(null)
-    }
+    } catch (e) { alert('Failed: ' + (e.response?.data?.error || e.message)) }
+    finally { setSaving(null) }
   }
 
-  const getRuleForEvent = (eventType) => {
-    return rules.find(r => r.eventType === eventType && r.channel === 'thumbtack')
-      || rules.find(r => r.eventType === eventType)
-  }
+  const getRuleForEvent = (eventType) => rules.find(r => r.eventType === eventType && r.channel === 'thumbtack') || rules.find(r => r.eventType === eventType)
+
+  const toggleExpanded = (name) => setExpandedSources(prev => ({ ...prev, [name]: !prev[name] }))
+
+  const isLoading = sourcesLoading || mappingsLoading
 
   return (
     <div className="min-h-screen bg-[var(--sf-bg-page)]">
@@ -283,255 +239,202 @@ const LeadsSettings = () => {
 
         <div className="max-w-3xl mx-auto px-6 py-6 space-y-6">
 
-          {/* ── Lead Sources Management ── */}
+          {/* ══════════════════════════════════════════════════════ */}
+          {/* SECTION 1: SOURCE MAPPING (source-centric)           */}
+          {/* ══════════════════════════════════════════════════════ */}
           <section>
-            <div className="mb-4">
-              <h2 className="text-lg font-semibold text-[var(--sf-text-primary)]">Lead Sources</h2>
-              <p className="text-sm text-[var(--sf-text-muted)] mt-0.5">
-                Manage the sources available when creating or editing leads. Sources from OpenPhone contacts can be imported automatically.
-              </p>
-            </div>
-
-            <div className="bg-white rounded-xl border border-[var(--sf-border-light)] overflow-hidden">
-              {sourcesLoading ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 size={24} className="animate-spin text-[var(--sf-text-muted)]" />
-                </div>
-              ) : (
-                <>
-                  {/* Source list */}
-                  <div className="divide-y divide-[var(--sf-border-light)]">
-                    {sources.map(s => (
-                      <div key={s.id} className="flex items-center gap-3 px-5 py-3 group">
-                        {editingId === s.id ? (
-                          <>
-                            <input
-                              autoFocus
-                              value={editName}
-                              onChange={e => setEditName(e.target.value)}
-                              onKeyDown={e => { if (e.key === 'Enter') handleRenameSource(s.id); if (e.key === 'Escape') setEditingId(null); }}
-                              className="flex-1 text-sm border border-[var(--sf-blue-500)] rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-[var(--sf-blue-500)]"
-                            />
-                            <button onClick={() => handleRenameSource(s.id)} disabled={savingSource === s.id}
-                              className="p-1.5 rounded-lg hover:bg-green-50 text-green-600">
-                              {savingSource === s.id ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-                            </button>
-                            <button onClick={() => setEditingId(null)} className="p-1.5 rounded-lg hover:bg-gray-100 text-[var(--sf-text-muted)]">
-                              <X size={14} />
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <span className="flex-1 text-sm text-[var(--sf-text-primary)]">{s.name}</span>
-                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button onClick={() => { setEditingId(s.id); setEditName(s.name); }}
-                                className="p-1.5 rounded-lg hover:bg-[var(--sf-bg-hover)] text-[var(--sf-text-muted)]" title="Rename">
-                                <Pencil size={13} />
-                              </button>
-                              <button onClick={() => handleDeleteSource(s.id, s.name)} disabled={savingSource === s.id}
-                                className="p-1.5 rounded-lg hover:bg-red-50 text-[var(--sf-text-muted)] hover:text-red-500" title="Delete">
-                                {savingSource === s.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
-                              </button>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    ))}
-                    {sources.length === 0 && (
-                      <div className="px-5 py-8 text-center text-sm text-[var(--sf-text-muted)]">
-                        No sources yet. Add one below or import from OpenPhone.
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Add source inline */}
-                  <div className="border-t border-[var(--sf-border-light)] px-5 py-3">
-                    {addingSource ? (
-                      <div className="flex items-center gap-2">
-                        <input
-                          autoFocus
-                          value={newSourceName}
-                          onChange={e => setNewSourceName(e.target.value)}
-                          onKeyDown={e => { if (e.key === 'Enter') handleAddSource(); if (e.key === 'Escape') { setAddingSource(false); setNewSourceName(''); } }}
-                          placeholder="Source name..."
-                          className="flex-1 text-sm border border-[var(--sf-border-light)] rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-[var(--sf-blue-500)]"
-                        />
-                        <button onClick={handleAddSource} disabled={savingSource === 'new' || !newSourceName.trim()}
-                          className="px-3 py-1.5 text-sm bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] disabled:opacity-50 flex items-center gap-1.5">
-                          {savingSource === 'new' ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
-                          Add
-                        </button>
-                        <button onClick={() => { setAddingSource(false); setNewSourceName(''); }}
-                          className="p-1.5 rounded-lg hover:bg-gray-100 text-[var(--sf-text-muted)]">
-                          <X size={14} />
-                        </button>
-                      </div>
-                    ) : (
-                      <button onClick={() => setAddingSource(true)}
-                        className="flex items-center gap-1.5 text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-600)] font-medium">
-                        <Plus size={14} /> Add Source
-                      </button>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* Import from OpenPhone */}
-            <div className="bg-white rounded-xl border border-[var(--sf-border-light)] p-5 mt-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-semibold text-[var(--sf-text-primary)]">Import from OpenPhone</h3>
-                  <p className="text-xs text-[var(--sf-text-muted)] mt-0.5">
-                    Import company tags from your OpenPhone contacts as lead sources. Duplicates are skipped.
-                  </p>
-                </div>
-                <button disabled={importing} onClick={handleImportFromOpenPhone}
-                  className="px-4 py-2 text-sm border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-hover)] text-[var(--sf-text-secondary)] disabled:opacity-50 flex items-center gap-2">
-                  {importing ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-                  {importing ? 'Importing...' : 'Import'}
-                </button>
+            <div className="mb-4 flex items-end justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-[var(--sf-text-primary)]">Lead Sources</h2>
+                <p className="text-sm text-[var(--sf-text-muted)] mt-0.5">
+                  Your canonical sources. Each source can have multiple raw values mapped from OpenPhone and LeadBridge.
+                </p>
               </div>
-              {importResult && !importing && (
-                <div className={`mt-3 rounded-lg p-3 text-xs ${importResult.error ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'}`}>
-                  {importResult.error
-                    ? `Error: ${importResult.error}`
-                    : importResult.imported > 0
-                      ? `Imported ${importResult.imported} new source${importResult.imported > 1 ? 's' : ''} (${importResult.sources?.length || 0} total)`
-                      : 'All OpenPhone sources already imported'
-                  }
-                </div>
-              )}
-            </div>
-          </section>
-
-          {/* ── Source Mapping ── */}
-          <section>
-            <div className="mb-4">
-              <h2 className="text-lg font-semibold text-[var(--sf-text-primary)]">Source Mapping</h2>
-              <p className="text-sm text-[var(--sf-text-muted)] mt-0.5">
-                Map raw values from OpenPhone and LeadBridge to your canonical lead sources.
-                For example, "Thumbtack S", "Thumbtack J", and "Tumbtack J" can all map to "Thumbtack".
-              </p>
             </div>
 
-            {mappingsLoading ? (
+            {isLoading ? (
               <div className="bg-white rounded-xl border border-[var(--sf-border-light)] flex items-center justify-center py-12">
                 <Loader2 size={24} className="animate-spin text-[var(--sf-text-muted)]" />
               </div>
             ) : (
-              <>
-                {/* Unmapped values */}
-                {unmapped.length > 0 && (
-                  <div className="bg-white rounded-xl border border-[var(--sf-border-light)] overflow-hidden mb-3">
-                    <div className="px-5 py-3 border-b border-[var(--sf-border-light)] flex items-center justify-between">
-                      <div>
-                        <h3 className="text-sm font-semibold text-[var(--sf-text-primary)]">
-                          Unmapped Values ({unmapped.length})
-                        </h3>
-                        <p className="text-xs text-[var(--sf-text-muted)]">Assign each raw value to a canonical source</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button onClick={handleAutoSuggest} disabled={suggesting}
-                          className="px-3 py-1.5 text-xs border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-hover)] text-[var(--sf-text-secondary)] disabled:opacity-50 flex items-center gap-1.5">
-                          {suggesting ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />}
-                          Auto-suggest
-                        </button>
-                        {Object.keys(pendingMappings).length > 0 && (
-                          <button onClick={handleSaveAllMappings} disabled={savingMapping === 'all'}
-                            className="px-3 py-1.5 text-xs bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] disabled:opacity-50 flex items-center gap-1.5">
-                            {savingMapping === 'all' ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
-                            Save All ({Object.keys(pendingMappings).length})
-                          </button>
+              <div className="bg-white rounded-xl border border-[var(--sf-border-light)] overflow-hidden">
+                {/* Source rows */}
+                <div className="divide-y divide-[var(--sf-border-light)]">
+                  {sourceWithMappings.map(s => {
+                    const isExpanded = expandedSources[s.name]
+                    const count = s.mappedValues.length
+                    return (
+                      <div key={s.name}>
+                        {/* Source header row */}
+                        <div className="flex items-center gap-2 px-5 py-3 group">
+                          {editingId === s.id ? (
+                            <>
+                              <input autoFocus value={editName} onChange={e => setEditName(e.target.value)}
+                                onKeyDown={e => { if (e.key === 'Enter') handleRenameSource(s.id); if (e.key === 'Escape') setEditingId(null) }}
+                                className="flex-1 text-sm border border-[var(--sf-blue-500)] rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-[var(--sf-blue-500)]" />
+                              <button onClick={() => handleRenameSource(s.id)} disabled={savingSource === s.id}
+                                className="p-1.5 rounded-lg hover:bg-green-50 text-green-600">
+                                {savingSource === s.id ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                              </button>
+                              <button onClick={() => setEditingId(null)} className="p-1.5 rounded-lg hover:bg-gray-100 text-[var(--sf-text-muted)]">
+                                <X size={14} />
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button onClick={() => count > 0 && toggleExpanded(s.name)} className="p-0.5 text-[var(--sf-text-muted)]" disabled={count === 0}>
+                                {count > 0 ? (isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />) : <span className="w-3.5" />}
+                              </button>
+                              <span className="text-sm font-medium text-[var(--sf-text-primary)] flex-1">{s.name}</span>
+                              {count > 0 && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-[var(--sf-text-muted)]">
+                                  {count} mapped
+                                </span>
+                              )}
+                              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                {s.id && (
+                                  <>
+                                    <button onClick={() => { setEditingId(s.id); setEditName(s.name) }}
+                                      className="p-1.5 rounded-lg hover:bg-[var(--sf-bg-hover)] text-[var(--sf-text-muted)]" title="Rename">
+                                      <Pencil size={13} />
+                                    </button>
+                                    <button onClick={() => handleDeleteSource(s.id, s.name)} disabled={savingSource === s.id}
+                                      className="p-1.5 rounded-lg hover:bg-red-50 text-[var(--sf-text-muted)] hover:text-red-500" title="Delete">
+                                      {savingSource === s.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </>
+                          )}
+                        </div>
+
+                        {/* Expanded: mapped raw values */}
+                        {isExpanded && count > 0 && (
+                          <div className="bg-[var(--sf-bg-page)] border-t border-[var(--sf-border-light)]">
+                            {s.mappedValues.map(m => (
+                              <div key={m.id} className="flex items-center gap-2.5 pl-12 pr-5 py-2 group/item">
+                                <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded ${PROV_COLOR[m.provider] || 'bg-gray-100 text-gray-500'}`}>
+                                  {PROV_SHORT[m.provider] || m.provider}
+                                </span>
+                                <span className="text-sm text-[var(--sf-text-secondary)]">{m.raw_value}</span>
+                                <div className="flex-1" />
+                                <button onClick={() => handleDeleteMapping(m.id)} disabled={savingMapping === m.id}
+                                  className="p-1 rounded hover:bg-red-50 text-[var(--sf-text-muted)] hover:text-red-500 opacity-0 group-hover/item:opacity-100 transition-opacity">
+                                  {savingMapping === m.id ? <Loader2 size={12} className="animate-spin" /> : <X size={12} />}
+                                </button>
+                              </div>
+                            ))}
+                          </div>
                         )}
                       </div>
-                    </div>
-                    <div className="divide-y divide-[var(--sf-border-light)] max-h-[400px] overflow-y-auto">
-                      {unmapped.map(u => {
-                        const key = `${u.provider}:${u.raw_value}`
-                        const ProvIcon = u.provider === 'leadbridge' ? MessageSquare : Phone
-                        const provLabel = u.provider === 'leadbridge' ? 'LB' : 'OP'
-                        return (
-                          <div key={key} className="flex items-center gap-2.5 px-5 py-2.5">
-                            <span className="text-[9px] font-medium px-1.5 py-0.5 rounded bg-gray-100 text-[var(--sf-text-muted)] flex-shrink-0" title={u.provider}>
-                              {provLabel}
-                            </span>
-                            <div className="min-w-0 flex items-center gap-1.5">
-                              <span className="text-sm text-[var(--sf-text-primary)] font-medium">{u.raw_value}</span>
-                              <span className="text-[10px] text-[var(--sf-text-muted)]">({u.count})</span>
-                            </div>
-                            <ArrowRight size={14} className="text-[var(--sf-text-muted)] flex-shrink-0 ml-auto" />
-                            <select
-                              value={pendingMappings[key] || ''}
-                              onChange={e => setPendingMappings(prev => ({ ...prev, [key]: e.target.value }))}
-                              className="text-sm border border-[var(--sf-border-light)] rounded-lg px-2.5 py-1.5 bg-white min-w-[140px] focus:outline-none focus:ring-1 focus:ring-[var(--sf-blue-500)]">
-                              <option value="">Map to...</option>
-                              {sources.map(s => (
-                                <option key={s.id} value={s.name}>{s.name}</option>
-                              ))}
-                            </select>
-                            {pendingMappings[key] ? (
-                              <button onClick={() => handleSaveMapping(u.raw_value, u.provider)}
-                                disabled={savingMapping === key}
-                                className="p-1.5 rounded-lg hover:bg-green-50 text-green-600 flex-shrink-0" title="Save mapping">
-                                {savingMapping === key ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
-                              </button>
-                            ) : (
-                              <button onClick={() => handlePromoteAsSource(u.raw_value, u.provider)}
-                                disabled={savingMapping === key}
-                                className="px-2 py-1 text-[10px] rounded border border-[var(--sf-border-light)] hover:bg-violet-50 hover:border-violet-200 text-[var(--sf-text-secondary)] hover:text-violet-600 flex-shrink-0 whitespace-nowrap"
-                                title="Add as a new source">
-                                {savingMapping === key ? <Loader2 size={11} className="animate-spin" /> : '+ Add as source'}
-                              </button>
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
+                    )
+                  })}
+                </div>
 
-                {/* Existing mappings */}
-                {mappings.length > 0 && (
-                  <div className="bg-white rounded-xl border border-[var(--sf-border-light)] overflow-hidden">
-                    <div className="px-5 py-3 border-b border-[var(--sf-border-light)]">
-                      <h3 className="text-sm font-semibold text-[var(--sf-text-primary)]">
-                        Active Mappings ({mappings.length})
-                      </h3>
+                {/* Add source */}
+                <div className="border-t border-[var(--sf-border-light)] px-5 py-3">
+                  {addingSource ? (
+                    <div className="flex items-center gap-2">
+                      <input autoFocus value={newSourceName} onChange={e => setNewSourceName(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') handleAddSource(); if (e.key === 'Escape') { setAddingSource(false); setNewSourceName('') } }}
+                        placeholder="Source name..." className="flex-1 text-sm border border-[var(--sf-border-light)] rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-[var(--sf-blue-500)]" />
+                      <button onClick={handleAddSource} disabled={savingSource === 'new' || !newSourceName.trim()}
+                        className="px-3 py-1.5 text-sm bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] disabled:opacity-50 flex items-center gap-1.5">
+                        {savingSource === 'new' ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />} Add
+                      </button>
+                      <button onClick={() => { setAddingSource(false); setNewSourceName('') }}
+                        className="p-1.5 rounded-lg hover:bg-gray-100 text-[var(--sf-text-muted)]"><X size={14} /></button>
                     </div>
-                    <div className="divide-y divide-[var(--sf-border-light)] max-h-[300px] overflow-y-auto">
-                      {mappings.map(m => {
-                        const ProvIcon = m.provider === 'leadbridge' ? MessageSquare : Phone
-                        return (
-                          <div key={m.id} className="flex items-center gap-3 px-5 py-2.5 group">
-                            <ProvIcon size={13} className="text-[var(--sf-text-muted)] flex-shrink-0" />
-                            <span className="text-sm text-[var(--sf-text-secondary)] min-w-0">{m.raw_value}</span>
-                            <ArrowRight size={14} className="text-[var(--sf-text-muted)] flex-shrink-0" />
-                            <span className="text-sm font-medium text-[var(--sf-text-primary)]">{m.source_name}</span>
-                            <div className="flex-1" />
-                            <button onClick={() => handleDeleteMapping(m.id)} disabled={savingMapping === m.id}
-                              className="p-1.5 rounded-lg hover:bg-red-50 text-[var(--sf-text-muted)] hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                              {savingMapping === m.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
-                            </button>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {unmapped.length === 0 && mappings.length === 0 && (
-                  <div className="bg-white rounded-xl border border-[var(--sf-border-light)] p-8 text-center">
-                    <p className="text-sm text-[var(--sf-text-muted)]">
-                      No source values found. Run a sync from Communications Settings first, then come back to map the values.
-                    </p>
-                  </div>
-                )}
-              </>
+                  ) : (
+                    <button onClick={() => setAddingSource(true)}
+                      className="flex items-center gap-1.5 text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-600)] font-medium">
+                      <Plus size={14} /> Add Source
+                    </button>
+                  )}
+                </div>
+              </div>
             )}
           </section>
 
-          {/* ── Lead Stage Automation ── */}
+          {/* ══════════════════════════════════════════════════════ */}
+          {/* SECTION 2: UNMAPPED VALUES                           */}
+          {/* ══════════════════════════════════════════════════════ */}
+          {!isLoading && unmapped.length > 0 && (
+            <section>
+              <div className="mb-4 flex items-end justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold text-[var(--sf-text-primary)]">Unmapped Values ({unmapped.length})</h2>
+                  <p className="text-sm text-[var(--sf-text-muted)] mt-0.5">
+                    Raw values from OpenPhone and LeadBridge not yet connected to a source. Map to an existing source or add as new.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button onClick={handleAutoSuggest} disabled={suggesting}
+                    className="px-3 py-1.5 text-xs border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-hover)] text-[var(--sf-text-secondary)] disabled:opacity-50 flex items-center gap-1.5">
+                    {suggesting ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />}
+                    Auto-suggest
+                  </button>
+                  {Object.keys(pendingMappings).length > 0 && (
+                    <button onClick={handleSaveAllMappings} disabled={savingMapping === 'all'}
+                      className="px-3 py-1.5 text-xs bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] disabled:opacity-50 flex items-center gap-1.5">
+                      {savingMapping === 'all' ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                      Save All ({Object.keys(pendingMappings).length})
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-white rounded-xl border border-[var(--sf-border-light)] overflow-hidden">
+                <div className="divide-y divide-[var(--sf-border-light)] max-h-[500px] overflow-y-auto">
+                  {unmapped.map(u => {
+                    const key = `${u.provider}:${u.raw_value}`
+                    const provLabel = PROV_SHORT[u.provider] || u.provider
+                    const provColor = PROV_COLOR[u.provider] || 'bg-gray-100 text-gray-500'
+                    return (
+                      <div key={key} className="flex items-center gap-2.5 px-5 py-2.5">
+                        <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded ${provColor} flex-shrink-0`} title={PROV_LABEL[u.provider]}>
+                          {provLabel}
+                        </span>
+                        <div className="min-w-0 flex items-center gap-1.5">
+                          <span className="text-sm text-[var(--sf-text-primary)] font-medium">{u.raw_value}</span>
+                          <span className="text-[10px] text-[var(--sf-text-muted)]">({u.count})</span>
+                        </div>
+                        <ArrowRight size={14} className="text-[var(--sf-text-muted)] flex-shrink-0 ml-auto" />
+                        <select
+                          value={pendingMappings[key] || ''}
+                          onChange={e => setPendingMappings(prev => ({ ...prev, [key]: e.target.value }))}
+                          className="text-sm border border-[var(--sf-border-light)] rounded-lg px-2.5 py-1.5 bg-white min-w-[140px] focus:outline-none focus:ring-1 focus:ring-[var(--sf-blue-500)]">
+                          <option value="">Map to...</option>
+                          {sources.map(s => (
+                            <option key={s.id} value={s.name}>{s.name}</option>
+                          ))}
+                        </select>
+                        {pendingMappings[key] ? (
+                          <button onClick={() => handleSaveMapping(u.raw_value, u.provider)}
+                            disabled={savingMapping === key}
+                            className="p-1.5 rounded-lg hover:bg-green-50 text-green-600 flex-shrink-0" title="Save mapping">
+                            {savingMapping === key ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+                          </button>
+                        ) : (
+                          <button onClick={() => handlePromoteAsSource(u.raw_value, u.provider)}
+                            disabled={savingMapping === key}
+                            className="px-2 py-1 text-[10px] rounded border border-[var(--sf-border-light)] hover:bg-violet-50 hover:border-violet-200 text-[var(--sf-text-secondary)] hover:text-violet-600 flex-shrink-0 whitespace-nowrap"
+                            title="Add as a new source">
+                            {savingMapping === key ? <Loader2 size={11} className="animate-spin" /> : '+ Add as source'}
+                          </button>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* ══════════════════════════════════════════════════════ */}
+          {/* SECTION 3: LEAD STAGE AUTOMATION                     */}
+          {/* ══════════════════════════════════════════════════════ */}
           <section>
             <div className="mb-4">
               <h2 className="text-lg font-semibold text-[var(--sf-text-primary)]">Lead Stage Automation</h2>
@@ -554,9 +457,7 @@ const LeadsSettings = () => {
                       <div key={evt.event} className="flex items-center justify-between px-5 py-4">
                         <div className="flex-1 min-w-0 pr-4">
                           <div className="flex items-center gap-2">
-                            <span className="w-6 h-6 rounded-full bg-[var(--sf-blue-50)] text-[var(--sf-blue-500)] text-xs font-bold flex items-center justify-center flex-shrink-0">
-                              {i + 1}
-                            </span>
+                            <span className="w-6 h-6 rounded-full bg-[var(--sf-blue-50)] text-[var(--sf-blue-500)] text-xs font-bold flex items-center justify-center flex-shrink-0">{i + 1}</span>
                             <span className="text-sm font-medium text-[var(--sf-text-primary)]">{evt.label}</span>
                           </div>
                           <p className="text-xs text-[var(--sf-text-muted)] mt-0.5 ml-8">{evt.desc}</p>
@@ -564,14 +465,10 @@ const LeadsSettings = () => {
                         <div className="flex items-center gap-2 flex-shrink-0">
                           {isSaving && <Loader2 size={14} className="animate-spin text-[var(--sf-text-muted)]" />}
                           <span className="text-xs text-[var(--sf-text-muted)]">→</span>
-                          <select
-                            value={rule?.targetStageId || ''}
-                            onChange={e => handleStageChange(evt.event, e.target.value)}
+                          <select value={rule?.targetStageId || ''} onChange={e => handleStageChange(evt.event, e.target.value)}
                             className="text-sm border border-[var(--sf-border-light)] rounded-lg px-3 py-1.5 bg-white min-w-[160px] focus:outline-none focus:ring-1 focus:ring-[var(--sf-blue-500)]">
                             <option value="">Select stage...</option>
-                            {stages.map(s => (
-                              <option key={s.id} value={s.id}>{s.name}</option>
-                            ))}
+                            {stages.map(s => (<option key={s.id} value={s.id}>{s.name}</option>))}
                           </select>
                         </div>
                       </div>
@@ -580,10 +477,8 @@ const LeadsSettings = () => {
                 </div>
               )}
             </div>
-
             <p className="text-xs text-[var(--sf-text-muted)] mt-3">
-              Leads only advance forward through stages — they never move backwards automatically.
-              These rules apply to both Thumbtack and Yelp leads.
+              Leads only advance forward through stages — they never move backwards automatically. These rules apply to both Thumbtack and Yelp leads.
             </p>
           </section>
 
@@ -593,42 +488,26 @@ const LeadsSettings = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-semibold text-[var(--sf-text-primary)]">Apply Rules to Existing Leads</h3>
-                  <p className="text-xs text-[var(--sf-text-muted)] mt-0.5">
-                    Update existing leads based on their conversation history. Only advances forward.
-                  </p>
+                  <p className="text-xs text-[var(--sf-text-muted)] mt-0.5">Update existing leads based on their conversation history. Only advances forward.</p>
                 </div>
                 <button disabled={backfilling} onClick={async () => {
-                  setBackfilling(true)
-                  setBackfillResult(null)
-                  try {
-                    const result = await leadAutomationAPI.backfill()
-                    setBackfillResult(result)
-                  } catch (e) {
-                    setBackfillResult({ error: e.response?.data?.error || e.message })
-                  } finally { setBackfilling(false) }
+                  setBackfilling(true); setBackfillResult(null)
+                  try { setBackfillResult(await leadAutomationAPI.backfill()) }
+                  catch (e) { setBackfillResult({ error: e.response?.data?.error || e.message }) }
+                  finally { setBackfilling(false) }
                 }} className="px-4 py-2 text-sm border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-hover)] text-[var(--sf-text-secondary)] disabled:opacity-50 flex items-center gap-2">
                   {backfilling && <Loader2 size={14} className="animate-spin" />}
                   {backfilling ? 'Applying...' : 'Apply Now'}
                 </button>
               </div>
-              {backfilling && (
-                <div className="mt-3">
-                  <div className="w-full bg-gray-200 rounded-full h-1.5">
-                    <div className="bg-[var(--sf-blue-500)] h-1.5 rounded-full animate-pulse" style={{ width: '60%' }} />
-                  </div>
-                  <p className="text-xs text-[var(--sf-text-muted)] mt-1">Processing leads...</p>
-                </div>
-              )}
               {backfillResult && !backfilling && (
                 <div className={`mt-3 rounded-lg p-3 text-xs ${backfillResult.error ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'}`}>
-                  {backfillResult.error
-                    ? `Error: ${backfillResult.error}`
-                    : `Updated ${backfillResult.updated} of ${backfillResult.total} leads`
-                  }
+                  {backfillResult.error ? `Error: ${backfillResult.error}` : `Updated ${backfillResult.updated} of ${backfillResult.total} leads`}
                 </div>
               )}
             </div>
           </section>
+
         </div>
       </div>
     </div>
