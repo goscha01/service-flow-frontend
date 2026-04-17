@@ -213,7 +213,11 @@ export default function ConnectedInboxes() {
 
         {flash && (
           <div className={`mb-4 p-3 rounded-lg text-sm ${params.get('error') ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
-            {params.get('error') ? `Error: ${params.get('error')}` : `Connected ${params.get('connected')} successfully — initial sync started.`}
+            {params.get('error')
+              ? `Error: ${params.get('error')}`
+              : params.get('connected') === 'outlook'
+                ? `Connected to Outlook. Select which mailbox to sync below.`
+                : `Connected ${params.get('connected')} successfully — initial sync started.`}
           </div>
         )}
 
