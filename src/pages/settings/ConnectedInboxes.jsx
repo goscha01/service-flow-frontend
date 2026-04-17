@@ -98,6 +98,13 @@ export default function ConnectedInboxes() {
     }
   }, [])
 
+  // Auto-open picker for any Outlook account in 'awaiting_selection' state.
+  useEffect(() => {
+    if (selectingMailboxFor) return
+    const awaiting = accounts.find(a => a.provider === 'outlook' && a.status === 'awaiting_selection')
+    if (awaiting) setSelectingMailboxFor(awaiting.id)
+  }, [accounts, selectingMailboxFor])
+
   // Poll progress every 1.5s for any account that has an active or recently-finished sync.
   useEffect(() => {
     if (accounts.length === 0) return
