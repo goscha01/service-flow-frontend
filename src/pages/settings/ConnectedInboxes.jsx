@@ -50,6 +50,7 @@ function statusPill(status) {
     syncing:   { Icon: RefreshCw, cls: 'text-blue-700 bg-blue-50', label: 'Syncing' },
     expired:   { Icon: Clock, cls: 'text-amber-700 bg-amber-50', label: 'Token expired' },
     error:     { Icon: AlertCircle, cls: 'text-red-700 bg-red-50', label: 'Error' },
+    awaiting_selection: { Icon: AlertCircle, cls: 'text-amber-700 bg-amber-50', label: 'Select mailbox' },
     disconnected: { Icon: AlertCircle, cls: 'text-gray-600 bg-gray-100', label: 'Disconnected' },
   }
   const m = map[status] || map.disconnected
