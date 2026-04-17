@@ -992,6 +992,17 @@ export const jobsAPI = {
     }
   },
 
+  // Cancel a job with optional financial adjustments (fee, reimbursement).
+  // payload: { cancellation_fee, cleaner_reimbursement, reimbursement_team_member_id, reason, notes }
+  cancel: async (id, payload = {}) => {
+    try {
+      const response = await api.post(`/jobs/${id}/cancel`, payload);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
   assignToTeamMember: async (jobId, teamMemberId) => {
     try {
       const response = await api.post(`/jobs/${jobId}/assign`, { teamMemberId });
