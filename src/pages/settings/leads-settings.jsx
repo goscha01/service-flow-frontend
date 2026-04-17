@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import { leadAutomationAPI, leadSourcesAPI, leadSourceMappingsAPI } from "../../services/api"
-import { ChevronLeft, Zap, Loader2, Plus, X, Pencil, Check, Trash2, Wand2, GripVertical, ChevronDown } from "lucide-react"
+import { ChevronLeft, Zap, Loader2, Plus, X, Pencil, Check, Trash2, Wand2, GripVertical, ChevronDown, Search } from "lucide-react"
 
 const EVENT_DEFS = [
   { event: 'lead_received', label: 'Lead Received', desc: 'New lead arrives from Thumbtack or Yelp' },
@@ -334,15 +334,52 @@ function SourceRow({ s, idx, editingId, editName, setEditName, setEditingId,
 
   const isOpen = openDropdown === s.name
   const dropdownRef = useRef(null)
+  const [dropSearch, setDropSearch] = useState('')
+  const [selectedKeys, setSelectedKeys] = useState(new Set())
+  const [savingBulk, setSavingBulk] = useState(false)
   const mapped = s.mappedValues || []
 
   // Close dropdown on outside click
   useEffect(() => {
-    if (!isOpen) return
+    if (!isOpen) { setDropSearch(''); setSelectedKeys(new Set()); return }
     const handler = (e) => { if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setOpenDropdown(null) }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [isOpen, setOpenDropdown])
+
+  const filteredDropdown = dropSearch.trim()
+    ? availableForDropdown.filter(v => v.raw_value.toLowerCase().includes(dropSearch.toLowerCase()))
+    : availableForDropdown
+
+  const toggleSelect = (key) => {
+    setSelectedKeys(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key); else next.add(key)
+      return next
+    })
+  }
+
+  const selectAllFiltered = () => {
+    const allKeys = filteredDropdown.map(v => `${v.provider}:${v.raw_value}`)
+    const allSelected = allKeys.every(k => selectedKeys.has(k))
+    setSelectedKeys(prev => {
+      const next = new Set(prev)
+      if (allSelected) allKeys.forEach(k => next.delete(k))
+      else allKeys.forEach(k => next.add(k))
+      return next
+    })
+  }
+
+  const handleBulkMap = async () => {
+    if (selectedKeys.size === 0) return
+    setSavingBulk(true)
+    const toMap = availableForDropdown.filter(v => selectedKeys.has(`${v.provider}:${v.raw_value}`))
+    try {
+      for (const v of toMap) await handleAddMapping(s.name, v.raw_value, v.provider)
+      setSelectedKeys(new Set())
+      setOpenDropdown(null)
+    } finally { setSavingBulk(false) }
+  }
 
   const isDragging = dragIdx === idx
   const isDragOver = dragOverIdx === idx && dragIdx !== idx
@@ -384,24 +421,60 @@ function SourceRow({ s, idx, editingId, editName, setEditName, setEditingId,
                   <Plus size={11} /> Map values <ChevronDown size={11} />
                 </button>
                 {isOpen && availableForDropdown.length > 0 && (
-                  <div className="absolute right-0 top-full mt-1 w-72 bg-white border border-[var(--sf-border-light)] rounded-xl shadow-lg z-20 max-h-64 overflow-y-auto">
-                    {availableForDropdown.map(v => {
-                      const key = `${v.provider}:${v.raw_value}`
-                      const isSaving = savingMapping === key
-                      return (
-                        <button key={key} disabled={isSaving}
-                          onClick={() => { handleAddMapping(s.name, v.raw_value, v.provider); }}
-                          className="w-full text-left px-3 py-2 hover:bg-[var(--sf-bg-hover)] flex items-center gap-2 text-sm disabled:opacity-50">
-                          {isSaving ? <Loader2 size={11} className="animate-spin" /> : (
-                            <span className={`text-[8px] font-bold px-1 py-0.5 rounded ${PROV_COLOR[v.provider] || 'bg-gray-100 text-gray-500'}`}>
-                              {PROV_SHORT[v.provider]}
-                            </span>
-                          )}
-                          <span className="truncate flex-1">{v.raw_value}</span>
-                          {v.count != null && <span className="text-[10px] text-[var(--sf-text-muted)]">({v.count})</span>}
+                  <div className="absolute right-0 top-full mt-1 w-96 bg-white border border-[var(--sf-border-light)] rounded-xl shadow-lg z-20 flex flex-col" style={{ maxHeight: '70vh' }}>
+                    {/* Sticky search header */}
+                    <div className="p-2 border-b border-[var(--sf-border-light)] flex-shrink-0 space-y-2">
+                      <div className="relative">
+                        <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--sf-text-muted)]" />
+                        <input autoFocus value={dropSearch} onChange={e => setDropSearch(e.target.value)}
+                          placeholder={`Search ${availableForDropdown.length} unmapped...`}
+                          className="w-full text-xs pl-7 pr-2 py-1.5 border border-[var(--sf-border-light)] rounded-lg focus:outline-none focus:ring-1 focus:ring-[var(--sf-blue-500)]" />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <button onClick={selectAllFiltered}
+                          className="text-[11px] text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-600)] font-medium">
+                          {filteredDropdown.length > 0 && filteredDropdown.every(v => selectedKeys.has(`${v.provider}:${v.raw_value}`))
+                            ? 'Deselect all' : `Select all${dropSearch ? ' filtered' : ''}`}
                         </button>
-                      )
-                    })}
+                        <span className="text-[10px] text-[var(--sf-text-muted)]">
+                          {selectedKeys.size > 0 ? `${selectedKeys.size} selected` : `${filteredDropdown.length} of ${availableForDropdown.length}`}
+                        </span>
+                      </div>
+                    </div>
+                    {/* Scrollable list */}
+                    <div className="overflow-y-auto flex-1 min-h-0">
+                      {filteredDropdown.length === 0 ? (
+                        <div className="px-3 py-6 text-center text-xs text-[var(--sf-text-muted)]">No matches</div>
+                      ) : filteredDropdown.map(v => {
+                        const key = `${v.provider}:${v.raw_value}`
+                        const isSaving = savingMapping === key
+                        const isSelected = selectedKeys.has(key)
+                        return (
+                          <label key={key} className={`w-full px-3 py-2 hover:bg-[var(--sf-bg-hover)] flex items-center gap-2 text-sm cursor-pointer ${isSelected ? 'bg-[var(--sf-blue-50)]' : ''}`}>
+                            <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(key)}
+                              className="w-3.5 h-3.5 rounded border-gray-300 text-[var(--sf-blue-500)] focus:ring-[var(--sf-blue-500)] cursor-pointer flex-shrink-0" />
+                            {isSaving ? <Loader2 size={11} className="animate-spin flex-shrink-0" /> : (
+                              <span className={`text-[8px] font-bold px-1 py-0.5 rounded ${PROV_COLOR[v.provider] || 'bg-gray-100 text-gray-500'} flex-shrink-0`}>
+                                {PROV_SHORT[v.provider]}
+                              </span>
+                            )}
+                            <span className="truncate flex-1" title={v.raw_value}>{v.raw_value}</span>
+                            {v.count != null && <span className="text-[10px] text-[var(--sf-text-muted)] flex-shrink-0">({v.count})</span>}
+                          </label>
+                        )
+                      })}
+                    </div>
+                    {/* Footer with bulk-map button */}
+                    <div className="px-3 py-2 border-t border-[var(--sf-border-light)] flex-shrink-0 flex items-center justify-between gap-2">
+                      <span className="text-[10px] text-[var(--sf-text-muted)]">
+                        Click checkboxes to select, then Map
+                      </span>
+                      <button onClick={handleBulkMap} disabled={selectedKeys.size === 0 || savingBulk}
+                        className="px-3 py-1 text-xs bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] disabled:opacity-50 flex items-center gap-1.5">
+                        {savingBulk ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}
+                        Map {selectedKeys.size > 0 ? selectedKeys.size : ''}
+                      </button>
+                    </div>
                   </div>
                 )}
                 {isOpen && availableForDropdown.length === 0 && (
