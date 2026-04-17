@@ -167,7 +167,8 @@ export default function ConnectedInboxes() {
       setValidating(true); setValidateError(''); setValidateHelp(null)
       const check = await connectedEmailAPI.validateMailbox(accountId, sharedMailboxInput.trim())
       if (!check.accessible) {
-        setValidateError(check.error || 'Access denied')
+        const detail = check.graphCode ? ` [${check.graphCode}: ${check.graphMessage || ''}]` : ''
+        setValidateError((check.error || 'Access denied') + detail)
         if (check.helpUrl || check.helpSteps) setValidateHelp({ helpUrl: check.helpUrl, helpSteps: check.helpSteps })
         return
       }
