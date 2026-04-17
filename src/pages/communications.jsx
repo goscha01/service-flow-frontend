@@ -851,6 +851,7 @@ const Communications = () => {
   const [showLeadPanel, setShowLeadPanel] = useState(false)
   const [locationFilter, setLocationFilter] = useState(null) // null = all, 'unassigned', or location id
   const [emailFolder, setEmailFolder] = useState('inbox') // 'inbox' | 'archived' | 'all'
+  const [emailMailboxFilter, setEmailMailboxFilter] = useState(null) // null = all, or mailbox email
   const [sfLocations, setSfLocations] = useState([]) // [{id, name, shortName}]
   const timelineEndRef = useRef(null)
   const timelineScrollRef = useRef(null)
@@ -1082,10 +1083,13 @@ const Communications = () => {
       if (emailFolder === 'inbox') list = list.filter(c => !c.isArchived && !c.is_archived)
       else if (emailFolder === 'archived') list = list.filter(c => c.isArchived || c.is_archived)
       // 'all' — no filter
+      if (emailMailboxFilter) {
+        list = list.filter(c => (c.endpoint_email || '').toLowerCase() === emailMailboxFilter.toLowerCase())
+      }
     }
     list.sort((a, b) => new Date(b.lastEventAt) - new Date(a.lastEventAt))
     return list
-  }, [conversations, activeFilter, searchQuery, isConnected, channelFilter, emailFolder])
+  }, [conversations, activeFilter, searchQuery, isConnected, channelFilter, emailFolder, emailMailboxFilter])
 
   // Group events by date for timeline
   const groupedEvents = useMemo(() => {
@@ -1210,6 +1214,21 @@ const Communications = () => {
                     <option key={l.id} value={l.id}>{l.shortName || l.name}</option>
                   ))}
                   <option value="unassigned">Unassigned Location</option>
+                </select>
+              </div>
+            )}
+
+            {/* Mailbox filter — shown on Email when 2+ connected mailboxes exist */}
+            {channelFilter === 'email' && connectedEmailAccounts.filter(a => a.status === 'connected').length > 1 && (
+              <div className="px-4 pb-2">
+                <select value={emailMailboxFilter || ''} onChange={e => setEmailMailboxFilter(e.target.value || null)}
+                  className="w-full text-xs border border-[var(--sf-border-light)] rounded-lg px-2 py-1.5 bg-white text-[var(--sf-text-secondary)] focus:outline-none focus:ring-1 focus:ring-[var(--sf-blue-500)]">
+                  <option value="">All Mailboxes</option>
+                  {connectedEmailAccounts.filter(a => a.status === 'connected').map(a => {
+                    const addr = a.target_mailbox_email || a.email_address
+                    const suffix = a.mailbox_type === 'shared' ? ' (shared)' : ''
+                    return <option key={a.id} value={addr}>{addr}{suffix}</option>
+                  })}
                 </select>
               </div>
             )}
