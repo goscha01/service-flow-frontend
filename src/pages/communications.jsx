@@ -386,8 +386,11 @@ function ConversationRow({ conv, isSelected, onClick }) {
           <span className="text-[10px] text-[var(--sf-text-muted)] flex-shrink-0 ml-2">{relativeTime(conv.lastEventAt)}</span>
         </div>
         <div className="flex items-center justify-between">
-          <span className={`text-xs truncate ${conv.unreadCount > 0 ? 'text-[var(--sf-text-secondary)]' : 'text-[var(--sf-text-muted)]'}`}>
-            {conv.lastPreview}
+          <span className={`text-xs truncate flex items-center gap-1 ${conv.unreadCount > 0 ? 'text-[var(--sf-text-secondary)]' : 'text-[var(--sf-text-muted)]'}`}>
+            {/📞/.test(conv.lastPreview || '') && (
+              <PhoneCall size={11} className="flex-shrink-0 text-purple-500" />
+            )}
+            <span className="truncate">{conv.lastPreview}</span>
           </span>
           {conv.unreadCount > 0 && (
             <span className="ml-2 flex-shrink-0 w-5 h-5 rounded-full bg-[var(--sf-blue-500)] text-white text-[10px] font-bold flex items-center justify-center">
