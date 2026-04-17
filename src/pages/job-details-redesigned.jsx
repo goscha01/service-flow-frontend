@@ -376,13 +376,22 @@ const JobDetails = () => {
       setError('No job data available')
       return
     }
-    
+
+    // Route ALL cancel transitions through the cancel modal — so the optional
+    // cancellation fee / cleaner reimbursement / reason / notes fields are
+    // captured. Without this, menu buttons bypass the modal and hit the plain
+    // status PATCH, producing a cancelled job with no cancellation metadata.
+    if (newStatus === 'cancelled') {
+      setShowCancelModal(true)
+      return
+    }
+
     try {
       setLoading(true)
       setError('')
-      
+
       console.log('Updating job status:', { jobId: job.id, newStatus })
-      
+
       // Use the same method as the existing status dropdown
       await jobsAPI.updateStatus(job.id, newStatus)
       
@@ -3217,7 +3226,7 @@ const JobDetails = () => {
               Reschedule
             </button>
             )}
-            <button onClick={() => { if (window.confirm('Cancel this job?')) { handleStatusUpdate('cancelled'); setMoreDropdown(false) } }}
+            <button onClick={() => { setShowCancelModal(true); setMoreDropdown(false) }}
               className="w-full text-left px-4 py-2.5 hover:bg-red-50 transition-colors flex items-center gap-3 text-red-600 font-medium text-sm">
               <XCircle size={18} className="text-red-400" />
               Cancel Job

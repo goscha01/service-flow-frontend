@@ -676,8 +676,11 @@ const JobDetails = () => {
 
   const handleStatusChange = async (newStatus) => {
     if (!job) return
+    // Route ALL cancel transitions through the cancel modal so optional
+    // cancellation fee / cleaner reimbursement / reason / notes are captured.
     if (newStatus === 'cancelled') {
-      if (!window.confirm('Cancel this job? This will remove all ledger entries (earnings, tips, incentives) for this job.')) return
+      setShowCancelModal(true)
+      return
     }
     if (newStatus === 'rescheduled' && (job.status === 'completed' || job.status === 'complete')) {
       if (!window.confirm('Reschedule this completed job? This will remove its ledger entries. You can then set a new date.')) return
