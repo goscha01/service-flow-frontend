@@ -222,6 +222,7 @@ const LeadsSettings = () => {
                       savingSource={savingSource} savingMapping={savingMapping}
                       handleRenameSource={handleRenameSource} handleDeleteSource={handleDeleteSource}
                       handleAddMapping={handleAddMapping} handleDeleteMapping={handleDeleteMapping}
+                      reloadMappings={loadMappings}
                       availableForDropdown={availableForDropdown}
                       openDropdown={openDropdown} setOpenDropdown={setOpenDropdown}
                       dragIdx={dragIdx} dragOverIdx={dragOverIdx}
@@ -328,7 +329,7 @@ const LeadsSettings = () => {
 // ── Source Row Component ──
 function SourceRow({ s, idx, editingId, editName, setEditName, setEditingId,
   savingSource, savingMapping, handleRenameSource, handleDeleteSource,
-  handleAddMapping, handleDeleteMapping, availableForDropdown,
+  handleAddMapping, handleDeleteMapping, availableForDropdown, reloadMappings,
   openDropdown, setOpenDropdown,
   dragIdx, dragOverIdx, handleDragStart, handleDragOver, handleDrop, handleDragEnd }) {
 
@@ -373,11 +374,16 @@ function SourceRow({ s, idx, editingId, editName, setEditName, setEditingId,
   const handleBulkMap = async () => {
     if (selectedKeys.size === 0) return
     setSavingBulk(true)
-    const toMap = availableForDropdown.filter(v => selectedKeys.has(`${v.provider}:${v.raw_value}`))
+    const toMap = availableForDropdown
+      .filter(v => selectedKeys.has(`${v.provider}:${v.raw_value}`))
+      .map(v => ({ raw_value: v.raw_value, source_name: s.name, provider: v.provider }))
     try {
-      for (const v of toMap) await handleAddMapping(s.name, v.raw_value, v.provider)
+      await leadSourceMappingsAPI.saveBulk(toMap)
       setSelectedKeys(new Set())
       setOpenDropdown(null)
+      await reloadMappings()
+    } catch (e) {
+      alert('Failed: ' + (e.response?.data?.error || e.message))
     } finally { setSavingBulk(false) }
   }
 
