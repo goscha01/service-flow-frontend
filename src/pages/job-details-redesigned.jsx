@@ -66,6 +66,8 @@ import {
 } from "lucide-react"
 import { jobsAPI, notificationAPI, territoriesAPI, teamAPI, invoicesAPI, twilioAPI, calendarAPI, notificationSettingsAPI, availabilityAPI, paymentMethodsAPI, paymentSettingsAPI } from "../services/api"
 import api, { stripeAPI } from "../services/api"
+import CancelJobModal from "../components/CancelJobModal"
+import CancellationSummary from "../components/CancellationSummary"
 import { useAuth } from "../context/AuthContext"
 import Sidebar from "../components/sidebar"
 import AddressAutocomplete from "../components/address-autocomplete"
@@ -2595,6 +2597,13 @@ const JobDetails = () => {
           </div>
         )}
 
+        {/* Cancellation summary (cancelled jobs only) */}
+        {job?.status === 'cancelled' && (
+          <div className="bg-white border-b border-[var(--sf-border-light)] px-4 py-4 mt-2">
+            <CancellationSummary job={job} />
+          </div>
+        )}
+
         {/* Expenses / Reimbursements Section */}
         {job?.id && (
           <div className="bg-white border-b border-[var(--sf-border-light)] px-4 py-4 mt-2">
@@ -4106,6 +4115,13 @@ const JobDetails = () => {
                 </div>
               )}
 
+              {/* Cancellation summary (cancelled jobs only) */}
+              {job?.status === 'cancelled' && (
+                <div className="mt-8">
+                  <CancellationSummary job={job} />
+                </div>
+              )}
+
               {/* Expenses / Reimbursements Section */}
               {job?.id && (
                 <div className="mt-8">
@@ -4971,44 +4987,25 @@ const JobDetails = () => {
           </div>
         )}
 
-        {/* Cancel Modal */}
+        {/* Cancel Modal — optional financial adjustments */}
         {showCancelModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-[var(--sf-text-primary)]">Cancel Job</h3>
-                  <button
-                    onClick={() => setShowCancelModal(false)}
-                    className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] p-1"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-                <p className="text-[var(--sf-text-secondary)] mb-6">
-                  Are you sure you want to cancel this job? This action cannot be undone.
-                </p>
-                
-                <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3">
-                  <button
-                    onClick={() => setShowCancelModal(false)}
-                    className="px-4 py-2 text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)] order-2 sm:order-1"
-                  >
-                    Keep Job
-                  </button>
-                  <button
-                    onClick={() => {
-                      handleStatusChange('cancelled')
-                      setShowCancelModal(false)
-                    }}
-                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 order-1 sm:order-2"
-                  >
-                    Cancel Job
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
+          <CancelJobModal
+            job={job}
+            teamMembers={teamMembers}
+            onClose={() => setShowCancelModal(false)}
+            onCancelled={(result) => {
+              setJob(prev => ({
+                ...prev,
+                status: 'cancelled',
+                cancellation_fee: result.cancellation_fee,
+                cancellation_fee_status: result.cancellation_fee_status,
+              }))
+              setSuccessMessage('Job cancelled')
+              setTimeout(() => setSuccessMessage(''), 3000)
+              setShowCancelModal(false)
+            }}
+            onError={(msg) => setError(msg || 'Failed to cancel job')}
+          />
         )}
 
         {/* Edit Service Modal */}
