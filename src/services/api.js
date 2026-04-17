@@ -2776,6 +2776,7 @@ export const leadSourcesAPI = {
   update: async (id, data) => { const r = await api.put(`/lead-sources/${id}`, data); return r.data; },
   remove: async (id) => { const r = await api.delete(`/lead-sources/${id}`); return r.data; },
   seed: async () => { const r = await api.post('/lead-sources/seed'); return r.data; },
+  reorder: async (order) => { const r = await api.put('/lead-sources/reorder', { order }); return r.data; },
   importFromOpenPhone: async () => { const r = await api.post('/lead-sources/import-from-openphone'); return r.data; },
 };
 
