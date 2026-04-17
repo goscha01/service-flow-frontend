@@ -958,12 +958,19 @@ const Communications = () => {
   // Load conversation detail when selected
   useEffect(() => {
     if (!selectedId) { setDetail(null); return }
+    // Clear stale detail immediately — avoids showing previous conversation's messages
+    setDetail(null)
     if (!isConnected) {
       setDetail(MOCK_DETAILS[selectedId] || null)
       return
     }
     setDetailLoading(true)
-    communicationsAPI.getConversation(selectedId).then(data => {
+    // Capture current selectedId so we can guard against stale fetch results
+    const fetchingId = selectedId
+    // Load more messages up front (100) — matches WhatsApp Web behaviour and avoids empty appearance
+    communicationsAPI.getConversation(selectedId, { limit: 100 }).then(data => {
+      // Guard: if user switched conversations mid-fetch, ignore this response
+      if (fetchingId !== selectedId) return
       setDetail(data)
       // Update local unread count + recalculate channel badges immediately
       setConversations(prev => {
@@ -982,9 +989,12 @@ const Communications = () => {
         return updated
       })
     }).catch(e => {
+      if (fetchingId !== selectedId) return
       console.error('Failed to load conversation:', e)
       setDetail(null)
-    }).finally(() => setDetailLoading(false))
+    }).finally(() => {
+      if (fetchingId === selectedId) setDetailLoading(false)
+    })
   }, [selectedId, isConnected])
 
   // Load older messages (infinite scroll)
