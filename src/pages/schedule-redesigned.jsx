@@ -7581,6 +7581,14 @@ const ServiceFlowSchedule = () => {
                         <p className="text-xs text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Amount due</p>
                       </div>
                     </div>
+                    {selectedJobDetails.payment_method && (
+                      <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
+                        <span className="text-xs text-gray-500" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>Payment source</span>
+                        <span className="text-sm font-medium text-gray-900 capitalize" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                          {selectedJobDetails.payment_method}
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Expanded Invoice Details */}
