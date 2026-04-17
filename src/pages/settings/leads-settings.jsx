@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
 import Sidebar from "../../components/sidebar"
 import { leadAutomationAPI, leadSourcesAPI, leadSourceMappingsAPI } from "../../services/api"
-import { ChevronLeft, Zap, Loader2, Plus, X, Pencil, Check, Trash2, ArrowRight, Wand2, ChevronDown, ChevronRight } from "lucide-react"
+import { ChevronLeft, Zap, Loader2, Plus, X, Pencil, Check, Trash2, ArrowRight, Wand2, ChevronDown, ChevronRight, GripVertical } from "lucide-react"
 
 const EVENT_DEFS = [
   { event: 'lead_received', label: 'Lead Received', desc: 'New lead arrives from Thumbtack or Yelp' },
@@ -220,6 +220,45 @@ const LeadsSettings = () => {
 
   const toggleExpanded = (name) => setExpandedSources(prev => ({ ...prev, [name]: !prev[name] }))
 
+  // ── Drag and drop reorder ──
+  const [dragIdx, setDragIdx] = useState(null)
+  const [dragOverIdx, setDragOverIdx] = useState(null)
+
+  const handleDragStart = (e, idx) => {
+    setDragIdx(idx)
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', idx)
+  }
+
+  const handleDragOver = (e, idx) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setDragOverIdx(idx)
+  }
+
+  const handleDrop = async (e, dropIdx) => {
+    e.preventDefault()
+    setDragOverIdx(null)
+    if (dragIdx === null || dragIdx === dropIdx) { setDragIdx(null); return }
+    // Reorder sourceWithMappings (which follows sources order)
+    const ids = sourceWithMappings.map(s => s.id).filter(Boolean)
+    const moved = ids.splice(dragIdx, 1)[0]
+    if (!moved) { setDragIdx(null); return }
+    ids.splice(dropIdx, 0, moved)
+    setDragIdx(null)
+    // Optimistic UI update
+    const reordered = [...sourceWithMappings]
+    const [item] = reordered.splice(dragIdx, 1)
+    reordered.splice(dropIdx, 0, item)
+    // Persist
+    try {
+      const result = await leadSourcesAPI.reorder(ids)
+      setSources(result.sources || [])
+    } catch (e) { console.error('Reorder failed:', e); await loadSources() }
+  }
+
+  const handleDragEnd = () => { setDragIdx(null); setDragOverIdx(null) }
+
   const isLoading = sourcesLoading || mappingsLoading
 
   return (
@@ -260,11 +299,20 @@ const LeadsSettings = () => {
               <div className="bg-white rounded-xl border border-[var(--sf-border-light)] overflow-hidden">
                 {/* Source rows */}
                 <div className="divide-y divide-[var(--sf-border-light)]">
-                  {sourceWithMappings.map(s => {
+                  {sourceWithMappings.map((s, idx) => {
                     const isExpanded = expandedSources[s.name]
                     const count = s.mappedValues.length
+                    const isDragging = dragIdx === idx
+                    const isDragOver = dragOverIdx === idx && dragIdx !== idx
                     return (
-                      <div key={s.name}>
+                      <div key={s.name}
+                        draggable={!!s.id && editingId !== s.id}
+                        onDragStart={e => handleDragStart(e, idx)}
+                        onDragOver={e => handleDragOver(e, idx)}
+                        onDrop={e => handleDrop(e, idx)}
+                        onDragEnd={handleDragEnd}
+                        style={{ opacity: isDragging ? 0.4 : 1 }}>
+                        {isDragOver && <div className="h-0.5 bg-[var(--sf-blue-500)]" />}
                         {/* Source header row */}
                         <div className="flex items-center gap-2 px-5 py-3 group">
                           {editingId === s.id ? (
@@ -282,6 +330,7 @@ const LeadsSettings = () => {
                             </>
                           ) : (
                             <>
+                              <GripVertical size={14} className="text-[var(--sf-text-muted)] opacity-0 group-hover:opacity-50 cursor-grab flex-shrink-0" />
                               <button onClick={() => count > 0 && toggleExpanded(s.name)} className="p-0.5 text-[var(--sf-text-muted)]" disabled={count === 0}>
                                 {count > 0 ? (isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />) : <span className="w-3.5" />}
                               </button>
