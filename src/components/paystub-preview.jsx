@@ -91,11 +91,42 @@ export default function PaystubPreview({ snapshot }) {
               <td className="px-4 py-2.5 text-right font-medium">{fmtNeg(totals.cashCollected)}</td>
             </tr>
             <tr className="border-t-2 border-[var(--sf-text-primary)]">
-              <td className="px-4 py-3 font-bold text-[var(--sf-text-primary)]">Net Paid</td>
+              <td className="px-4 py-3 font-bold text-[var(--sf-text-primary)]">Net Earned</td>
               <td className="px-4 py-3 text-right font-bold text-[var(--sf-text-primary)]">{fmt(totals.netPayout)}</td>
             </tr>
           </tbody>
         </table>
+
+        {/* Payment block — only when linked to a payout batch */}
+        {(payout.amount !== null && payout.amount !== undefined) && (() => {
+          const amt = parseFloat(payout.amount) || 0
+          const isPaid = payout.status === 'paid'
+          let label, valueText, classes
+          if (amt > 0) {
+            label = isPaid ? 'Payment Sent' : 'Payment Pending'
+            valueText = fmt(amt)
+            classes = isPaid ? 'bg-green-50 text-green-800' : 'bg-amber-50 text-amber-800'
+          } else if (amt < 0) {
+            label = 'Balance Owed (carried to next period)'
+            valueText = fmtNeg(amt)
+            classes = 'bg-red-50 text-red-800'
+          } else {
+            label = 'Settled'
+            valueText = fmt(0)
+            classes = 'bg-gray-100 text-gray-700'
+          }
+          return (
+            <div className={`mt-3 p-4 rounded-lg flex justify-between items-center ${classes}`}>
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wider">{label}</div>
+                {payout.paidAt && (
+                  <div className="text-[11px] opacity-80 mt-0.5">on {formatDate(payout.paidAt)}</div>
+                )}
+              </div>
+              <div className="text-lg font-bold">{valueText}</div>
+            </div>
+          )
+        })()}
 
         {/* Line items */}
         {lineItems.length > 0 && (
