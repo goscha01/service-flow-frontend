@@ -335,10 +335,29 @@ function SourceRow({ s, idx, editingId, editName, setEditName, setEditingId,
 
   const isOpen = openDropdown === s.name
   const dropdownRef = useRef(null)
+  const triggerRef = useRef(null)
   const [dropSearch, setDropSearch] = useState('')
   const [selectedKeys, setSelectedKeys] = useState(new Set())
   const [savingBulk, setSavingBulk] = useState(false)
+  const [dropDirection, setDropDirection] = useState('down') // 'down' | 'up'
+  const [dropMaxHeight, setDropMaxHeight] = useState(480)
   const mapped = s.mappedValues || []
+
+  // Compute direction + max height whenever dropdown opens
+  useEffect(() => {
+    if (!isOpen || !triggerRef.current) return
+    const rect = triggerRef.current.getBoundingClientRect()
+    const spaceBelow = window.innerHeight - rect.bottom - 16
+    const spaceAbove = rect.top - 16
+    const preferred = 520
+    if (spaceBelow >= 240 || spaceBelow >= spaceAbove) {
+      setDropDirection('down')
+      setDropMaxHeight(Math.min(preferred, spaceBelow))
+    } else {
+      setDropDirection('up')
+      setDropMaxHeight(Math.min(preferred, spaceAbove))
+    }
+  }, [isOpen])
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -422,13 +441,25 @@ function SourceRow({ s, idx, editingId, editName, setEditName, setEditingId,
               <div className="flex-1" />
               {/* Dropdown trigger */}
               <div className="relative" ref={dropdownRef}>
-                <button onClick={() => setOpenDropdown(isOpen ? null : s.name)}
+                <button ref={triggerRef} onClick={() => setOpenDropdown(isOpen ? null : s.name)}
                   className="px-2.5 py-1 text-xs border border-dashed border-[var(--sf-border-light)] rounded-lg hover:border-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] text-[var(--sf-text-muted)] flex items-center gap-1">
                   <Plus size={11} /> Map values <ChevronDown size={11} />
                 </button>
                 {isOpen && availableForDropdown.length > 0 && (
-                  <div className="absolute right-0 top-full mt-1 w-96 bg-white border border-[var(--sf-border-light)] rounded-xl shadow-lg z-20 flex flex-col" style={{ maxHeight: '70vh' }}>
-                    {/* Sticky search header */}
+                  <div className={`absolute right-0 w-96 bg-white border border-[var(--sf-border-light)] rounded-xl shadow-lg z-20 flex flex-col ${dropDirection === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'}`}
+                    style={{ maxHeight: `${dropMaxHeight}px` }}>
+                    {/* Top: Map button + actions header */}
+                    <div className="px-3 py-2 border-b border-[var(--sf-border-light)] flex-shrink-0 flex items-center justify-between gap-2 bg-[var(--sf-bg-page)]">
+                      <span className="text-[11px] text-[var(--sf-text-secondary)] font-medium">
+                        Map to <span className="text-[var(--sf-text-primary)]">{s.name}</span>
+                      </span>
+                      <button onClick={handleBulkMap} disabled={selectedKeys.size === 0 || savingBulk}
+                        className="px-3 py-1 text-xs bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] disabled:opacity-50 flex items-center gap-1.5">
+                        {savingBulk ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}
+                        Map {selectedKeys.size > 0 ? selectedKeys.size : ''}
+                      </button>
+                    </div>
+                    {/* Search + select-all */}
                     <div className="p-2 border-b border-[var(--sf-border-light)] flex-shrink-0 space-y-2">
                       <div className="relative">
                         <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--sf-text-muted)]" />
@@ -470,21 +501,10 @@ function SourceRow({ s, idx, editingId, editName, setEditName, setEditingId,
                         )
                       })}
                     </div>
-                    {/* Footer with bulk-map button */}
-                    <div className="px-3 py-2 border-t border-[var(--sf-border-light)] flex-shrink-0 flex items-center justify-between gap-2">
-                      <span className="text-[10px] text-[var(--sf-text-muted)]">
-                        Click checkboxes to select, then Map
-                      </span>
-                      <button onClick={handleBulkMap} disabled={selectedKeys.size === 0 || savingBulk}
-                        className="px-3 py-1 text-xs bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] disabled:opacity-50 flex items-center gap-1.5">
-                        {savingBulk ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}
-                        Map {selectedKeys.size > 0 ? selectedKeys.size : ''}
-                      </button>
-                    </div>
                   </div>
                 )}
                 {isOpen && availableForDropdown.length === 0 && (
-                  <div className="absolute right-0 top-full mt-1 w-56 bg-white border border-[var(--sf-border-light)] rounded-xl shadow-lg z-20 p-4 text-center">
+                  <div className={`absolute right-0 w-56 bg-white border border-[var(--sf-border-light)] rounded-xl shadow-lg z-20 p-4 text-center ${dropDirection === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'}`}>
                     <p className="text-xs text-[var(--sf-text-muted)]">All values are mapped</p>
                   </div>
                 )}
