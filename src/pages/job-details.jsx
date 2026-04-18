@@ -2148,6 +2148,24 @@ const JobDetails = () => {
                     <span className="text-sm font-medium text-green-600">+${parseFloat(job.tip_amount).toFixed(2)}</span>
                   </div>
                 )}
+                {parseFloat(job?.additional_fees || 0) > 0 && (
+                  <div className="py-2 border-b border-[var(--sf-border-light)]">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-[var(--sf-text-secondary)]">Fees</span>
+                      <span className="text-sm font-medium text-[var(--sf-text-primary)]">+${parseFloat(job.additional_fees).toFixed(2)}</span>
+                    </div>
+                    {Array.isArray(job?.fees_breakdown) && job.fees_breakdown.length > 0 && (
+                      <div className="mt-1 pl-3 space-y-0.5">
+                        {job.fees_breakdown.map((f, i) => (
+                          <div key={i} className="flex justify-between text-xs text-[var(--sf-text-muted)]">
+                            <span>{f?.name || (f?.type === 'fee' ? 'Fee' : 'Adjustment')}</span>
+                            <span>+${parseFloat(f?.amount ?? f?.adjustment_amount ?? 0).toFixed(2)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
                 <div className="flex justify-between items-center py-2 border-b border-[var(--sf-border-light)]">
                   <span className="text-sm text-[var(--sf-text-secondary)]">Total</span>
                   <span className="text-sm font-semibold text-[var(--sf-text-primary)]">${calculateTotalPrice().toFixed(2)}</span>
