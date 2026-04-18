@@ -7,8 +7,10 @@ import PaystubPreview from "./paystub-preview"
 
 const formatDate = (s) => {
   if (!s) return '—'
-  const d = new Date(s)
-  if (isNaN(d.getTime())) return String(s)
+  const str = String(s)
+  const isBareDate = /^\d{4}-\d{2}-\d{2}$/.test(str)
+  const d = new Date(isBareDate ? str + 'T00:00:00' : str)
+  if (isNaN(d.getTime())) return str
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
