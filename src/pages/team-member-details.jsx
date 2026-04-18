@@ -29,7 +29,7 @@ import {
   AlertCircle
 } from 'lucide-react'
 import { teamAPI, territoriesAPI, staffLocationsAPI } from '../services/api'
-import UpdateAvailabilityModal from '../components/update-availability-modal'
+import DateOverrideModal from '../components/date-override-modal'
 import AddTeamMemberModal from '../components/add-team-member-modal'
 import { getImageUrl } from '../utils/imageUtils'
 import { decodeHtmlEntities } from '../utils/htmlUtils'
@@ -68,6 +68,8 @@ const TeamMemberDetails = () => {
   const [savingDay, setSavingDay] = useState(null) // Track which day is being saved
   const [showWeeklyHoursModal, setShowWeeklyHoursModal] = useState(false)
   const [showAvailabilityModal, setShowAvailabilityModal] = useState(false)
+  const [overrideModalMode, setOverrideModalMode] = useState('unavailable') // 'unavailable' | 'custom_hours'
+  const [editingOverride, setEditingOverride] = useState(null)
   const [selectedDates, setSelectedDates] = useState([])
   const [settings, setSettings] = useState({
     isServiceProvider: true,
@@ -718,37 +720,33 @@ const TeamMemberDetails = () => {
   }
 
   const handleAvailabilityModalSave = async (availabilityData) => {
-    // Handle single date availability update
+    // availabilityData shape from DateOverrideModal: { date, available, hours: [{start,end}], label }
     const existingIndex = customAvailability.findIndex(item => item.date === availabilityData.date)
-    
+
+    const normalizedHours = availabilityData.available && Array.isArray(availabilityData.hours)
+      ? availabilityData.hours.filter(h => h && h.start && h.end)
+      : []
+
     const availabilityItem = {
       id: existingIndex >= 0 ? customAvailability[existingIndex].id : Date.now() + Math.random(),
       date: availabilityData.date,
-      available: availabilityData.available,
-      hours: availabilityData.hours
+      available: availabilityData.available && normalizedHours.length > 0,
+      hours: normalizedHours,
+      label: availabilityData.label || ''
     }
-    
-    if (existingIndex >= 0) {
-      // Update existing
-      setCustomAvailability(prev => prev.map((item, index) => 
-        index === existingIndex ? availabilityItem : item
-      ))
-    } else {
-      // Add new
-      setCustomAvailability(prev => [...prev, availabilityItem])
-    }
-    
-    // Save to backend via dedicated availability endpoint
+
+    const updatedCustom = existingIndex >= 0
+      ? customAvailability.map((item, index) => index === existingIndex ? availabilityItem : item)
+      : [...customAvailability, availabilityItem]
+
+    setCustomAvailability(updatedCustom)
+
     try {
       setSavingCustomAvailability(true)
-      
-      const updatedCustom = existingIndex >= 0
-        ? customAvailability.map((item, index) => index === existingIndex ? availabilityItem : item)
-        : [...customAvailability, availabilityItem]
       await teamAPI.updateAvailability(memberId, { workingHours, customAvailability: updatedCustom })
-      
-      // Refresh team member data
       await fetchTeamMemberDetails()
+      setShowAvailabilityModal(false)
+      setEditingOverride(null)
     } catch (error) {
       console.error('Error saving custom availability:', error)
       alert('Failed to save availability. Please try again.')
@@ -1548,57 +1546,136 @@ const TeamMemberDetails = () => {
                   </div>
 
                   {/* Custom Availability */}
-                  <div>
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center space-x-2">
-                        <Calendar className="w-4 h-4 text-[var(--sf-text-muted)]" />
-                        <h4 className="text-xs font-semibold text-[var(--sf-text-primary)] uppercase tracking-wide">Custom Availability</h4>
-                        <HelpCircle className="w-4 h-4 text-[var(--sf-text-muted)]" />
-                      </div>
-                    </div>
-
-                    {customAvailability.length === 0 ? (
-                      <div className="border-2 border-dashed border-[var(--sf-border-light)] rounded-lg p-8 text-center">
-                        <Calendar className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-                        <h5 className="text-sm font-medium text-[var(--sf-text-primary)] mb-1">Add a date override</h5>
-                        <p className="text-xs text-[var(--sf-text-secondary)] mb-4">
-                          Customize this provider's availability for specific dates.
-                        </p>
-                        <button
-                          onClick={() => setShowAvailabilityModal(true)}
-                          className="text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] font-medium"
-                        >
-                          Add Date Override
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        {customAvailability.map((item) => (
-                          <div
-                            key={item.id}
-                            className="flex items-center justify-between p-3 border border-[var(--sf-border-light)] rounded-lg"
-                          >
-                            <div>
-                              <p className="text-sm font-medium text-[var(--sf-text-primary)]">{item.date}</p>
-                              <p className="text-xs text-[var(--sf-text-secondary)]">{item.hours}</p>
+                  {(() => {
+                    const formatOverrideHours = (hours) => {
+                      if (!hours) return ''
+                      if (Array.isArray(hours)) {
+                        return hours
+                          .filter(h => h && h.start && h.end)
+                          .map(h => `${h.start} - ${h.end}`)
+                          .join(', ')
+                      }
+                      if (typeof hours === 'string') {
+                        if (hours.toLowerCase() === 'unavailable') return ''
+                        return hours
+                      }
+                      return ''
+                    }
+                    const timeOffEntries = customAvailability.filter(item => item.available === false)
+                    const additionalHoursEntries = customAvailability.filter(item => item.available !== false && Array.isArray(item.hours) && item.hours.length > 0)
+                    const openModal = (mode, existing = null) => {
+                      setOverrideModalMode(mode)
+                      setEditingOverride(existing)
+                      setShowAvailabilityModal(true)
+                    }
+                    return (
+                      <>
+                        {/* Time Off */}
+                        <div>
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center space-x-2">
+                              <Calendar className="w-4 h-4 text-[var(--sf-text-muted)]" />
+                              <h4 className="text-xs font-semibold text-[var(--sf-text-primary)] uppercase tracking-wide">Time Off</h4>
+                              <HelpCircle className="w-4 h-4 text-[var(--sf-text-muted)]" />
                             </div>
-                            <button
-                              onClick={() => handleRemoveCustomAvailability(item.id)}
-                              className="text-[var(--sf-text-muted)] hover:text-red-600"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
                           </div>
-                        ))}
-                        <button
-                          onClick={() => setShowAvailabilityModal(true)}
-                          className="text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] font-medium"
-                        >
-                          Add Date Override
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                          {timeOffEntries.length === 0 ? (
+                            <div className="border-2 border-dashed border-[var(--sf-border-light)] rounded-lg p-8 text-center">
+                              <Calendar className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                              <h5 className="text-sm font-medium text-[var(--sf-text-primary)] mb-1">Add time off</h5>
+                              <p className="text-xs text-[var(--sf-text-secondary)] mb-4">
+                                Mark specific dates as unavailable.
+                              </p>
+                              <button
+                                onClick={() => openModal('unavailable')}
+                                className="text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] font-medium"
+                              >
+                                Add Time Off
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="space-y-2">
+                              {timeOffEntries.map((item) => (
+                                <div
+                                  key={item.id}
+                                  className="flex items-center justify-between p-3 border border-[var(--sf-border-light)] rounded-lg"
+                                >
+                                  <div>
+                                    <p className="text-sm font-medium text-[var(--sf-text-primary)]">{item.date}</p>
+                                    <p className="text-xs text-[var(--sf-text-secondary)]">{item.label || 'Unavailable'}</p>
+                                  </div>
+                                  <button
+                                    onClick={() => handleRemoveCustomAvailability(item.id)}
+                                    className="text-[var(--sf-text-muted)] hover:text-red-600"
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              ))}
+                              <button
+                                onClick={() => openModal('unavailable')}
+                                className="text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] font-medium"
+                              >
+                                Add Time Off
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Additional Hours */}
+                        <div className="mt-8">
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center space-x-2">
+                              <Calendar className="w-4 h-4 text-[var(--sf-text-muted)]" />
+                              <h4 className="text-xs font-semibold text-[var(--sf-text-primary)] uppercase tracking-wide">Additional Hours</h4>
+                              <HelpCircle className="w-4 h-4 text-[var(--sf-text-muted)]" />
+                            </div>
+                          </div>
+                          {additionalHoursEntries.length === 0 ? (
+                            <div className="border-2 border-dashed border-[var(--sf-border-light)] rounded-lg p-8 text-center">
+                              <Calendar className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                              <h5 className="text-sm font-medium text-[var(--sf-text-primary)] mb-1">Add additional hours</h5>
+                              <p className="text-xs text-[var(--sf-text-secondary)] mb-4">
+                                Add custom working hours on a specific date (e.g. a day normally off).
+                              </p>
+                              <button
+                                onClick={() => openModal('custom_hours')}
+                                className="text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] font-medium"
+                              >
+                                Add Additional Hours
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="space-y-2">
+                              {additionalHoursEntries.map((item) => (
+                                <div
+                                  key={item.id}
+                                  className="flex items-center justify-between p-3 border border-[var(--sf-border-light)] rounded-lg"
+                                >
+                                  <div>
+                                    <p className="text-sm font-medium text-[var(--sf-text-primary)]">{item.date}</p>
+                                    <p className="text-xs text-[var(--sf-text-secondary)]">{formatOverrideHours(item.hours)}</p>
+                                  </div>
+                                  <button
+                                    onClick={() => handleRemoveCustomAvailability(item.id)}
+                                    className="text-[var(--sf-text-muted)] hover:text-red-600"
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              ))}
+                              <button
+                                onClick={() => openModal('custom_hours')}
+                                className="text-sm text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] font-medium"
+                              >
+                                Add Additional Hours
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )
+                  })()}
                 </div>
               </div>
               {/* Notifications Card */}
@@ -2045,14 +2122,13 @@ const TeamMemberDetails = () => {
         </div>
       )}
 
-      {/* Update Availability Modal */}
-      <UpdateAvailabilityModal
+      {/* Date Override Modal */}
+      <DateOverrideModal
         isOpen={showAvailabilityModal}
-        onClose={() => setShowAvailabilityModal(false)}
+        onClose={() => { setShowAvailabilityModal(false); setEditingOverride(null) }}
         onSave={handleAvailabilityModalSave}
-        teamMemberName={teamMember ? `${decodeHtmlEntities(teamMember.first_name || '')} ${decodeHtmlEntities(teamMember.last_name || '')}` : ''}
-        selectedDates={selectedDates}
-        availability={customAvailability}
+        existingOverride={editingOverride}
+        defaultMode={overrideModalMode}
       />
 
       {/* Edit Team Member Modal */}

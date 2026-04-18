@@ -60,6 +60,7 @@ const TeamMemberDetailsRedesigned = () => {
   const [editingTemplateIndex, setEditingTemplateIndex] = useState(null)
   const [showDateOverrideModal, setShowDateOverrideModal] = useState(false)
   const [editingOverrideIndex, setEditingOverrideIndex] = useState(null)
+  const [overrideModalMode, setOverrideModalMode] = useState('unavailable') // 'unavailable' | 'custom_hours'
   const [memberAvailabilityRaw, setMemberAvailabilityRaw] = useState(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
@@ -540,72 +541,153 @@ const TeamMemberDetailsRedesigned = () => {
                 </button>
               </div>
 
-              {/* Custom Availability */}
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center space-x-2">
-                    <h3 className="text-sm font-semibold text-[var(--sf-text-primary)]">CUSTOM AVAILABILITY</h3>
-                    <HelpCircle className="w-4 h-4 text-[var(--sf-text-muted)]" />
-                  </div>
-                  {customAvailability.length > 0 && (
-                    <button
-                      onClick={() => { setEditingOverrideIndex(null); setShowDateOverrideModal(true) }}
-                      className="text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] text-sm font-medium flex items-center gap-1"
-                    >
-                      <Plus className="w-3 h-3" /> Add
-                    </button>
-                  )}
-                </div>
-                {customAvailability.length === 0 ? (
-                  <div className="bg-[var(--sf-bg-page)] rounded-lg p-4 text-center">
-                    <Calendar className="w-8 h-8 text-[var(--sf-text-muted)] mx-auto mb-2" />
-                    <p className="text-sm text-[var(--sf-text-secondary)] mb-3">
-                      Add a date override - Customize this provider's availability for specific dates.
-                    </p>
-                    <button
-                      onClick={() => { setEditingOverrideIndex(null); setShowDateOverrideModal(true) }}
-                      className="px-4 py-2 bg-[var(--sf-blue-500)] text-white text-sm font-medium rounded-lg hover:bg-[var(--sf-blue-600)]"
-                    >
-                      Add Date Override
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {customAvailability.map((override, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 bg-[var(--sf-bg-page)] rounded-lg">
-                        <div className="flex items-center gap-2">
-                          <div className={`w-2.5 h-2.5 rounded-full ${override.available ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                          <div>
-                            <p className="text-sm font-medium text-[var(--sf-text-primary)]">
-                              {new Date(override.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                            </p>
-                            <p className="text-xs text-[var(--sf-text-muted)]">
-                              {override.label && `${override.label} · `}
-                              {override.available
-                                ? (override.hours?.length > 0 ? override.hours.map(h => `${h.start}-${h.end}`).join(', ') : 'Custom')
-                                : 'Unavailable'}
-                            </p>
-                          </div>
+              {/* Time Off / Additional Hours — split by override.available */}
+              {(() => {
+                const timeOffItems = customAvailability
+                  .map((o, index) => ({ o, index }))
+                  .filter(({ o }) => o.available === false)
+                const additionalHoursItems = customAvailability
+                  .map((o, index) => ({ o, index }))
+                  .filter(({ o }) => o.available !== false && Array.isArray(o.hours) && o.hours.length > 0)
+                const openModal = (mode, index = null) => {
+                  setOverrideModalMode(mode)
+                  setEditingOverrideIndex(index)
+                  setShowDateOverrideModal(true)
+                }
+                const formatDate = (dateStr) => new Date(dateStr + 'T00:00:00')
+                  .toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+                const formatHours = (hours) => Array.isArray(hours)
+                  ? hours.filter(h => h && h.start && h.end).map(h => `${h.start}-${h.end}`).join(', ')
+                  : (typeof hours === 'string' && hours.toLowerCase() !== 'unavailable' ? hours : '')
+
+                return (
+                  <>
+                    {/* Time Off */}
+                    <div>
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center space-x-2">
+                          <h3 className="text-sm font-semibold text-[var(--sf-text-primary)]">TIME OFF</h3>
+                          <HelpCircle className="w-4 h-4 text-[var(--sf-text-muted)]" />
                         </div>
-                        <div className="flex items-center gap-1">
+                        {timeOffItems.length > 0 && (
                           <button
-                            onClick={() => { setEditingOverrideIndex(index); setShowDateOverrideModal(true) }}
-                            className="text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] text-xs font-medium px-2 py-1"
+                            onClick={() => openModal('unavailable')}
+                            className="text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] text-sm font-medium flex items-center gap-1"
                           >
-                            Edit
+                            <Plus className="w-3 h-3" /> Add
                           </button>
-                          <button
-                            onClick={() => handleDeleteDateOverride(index)}
-                            className="text-red-400 hover:text-red-600 p-1"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
+                        )}
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+                      {timeOffItems.length === 0 ? (
+                        <div className="bg-[var(--sf-bg-page)] rounded-lg p-4 text-center">
+                          <Calendar className="w-8 h-8 text-[var(--sf-text-muted)] mx-auto mb-2" />
+                          <p className="text-sm text-[var(--sf-text-secondary)] mb-3">
+                            Mark specific dates as unavailable.
+                          </p>
+                          <button
+                            onClick={() => openModal('unavailable')}
+                            className="px-4 py-2 bg-[var(--sf-blue-500)] text-white text-sm font-medium rounded-lg hover:bg-[var(--sf-blue-600)]"
+                          >
+                            Add Time Off
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {timeOffItems.map(({ o, index }) => (
+                            <div key={index} className="flex items-center justify-between p-3 bg-[var(--sf-bg-page)] rounded-lg">
+                              <div className="flex items-center gap-2">
+                                <div className="w-2.5 h-2.5 rounded-full bg-red-500"></div>
+                                <div>
+                                  <p className="text-sm font-medium text-[var(--sf-text-primary)]">{formatDate(o.date)}</p>
+                                  <p className="text-xs text-[var(--sf-text-muted)]">
+                                    {o.label ? `${o.label} · Unavailable` : 'Unavailable'}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={() => openModal('unavailable', index)}
+                                  className="text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] text-xs font-medium px-2 py-1"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteDateOverride(index)}
+                                  className="text-red-400 hover:text-red-600 p-1"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Additional Hours */}
+                    <div className="mt-8">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center space-x-2">
+                          <h3 className="text-sm font-semibold text-[var(--sf-text-primary)]">ADDITIONAL HOURS</h3>
+                          <HelpCircle className="w-4 h-4 text-[var(--sf-text-muted)]" />
+                        </div>
+                        {additionalHoursItems.length > 0 && (
+                          <button
+                            onClick={() => openModal('custom_hours')}
+                            className="text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] text-sm font-medium flex items-center gap-1"
+                          >
+                            <Plus className="w-3 h-3" /> Add
+                          </button>
+                        )}
+                      </div>
+                      {additionalHoursItems.length === 0 ? (
+                        <div className="bg-[var(--sf-bg-page)] rounded-lg p-4 text-center">
+                          <Calendar className="w-8 h-8 text-[var(--sf-text-muted)] mx-auto mb-2" />
+                          <p className="text-sm text-[var(--sf-text-secondary)] mb-3">
+                            Add custom working hours for a specific date (e.g. a day normally off).
+                          </p>
+                          <button
+                            onClick={() => openModal('custom_hours')}
+                            className="px-4 py-2 bg-[var(--sf-blue-500)] text-white text-sm font-medium rounded-lg hover:bg-[var(--sf-blue-600)]"
+                          >
+                            Add Additional Hours
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {additionalHoursItems.map(({ o, index }) => (
+                            <div key={index} className="flex items-center justify-between p-3 bg-[var(--sf-bg-page)] rounded-lg">
+                              <div className="flex items-center gap-2">
+                                <div className="w-2.5 h-2.5 rounded-full bg-green-500"></div>
+                                <div>
+                                  <p className="text-sm font-medium text-[var(--sf-text-primary)]">{formatDate(o.date)}</p>
+                                  <p className="text-xs text-[var(--sf-text-muted)]">
+                                    {o.label && `${o.label} · `}{formatHours(o.hours) || 'Custom'}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={() => openModal('custom_hours', index)}
+                                  className="text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-500)] text-xs font-medium px-2 py-1"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteDateOverride(index)}
+                                  className="text-red-400 hover:text-red-600 p-1"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )
+              })()}
             </div>
 
           </div>
@@ -973,6 +1055,7 @@ const TeamMemberDetailsRedesigned = () => {
         onClose={() => { setShowDateOverrideModal(false); setEditingOverrideIndex(null) }}
         onSave={handleSaveDateOverride}
         existingOverride={editingOverrideIndex !== null ? customAvailability[editingOverrideIndex] : null}
+        defaultMode={overrideModalMode}
       />
 
       {/* Availability Edit Modal */}
