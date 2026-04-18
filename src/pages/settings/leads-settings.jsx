@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useMemo, useRef } from "react"
 import { useNavigate } from "react-router-dom"
-import { leadAutomationAPI, leadSourcesAPI, leadSourceMappingsAPI } from "../../services/api"
-import { ChevronLeft, Zap, Loader2, Plus, X, Pencil, Check, Trash2, Wand2, GripVertical, ChevronDown, Search } from "lucide-react"
+import { leadAutomationAPI, leadSourcesAPI, leadSourceMappingsAPI, openPhoneAPI, leadbridgeAPI } from "../../services/api"
+import { ChevronLeft, Zap, Loader2, Plus, X, Pencil, Check, Trash2, Wand2, GripVertical, ChevronDown, Search, RefreshCw } from "lucide-react"
 
 const EVENT_DEFS = [
   { event: 'lead_received', label: 'Lead Received', desc: 'New lead arrives from Thumbtack or Yelp' },
@@ -43,6 +43,11 @@ const LeadsSettings = () => {
   // Drag
   const [dragIdx, setDragIdx] = useState(null)
   const [dragOverIdx, setDragOverIdx] = useState(null)
+
+  // Sync (pulls fresh company data from OpenPhone + LeadBridge)
+  const [syncing, setSyncing] = useState(false)
+  const [syncProgress, setSyncProgress] = useState(null)
+  const [syncResult, setSyncResult] = useState(null)
 
   useEffect(() => { loadRules(); loadSources(); loadMappings() }, [])
 
@@ -172,6 +177,49 @@ const LeadsSettings = () => {
   }
   const getRuleForEvent = (et) => rules.find(r => r.eventType === et && r.channel === 'thumbtack') || rules.find(r => r.eventType === et)
 
+  // Sync all sources (OpenPhone + LeadBridge) — pulls fresh company data
+  const handleSyncAll = async () => {
+    setSyncing(true); setSyncResult(null); setSyncProgress({ op: 'starting', lb: 'starting' })
+    try {
+      // Kick off both syncs in parallel
+      const [opStart, lbStart] = await Promise.allSettled([
+        openPhoneAPI.sync().catch(e => ({ error: e?.response?.data?.error || e.message })),
+        leadbridgeAPI.sync(null).catch(e => ({ error: e?.response?.data?.error || e.message })),
+      ])
+
+      // Poll both sync progresses until both are done
+      const poll = async () => {
+        const [opP, lbP] = await Promise.all([
+          openPhoneAPI.getSyncProgress().catch(() => ({ status: 'idle' })),
+          leadbridgeAPI.getSyncProgress().catch(() => ({ status: 'idle' })),
+        ])
+        setSyncProgress({
+          op: opP.status, opSynced: opP.synced, opTotal: opP.total,
+          lb: lbP.status, lbSynced: lbP.synced, lbTotal: lbP.total,
+        })
+        return opP.status !== 'running' && lbP.status !== 'running'
+      }
+
+      // Poll every 2 seconds for up to 5 minutes
+      const maxAttempts = 150
+      for (let i = 0; i < maxAttempts; i++) {
+        await new Promise(r => setTimeout(r, 2000))
+        if (await poll()) break
+      }
+
+      setSyncResult({
+        ok: true,
+        message: 'Sync complete. Refresh to see updated sources.'
+      })
+      // Reload mappings (unmapped list will update with newly synced company values)
+      await loadMappings()
+    } catch (e) {
+      setSyncResult({ error: e?.response?.data?.error || e.message })
+    } finally {
+      setSyncing(false)
+    }
+  }
+
   const isLoading = sourcesLoading || mappingsLoading
   const unmappedCount = unmapped.length
 
@@ -192,7 +240,7 @@ const LeadsSettings = () => {
 
           {/* ── LEAD SOURCES WITH INLINE MAPPING ── */}
           <section>
-            <div className="mb-4 flex items-end justify-between">
+            <div className="mb-4 flex items-end justify-between gap-3 flex-wrap">
               <div>
                 <h2 className="text-lg font-semibold text-[var(--sf-text-primary)]">Lead Sources</h2>
                 <p className="text-sm text-[var(--sf-text-muted)] mt-0.5">
@@ -200,14 +248,43 @@ const LeadsSettings = () => {
                   {unmappedCount > 0 && <span className="text-amber-600 font-medium"> {unmappedCount} unmapped</span>}
                 </p>
               </div>
-              {unmappedCount > 0 && (
-                <button onClick={handleAutoSuggest} disabled={suggesting}
-                  className="px-3 py-1.5 text-xs border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-hover)] text-[var(--sf-text-secondary)] disabled:opacity-50 flex items-center gap-1.5">
-                  {suggesting ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />}
-                  Auto-map
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <button onClick={handleSyncAll} disabled={syncing}
+                  className="px-3 py-1.5 text-xs border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-hover)] text-[var(--sf-text-secondary)] disabled:opacity-50 flex items-center gap-1.5"
+                  title="Pull fresh source data from OpenPhone + LeadBridge">
+                  {syncing ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+                  {syncing ? 'Syncing...' : 'Sync All Sources'}
                 </button>
-              )}
+                {unmappedCount > 0 && (
+                  <button onClick={handleAutoSuggest} disabled={suggesting}
+                    className="px-3 py-1.5 text-xs border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-hover)] text-[var(--sf-text-secondary)] disabled:opacity-50 flex items-center gap-1.5">
+                    {suggesting ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />}
+                    Auto-map
+                  </button>
+                )}
+              </div>
             </div>
+
+            {/* Sync progress / result */}
+            {(syncing || syncResult) && (
+              <div className={`rounded-lg p-3 mb-3 text-xs ${syncResult?.error ? 'bg-red-50 text-red-600' : syncing ? 'bg-blue-50 text-blue-700' : 'bg-green-50 text-green-700'}`}>
+                {syncing ? (
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 font-medium"><Loader2 size={12} className="animate-spin" /> Syncing sources...</div>
+                    {syncProgress && (
+                      <div className="grid grid-cols-2 gap-3 mt-1.5">
+                        <div>OpenPhone: {syncProgress.opSynced ?? 0}/{syncProgress.opTotal ?? '...'} ({syncProgress.op || 'starting'})</div>
+                        <div>LeadBridge: {syncProgress.lbSynced ?? 0}/{syncProgress.lbTotal ?? '...'} ({syncProgress.lb || 'starting'})</div>
+                      </div>
+                    )}
+                  </div>
+                ) : syncResult?.error ? (
+                  `Error: ${syncResult.error}`
+                ) : (
+                  syncResult?.message
+                )}
+              </div>
+            )}
 
             {isLoading ? (
               <div className="bg-white rounded-xl border border-[var(--sf-border-light)] flex items-center justify-center py-12">
