@@ -5,7 +5,7 @@ import Sidebar from "../components/sidebar"
 import CustomerModal from "../components/customer-modal"
 import ExportCustomersModal from "../components/export-customers-modal"
 import { Search, User, Plus, AlertCircle, Loader2, X, RotateCw, Filter, LayoutGrid, List, Mail, Phone, MapPin, Building2 } from "lucide-react"
-import { customersAPI, jobsAPI } from "../services/api"
+import { customersAPI, jobsAPI, leadSourcesAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
 import { useNavigate, Link } from "react-router-dom"
 import he from 'he';
@@ -32,6 +32,8 @@ const ServiceFlowCustomers = () => {
   const [deleteLoading, setDeleteLoading] = useState(null)
   const [recurringFilter, setRecurringFilter] = useState("all") // "all", "recurring", "non-recurring"
   const [locationFilter, setLocationFilter] = useState("all") // "all" or a city name
+  const [sourceFilter, setSourceFilter] = useState("all") // "all", "__none__", or a canonical source name
+  const [availableSources, setAvailableSources] = useState([])
   const [viewTab, setViewTab] = useState("contacts") // "contacts", "companies"
   const [customersWithRecurring, setCustomersWithRecurring] = useState(new Set()) // Set of customer IDs with recurring jobs
 
@@ -39,6 +41,8 @@ const ServiceFlowCustomers = () => {
   useEffect(() => {
     if (!authLoading && user?.id) {
       fetchCustomers()
+      // Load canonical lead sources for the source filter dropdown
+      leadSourcesAPI.list().then(d => setAvailableSources(d.sources || [])).catch(() => {})
     } else if (!authLoading && !user?.id) {
       // If auth is done loading but no user, redirect to signin
       navigate('/signin')
@@ -330,6 +334,15 @@ const ServiceFlowCustomers = () => {
         return city === locationFilter
       })
     }
+
+    // Apply source filter (uses resolved_source from backend; "__none__" = no mapped source)
+    if (sourceFilter !== 'all') {
+      if (sourceFilter === '__none__') {
+        filtered = filtered.filter(c => !c.resolved_source)
+      } else {
+        filtered = filtered.filter(c => c.resolved_source === sourceFilter)
+      }
+    }
     
     // Apply search filter
     if (searchTerm && searchTerm.trim() !== '') {
@@ -381,7 +394,7 @@ const ServiceFlowCustomers = () => {
     }
     
     return filtered
-  }, [customers, searchTerm, recurringFilter, locationFilter, customersWithRecurring])
+  }, [customers, searchTerm, recurringFilter, locationFilter, sourceFilter, customersWithRecurring])
 
   // Show loading spinner while auth is loading
   if (authLoading) {
@@ -472,6 +485,19 @@ const ServiceFlowCustomers = () => {
                   <option value="all">All Locations</option>
                   {uniqueCities.map(city => (
                     <option key={city} value={city}>{city}</option>
+                  ))}
+                </select>
+
+                {/* Source Filter */}
+                <select
+                  value={sourceFilter}
+                  onChange={(e) => setSourceFilter(e.target.value)}
+                  className="px-3 py-2 text-sm border border-[var(--sf-border-light)] rounded-lg bg-white focus:ring-2 focus:ring-[var(--sf-blue-500)] cursor-pointer transition-colors"
+                >
+                  <option value="all">All Sources</option>
+                  <option value="__none__">No Source</option>
+                  {availableSources.map(s => (
+                    <option key={s.id} value={s.name}>{s.name}</option>
                   ))}
                 </select>
 

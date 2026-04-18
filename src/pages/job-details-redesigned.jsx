@@ -2201,20 +2201,22 @@ const JobDetails = () => {
           </div>
           <p className="text-sm text-[var(--sf-text-secondary)] mb-4">{formatArrivalWindow()}</p>
           
-          {/* Customer Name with Phone Icon */}
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-sm font-medium text-[var(--sf-text-primary)]">{getCustomerName()}</p>
+          {/* Customer Name with Source Badge + Phone Icon */}
+          <div className="flex items-center justify-between mb-2 gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <p className="text-sm font-medium text-[var(--sf-text-primary)] truncate">{getCustomerName()}</p>
+              {job?.customer_source_resolved && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-50 text-violet-600 border border-violet-100 flex-shrink-0">
+                  {job.customer_source_resolved}
+                </span>
+              )}
+            </div>
             {canViewCustomerContact(user) && job?.customer_phone && (
-              <a href={`tel:${job.customer_phone}`} className="p-1.5 hover:bg-[var(--sf-bg-hover)] rounded">
+              <a href={`tel:${job.customer_phone}`} className="p-1.5 hover:bg-[var(--sf-bg-hover)] rounded flex-shrink-0">
                 <Phone className="w-4 h-4 text-[var(--sf-text-secondary)]" />
               </a>
             )}
           </div>
-          
-          {/* Customer Source (lead/source channel) - always show, editable via Edit Customer */}
-          <p className="text-xs text-[var(--sf-text-muted)] mb-1">
-            Source: <span className="font-medium text-[var(--sf-text-primary)]">{job?.customer_source || 'No source'}</span>
-          </p>
           
           {/* Address */}
           <p className="text-sm text-[var(--sf-text-secondary)] mb-1">
@@ -2650,7 +2652,14 @@ const JobDetails = () => {
                 </span>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-[var(--sf-text-primary)]">{getCustomerName()}</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-sm font-medium text-[var(--sf-text-primary)]">{getCustomerName()}</p>
+                  {job?.customer_source_resolved && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-50 text-violet-600 border border-violet-100">
+                      {job.customer_source_resolved}
+                    </span>
+                  )}
+                </div>
                 {canViewCustomerContact(user) && job?.customer_phone && (
                   <div className="flex items-center space-x-1 mt-1">
                     <Phone className="w-3 h-3 text-[var(--sf-text-muted)]" />
