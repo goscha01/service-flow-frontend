@@ -3,8 +3,8 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import Sidebar from "../../components/sidebar"
-import { ChevronLeft, Link2, Trash2, AlertTriangle, Calendar, Users, UserCheck, MapPin, Briefcase } from "lucide-react"
-import { jobsAPI, customersAPI, teamAPI, territoriesAPI } from "../../services/api"
+import { ChevronLeft, Link2, Trash2, AlertTriangle, Calendar, Users, UserCheck, MapPin, Briefcase, RefreshCw, CheckCircle2 } from "lucide-react"
+import api, { jobsAPI, customersAPI, teamAPI, territoriesAPI } from "../../services/api"
 import { useAuth } from "../../context/AuthContext"
 import Notification, { useNotification } from "../../components/notification"
 
@@ -31,10 +31,46 @@ const Developers = () => {
   const [deletingJobs, setDeletingJobs] = useState(false)
   const [deletingTeam, setDeletingTeam] = useState(false)
   const [deletingTerritories, setDeletingTerritories] = useState(false)
-  
+
+  // Auto-reconcile log (ZB payments caught by the hourly sweep, not webhooks)
+  const [reconcileCatches, setReconcileCatches] = useState([])
+  const [reconcileRuns, setReconcileRuns] = useState([])
+  const [reconcileLoading, setReconcileLoading] = useState(false)
+  const [reconcileRunning, setReconcileRunning] = useState(false)
+
   useEffect(() => {
     loadImportedJobsCount()
+    loadReconcileLog()
   }, [startDate, endDate, useDateRange])
+
+  const loadReconcileLog = async () => {
+    try {
+      setReconcileLoading(true)
+      const res = await api.get('/zenbooker/payment-reconcile-log')
+      setReconcileCatches(res.data?.catches || [])
+      setReconcileRuns(res.data?.runs || [])
+    } catch (e) {
+      console.error('Failed to load reconcile log:', e)
+    } finally {
+      setReconcileLoading(false)
+    }
+  }
+
+  const handleRunReconcile = async () => {
+    try {
+      setReconcileRunning(true)
+      await api.post('/zenbooker/payment-reconcile/run')
+      showNotification('Auto-reconcile started. Results appear in ~30-60s.', 'success', 4000)
+      // Poll after a short delay to show results
+      setTimeout(loadReconcileLog, 15000)
+      setTimeout(loadReconcileLog, 45000)
+    } catch (e) {
+      const msg = e.response?.data?.error || 'Failed to start auto-reconcile'
+      showNotification(msg, 'error', 5000)
+    } finally {
+      setReconcileRunning(false)
+    }
+  }
   
   const loadImportedJobsCount = async () => {
     try {
@@ -452,10 +488,89 @@ const Developers = () => {
                 </div>
               </div>
             </div>
+
+            {/* Zenbooker Auto-Reconcile Log */}
+            <div className="bg-white rounded-lg border border-[var(--sf-border-light)] p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-xl font-semibold text-[var(--sf-text-primary)] mb-1 flex items-center gap-2">
+                    <CheckCircle2 className="w-5 h-5 text-green-600" />
+                    Zenbooker Auto-Reconcile Log
+                  </h2>
+                  <p className="text-[var(--sf-text-secondary)] text-sm">
+                    Payments <strong>caught by the hourly sweep</strong> — webhook is the default path; anything listed here means the ZB webhook failed and the safety net picked it up.
+                  </p>
+                </div>
+                <button
+                  onClick={handleRunReconcile}
+                  disabled={reconcileRunning}
+                  className="flex items-center gap-2 px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg text-sm font-medium hover:bg-[var(--sf-blue-600)] disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-4 h-4 ${reconcileRunning ? 'animate-spin' : ''}`} />
+                  {reconcileRunning ? 'Starting...' : 'Run now'}
+                </button>
+              </div>
+
+              {/* Recent runs summary */}
+              {reconcileRuns.length > 0 && (
+                <div className="mb-4 grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {reconcileRuns.slice(0, 4).map(r => (
+                    <div key={r.id} className="bg-[var(--sf-bg-page)] rounded-lg p-3 border border-[var(--sf-border-light)]">
+                      <div className="text-xs text-[var(--sf-text-secondary)]">
+                        {new Date(r.started_at).toLocaleString()} <span className="uppercase text-[10px]">· {r.triggered_by}</span>
+                      </div>
+                      <div className="text-sm mt-1">
+                        <span className="font-medium text-[var(--sf-text-primary)]">{r.payments_caught}</span>
+                        <span className="text-[var(--sf-text-secondary)]"> caught / {r.jobs_scanned} scanned</span>
+                        {r.errors > 0 && <span className="text-red-600"> · {r.errors} err</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Catches table */}
+              {reconcileLoading ? (
+                <div className="text-center py-8 text-[var(--sf-text-secondary)] text-sm">Loading…</div>
+              ) : reconcileCatches.length === 0 ? (
+                <div className="text-center py-8 text-[var(--sf-text-secondary)] text-sm">
+                  No auto-reconcile catches yet. Webhooks are handling all payments — that's the happy path.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-[var(--sf-border-light)] text-[var(--sf-text-secondary)] text-xs uppercase">
+                        <th className="text-left py-2 pr-4">Caught At</th>
+                        <th className="text-left py-2 pr-4">Job</th>
+                        <th className="text-left py-2 pr-4">Amount</th>
+                        <th className="text-left py-2 pr-4">Payment Method</th>
+                        <th className="text-left py-2 pr-4">ZB Invoice</th>
+                        <th className="text-left py-2">Notes</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {reconcileCatches.map(c => (
+                        <tr key={c.id} className="border-b border-[var(--sf-border-light)] hover:bg-[var(--sf-bg-page)]">
+                          <td className="py-2 pr-4 whitespace-nowrap text-[var(--sf-text-secondary)]">{new Date(c.caught_at).toLocaleString()}</td>
+                          <td className="py-2 pr-4">
+                            <a href={`/job/${c.job_id}`} className="text-[var(--sf-blue-500)] hover:underline" target="_blank" rel="noreferrer">#{c.job_id}</a>
+                          </td>
+                          <td className="py-2 pr-4 font-medium">${parseFloat(c.amount || 0).toFixed(2)}</td>
+                          <td className="py-2 pr-4">{c.payment_method || <span className="text-[var(--sf-text-muted)] italic">unresolved</span>}</td>
+                          <td className="py-2 pr-4 font-mono text-xs text-[var(--sf-text-muted)]" title={c.zb_invoice_id}>{c.zb_invoice_id ? c.zb_invoice_id.slice(0, 16) + '…' : '—'}</td>
+                          <td className="py-2 text-[var(--sf-text-secondary)] text-xs">{c.notes}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
-      
+
       {/* Delete Confirmation Modals */}
       {/* Delete All Customers Modal */}
       {showDeleteCustomersConfirm && (
