@@ -341,7 +341,33 @@ function SourceRow({ s, idx, editingId, editName, setEditName, setEditingId,
   const [savingBulk, setSavingBulk] = useState(false)
   const [dropDirection, setDropDirection] = useState('down') // 'down' | 'up'
   const [dropMaxHeight, setDropMaxHeight] = useState(480)
+  const [dropWidth, setDropWidth] = useState(384) // w-96
+  const [resizing, setResizing] = useState(false)
   const mapped = s.mappedValues || []
+
+  // Resize handlers — drag corner to resize dropdown
+  const startResize = (e) => {
+    e.preventDefault(); e.stopPropagation()
+    setResizing(true)
+    const startX = e.clientX
+    const startY = e.clientY
+    const startH = dropMaxHeight
+    const startW = dropWidth
+    const dirDown = dropDirection === 'down'
+    const onMove = (ev) => {
+      const dx = ev.clientX - startX
+      const dy = ev.clientY - startY
+      setDropMaxHeight(Math.max(200, Math.min(window.innerHeight - 100, startH + (dirDown ? dy : -dy))))
+      setDropWidth(Math.max(320, Math.min(window.innerWidth - 40, startW + dx)))
+    }
+    const onUp = () => {
+      setResizing(false)
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+    }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }
 
   // Compute direction + max height whenever dropdown opens
   useEffect(() => {
@@ -447,8 +473,8 @@ function SourceRow({ s, idx, editingId, editName, setEditName, setEditingId,
                   <Plus size={11} /> Map values <ChevronDown size={11} />
                 </button>
                 {isOpen && availableForDropdown.length > 0 && (
-                  <div className={`absolute right-0 w-96 bg-white border border-[var(--sf-border-light)] rounded-xl shadow-lg z-50 flex flex-col ${dropDirection === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'}`}
-                    style={{ maxHeight: `${dropMaxHeight}px` }}>
+                  <div className={`absolute right-0 bg-white border border-[var(--sf-border-light)] rounded-xl shadow-lg z-50 flex flex-col ${dropDirection === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'} ${resizing ? 'select-none' : ''}`}
+                    style={{ height: `${dropMaxHeight}px`, width: `${dropWidth}px` }}>
                     {/* Top: Map button + actions header */}
                     <div className="px-3 py-2 border-b border-[var(--sf-border-light)] flex-shrink-0 flex items-center justify-between gap-2 bg-[var(--sf-bg-page)]">
                       <span className="text-[11px] text-[var(--sf-text-secondary)] font-medium">
@@ -502,6 +528,17 @@ function SourceRow({ s, idx, editingId, editName, setEditName, setEditingId,
                         )
                       })}
                     </div>
+                    {/* Resize grip — corner (opposite of dropdown direction anchor) */}
+                    <div
+                      onMouseDown={startResize}
+                      title="Drag to resize"
+                      className={`absolute right-0 ${dropDirection === 'up' ? 'top-0' : 'bottom-0'} w-4 h-4 ${dropDirection === 'up' ? 'cursor-ne-resize' : 'cursor-se-resize'} flex items-center justify-center opacity-40 hover:opacity-100 transition-opacity`}
+                      style={{
+                        background: dropDirection === 'up'
+                          ? 'linear-gradient(45deg, transparent 50%, rgba(0,0,0,0.25) 50%)'
+                          : 'linear-gradient(-45deg, transparent 50%, rgba(0,0,0,0.25) 50%)'
+                      }}
+                    />
                   </div>
                 )}
                 {isOpen && availableForDropdown.length === 0 && (
