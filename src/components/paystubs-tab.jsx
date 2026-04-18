@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, useMemo } from "react"
-import { FileText, Mail, Eye, Trash2, Plus, Loader2, X, AlertCircle, Send, RefreshCw } from "lucide-react"
+import { FileText, Mail, Eye, Trash2, Plus, Loader2, X, AlertCircle, Send, RefreshCw, Users, CheckCircle2 } from "lucide-react"
 import { paystubsAPI } from "../services/api"
 import PaystubPreview from "./paystub-preview"
 
@@ -63,6 +63,10 @@ export default function PaystubsTab({ teamMembers = [], periodStart, periodEnd, 
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [deleting, setDeleting] = useState(false)
 
+  // Bulk send + success banner
+  const [bulkSending, setBulkSending] = useState(false)
+  const [successMsg, setSuccessMsg] = useState(null)
+
   const loadPaystubs = async () => {
     setLoading(true); setError(null)
     try {
@@ -98,8 +102,28 @@ export default function PaystubsTab({ teamMembers = [], periodStart, periodEnd, 
   }, [payoutBatches, genMemberId])
 
   const handleGenerate = async () => {
-    setGenerating(true); setGenError(null)
+    setGenerating(true); setGenError(null); setSuccessMsg(null)
     try {
+      // Bulk path — "All team members" selected
+      if (genMemberId === '__all__') {
+        if (!genPeriodStart || !genPeriodEnd) { setGenError('Enter both period dates'); setGenerating(false); return }
+        const result = await paystubsAPI.bulkCreate({
+          periodStart: genPeriodStart,
+          periodEnd: genPeriodEnd,
+          useBatches: true,
+        })
+        const s = result.summary || {}
+        const parts = [`${s.createdCount || 0} generated`]
+        if (s.skippedCount) parts.push(`${s.skippedCount} skipped`)
+        if (s.errorCount) parts.push(`${s.errorCount} failed`)
+        setSuccessMsg(`Bulk generate: ${parts.join(', ')}.`)
+        setShowGenerateModal(false)
+        setGenMemberId(''); setGenBatchId('')
+        await loadPaystubs()
+        return
+      }
+
+      // Single-member path
       const body = { teamMemberId: parseInt(genMemberId) }
       if (genSource === 'batch') {
         if (!genBatchId) { setGenError('Select a payout batch'); setGenerating(false); return }
@@ -119,6 +143,29 @@ export default function PaystubsTab({ teamMembers = [], periodStart, periodEnd, 
       setGenerating(false)
     }
   }
+
+  const handleBulkSend = async () => {
+    if (!window.confirm('Send all unsent paystubs (issued or failed) by email? Paystubs already marked sent will be skipped.')) return
+    setBulkSending(true); setError(null); setSuccessMsg(null)
+    try {
+      const result = await paystubsAPI.bulkSend({ includeSent: false })
+      const s = result.summary || {}
+      const parts = [`${s.sentCount || 0} sent`]
+      if (s.skippedCount) parts.push(`${s.skippedCount} skipped (no email)`)
+      if (s.errorCount) parts.push(`${s.errorCount} failed`)
+      setSuccessMsg(`Bulk send: ${parts.join(', ')}.`)
+      await loadPaystubs()
+    } catch (e) {
+      setError(e.response?.data?.error || 'Failed to bulk send paystubs')
+    } finally {
+      setBulkSending(false)
+    }
+  }
+
+  const unsentCount = useMemo(
+    () => paystubs.filter(p => p.status === 'issued' || p.status === 'failed').length,
+    [paystubs]
+  )
 
   const handleSend = async (paystub) => {
     setSending(true); setSendError(null)
@@ -178,18 +225,37 @@ export default function PaystubsTab({ teamMembers = [], periodStart, periodEnd, 
             <option value="failed">Failed</option>
           </select>
         </div>
-        <button
-          onClick={() => {
-            setShowGenerateModal(true)
-            setGenMemberId(''); setGenBatchId('')
-            setGenPeriodStart(periodStart || ''); setGenPeriodEnd(periodEnd || '')
-            setGenError(null)
-          }}
-          className="flex items-center gap-1.5 px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] text-sm font-medium"
-        >
-          <Plus className="w-4 h-4" /> Generate Paystub
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleBulkSend}
+            disabled={bulkSending || unsentCount === 0}
+            className="flex items-center gap-1.5 px-3 py-2 bg-white border border-[var(--sf-border-light)] text-[var(--sf-text-primary)] rounded-lg hover:bg-gray-50 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            title={unsentCount === 0 ? 'No unsent paystubs' : `Send ${unsentCount} unsent paystub${unsentCount === 1 ? '' : 's'}`}
+          >
+            {bulkSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+            Send Unsent{unsentCount > 0 ? ` (${unsentCount})` : ''}
+          </button>
+          <button
+            onClick={() => {
+              setShowGenerateModal(true)
+              setGenMemberId(''); setGenBatchId('')
+              setGenPeriodStart(periodStart || ''); setGenPeriodEnd(periodEnd || '')
+              setGenError(null)
+            }}
+            className="flex items-center gap-1.5 px-4 py-2 bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] text-sm font-medium"
+          >
+            <Plus className="w-4 h-4" /> Generate Paystub
+          </button>
+        </div>
       </div>
+
+      {/* Success banner */}
+      {successMsg && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-700 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4" /> {successMsg}</div>
+          <button onClick={() => setSuccessMsg(null)} className="text-green-700 hover:text-green-900"><X className="w-4 h-4" /></button>
+        </div>
+      )}
 
       {/* Error banner */}
       {error && (
@@ -307,6 +373,7 @@ export default function PaystubsTab({ teamMembers = [], periodStart, periodEnd, 
                   className="w-full text-sm border border-[var(--sf-border-light)] rounded-lg px-3 py-2"
                 >
                   <option value="">Select...</option>
+                  <option value="__all__">All team members (bulk)</option>
                   {teamMembers.map(m => (
                     <option key={m.id} value={m.id}>
                       {m.first_name} {m.last_name}{!m.email ? ' (no email)' : ''}
@@ -315,27 +382,59 @@ export default function PaystubsTab({ teamMembers = [], periodStart, periodEnd, 
                 </select>
               </div>
 
-              <div>
-                <label className="text-xs font-medium text-[var(--sf-text-secondary)] block mb-1">Source</label>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setGenSource('batch')}
-                    className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg border ${genSource === 'batch' ? 'bg-[var(--sf-blue-500)] text-white border-[var(--sf-blue-500)]' : 'bg-white text-[var(--sf-text-secondary)] border-[var(--sf-border-light)]'}`}
-                  >
-                    Payout Batch
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setGenSource('period')}
-                    className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg border ${genSource === 'period' ? 'bg-[var(--sf-blue-500)] text-white border-[var(--sf-blue-500)]' : 'bg-white text-[var(--sf-text-secondary)] border-[var(--sf-border-light)]'}`}
-                  >
-                    Date Range
-                  </button>
+              {genMemberId === '__all__' ? (
+                <div className="text-xs text-[var(--sf-text-secondary)] bg-blue-50 border border-blue-100 rounded-lg p-3 flex items-start gap-2">
+                  <Users className="w-4 h-4 mt-0.5 text-[var(--sf-blue-500)]" />
+                  <div>
+                    For each active team member with activity in the period, a paystub will be generated.
+                    If a payout batch exists for the exact period, it will be linked automatically.
+                    Members with no activity are skipped.
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div>
+                  <label className="text-xs font-medium text-[var(--sf-text-secondary)] block mb-1">Source</label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setGenSource('batch')}
+                      className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg border ${genSource === 'batch' ? 'bg-[var(--sf-blue-500)] text-white border-[var(--sf-blue-500)]' : 'bg-white text-[var(--sf-text-secondary)] border-[var(--sf-border-light)]'}`}
+                    >
+                      Payout Batch
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setGenSource('period')}
+                      className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg border ${genSource === 'period' ? 'bg-[var(--sf-blue-500)] text-white border-[var(--sf-blue-500)]' : 'bg-white text-[var(--sf-text-secondary)] border-[var(--sf-border-light)]'}`}
+                    >
+                      Date Range
+                    </button>
+                  </div>
+                </div>
+              )}
 
-              {genSource === 'batch' ? (
+              {genMemberId === '__all__' ? (
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-xs font-medium text-[var(--sf-text-secondary)] block mb-1">Period start</label>
+                    <input
+                      type="date"
+                      value={genPeriodStart}
+                      onChange={(e) => setGenPeriodStart(e.target.value)}
+                      className="w-full text-sm border border-[var(--sf-border-light)] rounded-lg px-3 py-2"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-[var(--sf-text-secondary)] block mb-1">Period end</label>
+                    <input
+                      type="date"
+                      value={genPeriodEnd}
+                      onChange={(e) => setGenPeriodEnd(e.target.value)}
+                      className="w-full text-sm border border-[var(--sf-border-light)] rounded-lg px-3 py-2"
+                    />
+                  </div>
+                </div>
+              ) : genSource === 'batch' ? (
                 <div>
                   <label className="text-xs font-medium text-[var(--sf-text-secondary)] block mb-1">Payout batch</label>
                   <select
@@ -391,7 +490,7 @@ export default function PaystubsTab({ teamMembers = [], periodStart, periodEnd, 
                 className="px-4 py-2 text-sm font-medium bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] disabled:opacity-50 flex items-center gap-1.5"
               >
                 {generating && <Loader2 className="w-4 h-4 animate-spin" />}
-                Generate
+                {genMemberId === '__all__' ? 'Generate for All' : 'Generate'}
               </button>
             </div>
           </div>

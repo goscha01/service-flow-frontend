@@ -2750,8 +2750,10 @@ export const paystubsAPI = {
   list: async (params = {}) => { const r = await api.get('/paystubs', { params }); return r.data; },
   get: async (id) => { const r = await api.get(`/paystubs/${id}`); return r.data; },
   create: async (data) => { const r = await api.post('/paystubs', data); return r.data; },
+  bulkCreate: async (data) => { const r = await api.post('/paystubs/bulk', data); return r.data; },
   send: async (id) => { const r = await api.post(`/paystubs/${id}/send`); return r.data; },
   resend: async (id) => { const r = await api.post(`/paystubs/${id}/resend`); return r.data; },
+  bulkSend: async (data = {}) => { const r = await api.post('/paystubs/bulk/send', data); return r.data; },
   delete: async (id) => { const r = await api.delete(`/paystubs/${id}`); return r.data; },
   htmlUrl: (id) => `/paystubs/${id}/html`,
 };
