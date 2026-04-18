@@ -214,7 +214,7 @@ const LeadsSettings = () => {
                 <Loader2 size={24} className="animate-spin text-[var(--sf-text-muted)]" />
               </div>
             ) : (
-              <div className="bg-white rounded-xl border border-[var(--sf-border-light)] overflow-hidden">
+              <div className="bg-white rounded-xl border border-[var(--sf-border-light)]">
                 <div className="divide-y divide-[var(--sf-border-light)]">
                   {sourceRows.map((s, idx) => (
                     <SourceRow key={s.name} s={s} idx={idx}
@@ -347,15 +347,16 @@ function SourceRow({ s, idx, editingId, editName, setEditName, setEditingId,
   useEffect(() => {
     if (!isOpen || !triggerRef.current) return
     const rect = triggerRef.current.getBoundingClientRect()
+    const STICKY_HEADER = 80 // page's sticky header height + padding
     const spaceBelow = window.innerHeight - rect.bottom - 16
-    const spaceAbove = rect.top - 16
+    const spaceAbove = rect.top - STICKY_HEADER
     const preferred = 520
-    if (spaceBelow >= 240 || spaceBelow >= spaceAbove) {
+    if (spaceBelow >= 320 || spaceBelow >= spaceAbove) {
       setDropDirection('down')
-      setDropMaxHeight(Math.min(preferred, spaceBelow))
+      setDropMaxHeight(Math.max(240, Math.min(preferred, spaceBelow)))
     } else {
       setDropDirection('up')
-      setDropMaxHeight(Math.min(preferred, spaceAbove))
+      setDropMaxHeight(Math.max(240, Math.min(preferred, spaceAbove)))
     }
   }, [isOpen])
 
@@ -446,7 +447,7 @@ function SourceRow({ s, idx, editingId, editName, setEditName, setEditingId,
                   <Plus size={11} /> Map values <ChevronDown size={11} />
                 </button>
                 {isOpen && availableForDropdown.length > 0 && (
-                  <div className={`absolute right-0 w-96 bg-white border border-[var(--sf-border-light)] rounded-xl shadow-lg z-20 flex flex-col ${dropDirection === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'}`}
+                  <div className={`absolute right-0 w-96 bg-white border border-[var(--sf-border-light)] rounded-xl shadow-lg z-50 flex flex-col ${dropDirection === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'}`}
                     style={{ maxHeight: `${dropMaxHeight}px` }}>
                     {/* Top: Map button + actions header */}
                     <div className="px-3 py-2 border-b border-[var(--sf-border-light)] flex-shrink-0 flex items-center justify-between gap-2 bg-[var(--sf-bg-page)]">
@@ -504,7 +505,7 @@ function SourceRow({ s, idx, editingId, editName, setEditName, setEditingId,
                   </div>
                 )}
                 {isOpen && availableForDropdown.length === 0 && (
-                  <div className={`absolute right-0 w-56 bg-white border border-[var(--sf-border-light)] rounded-xl shadow-lg z-20 p-4 text-center ${dropDirection === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'}`}>
+                  <div className={`absolute right-0 w-56 bg-white border border-[var(--sf-border-light)] rounded-xl shadow-lg z-50 p-4 text-center ${dropDirection === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'}`}>
                     <p className="text-xs text-[var(--sf-text-muted)]">All values are mapped</p>
                   </div>
                 )}
