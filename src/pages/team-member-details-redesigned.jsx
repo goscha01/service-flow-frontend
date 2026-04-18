@@ -1082,17 +1082,20 @@ const TeamMemberDetailsRedesigned = () => {
 
           const handleSave = async () => {
             setSaving(true);
-            const newAvail = {
-              workingHours: {},
-              customAvailability: customAvailability || []
-            };
-            if (breakEnabled) newAvail.break = brk;
+            // Preserve other availability fields (timeslotTemplates, drivingTime, customAvailability, etc.)
+            const newAvail = { ...(memberAvailabilityRaw || {}) };
+            newAvail.workingHours = {};
             days.forEach(day => {
               const d = hrs[day];
               newAvail.workingHours[day] = d.available
                 ? { available: true, start: d.start, end: d.end, hours: `${d.start} - ${d.end}` }
                 : { available: false, hours: '' };
             });
+            if (breakEnabled) {
+              newAvail.break = brk;
+            } else {
+              delete newAvail.break;
+            }
             try {
               await teamAPI.updateAvailability(memberId, newAvail);
               setWorkingHours(newAvail.workingHours);

@@ -415,7 +415,7 @@ const TeamMemberDetails = () => {
       console.log('Saving team member with data:', updateData)
       await teamAPI.update(memberId, updateData)
       // Save availability via dedicated endpoint so timeSlots persist correctly
-      await teamAPI.updateAvailability(memberId, { workingHours, customAvailability })
+      await teamAPI.updateAvailability(memberId, { ...(memberAvailabilityRaw || {}), workingHours, customAvailability })
       
       // Refresh data
       await fetchTeamMemberDetails()
@@ -678,7 +678,7 @@ const TeamMemberDetails = () => {
       setSavingCustomAvailability(true)
       
       console.log('Saving custom availability via updateAvailability')
-      await teamAPI.updateAvailability(memberId, { workingHours, customAvailability })
+      await teamAPI.updateAvailability(memberId, { ...(memberAvailabilityRaw || {}), workingHours, customAvailability })
       
       // Refresh team member data
       await fetchTeamMemberDetails()
@@ -701,7 +701,7 @@ const TeamMemberDetails = () => {
       setSavingDay(day)
       
       console.log(`Saving ${day} availability via updateAvailability`)
-      await teamAPI.updateAvailability(memberId, { workingHours, customAvailability })
+      await teamAPI.updateAvailability(memberId, { ...(memberAvailabilityRaw || {}), workingHours, customAvailability })
       
       // Refresh team member data
       await fetchTeamMemberDetails()
@@ -743,7 +743,7 @@ const TeamMemberDetails = () => {
 
     try {
       setSavingCustomAvailability(true)
-      await teamAPI.updateAvailability(memberId, { workingHours, customAvailability: updatedCustom })
+      await teamAPI.updateAvailability(memberId, { ...(memberAvailabilityRaw || {}), workingHours, customAvailability: updatedCustom })
       await fetchTeamMemberDetails()
       setShowAvailabilityModal(false)
       setEditingOverride(null)
@@ -764,7 +764,7 @@ const TeamMemberDetails = () => {
       setCustomAvailability(updatedCustomAvailability)
       
       // Save to backend via dedicated availability endpoint
-      await teamAPI.updateAvailability(memberId, { workingHours, customAvailability: updatedCustomAvailability })
+      await teamAPI.updateAvailability(memberId, { ...(memberAvailabilityRaw || {}), workingHours, customAvailability: updatedCustomAvailability })
       
       // Refresh team member data
       await fetchTeamMemberDetails()
