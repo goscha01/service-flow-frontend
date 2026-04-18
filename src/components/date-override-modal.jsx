@@ -5,7 +5,7 @@ import { X, Plus, Trash2 } from "lucide-react"
 
 const labelOptions = ['Vacation', 'Holiday', 'Visit', 'Training', 'Personal', 'Custom']
 
-const DateOverrideModal = ({ isOpen, onClose, onSave, existingOverride }) => {
+const DateOverrideModal = ({ isOpen, onClose, onSave, existingOverride, defaultMode = 'unavailable' }) => {
   const [override, setOverride] = useState({
     date: '',
     available: false,
@@ -20,17 +20,31 @@ const DateOverrideModal = ({ isOpen, onClose, onSave, existingOverride }) => {
     if (isOpen) {
       document.body.style.overflow = 'hidden'
       if (existingOverride) {
+        // Legacy entries may have hours as a string ("09:00-17:00") — normalize to array.
+        let hoursArr = existingOverride.hours
+        if (typeof hoursArr === 'string') {
+          if (hoursArr.toLowerCase() === 'unavailable' || !hoursArr.trim()) {
+            hoursArr = []
+          } else {
+            hoursArr = hoursArr.split(',').map(seg => {
+              const [s, e] = seg.trim().split('-')
+              return { start: (s || '').trim(), end: (e || '').trim() }
+            }).filter(h => h.start && h.end)
+          }
+        }
+        if (!Array.isArray(hoursArr)) hoursArr = []
         setOverride({
           date: existingOverride.date || '',
           available: existingOverride.available !== false,
-          hours: existingOverride.hours || [],
+          hours: hoursArr,
           label: existingOverride.label || ''
         })
       } else {
+        const startInCustomMode = defaultMode === 'custom_hours'
         setOverride({
           date: '',
-          available: false,
-          hours: [],
+          available: startInCustomMode,
+          hours: startInCustomMode ? [{ start: '09:00', end: '17:00' }] : [],
           label: ''
         })
       }
@@ -39,7 +53,7 @@ const DateOverrideModal = ({ isOpen, onClose, onSave, existingOverride }) => {
       document.body.style.overflow = 'unset'
     }
     return () => { document.body.style.overflow = 'unset' }
-  }, [isOpen, existingOverride])
+  }, [isOpen, existingOverride, defaultMode])
 
   const handleSave = () => {
     const newErrors = {}
