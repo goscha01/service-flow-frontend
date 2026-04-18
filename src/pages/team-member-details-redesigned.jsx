@@ -561,7 +561,7 @@ const TeamMemberDetailsRedesigned = () => {
                   : (typeof hours === 'string' && hours.toLowerCase() !== 'unavailable' ? hours : '')
 
                 return (
-                  <>
+                  <div className="space-y-8">
                     {/* Time Off */}
                     <div>
                       <div className="flex items-center justify-between mb-4">
@@ -685,7 +685,7 @@ const TeamMemberDetailsRedesigned = () => {
                         </div>
                       )}
                     </div>
-                  </>
+                  </div>
                 )
               })()}
             </div>
