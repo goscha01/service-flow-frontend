@@ -470,7 +470,7 @@ const CustomerDetails = () => {
                       </h3>
                     </div>
                     <p className="text-sm text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
-                      {customer.source || customer.customer_source || 'No source'}
+                      {customer.resolved_source || customer.source || customer.customer_source || 'No source'}
                     </p>
                   </div>
 
