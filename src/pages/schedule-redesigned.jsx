@@ -7814,19 +7814,26 @@ const ServiceFlowSchedule = () => {
                       })()}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p 
-                        className="font-bold text-gray-900 text-base cursor-pointer hover:text-blue-600 transition-colors" 
-                        style={{ fontFamily: 'Montserrat', fontWeight: 700 }}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          const customerId = selectedJobDetails.customer_id || selectedJobDetails.customer?.id || selectedJobDetails.customers?.id
-                          if (customerId) {
-                            navigate(`/customer/${customerId}`)
-                          }
-                        }}
-                      >
-                        {getCustomerName(selectedJobDetails) || 'Customer'}
-                      </p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p
+                          className="font-bold text-gray-900 text-base cursor-pointer hover:text-blue-600 transition-colors"
+                          style={{ fontFamily: 'Montserrat', fontWeight: 700 }}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            const customerId = selectedJobDetails.customer_id || selectedJobDetails.customer?.id || selectedJobDetails.customers?.id
+                            if (customerId) {
+                              navigate(`/customer/${customerId}`)
+                            }
+                          }}
+                        >
+                          {getCustomerName(selectedJobDetails) || 'Customer'}
+                        </p>
+                        {(selectedJobDetails.customer_source_resolved || selectedJobDetails.customers?.resolved_source) && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-50 text-violet-600 border border-violet-100">
+                            {selectedJobDetails.customer_source_resolved || selectedJobDetails.customers?.resolved_source}
+                          </span>
+                        )}
+                      </div>
                       </div>
                     </div>
                       {/* Customer contact info - only show if user has permission */}
