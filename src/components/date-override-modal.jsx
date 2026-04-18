@@ -56,22 +56,31 @@ const DateOverrideModal = ({ isOpen, onClose, onSave, existingOverride, defaultM
   }, [isOpen, existingOverride, defaultMode])
 
   const handleSave = () => {
+    const isCustomHours = defaultMode === 'custom_hours'
     const newErrors = {}
     if (!override.date) newErrors.date = 'Date is required'
-    if (override.available && override.hours.length > 0) {
-      override.hours.forEach((h, i) => {
-        if (!h.start || !h.end) {
-          newErrors[`hours_${i}`] = 'Start and end time are required'
-        } else if (h.start >= h.end) {
-          newErrors[`hours_${i}`] = 'End time must be after start time'
-        }
-      })
+    if (isCustomHours) {
+      if (override.hours.length === 0) {
+        newErrors.hours = 'Add at least one time slot'
+      } else {
+        override.hours.forEach((h, i) => {
+          if (!h.start || !h.end) {
+            newErrors[`hours_${i}`] = 'Start and end time are required'
+          } else if (h.start >= h.end) {
+            newErrors[`hours_${i}`] = 'End time must be after start time'
+          }
+        })
+      }
     }
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors)
       return
     }
-    onSave(override)
+    // Force available/hours to match the mode so the caller never gets a mixed state.
+    const payload = isCustomHours
+      ? { ...override, available: true, hours: override.hours }
+      : { ...override, available: false, hours: [] }
+    onSave(payload)
   }
 
   const addTimeSlot = () => {
@@ -97,12 +106,20 @@ const DateOverrideModal = ({ isOpen, onClose, onSave, existingOverride, defaultM
 
   if (!isOpen) return null
 
+  const isCustomHoursMode = defaultMode === 'custom_hours'
+  const modeTitle = isCustomHoursMode
+    ? (isEditMode ? 'Edit Additional Hours' : 'Add Additional Hours')
+    : (isEditMode ? 'Edit Time Off' : 'Add Time Off')
+  const saveButtonLabel = isEditMode
+    ? 'Save Changes'
+    : (isCustomHoursMode ? 'Add Hours' : 'Add Time Off')
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
         <div className="flex items-center justify-between p-6 border-b border-[var(--sf-border-light)]">
           <h2 className="text-lg font-semibold text-[var(--sf-text-primary)]">
-            {isEditMode ? 'Edit Date Override' : 'Add Date Override'}
+            {modeTitle}
           </h2>
           <button onClick={onClose} className="text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] p-1">
             <X className="w-5 h-5" />
@@ -137,37 +154,8 @@ const DateOverrideModal = ({ isOpen, onClose, onSave, existingOverride, defaultM
             </select>
           </div>
 
-          {/* Available toggle */}
-          <div>
-            <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-2">Availability</label>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setOverride(prev => ({ ...prev, available: false, hours: [] }))}
-                className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                  !override.available
-                    ? 'bg-red-50 border-red-300 text-red-700'
-                    : 'bg-white border-[var(--sf-border-light)] text-[var(--sf-text-secondary)] hover:bg-[var(--sf-bg-page)]'
-                }`}
-              >
-                Unavailable
-              </button>
-              <button
-                type="button"
-                onClick={() => setOverride(prev => ({ ...prev, available: true }))}
-                className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                  override.available
-                    ? 'bg-green-50 border-green-300 text-green-700'
-                    : 'bg-white border-[var(--sf-border-light)] text-[var(--sf-text-secondary)] hover:bg-[var(--sf-bg-page)]'
-                }`}
-              >
-                Custom Hours
-              </button>
-            </div>
-          </div>
-
           {/* Custom time slots (only when available) */}
-          {override.available && (
+          {isCustomHoursMode && (
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="block text-sm font-medium text-[var(--sf-text-primary)]">Time Slots</label>
@@ -226,7 +214,7 @@ const DateOverrideModal = ({ isOpen, onClose, onSave, existingOverride, defaultM
             onClick={handleSave}
             className="px-4 py-2 text-sm font-medium text-white bg-[var(--sf-blue-500)] rounded-lg hover:bg-[var(--sf-blue-600)]"
           >
-            {isEditMode ? 'Save Changes' : 'Add Override'}
+            {saveButtonLabel}
           </button>
         </div>
       </div>
