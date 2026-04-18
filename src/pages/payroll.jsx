@@ -2025,7 +2025,7 @@ const Payroll = () => {
 
           {activeTab === 'paystubs' && (
             <PaystubsTab
-              teamMembers={payrollData?.teamMembers?.map(r => r.teamMember) || []}
+              teamMembers={teamMembers}
               payoutBatches={batches || []}
               periodStart={startDate}
               periodEnd={endDate}
