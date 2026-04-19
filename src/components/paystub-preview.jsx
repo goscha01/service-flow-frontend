@@ -36,6 +36,8 @@ export default function PaystubPreview({ snapshot }) {
   const period = snapshot.period || {}
   const totals = snapshot.totals || {}
   const lineItems = snapshot.lineItems || []
+  const managerSalaryItems = snapshot.managerSalaryItems || []
+  const managerCommissionItems = snapshot.managerCommissionItems || []
   const payout = snapshot.payout || {}
 
   const cleanerName = `${cleaner.firstName || ''} ${cleaner.lastName || ''}`.trim() || 'Team Member'
@@ -72,6 +74,18 @@ export default function PaystubPreview({ snapshot }) {
               <td className="px-4 py-2.5 text-[var(--sf-text-secondary)]">Earnings</td>
               <td className="px-4 py-2.5 text-right font-medium">{fmt(totals.earnings)}</td>
             </tr>
+            {totals.managerSalary ? (
+              <tr className="border-t border-gray-200">
+                <td className="px-4 py-2.5 text-[var(--sf-text-secondary)]">Manager salary</td>
+                <td className="px-4 py-2.5 text-right font-medium">{fmt(totals.managerSalary)}</td>
+              </tr>
+            ) : null}
+            {totals.managerCommission ? (
+              <tr className="border-t border-gray-200">
+                <td className="px-4 py-2.5 text-[var(--sf-text-secondary)]">Manager commission</td>
+                <td className="px-4 py-2.5 text-right font-medium">{fmt(totals.managerCommission)}</td>
+              </tr>
+            ) : null}
             <tr className="border-t border-gray-200">
               <td className="px-4 py-2.5 text-[var(--sf-text-secondary)]">Tips</td>
               <td className="px-4 py-2.5 text-right font-medium">{fmt(totals.tips)}</td>
@@ -135,6 +149,60 @@ export default function PaystubPreview({ snapshot }) {
             </div>
           )
         })()}
+
+        {/* Manager salary breakdown */}
+        {managerSalaryItems.length > 0 && (
+          <>
+            <h3 className="text-sm font-semibold text-[var(--sf-text-primary)] mt-6 mb-2">Salary Breakdown</h3>
+            <div className="border border-[var(--sf-border-light)] rounded-lg overflow-hidden">
+              <table className="w-full text-xs">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-3 py-2 text-left text-[var(--sf-text-muted)] font-semibold">Date</th>
+                    <th className="px-3 py-2 text-left text-[var(--sf-text-muted)] font-semibold">Calculation</th>
+                    <th className="px-3 py-2 text-right text-[var(--sf-text-muted)] font-semibold">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {managerSalaryItems.map((it, idx) => (
+                    <tr key={idx} className="border-t border-[var(--sf-border-light)]">
+                      <td className="px-3 py-2 text-[var(--sf-text-secondary)]">{formatDate(it.date)}</td>
+                      <td className="px-3 py-2 text-[var(--sf-text-secondary)]">{(parseFloat(it.hours)||0).toFixed(1)}h × ${(parseFloat(it.rate)||0).toFixed(2)}/hr</td>
+                      <td className="px-3 py-2 text-right font-medium">{fmt(it.amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+
+        {/* Manager commission breakdown */}
+        {managerCommissionItems.length > 0 && (
+          <>
+            <h3 className="text-sm font-semibold text-[var(--sf-text-primary)] mt-6 mb-2">Commission Breakdown</h3>
+            <div className="border border-[var(--sf-border-light)] rounded-lg overflow-hidden">
+              <table className="w-full text-xs">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-3 py-2 text-left text-[var(--sf-text-muted)] font-semibold">Date</th>
+                    <th className="px-3 py-2 text-left text-[var(--sf-text-muted)] font-semibold">Calculation</th>
+                    <th className="px-3 py-2 text-right text-[var(--sf-text-muted)] font-semibold">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {managerCommissionItems.map((it, idx) => (
+                    <tr key={idx} className="border-t border-[var(--sf-border-light)]">
+                      <td className="px-3 py-2 text-[var(--sf-text-secondary)]">{formatDate(it.date)}</td>
+                      <td className="px-3 py-2 text-[var(--sf-text-secondary)]">{(parseFloat(it.commissionPct)||0).toFixed(2)}% of {fmt(it.dayRevenue)}</td>
+                      <td className="px-3 py-2 text-right font-medium">{fmt(it.amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
 
         {/* Line items */}
         {lineItems.length > 0 && (
