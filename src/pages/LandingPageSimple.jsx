@@ -168,7 +168,7 @@ export default function LandingPageSimple() {
         className="fixed top-0 left-0 right-0 z-50"
         style={{ background: "#FFFFFF", borderBottom: "1px solid #E2E5EA" }}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-6xl mx-auto px-6 sm:px-8 lg:px-12">
           <div className="flex items-center justify-between h-16">
             <Link to="/" className="flex items-center">
               <img src="/logo.svg" alt="ServiceFlow" className="h-9 w-auto" />
@@ -234,7 +234,7 @@ export default function LandingPageSimple() {
 
       {/* Hero */}
       <section className="pt-28 pb-16 sm:pt-36 sm:pb-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-6xl mx-auto px-6 sm:px-8 lg:px-12">
           <div className="grid lg:grid-cols-12 gap-10 lg:gap-14 items-center">
             <div className="lg:col-span-7">
               <div
@@ -381,7 +381,7 @@ export default function LandingPageSimple() {
 
       {/* Pain */}
       <section className="py-16 sm:py-24" style={{ borderTop: "1px solid #E2E5EA", background: "#FFFFFF" }}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-6xl mx-auto px-6 sm:px-8 lg:px-12">
           <div className="max-w-3xl">
             <div className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: "#2563EB" }}>
               The problem
@@ -430,7 +430,7 @@ export default function LandingPageSimple() {
 
       {/* How it works */}
       <section id="how-it-works" className="py-16 sm:py-24">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-6xl mx-auto px-6 sm:px-8 lg:px-12">
           <div className="max-w-3xl">
             <div className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: "#2563EB" }}>
               How it works
@@ -529,7 +529,7 @@ export default function LandingPageSimple() {
 
       {/* Features */}
       <section id="features" className="py-16 sm:py-24" style={{ borderTop: "1px solid #E2E5EA", background: "#FFFFFF" }}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-6xl mx-auto px-6 sm:px-8 lg:px-12">
           <div className="max-w-3xl">
             <div className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: "#2563EB" }}>
               Core capabilities
@@ -583,7 +583,7 @@ export default function LandingPageSimple() {
 
       {/* Why different — simple three-column comparison */}
       <section className="py-16 sm:py-24">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-6xl mx-auto px-6 sm:px-8 lg:px-12">
           <div className="max-w-3xl">
             <div className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: "#2563EB" }}>
               Why it's different
@@ -624,7 +624,7 @@ export default function LandingPageSimple() {
 
       {/* Offer */}
       <section id="pricing" className="py-16 sm:py-24" style={{ borderTop: "1px solid #E2E5EA", background: "#FFFFFF" }}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-6xl mx-auto px-6 sm:px-8 lg:px-12">
           <div className="grid lg:grid-cols-2 gap-10 items-start">
             <div>
               <div className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: "#2563EB" }}>
@@ -751,7 +751,7 @@ export default function LandingPageSimple() {
 
       {/* Footer */}
       <footer className="py-10" style={{ borderTop: "1px solid #E2E5EA", background: "#FFFFFF" }}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="max-w-6xl mx-auto px-6 sm:px-8 lg:px-12 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <img src="/logo.svg" alt="ServiceFlow" className="h-7 w-auto" />
             <span className="text-sm" style={{ color: "#8E95A2" }}>
