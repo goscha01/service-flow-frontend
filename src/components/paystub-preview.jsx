@@ -92,6 +92,12 @@ export default function PaystubPreview({ snapshot }) {
               <td className="px-4 py-2.5 text-[var(--sf-text-secondary)]">Cash collected</td>
               <td className="px-4 py-2.5 text-right font-medium">{fmtNeg(totals.cashCollected)}</td>
             </tr>
+            {totals.priorDebt ? (
+              <tr className="border-t border-gray-200">
+                <td className="px-4 py-2.5 text-[var(--sf-text-secondary)]">Prior period debt</td>
+                <td className="px-4 py-2.5 text-right font-medium">{fmtNeg(totals.priorDebt)}</td>
+              </tr>
+            ) : null}
             <tr className="border-t-2 border-[var(--sf-text-primary)]">
               <td className="px-4 py-3 font-bold text-[var(--sf-text-primary)]">Net Earned</td>
               <td className="px-4 py-3 text-right font-bold text-[var(--sf-text-primary)]">{fmt(totals.netPayout)}</td>
