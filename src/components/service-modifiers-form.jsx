@@ -294,11 +294,11 @@ const ServiceModifiersForm = ({ modifiers = [], selectedModifiers: parentSelecte
                       }
                     }}
                     className={`px-4 py-2.5 rounded-lg font-medium text-sm transition-all ${
-                      isSelected 
-                        ? 'bg-green-600 text-white border-2 border-green-600 hover:bg-green-700' 
+                      isSelected
+                        ? 'text-white border-2 border-blue-600 ring-2 ring-blue-600 ring-offset-1 shadow-md hover:bg-blue-700'
                         : 'bg-white text-[var(--sf-text-primary)] border-2 border-[var(--sf-border-light)] hover:border-gray-400'
                     }`}
-                    style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
+                    style={{ fontFamily: 'Montserrat', fontWeight: 500, backgroundColor: isSelected ? '#2563eb' : undefined }}
                   >
                     {option.label || option.name}
                     {optionPrice > 0 && (
