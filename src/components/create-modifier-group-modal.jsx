@@ -477,30 +477,36 @@ const CreateModifierGroupModal = ({ isOpen, onClose, onSave, editingModifier = n
                           disabled={uploadingImages[option.id]}
                         />
                           {uploadingImages[option.id] ? (
-                                <div className="w-full h-10 border border-[var(--sf-border-light)] rounded-lg bg-[var(--sf-bg-page)] flex items-center justify-center">
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                                <div className="w-24 h-24 border border-[var(--sf-border-light)] rounded-lg bg-[var(--sf-bg-page)] flex items-center justify-center">
+                              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
                             </div>
                           ) : option.image ? (
-                            <div className="relative">
+                            <div className="relative group w-24 h-24">
                               <img
                                 src={option.image}
-                                alt="Option image"
-                                    className="w-full h-10 object-cover rounded-lg border border-[var(--sf-border-light)]"
+                                alt={option.name || 'Option'}
+                                    className="w-24 h-24 object-cover rounded-lg border border-[var(--sf-border-light)]"
                               />
                               <button
                                 type="button"
                                 onClick={() => handleOptionImageRemove(option.id)}
-                                    className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600"
+                                    className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600 shadow"
                               >
                                 ×
                               </button>
+                              <label
+                                htmlFor={`image-upload-${option.id}`}
+                                className="absolute inset-0 rounded-lg cursor-pointer flex items-end justify-center pb-1 opacity-0 group-hover:opacity-100 group-hover:bg-black/30 transition-opacity"
+                              >
+                                <span className="text-white text-xs font-medium px-2 py-0.5 bg-black/60 rounded" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>Replace</span>
+                              </label>
                             </div>
                           ) : (
                             <label
                               htmlFor={`image-upload-${option.id}`}
-                                  className="flex items-center justify-center w-full h-10 border border-[var(--sf-border-light)] rounded-lg bg-[var(--sf-bg-page)] hover:bg-[var(--sf-bg-hover)] cursor-pointer"
+                                  className="flex items-center justify-center w-24 h-24 border border-[var(--sf-border-light)] rounded-lg bg-[var(--sf-bg-page)] hover:bg-[var(--sf-bg-hover)] cursor-pointer"
                             >
-                                  <ImageIcon className="w-5 h-5 text-[var(--sf-text-muted)]" />
+                                  <ImageIcon className="w-6 h-6 text-[var(--sf-text-muted)]" />
                             </label>
                           )}
                             </div>
