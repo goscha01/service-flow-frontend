@@ -281,11 +281,14 @@ const ServiceModifiersForm = ({ modifiers = [], selectedModifiers: parentSelecte
                   </div>
                 );
               } else {
-                // Render as button-style option (like Number of Bathrooms)
+                // Render as div (not button) to avoid a global index.css rule that
+                // force-overrides button[class*=rounded-lg][class*=border] backgrounds
+                // and colors with !important. Using a div with role=button sidesteps it.
                 return (
-                  <button
+                  <div
                     key={option.id}
-                    type="button"
+                    role="button"
+                    tabIndex={0}
                     onClick={() => {
                       if (modifier.selectionType === 'multi') {
                         handleModifierChange(modifier.id, option.id, isSelected ? -1 : 1);
@@ -293,12 +296,27 @@ const ServiceModifiersForm = ({ modifiers = [], selectedModifiers: parentSelecte
                         handleModifierChange(modifier.id, option.id, 1);
                       }
                     }}
-                    className={`px-4 py-2.5 rounded-lg font-medium text-sm transition-all ${
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        if (modifier.selectionType === 'multi') {
+                          handleModifierChange(modifier.id, option.id, isSelected ? -1 : 1);
+                        } else {
+                          handleModifierChange(modifier.id, option.id, 1);
+                        }
+                      }
+                    }}
+                    aria-pressed={isSelected}
+                    className={`inline-flex items-center justify-center px-4 py-2.5 rounded-lg font-medium text-sm transition-all cursor-pointer select-none ${
                       isSelected
-                        ? 'text-white border-2 border-blue-600 ring-2 ring-blue-600 ring-offset-1 shadow-md hover:bg-blue-700'
-                        : 'bg-white text-[var(--sf-text-primary)] border-2 border-[var(--sf-border-light)] hover:border-gray-400'
+                        ? 'text-white ring-2 ring-blue-600 ring-offset-1 shadow-md'
+                        : 'bg-white text-[var(--sf-text-primary)] ring-1 ring-[var(--sf-border-light)] hover:ring-gray-400'
                     }`}
-                    style={{ fontFamily: 'Montserrat', fontWeight: 500, backgroundColor: isSelected ? '#2563eb' : undefined }}
+                    style={{
+                      fontFamily: 'Montserrat',
+                      fontWeight: 500,
+                      backgroundColor: isSelected ? '#2563eb' : undefined
+                    }}
                   >
                     {option.label || option.name}
                     {optionPrice > 0 && (
@@ -306,7 +324,7 @@ const ServiceModifiersForm = ({ modifiers = [], selectedModifiers: parentSelecte
                         +${optionPrice.toFixed(2)}
                       </span>
                     )}
-                  </button>
+                  </div>
                 );
               }
             }
