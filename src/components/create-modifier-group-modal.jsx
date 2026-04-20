@@ -1,9 +1,11 @@
 "use client"
 import React, { useState, useEffect } from 'react';
 import { X, ChevronDown, ChevronUp, Plus, HelpCircle, Image as ImageIcon } from 'lucide-react';
+import ImageCropModal from './image-crop-modal';
 
 const CreateModifierGroupModal = ({ isOpen, onClose, onSave, editingModifier = null }) => {
   const [uploadingImages, setUploadingImages] = useState({});
+  const [cropState, setCropState] = useState(null); // { optionId, imageSrc, fileName } | null
   const [formData, setFormData] = useState({
     groupName: '',
     groupDescription: '',
@@ -144,6 +146,29 @@ const CreateModifierGroupModal = ({ isOpen, onClose, onSave, editingModifier = n
     }
   };
 
+  // User picked a file from the file input — open the crop modal first.
+  const handleOptionFileSelected = (optionId, file) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setCropState({ optionId, imageSrc: reader.result, fileName: file.name });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Called by ImageCropModal with the cropped File blob.
+  const handleCropConfirmed = async (croppedFile) => {
+    const optionId = cropState?.optionId;
+    setCropState(null);
+    if (optionId != null) {
+      await handleOptionImageUpload(optionId, croppedFile);
+    }
+  };
+
   const handleOptionImageUpload = async (optionId, file) => {
     if (!file) return;
 
@@ -259,6 +284,14 @@ const CreateModifierGroupModal = ({ isOpen, onClose, onSave, editingModifier = n
   if (!isOpen) return null;
 
   return (
+    <>
+    <ImageCropModal
+      isOpen={!!cropState}
+      imageSrc={cropState?.imageSrc}
+      originalFileName={cropState?.fileName}
+      onCancel={() => setCropState(null)}
+      onConfirm={handleCropConfirmed}
+    />
     <div className={`fixed inset-0 bg-black/50 z-50 flex justify-end transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0'}`}>
       <div 
         className={`flex w-full max-w-6xl h-full relative bg-white overflow-hidden transform transition-transform duration-500 ease-out ${
@@ -438,7 +471,7 @@ const CreateModifierGroupModal = ({ isOpen, onClose, onSave, editingModifier = n
                         <input
                           type="file"
                           accept="image/*"
-                          onChange={(e) => handleOptionImageUpload(option.id, e.target.files[0])}
+                          onChange={(e) => { handleOptionFileSelected(option.id, e.target.files[0]); e.target.value = ''; }}
                           className="hidden"
                           id={`image-upload-${option.id}`}
                           disabled={uploadingImages[option.id]}
@@ -696,6 +729,7 @@ const CreateModifierGroupModal = ({ isOpen, onClose, onSave, editingModifier = n
         </div>
       </div>
     </div>
+    </>
   );
 };
 
