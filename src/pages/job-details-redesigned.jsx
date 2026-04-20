@@ -3548,22 +3548,31 @@ const JobDetails = () => {
                   <div className="mt-6 pt-6 space-y-1">
                     {serviceModifiers.map((modifier, modifierIndex) => {
                       if (!modifier.selectedOptions || modifier.selectedOptions.length === 0) return null;
-                      
+
                       const modifierTitle = modifier.title || modifier.name || 'Modifier';
-                      
+
                       return (
                         <div key={modifier.id || modifierIndex} className="space-y-2">
                           <p className="font-semibold text-[var(--sf-text-primary)]">{modifierTitle}:</p>
-                          <div className="space-y-1">
+                          <div className="space-y-2">
                             {modifier.selectedOptions.map((option, optionIndex) => {
-                              const optionLabel = option.selectedQuantity 
+                              const optionLabel = option.selectedQuantity
                                 ? `${option.selectedQuantity}x ${option.label || option.description || option.name || 'Item'}`
                                 : (option.label || option.description || option.name || 'Item');
-                              
+
                               return (
-                                <p key={option.id || optionIndex} className="text-[var(--sf-text-primary)] text-sm">
-                                  {optionLabel}
-                                </p>
+                                <div key={option.id || optionIndex} className="flex items-center space-x-2">
+                                  {option.image && (
+                                    <img
+                                      src={option.image}
+                                      alt={option.label || option.name || 'Option'}
+                                      className="w-12 h-12 object-cover rounded border border-[var(--sf-border-light)] flex-shrink-0"
+                                    />
+                                  )}
+                                  <p className="text-[var(--sf-text-primary)] text-sm">
+                                    {optionLabel}
+                                  </p>
+                                </div>
                               );
                             })}
                           </div>

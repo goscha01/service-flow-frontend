@@ -168,6 +168,15 @@ const ServiceModifiersForm = ({ modifiers = [], selectedModifiers: parentSelecte
                   quantity > 0 ? 'border-blue-500 bg-[var(--sf-blue-50)]' : 'border-[var(--sf-border-light)] hover:border-gray-400'
                 }`}>
                   <div className="text-center">
+                    {option.image && (
+                      <div className="mb-3">
+                        <img
+                          src={option.image}
+                          alt={option.label || option.name}
+                          className="w-full h-32 object-cover rounded border border-[var(--sf-border-light)]"
+                        />
+                      </div>
+                    )}
                     <h4 className="font-semibold text-[var(--sf-text-primary)] text-base mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                       {option.label || option.name}
                     </h4>
