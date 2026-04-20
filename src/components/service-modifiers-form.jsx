@@ -176,11 +176,11 @@ const ServiceModifiersForm = ({ modifiers = [], selectedModifiers: parentSelecte
                   )}
                   <div className="text-center">
                     {option.image && (
-                      <div className="mb-3">
+                      <div className="mb-3 w-full rounded overflow-hidden" style={{ aspectRatio: '3 / 4' }}>
                         <img
                           src={option.image}
                           alt={option.label || option.name}
-                          className={`w-full h-32 object-cover rounded border transition-all ${
+                          className={`w-full h-full object-cover rounded border transition-all ${
                             quantity > 0 ? 'border-blue-600' : 'border-[var(--sf-border-light)]'
                           }`}
                         />
@@ -246,11 +246,11 @@ const ServiceModifiersForm = ({ modifiers = [], selectedModifiers: parentSelecte
                         isSelected ? 'border-blue-600 bg-[var(--sf-blue-50)]' : 'border-[var(--sf-border-light)] hover:border-[var(--sf-border-light)] bg-white'
                       }`}>
                         {option.image && (
-                          <div className="mb-3">
+                          <div className="mb-3 w-full rounded overflow-hidden" style={{ aspectRatio: '3 / 4' }}>
                             <img
                               src={option.image}
                               alt={option.label || option.name}
-                              className="w-full h-32 object-cover rounded border border-[var(--sf-border-light)]"
+                              className="w-full h-full object-cover rounded border border-[var(--sf-border-light)]"
                             />
                           </div>
                         )}
