@@ -151,7 +151,15 @@ const ServiceModifiersForm = ({ modifiers = [], selectedModifiers: parentSelecte
           )}
         </div>
 
-        <div className={modifier.selectionType === 'quantity' ? 'grid grid-cols-2 gap-4' : 'space-y-2'}>
+        {(() => {
+          // Modifiers containing ANY option with an image render as a 2-col grid
+          // so image cards are all the same size. Quantity-type always uses the
+          // grid (count controls render per-card). Plain text buttons stay inline.
+          const hasImageOption = Array.isArray(modifier.options) && modifier.options.some(o => o && o.image);
+          const useGrid = modifier.selectionType === 'quantity' || hasImageOption;
+          const containerClass = useGrid ? 'grid grid-cols-2 gap-4' : 'flex flex-wrap gap-2';
+          return (
+        <div className={containerClass}>
           {(modifier.options && Array.isArray(modifier.options) ? modifier.options : []).map((option) => {
             // Safety check for option
             if (!option || !option.id) {
@@ -330,6 +338,8 @@ const ServiceModifiersForm = ({ modifiers = [], selectedModifiers: parentSelecte
             }
           })}
         </div>
+          );
+        })()}
       </div>
     );
   };
