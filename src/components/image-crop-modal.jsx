@@ -3,7 +3,7 @@ import Cropper from 'react-easy-crop';
 import { X } from 'lucide-react';
 
 // Returns a cropped image as a Blob, using the pixel crop rect from react-easy-crop
-async function getCroppedBlob(imageSrc, pixelCrop, outputWidth = 600, outputHeight = 800) {
+async function getCroppedBlob(imageSrc, pixelCrop, outputWidth = 800, outputHeight = 800) {
   const image = await new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -34,7 +34,7 @@ async function getCroppedBlob(imageSrc, pixelCrop, outputWidth = 600, outputHeig
   });
 }
 
-const ASPECT = 3 / 4; // 3:4 portrait (matches modifier card aspect)
+const ASPECT = 1; // 1:1 square (matches modifier card + service cover aspect)
 
 export default function ImageCropModal({ isOpen, imageSrc, originalFileName, onCancel, onConfirm }) {
   const [crop, setCrop] = useState({ x: 0, y: 0 });
@@ -66,7 +66,7 @@ export default function ImageCropModal({ isOpen, imageSrc, originalFileName, onC
       <div className="bg-white rounded-lg w-full max-w-md shadow-2xl overflow-hidden">
         <div className="flex items-center justify-between p-4 border-b border-[var(--sf-border-light)]">
           <h3 className="font-semibold text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
-            Crop image (3:4)
+            Crop image (1:1)
           </h3>
           <button
             type="button"
@@ -78,7 +78,7 @@ export default function ImageCropModal({ isOpen, imageSrc, originalFileName, onC
           </button>
         </div>
 
-        <div className="relative bg-black" style={{ aspectRatio: '3 / 4', maxHeight: '60vh' }}>
+        <div className="relative bg-black" style={{ aspectRatio: '1 / 1', maxHeight: '60vh' }}>
           <Cropper
             image={imageSrc}
             crop={crop}

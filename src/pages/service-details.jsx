@@ -11,6 +11,7 @@ import CreateModifierGroupModal from "../components/create-modifier-group-modal"
 import IntakeQuestionModal from "../components/intake-question-modal"
 import IntakeQuestionsForm from "../components/intake-questions-form"
 import ServiceModifiersForm from "../components/service-modifiers-form"
+import ImageCropModal from "../components/image-crop-modal"
 import ExcelListboxMultiselect from "../components/excel-listbox-multiselect"
 import { servicesAPI, serviceAvailabilityAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
@@ -134,6 +135,7 @@ const ServiceDetails = () => {
   const [availabilityLoading, setAvailabilityLoading] = useState(false)
   const [availabilitySaving, setAvailabilitySaving] = useState(false)
   const [imageUploading, setImageUploading] = useState(false)
+  const [serviceImageCropState, setServiceImageCropState] = useState(null) // { imageSrc, fileName } | null
 
   // API State
   const [loading, setLoading] = useState(true)
@@ -1064,22 +1066,35 @@ const ServiceDetails = () => {
     }
   }
 
-  const handleImageUpload = async (event) => {
+  // Picked from file input — open crop modal first (1:1 aspect).
+  const handleImageUpload = (event) => {
     const file = event.target.files[0];
+    event.target.value = ''; // reset so re-picking the same file still fires onChange
     if (!file) return;
 
-    // Validate file type
     if (!file.type.startsWith('image/')) {
       setError("Please select a valid image file.");
       return;
     }
 
-    // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       setError("Image file size must be less than 5MB.");
       return;
     }
 
+    const reader = new FileReader();
+    reader.onload = () => {
+      setServiceImageCropState({ imageSrc: reader.result, fileName: file.name });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleServiceImageCropConfirmed = async (croppedFile) => {
+    setServiceImageCropState(null);
+    await uploadServiceImageFile(croppedFile);
+  };
+
+  const uploadServiceImageFile = async (file) => {
     try {
       setImageUploading(true);
       setError("");
@@ -2130,11 +2145,11 @@ const ServiceDetails = () => {
                     </div>
                   )}
                   {serviceData.image ? (
-                    <div className="relative">
+                    <div className="relative mx-auto mb-2 w-full max-w-xs rounded-lg overflow-hidden" style={{ aspectRatio: '1 / 1' }}>
                       <img
                         src={serviceData.image}
                         alt={decodeHtmlEntities(serviceData.name || '')}
-                        className="w-full h-40 object-cover rounded-lg mb-2"
+                        className="w-full h-full object-cover"
                       />
                       <button
                         onClick={() => handleRemoveImage()}
@@ -2839,6 +2854,13 @@ const ServiceDetails = () => {
         isOpen={isTerritoryModalOpen}
         onClose={() => setIsTerritoryModalOpen(false)}
         onSave={handleSaveTerritoryRule}
+      />
+      <ImageCropModal
+        isOpen={!!serviceImageCropState}
+        imageSrc={serviceImageCropState?.imageSrc}
+        originalFileName={serviceImageCropState?.fileName}
+        onCancel={() => setServiceImageCropState(null)}
+        onConfirm={handleServiceImageCropConfirmed}
       />
     </div>
   )
