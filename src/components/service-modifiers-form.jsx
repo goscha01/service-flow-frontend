@@ -164,20 +164,29 @@ const ServiceModifiersForm = ({ modifiers = [], selectedModifiers: parentSelecte
 
             if (modifier.selectionType === 'quantity') {
               return (
-                <div key={option.id} className={`border-2 rounded-lg p-5 transition-all ${
-                  quantity > 0 ? 'border-blue-500 bg-[var(--sf-blue-50)]' : 'border-[var(--sf-border-light)] hover:border-gray-400'
+                <div key={option.id} className={`relative border-2 rounded-lg p-5 transition-all ${
+                  quantity > 0
+                    ? 'border-blue-600 bg-[var(--sf-blue-50)] ring-2 ring-blue-600 ring-offset-1 shadow-md'
+                    : 'border-[var(--sf-border-light)] hover:border-gray-400'
                 }`}>
+                  {quantity > 0 && (
+                    <div className="absolute top-2 right-2 w-7 h-7 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold shadow z-10" style={{ fontFamily: 'Montserrat', fontWeight: 700 }}>
+                      {quantity}
+                    </div>
+                  )}
                   <div className="text-center">
                     {option.image && (
                       <div className="mb-3">
                         <img
                           src={option.image}
                           alt={option.label || option.name}
-                          className="w-full h-32 object-cover rounded border border-[var(--sf-border-light)]"
+                          className={`w-full h-32 object-cover rounded border transition-all ${
+                            quantity > 0 ? 'border-blue-600' : 'border-[var(--sf-border-light)]'
+                          }`}
                         />
                       </div>
                     )}
-                    <h4 className="font-semibold text-[var(--sf-text-primary)] text-base mb-2" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                    <h4 className={`font-semibold text-base mb-2 ${quantity > 0 ? 'text-blue-700' : 'text-[var(--sf-text-primary)]'}`} style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                       {option.label || option.name}
                     </h4>
                     <div className="text-base text-[var(--sf-text-secondary)] mb-3" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>
@@ -196,20 +205,24 @@ const ServiceModifiersForm = ({ modifiers = [], selectedModifiers: parentSelecte
                       <button
                         type="button"
                         onClick={() => handleModifierChange(modifier.id, option.id, -1)}
-                        className="w-9 h-9 flex items-center justify-center border border-gray-400 rounded-lg hover:bg-[var(--sf-bg-hover)] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                        className="w-9 h-9 flex items-center justify-center border border-gray-400 rounded-lg hover:bg-[var(--sf-bg-hover)] transition-colors disabled:opacity-30 disabled:cursor-not-allowed bg-white"
                         disabled={quantity === 0}
                       >
                         <Minus className="w-4 h-4 text-[var(--sf-text-primary)]" />
                       </button>
-                      <span className="text-xl font-semibold text-[var(--sf-text-primary)] w-10 text-center" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
+                      <span className={`text-xl font-semibold w-10 text-center ${quantity > 0 ? 'text-blue-700' : 'text-[var(--sf-text-primary)]'}`} style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>
                         {quantity}
                       </span>
                       <button
                         type="button"
                         onClick={() => handleModifierChange(modifier.id, option.id, 1)}
-                        className="w-9 h-9 flex items-center justify-center border border-gray-400 rounded-lg hover:bg-[var(--sf-bg-hover)] transition-colors"
+                        className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors ${
+                          quantity > 0
+                            ? 'bg-blue-600 border border-blue-600 hover:bg-blue-700 text-white'
+                            : 'border border-gray-400 hover:bg-[var(--sf-bg-hover)] bg-white text-[var(--sf-text-primary)]'
+                        }`}
                       >
-                        <Plus className="w-4 h-4 text-[var(--sf-text-primary)]" />
+                        <Plus className={`w-4 h-4 ${quantity > 0 ? 'text-white' : 'text-[var(--sf-text-primary)]'}`} />
                       </button>
                     </div>
                   </div>
