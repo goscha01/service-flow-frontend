@@ -2801,6 +2801,11 @@ export const leadSourceMappingsAPI = {
   autoSuggest: async () => { const r = await api.post('/lead-source-mappings/auto-suggest'); return r.data; },
 };
 
+export const sourceIssuesAPI = {
+  list: async () => { const r = await api.get('/source-issues'); return r.data; },
+  mergeCustomers: async (sourceId, targetId) => { const r = await api.post(`/customers/${sourceId}/merge-into/${targetId}`); return r.data; },
+};
+
 export const locationsAPI = {
   list: async () => { const r = await api.get('/locations'); return r.data; },
   create: async (data) => { const r = await api.post('/locations', data); return r.data; },
@@ -2835,6 +2840,14 @@ export const connectedEmailAPI = {
   startOAuth: async (provider) => { const r = await api.post(`/connected-email/oauth/${provider}/start`); return r.data; },
   disconnect: async (accountId, reason) => { const r = await api.post(`/connected-email/accounts/${accountId}/disconnect`, { reason }); return r.data; },
   deleteAccount: async (accountId) => { const r = await api.delete(`/connected-email/accounts/${accountId}`); return r.data; },
+  validateMailbox: async (accountId, mailboxEmail) => {
+    const r = await api.post(`/connected-email/accounts/${accountId}/validate-mailbox`, { mailboxEmail });
+    return r.data;
+  },
+  selectMailbox: async (accountId, mailboxEmail) => {
+    const r = await api.post(`/connected-email/accounts/${accountId}/select-mailbox`, { mailboxEmail });
+    return r.data;
+  },
   resync: async (accountId) => { const r = await api.post(`/connected-email/accounts/${accountId}/resync`); return r.data; },
   getSyncProgress: async (accountId) => { const r = await api.get(`/connected-email/accounts/${accountId}/sync-progress`); return r.data; },
   testSync: async (accountId, { days = 7, maxMessages = 50 } = {}) => {
