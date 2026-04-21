@@ -1451,7 +1451,7 @@ const DashboardRedesigned = () => {
                             <h3 className="text-xs sm:text-sm font-medium" style={{ color: 'var(--sf-text-secondary)' }}>Job value</h3>
                             <Info className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" style={{ color: 'var(--sf-text-muted)' }} />
                           </div>
-                          <div className="text-2xl sm:text-3xl font-bold mt-1" style={{ color: 'var(--sf-text-primary)' }}>${dashboardData.jobValue}</div>
+                          <div className="text-2xl sm:text-3xl font-bold mt-1" style={{ color: 'var(--sf-text-primary)' }}>${Number(dashboardData.jobValue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                         </div>
                       </div>
                       <MiniChart data={chartData.jobValue} color="green" />
@@ -1468,7 +1468,7 @@ const DashboardRedesigned = () => {
                             <h3 className="text-xs sm:text-sm font-medium" style={{ color: 'var(--sf-text-secondary)' }}>Payments collected</h3>
                             <Info className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" style={{ color: 'var(--sf-text-muted)' }} />
                           </div>
-                          <div className="text-2xl sm:text-3xl font-bold mt-1" style={{ color: 'var(--sf-text-primary)' }}>${dashboardData.totalRevenue}</div>
+                          <div className="text-2xl sm:text-3xl font-bold mt-1" style={{ color: 'var(--sf-text-primary)' }}>${Number(dashboardData.totalRevenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                         </div>
                       </div>
                       <MiniChart data={chartData.totalRevenue} color="indigo" />
