@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useMemo, useRef } from "react"
 import { useNavigate } from "react-router-dom"
-import { leadAutomationAPI, leadSourcesAPI, leadSourceMappingsAPI, openPhoneAPI, leadbridgeAPI } from "../../services/api"
-import { ChevronLeft, Zap, Loader2, Plus, X, Pencil, Check, Trash2, Wand2, GripVertical, ChevronDown, Search, RefreshCw } from "lucide-react"
+import { leadAutomationAPI, leadSourcesAPI, leadSourceMappingsAPI, openPhoneAPI, leadbridgeAPI, sourceIssuesAPI } from "../../services/api"
+import { ChevronLeft, Zap, Loader2, Plus, X, Pencil, Check, Trash2, Wand2, GripVertical, ChevronDown, Search, RefreshCw, AlertTriangle, Users, HelpCircle } from "lucide-react"
 
 const EVENT_DEFS = [
   { event: 'lead_received', label: 'Lead Received', desc: 'New lead arrives from Thumbtack or Yelp' },
@@ -13,8 +13,8 @@ const EVENT_DEFS = [
   { event: 'job_created', label: 'Job Created', desc: 'Job created for this lead — converts to customer' },
 ]
 
-const PROV_SHORT = { openphone: 'OP', leadbridge: 'LB' }
-const PROV_COLOR = { openphone: 'bg-blue-50 text-blue-600 border-blue-100', leadbridge: 'bg-amber-50 text-amber-600 border-amber-100' }
+const PROV_SHORT = { openphone: 'OP', leadbridge: 'LB', customer: 'CR' }
+const PROV_COLOR = { openphone: 'bg-blue-50 text-blue-600 border-blue-100', leadbridge: 'bg-amber-50 text-amber-600 border-amber-100', customer: 'bg-violet-50 text-violet-600 border-violet-100' }
 
 const LeadsSettings = () => {
   const navigate = useNavigate()
@@ -49,7 +49,30 @@ const LeadsSettings = () => {
   const [syncProgress, setSyncProgress] = useState(null)
   const [syncResult, setSyncResult] = useState(null)
 
-  useEffect(() => { loadRules(); loadSources(); loadMappings() }, [])
+  // Source issues (post-sync manual resolution)
+  const [issues, setIssues] = useState(null)
+  const [issuesLoading, setIssuesLoading] = useState(false)
+  const [mergingPair, setMergingPair] = useState(null) // "srcId-targetId"
+
+  useEffect(() => { loadRules(); loadSources(); loadMappings(); loadIssues() }, [])
+
+  const loadIssues = async () => {
+    setIssuesLoading(true)
+    try { setIssues(await sourceIssuesAPI.list()) }
+    catch (e) { console.error('Failed to load issues:', e) }
+    finally { setIssuesLoading(false) }
+  }
+
+  const handleMergeCustomers = async (sourceId, targetId) => {
+    if (!window.confirm(`Merge customer #${sourceId} INTO #${targetId}?\n\nThis moves all jobs/invoices/etc from the source record, then deletes the source. Cannot be undone.`)) return
+    const key = `${sourceId}-${targetId}`
+    setMergingPair(key)
+    try {
+      await sourceIssuesAPI.mergeCustomers(sourceId, targetId)
+      await loadIssues()
+    } catch (e) { alert('Merge failed: ' + (e.response?.data?.error || e.message)) }
+    finally { setMergingPair(null) }
+  }
 
   const loadRules = async () => {
     setLoading(true)
@@ -211,8 +234,8 @@ const LeadsSettings = () => {
         ok: true,
         message: 'Sync complete. Refresh to see updated sources.'
       })
-      // Reload mappings (unmapped list will update with newly synced company values)
-      await loadMappings()
+      // Reload mappings + issues (unmapped list + duplicates/missing will update)
+      await Promise.all([loadMappings(), loadIssues()])
     } catch (e) {
       setSyncResult({ error: e?.response?.data?.error || e.message })
     } finally {
@@ -333,6 +356,129 @@ const LeadsSettings = () => {
               </div>
             )}
           </section>
+
+          {/* ── ISSUES / MANUAL RESOLUTION ── */}
+          {(issues?.duplicateCustomerCount > 0 || issues?.conversationsWithoutCompany?.count > 0 || issues?.unresolvedCustomerSources?.length > 0) && (
+            <section>
+              <div className="mb-4 flex items-center gap-2">
+                <AlertTriangle size={18} className="text-amber-500" />
+                <div>
+                  <h2 className="text-lg font-semibold text-[var(--sf-text-primary)]">Issues to Resolve</h2>
+                  <p className="text-sm text-[var(--sf-text-muted)] mt-0.5">Post-sync issues that need manual attention.</p>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {/* Duplicate customers */}
+                {issues.duplicateCustomerCount > 0 && (
+                  <div className="bg-white rounded-xl border border-[var(--sf-border-light)] overflow-hidden">
+                    <div className="px-5 py-3 border-b border-[var(--sf-border-light)] flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Users size={14} className="text-[var(--sf-text-muted)]" />
+                        <h3 className="text-sm font-semibold text-[var(--sf-text-primary)]">Duplicate Customers ({issues.duplicateCustomerCount})</h3>
+                      </div>
+                      <span className="text-[10px] text-[var(--sf-text-muted)]">Keep record with jobs, merge or delete empty duplicates</span>
+                    </div>
+                    <div className="divide-y divide-[var(--sf-border-light)] max-h-[400px] overflow-y-auto">
+                      {issues.duplicateCustomers.map(group => (
+                        <div key={group.name} className="px-5 py-3">
+                          <div className="text-xs font-semibold text-[var(--sf-text-primary)] mb-2">{group.name}</div>
+                          <div className="space-y-1.5">
+                            {group.records.map(r => {
+                              const targets = group.records.filter(o => o.id !== r.id)
+                              return (
+                                <div key={r.id} className="flex items-center gap-2 text-xs bg-[var(--sf-bg-page)] rounded-lg px-3 py-2">
+                                  <a href={`/customer/${r.id}`} target="_blank" rel="noreferrer"
+                                    className="font-mono text-[var(--sf-blue-500)] hover:underline flex-shrink-0">#{r.id}</a>
+                                  <span className={`text-[10px] px-1.5 py-0.5 rounded ${r.job_count > 0 ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-500'}`}>
+                                    {r.job_count} {r.job_count === 1 ? 'job' : 'jobs'}
+                                  </span>
+                                  <span className="text-[var(--sf-text-secondary)] truncate">
+                                    {r.phone || 'no phone'} {r.address ? `• ${r.address}` : ''}
+                                  </span>
+                                  <div className="flex-1" />
+                                  {targets.length > 0 && (
+                                    <select
+                                      onChange={e => {
+                                        const t = parseInt(e.target.value)
+                                        if (t) handleMergeCustomers(r.id, t)
+                                        e.target.value = ''
+                                      }}
+                                      disabled={!!mergingPair}
+                                      className="text-[10px] border border-[var(--sf-border-light)] rounded px-1.5 py-0.5 bg-white"
+                                      defaultValue="">
+                                      <option value="">Merge into...</option>
+                                      {targets.map(t => (
+                                        <option key={t.id} value={t.id}>#{t.id} ({t.job_count} jobs)</option>
+                                      ))}
+                                    </select>
+                                  )}
+                                  {mergingPair?.startsWith(`${r.id}-`) && <Loader2 size={11} className="animate-spin" />}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Conversations without company */}
+                {issues.conversationsWithoutCompany?.count > 0 && (
+                  <div className="bg-white rounded-xl border border-[var(--sf-border-light)] p-5">
+                    <div className="flex items-start gap-2">
+                      <HelpCircle size={14} className="text-amber-500 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <h3 className="text-sm font-semibold text-[var(--sf-text-primary)]">
+                          {issues.conversationsWithoutCompany.count} Conversations Without Company
+                        </h3>
+                        <p className="text-xs text-[var(--sf-text-muted)] mt-0.5">
+                          OpenPhone contacts with no company tag set. These customers will show "No source" unless their contact gets a company in OpenPhone.
+                        </p>
+                        <details className="mt-2">
+                          <summary className="text-xs text-[var(--sf-blue-500)] cursor-pointer hover:text-[var(--sf-blue-600)]">
+                            View sample ({issues.conversationsWithoutCompany.sample.length})
+                          </summary>
+                          <div className="mt-2 max-h-48 overflow-y-auto space-y-0.5 text-xs text-[var(--sf-text-muted)]">
+                            {issues.conversationsWithoutCompany.sample.map(c => (
+                              <div key={c.id} className="font-mono">
+                                {c.participant_phone} · {c.participant_name || 'Unknown'}
+                              </div>
+                            ))}
+                          </div>
+                        </details>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Unresolved customer.source values */}
+                {issues.unresolvedCustomerSources?.length > 0 && (
+                  <div className="bg-white rounded-xl border border-[var(--sf-border-light)] p-5">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle size={14} className="text-amber-500 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <h3 className="text-sm font-semibold text-[var(--sf-text-primary)]">
+                          Unresolved Customer Sources ({issues.unresolvedCustomerSources.length})
+                        </h3>
+                        <p className="text-xs text-[var(--sf-text-muted)] mt-0.5">
+                          These raw source values are on customer records but aren't mapped yet. Scroll to the Lead Sources section above — they appear as <span className="font-semibold text-violet-600">CR</span> badges.
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {issues.unresolvedCustomerSources.map(u => (
+                            <span key={u.raw_value} className="text-[10px] px-2 py-0.5 rounded-full bg-violet-50 text-violet-600 border border-violet-100">
+                              {u.raw_value} ({u.count})
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
 
           {/* ── LEAD STAGE AUTOMATION ── */}
           <section>
