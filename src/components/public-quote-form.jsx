@@ -3,8 +3,7 @@ import { User, Mail, Phone, MapPin, Calendar, Clock, FileText, Send, CheckCircle
 
 const PublicQuoteForm = ({ businessId = 1, onSuccess }) => {
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
+    fullName: '',
     email: '',
     phone: '',
     address: '',
@@ -26,6 +25,11 @@ const PublicQuoteForm = ({ businessId = 1, onSuccess }) => {
     setLoading(true);
     setError('');
 
+    const trimmedName = (formData.fullName || '').trim().replace(/\s+/g, ' ');
+    const nameParts = trimmedName ? trimmedName.split(' ') : [];
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.slice(1).join(' ');
+
     try {
       const response = await fetch(`https://service-flow-backend-production-4568.up.railway.app/api/public/quotes`, {
         method: 'POST',
@@ -35,8 +39,8 @@ const PublicQuoteForm = ({ businessId = 1, onSuccess }) => {
         body: JSON.stringify({
           userId: businessId,
           customerData: {
-            firstName: formData.firstName,
-            lastName: formData.lastName,
+            firstName,
+            lastName,
             email: formData.email,
             phone: formData.phone,
             address: formData.address
@@ -85,7 +89,7 @@ const PublicQuoteForm = ({ businessId = 1, onSuccess }) => {
             onClick={() => {
               setSuccess(false);
               setFormData({
-                firstName: '', lastName: '', email: '', phone: '', address: '',
+                fullName: '', email: '', phone: '', address: '',
                 serviceName: '', description: '', preferredDate: '', preferredTime: '',
                 estimatedDuration: '', estimatedPrice: '', notes: ''
               });
@@ -114,36 +118,20 @@ const PublicQuoteForm = ({ businessId = 1, onSuccess }) => {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Customer Information */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <User className="w-4 h-4 inline mr-2" />
-              First Name *
-            </label>
-            <input
-              type="text"
-              name="firstName"
-              value={formData.firstName}
-              onChange={handleChange}
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <User className="w-4 h-4 inline mr-2" />
-              Last Name *
-            </label>
-            <input
-              type="text"
-              name="lastName"
-              value={formData.lastName}
-              onChange={handleChange}
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            <User className="w-4 h-4 inline mr-2" />
+            Name *
+          </label>
+          <input
+            type="text"
+            name="fullName"
+            value={formData.fullName}
+            onChange={handleChange}
+            required
+            placeholder="Full name"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
