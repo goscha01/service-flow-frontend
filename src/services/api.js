@@ -2809,6 +2809,7 @@ export const sourceIssuesAPI = {
 export const participantsAPI = {
   backfillDryRun: async () => { const r = await api.post('/participants/backfill'); return r.data; },
   backfillApply: async () => { const r = await api.post('/participants/backfill?apply=1'); return r.data; },
+  backfillProgress: async () => { const r = await api.get('/participants/backfill/progress'); return r.data; },
   reconcile: async () => { const r = await api.post('/participants/reconcile'); return r.data; },
 };
 
