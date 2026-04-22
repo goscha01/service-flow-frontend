@@ -89,12 +89,30 @@ const LeadsSettings = () => {
   }
   const handleBackfillApply = async () => {
     if (!window.confirm('Apply participant mapping backfill? This creates mapping rows for all existing OpenPhone conversations, reusing legacy CRM links where present. Non-destructive.')) return
-    setPBackfillBusy(true); setPBackfillResult(null)
+    setPBackfillBusy(true); setPBackfillResult({ progress: { phase: 'starting' } })
     try {
-      setPBackfillResult({ ...(await participantsAPI.backfillApply()) })
+      // Kick off async job — returns 202 immediately
+      await participantsAPI.backfillApply()
+      // Poll progress every 2s until done
+      let lastProgress = null
+      for (let attempt = 0; attempt < 150; attempt++) { // up to 5 min
+        await new Promise(r => setTimeout(r, 2000))
+        const p = await participantsAPI.backfillProgress()
+        lastProgress = p
+        setPBackfillResult({ progress: p })
+        if (p.status === 'done' || p.status === 'error' || p.status === 'idle') break
+      }
+      if (lastProgress?.status === 'error') {
+        setPBackfillResult({ error: lastProgress.error || 'Backfill failed' })
+      } else if (lastProgress?.summary) {
+        setPBackfillResult({ summary: lastProgress.summary })
+      }
       await loadIssues()
-    } catch (e) { setPBackfillResult({ error: e.response?.data?.error || e.message }) }
-    finally { setPBackfillBusy(false) }
+    } catch (e) {
+      setPBackfillResult({ error: e.response?.data?.error || e.message })
+    } finally {
+      setPBackfillBusy(false)
+    }
   }
   const handleReconcile = async () => {
     setReconcileBusy(true); setReconcileResult(null)
@@ -449,6 +467,14 @@ const LeadsSettings = () => {
                   Run Backfill first after deploying PR4, then Reconcile after new Sigcore syncs.
                 </span>
               </div>
+
+              {/* Backfill progress (while running) */}
+              {pBackfillResult?.progress && pBackfillBusy && (
+                <div className="rounded-lg p-3 text-xs bg-blue-50 text-blue-800 flex items-center gap-2">
+                  <Loader2 size={12} className="animate-spin" />
+                  <span>Backfill running — phase: <strong>{pBackfillResult.progress.phase || 'starting'}</strong>{pBackfillResult.progress.total ? ` (${pBackfillResult.progress.linked || 0}/${pBackfillResult.progress.total})` : ''}</span>
+                </div>
+              )}
 
               {/* Backfill result */}
               {pBackfillResult && !pBackfillBusy && (
