@@ -2811,6 +2811,9 @@ export const participantsAPI = {
   backfillApply: async () => { const r = await api.post('/participants/backfill?apply=1'); return r.data; },
   backfillProgress: async () => { const r = await api.get('/participants/backfill/progress'); return r.data; },
   reconcile: async () => { const r = await api.post('/participants/reconcile'); return r.data; },
+  importLeadsDryRun: async () => { const r = await api.post('/participants/import-unmapped-leads'); return r.data; },
+  importLeadsApply: async () => { const r = await api.post('/participants/import-unmapped-leads?apply=1'); return r.data; },
+  importLeadsProgress: async () => { const r = await api.get('/participants/import-unmapped-leads/progress'); return r.data; },
 };
 
 export const locationsAPI = {

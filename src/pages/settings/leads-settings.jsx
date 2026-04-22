@@ -60,6 +60,10 @@ const LeadsSettings = () => {
   const [reconcileBusy, setReconcileBusy] = useState(false)
   const [reconcileResult, setReconcileResult] = useState(null)
 
+  // Import unmapped as leads
+  const [importBusy, setImportBusy] = useState(false)
+  const [importResult, setImportResult] = useState(null)
+
   useEffect(() => { loadRules(); loadSources(); loadMappings(); loadIssues() }, [])
 
   const loadIssues = async () => {
@@ -121,6 +125,33 @@ const LeadsSettings = () => {
       await loadIssues()
     } catch (e) { setReconcileResult({ error: e.response?.data?.error || e.message }) }
     finally { setReconcileBusy(false) }
+  }
+
+  const handleImportLeadsDryRun = async () => {
+    setImportBusy(true); setImportResult(null)
+    try { setImportResult(await participantsAPI.importLeadsDryRun()) }
+    catch (e) { setImportResult({ error: e.response?.data?.error || e.message }) }
+    finally { setImportBusy(false) }
+  }
+
+  const handleImportLeadsApply = async () => {
+    if (!window.confirm('Create lead records for all named unmapped OpenPhone contacts? This can add 1,000+ new leads to your pipeline. Non-destructive but irreversible without manual cleanup.')) return
+    setImportBusy(true); setImportResult({ progress: { phase: 'starting' } })
+    try {
+      await participantsAPI.importLeadsApply()
+      let last = null
+      for (let i = 0; i < 150; i++) {
+        await new Promise(r => setTimeout(r, 2000))
+        const p = await participantsAPI.importLeadsProgress()
+        last = p
+        setImportResult({ progress: p })
+        if (p.status === 'done' || p.status === 'error' || p.status === 'idle') break
+      }
+      if (last?.status === 'error') setImportResult({ error: last.error })
+      else if (last?.summary) setImportResult({ summary: last.summary })
+      await loadIssues()
+    } catch (e) { setImportResult({ error: e.response?.data?.error || e.message }) }
+    finally { setImportBusy(false) }
   }
 
   const loadRules = async () => {
@@ -567,6 +598,66 @@ const LeadsSettings = () => {
                 </div>
               )}
             </div>
+
+            {/* Convert unmapped named contacts → leads */}
+            {(issues?.participantMetrics?.unmapped || 0) > 0 && (
+              <div className="bg-white rounded-xl border border-violet-200 p-5 mt-3">
+                <div className="flex items-start gap-2">
+                  <Users size={14} className="text-violet-500 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <h3 className="text-sm font-semibold text-[var(--sf-text-primary)]">
+                      Convert Unmapped Contacts to Leads
+                    </h3>
+                    <p className="text-xs text-[var(--sf-text-muted)] mt-0.5">
+                      {issues.participantMetrics.unmapped} unmapped participants. Importing creates a lead record for every
+                      named real person (skips aggregator aliases and unknown numbers). Duplicates checked by phone.
+                    </p>
+                    <div className="flex flex-wrap gap-2 mt-3">
+                      <button onClick={handleImportLeadsDryRun} disabled={importBusy}
+                        className="px-3 py-1.5 text-xs border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-hover)] text-[var(--sf-text-secondary)] disabled:opacity-50 flex items-center gap-1.5">
+                        {importBusy ? <Loader2 size={12} className="animate-spin" /> : <Database size={12} />}
+                        Preview (Dry-run)
+                      </button>
+                      <button onClick={handleImportLeadsApply} disabled={importBusy}
+                        className="px-3 py-1.5 text-xs bg-violet-500 text-white rounded-lg hover:bg-violet-600 disabled:opacity-50 flex items-center gap-1.5">
+                        {importBusy ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
+                        Create Leads
+                      </button>
+                    </div>
+
+                    {/* Progress / result */}
+                    {importResult?.progress && importBusy && (
+                      <div className="rounded-lg p-3 text-xs bg-violet-50 text-violet-800 mt-3 flex items-center gap-2">
+                        <Loader2 size={12} className="animate-spin" />
+                        <span>{importResult.progress.phase || 'Starting…'}{importResult.progress.total ? ` — created ${importResult.progress.created || 0}/${importResult.progress.total}` : ''}</span>
+                      </div>
+                    )}
+                    {importResult && !importBusy && (
+                      <div className={`rounded-lg p-3 text-xs mt-3 ${importResult.error ? 'bg-red-50 text-red-600' : 'bg-violet-50 text-violet-800'}`}>
+                        {importResult.error ? (
+                          `Error: ${importResult.error}`
+                        ) : importResult.summary ? (
+                          <div className="space-y-1">
+                            <div className="font-semibold">{importResult.dryRun ? 'Dry-run preview:' : 'Import complete:'}</div>
+                            <div className="grid grid-cols-2 gap-2 mt-1">
+                              <div>Candidates: {importResult.summary.candidates}</div>
+                              <div>Eligible (named): {importResult.summary.eligible}</div>
+                              <div>Filtered aggregator aliases: {importResult.summary.filtered_aggregator}</div>
+                              <div>Filtered no-name: {importResult.summary.filtered_no_name}</div>
+                              <div>Skipped (lead already exists): {importResult.summary.skipped_existing_leads}</div>
+                              <div className="font-semibold text-violet-900">{importResult.dryRun ? 'Will create' : 'Created'}: {importResult.summary.to_import ?? importResult.summary.created}</div>
+                            </div>
+                            {importResult.summary.errors > 0 && (
+                              <div className="text-red-600 mt-1">Errors: {importResult.summary.errors}</div>
+                            )}
+                          </div>
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </section>
 
           {/* ── ISSUES / MANUAL RESOLUTION ── */}
