@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useMemo, useRef } from "react"
 import { useNavigate } from "react-router-dom"
-import { leadAutomationAPI, leadSourcesAPI, leadSourceMappingsAPI, openPhoneAPI, leadbridgeAPI, sourceIssuesAPI } from "../../services/api"
-import { ChevronLeft, Zap, Loader2, Plus, X, Pencil, Check, Trash2, Wand2, GripVertical, ChevronDown, Search, RefreshCw, AlertTriangle, Users, HelpCircle } from "lucide-react"
+import { leadAutomationAPI, leadSourcesAPI, leadSourceMappingsAPI, openPhoneAPI, leadbridgeAPI, sourceIssuesAPI, participantsAPI } from "../../services/api"
+import { ChevronLeft, Zap, Loader2, Plus, X, Pencil, Check, Trash2, Wand2, GripVertical, ChevronDown, Search, RefreshCw, AlertTriangle, Users, HelpCircle, Database, Link2 } from "lucide-react"
 
 const EVENT_DEFS = [
   { event: 'lead_received', label: 'Lead Received', desc: 'New lead arrives from Thumbtack or Yelp' },
@@ -54,6 +54,12 @@ const LeadsSettings = () => {
   const [issuesLoading, setIssuesLoading] = useState(false)
   const [mergingPair, setMergingPair] = useState(null) // "srcId-targetId"
 
+  // Participant backfill + reconcile (PR4)
+  const [backfillBusy, setBackfillBusy] = useState(false)
+  const [backfillResult, setBackfillResult] = useState(null)
+  const [reconcileBusy, setReconcileBusy] = useState(false)
+  const [reconcileResult, setReconcileResult] = useState(null)
+
   useEffect(() => { loadRules(); loadSources(); loadMappings(); loadIssues() }, [])
 
   const loadIssues = async () => {
@@ -72,6 +78,31 @@ const LeadsSettings = () => {
       await loadIssues()
     } catch (e) { alert('Merge failed: ' + (e.response?.data?.error || e.message)) }
     finally { setMergingPair(null) }
+  }
+
+  // PR4 — Participant backfill + reconcile handlers
+  const handleBackfillDryRun = async () => {
+    setBackfillBusy(true); setBackfillResult(null)
+    try { setBackfillResult({ ...(await participantsAPI.backfillDryRun()) }) }
+    catch (e) { setBackfillResult({ error: e.response?.data?.error || e.message }) }
+    finally { setBackfillBusy(false) }
+  }
+  const handleBackfillApply = async () => {
+    if (!window.confirm('Apply participant mapping backfill? This creates mapping rows for all existing OpenPhone conversations, reusing legacy CRM links where present. Non-destructive.')) return
+    setBackfillBusy(true); setBackfillResult(null)
+    try {
+      setBackfillResult({ ...(await participantsAPI.backfillApply()) })
+      await loadIssues()
+    } catch (e) { setBackfillResult({ error: e.response?.data?.error || e.message }) }
+    finally { setBackfillBusy(false) }
+  }
+  const handleReconcile = async () => {
+    setReconcileBusy(true); setReconcileResult(null)
+    try {
+      setReconcileResult({ ...(await participantsAPI.reconcile()) })
+      await loadIssues()
+    } catch (e) { setReconcileResult({ error: e.response?.data?.error || e.message }) }
+    finally { setReconcileBusy(false) }
   }
 
   const loadRules = async () => {
@@ -355,6 +386,113 @@ const LeadsSettings = () => {
                 </div>
               </div>
             )}
+          </section>
+
+          {/* ── PARTICIPANT HEALTH (PR4) ── */}
+          <section>
+            <div className="mb-4 flex items-center gap-2">
+              <Link2 size={18} className="text-[var(--sf-blue-500)]" />
+              <div>
+                <h2 className="text-lg font-semibold text-[var(--sf-text-primary)]">Participant Identity</h2>
+                <p className="text-sm text-[var(--sf-text-muted)] mt-0.5">
+                  Sigcore participant mapping — the long-term identity root for every conversation.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl border border-[var(--sf-border-light)] p-5 space-y-4">
+              {/* Metrics */}
+              {issues?.participantMetrics ? (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="bg-green-50 border border-green-100 rounded-lg p-3">
+                    <div className="text-[10px] uppercase tracking-wider text-green-700 font-semibold">Mapped</div>
+                    <div className="text-lg font-bold text-green-800 mt-0.5">{issues.participantMetrics.mapped || 0}</div>
+                  </div>
+                  <div className="bg-amber-50 border border-amber-100 rounded-lg p-3">
+                    <div className="text-[10px] uppercase tracking-wider text-amber-700 font-semibold">Ambiguous</div>
+                    <div className="text-lg font-bold text-amber-800 mt-0.5">{issues.participantMetrics.ambiguous || 0}</div>
+                  </div>
+                  <div className="bg-gray-50 border border-gray-100 rounded-lg p-3">
+                    <div className="text-[10px] uppercase tracking-wider text-gray-600 font-semibold">Unmapped</div>
+                    <div className="text-lg font-bold text-gray-800 mt-0.5">{issues.participantMetrics.unmapped || 0}</div>
+                  </div>
+                  <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
+                    <div className="text-[10px] uppercase tracking-wider text-blue-700 font-semibold">Pending</div>
+                    <div className="text-lg font-bold text-blue-800 mt-0.5">{issues.participantMetrics.participant_pending_total || 0}</div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-xs text-[var(--sf-text-muted)]">No metrics yet — run backfill to populate.</div>
+              )}
+
+              {/* Actions */}
+              <div className="flex flex-wrap gap-2 items-center pt-2 border-t border-[var(--sf-border-light)]">
+                <button onClick={handleBackfillDryRun} disabled={backfillBusy}
+                  className="px-3 py-1.5 text-xs border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-hover)] text-[var(--sf-text-secondary)] disabled:opacity-50 flex items-center gap-1.5"
+                  title="Preview mapping counts without writing">
+                  {backfillBusy ? <Loader2 size={12} className="animate-spin" /> : <Database size={12} />}
+                  Backfill (Dry-run)
+                </button>
+                <button onClick={handleBackfillApply} disabled={backfillBusy}
+                  className="px-3 py-1.5 text-xs bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] disabled:opacity-50 flex items-center gap-1.5"
+                  title="Create mapping rows for all existing conversations (non-destructive — reuses legacy CRM links)">
+                  {backfillBusy ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                  Backfill & Apply
+                </button>
+                <button onClick={handleReconcile} disabled={reconcileBusy}
+                  className="px-3 py-1.5 text-xs border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-hover)] text-[var(--sf-text-secondary)] disabled:opacity-50 flex items-center gap-1.5"
+                  title="Attach pending conversations to existing mappings by phone">
+                  {reconcileBusy ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+                  Reconcile Pending
+                </button>
+                <span className="text-[10px] text-[var(--sf-text-muted)] ml-auto">
+                  Run Backfill first after deploying PR4, then Reconcile after new Sigcore syncs.
+                </span>
+              </div>
+
+              {/* Backfill result */}
+              {backfillResult && !backfillBusy && (
+                <div className={`rounded-lg p-3 text-xs ${backfillResult.error ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-800'}`}>
+                  {backfillResult.error ? (
+                    `Error: ${backfillResult.error}`
+                  ) : backfillResult.summary ? (
+                    <div className="space-y-1">
+                      <div className="font-semibold">{backfillResult.dryRun ? 'Dry-run preview:' : 'Backfill complete:'}</div>
+                      <div className="grid grid-cols-3 gap-2 mt-1">
+                        <div>Scanned: {backfillResult.summary.scanned}</div>
+                        <div>Mapped: {backfillResult.summary.mapped}</div>
+                        <div>Ambiguous: {backfillResult.summary.ambiguous}</div>
+                        <div>Unmapped: {backfillResult.summary.unmapped}</div>
+                        <div>Pending: {backfillResult.summary.pending}</div>
+                        <div>Reused existing: {backfillResult.summary.reused}</div>
+                      </div>
+                      {backfillResult.summary.errors > 0 && (
+                        <div className="text-red-600 mt-1">Errors: {backfillResult.summary.errors}</div>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+              )}
+
+              {/* Reconcile result */}
+              {reconcileResult && !reconcileBusy && (
+                <div className={`rounded-lg p-3 text-xs ${reconcileResult.error ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'}`}>
+                  {reconcileResult.error ? `Error: ${reconcileResult.error}` : `Attached ${reconcileResult.attached} of ${reconcileResult.pending} pending conversations.`}
+                </div>
+              )}
+
+              {/* Additional details */}
+              {issues?.participantMetrics && (
+                <div className="text-[11px] text-[var(--sf-text-muted)] pt-2 border-t border-[var(--sf-border-light)]">
+                  {(issues.participantMetrics.participant_id_missing_total || 0) > 0 && (
+                    <div>• {issues.participantMetrics.participant_id_missing_total} mappings use <strong>participantKey</strong> only (waiting for Sigcore to assign participantId)</div>
+                  )}
+                  {(issues.participantMetrics.participant_phone_missing_total || 0) > 0 && (
+                    <div>• {issues.participantMetrics.participant_phone_missing_total} conversations have no phone AND no participant identity</div>
+                  )}
+                </div>
+              )}
+            </div>
           </section>
 
           {/* ── ISSUES / MANUAL RESOLUTION ── */}
