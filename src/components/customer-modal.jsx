@@ -9,8 +9,7 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
   const navigate = useNavigate()
   const modalRef = useRef(null)
   const [customerData, setCustomerData] = useState({
-    firstName: "",
-    lastName: "",
+    fullName: "",
     address: "",
     suite: "",
     phone: "",
@@ -87,8 +86,7 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
     if (!isOpen) {
       // Clear form data when modal closes
       setCustomerData({
-        firstName: "",
-        lastName: "",
+        fullName: "",
         address: "",
         suite: "",
         phone: "",
@@ -106,8 +104,7 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
     } else if (isOpen && !isEditing) {
       // Clear form data when opening for new customer (not editing)
       setCustomerData({
-        firstName: "",
-        lastName: "",
+        fullName: "",
         address: "",
         suite: "",
         phone: "",
@@ -125,13 +122,13 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
     } else if (isEditing && customer) {
       // Populate form with existing customer data for editing
       console.log('Populating form with customer data:', customer)
-      
+
       // Parse the combined address if it exists (for backward compatibility)
       const parsedAddress = parseCombinedAddress(customer.address)
-      
+
+      const joinedName = [customer.first_name, customer.last_name].filter(Boolean).join(' ').trim()
       setCustomerData({
-        firstName: customer.first_name || "",
-        lastName: customer.last_name || "",
+        fullName: joinedName,
         address: customer.suite ? customer.address : parsedAddress.address,
         suite: customer.suite || parsedAddress.suite,
         phone: customer.phone || "",
@@ -312,18 +309,11 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
           delete errors.phone
         }
         break
-      case 'firstName':
+      case 'fullName':
         if (!value.trim()) {
-          errors.firstName = 'First name is required'
+          errors.fullName = 'Name is required'
         } else {
-          delete errors.firstName
-        }
-        break
-      case 'lastName':
-        if (!value.trim()) {
-          errors.lastName = 'Last name is required'
-        } else {
-          delete errors.lastName
+          delete errors.fullName
         }
         break
       default:
@@ -384,10 +374,12 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
     }
   }
 
-  const handleNameChange = (e) => {
-    const value = e.target.value
-    setCustomerData({ ...customerData, name: value })
-    validateField('name', value)
+  const splitFullName = (fullName) => {
+    const trimmed = (fullName || '').trim().replace(/\s+/g, ' ')
+    if (!trimmed) return { firstName: '', lastName: '' }
+    const parts = trimmed.split(' ')
+    if (parts.length === 1) return { firstName: parts[0], lastName: '' }
+    return { firstName: parts[0], lastName: parts.slice(1).join(' ') }
   }
 
   const handleAddressSelect = (addressData) => {
@@ -421,13 +413,8 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
     setError("")
     
     // Validate required fields
-    if (!customerData.firstName.trim()) {
-      setError('First name is required')
-      return
-    }
-    
-    if (!customerData.lastName.trim()) {
-      setError('Last name is required')
+    if (!customerData.fullName.trim()) {
+      setError('Name is required')
       return
     }
     
@@ -448,10 +435,11 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
     try {
       // Format phone number for server (remove all formatting, keep only digits and +)
       const formattedPhone = customerData.phone ? customerData.phone.replace(/[\s\-()]/g, '') : ''
-      
+
+      const { firstName, lastName } = splitFullName(customerData.fullName)
       const customerToSave = {
-        firstName: customerData.firstName.trim(),
-        lastName: customerData.lastName.trim(),
+        firstName,
+        lastName,
         address: customerData.address,
         suite: customerData.suite,
         phone: formattedPhone,
@@ -514,49 +502,26 @@ const CustomerModal = ({ isOpen, onClose, onSave, customer, isEditing = false })
 
           <form id="customer-form" onSubmit={handleSubmit} className="space-y-6" noValidate>
             {/* Customer Name */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
-                  First Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  placeholder="First name"
-                  value={customerData.firstName}
-                  onChange={(e) => {
-                    setCustomerData({ ...customerData, firstName: e.target.value })
-                    validateField('firstName', e.target.value)
-                  }}
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] text-[var(--sf-text-primary)] text-sm ${
-                    validationErrors.firstName ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-[var(--sf-border-light)]'
-                  }`}
-                  required
-                />
-                {validationErrors.firstName && (
-                  <p className="mt-1 text-sm text-red-600">{validationErrors.firstName}</p>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
-                  Last Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  placeholder="Last name"
-                  value={customerData.lastName}
-                  onChange={(e) => {
-                    setCustomerData({ ...customerData, lastName: e.target.value })
-                    validateField('lastName', e.target.value)
-                  }}
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] text-[var(--sf-text-primary)] text-sm ${
-                    validationErrors.lastName ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-[var(--sf-border-light)]'
-                  }`}
-                  required
-                />
-                {validationErrors.lastName && (
-                  <p className="mt-1 text-sm text-red-600">{validationErrors.lastName}</p>
-                )}
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
+                Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                placeholder="Full name"
+                value={customerData.fullName}
+                onChange={(e) => {
+                  setCustomerData({ ...customerData, fullName: e.target.value })
+                  validateField('fullName', e.target.value)
+                }}
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)] text-[var(--sf-text-primary)] text-sm ${
+                  validationErrors.fullName ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-[var(--sf-border-light)]'
+                }`}
+                required
+              />
+              {validationErrors.fullName && (
+                <p className="mt-1 text-sm text-red-600">{validationErrors.fullName}</p>
+              )}
             </div>
 
             {/* Address */}

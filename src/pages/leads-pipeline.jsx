@@ -83,8 +83,7 @@ const LeadsPipeline = () => {
   
   // Form states
   const [leadFormData, setLeadFormData] = useState({
-    firstName: '',
-    lastName: '',
+    fullName: '',
     email: '',
     phone: '',
     company: '',
@@ -94,6 +93,14 @@ const LeadsPipeline = () => {
     address: '',
     serviceId: ''
   });
+
+  const splitLeadName = (fullName) => {
+    const trimmed = (fullName || '').trim().replace(/\s+/g, ' ');
+    if (!trimmed) return { firstName: '', lastName: '' };
+    const parts = trimmed.split(' ');
+    if (parts.length === 1) return { firstName: parts[0], lastName: '' };
+    return { firstName: parts[0], lastName: parts.slice(1).join(' ') };
+  };
   
   // Services and Zillow state
   const [services, setServices] = useState([]);
@@ -445,10 +452,9 @@ const LeadsPipeline = () => {
     e.preventDefault();
     
     // Basic validation - at least name or email should be provided
-    const firstName = (leadFormData.firstName || '').trim();
-    const lastName = (leadFormData.lastName || '').trim();
+    const { firstName, lastName } = splitLeadName(leadFormData.fullName);
     const email = (leadFormData.email || '').trim();
-    
+
     if (!firstName && !lastName && !email) {
       showNotification('Please provide at least a name or email address', 'error', 5000);
       return;
@@ -487,8 +493,7 @@ const LeadsPipeline = () => {
       setShowCreateLeadModal(false);
       setSelectedServiceForLead(null);
       setLeadFormData({
-        firstName: '',
-        lastName: '',
+        fullName: '',
         email: '',
         phone: '',
         company: '',
@@ -532,9 +537,10 @@ const LeadsPipeline = () => {
         : null;
       
       // Ensure source is not '__custom__' before submitting
+      const editNameParts = splitLeadName(leadFormData.fullName);
       const submitData = {
-        firstName: (leadFormData.firstName || '').trim(),
-        lastName: (leadFormData.lastName || '').trim(),
+        firstName: editNameParts.firstName,
+        lastName: editNameParts.lastName,
         email: (leadFormData.email || '').trim(),
         phone: (leadFormData.phone || '').trim(),
         company: (leadFormData.company || '').trim(),
@@ -544,15 +550,14 @@ const LeadsPipeline = () => {
         address: (leadFormData.address || '').trim(),
         serviceId: leadFormData.serviceId || null
       };
-      
+
       console.log('📝 Updating lead with data:', submitData);
       await leadsAPI.update(editingLead.id, submitData);
       showNotification('Lead updated successfully!', 'success', 3000);
       setShowEditLeadModal(false);
       setEditingLead(null);
       setLeadFormData({
-        firstName: '',
-        lastName: '',
+        fullName: '',
         email: '',
         phone: '',
         company: '',
@@ -605,9 +610,9 @@ const LeadsPipeline = () => {
       }
     }
     
+    const joinedLeadName = [lead.first_name, lead.last_name].filter(Boolean).join(' ').trim();
     setLeadFormData({
-      firstName: lead.first_name || '',
-      lastName: lead.last_name || '',
+      fullName: joinedLeadName,
       email: lead.email || '',
       phone: lead.phone || '',
       company: lead.company || '',
@@ -1457,30 +1462,18 @@ const LeadsPipeline = () => {
               <div>
                 {/* Form */}
                 <form id="create-lead-form" onSubmit={handleCreateLead} className="space-y-4" autoComplete="off">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
-                      First Name *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={leadFormData.firstName}
-                      onChange={(e) => setLeadFormData({ ...leadFormData, firstName: e.target.value })}
-                      className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
-                      Last Name
-                    </label>
-                    <input
-                      type="text"
-                      value={leadFormData.lastName}
-                      onChange={(e) => setLeadFormData({ ...leadFormData, lastName: e.target.value })}
-                      className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
-                    />
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
+                    Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Full name"
+                    value={leadFormData.fullName}
+                    onChange={(e) => setLeadFormData({ ...leadFormData, fullName: e.target.value })}
+                    className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
+                  />
                 </div>
                 
                 <div>
@@ -1563,10 +1556,10 @@ const LeadsPipeline = () => {
                           <div
                             key={idx}
                             onClick={() => {
+                              const suggestedFullName = [suggestion.firstName, suggestion.lastName].filter(Boolean).join(' ').trim();
                               setLeadFormData({
                                 ...leadFormData,
-                                firstName: suggestion.firstName,
-                                lastName: suggestion.lastName,
+                                fullName: suggestedFullName,
                                 email: suggestion.email
                               });
                               setNameSuggestions([]);
@@ -2047,30 +2040,18 @@ const LeadsPipeline = () => {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Left Column - Form */}
                 <form onSubmit={handleEditLead} className="space-y-4" autoComplete="off">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
-                      First Name *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={leadFormData.firstName}
-                      onChange={(e) => setLeadFormData({ ...leadFormData, firstName: e.target.value })}
-                      className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
-                      Last Name
-                    </label>
-                    <input
-                      type="text"
-                      value={leadFormData.lastName}
-                      onChange={(e) => setLeadFormData({ ...leadFormData, lastName: e.target.value })}
-                      className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
-                    />
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--sf-text-primary)] mb-1">
+                    Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Full name"
+                    value={leadFormData.fullName}
+                    onChange={(e) => setLeadFormData({ ...leadFormData, fullName: e.target.value })}
+                    className="w-full px-3 py-2 border border-[var(--sf-border-light)] rounded-lg focus:ring-2 focus:ring-[var(--sf-blue-500)] focus:border-[var(--sf-blue-500)]"
+                  />
                 </div>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
