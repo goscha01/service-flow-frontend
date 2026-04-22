@@ -55,8 +55,8 @@ const LeadsSettings = () => {
   const [mergingPair, setMergingPair] = useState(null) // "srcId-targetId"
 
   // Participant backfill + reconcile (PR4)
-  const [backfillBusy, setBackfillBusy] = useState(false)
-  const [backfillResult, setBackfillResult] = useState(null)
+  const [pBackfillBusy, setPBackfillBusy] = useState(false)
+  const [pBackfillResult, setPBackfillResult] = useState(null)
   const [reconcileBusy, setReconcileBusy] = useState(false)
   const [reconcileResult, setReconcileResult] = useState(null)
 
@@ -82,19 +82,19 @@ const LeadsSettings = () => {
 
   // PR4 — Participant backfill + reconcile handlers
   const handleBackfillDryRun = async () => {
-    setBackfillBusy(true); setBackfillResult(null)
-    try { setBackfillResult({ ...(await participantsAPI.backfillDryRun()) }) }
-    catch (e) { setBackfillResult({ error: e.response?.data?.error || e.message }) }
-    finally { setBackfillBusy(false) }
+    setPBackfillBusy(true); setPBackfillResult(null)
+    try { setPBackfillResult({ ...(await participantsAPI.backfillDryRun()) }) }
+    catch (e) { setPBackfillResult({ error: e.response?.data?.error || e.message }) }
+    finally { setPBackfillBusy(false) }
   }
   const handleBackfillApply = async () => {
     if (!window.confirm('Apply participant mapping backfill? This creates mapping rows for all existing OpenPhone conversations, reusing legacy CRM links where present. Non-destructive.')) return
-    setBackfillBusy(true); setBackfillResult(null)
+    setPBackfillBusy(true); setPBackfillResult(null)
     try {
-      setBackfillResult({ ...(await participantsAPI.backfillApply()) })
+      setPBackfillResult({ ...(await participantsAPI.backfillApply()) })
       await loadIssues()
-    } catch (e) { setBackfillResult({ error: e.response?.data?.error || e.message }) }
-    finally { setBackfillBusy(false) }
+    } catch (e) { setPBackfillResult({ error: e.response?.data?.error || e.message }) }
+    finally { setPBackfillBusy(false) }
   }
   const handleReconcile = async () => {
     setReconcileBusy(true); setReconcileResult(null)
@@ -427,16 +427,16 @@ const LeadsSettings = () => {
 
               {/* Actions */}
               <div className="flex flex-wrap gap-2 items-center pt-2 border-t border-[var(--sf-border-light)]">
-                <button onClick={handleBackfillDryRun} disabled={backfillBusy}
+                <button onClick={handleBackfillDryRun} disabled={pBackfillBusy}
                   className="px-3 py-1.5 text-xs border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-hover)] text-[var(--sf-text-secondary)] disabled:opacity-50 flex items-center gap-1.5"
                   title="Preview mapping counts without writing">
-                  {backfillBusy ? <Loader2 size={12} className="animate-spin" /> : <Database size={12} />}
+                  {pBackfillBusy ? <Loader2 size={12} className="animate-spin" /> : <Database size={12} />}
                   Backfill (Dry-run)
                 </button>
-                <button onClick={handleBackfillApply} disabled={backfillBusy}
+                <button onClick={handleBackfillApply} disabled={pBackfillBusy}
                   className="px-3 py-1.5 text-xs bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] disabled:opacity-50 flex items-center gap-1.5"
                   title="Create mapping rows for all existing conversations (non-destructive — reuses legacy CRM links)">
-                  {backfillBusy ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                  {pBackfillBusy ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
                   Backfill & Apply
                 </button>
                 <button onClick={handleReconcile} disabled={reconcileBusy}
@@ -451,23 +451,23 @@ const LeadsSettings = () => {
               </div>
 
               {/* Backfill result */}
-              {backfillResult && !backfillBusy && (
-                <div className={`rounded-lg p-3 text-xs ${backfillResult.error ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-800'}`}>
-                  {backfillResult.error ? (
-                    `Error: ${backfillResult.error}`
-                  ) : backfillResult.summary ? (
+              {pBackfillResult && !pBackfillBusy && (
+                <div className={`rounded-lg p-3 text-xs ${pBackfillResult.error ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-800'}`}>
+                  {pBackfillResult.error ? (
+                    `Error: ${pBackfillResult.error}`
+                  ) : pBackfillResult.summary ? (
                     <div className="space-y-1">
-                      <div className="font-semibold">{backfillResult.dryRun ? 'Dry-run preview:' : 'Backfill complete:'}</div>
+                      <div className="font-semibold">{pBackfillResult.dryRun ? 'Dry-run preview:' : 'Backfill complete:'}</div>
                       <div className="grid grid-cols-3 gap-2 mt-1">
-                        <div>Scanned: {backfillResult.summary.scanned}</div>
-                        <div>Mapped: {backfillResult.summary.mapped}</div>
-                        <div>Ambiguous: {backfillResult.summary.ambiguous}</div>
-                        <div>Unmapped: {backfillResult.summary.unmapped}</div>
-                        <div>Pending: {backfillResult.summary.pending}</div>
-                        <div>Reused existing: {backfillResult.summary.reused}</div>
+                        <div>Scanned: {pBackfillResult.summary.scanned}</div>
+                        <div>Mapped: {pBackfillResult.summary.mapped}</div>
+                        <div>Ambiguous: {pBackfillResult.summary.ambiguous}</div>
+                        <div>Unmapped: {pBackfillResult.summary.unmapped}</div>
+                        <div>Pending: {pBackfillResult.summary.pending}</div>
+                        <div>Reused existing: {pBackfillResult.summary.reused}</div>
                       </div>
-                      {backfillResult.summary.errors > 0 && (
-                        <div className="text-red-600 mt-1">Errors: {backfillResult.summary.errors}</div>
+                      {pBackfillResult.summary.errors > 0 && (
+                        <div className="text-red-600 mt-1">Errors: {pBackfillResult.summary.errors}</div>
                       )}
                     </div>
                   ) : null}
