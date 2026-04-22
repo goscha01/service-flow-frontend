@@ -469,12 +469,60 @@ const LeadsSettings = () => {
               </div>
 
               {/* Backfill progress (while running) */}
-              {pBackfillResult?.progress && pBackfillBusy && (
-                <div className="rounded-lg p-3 text-xs bg-blue-50 text-blue-800 flex items-center gap-2">
-                  <Loader2 size={12} className="animate-spin" />
-                  <span>Backfill running — phase: <strong>{pBackfillResult.progress.phase || 'starting'}</strong>{pBackfillResult.progress.total ? ` (${pBackfillResult.progress.linked || 0}/${pBackfillResult.progress.total})` : ''}</span>
-                </div>
-              )}
+              {pBackfillResult?.progress && pBackfillBusy && (() => {
+                const p = pBackfillResult.progress
+                const total = p.total || 0
+                // Pick the right counter for the active phase
+                let done = 0, label = 'Starting...'
+                const phaseWeights = {
+                  'starting':             { range: [0, 5] },
+                  'loading':              { range: [5, 25] },
+                  'building index':       { range: [25, 35] },
+                  'inserting mappings':   { range: [35, 70], counter: p.inserted },
+                  'updating mappings':    { range: [70, 75] },
+                  'linking conversations':{ range: [75, 98], counter: p.linked },
+                  'done':                 { range: [100, 100] },
+                }
+                const w = phaseWeights[p.phase] || { range: [5, 10] }
+                let pct
+                if (w.range[0] === w.range[1]) {
+                  pct = w.range[0]
+                } else if (w.counter != null && total > 0) {
+                  const segLen = w.range[1] - w.range[0]
+                  pct = w.range[0] + Math.min(segLen, (w.counter / total) * segLen)
+                } else {
+                  pct = w.range[0]
+                }
+                pct = Math.max(0, Math.min(100, Math.round(pct)))
+
+                const phaseLabels = {
+                  'starting': 'Starting…',
+                  'loading': 'Loading conversations & CRM records…',
+                  'building index': 'Building phone→CRM index…',
+                  'inserting mappings': `Inserting mappings (${p.inserted || 0})…`,
+                  'updating mappings': 'Updating existing mappings…',
+                  'linking conversations': `Linking conversations (${p.linked || 0}/${total})…`,
+                  'done': 'Finalizing…',
+                }
+
+                return (
+                  <div className="rounded-lg p-3 bg-blue-50 text-blue-800 space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <Loader2 size={12} className="animate-spin flex-shrink-0" />
+                        <span>{phaseLabels[p.phase] || p.phase || 'Starting…'}</span>
+                      </div>
+                      <span className="font-mono text-[11px] text-blue-700">{pct}%</span>
+                    </div>
+                    <div className="w-full h-2 bg-blue-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-blue-500 transition-all duration-500 ease-out rounded-full"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                )
+              })()}
 
               {/* Backfill result */}
               {pBackfillResult && !pBackfillBusy && (
