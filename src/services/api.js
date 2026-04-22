@@ -2806,6 +2806,12 @@ export const sourceIssuesAPI = {
   mergeCustomers: async (sourceId, targetId) => { const r = await api.post(`/customers/${sourceId}/merge-into/${targetId}`); return r.data; },
 };
 
+export const participantsAPI = {
+  backfillDryRun: async () => { const r = await api.post('/participants/backfill'); return r.data; },
+  backfillApply: async () => { const r = await api.post('/participants/backfill?apply=1'); return r.data; },
+  reconcile: async () => { const r = await api.post('/participants/reconcile'); return r.data; },
+};
+
 export const locationsAPI = {
   list: async () => { const r = await api.get('/locations'); return r.data; },
   create: async (data) => { const r = await api.post('/locations', data); return r.data; },
