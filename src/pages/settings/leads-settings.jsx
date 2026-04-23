@@ -61,6 +61,7 @@ const LeadsSettings = () => {
   const [idAmbiguities, setIdAmbiguities] = useState(null)
   const [idReportLoading, setIdReportLoading] = useState(false)
   const [idBackfillBusy, setIdBackfillBusy] = useState(false)
+  const [idBackfillMode, setIdBackfillMode] = useState(null) // 'preview' | 'apply' | null — which button is running
   const [idBackfillResult, setIdBackfillResult] = useState(null)
 
   // Upgrade legacy LB flat sources → per-location
@@ -116,23 +117,23 @@ const LeadsSettings = () => {
   }
 
   const handleIdBackfillDryRun = async () => {
-    setIdBackfillBusy(true); setIdBackfillResult({ progress: { phase: 'starting' } })
+    setIdBackfillBusy(true); setIdBackfillMode('preview'); setIdBackfillResult({ progress: { phase: 'starting' } })
     try {
       await identitiesAPI.backfillDryRun()
       await pollBackfillProgress()
     } catch (e) { setIdBackfillResult({ error: e.response?.data?.error || e.message }) }
-    finally { setIdBackfillBusy(false) }
+    finally { setIdBackfillBusy(false); setIdBackfillMode(null) }
   }
 
   const handleIdBackfillApply = async () => {
     if (!window.confirm('Run identity backfill (apply)? Strict merge discipline — external_id OR phone+name only, never phone-alone. Idempotent and safe to rerun.')) return
-    setIdBackfillBusy(true); setIdBackfillResult({ progress: { phase: 'starting' } })
+    setIdBackfillBusy(true); setIdBackfillMode('apply'); setIdBackfillResult({ progress: { phase: 'starting' } })
     try {
       await identitiesAPI.backfillApply()
       await pollBackfillProgress()
       await loadIdentityReport()
     } catch (e) { setIdBackfillResult({ error: e.response?.data?.error || e.message }) }
-    finally { setIdBackfillBusy(false) }
+    finally { setIdBackfillBusy(false); setIdBackfillMode(null) }
   }
 
   const handleLbUpgradeDryRun = async () => {
@@ -537,13 +538,13 @@ const LeadsSettings = () => {
                 <button onClick={handleIdBackfillDryRun} disabled={idBackfillBusy}
                   className="px-3 py-1.5 text-xs border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-hover)] text-[var(--sf-text-secondary)] disabled:opacity-50 flex items-center gap-1.5"
                   title="Preview strict backfill — ext_id OR phone+name only, never phone-alone">
-                  {idBackfillBusy ? <Loader2 size={12} className="animate-spin" /> : <Database size={12} />}
+                  {idBackfillMode === 'preview' ? <Loader2 size={12} className="animate-spin" /> : <Database size={12} />}
                   Backfill Preview
                 </button>
                 <button onClick={handleIdBackfillApply} disabled={idBackfillBusy}
                   className="px-3 py-1.5 text-xs bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] disabled:opacity-50 flex items-center gap-1.5"
                   title="Apply identity backfill — normalize names, link OP mappings + ZB customers">
-                  {idBackfillBusy ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                  {idBackfillMode === 'apply' ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
                   Backfill Apply
                 </button>
                 <span className="text-[10px] text-[var(--sf-text-muted)] ml-auto">
@@ -551,13 +552,62 @@ const LeadsSettings = () => {
                 </span>
               </div>
 
-              {/* Backfill progress / result */}
-              {idBackfillResult?.progress && idBackfillBusy && (
-                <div className="rounded-lg p-3 text-xs bg-blue-50 text-blue-800 flex items-center gap-2">
-                  <Loader2 size={12} className="animate-spin" />
-                  <span>Backfill running — phase <strong>{idBackfillResult.progress.phase || 'starting'}</strong></span>
-                </div>
-              )}
+              {/* Backfill progress — per-phase bars while running */}
+              {idBackfillBusy && (() => {
+                const progress = idBackfillResult?.progress || {}
+                const phases = [
+                  { key: 'normalize_identities', label: 'Normalize identities' },
+                  { key: 'normalize_leads', label: 'Normalize leads' },
+                  { key: 'normalize_customers', label: 'Normalize customers' },
+                  { key: 'backfill_mappings', label: 'Link OpenPhone mappings' },
+                  { key: 'backfill_zenbooker_customers', label: 'Link Zenbooker customers' },
+                ]
+                const activePhase = progress.phase
+                const overallScanned = phases.reduce((s, p) => s + (progress[p.key]?.scanned || 0), 0)
+                const overallTotal = phases.reduce((s, p) => s + (progress[p.key]?.total || 0), 0)
+                const overallPct = overallTotal > 0 ? Math.round((overallScanned / overallTotal) * 100) : 0
+                return (
+                  <div className="rounded-lg p-3 bg-blue-50 space-y-2">
+                    <div className="flex items-center justify-between text-xs font-medium text-blue-900">
+                      <span className="flex items-center gap-1.5">
+                        <Loader2 size={12} className="animate-spin" />
+                        {idBackfillMode === 'preview' ? 'Backfill Preview' : 'Backfill Apply'} running…
+                      </span>
+                      <span className="font-mono">{overallPct}% · {overallScanned} / {overallTotal || '?'}</span>
+                    </div>
+                    <div className="w-full h-2 bg-blue-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-blue-500 transition-all duration-500 ease-out rounded-full"
+                        style={{ width: `${overallPct}%` }} />
+                    </div>
+                    <div className="space-y-1 pt-1">
+                      {phases.map(({ key, label }) => {
+                        const p = progress[key]
+                        const scanned = p?.scanned || 0
+                        const total = p?.total || 0
+                        const pct = total > 0 ? Math.round((scanned / total) * 100) : 0
+                        const isActive = activePhase === key
+                        const isDone = total > 0 && scanned >= total && !isActive
+                        return (
+                          <div key={key} className="flex items-center gap-2 text-[11px]">
+                            <span className={`w-44 truncate ${isActive ? 'text-blue-800 font-semibold' : isDone ? 'text-green-700' : 'text-blue-700'}`}>
+                              {isDone ? '✓ ' : ''}{label}
+                            </span>
+                            <div className="flex-1 h-1.5 bg-blue-100 rounded-full overflow-hidden">
+                              <div className={`h-full rounded-full transition-all duration-500 ease-out ${isDone ? 'bg-green-500' : 'bg-blue-500'}`}
+                                style={{ width: `${pct}%` }} />
+                            </div>
+                            <span className="font-mono text-[10px] text-blue-700 w-24 text-right">
+                              {scanned} / {total || '…'}
+                            </span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {/* Backfill result (idle / done) */}
               {idBackfillResult && !idBackfillBusy && (
                 <div className={`rounded-lg p-3 text-xs ${idBackfillResult.error ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-800'}`}>
                   {idBackfillResult.error ? (
@@ -571,7 +621,7 @@ const LeadsSettings = () => {
                         return (
                           <div key={phase} className="pl-2 text-[11px]">
                             <strong>{phase.replace(/_/g, ' ')}:</strong>
-                            {' '}scanned {p.scanned ?? '-'}
+                            {' '}scanned {p.scanned ?? '-'}{p.total ? `/${p.total}` : ''}
                             {p.updated != null ? `, updated ${p.updated}` : ''}
                             {p.merged_by_external_id != null ? `, ext-id ${p.merged_by_external_id}` : ''}
                             {p.merged_by_phone_name != null ? `, phone+name ${p.merged_by_phone_name}` : ''}
