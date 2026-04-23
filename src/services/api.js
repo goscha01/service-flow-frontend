@@ -2834,14 +2834,28 @@ export const participantsAPI = {
   backfillApply: async () => { const r = await api.post('/participants/backfill?apply=1'); return r.data; },
   backfillProgress: async () => { const r = await api.get('/participants/backfill/progress'); return r.data; },
   reconcile: async () => { const r = await api.post('/participants/reconcile'); return r.data; },
-  importLeadsDryRun: async () => { const r = await api.post('/participants/import-unmapped-leads'); return r.data; },
-  importLeadsApply: async () => { const r = await api.post('/participants/import-unmapped-leads?apply=1'); return r.data; },
-  importLeadsProgress: async () => { const r = await api.get('/participants/import-unmapped-leads/progress'); return r.data; },
   reclassifyDryRun: async () => { const r = await api.post('/participants/reclassify'); return r.data; },
   reclassifyApply: async () => { const r = await api.post('/participants/reclassify?apply=1'); return r.data; },
   reclassifyProgress: async () => { const r = await api.get('/participants/reclassify/progress'); return r.data; },
   upgradeLbSourcesDryRun: async () => { const r = await api.post('/participants/upgrade-lb-sources'); return r.data; },
   upgradeLbSourcesApply: async () => { const r = await api.post('/participants/upgrade-lb-sources?apply=1'); return r.data; },
+};
+
+// Phase F — unified identity reporting + backfill.
+export const identitiesAPI = {
+  status: async () => { const r = await api.get('/identities/status'); return r.data; },
+  bySource: async () => { const r = await api.get('/identities/by-source'); return r.data; },
+  unresolved: async ({ limit = 50, offset = 0 } = {}) => {
+    const r = await api.get(`/identities/unresolved?limit=${limit}&offset=${offset}`);
+    return r.data;
+  },
+  reconciliationFailures: async ({ status = 'open', limit = 50, offset = 0 } = {}) => {
+    const r = await api.get(`/identities/reconciliation-failures?status=${status}&limit=${limit}&offset=${offset}`);
+    return r.data;
+  },
+  backfillDryRun: async () => { const r = await api.post('/identities/backfill'); return r.data; },
+  backfillApply: async () => { const r = await api.post('/identities/backfill?apply=1'); return r.data; },
+  backfillProgress: async () => { const r = await api.get('/identities/backfill/progress'); return r.data; },
 };
 
 export const locationsAPI = {
