@@ -177,7 +177,11 @@ const LeadsSettings = () => {
   const handleLbUpgradeApply = async () => {
     if (!window.confirm('Upgrade legacy `leadbridge_*` sources to per-location values? Rewrites customers.source / leads.source where a LeadBridge conversation exists. Idempotent and safe to rerun.')) return
     setLbUpgradeBusy(true); setLbUpgradeResult(null)
-    try { setLbUpgradeResult(await participantsAPI.upgradeLbSourcesApply()); await loadIssues() }
+    try {
+      setLbUpgradeResult(await participantsAPI.upgradeLbSourcesApply())
+      // Refresh both the Issues counts AND the Lead Sources unmapped list (source values changed)
+      await Promise.all([loadIssues(), loadMappings()])
+    }
     catch (e) { setLbUpgradeResult({ error: e.response?.data?.error || e.message }) }
     finally { setLbUpgradeBusy(false) }
   }
