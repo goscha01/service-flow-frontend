@@ -453,6 +453,29 @@ export const customersAPI = {
   }
 };
 
+// Customer Properties API — multi-address support per customer
+export const customerPropertiesAPI = {
+  list: async (customerId) => {
+    const response = await api.get(`/customers/${customerId}/properties`);
+    return response.data.properties || [];
+  },
+
+  create: async (customerId, payload) => {
+    const response = await api.post(`/customers/${customerId}/properties`, payload);
+    return response.data.property;
+  },
+
+  update: async (customerId, propertyId, payload) => {
+    const response = await api.patch(`/customers/${customerId}/properties/${propertyId}`, payload);
+    return response.data.property;
+  },
+
+  remove: async (customerId, propertyId) => {
+    const response = await api.delete(`/customers/${customerId}/properties/${propertyId}`);
+    return response.data;
+  },
+};
+
 
 // Estimates API functions
 export const estimatesAPI = {
