@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from "react"
 import { useNavigate } from "react-router-dom"
-import { leadAutomationAPI, leadSourcesAPI, leadSourceMappingsAPI, openPhoneAPI, leadbridgeAPI, sourceIssuesAPI, participantsAPI } from "../../services/api"
+import { leadAutomationAPI, leadSourcesAPI, leadSourceMappingsAPI, openPhoneAPI, leadbridgeAPI, sourceIssuesAPI, participantsAPI, identitiesAPI } from "../../services/api"
 import { ChevronLeft, Zap, Loader2, Plus, X, Pencil, Check, Trash2, Wand2, GripVertical, ChevronDown, Search, RefreshCw, AlertTriangle, Users, HelpCircle, Database, Link2 } from "lucide-react"
 
 const EVENT_DEFS = [
@@ -54,25 +54,20 @@ const LeadsSettings = () => {
   const [issuesLoading, setIssuesLoading] = useState(false)
   const [mergingPair, setMergingPair] = useState(null) // "srcId-targetId"
 
-  // Participant backfill + reconcile (PR4)
-  const [pBackfillBusy, setPBackfillBusy] = useState(false)
-  const [pBackfillResult, setPBackfillResult] = useState(null)
-  const [reconcileBusy, setReconcileBusy] = useState(false)
-  const [reconcileResult, setReconcileResult] = useState(null)
-
-  // Import unmapped as leads
-  const [importBusy, setImportBusy] = useState(false)
-  const [importResult, setImportResult] = useState(null)
-
-  // Reclassify mappings (5-bucket refinement)
-  const [reclassifyBusy, setReclassifyBusy] = useState(false)
-  const [reclassifyResult, setReclassifyResult] = useState(null)
+  // Phase F — identity reporting + backfill
+  const [idStatus, setIdStatus] = useState(null)
+  const [idBySource, setIdBySource] = useState(null)
+  const [idUnresolved, setIdUnresolved] = useState(null)
+  const [idAmbiguities, setIdAmbiguities] = useState(null)
+  const [idReportLoading, setIdReportLoading] = useState(false)
+  const [idBackfillBusy, setIdBackfillBusy] = useState(false)
+  const [idBackfillResult, setIdBackfillResult] = useState(null)
 
   // Upgrade legacy LB flat sources → per-location
   const [lbUpgradeBusy, setLbUpgradeBusy] = useState(false)
   const [lbUpgradeResult, setLbUpgradeResult] = useState(null)
 
-  useEffect(() => { loadRules(); loadSources(); loadMappings(); loadIssues() }, [])
+  useEffect(() => { loadRules(); loadSources(); loadMappings(); loadIssues(); loadIdentityReport() }, [])
 
   const loadIssues = async () => {
     setIssuesLoading(true)
@@ -92,82 +87,54 @@ const LeadsSettings = () => {
     finally { setMergingPair(null) }
   }
 
-  // PR4 — Participant backfill + reconcile handlers
-  const handleBackfillDryRun = async () => {
-    setPBackfillBusy(true); setPBackfillResult(null)
-    try { setPBackfillResult({ ...(await participantsAPI.backfillDryRun()) }) }
-    catch (e) { setPBackfillResult({ error: e.response?.data?.error || e.message }) }
-    finally { setPBackfillBusy(false) }
-  }
-  const handleBackfillApply = async () => {
-    if (!window.confirm('Apply participant mapping backfill? This creates mapping rows for all existing OpenPhone conversations, reusing legacy CRM links where present. Non-destructive.')) return
-    setPBackfillBusy(true); setPBackfillResult({ progress: { phase: 'starting' } })
+  // Phase F — identity reporting loaders
+  const loadIdentityReport = async () => {
+    setIdReportLoading(true)
     try {
-      // Kick off async job — returns 202 immediately
-      await participantsAPI.backfillApply()
-      // Poll progress every 2s until done
-      let lastProgress = null
-      for (let attempt = 0; attempt < 150; attempt++) { // up to 5 min
-        await new Promise(r => setTimeout(r, 2000))
-        const p = await participantsAPI.backfillProgress()
-        lastProgress = p
-        setPBackfillResult({ progress: p })
-        if (p.status === 'done' || p.status === 'error' || p.status === 'idle') break
-      }
-      if (lastProgress?.status === 'error') {
-        setPBackfillResult({ error: lastProgress.error || 'Backfill failed' })
-      } else if (lastProgress?.summary) {
-        setPBackfillResult({ summary: lastProgress.summary })
-      }
-      await loadIssues()
-    } catch (e) {
-      setPBackfillResult({ error: e.response?.data?.error || e.message })
-    } finally {
-      setPBackfillBusy(false)
+      const [status, bySource, unresolved, ambiguities] = await Promise.all([
+        identitiesAPI.status(),
+        identitiesAPI.bySource(),
+        identitiesAPI.unresolved({ limit: 50 }),
+        identitiesAPI.reconciliationFailures({ status: 'open', limit: 50 }),
+      ])
+      setIdStatus(status); setIdBySource(bySource); setIdUnresolved(unresolved); setIdAmbiguities(ambiguities)
+    } catch (e) { console.error('identity report load failed', e) }
+    finally { setIdReportLoading(false) }
+  }
+
+  const pollBackfillProgress = async () => {
+    let last = null
+    for (let i = 0; i < 300; i++) {
+      await new Promise(r => setTimeout(r, 2000))
+      const p = await identitiesAPI.backfillProgress()
+      last = p
+      setIdBackfillResult({ progress: p })
+      if (p.status === 'done' || p.status === 'error' || p.status === 'idle') break
     }
+    if (last?.status === 'error') setIdBackfillResult({ error: last.error })
+    else if (last?.summary) setIdBackfillResult({ summary: last.summary, dryRun: last.apply === false })
   }
-  const handleReconcile = async () => {
-    setReconcileBusy(true); setReconcileResult(null)
+
+  const handleIdBackfillDryRun = async () => {
+    setIdBackfillBusy(true); setIdBackfillResult({ progress: { phase: 'starting' } })
     try {
-      setReconcileResult({ ...(await participantsAPI.reconcile()) })
-      await loadIssues()
-    } catch (e) { setReconcileResult({ error: e.response?.data?.error || e.message }) }
-    finally { setReconcileBusy(false) }
+      await identitiesAPI.backfillDryRun()
+      await pollBackfillProgress()
+    } catch (e) { setIdBackfillResult({ error: e.response?.data?.error || e.message }) }
+    finally { setIdBackfillBusy(false) }
   }
 
-  const handleImportLeadsDryRun = async () => {
-    setImportBusy(true); setImportResult(null)
-    try { setImportResult(await participantsAPI.importLeadsDryRun()) }
-    catch (e) { setImportResult({ error: e.response?.data?.error || e.message }) }
-    finally { setImportBusy(false) }
-  }
-
-  const handleImportLeadsApply = async () => {
-    if (!window.confirm('Create lead records for all named unmapped OpenPhone contacts? This can add 1,000+ new leads to your pipeline. Non-destructive but irreversible without manual cleanup.')) return
-    setImportBusy(true); setImportResult({ progress: { phase: 'starting' } })
+  const handleIdBackfillApply = async () => {
+    if (!window.confirm('Run identity backfill (apply)? Strict merge discipline — external_id OR phone+name only, never phone-alone. Idempotent and safe to rerun.')) return
+    setIdBackfillBusy(true); setIdBackfillResult({ progress: { phase: 'starting' } })
     try {
-      await participantsAPI.importLeadsApply()
-      let last = null
-      for (let i = 0; i < 150; i++) {
-        await new Promise(r => setTimeout(r, 2000))
-        const p = await participantsAPI.importLeadsProgress()
-        last = p
-        setImportResult({ progress: p })
-        if (p.status === 'done' || p.status === 'error' || p.status === 'idle') break
-      }
-      if (last?.status === 'error') setImportResult({ error: last.error })
-      else if (last?.summary) setImportResult({ summary: last.summary })
-      await loadIssues()
-    } catch (e) { setImportResult({ error: e.response?.data?.error || e.message }) }
-    finally { setImportBusy(false) }
+      await identitiesAPI.backfillApply()
+      await pollBackfillProgress()
+      await loadIdentityReport()
+    } catch (e) { setIdBackfillResult({ error: e.response?.data?.error || e.message }) }
+    finally { setIdBackfillBusy(false) }
   }
 
-  const handleReclassifyDryRun = async () => {
-    setReclassifyBusy(true); setReclassifyResult(null)
-    try { setReclassifyResult(await participantsAPI.reclassifyDryRun()) }
-    catch (e) { setReclassifyResult({ error: e.response?.data?.error || e.message }) }
-    finally { setReclassifyBusy(false) }
-  }
   const handleLbUpgradeDryRun = async () => {
     setLbUpgradeBusy(true); setLbUpgradeResult(null)
     try { setLbUpgradeResult(await participantsAPI.upgradeLbSourcesDryRun()) }
@@ -184,26 +151,6 @@ const LeadsSettings = () => {
     }
     catch (e) { setLbUpgradeResult({ error: e.response?.data?.error || e.message }) }
     finally { setLbUpgradeBusy(false) }
-  }
-
-  const handleReclassifyApply = async () => {
-    if (!window.confirm('Reclassify all existing participant mappings into 5 buckets (mapped/ambiguous/unmapped/aggregator/noise)? Non-destructive — `manual` mappings are preserved.')) return
-    setReclassifyBusy(true); setReclassifyResult({ progress: { phase: 'starting' } })
-    try {
-      await participantsAPI.reclassifyApply()
-      let last = null
-      for (let i = 0; i < 150; i++) {
-        await new Promise(r => setTimeout(r, 2000))
-        const p = await participantsAPI.reclassifyProgress()
-        last = p
-        setReclassifyResult({ progress: p })
-        if (p.status === 'done' || p.status === 'error' || p.status === 'idle') break
-      }
-      if (last?.status === 'error') setReclassifyResult({ error: last.error })
-      else if (last?.summary) setReclassifyResult({ summary: last.summary })
-      await loadIssues()
-    } catch (e) { setReclassifyResult({ error: e.response?.data?.error || e.message }) }
-    finally { setReclassifyBusy(false) }
   }
 
   const loadRules = async () => {
@@ -489,224 +436,200 @@ const LeadsSettings = () => {
             )}
           </section>
 
-          {/* ── PARTICIPANT HEALTH (PR4) ── */}
+          {/* ── UNIFIED IDENTITY (Phase F) ── */}
           <section>
-            <div className="mb-4 flex items-center gap-2">
-              <Link2 size={18} className="text-[var(--sf-blue-500)]" />
-              <div>
-                <h2 className="text-lg font-semibold text-[var(--sf-text-primary)]">Participant Identity</h2>
-                <p className="text-sm text-[var(--sf-text-muted)] mt-0.5">
-                  Sigcore participant mapping — the long-term identity root for every conversation.
-                </p>
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Link2 size={18} className="text-[var(--sf-blue-500)]" />
+                <div>
+                  <h2 className="text-lg font-semibold text-[var(--sf-text-primary)]">Unified Identity</h2>
+                  <p className="text-sm text-[var(--sf-text-muted)] mt-0.5">
+                    One identity per real person across LeadBridge, OpenPhone, and Zenbooker. Source-specific lead/customer creation.
+                  </p>
+                </div>
               </div>
+              <button onClick={loadIdentityReport} disabled={idReportLoading}
+                className="px-3 py-1.5 text-xs border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-hover)] text-[var(--sf-text-secondary)] disabled:opacity-50 flex items-center gap-1.5">
+                {idReportLoading ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+                Refresh
+              </button>
             </div>
 
             <div className="bg-white rounded-xl border border-[var(--sf-border-light)] p-5 space-y-4">
-              {/* Metrics — 5-bucket refinement */}
-              {issues?.participantMetrics ? (
+              {/* Status buckets */}
+              {idStatus ? (
                 <>
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-                    <div className="bg-green-50 border border-green-100 rounded-lg p-3" title="Has CRM customer or lead link">
-                      <div className="text-[10px] uppercase tracking-wider text-green-700 font-semibold">Mapped</div>
-                      <div className="text-lg font-bold text-green-800 mt-0.5">{issues.participantMetrics.mapped || 0}</div>
+                  <div>
+                    <div className="text-[11px] uppercase tracking-wider text-[var(--sf-text-muted)] font-semibold mb-2">
+                      Identity status · {idStatus.total} total
                     </div>
-                    <div className="bg-amber-50 border border-amber-100 rounded-lg p-3" title="Multiple CRM candidates — needs manual resolution">
-                      <div className="text-[10px] uppercase tracking-wider text-amber-700 font-semibold">Ambiguous</div>
-                      <div className="text-lg font-bold text-amber-800 mt-0.5">{issues.participantMetrics.ambiguous || 0}</div>
+                    <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
+                      <div className="bg-green-50 border border-green-100 rounded-lg p-3" title="Identity linked to an SF customer">
+                        <div className="text-[10px] uppercase tracking-wider text-green-700 font-semibold">Customer</div>
+                        <div className="text-lg font-bold text-green-800 mt-0.5">{idStatus.crm_linked?.resolved_customer || 0}</div>
+                      </div>
+                      <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-3" title="Identity linked to an SF lead">
+                        <div className="text-[10px] uppercase tracking-wider text-emerald-700 font-semibold">Lead</div>
+                        <div className="text-lg font-bold text-emerald-800 mt-0.5">{idStatus.crm_linked?.resolved_lead || 0}</div>
+                      </div>
+                      <div className="bg-teal-50 border border-teal-100 rounded-lg p-3" title="Linked to BOTH lead and customer (goal state for converted leads)">
+                        <div className="text-[10px] uppercase tracking-wider text-teal-700 font-semibold">Both</div>
+                        <div className="text-lg font-bold text-teal-800 mt-0.5">{idStatus.crm_linked?.resolved_both || 0}</div>
+                      </div>
+                      <div className="bg-amber-50 border border-amber-100 rounded-lg p-3" title="Multiple candidates — awaiting operator decision">
+                        <div className="text-[10px] uppercase tracking-wider text-amber-700 font-semibold">Ambiguous</div>
+                        <div className="text-lg font-bold text-amber-800 mt-0.5">{idStatus.ambiguous || 0}</div>
+                      </div>
+                      <div className="bg-violet-50 border border-violet-100 rounded-lg p-3" title="Real-person floaters that are NOT sync-only">
+                        <div className="text-[10px] uppercase tracking-wider text-violet-700 font-semibold">Floating</div>
+                        <div className="text-lg font-bold text-violet-800 mt-0.5">{idStatus.unresolved_floating_true || 0}</div>
+                      </div>
+                      <div className="bg-gray-50 border border-gray-100 rounded-lg p-3" title="Sync-source (Zenbooker/future BK/Sheets) — not counted as floating">
+                        <div className="text-[10px] uppercase tracking-wider text-gray-600 font-semibold">Sync-only</div>
+                        <div className="text-lg font-bold text-gray-800 mt-0.5">{idStatus.sync_only || 0}</div>
+                      </div>
                     </div>
-                    <div className="bg-violet-50 border border-violet-100 rounded-lg p-3" title="Real-person candidate without CRM record — actionable (can become a lead)">
-                      <div className="text-[10px] uppercase tracking-wider text-violet-700 font-semibold">Unmapped</div>
-                      <div className="text-lg font-bold text-violet-800 mt-0.5">{issues.participantMetrics.unmapped || 0}</div>
-                    </div>
-                    <div className="bg-sky-50 border border-sky-100 rounded-lg p-3" title="Platform alias (Thumbtack/Yelp/LeadBridge) — intentionally no CRM record">
-                      <div className="text-[10px] uppercase tracking-wider text-sky-700 font-semibold">Aggregator</div>
-                      <div className="text-lg font-bold text-sky-800 mt-0.5">{issues.participantMetrics.aggregator || 0}</div>
-                    </div>
-                    <div className="bg-gray-50 border border-gray-100 rounded-lg p-3" title="Unnamed phone — not actionable, intentionally no CRM record">
-                      <div className="text-[10px] uppercase tracking-wider text-gray-600 font-semibold">Noise</div>
-                      <div className="text-lg font-bold text-gray-800 mt-0.5">{issues.participantMetrics.noise || 0}</div>
-                    </div>
+                    {(idStatus.ambiguities_open || 0) > 0 && (
+                      <div className="text-[11px] text-amber-700 mt-2">
+                        <strong>{idStatus.ambiguities_open}</strong> open reconciliation failure{idStatus.ambiguities_open === 1 ? '' : 's'} in the ambiguity queue.
+                      </div>
+                    )}
                   </div>
-                  {(issues.participantMetrics.manual > 0 || issues.participantMetrics.participant_pending_total > 0) && (
-                    <div className="flex flex-wrap gap-4 mt-2 text-[11px] text-[var(--sf-text-muted)]">
-                      {issues.participantMetrics.manual > 0 && (
-                        <span><strong className="text-[var(--sf-text-primary)]">{issues.participantMetrics.manual}</strong> manual (user-curated)</span>
-                      )}
-                      {issues.participantMetrics.participant_pending_total > 0 && (
-                        <span><strong className="text-blue-700">{issues.participantMetrics.participant_pending_total}</strong> pending (no identity yet)</span>
+
+                  {/* Source coverage */}
+                  {idBySource && (
+                    <div className="pt-3 border-t border-[var(--sf-border-light)]">
+                      <div className="text-[11px] uppercase tracking-wider text-[var(--sf-text-muted)] font-semibold mb-2">
+                        Source coverage
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                        <div className="bg-blue-50 border border-blue-100 rounded-lg p-3" title="Same person converged across 2+ sources (goal state)">
+                          <div className="text-[10px] uppercase tracking-wider text-blue-700 font-semibold">Multi-source</div>
+                          <div className="text-lg font-bold text-blue-800 mt-0.5">{idBySource.multi_source || 0}</div>
+                        </div>
+                        <div className="bg-gray-50 border border-gray-100 rounded-lg p-3">
+                          <div className="text-[10px] uppercase tracking-wider text-gray-600 font-semibold">LB only</div>
+                          <div className="text-lg font-bold text-gray-800 mt-0.5">{idBySource.single_source?.leadbridge_only || 0}</div>
+                        </div>
+                        <div className="bg-gray-50 border border-gray-100 rounded-lg p-3">
+                          <div className="text-[10px] uppercase tracking-wider text-gray-600 font-semibold">OP only</div>
+                          <div className="text-lg font-bold text-gray-800 mt-0.5">{idBySource.single_source?.openphone_only || 0}</div>
+                        </div>
+                        <div className="bg-gray-50 border border-gray-100 rounded-lg p-3">
+                          <div className="text-[10px] uppercase tracking-wider text-gray-600 font-semibold">ZB only</div>
+                          <div className="text-lg font-bold text-gray-800 mt-0.5">{idBySource.single_source?.zenbooker_only || 0}</div>
+                        </div>
+                      </div>
+                      {(idBySource.single_source?.no_source_ids || 0) > 0 && (
+                        <div className="text-[11px] text-[var(--sf-text-muted)] mt-2">
+                          {idBySource.single_source.no_source_ids} identities with no external source IDs (legacy / manually seeded).
+                        </div>
                       )}
                     </div>
                   )}
                 </>
               ) : (
-                <div className="text-xs text-[var(--sf-text-muted)]">No metrics yet — run backfill to populate.</div>
+                <div className="text-xs text-[var(--sf-text-muted)]">Loading identity metrics…</div>
               )}
 
-              {/* Actions */}
-              <div className="flex flex-wrap gap-2 items-center pt-2 border-t border-[var(--sf-border-light)]">
-                <button onClick={handleBackfillDryRun} disabled={pBackfillBusy}
+              {/* Backfill actions (Phase E runner) */}
+              <div className="flex flex-wrap gap-2 items-center pt-3 border-t border-[var(--sf-border-light)]">
+                <button onClick={handleIdBackfillDryRun} disabled={idBackfillBusy}
                   className="px-3 py-1.5 text-xs border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-hover)] text-[var(--sf-text-secondary)] disabled:opacity-50 flex items-center gap-1.5"
-                  title="Preview mapping counts without writing">
-                  {pBackfillBusy ? <Loader2 size={12} className="animate-spin" /> : <Database size={12} />}
-                  Backfill (Dry-run)
+                  title="Preview strict backfill — ext_id OR phone+name only, never phone-alone">
+                  {idBackfillBusy ? <Loader2 size={12} className="animate-spin" /> : <Database size={12} />}
+                  Backfill Preview
                 </button>
-                <button onClick={handleBackfillApply} disabled={pBackfillBusy}
+                <button onClick={handleIdBackfillApply} disabled={idBackfillBusy}
                   className="px-3 py-1.5 text-xs bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] disabled:opacity-50 flex items-center gap-1.5"
-                  title="Create mapping rows for all existing conversations (non-destructive — reuses legacy CRM links)">
-                  {pBackfillBusy ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
-                  Backfill & Apply
-                </button>
-                <button onClick={handleReconcile} disabled={reconcileBusy}
-                  className="px-3 py-1.5 text-xs border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-hover)] text-[var(--sf-text-secondary)] disabled:opacity-50 flex items-center gap-1.5"
-                  title="Attach pending conversations to existing mappings by phone">
-                  {reconcileBusy ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-                  Reconcile Pending
-                </button>
-                <button onClick={handleReclassifyDryRun} disabled={reclassifyBusy}
-                  className="px-3 py-1.5 text-xs border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-hover)] text-[var(--sf-text-secondary)] disabled:opacity-50 flex items-center gap-1.5"
-                  title="Re-bucket mappings into mapped / ambiguous / unmapped / aggregator / noise">
-                  {reclassifyBusy ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />}
-                  Reclassify (Dry-run)
-                </button>
-                <button onClick={handleReclassifyApply} disabled={reclassifyBusy}
-                  className="px-3 py-1.5 text-xs bg-violet-500 text-white rounded-lg hover:bg-violet-600 disabled:opacity-50 flex items-center gap-1.5"
-                  title="Apply 5-bucket classification to all existing mappings">
-                  {reclassifyBusy ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
-                  Reclassify & Apply
+                  title="Apply identity backfill — normalize names, link OP mappings + ZB customers">
+                  {idBackfillBusy ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                  Backfill Apply
                 </button>
                 <span className="text-[10px] text-[var(--sf-text-muted)] ml-auto">
-                  Backfill → Reconcile → Reclassify to refine buckets.
+                  Strict merge: external_id OR phone+name. Never phone-alone.
                 </span>
               </div>
 
-              {/* Reclassify result */}
-              {reclassifyResult?.progress && reclassifyBusy && (
-                <div className="rounded-lg p-3 text-xs bg-violet-50 text-violet-800 flex items-center gap-2">
+              {/* Backfill progress / result */}
+              {idBackfillResult?.progress && idBackfillBusy && (
+                <div className="rounded-lg p-3 text-xs bg-blue-50 text-blue-800 flex items-center gap-2">
                   <Loader2 size={12} className="animate-spin" />
-                  <span>Reclassifying… phase: <strong>{reclassifyResult.progress.phase || 'starting'}</strong>{reclassifyResult.progress.total ? ` (${reclassifyResult.progress.processed || 0}/${reclassifyResult.progress.total})` : ''}</span>
+                  <span>Backfill running — phase <strong>{idBackfillResult.progress.phase || 'starting'}</strong></span>
                 </div>
               )}
-              {reclassifyResult && !reclassifyBusy && (
-                <div className={`rounded-lg p-3 text-xs ${reclassifyResult.error ? 'bg-red-50 text-red-600' : 'bg-violet-50 text-violet-800'}`}>
-                  {reclassifyResult.error ? (
-                    `Error: ${reclassifyResult.error}`
-                  ) : reclassifyResult.summary ? (
+              {idBackfillResult && !idBackfillBusy && (
+                <div className={`rounded-lg p-3 text-xs ${idBackfillResult.error ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-800'}`}>
+                  {idBackfillResult.error ? (
+                    `Error: ${idBackfillResult.error}`
+                  ) : idBackfillResult.summary ? (
                     <div className="space-y-1">
-                      <div className="font-semibold">{reclassifyResult.dryRun ? 'Reclassify preview:' : 'Reclassify complete:'}</div>
-                      <div className="grid grid-cols-3 gap-2 mt-1">
-                        <div>Total: {reclassifyResult.summary.total}</div>
-                        <div>Changed: {reclassifyResult.summary.changed}</div>
-                        <div>Unchanged: {reclassifyResult.summary.unchanged}</div>
-                        <div>→ Mapped: {reclassifyResult.summary.mapped}</div>
-                        <div>→ Ambiguous: {reclassifyResult.summary.ambiguous}</div>
-                        <div>→ Unmapped: {reclassifyResult.summary.unmapped}</div>
-                        <div>→ Aggregator: {reclassifyResult.summary.aggregator}</div>
-                        <div>→ Noise: {reclassifyResult.summary.noise}</div>
-                      </div>
-                      {reclassifyResult.summary.errors > 0 && (
-                        <div className="text-red-600 mt-1">Errors: {reclassifyResult.summary.errors}</div>
-                      )}
+                      <div className="font-semibold">{idBackfillResult.dryRun ? 'Dry-run preview:' : 'Backfill complete:'}</div>
+                      {['normalize_identities', 'normalize_leads', 'normalize_customers', 'backfill_mappings', 'backfill_zenbooker_customers'].map(phase => {
+                        const p = idBackfillResult.summary[phase]
+                        if (!p) return null
+                        return (
+                          <div key={phase} className="pl-2 text-[11px]">
+                            <strong>{phase.replace(/_/g, ' ')}:</strong>
+                            {' '}scanned {p.scanned ?? '-'}
+                            {p.updated != null ? `, updated ${p.updated}` : ''}
+                            {p.merged_by_external_id != null ? `, ext-id ${p.merged_by_external_id}` : ''}
+                            {p.merged_by_phone_name != null ? `, phone+name ${p.merged_by_phone_name}` : ''}
+                            {p.created_new != null ? `, created ${p.created_new}` : ''}
+                            {p.skipped_ambiguous != null ? `, ambiguous ${p.skipped_ambiguous}` : ''}
+                            {p.errors ? `, errors ${p.errors}` : ''}
+                          </div>
+                        )
+                      })}
                     </div>
                   ) : null}
                 </div>
               )}
 
-              {/* Backfill progress (while running) */}
-              {pBackfillResult?.progress && pBackfillBusy && (() => {
-                const p = pBackfillResult.progress
-                const total = p.total || 0
-                // Pick the right counter for the active phase
-                let done = 0, label = 'Starting...'
-                const phaseWeights = {
-                  'starting':             { range: [0, 5] },
-                  'loading':              { range: [5, 25] },
-                  'building index':       { range: [25, 35] },
-                  'inserting mappings':   { range: [35, 70], counter: p.inserted },
-                  'updating mappings':    { range: [70, 75] },
-                  'linking conversations':{ range: [75, 98], counter: p.linked },
-                  'done':                 { range: [100, 100] },
-                }
-                const w = phaseWeights[p.phase] || { range: [5, 10] }
-                let pct
-                if (w.range[0] === w.range[1]) {
-                  pct = w.range[0]
-                } else if (w.counter != null && total > 0) {
-                  const segLen = w.range[1] - w.range[0]
-                  pct = w.range[0] + Math.min(segLen, (w.counter / total) * segLen)
-                } else {
-                  pct = w.range[0]
-                }
-                pct = Math.max(0, Math.min(100, Math.round(pct)))
-
-                const phaseLabels = {
-                  'starting': 'Starting…',
-                  'loading': 'Loading conversations & CRM records…',
-                  'building index': 'Building phone→CRM index…',
-                  'inserting mappings': `Inserting mappings (${p.inserted || 0})…`,
-                  'updating mappings': 'Updating existing mappings…',
-                  'linking conversations': `Linking conversations (${p.linked || 0}/${total})…`,
-                  'done': 'Finalizing…',
-                }
-
-                return (
-                  <div className="rounded-lg p-3 bg-blue-50 text-blue-800 space-y-2">
-                    <div className="flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2">
-                        <Loader2 size={12} className="animate-spin flex-shrink-0" />
-                        <span>{phaseLabels[p.phase] || p.phase || 'Starting…'}</span>
-                      </div>
-                      <span className="font-mono text-[11px] text-blue-700">{pct}%</span>
+              {/* Floating identities preview */}
+              {idUnresolved && (idUnresolved.items?.length || 0) > 0 && (
+                <div className="pt-3 border-t border-[var(--sf-border-light)]">
+                  <details>
+                    <summary className="text-xs text-[var(--sf-blue-500)] cursor-pointer hover:text-[var(--sf-blue-600)]">
+                      View floating identities ({idStatus?.unresolved_floating_true || 0}) — operator review, not bulk import
+                    </summary>
+                    <div className="mt-2 space-y-1 max-h-64 overflow-y-auto">
+                      {idUnresolved.items.map(row => (
+                        <div key={row.id} className="text-[11px] font-mono flex gap-2 items-center px-2 py-1 bg-[var(--sf-bg-page)] rounded">
+                          <span className="text-[var(--sf-text-muted)]">#{row.id}</span>
+                          <span className="text-[var(--sf-text-primary)] truncate flex-1">{row.display_name || '(no name)'}</span>
+                          <span className="text-[var(--sf-text-muted)] text-[10px]">{row.normalized_phone || '-'}</span>
+                          <span className="text-[10px] text-[var(--sf-text-muted)]">{row.identity_priority_source || '-'}</span>
+                        </div>
+                      ))}
                     </div>
-                    <div className="w-full h-2 bg-blue-100 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-blue-500 transition-all duration-500 ease-out rounded-full"
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                  </div>
-                )
-              })()}
-
-              {/* Backfill result */}
-              {pBackfillResult && !pBackfillBusy && (
-                <div className={`rounded-lg p-3 text-xs ${pBackfillResult.error ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-800'}`}>
-                  {pBackfillResult.error ? (
-                    `Error: ${pBackfillResult.error}`
-                  ) : pBackfillResult.summary ? (
-                    <div className="space-y-1">
-                      <div className="font-semibold">{pBackfillResult.dryRun ? 'Dry-run preview:' : 'Backfill complete:'}</div>
-                      <div className="grid grid-cols-3 gap-2 mt-1">
-                        <div>Scanned: {pBackfillResult.summary.scanned}</div>
-                        <div>Mapped: {pBackfillResult.summary.mapped}</div>
-                        <div>Ambiguous: {pBackfillResult.summary.ambiguous}</div>
-                        <div>Unmapped: {pBackfillResult.summary.unmapped}</div>
-                        <div>Pending: {pBackfillResult.summary.pending}</div>
-                        <div>Reused existing: {pBackfillResult.summary.reused}</div>
-                      </div>
-                      {pBackfillResult.summary.errors > 0 && (
-                        <div className="text-red-600 mt-1">Errors: {pBackfillResult.summary.errors}</div>
-                      )}
-                    </div>
-                  ) : null}
+                  </details>
                 </div>
               )}
 
-              {/* Reconcile result */}
-              {reconcileResult && !reconcileBusy && (
-                <div className={`rounded-lg p-3 text-xs ${reconcileResult.error ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'}`}>
-                  {reconcileResult.error ? `Error: ${reconcileResult.error}` : `Attached ${reconcileResult.attached} of ${reconcileResult.pending} pending conversations.`}
-                </div>
-              )}
-
-              {/* Additional details */}
-              {issues?.participantMetrics && (
-                <div className="text-[11px] text-[var(--sf-text-muted)] pt-2 border-t border-[var(--sf-border-light)]">
-                  {(issues.participantMetrics.participant_id_missing_total || 0) > 0 && (
-                    <div>• {issues.participantMetrics.participant_id_missing_total} mappings use <strong>participantKey</strong> only (waiting for Sigcore to assign participantId)</div>
-                  )}
-                  {(issues.participantMetrics.participant_phone_missing_total || 0) > 0 && (
-                    <div>• {issues.participantMetrics.participant_phone_missing_total} conversations have no phone AND no participant identity</div>
-                  )}
+              {/* Reconciliation failures preview */}
+              {idAmbiguities && (idAmbiguities.items?.length || 0) > 0 && (
+                <div className="pt-3 border-t border-[var(--sf-border-light)]">
+                  <details>
+                    <summary className="text-xs text-amber-700 cursor-pointer hover:text-amber-800">
+                      Reconciliation failures ({idAmbiguities.items.length} shown)
+                    </summary>
+                    <div className="mt-2 space-y-1 max-h-64 overflow-y-auto">
+                      {idAmbiguities.items.map(row => (
+                        <div key={row.id} className="text-[11px] font-mono px-2 py-1 bg-amber-50 rounded">
+                          <span className="text-amber-900">{row.source}</span>
+                          {' · '}
+                          <span>{row.attempted_name || '(no name)'}</span>
+                          {' · '}
+                          <span className="text-[var(--sf-text-muted)]">{row.attempted_phone || '-'}</span>
+                          {' · '}
+                          <em className="text-[10px]">{row.reason}</em>
+                          {' · '}
+                          <span className="text-[10px] text-[var(--sf-text-muted)]">cand: [{(row.candidate_identity_ids || []).join(', ')}]</span>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
                 </div>
               )}
             </div>
@@ -784,66 +707,9 @@ const LeadsSettings = () => {
               </div>
             )}
 
-            {/* Convert unmapped named contacts → leads */}
-            {(issues?.participantMetrics?.unmapped || 0) > 0 && (
-              <div className="bg-white rounded-xl border border-violet-200 p-5 mt-3">
-                <div className="flex items-start gap-2">
-                  <Users size={14} className="text-violet-500 flex-shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <h3 className="text-sm font-semibold text-[var(--sf-text-primary)]">
-                      Convert Unmapped Contacts to Leads
-                    </h3>
-                    <p className="text-xs text-[var(--sf-text-muted)] mt-0.5">
-                      {issues.participantMetrics.unmapped} unmapped participants — these are <strong>real-person candidates</strong> without
-                      a CRM record. Aggregator aliases ({issues.participantMetrics.aggregator || 0}) and noise/unnamed ({issues.participantMetrics.noise || 0}) are intentionally excluded.
-                      Duplicates checked by phone.
-                    </p>
-                    <div className="flex flex-wrap gap-2 mt-3">
-                      <button onClick={handleImportLeadsDryRun} disabled={importBusy}
-                        className="px-3 py-1.5 text-xs border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-hover)] text-[var(--sf-text-secondary)] disabled:opacity-50 flex items-center gap-1.5">
-                        {importBusy ? <Loader2 size={12} className="animate-spin" /> : <Database size={12} />}
-                        Preview (Dry-run)
-                      </button>
-                      <button onClick={handleImportLeadsApply} disabled={importBusy}
-                        className="px-3 py-1.5 text-xs bg-violet-500 text-white rounded-lg hover:bg-violet-600 disabled:opacity-50 flex items-center gap-1.5">
-                        {importBusy ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
-                        Create Leads
-                      </button>
-                    </div>
-
-                    {/* Progress / result */}
-                    {importResult?.progress && importBusy && (
-                      <div className="rounded-lg p-3 text-xs bg-violet-50 text-violet-800 mt-3 flex items-center gap-2">
-                        <Loader2 size={12} className="animate-spin" />
-                        <span>{importResult.progress.phase || 'Starting…'}{importResult.progress.total ? ` — created ${importResult.progress.created || 0}/${importResult.progress.total}` : ''}</span>
-                      </div>
-                    )}
-                    {importResult && !importBusy && (
-                      <div className={`rounded-lg p-3 text-xs mt-3 ${importResult.error ? 'bg-red-50 text-red-600' : 'bg-violet-50 text-violet-800'}`}>
-                        {importResult.error ? (
-                          `Error: ${importResult.error}`
-                        ) : importResult.summary ? (
-                          <div className="space-y-1">
-                            <div className="font-semibold">{importResult.dryRun ? 'Dry-run preview:' : 'Import complete:'}</div>
-                            <div className="grid grid-cols-2 gap-2 mt-1">
-                              <div>Candidates: {importResult.summary.candidates}</div>
-                              <div>Eligible (named): {importResult.summary.eligible}</div>
-                              <div>Filtered aggregator aliases: {importResult.summary.filtered_aggregator}</div>
-                              <div>Filtered no-name: {importResult.summary.filtered_no_name}</div>
-                              <div>Skipped (lead already exists): {importResult.summary.skipped_existing_leads}</div>
-                              <div className="font-semibold text-violet-900">{importResult.dryRun ? 'Will create' : 'Created'}: {importResult.summary.to_import ?? importResult.summary.created}</div>
-                            </div>
-                            {importResult.summary.errors > 0 && (
-                              <div className="text-red-600 mt-1">Errors: {importResult.summary.errors}</div>
-                            )}
-                          </div>
-                        ) : null}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
+            {/* Phase F — Convert-Unmapped-to-Leads section removed. OpenPhone lead
+                creation now runs per-identity via maybeCreateLeadFromOpenPhone with
+                LB-recovery rule (feature-flag gated). No bulk import. */}
           </section>
 
           {/* ── ISSUES / MANUAL RESOLUTION ── */}
