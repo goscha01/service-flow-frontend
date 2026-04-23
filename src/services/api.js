@@ -2814,6 +2814,9 @@ export const participantsAPI = {
   importLeadsDryRun: async () => { const r = await api.post('/participants/import-unmapped-leads'); return r.data; },
   importLeadsApply: async () => { const r = await api.post('/participants/import-unmapped-leads?apply=1'); return r.data; },
   importLeadsProgress: async () => { const r = await api.get('/participants/import-unmapped-leads/progress'); return r.data; },
+  reclassifyDryRun: async () => { const r = await api.post('/participants/reclassify'); return r.data; },
+  reclassifyApply: async () => { const r = await api.post('/participants/reclassify?apply=1'); return r.data; },
+  reclassifyProgress: async () => { const r = await api.get('/participants/reclassify/progress'); return r.data; },
 };
 
 export const locationsAPI = {
