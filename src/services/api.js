@@ -2817,6 +2817,8 @@ export const participantsAPI = {
   reclassifyDryRun: async () => { const r = await api.post('/participants/reclassify'); return r.data; },
   reclassifyApply: async () => { const r = await api.post('/participants/reclassify?apply=1'); return r.data; },
   reclassifyProgress: async () => { const r = await api.get('/participants/reclassify/progress'); return r.data; },
+  upgradeLbSourcesDryRun: async () => { const r = await api.post('/participants/upgrade-lb-sources'); return r.data; },
+  upgradeLbSourcesApply: async () => { const r = await api.post('/participants/upgrade-lb-sources?apply=1'); return r.data; },
 };
 
 export const locationsAPI = {
