@@ -68,6 +68,10 @@ const LeadsSettings = () => {
   const [reclassifyBusy, setReclassifyBusy] = useState(false)
   const [reclassifyResult, setReclassifyResult] = useState(null)
 
+  // Upgrade legacy LB flat sources → per-location
+  const [lbUpgradeBusy, setLbUpgradeBusy] = useState(false)
+  const [lbUpgradeResult, setLbUpgradeResult] = useState(null)
+
   useEffect(() => { loadRules(); loadSources(); loadMappings(); loadIssues() }, [])
 
   const loadIssues = async () => {
@@ -164,6 +168,20 @@ const LeadsSettings = () => {
     catch (e) { setReclassifyResult({ error: e.response?.data?.error || e.message }) }
     finally { setReclassifyBusy(false) }
   }
+  const handleLbUpgradeDryRun = async () => {
+    setLbUpgradeBusy(true); setLbUpgradeResult(null)
+    try { setLbUpgradeResult(await participantsAPI.upgradeLbSourcesDryRun()) }
+    catch (e) { setLbUpgradeResult({ error: e.response?.data?.error || e.message }) }
+    finally { setLbUpgradeBusy(false) }
+  }
+  const handleLbUpgradeApply = async () => {
+    if (!window.confirm('Upgrade legacy `leadbridge_*` sources to per-location values? Rewrites customers.source / leads.source where a LeadBridge conversation exists. Idempotent and safe to rerun.')) return
+    setLbUpgradeBusy(true); setLbUpgradeResult(null)
+    try { setLbUpgradeResult(await participantsAPI.upgradeLbSourcesApply()); await loadIssues() }
+    catch (e) { setLbUpgradeResult({ error: e.response?.data?.error || e.message }) }
+    finally { setLbUpgradeBusy(false) }
+  }
+
   const handleReclassifyApply = async () => {
     if (!window.confirm('Reclassify all existing participant mappings into 5 buckets (mapped/ambiguous/unmapped/aggregator/noise)? Non-destructive — `manual` mappings are preserved.')) return
     setReclassifyBusy(true); setReclassifyResult({ progress: { phase: 'starting' } })
@@ -688,6 +706,79 @@ const LeadsSettings = () => {
                 </div>
               )}
             </div>
+
+            {/* Upgrade legacy flat LeadBridge sources → per-location */}
+            {(issues?.legacyLbFlatSources?.total || 0) > 0 && (
+              <div className="bg-white rounded-xl border border-amber-200 p-5 mt-3">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle size={14} className="text-amber-500 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <h3 className="text-sm font-semibold text-[var(--sf-text-primary)]">
+                      Upgrade Legacy LeadBridge Sources
+                    </h3>
+                    <p className="text-xs text-[var(--sf-text-muted)] mt-0.5">
+                      {issues.legacyLbFlatSources.total} records ({issues.legacyLbFlatSources.customers} customers + {issues.legacyLbFlatSources.leads} leads)
+                      still use flat <code className="text-[10px] px-1 py-0.5 bg-gray-100 rounded">leadbridge_yelp</code> / <code className="text-[10px] px-1 py-0.5 bg-gray-100 rounded">leadbridge_thumbtack</code>.
+                      The upgrade resolves each to its <strong>per-location</strong> source using the linked LB conversation (e.g. <em>Spotless Homes Tampa (yelp)</em>).
+                      New LB records already write the correct format — this is a one-time backfill.
+                    </p>
+                    <div className="flex flex-wrap gap-2 mt-3">
+                      <button onClick={handleLbUpgradeDryRun} disabled={lbUpgradeBusy}
+                        className="px-3 py-1.5 text-xs border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-hover)] text-[var(--sf-text-secondary)] disabled:opacity-50 flex items-center gap-1.5">
+                        {lbUpgradeBusy ? <Loader2 size={12} className="animate-spin" /> : <Database size={12} />}
+                        Preview (Dry-run)
+                      </button>
+                      <button onClick={handleLbUpgradeApply} disabled={lbUpgradeBusy}
+                        className="px-3 py-1.5 text-xs bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:opacity-50 flex items-center gap-1.5">
+                        {lbUpgradeBusy ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                        Upgrade Legacy Sources
+                      </button>
+                    </div>
+
+                    {lbUpgradeResult && !lbUpgradeBusy && (
+                      <div className={`rounded-lg p-3 text-xs mt-3 ${lbUpgradeResult.error ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-800'}`}>
+                        {lbUpgradeResult.error ? `Error: ${lbUpgradeResult.error}` : lbUpgradeResult.summary ? (
+                          <div className="space-y-1">
+                            <div className="font-semibold">{lbUpgradeResult.dryRun ? 'Dry-run preview:' : 'Upgrade complete:'}</div>
+                            <div className="grid grid-cols-2 gap-2 mt-1">
+                              <div>Legacy rows found: {lbUpgradeResult.summary.total_legacy_flat_rows_found}</div>
+                              <div>Already correct (skipped): {lbUpgradeResult.summary.already_correct_skipped}</div>
+                              <div className="font-semibold">{lbUpgradeResult.dryRun ? 'Would upgrade' : 'Upgraded'}: {lbUpgradeResult.summary.upgraded_successfully}</div>
+                              <div className="text-amber-900">Unresolved (no LB context): <strong>{lbUpgradeResult.summary.unresolved_no_context}</strong></div>
+                            </div>
+                            {lbUpgradeResult.summary.by_new_source && Object.keys(lbUpgradeResult.summary.by_new_source).length > 0 && (
+                              <details className="mt-2">
+                                <summary className="cursor-pointer text-amber-900 font-medium">Breakdown by new source</summary>
+                                <div className="mt-1 space-y-0.5 ml-2">
+                                  {Object.entries(lbUpgradeResult.summary.by_new_source).map(([src, cnt]) => (
+                                    <div key={src}><strong>{cnt}</strong> → {src}</div>
+                                  ))}
+                                </div>
+                              </details>
+                            )}
+                            {(lbUpgradeResult.summary.unresolved_samples || []).length > 0 && (
+                              <details className="mt-2">
+                                <summary className="cursor-pointer text-amber-900 font-medium">Unresolved records ({lbUpgradeResult.summary.unresolved_samples.length} shown)</summary>
+                                <div className="mt-1 space-y-0.5 ml-2 max-h-48 overflow-y-auto">
+                                  {lbUpgradeResult.summary.unresolved_samples.map(s => (
+                                    <div key={`${s.table}-${s.id}`} className="font-mono text-[10px]">
+                                      {s.table}#{s.id} · {s.name || '(no name)'} · {s.phone || '(no phone)'} · <em>{s.reason}</em>
+                                    </div>
+                                  ))}
+                                </div>
+                              </details>
+                            )}
+                            {lbUpgradeResult.summary.errors > 0 && (
+                              <div className="text-red-600 mt-1">Errors: {lbUpgradeResult.summary.errors}</div>
+                            )}
+                          </div>
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Convert unmapped named contacts → leads */}
             {(issues?.participantMetrics?.unmapped || 0) > 0 && (
