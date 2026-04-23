@@ -3,11 +3,12 @@
 import { useState, useEffect, useRef } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { ChevronLeft, Edit, Trash2, Phone, Mail, MapPin, Calendar, DollarSign, FileText, AlertCircle, Loader2, CheckCircle, MoreVertical, Plus, Info, MessageCircle, Link as LinkIcon, RefreshCw, CreditCard } from "lucide-react"
-import { customersAPI, jobsAPI, estimatesAPI, invoicesAPI } from "../services/api"
+import { customersAPI, customerPropertiesAPI, jobsAPI, estimatesAPI, invoicesAPI } from "../services/api"
 import { useAuth } from "../context/AuthContext"
 import Sidebar from "../components/sidebar"
 
 import CustomerModal from "../components/customer-modal"
+import ServiceAddressModal from "../components/service-address-modal"
 import { formatPhoneNumber } from "../utils/phoneFormatter"
 
 const CustomerDetails = () => {
@@ -28,6 +29,11 @@ const CustomerDetails = () => {
   const [successMessage, setSuccessMessage] = useState("")
   const [showMenuDropdown, setShowMenuDropdown] = useState(false)
   const menuRef = useRef(null)
+  const [properties, setProperties] = useState([])
+  const [showPropertyModal, setShowPropertyModal] = useState(false)
+  const [editingProperty, setEditingProperty] = useState(null)
+  const [propertyMenuOpenId, setPropertyMenuOpenId] = useState(null)
+  const propertyMenuRef = useRef(null)
 
   // New state for job filters
   const [jobFilter, setJobFilter] = useState("upcoming") // upcoming, past, canceled
@@ -48,21 +54,94 @@ const CustomerDetails = () => {
       const customerData = await customersAPI.getById(customerId)
       setCustomer(customerData)
 
-      const [jobsData, estimatesData, invoicesData] = await Promise.all([
+      const [jobsData, estimatesData, invoicesData, propsData] = await Promise.all([
         jobsAPI.getAll(user.id, "", "", 1, 50, "", "", "scheduled_date", "DESC", "", "", customerId),
         estimatesAPI.getAll(user.id, { customerId: customerId }),
-        invoicesAPI.getAll(user.id, { customerId: customerId })
+        invoicesAPI.getAll(user.id, { customerId: customerId }),
+        customerPropertiesAPI.list(customerId).catch((e) => {
+          console.error('Failed to load properties:', e)
+          return []
+        })
       ])
 
       setJobs(jobsData.jobs || jobsData)
       setEstimates(estimatesData.estimates || estimatesData)
       setInvoices(invoicesData.invoices || invoicesData)
+      setProperties(propsData || [])
 
     } catch (error) {
       console.error('Error fetching customer data:', error)
       setError("Failed to load customer data. Please try again.")
     } finally {
       setLoading(false)
+    }
+  }
+
+  const reloadProperties = async () => {
+    try {
+      const list = await customerPropertiesAPI.list(customerId)
+      setProperties(list || [])
+    } catch (e) {
+      console.error('Error reloading properties:', e)
+    }
+  }
+
+  const handleOpenAddProperty = () => {
+    setEditingProperty(null)
+    setShowPropertyModal(true)
+    setPropertyMenuOpenId(null)
+  }
+
+  const handleOpenEditProperty = (property) => {
+    setEditingProperty(property)
+    setShowPropertyModal(true)
+    setPropertyMenuOpenId(null)
+  }
+
+  const handleSavePropertyFromModal = async (addr) => {
+    try {
+      const payload = {
+        street: addr.street || '',
+        city: addr.city || '',
+        state: addr.state || '',
+        zipCode: addr.zipCode || '',
+        country: addr.country || 'USA'
+      }
+      if (editingProperty) {
+        await customerPropertiesAPI.update(customerId, editingProperty.id, payload)
+      } else {
+        await customerPropertiesAPI.create(customerId, payload)
+      }
+      await reloadProperties()
+      setShowPropertyModal(false)
+      setEditingProperty(null)
+    } catch (e) {
+      console.error('Error saving property:', e)
+      setError('Failed to save property. Please try again.')
+    }
+  }
+
+  const handleSetDefaultProperty = async (property) => {
+    try {
+      await customerPropertiesAPI.update(customerId, property.id, { isDefault: true })
+      await reloadProperties()
+      setPropertyMenuOpenId(null)
+    } catch (e) {
+      console.error('Error setting default property:', e)
+    }
+  }
+
+  const handleDeleteProperty = async (property) => {
+    if (!window.confirm('Delete this property?')) {
+      setPropertyMenuOpenId(null)
+      return
+    }
+    try {
+      await customerPropertiesAPI.remove(customerId, property.id)
+      await reloadProperties()
+      setPropertyMenuOpenId(null)
+    } catch (e) {
+      console.error('Error deleting property:', e)
     }
   }
 
@@ -107,6 +186,9 @@ const CustomerDetails = () => {
     const handleClickOutside = (event) => {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
         setShowMenuDropdown(false)
+      }
+      if (propertyMenuRef.current && !propertyMenuRef.current.contains(event.target)) {
+        setPropertyMenuOpenId(null)
       }
     }
 
@@ -589,40 +671,84 @@ const CustomerDetails = () => {
                   <div className="px-6 py-4 border-b border-[var(--sf-border-light)]">
                     <div className="flex items-center justify-between">
                       <h2 className="text-lg font-semibold text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 600 }}>Properties</h2>
-                      <button className="bg-white border border-[var(--sf-border-light)] rounded-lg px-4 py-2 text-sm font-medium text-[var(--sf-text-secondary)] hover:bg-[var(--sf-bg-hover)] inline-flex items-center" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                      <button
+                        onClick={handleOpenAddProperty}
+                        className="bg-white border border-[var(--sf-border-light)] rounded-lg px-4 py-2 text-sm font-medium text-[var(--sf-text-secondary)] hover:bg-[var(--sf-bg-hover)] inline-flex items-center"
+                        style={{ fontFamily: 'Montserrat', fontWeight: 500 }}
+                      >
                         <Plus className="w-4 h-4 mr-1" />
                         Add Property
                       </button>
                     </div>
                   </div>
-                  <div className="p-6">
-                    {customer.address ? (
-                      <div className="flex items-center justify-between p-4 border border-[var(--sf-border-light)] rounded-lg">
-                        <div className="flex items-center">
-                          <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
-                            <MapPin className="w-5 h-5 text-[var(--sf-blue-500)]" />
-                          </div>
-                          <div>
-                            <div className="flex items-center">
-                              <p className="text-sm font-medium text-[var(--sf-text-primary)]" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
-                                {customer.address.split(',')[0]}
-                              </p>
-                              <span className="ml-2 px-2 py-0.5 text-xs font-medium text-[var(--sf-blue-500)] bg-[var(--sf-blue-50)] rounded" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
-                                Default
-                              </span>
-                            </div>
-                            <p className="text-sm text-[var(--sf-text-muted)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{customer.address}</p>
-                          </div>
-                        </div>
-                        <button className="p-2 hover:bg-[var(--sf-bg-hover)] rounded-lg">
-                          <MoreVertical className="w-5 h-5 text-[var(--sf-text-muted)]" />
-                        </button>
-                      </div>
-                    ) : (
+                  <div className="p-6 space-y-3">
+                    {properties.length === 0 ? (
                       <div className="text-center py-12">
                         <MapPin className="mx-auto h-12 w-12 text-gray-300" />
                         <p className="mt-2 text-sm text-[var(--sf-text-muted)]" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>No properties added</p>
                       </div>
+                    ) : (
+                      properties.map((p) => {
+                        const line1 = [p.street, p.suite].filter(Boolean).join(', ') || '—'
+                        const line2 = [p.city, p.state, p.zip_code].filter(Boolean).join(', ')
+                        const isMenuOpen = propertyMenuOpenId === p.id
+                        return (
+                          <div key={p.id} className="flex items-start justify-between p-4 border border-[var(--sf-border-light)] rounded-lg">
+                            <div className="flex items-start min-w-0">
+                              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3 flex-shrink-0">
+                                <MapPin className="w-5 h-5 text-[var(--sf-blue-500)]" />
+                              </div>
+                              <div className="min-w-0">
+                                <div className="flex items-center flex-wrap">
+                                  <p className="text-sm font-medium text-[var(--sf-text-primary)] truncate" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                                    {line1}
+                                  </p>
+                                  {p.is_default && (
+                                    <span className="ml-2 px-2 py-0.5 text-xs font-medium text-[var(--sf-blue-500)] bg-[var(--sf-blue-50)] rounded" style={{ fontFamily: 'Montserrat', fontWeight: 500 }}>
+                                      Default
+                                    </span>
+                                  )}
+                                </div>
+                                {line2 && (
+                                  <p className="text-sm text-[var(--sf-text-muted)] truncate" style={{ fontFamily: 'Montserrat', fontWeight: 400 }}>{line2}</p>
+                                )}
+                              </div>
+                            </div>
+                            <div className="relative flex-shrink-0 ml-2" ref={isMenuOpen ? propertyMenuRef : null}>
+                              <button
+                                onClick={() => setPropertyMenuOpenId(isMenuOpen ? null : p.id)}
+                                className="p-2 hover:bg-[var(--sf-bg-hover)] rounded-lg"
+                              >
+                                <MoreVertical className="w-5 h-5 text-[var(--sf-text-muted)]" />
+                              </button>
+                              {isMenuOpen && (
+                                <div className="absolute right-0 mt-1 w-44 bg-white border border-[var(--sf-border-light)] rounded-lg shadow-lg z-10 py-1">
+                                  <button
+                                    onClick={() => handleOpenEditProperty(p)}
+                                    className="w-full text-left px-3 py-2 text-sm hover:bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)]"
+                                  >
+                                    Edit
+                                  </button>
+                                  {!p.is_default && (
+                                    <button
+                                      onClick={() => handleSetDefaultProperty(p)}
+                                      className="w-full text-left px-3 py-2 text-sm hover:bg-[var(--sf-bg-page)] text-[var(--sf-text-primary)]"
+                                    >
+                                      Set as default
+                                    </button>
+                                  )}
+                                  <button
+                                    onClick={() => handleDeleteProperty(p)}
+                                    className="w-full text-left px-3 py-2 text-sm hover:bg-[var(--sf-bg-page)] text-red-600"
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })
                     )}
                   </div>
                 </div>
@@ -749,6 +875,19 @@ const CustomerDetails = () => {
         onSave={handleCustomerSave}
         customer={customer}
         isEditing={true}
+      />
+
+      <ServiceAddressModal
+        isOpen={showPropertyModal}
+        onClose={() => { setShowPropertyModal(false); setEditingProperty(null) }}
+        onSave={handleSavePropertyFromModal}
+        currentAddress={editingProperty ? {
+          street: editingProperty.street || '',
+          city: editingProperty.city || '',
+          state: editingProperty.state || '',
+          zipCode: editingProperty.zip_code || '',
+          country: editingProperty.country || 'USA'
+        } : null}
       />
     </div>
   )
