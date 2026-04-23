@@ -64,6 +64,10 @@ const LeadsSettings = () => {
   const [importBusy, setImportBusy] = useState(false)
   const [importResult, setImportResult] = useState(null)
 
+  // Reclassify mappings (5-bucket refinement)
+  const [reclassifyBusy, setReclassifyBusy] = useState(false)
+  const [reclassifyResult, setReclassifyResult] = useState(null)
+
   useEffect(() => { loadRules(); loadSources(); loadMappings(); loadIssues() }, [])
 
   const loadIssues = async () => {
@@ -152,6 +156,32 @@ const LeadsSettings = () => {
       await loadIssues()
     } catch (e) { setImportResult({ error: e.response?.data?.error || e.message }) }
     finally { setImportBusy(false) }
+  }
+
+  const handleReclassifyDryRun = async () => {
+    setReclassifyBusy(true); setReclassifyResult(null)
+    try { setReclassifyResult(await participantsAPI.reclassifyDryRun()) }
+    catch (e) { setReclassifyResult({ error: e.response?.data?.error || e.message }) }
+    finally { setReclassifyBusy(false) }
+  }
+  const handleReclassifyApply = async () => {
+    if (!window.confirm('Reclassify all existing participant mappings into 5 buckets (mapped/ambiguous/unmapped/aggregator/noise)? Non-destructive — `manual` mappings are preserved.')) return
+    setReclassifyBusy(true); setReclassifyResult({ progress: { phase: 'starting' } })
+    try {
+      await participantsAPI.reclassifyApply()
+      let last = null
+      for (let i = 0; i < 150; i++) {
+        await new Promise(r => setTimeout(r, 2000))
+        const p = await participantsAPI.reclassifyProgress()
+        last = p
+        setReclassifyResult({ progress: p })
+        if (p.status === 'done' || p.status === 'error' || p.status === 'idle') break
+      }
+      if (last?.status === 'error') setReclassifyResult({ error: last.error })
+      else if (last?.summary) setReclassifyResult({ summary: last.summary })
+      await loadIssues()
+    } catch (e) { setReclassifyResult({ error: e.response?.data?.error || e.message }) }
+    finally { setReclassifyBusy(false) }
   }
 
   const loadRules = async () => {
@@ -450,26 +480,42 @@ const LeadsSettings = () => {
             </div>
 
             <div className="bg-white rounded-xl border border-[var(--sf-border-light)] p-5 space-y-4">
-              {/* Metrics */}
+              {/* Metrics — 5-bucket refinement */}
               {issues?.participantMetrics ? (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <div className="bg-green-50 border border-green-100 rounded-lg p-3">
-                    <div className="text-[10px] uppercase tracking-wider text-green-700 font-semibold">Mapped</div>
-                    <div className="text-lg font-bold text-green-800 mt-0.5">{issues.participantMetrics.mapped || 0}</div>
+                <>
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                    <div className="bg-green-50 border border-green-100 rounded-lg p-3" title="Has CRM customer or lead link">
+                      <div className="text-[10px] uppercase tracking-wider text-green-700 font-semibold">Mapped</div>
+                      <div className="text-lg font-bold text-green-800 mt-0.5">{issues.participantMetrics.mapped || 0}</div>
+                    </div>
+                    <div className="bg-amber-50 border border-amber-100 rounded-lg p-3" title="Multiple CRM candidates — needs manual resolution">
+                      <div className="text-[10px] uppercase tracking-wider text-amber-700 font-semibold">Ambiguous</div>
+                      <div className="text-lg font-bold text-amber-800 mt-0.5">{issues.participantMetrics.ambiguous || 0}</div>
+                    </div>
+                    <div className="bg-violet-50 border border-violet-100 rounded-lg p-3" title="Real-person candidate without CRM record — actionable (can become a lead)">
+                      <div className="text-[10px] uppercase tracking-wider text-violet-700 font-semibold">Unmapped</div>
+                      <div className="text-lg font-bold text-violet-800 mt-0.5">{issues.participantMetrics.unmapped || 0}</div>
+                    </div>
+                    <div className="bg-sky-50 border border-sky-100 rounded-lg p-3" title="Platform alias (Thumbtack/Yelp/LeadBridge) — intentionally no CRM record">
+                      <div className="text-[10px] uppercase tracking-wider text-sky-700 font-semibold">Aggregator</div>
+                      <div className="text-lg font-bold text-sky-800 mt-0.5">{issues.participantMetrics.aggregator || 0}</div>
+                    </div>
+                    <div className="bg-gray-50 border border-gray-100 rounded-lg p-3" title="Unnamed phone — not actionable, intentionally no CRM record">
+                      <div className="text-[10px] uppercase tracking-wider text-gray-600 font-semibold">Noise</div>
+                      <div className="text-lg font-bold text-gray-800 mt-0.5">{issues.participantMetrics.noise || 0}</div>
+                    </div>
                   </div>
-                  <div className="bg-amber-50 border border-amber-100 rounded-lg p-3">
-                    <div className="text-[10px] uppercase tracking-wider text-amber-700 font-semibold">Ambiguous</div>
-                    <div className="text-lg font-bold text-amber-800 mt-0.5">{issues.participantMetrics.ambiguous || 0}</div>
-                  </div>
-                  <div className="bg-gray-50 border border-gray-100 rounded-lg p-3">
-                    <div className="text-[10px] uppercase tracking-wider text-gray-600 font-semibold">Unmapped</div>
-                    <div className="text-lg font-bold text-gray-800 mt-0.5">{issues.participantMetrics.unmapped || 0}</div>
-                  </div>
-                  <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
-                    <div className="text-[10px] uppercase tracking-wider text-blue-700 font-semibold">Pending</div>
-                    <div className="text-lg font-bold text-blue-800 mt-0.5">{issues.participantMetrics.participant_pending_total || 0}</div>
-                  </div>
-                </div>
+                  {(issues.participantMetrics.manual > 0 || issues.participantMetrics.participant_pending_total > 0) && (
+                    <div className="flex flex-wrap gap-4 mt-2 text-[11px] text-[var(--sf-text-muted)]">
+                      {issues.participantMetrics.manual > 0 && (
+                        <span><strong className="text-[var(--sf-text-primary)]">{issues.participantMetrics.manual}</strong> manual (user-curated)</span>
+                      )}
+                      {issues.participantMetrics.participant_pending_total > 0 && (
+                        <span><strong className="text-blue-700">{issues.participantMetrics.participant_pending_total}</strong> pending (no identity yet)</span>
+                      )}
+                    </div>
+                  )}
+                </>
               ) : (
                 <div className="text-xs text-[var(--sf-text-muted)]">No metrics yet — run backfill to populate.</div>
               )}
@@ -494,10 +540,54 @@ const LeadsSettings = () => {
                   {reconcileBusy ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
                   Reconcile Pending
                 </button>
+                <button onClick={handleReclassifyDryRun} disabled={reclassifyBusy}
+                  className="px-3 py-1.5 text-xs border border-[var(--sf-border-light)] rounded-lg hover:bg-[var(--sf-bg-hover)] text-[var(--sf-text-secondary)] disabled:opacity-50 flex items-center gap-1.5"
+                  title="Re-bucket mappings into mapped / ambiguous / unmapped / aggregator / noise">
+                  {reclassifyBusy ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />}
+                  Reclassify (Dry-run)
+                </button>
+                <button onClick={handleReclassifyApply} disabled={reclassifyBusy}
+                  className="px-3 py-1.5 text-xs bg-violet-500 text-white rounded-lg hover:bg-violet-600 disabled:opacity-50 flex items-center gap-1.5"
+                  title="Apply 5-bucket classification to all existing mappings">
+                  {reclassifyBusy ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                  Reclassify & Apply
+                </button>
                 <span className="text-[10px] text-[var(--sf-text-muted)] ml-auto">
-                  Run Backfill first after deploying PR4, then Reconcile after new Sigcore syncs.
+                  Backfill → Reconcile → Reclassify to refine buckets.
                 </span>
               </div>
+
+              {/* Reclassify result */}
+              {reclassifyResult?.progress && reclassifyBusy && (
+                <div className="rounded-lg p-3 text-xs bg-violet-50 text-violet-800 flex items-center gap-2">
+                  <Loader2 size={12} className="animate-spin" />
+                  <span>Reclassifying… phase: <strong>{reclassifyResult.progress.phase || 'starting'}</strong>{reclassifyResult.progress.total ? ` (${reclassifyResult.progress.processed || 0}/${reclassifyResult.progress.total})` : ''}</span>
+                </div>
+              )}
+              {reclassifyResult && !reclassifyBusy && (
+                <div className={`rounded-lg p-3 text-xs ${reclassifyResult.error ? 'bg-red-50 text-red-600' : 'bg-violet-50 text-violet-800'}`}>
+                  {reclassifyResult.error ? (
+                    `Error: ${reclassifyResult.error}`
+                  ) : reclassifyResult.summary ? (
+                    <div className="space-y-1">
+                      <div className="font-semibold">{reclassifyResult.dryRun ? 'Reclassify preview:' : 'Reclassify complete:'}</div>
+                      <div className="grid grid-cols-3 gap-2 mt-1">
+                        <div>Total: {reclassifyResult.summary.total}</div>
+                        <div>Changed: {reclassifyResult.summary.changed}</div>
+                        <div>Unchanged: {reclassifyResult.summary.unchanged}</div>
+                        <div>→ Mapped: {reclassifyResult.summary.mapped}</div>
+                        <div>→ Ambiguous: {reclassifyResult.summary.ambiguous}</div>
+                        <div>→ Unmapped: {reclassifyResult.summary.unmapped}</div>
+                        <div>→ Aggregator: {reclassifyResult.summary.aggregator}</div>
+                        <div>→ Noise: {reclassifyResult.summary.noise}</div>
+                      </div>
+                      {reclassifyResult.summary.errors > 0 && (
+                        <div className="text-red-600 mt-1">Errors: {reclassifyResult.summary.errors}</div>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+              )}
 
               {/* Backfill progress (while running) */}
               {pBackfillResult?.progress && pBackfillBusy && (() => {
@@ -609,8 +699,9 @@ const LeadsSettings = () => {
                       Convert Unmapped Contacts to Leads
                     </h3>
                     <p className="text-xs text-[var(--sf-text-muted)] mt-0.5">
-                      {issues.participantMetrics.unmapped} unmapped participants. Importing creates a lead record for every
-                      named real person (skips aggregator aliases and unknown numbers). Duplicates checked by phone.
+                      {issues.participantMetrics.unmapped} unmapped participants — these are <strong>real-person candidates</strong> without
+                      a CRM record. Aggregator aliases ({issues.participantMetrics.aggregator || 0}) and noise/unnamed ({issues.participantMetrics.noise || 0}) are intentionally excluded.
+                      Duplicates checked by phone.
                     </p>
                     <div className="flex flex-wrap gap-2 mt-3">
                       <button onClick={handleImportLeadsDryRun} disabled={importBusy}
