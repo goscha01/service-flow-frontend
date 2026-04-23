@@ -102,10 +102,25 @@ const LeadsSettings = () => {
     finally { setIdReportLoading(false) }
   }
 
+  const pollBackfillProgress = async () => {
+    let last = null
+    for (let i = 0; i < 300; i++) {
+      await new Promise(r => setTimeout(r, 2000))
+      const p = await identitiesAPI.backfillProgress()
+      last = p
+      setIdBackfillResult({ progress: p })
+      if (p.status === 'done' || p.status === 'error' || p.status === 'idle') break
+    }
+    if (last?.status === 'error') setIdBackfillResult({ error: last.error })
+    else if (last?.summary) setIdBackfillResult({ summary: last.summary, dryRun: last.apply === false })
+  }
+
   const handleIdBackfillDryRun = async () => {
-    setIdBackfillBusy(true); setIdBackfillResult(null)
-    try { setIdBackfillResult(await identitiesAPI.backfillDryRun()) }
-    catch (e) { setIdBackfillResult({ error: e.response?.data?.error || e.message }) }
+    setIdBackfillBusy(true); setIdBackfillResult({ progress: { phase: 'starting' } })
+    try {
+      await identitiesAPI.backfillDryRun()
+      await pollBackfillProgress()
+    } catch (e) { setIdBackfillResult({ error: e.response?.data?.error || e.message }) }
     finally { setIdBackfillBusy(false) }
   }
 
@@ -114,16 +129,7 @@ const LeadsSettings = () => {
     setIdBackfillBusy(true); setIdBackfillResult({ progress: { phase: 'starting' } })
     try {
       await identitiesAPI.backfillApply()
-      let last = null
-      for (let i = 0; i < 180; i++) {
-        await new Promise(r => setTimeout(r, 2000))
-        const p = await identitiesAPI.backfillProgress()
-        last = p
-        setIdBackfillResult({ progress: p })
-        if (p.status === 'done' || p.status === 'error' || p.status === 'idle') break
-      }
-      if (last?.status === 'error') setIdBackfillResult({ error: last.error })
-      else if (last?.summary) setIdBackfillResult({ summary: last.summary })
+      await pollBackfillProgress()
       await loadIdentityReport()
     } catch (e) { setIdBackfillResult({ error: e.response?.data?.error || e.message }) }
     finally { setIdBackfillBusy(false) }
