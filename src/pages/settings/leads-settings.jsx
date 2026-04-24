@@ -68,6 +68,9 @@ const LeadsSettings = () => {
   const [ambigModal, setAmbigModal] = useState(null) // { loading?, ambiguity, candidates } | null
   const [ambigActionBusy, setAmbigActionBusy] = useState(false)
 
+  // Phase I — OpenPhone lead creation outcomes (rolling 24h / 7d)
+  const [opOutcomes, setOpOutcomes] = useState(null)
+
   // Upgrade legacy LB flat sources → per-location
   const [lbUpgradeBusy, setLbUpgradeBusy] = useState(false)
   const [lbUpgradeResult, setLbUpgradeResult] = useState(null)
@@ -96,13 +99,15 @@ const LeadsSettings = () => {
   const loadIdentityReport = async () => {
     setIdReportLoading(true)
     try {
-      const [status, bySource, unresolved, ambiguities] = await Promise.all([
+      const [status, bySource, unresolved, ambiguities, outcomes] = await Promise.all([
         identitiesAPI.status(),
         identitiesAPI.bySource(),
         identitiesAPI.unresolved({ limit: 50 }),
         identitiesAPI.reconciliationFailures({ status: 'open', limit: 50 }),
+        identitiesAPI.opLeadOutcomes().catch(() => null),
       ])
       setIdStatus(status); setIdBySource(bySource); setIdUnresolved(unresolved); setIdAmbiguities(ambiguities)
+      setOpOutcomes(outcomes)
     } catch (e) { console.error('identity report load failed', e) }
     finally { setIdReportLoading(false) }
   }
@@ -684,6 +689,51 @@ const LeadsSettings = () => {
               ) : (
                 <div className="text-xs text-[var(--sf-text-muted)]">Loading identity metrics…</div>
               )}
+
+              {/* OpenPhone lead-creation outcomes — rolling 24h / 7d */}
+              {opOutcomes && (() => {
+                const OUTCOME_ORDER = [
+                  { key: 'created_lead_openphone_direct', label: 'Created (direct)', color: 'bg-green-50 text-green-800 border-green-100' },
+                  { key: 'created_lead_openphone_lb_recovery', label: 'Created (LB recovery)', color: 'bg-emerald-50 text-emerald-800 border-emerald-100' },
+                  { key: 'linked_existing_customer_by_phone', label: 'Linked customer', color: 'bg-teal-50 text-teal-800 border-teal-100' },
+                  { key: 'linked_existing_lead_by_phone', label: 'Linked lead', color: 'bg-teal-50 text-teal-800 border-teal-100' },
+                  { key: 'skipped_missing_company', label: 'Skip: no company', color: 'bg-gray-50 text-gray-700 border-gray-100' },
+                  { key: 'skipped_out_of_age_window', label: 'Skip: out of window', color: 'bg-gray-50 text-gray-700 border-gray-100' },
+                ]
+                const flagOn = opOutcomes.flagsOn?.OPENPHONE_CONDITIONAL_LEAD_CREATION
+                const maxAge = opOutcomes.flagsOn?.max_age_days
+                return (
+                  <div className="pt-3 border-t border-[var(--sf-border-light)]">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-[11px] uppercase tracking-wider text-[var(--sf-text-muted)] font-semibold">
+                        OpenPhone lead creation
+                      </div>
+                      <div className="text-[10px] text-[var(--sf-text-muted)]">
+                        flag: <span className={flagOn ? 'text-green-700 font-semibold' : 'text-gray-500'}>{flagOn ? 'ON' : 'OFF'}</span>
+                        {maxAge != null ? ` · age window: ${maxAge}d` : ' · no age window'}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
+                      {OUTCOME_ORDER.map(o => {
+                        const n24 = opOutcomes.last24h?.[o.key] || 0
+                        const n7 = opOutcomes.last7d?.[o.key] || 0
+                        return (
+                          <div key={o.key} className={`rounded-lg p-2 border ${o.color}`} title={o.key}>
+                            <div className="text-[9px] uppercase tracking-wider font-semibold truncate">{o.label}</div>
+                            <div className="text-sm font-bold mt-0.5">
+                              {n24}<span className="text-[10px] font-normal"> / 24h</span>
+                            </div>
+                            <div className="text-[10px] opacity-75">{n7} in 7d</div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                    <div className="text-[10px] text-[var(--sf-text-muted)] mt-1.5">
+                      Total: <strong>{opOutcomes.total24h || 0}</strong> decisions / 24h · <strong>{opOutcomes.total7d || 0}</strong> / 7d
+                    </div>
+                  </div>
+                )
+              })()}
 
               {/* Backfill actions (Phase E runner) */}
               <div className="flex flex-wrap gap-2 items-center pt-3 border-t border-[var(--sf-border-light)]">

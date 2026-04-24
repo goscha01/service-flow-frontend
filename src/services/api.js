@@ -2864,6 +2864,7 @@ export const identitiesAPI = {
   backfillDryRun: async () => { const r = await api.post('/identities/backfill'); return r.data; },
   backfillApply: async () => { const r = await api.post('/identities/backfill?apply=1'); return r.data; },
   backfillProgress: async () => { const r = await api.get('/identities/backfill/progress'); return r.data; },
+  opLeadOutcomes: async () => { const r = await api.get('/identities/op-lead-outcomes'); return r.data; },
 };
 
 export const locationsAPI = {
