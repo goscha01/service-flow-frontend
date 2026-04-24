@@ -509,36 +509,48 @@ const LeadsSettings = () => {
                   </div>
 
                   {/* Source coverage */}
-                  {idBySource && (
-                    <div className="pt-3 border-t border-[var(--sf-border-light)]">
-                      <div className="text-[11px] uppercase tracking-wider text-[var(--sf-text-muted)] font-semibold mb-2">
-                        Source coverage
+                  {idBySource && (() => {
+                    const s = idBySource.single_source || {}
+                    const multi = idBySource.multi_source || 0
+                    const sum = multi + (s.leadbridge_only || 0) + (s.openphone_only || 0) + (s.zenbooker_only || 0) + (s.no_source_ids || 0)
+                    const total = idBySource.total || 0
+                    const reconciles = sum === total
+                    return (
+                      <div className="pt-3 border-t border-[var(--sf-border-light)]">
+                        <div className="text-[11px] uppercase tracking-wider text-[var(--sf-text-muted)] font-semibold mb-2">
+                          Source coverage
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                          <div className="bg-blue-50 border border-blue-100 rounded-lg p-3" title="Same person converged across 2+ sources (goal state)">
+                            <div className="text-[10px] uppercase tracking-wider text-blue-700 font-semibold">Multi-source</div>
+                            <div className="text-lg font-bold text-blue-800 mt-0.5">{multi}</div>
+                          </div>
+                          <div className="bg-gray-50 border border-gray-100 rounded-lg p-3" title="leadbridge_contact_id, thumbtack_profile_id, or yelp_profile_id only">
+                            <div className="text-[10px] uppercase tracking-wider text-gray-600 font-semibold">LB only</div>
+                            <div className="text-lg font-bold text-gray-800 mt-0.5">{s.leadbridge_only || 0}</div>
+                          </div>
+                          <div className="bg-gray-50 border border-gray-100 rounded-lg p-3" title="openphone_contact_id, sigcore_participant_id, or sigcore_participant_key only">
+                            <div className="text-[10px] uppercase tracking-wider text-gray-600 font-semibold">OP only</div>
+                            <div className="text-lg font-bold text-gray-800 mt-0.5">{s.openphone_only || 0}</div>
+                          </div>
+                          <div className="bg-gray-50 border border-gray-100 rounded-lg p-3" title="zenbooker_customer_id only">
+                            <div className="text-[10px] uppercase tracking-wider text-gray-600 font-semibold">ZB only</div>
+                            <div className="text-lg font-bold text-gray-800 mt-0.5">{s.zenbooker_only || 0}</div>
+                          </div>
+                        </div>
+                        <div className="text-[11px] text-[var(--sf-text-muted)] mt-2 space-y-0.5">
+                          {(s.no_source_ids || 0) > 0 && (
+                            <div>
+                              <strong>{s.no_source_ids}</strong> identities with no external source IDs (legacy / manually seeded).
+                            </div>
+                          )}
+                          <div className={reconciles ? '' : 'text-amber-700'}>
+                            Sum: {sum} / {total} {reconciles ? '✓' : '· mismatch — please report'}
+                          </div>
+                        </div>
                       </div>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                        <div className="bg-blue-50 border border-blue-100 rounded-lg p-3" title="Same person converged across 2+ sources (goal state)">
-                          <div className="text-[10px] uppercase tracking-wider text-blue-700 font-semibold">Multi-source</div>
-                          <div className="text-lg font-bold text-blue-800 mt-0.5">{idBySource.multi_source || 0}</div>
-                        </div>
-                        <div className="bg-gray-50 border border-gray-100 rounded-lg p-3">
-                          <div className="text-[10px] uppercase tracking-wider text-gray-600 font-semibold">LB only</div>
-                          <div className="text-lg font-bold text-gray-800 mt-0.5">{idBySource.single_source?.leadbridge_only || 0}</div>
-                        </div>
-                        <div className="bg-gray-50 border border-gray-100 rounded-lg p-3">
-                          <div className="text-[10px] uppercase tracking-wider text-gray-600 font-semibold">OP only</div>
-                          <div className="text-lg font-bold text-gray-800 mt-0.5">{idBySource.single_source?.openphone_only || 0}</div>
-                        </div>
-                        <div className="bg-gray-50 border border-gray-100 rounded-lg p-3">
-                          <div className="text-[10px] uppercase tracking-wider text-gray-600 font-semibold">ZB only</div>
-                          <div className="text-lg font-bold text-gray-800 mt-0.5">{idBySource.single_source?.zenbooker_only || 0}</div>
-                        </div>
-                      </div>
-                      {(idBySource.single_source?.no_source_ids || 0) > 0 && (
-                        <div className="text-[11px] text-[var(--sf-text-muted)] mt-2">
-                          {idBySource.single_source.no_source_ids} identities with no external source IDs (legacy / manually seeded).
-                        </div>
-                      )}
-                    </div>
-                  )}
+                    )
+                  })()}
                 </>
               ) : (
                 <div className="text-xs text-[var(--sf-text-muted)]">Loading identity metrics…</div>
