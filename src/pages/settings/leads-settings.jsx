@@ -148,13 +148,36 @@ const LeadsSettings = () => {
     const unclassified = items.filter(r => !r.ai_category).map(r => r.id)
     if (unclassified.length === 0) { alert('Nothing to classify — all rows already have an AI verdict.'); return }
     if (!window.confirm(`Classify ${unclassified.length} floating identities with AI? (~$${(unclassified.length * 0.0003).toFixed(3)} in OpenAI costs)`)) return
-    setAiBatchBusy(true); setAiBatchProgress({ done: 0, total: unclassified.length, cost: 0 })
+    setAiBatchBusy(true); setAiBatchProgress({ done: 0, total: unclassified.length, cost: 0, running: true })
     try {
-      const resp = await identitiesAPI.classifyBatch(unclassified, unclassified.length)
-      setAiBatchProgress({ done: resp.results?.length || 0, total: unclassified.length, cost: resp.cost_usd || 0 })
-      await loadIdentityReport() // full reload so counts + list reflect verdicts
-    } catch (e) { alert('Batch failed: ' + (e.response?.data?.error || e.message)) }
-    finally { setAiBatchBusy(false) }
+      // Fire-and-forget; backend runs async and we poll.
+      await identitiesAPI.classifyBatch(unclassified, unclassified.length)
+      // Poll progress every 3s until done.
+      for (let i = 0; i < 600; i++) {
+        await new Promise(r => setTimeout(r, 3000))
+        let p
+        try { p = await identitiesAPI.classifyBatchProgress() } catch { continue }
+        if (!p) break
+        setAiBatchProgress(p)
+        if (!p.running) break
+      }
+      await loadIdentityReport() // full reload so list reflects all verdicts
+    } catch (e) {
+      if (e.response?.status === 409) {
+        // Already running — just start polling
+        for (let i = 0; i < 600; i++) {
+          await new Promise(r => setTimeout(r, 3000))
+          let p
+          try { p = await identitiesAPI.classifyBatchProgress() } catch { continue }
+          if (!p) break
+          setAiBatchProgress(p)
+          if (!p.running) break
+        }
+        await loadIdentityReport()
+      } else {
+        alert('Batch failed: ' + (e.response?.data?.error || e.message))
+      }
+    } finally { setAiBatchBusy(false) }
   }
 
   // Phase H — ambiguity resolution
@@ -675,7 +698,7 @@ const LeadsSettings = () => {
                                 </div>
                                 {aiBatchProgress && (
                                   <div className="text-[10px] text-[var(--sf-text-muted)] mb-1">
-                                    {aiBatchBusy ? `Classifying… ${aiBatchProgress.done}/${aiBatchProgress.total}` : `Done: ${aiBatchProgress.done}/${aiBatchProgress.total} · cost $${aiBatchProgress.cost?.toFixed(4)}`}
+                                    {aiBatchProgress.running ? `Classifying… ${aiBatchProgress.done || 0}/${aiBatchProgress.total || '?'}` : `Done: ${aiBatchProgress.done || 0}/${aiBatchProgress.total || '?'} · ok ${aiBatchProgress.ok || 0} · err ${aiBatchProgress.errors || 0} · cost $${(aiBatchProgress.cost || 0).toFixed(4)}`}
                                   </div>
                                 )}
                                 <div className="space-y-1 max-h-64 overflow-y-auto">
