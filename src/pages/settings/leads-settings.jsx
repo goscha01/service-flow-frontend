@@ -555,244 +555,184 @@ const LeadsSettings = () => {
             </div>
 
             <div className="bg-white rounded-xl border border-[var(--sf-border-light)] p-5 space-y-4">
-              {/* Simplified three-bucket summary: Connected / Need review / Ignored.
-                  Implementation-level buckets (customer/lead/both/floating/aggregator/noise
-                  + source coverage) live behind a <details> drawer. */}
-              {idStatus ? (
-                <div>
-                  <div className="text-[11px] uppercase tracking-wider text-[var(--sf-text-muted)] font-semibold mb-2">
-                    Identities · {idStatus.total} total
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                    <div className="bg-green-50 border border-green-100 rounded-lg p-3" title="Identity linked to a customer or lead">
-                      <div className="text-[10px] uppercase tracking-wider text-green-700 font-semibold">Connected</div>
-                      <div className="text-xl font-bold text-green-800 mt-0.5">{idStatus.connected || 0}</div>
-                      <div className="text-[10px] text-green-700/80 mt-0.5">customer or lead</div>
-                    </div>
-                    <div className="bg-amber-50 border border-amber-100 rounded-lg p-3" title="Floating-named identities + open ambiguities">
-                      <div className="text-[10px] uppercase tracking-wider text-amber-700 font-semibold">Need review</div>
-                      <div className="text-xl font-bold text-amber-800 mt-0.5">{idStatus.need_review || 0}</div>
-                      <div className="text-[10px] text-amber-700/80 mt-0.5">floating names + ambiguities</div>
-                    </div>
-                    <div className="bg-gray-50 border border-gray-100 rounded-lg p-3" title="Unnamed numbers and aggregator/platform aliases — auto-excluded">
-                      <div className="text-[10px] uppercase tracking-wider text-gray-600 font-semibold">Ignored</div>
-                      <div className="text-xl font-bold text-gray-700 mt-0.5">{idStatus.ignored || 0}</div>
-                      <div className="text-[10px] text-gray-600/80 mt-0.5">unnamed + aggregators</div>
-                    </div>
-                  </div>
-                  {(idStatus.ambiguities_open || 0) > 0 && (
-                    <div className="text-[11px] text-amber-700 mt-2">
-                      <strong>{idStatus.ambiguities_open}</strong> open reconciliation failure{idStatus.ambiguities_open === 1 ? '' : 's'} in the ambiguity queue.
-                    </div>
-                  )}
-
-                  {/* Actionable advisory surfaced near Need review */}
-                  {(issues?.namedContactsMissingCompany?.count || 0) > 0 && (
-                    <div className="text-[11px] text-amber-700 mt-1">
-                      <strong>{issues.namedContactsMissingCompany.count}</strong> OpenPhone contacts are missing a Company tag — fix in OpenPhone to attribute their source.
-                    </div>
-                  )}
-
-                  {/* Drill-down: implementation-level categories and source coverage */}
-                  <details className="mt-3">
-                    <summary className="text-[11px] text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-600)] cursor-pointer">
-                      View details
-                    </summary>
-                    <div className="mt-2 space-y-3">
-                      <div className="grid grid-cols-3 gap-2 text-[11px]">
-                        <div className="bg-white border border-[var(--sf-border-light)] rounded p-2">
-                          <div className="text-[var(--sf-text-muted)]">Customer</div>
-                          <div className="font-semibold">{idStatus.details?.resolved_customer || 0}</div>
-                        </div>
-                        <div className="bg-white border border-[var(--sf-border-light)] rounded p-2">
-                          <div className="text-[var(--sf-text-muted)]">Lead</div>
-                          <div className="font-semibold">{idStatus.details?.resolved_lead || 0}</div>
-                        </div>
-                        <div className="bg-white border border-[var(--sf-border-light)] rounded p-2">
-                          <div className="text-[var(--sf-text-muted)]">Both</div>
-                          <div className="font-semibold">{idStatus.details?.resolved_both || 0}</div>
-                        </div>
-                        <div className="bg-white border border-[var(--sf-border-light)] rounded p-2">
-                          <div className="text-[var(--sf-text-muted)]">Floating named</div>
-                          <div className="font-semibold">{idStatus.details?.floating_named || 0}</div>
-                        </div>
-                        <div className="bg-white border border-[var(--sf-border-light)] rounded p-2">
-                          <div className="text-[var(--sf-text-muted)]">Aggregator</div>
-                          <div className="font-semibold">{idStatus.details?.floating_aggregator || 0}</div>
-                        </div>
-                        <div className="bg-white border border-[var(--sf-border-light)] rounded p-2">
-                          <div className="text-[var(--sf-text-muted)]">Noise</div>
-                          <div className="font-semibold">{idStatus.details?.floating_noise || 0}</div>
-                        </div>
-                      </div>
-
-                      {idBySource && (() => {
-                        const s = idBySource.single_source || {}
-                        const multi = idBySource.multi_source || 0
-                        const sum = multi + (s.leadbridge_only || 0) + (s.openphone_only || 0) + (s.zenbooker_only || 0) + (s.no_source_ids || 0)
-                        const total = idBySource.total || 0
-                        const reconciles = sum === total
-                        return (
-                          <div className="text-[11px] text-[var(--sf-text-muted)]">
-                            Sources: <strong className="text-[var(--sf-text-primary)]">OP {s.openphone_only || 0}</strong> ·
-                            {' '}<strong className="text-[var(--sf-text-primary)]">LB {s.leadbridge_only || 0}</strong> ·
-                            {' '}<strong className="text-[var(--sf-text-primary)]">ZB {s.zenbooker_only || 0}</strong> ·
-                            {' '}<strong className="text-[var(--sf-text-primary)]">multi {multi}</strong>
-                            {(s.no_source_ids || 0) > 0 && <> · no-source {s.no_source_ids}</>}
-                            {!reconciles && <span className="text-amber-700"> · sum mismatch {sum}/{total}</span>}
-                          </div>
-                        )
-                      })()}
-                    </div>
-                  </details>
-                </div>
-              ) : (
-                <div className="text-xs text-[var(--sf-text-muted)]">Loading identity metrics…</div>
-              )}
-
-              {/* OpenPhone lead creation — one-line summary; per-outcome breakdown on demand. */}
-              {opOutcomes && (() => {
-                const OUTCOME_LABELS = {
-                  created_lead_openphone_direct: 'Created (direct)',
-                  created_lead_openphone_lb_recovery: 'Created (LB recovery)',
-                  linked_existing_customer_by_phone: 'Linked customer',
-                  linked_existing_lead_by_phone: 'Linked lead',
-                  skipped_missing_company: 'Skip: no company',
-                  skipped_out_of_age_window: 'Skip: out of window',
-                }
-                const created24 = (opOutcomes.last24h?.created_lead_openphone_direct || 0)
-                  + (opOutcomes.last24h?.created_lead_openphone_lb_recovery || 0)
+              {/* Health banner + action checklist. Implementation numbers live
+                  behind "All identity details" at the bottom. */}
+              {idStatus ? (() => {
+                const ambigCount = idStatus.ambiguities_open || 0
+                const opCompanyCount = issues?.namedContactsMissingCompany?.count || 0
+                const floatingCount = idStatus.details?.floating_named || 0
+                const hasAction = ambigCount > 0 || opCompanyCount > 0 || floatingCount > 0
                 return (
-                  <div className="pt-3 border-t border-[var(--sf-border-light)]">
-                    <div className="flex items-center justify-between">
-                      <div className="text-[11px] uppercase tracking-wider text-[var(--sf-text-muted)] font-semibold">
-                        OpenPhone lead creation
-                      </div>
-                      <div className="text-[10px] text-[var(--sf-text-muted)]">
-                        <strong>{created24}</strong> created · <strong>{opOutcomes.total24h || 0}</strong> decisions / 24h
-                      </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      {hasAction ? (
+                        <>
+                          <AlertTriangle size={16} className="text-amber-500" />
+                          <div className="text-sm font-semibold text-[var(--sf-text-primary)]">Needs attention</div>
+                        </>
+                      ) : (
+                        <>
+                          <Check size={16} className="text-green-600" />
+                          <div className="text-sm font-semibold text-green-700">All clear</div>
+                        </>
+                      )}
                     </div>
-                    <details className="mt-1">
-                      <summary className="text-[11px] text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-600)] cursor-pointer">View details</summary>
-                      <div className="mt-2 grid grid-cols-2 md:grid-cols-3 gap-1.5 text-[11px]">
-                        {Object.entries(OUTCOME_LABELS).map(([k, label]) => (
-                          <div key={k} className="bg-white border border-[var(--sf-border-light)] rounded p-2">
-                            <div className="text-[var(--sf-text-muted)] text-[10px] truncate">{label}</div>
-                            <div className="font-semibold">{opOutcomes.last24h?.[k] || 0}<span className="text-[var(--sf-text-muted)] font-normal text-[10px]"> · {opOutcomes.last7d?.[k] || 0} in 7d</span></div>
+                    {hasAction && (
+                      <div className="mt-2 space-y-1.5">
+                        {ambigCount > 0 && (
+                          <details className="text-xs">
+                            <summary className="cursor-pointer text-amber-800 hover:text-amber-900">
+                              <strong>{ambigCount}</strong> reconciliation failure{ambigCount === 1 ? '' : 's'} — click to resolve
+                            </summary>
+                            {idAmbiguities?.items?.length > 0 && (
+                              <div className="mt-2 space-y-1 max-h-64 overflow-y-auto">
+                                {idAmbiguities.items.map(row => (
+                                  <button key={row.id} onClick={() => openAmbigModal(row)}
+                                    className="w-full text-left text-[11px] font-mono px-2 py-1 bg-amber-50 hover:bg-amber-100 rounded cursor-pointer border border-transparent hover:border-amber-300">
+                                    <span className="text-amber-900">{row.source}</span>
+                                    {' · '}<span>{row.attempted_name || '(no name)'}</span>
+                                    {' · '}<span className="text-[var(--sf-text-muted)]">{row.attempted_phone || '-'}</span>
+                                    {' · '}<em className="text-[10px]">{row.reason}</em>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </details>
+                        )}
+                        {opCompanyCount > 0 && (
+                          <div className="text-xs text-amber-800">
+                            <strong>{opCompanyCount}</strong> OpenPhone contact{opCompanyCount === 1 ? '' : 's'} missing Company tag — fix in OpenPhone to attribute their source.
                           </div>
-                        ))}
+                        )}
+                        {floatingCount > 0 && (
+                          <details className="text-xs">
+                            <summary className="cursor-pointer text-[var(--sf-text-secondary)] hover:text-[var(--sf-text-primary)]">
+                              <strong>{floatingCount}</strong> floating name{floatingCount === 1 ? '' : 's'} to review <span className="text-[var(--sf-text-muted)]">(optional)</span>
+                            </summary>
+                            {idUnresolved?.items?.length > 0 && (
+                              <div className="mt-2 space-y-1 max-h-64 overflow-y-auto">
+                                {idUnresolved.items.map(row => (
+                                  <div key={row.id} className="text-[11px] font-mono flex gap-2 items-center px-2 py-1 bg-[var(--sf-bg-page)] rounded">
+                                    <span className="text-[var(--sf-text-muted)]">#{row.id}</span>
+                                    <span className="text-[var(--sf-text-primary)] truncate flex-1">{row.display_name || '(no name)'}</span>
+                                    <span className="text-[var(--sf-text-muted)] text-[10px]">{row.normalized_phone || '-'}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </details>
+                        )}
                       </div>
-                    </details>
+                    )}
                   </div>
                 )
-              })()}
+              })() : (
+                <div className="text-xs text-[var(--sf-text-muted)]">Loading…</div>
+              )}
 
-              {/* Phase J — Integration cards. One Sync Now per source.
-                  All safe repairs (identity backfill, source-fill, reconcile,
-                  LB-source upgrade) run automatically as part of the pipeline. */}
+              {/* Integrations — compact status row with per-source Sync. Timestamps + last-run details behind drawer. */}
               {integrationStatus?.integrations && (
                 <div className="pt-3 border-t border-[var(--sf-border-light)]">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="text-[11px] uppercase tracking-wider text-[var(--sf-text-muted)] font-semibold">
-                      Integrations
-                    </div>
-                    <div className="text-[10px] text-[var(--sf-text-muted)]">
-                      {integrationStatus.open_issues > 0
-                        ? <span className="text-amber-700"><strong>{integrationStatus.open_issues}</strong> issue{integrationStatus.open_issues === 1 ? '' : 's'} to review</span>
-                        : 'No issues'}
-                    </div>
-                  </div>
+                  <div className="text-[11px] uppercase tracking-wider text-[var(--sf-text-muted)] font-semibold mb-2">Integrations</div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                     {[
-                      { key: 'leadbridge', label: 'LeadBridge', role: 'Thumbtack/Yelp lead source' },
-                      { key: 'openphone', label: 'OpenPhone', role: 'SMS/calls + non-LB lead intake' },
-                      { key: 'zenbooker', label: 'Zenbooker', role: 'Bookings / customer sync' },
-                    ].map(({ key, label, role }) => {
+                      { key: 'leadbridge', label: 'LeadBridge' },
+                      { key: 'openphone', label: 'OpenPhone' },
+                      { key: 'zenbooker', label: 'Zenbooker' },
+                    ].map(({ key, label }) => {
                       const cfg = integrationStatus.integrations[key] || {}
                       const busy = !!syncBusy[key]
-                      const lastRun = cfg.last_run
-                      const lastDone = lastRun?.summary
-                      const lastSyncTs = cfg.last_sync_at || cfg.connected_at || null
                       return (
-                        <div key={key} className="border border-[var(--sf-border-light)] rounded-lg p-3 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <div className="text-sm font-semibold text-[var(--sf-text-primary)]">{label}</div>
-                              <div className="text-[10px] text-[var(--sf-text-muted)]">{role}</div>
-                            </div>
-                            <div className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${cfg.connected ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                              {cfg.connected ? 'Connected' : 'Not connected'}
-                            </div>
+                        <div key={key} className="flex items-center justify-between gap-2 border border-[var(--sf-border-light)] rounded-lg px-2.5 py-1.5">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${cfg.connected ? 'bg-green-500' : 'bg-gray-300'}`} />
+                            <span className="text-xs font-medium text-[var(--sf-text-primary)]">{label}</span>
                           </div>
-                          <div className="text-[11px] text-[var(--sf-text-muted)]">
-                            {lastSyncTs ? `Last sync: ${new Date(lastSyncTs).toLocaleString()}` : 'Never synced'}
-                          </div>
-                          {lastDone && (
-                            <div className="text-[10px] text-[var(--sf-text-secondary)] bg-[var(--sf-bg-page)] rounded p-1.5">
-                              Last run: synced {lastDone.records_synced || 0} · linked {lastDone.records_linked || 0} · created {lastDone.records_created || 0}
-                              {lastDone.source_fill && (lastDone.source_fill.customers_filled + lastDone.source_fill.leads_filled) > 0 && (
-                                <> · filled {lastDone.source_fill.customers_filled + lastDone.source_fill.leads_filled} source{(lastDone.source_fill.customers_filled + lastDone.source_fill.leads_filled) === 1 ? '' : 's'}</>
-                              )}
-                            </div>
-                          )}
                           <button onClick={() => handleSyncIntegration(key)} disabled={busy || !cfg.connected}
-                            className="w-full px-3 py-1.5 text-xs bg-[var(--sf-blue-500)] text-white rounded-lg hover:bg-[var(--sf-blue-600)] disabled:opacity-50 flex items-center justify-center gap-1.5">
-                            {busy ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-                            {cfg.connected ? 'Sync Now' : 'Connect first'}
+                            className="text-[11px] text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-600)] disabled:opacity-40 flex items-center gap-1">
+                            {busy ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />}
+                            Sync
                           </button>
                         </div>
                       )
                     })}
                   </div>
+                  <details className="mt-2">
+                    <summary className="text-[11px] text-[var(--sf-text-muted)] hover:text-[var(--sf-text-secondary)] cursor-pointer">Sync details</summary>
+                    <div className="mt-2 space-y-1 text-[11px] text-[var(--sf-text-muted)]">
+                      {['leadbridge','openphone','zenbooker'].map(k => {
+                        const cfg = integrationStatus.integrations[k] || {}
+                        const ts = cfg.last_sync_at || cfg.connected_at
+                        const run = cfg.last_run?.summary
+                        return (
+                          <div key={k} className="flex flex-wrap items-center gap-2">
+                            <span className="capitalize w-20">{k}</span>
+                            <span>{ts ? `last sync ${new Date(ts).toLocaleString()}` : 'never synced'}</span>
+                            {run && <span className="text-[10px]">· synced {run.records_synced || 0} · linked {run.records_linked || 0} · created {run.records_created || 0}</span>}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </details>
                 </div>
               )}
 
-              {/* Floating identities preview */}
-              {idUnresolved && (idUnresolved.items?.length || 0) > 0 && (
-                <div className="pt-3 border-t border-[var(--sf-border-light)]">
-                  <details>
-                    <summary className="text-xs text-[var(--sf-blue-500)] cursor-pointer hover:text-[var(--sf-blue-600)]">
-                      View floating identities ({idStatus?.details?.floating_named || 0}) — operator review, not bulk import
-                    </summary>
-                    <div className="mt-2 space-y-1 max-h-64 overflow-y-auto">
-                      {idUnresolved.items.map(row => (
-                        <div key={row.id} className="text-[11px] font-mono flex gap-2 items-center px-2 py-1 bg-[var(--sf-bg-page)] rounded">
-                          <span className="text-[var(--sf-text-muted)]">#{row.id}</span>
-                          <span className="text-[var(--sf-text-primary)] truncate flex-1">{row.display_name || '(no name)'}</span>
-                          <span className="text-[var(--sf-text-muted)] text-[10px]">{row.normalized_phone || '-'}</span>
-                          <span className="text-[10px] text-[var(--sf-text-muted)]">{row.identity_priority_source || '-'}</span>
+              {/* Single drawer for implementation-level numbers (kept for debugging / curiosity). */}
+              {idStatus && (
+                <details className="pt-3 border-t border-[var(--sf-border-light)]">
+                  <summary className="text-[11px] text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-600)] cursor-pointer">All identity details</summary>
+                  <div className="mt-2 space-y-3">
+                    <div className="text-[11px] text-[var(--sf-text-muted)]">
+                      <strong className="text-[var(--sf-text-primary)]">{idStatus.total}</strong> identities ·
+                      {' '}<strong className="text-[var(--sf-text-primary)]">{idStatus.connected}</strong> connected ·
+                      {' '}<strong className="text-[var(--sf-text-primary)]">{idStatus.need_review}</strong> need review ·
+                      {' '}<strong className="text-[var(--sf-text-primary)]">{idStatus.ignored}</strong> ignored
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-[11px]">
+                      <div className="bg-white border border-[var(--sf-border-light)] rounded p-2">
+                        <div className="text-[var(--sf-text-muted)]">Customer</div>
+                        <div className="font-semibold">{idStatus.details?.resolved_customer || 0}</div>
+                      </div>
+                      <div className="bg-white border border-[var(--sf-border-light)] rounded p-2">
+                        <div className="text-[var(--sf-text-muted)]">Lead</div>
+                        <div className="font-semibold">{idStatus.details?.resolved_lead || 0}</div>
+                      </div>
+                      <div className="bg-white border border-[var(--sf-border-light)] rounded p-2">
+                        <div className="text-[var(--sf-text-muted)]">Both</div>
+                        <div className="font-semibold">{idStatus.details?.resolved_both || 0}</div>
+                      </div>
+                      <div className="bg-white border border-[var(--sf-border-light)] rounded p-2">
+                        <div className="text-[var(--sf-text-muted)]">Floating named</div>
+                        <div className="font-semibold">{idStatus.details?.floating_named || 0}</div>
+                      </div>
+                      <div className="bg-white border border-[var(--sf-border-light)] rounded p-2">
+                        <div className="text-[var(--sf-text-muted)]">Aggregator</div>
+                        <div className="font-semibold">{idStatus.details?.floating_aggregator || 0}</div>
+                      </div>
+                      <div className="bg-white border border-[var(--sf-border-light)] rounded p-2">
+                        <div className="text-[var(--sf-text-muted)]">Noise</div>
+                        <div className="font-semibold">{idStatus.details?.floating_noise || 0}</div>
+                      </div>
+                    </div>
+                    {idBySource && (() => {
+                      const s = idBySource.single_source || {}
+                      const multi = idBySource.multi_source || 0
+                      return (
+                        <div className="text-[11px] text-[var(--sf-text-muted)]">
+                          Sources: <strong className="text-[var(--sf-text-primary)]">OP {s.openphone_only || 0}</strong> · <strong className="text-[var(--sf-text-primary)]">LB {s.leadbridge_only || 0}</strong> · <strong className="text-[var(--sf-text-primary)]">ZB {s.zenbooker_only || 0}</strong> · <strong className="text-[var(--sf-text-primary)]">multi {multi}</strong>
                         </div>
-                      ))}
-                    </div>
-                  </details>
-                </div>
-              )}
-
-              {/* Reconciliation failures — click a row to resolve */}
-              {idAmbiguities && (idAmbiguities.items?.length || 0) > 0 && (
-                <div className="pt-3 border-t border-[var(--sf-border-light)]">
-                  <details>
-                    <summary className="text-xs text-amber-700 cursor-pointer hover:text-amber-800">
-                      Reconciliation failures ({idAmbiguities.items.length} shown) — click to resolve
-                    </summary>
-                    <div className="mt-2 space-y-1 max-h-64 overflow-y-auto">
-                      {idAmbiguities.items.map(row => (
-                        <button key={row.id} onClick={() => openAmbigModal(row)}
-                          className="w-full text-left text-[11px] font-mono px-2 py-1 bg-amber-50 hover:bg-amber-100 rounded cursor-pointer border border-transparent hover:border-amber-300">
-                          <span className="text-amber-900">{row.source}</span>
-                          {' · '}
-                          <span>{row.attempted_name || '(no name)'}</span>
-                          {' · '}
-                          <span className="text-[var(--sf-text-muted)]">{row.attempted_phone || '-'}</span>
-                          {' · '}
-                          <em className="text-[10px]">{row.reason}</em>
-                          {' · '}
-                          <span className="text-[10px] text-[var(--sf-text-muted)]">cand: [{(row.candidate_identity_ids || []).join(', ')}]</span>
-                        </button>
-                      ))}
-                    </div>
-                  </details>
-                </div>
+                      )
+                    })()}
+                    {opOutcomes && (() => {
+                      const created24 = (opOutcomes.last24h?.created_lead_openphone_direct || 0) + (opOutcomes.last24h?.created_lead_openphone_lb_recovery || 0)
+                      return (
+                        <div className="text-[11px] text-[var(--sf-text-muted)]">
+                          OpenPhone (24h): <strong className="text-[var(--sf-text-primary)]">{created24}</strong> created · <strong className="text-[var(--sf-text-primary)]">{opOutcomes.total24h || 0}</strong> decisions
+                        </div>
+                      )
+                    })()}
+                  </div>
+                </details>
               )}
             </div>
 
