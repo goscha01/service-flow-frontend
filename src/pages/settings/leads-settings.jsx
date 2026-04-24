@@ -183,12 +183,23 @@ const LeadsSettings = () => {
     setAiBatchBusy(true); setAiBatchProgress({ done: 0, total: unclassified.length, cost: 0, running: true })
     try {
       await identitiesAPI.classifyBatch(unclassified, unclassified.length)
+      let gotRunning = false
       for (let i = 0; i < 600; i++) {
         await new Promise(r => setTimeout(r, 3000))
         let p
         try { p = await identitiesAPI.classifyBatchProgress() } catch { continue }
-        if (!p) break
+        if (!p) {
+          // Backend returned null — either the batch finished + state was
+          // garbage-collected, OR the backend restarted mid-run and lost
+          // the in-memory progress. If we had seen `running` at least once,
+          // assume restart; otherwise the batch just finished too fast.
+          if (gotRunning) {
+            setAiBatchProgress(prev => prev ? { ...prev, running: false, interrupted: true } : null)
+          }
+          break
+        }
         setAiBatchProgress(p)
+        if (p.running) gotRunning = true
         if (!p.running) break
       }
       await loadIssues(); await loadIdentityReport()
@@ -219,12 +230,23 @@ const LeadsSettings = () => {
       // Fire-and-forget; backend runs async and we poll.
       await identitiesAPI.classifyBatch(unclassified, unclassified.length)
       // Poll progress every 3s until done.
+      let gotRunning = false
       for (let i = 0; i < 600; i++) {
         await new Promise(r => setTimeout(r, 3000))
         let p
         try { p = await identitiesAPI.classifyBatchProgress() } catch { continue }
-        if (!p) break
+        if (!p) {
+          // Backend returned null — either the batch finished + state was
+          // garbage-collected, OR the backend restarted mid-run and lost
+          // the in-memory progress. If we had seen `running` at least once,
+          // assume restart; otherwise the batch just finished too fast.
+          if (gotRunning) {
+            setAiBatchProgress(prev => prev ? { ...prev, running: false, interrupted: true } : null)
+          }
+          break
+        }
         setAiBatchProgress(p)
+        if (p.running) gotRunning = true
         if (!p.running) break
       }
       await loadIdentityReport() // full reload so list reflects all verdicts
@@ -867,19 +889,25 @@ const LeadsSettings = () => {
                                   const done = aiBatchProgress.done || 0
                                   const total = aiBatchProgress.total || 0
                                   const pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0
+                                  const status = aiBatchProgress.interrupted ? 'Interrupted (backend restart)'
+                                    : aiBatchProgress.running ? `Classifying…`
+                                    : `Done`
+                                  const barColor = aiBatchProgress.interrupted ? 'bg-amber-500'
+                                    : aiBatchProgress.running ? 'bg-[var(--sf-blue-500)]'
+                                    : ((aiBatchProgress.errors || 0) > 0 ? 'bg-amber-500' : 'bg-emerald-500')
                                   return (
                                     <div className="mb-2">
                                       <div className="flex items-center justify-between text-[10px] text-[var(--sf-text-muted)] mb-0.5">
-                                        <span>{aiBatchProgress.running ? `Classifying…` : `Done`}</span>
+                                        <span>{status}</span>
                                         <span>{done}/{total || '?'} · ${(aiBatchProgress.cost || 0).toFixed(4)}</span>
                                       </div>
                                       <div className="h-1.5 w-full bg-[var(--sf-bg-page)] rounded overflow-hidden">
-                                        <div
-                                          className={`h-full transition-all duration-300 ${aiBatchProgress.running ? 'bg-[var(--sf-blue-500)]' : (aiBatchProgress.errors > 0 ? 'bg-amber-500' : 'bg-emerald-500')}`}
-                                          style={{ width: `${pct}%` }}
-                                        />
+                                        <div className={`h-full transition-all duration-300 ${barColor}`} style={{ width: `${pct}%` }} />
                                       </div>
-                                      {!aiBatchProgress.running && (aiBatchProgress.errors || 0) > 0 && (
+                                      {aiBatchProgress.interrupted && (
+                                        <div className="text-[10px] text-amber-700 mt-0.5">Already-classified rows are saved. Click "Classify all" again to resume the rest.</div>
+                                      )}
+                                      {!aiBatchProgress.running && !aiBatchProgress.interrupted && (aiBatchProgress.errors || 0) > 0 && (
                                         <div className="text-[10px] text-amber-700 mt-0.5">{aiBatchProgress.errors} error{aiBatchProgress.errors === 1 ? '' : 's'}</div>
                                       )}
                                     </div>
