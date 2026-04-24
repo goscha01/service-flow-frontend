@@ -71,6 +71,9 @@ const LeadsSettings = () => {
   // Phase J — Integration cards (Connect · Sync Now · last sync)
   const [integrationStatus, setIntegrationStatus] = useState(null)
   const [syncBusy, setSyncBusy] = useState({}) // { openphone: true, leadbridge: false, ... }
+  const [aiBusy, setAiBusy] = useState({}) // { <identityId>: true } during classify
+  const [aiBatchBusy, setAiBatchBusy] = useState(false)
+  const [aiBatchProgress, setAiBatchProgress] = useState(null) // { done, total, cost }
 
   useEffect(() => { loadRules(); loadSources(); loadMappings(); loadIssues(); loadIdentityReport() }, [])
 
@@ -125,6 +128,33 @@ const LeadsSettings = () => {
       await loadIdentityReport()
     } catch (e) { alert('Sync failed: ' + (e.response?.data?.error || e.message)) }
     finally { setSyncBusy(b => ({ ...b, [source]: false })) }
+  }
+
+  // AI classifier — per-row + batch. Persists ai_category / ai_summary on identity.
+  const handleAiClassify = async (identityId) => {
+    setAiBusy(b => ({ ...b, [identityId]: true }))
+    try {
+      const verdict = await identitiesAPI.classify(identityId)
+      // Patch the local list so the row reflects the new verdict without a full reload.
+      setIdUnresolved(prev => prev && prev.items
+        ? { ...prev, items: prev.items.map(r => r.id === identityId ? { ...r, ai_category: verdict.category, ai_confidence: verdict.confidence, ai_summary: verdict.summary } : r) }
+        : prev
+      )
+    } catch (e) { alert('Classify failed: ' + (e.response?.data?.error || e.message)) }
+    finally { setAiBusy(b => ({ ...b, [identityId]: false })) }
+  }
+  const handleAiClassifyBatch = async () => {
+    const items = idUnresolved?.items || []
+    const unclassified = items.filter(r => !r.ai_category).map(r => r.id)
+    if (unclassified.length === 0) { alert('Nothing to classify — all rows already have an AI verdict.'); return }
+    if (!window.confirm(`Classify ${unclassified.length} floating identities with AI? (~$${(unclassified.length * 0.0003).toFixed(3)} in OpenAI costs)`)) return
+    setAiBatchBusy(true); setAiBatchProgress({ done: 0, total: unclassified.length, cost: 0 })
+    try {
+      const resp = await identitiesAPI.classifyBatch(unclassified, unclassified.length)
+      setAiBatchProgress({ done: resp.results?.length || 0, total: unclassified.length, cost: resp.cost_usd || 0 })
+      await loadIdentityReport() // full reload so counts + list reflect verdicts
+    } catch (e) { alert('Batch failed: ' + (e.response?.data?.error || e.message)) }
+    finally { setAiBatchBusy(false) }
   }
 
   // Phase H — ambiguity resolution
@@ -632,19 +662,57 @@ const LeadsSettings = () => {
                               <strong>{floatingCount}</strong> floating name{floatingCount === 1 ? '' : 's'} to review <span className="text-[var(--sf-text-muted)]">(optional)</span>
                             </summary>
                             {idUnresolved?.items?.length > 0 && (
-                              <div className="mt-2 space-y-1 max-h-64 overflow-y-auto">
-                                {idUnresolved.items.length < floatingCount && (
+                              <div className="mt-2">
+                                <div className="flex items-center justify-between mb-1.5 gap-2">
+                                  <div className="text-[10px] text-[var(--sf-text-muted)]">
+                                    {idUnresolved.items.length < floatingCount ? `Showing ${idUnresolved.items.length} of ${floatingCount}.` : `Showing all ${floatingCount}.`}
+                                  </div>
+                                  <button onClick={handleAiClassifyBatch} disabled={aiBatchBusy}
+                                    className="text-[10px] px-2 py-0.5 rounded border border-[var(--sf-border-light)] text-[var(--sf-blue-500)] hover:bg-[var(--sf-bg-hover)] disabled:opacity-50 flex items-center gap-1">
+                                    {aiBatchBusy ? <Loader2 size={10} className="animate-spin" /> : <>🤖</>}
+                                    Classify all with AI
+                                  </button>
+                                </div>
+                                {aiBatchProgress && (
                                   <div className="text-[10px] text-[var(--sf-text-muted)] mb-1">
-                                    Showing {idUnresolved.items.length} of {floatingCount}.
+                                    {aiBatchBusy ? `Classifying… ${aiBatchProgress.done}/${aiBatchProgress.total}` : `Done: ${aiBatchProgress.done}/${aiBatchProgress.total} · cost $${aiBatchProgress.cost?.toFixed(4)}`}
                                   </div>
                                 )}
-                                {idUnresolved.items.map(row => (
-                                  <div key={row.id} className="text-[11px] font-mono flex gap-2 items-center px-2 py-1 bg-[var(--sf-bg-page)] rounded">
-                                    <span className="text-[var(--sf-text-muted)]">#{row.id}</span>
-                                    <span className="text-[var(--sf-text-primary)] truncate flex-1">{row.display_name || '(no name)'}</span>
-                                    <span className="text-[var(--sf-text-muted)] text-[10px]">{row.normalized_phone || '-'}</span>
-                                  </div>
-                                ))}
+                                <div className="space-y-1 max-h-64 overflow-y-auto">
+                                  {idUnresolved.items.map(row => {
+                                    const cat = row.ai_category
+                                    const catColor = cat === 'prospect' ? 'bg-emerald-100 text-emerald-800'
+                                      : cat === 'existing_customer' ? 'bg-blue-100 text-blue-800'
+                                      : cat === 'ad' ? 'bg-red-100 text-red-700'
+                                      : cat === 'wrong_number' ? 'bg-gray-200 text-gray-700'
+                                      : cat === 'unclear' ? 'bg-yellow-100 text-yellow-800'
+                                      : ''
+                                    const busy = !!aiBusy[row.id]
+                                    return (
+                                      <div key={row.id} className="text-[11px] px-2 py-1 bg-[var(--sf-bg-page)] rounded">
+                                        <div className="flex gap-2 items-center font-mono">
+                                          <span className="text-[var(--sf-text-muted)]">#{row.id}</span>
+                                          <span className="text-[var(--sf-text-primary)] truncate flex-1">{row.display_name || '(no name)'}</span>
+                                          <span className="text-[var(--sf-text-muted)] text-[10px]">{row.normalized_phone || '-'}</span>
+                                          {cat ? (
+                                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${catColor}`} title={`${row.ai_confidence}% confidence`}>
+                                              {cat} {row.ai_confidence ? `· ${row.ai_confidence}%` : ''}
+                                            </span>
+                                          ) : (
+                                            <button onClick={() => handleAiClassify(row.id)} disabled={busy || aiBatchBusy}
+                                              className="text-[10px] text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-600)] disabled:opacity-40 flex items-center gap-0.5">
+                                              {busy ? <Loader2 size={10} className="animate-spin" /> : '🤖'}
+                                              Classify
+                                            </button>
+                                          )}
+                                        </div>
+                                        {row.ai_summary && (
+                                          <div className="text-[10px] text-[var(--sf-text-muted)] pl-4 mt-0.5 italic truncate">“{row.ai_summary}”</div>
+                                        )}
+                                      </div>
+                                    )
+                                  })}
+                                </div>
                               </div>
                             )}
                           </details>
