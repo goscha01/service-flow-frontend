@@ -586,6 +586,13 @@ const LeadsSettings = () => {
                     </div>
                   )}
 
+                  {/* Actionable advisory surfaced near Need review */}
+                  {(issues?.namedContactsMissingCompany?.count || 0) > 0 && (
+                    <div className="text-[11px] text-amber-700 mt-1">
+                      <strong>{issues.namedContactsMissingCompany.count}</strong> OpenPhone contacts are missing a Company tag — fix in OpenPhone to attribute their source.
+                    </div>
+                  )}
+
                   {/* Drill-down: implementation-level categories and source coverage */}
                   <details className="mt-3">
                     <summary className="text-[11px] text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-600)] cursor-pointer">
@@ -792,7 +799,7 @@ const LeadsSettings = () => {
           </section>
 
           {/* ── ISSUES / MANUAL RESOLUTION ── */}
-          {(issues?.duplicateCustomerCount > 0 || issues?.namedContactsMissingCompany?.count > 0 || issues?.unknownContacts?.count > 0 || issues?.unresolvedCustomerSources?.length > 0) && (
+          {(issues?.duplicateCustomerCount > 0 || issues?.unresolvedCustomerSources?.length > 0) && (
             <section>
               <div className="mb-4 flex items-center gap-2">
                 <AlertTriangle size={18} className="text-amber-500" />
@@ -858,52 +865,6 @@ const LeadsSettings = () => {
                   </div>
                 )}
 
-                {/* Named contacts missing company (ACTIONABLE) */}
-                {issues.namedContactsMissingCompany?.count > 0 && (
-                  <div className="bg-white rounded-xl border border-amber-200 p-5">
-                    <div className="flex items-start gap-2">
-                      <AlertTriangle size={14} className="text-amber-500 flex-shrink-0 mt-0.5" />
-                      <div className="flex-1">
-                        <h3 className="text-sm font-semibold text-[var(--sf-text-primary)]">
-                          {issues.namedContactsMissingCompany.count} Named Contacts Missing Company
-                        </h3>
-                        <p className="text-xs text-[var(--sf-text-muted)] mt-0.5">
-                          These OpenPhone contacts have a <strong>name</strong> but no <strong>Company</strong> tag. Open each in OpenPhone and add a company to fix the source.
-                        </p>
-                        <details className="mt-2">
-                          <summary className="text-xs text-[var(--sf-blue-500)] cursor-pointer hover:text-[var(--sf-blue-600)]">
-                            View list ({issues.namedContactsMissingCompany.sample.length} shown)
-                          </summary>
-                          <div className="mt-2 max-h-64 overflow-y-auto space-y-0.5 text-xs text-[var(--sf-text-muted)]">
-                            {issues.namedContactsMissingCompany.sample.map(c => (
-                              <div key={c.id} className="font-mono py-0.5">
-                                <span className="text-[var(--sf-text-primary)]">{c.participant_name}</span>
-                                <span className="ml-2">{c.participant_phone}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </details>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Unknown contacts (INFO ONLY) */}
-                {issues.unknownContacts?.count > 0 && (
-                  <div className="bg-white rounded-xl border border-[var(--sf-border-light)] p-5">
-                    <div className="flex items-start gap-2">
-                      <HelpCircle size={14} className="text-[var(--sf-text-muted)] flex-shrink-0 mt-0.5" />
-                      <div className="flex-1">
-                        <h3 className="text-sm font-semibold text-[var(--sf-text-muted)]">
-                          {issues.unknownContacts.count} Unknown Numbers (not in OpenPhone contacts)
-                        </h3>
-                        <p className="text-xs text-[var(--sf-text-muted)] mt-0.5">
-                          SMS/call conversations from numbers that were never saved as contacts in OpenPhone. No name, no company — usually spam, wrong numbers, or one-off inquiries. Nothing to fix unless you want to save them as contacts in OpenPhone.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
 
                 {/* Unresolved customer.source values */}
                 {issues.unresolvedCustomerSources?.length > 0 && (
