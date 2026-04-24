@@ -709,17 +709,16 @@ const LeadsSettings = () => {
                                   <div className="text-[10px] text-[var(--sf-text-muted)]">
                                     {idAmbiguities.items.length < ambigCount ? `Showing ${idAmbiguities.items.length} of ${ambigCount}.` : `Showing all ${ambigCount}.`}
                                   </div>
-                                  <button onClick={() => downloadCsv('reconciliation-failures.csv',
-                                    [
-                                      { key: 'id', label: 'ambiguity_id' },
-                                      { key: 'source', label: 'source' },
-                                      { key: 'attempted_name', label: 'attempted_name' },
-                                      { key: 'attempted_phone', label: 'attempted_phone' },
-                                      { key: 'reason', label: 'reason' },
-                                      { label: 'candidates', get: r => (r.candidate_identity_ids || []).join('; ') },
-                                    ],
-                                    idAmbiguities.items
-                                  )}
+                                  <button onClick={async () => {
+                                    try {
+                                      const blob = await identitiesAPI.reconciliationFailuresCsv({ status: 'open' })
+                                      const url = URL.createObjectURL(blob)
+                                      const a = document.createElement('a')
+                                      a.href = url; a.download = 'reconciliation-failures.csv'
+                                      document.body.appendChild(a); a.click()
+                                      setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url) }, 100)
+                                    } catch (e) { alert('CSV export failed: ' + (e.response?.data?.error || e.message)) }
+                                  }}
                                     className="text-[10px] px-2 py-0.5 rounded border border-[var(--sf-border-light)] text-[var(--sf-blue-500)] hover:bg-[var(--sf-bg-hover)] flex items-center gap-1">
                                     ⬇ CSV
                                   </button>
