@@ -997,7 +997,7 @@ const LeadsSettings = () => {
                           <div key={k} className="flex flex-wrap items-center gap-2">
                             <span className="capitalize w-20">{k}</span>
                             <span>{ts ? `last sync ${new Date(ts).toLocaleString()}` : 'never synced'}</span>
-                            {run && <span className="text-[10px]">· synced {run.records_synced || 0} · linked {run.records_linked || 0} · created {run.records_created || 0}</span>}
+                            {run && <span className="text-[10px]">· synced {run.records_synced || 0} · linked {run.records_linked || 0} · created {run.records_created || 0}{(run.leads_recovered || 0) > 0 ? ` · recovered ${run.leads_recovered}` : ''}</span>}
                           </div>
                         )
                       })}
