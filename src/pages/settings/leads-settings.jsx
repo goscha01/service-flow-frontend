@@ -774,6 +774,23 @@ const LeadsSettings = () => {
                                     </button>
                                   </div>
                                 </div>
+                                {aiBatchProgress && (() => {
+                                  const done = aiBatchProgress.done || 0
+                                  const total = aiBatchProgress.total || 0
+                                  const pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0
+                                  return (
+                                    <div className="mb-2">
+                                      <div className="flex items-center justify-between text-[10px] text-[var(--sf-text-muted)] mb-0.5">
+                                        <span>{aiBatchProgress.running ? `Classifying…` : `Done`}</span>
+                                        <span>{done}/{total || '?'} · ${(aiBatchProgress.cost || 0).toFixed(4)}</span>
+                                      </div>
+                                      <div className="h-1.5 w-full bg-[var(--sf-bg-page)] rounded overflow-hidden">
+                                        <div className={`h-full transition-all duration-300 ${aiBatchProgress.running ? 'bg-[var(--sf-blue-500)]' : (aiBatchProgress.errors > 0 ? 'bg-amber-500' : 'bg-emerald-500')}`}
+                                          style={{ width: `${pct}%` }} />
+                                      </div>
+                                    </div>
+                                  )
+                                })()}
                                 <div className="space-y-1 max-h-64 overflow-y-auto">
                                   {issues.namedContactsMissingCompany.sample.map(c => {
                                     const cat = c.ai_category
@@ -847,11 +864,28 @@ const LeadsSettings = () => {
                                     </button>
                                   </div>
                                 </div>
-                                {aiBatchProgress && (
-                                  <div className="text-[10px] text-[var(--sf-text-muted)] mb-1">
-                                    {aiBatchProgress.running ? `Classifying… ${aiBatchProgress.done || 0}/${aiBatchProgress.total || '?'}` : `Done: ${aiBatchProgress.done || 0}/${aiBatchProgress.total || '?'} · ok ${aiBatchProgress.ok || 0} · err ${aiBatchProgress.errors || 0} · cost $${(aiBatchProgress.cost || 0).toFixed(4)}`}
-                                  </div>
-                                )}
+                                {aiBatchProgress && (() => {
+                                  const done = aiBatchProgress.done || 0
+                                  const total = aiBatchProgress.total || 0
+                                  const pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0
+                                  return (
+                                    <div className="mb-2">
+                                      <div className="flex items-center justify-between text-[10px] text-[var(--sf-text-muted)] mb-0.5">
+                                        <span>{aiBatchProgress.running ? `Classifying…` : `Done`}</span>
+                                        <span>{done}/{total || '?'} · ${(aiBatchProgress.cost || 0).toFixed(4)}</span>
+                                      </div>
+                                      <div className="h-1.5 w-full bg-[var(--sf-bg-page)] rounded overflow-hidden">
+                                        <div
+                                          className={`h-full transition-all duration-300 ${aiBatchProgress.running ? 'bg-[var(--sf-blue-500)]' : (aiBatchProgress.errors > 0 ? 'bg-amber-500' : 'bg-emerald-500')}`}
+                                          style={{ width: `${pct}%` }}
+                                        />
+                                      </div>
+                                      {!aiBatchProgress.running && (aiBatchProgress.errors || 0) > 0 && (
+                                        <div className="text-[10px] text-amber-700 mt-0.5">{aiBatchProgress.errors} error{aiBatchProgress.errors === 1 ? '' : 's'}</div>
+                                      )}
+                                    </div>
+                                  )
+                                })()}
                                 <div className="space-y-1 max-h-64 overflow-y-auto">
                                   {idUnresolved.items.map(row => {
                                     const cat = row.ai_category
