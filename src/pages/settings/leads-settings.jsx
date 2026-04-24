@@ -135,11 +135,23 @@ const LeadsSettings = () => {
     setAiBusy(b => ({ ...b, [identityId]: true }))
     try {
       const verdict = await identitiesAPI.classify(identityId)
-      // Patch the local list so the row reflects the new verdict without a full reload.
+      const patch = { ai_category: verdict.category, ai_confidence: verdict.confidence, ai_summary: verdict.summary }
+      // Patch both lists — the identity may appear in the floating list AND in
+      // the OP-contacts-missing-Company sample (linked via participant_identity_id).
       setIdUnresolved(prev => prev && prev.items
-        ? { ...prev, items: prev.items.map(r => r.id === identityId ? { ...r, ai_category: verdict.category, ai_confidence: verdict.confidence, ai_summary: verdict.summary } : r) }
+        ? { ...prev, items: prev.items.map(r => r.id === identityId ? { ...r, ...patch } : r) }
         : prev
       )
+      setIssues(prev => {
+        if (!prev?.namedContactsMissingCompany?.sample) return prev
+        return {
+          ...prev,
+          namedContactsMissingCompany: {
+            ...prev.namedContactsMissingCompany,
+            sample: prev.namedContactsMissingCompany.sample.map(c => c.participant_identity_id === identityId ? { ...c, ...patch } : c),
+          },
+        }
+      })
     } catch (e) { alert('Classify failed: ' + (e.response?.data?.error || e.message)) }
     finally { setAiBusy(b => ({ ...b, [identityId]: false })) }
   }
