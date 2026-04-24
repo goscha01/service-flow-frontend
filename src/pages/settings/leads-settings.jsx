@@ -94,7 +94,30 @@ const LeadsSettings = () => {
   const [aiBatchBusy, setAiBatchBusy] = useState(false)
   const [aiBatchProgress, setAiBatchProgress] = useState(null) // { done, total, cost }
 
-  useEffect(() => { loadRules(); loadSources(); loadMappings(); loadIssues(); loadIdentityReport() }, [])
+  useEffect(() => {
+    loadRules(); loadSources(); loadMappings(); loadIssues(); loadIdentityReport()
+    // Check if a classify batch is running on mount; if so, show the bar + start polling.
+    ;(async () => {
+      try {
+        const p = await identitiesAPI.classifyBatchProgress()
+        if (p) setAiBatchProgress(p)
+        if (p?.running) {
+          setAiBatchBusy(true)
+          try {
+            for (let i = 0; i < 1200; i++) {
+              await new Promise(r => setTimeout(r, 3000))
+              let x
+              try { x = await identitiesAPI.classifyBatchProgress() } catch { continue }
+              if (!x) break
+              setAiBatchProgress(x)
+              if (!x.running) break
+            }
+            await loadIdentityReport(); await loadIssues()
+          } finally { setAiBatchBusy(false) }
+        }
+      } catch (_) { /* non-fatal */ }
+    })()
+  }, [])
 
   const loadIssues = async () => {
     setIssuesLoading(true)
@@ -183,23 +206,14 @@ const LeadsSettings = () => {
     setAiBatchBusy(true); setAiBatchProgress({ done: 0, total: unclassified.length, cost: 0, running: true })
     try {
       await identitiesAPI.classifyBatch(unclassified, unclassified.length)
-      let gotRunning = false
-      for (let i = 0; i < 600; i++) {
+      // Progress is now DB-backed — a Railway restart no longer drops state,
+      // worker is respawned at boot with done-offset preserved.
+      for (let i = 0; i < 1200; i++) {
         await new Promise(r => setTimeout(r, 3000))
         let p
         try { p = await identitiesAPI.classifyBatchProgress() } catch { continue }
-        if (!p) {
-          // Backend returned null — either the batch finished + state was
-          // garbage-collected, OR the backend restarted mid-run and lost
-          // the in-memory progress. If we had seen `running` at least once,
-          // assume restart; otherwise the batch just finished too fast.
-          if (gotRunning) {
-            setAiBatchProgress(prev => prev ? { ...prev, running: false, interrupted: true } : null)
-          }
-          break
-        }
+        if (!p) break
         setAiBatchProgress(p)
-        if (p.running) gotRunning = true
         if (!p.running) break
       }
       await loadIssues(); await loadIdentityReport()
@@ -230,23 +244,14 @@ const LeadsSettings = () => {
       // Fire-and-forget; backend runs async and we poll.
       await identitiesAPI.classifyBatch(unclassified, unclassified.length)
       // Poll progress every 3s until done.
-      let gotRunning = false
-      for (let i = 0; i < 600; i++) {
+      // Progress is now DB-backed — a Railway restart no longer drops state,
+      // worker is respawned at boot with done-offset preserved.
+      for (let i = 0; i < 1200; i++) {
         await new Promise(r => setTimeout(r, 3000))
         let p
         try { p = await identitiesAPI.classifyBatchProgress() } catch { continue }
-        if (!p) {
-          // Backend returned null — either the batch finished + state was
-          // garbage-collected, OR the backend restarted mid-run and lost
-          // the in-memory progress. If we had seen `running` at least once,
-          // assume restart; otherwise the batch just finished too fast.
-          if (gotRunning) {
-            setAiBatchProgress(prev => prev ? { ...prev, running: false, interrupted: true } : null)
-          }
-          break
-        }
+        if (!p) break
         setAiBatchProgress(p)
-        if (p.running) gotRunning = true
         if (!p.running) break
       }
       await loadIdentityReport() // full reload so list reflects all verdicts
@@ -889,11 +894,8 @@ const LeadsSettings = () => {
                                   const done = aiBatchProgress.done || 0
                                   const total = aiBatchProgress.total || 0
                                   const pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0
-                                  const status = aiBatchProgress.interrupted ? 'Interrupted (backend restart)'
-                                    : aiBatchProgress.running ? `Classifying…`
-                                    : `Done`
-                                  const barColor = aiBatchProgress.interrupted ? 'bg-amber-500'
-                                    : aiBatchProgress.running ? 'bg-[var(--sf-blue-500)]'
+                                  const status = aiBatchProgress.running ? `Classifying…` : `Done`
+                                  const barColor = aiBatchProgress.running ? 'bg-[var(--sf-blue-500)]'
                                     : ((aiBatchProgress.errors || 0) > 0 ? 'bg-amber-500' : 'bg-emerald-500')
                                   return (
                                     <div className="mb-2">
@@ -904,10 +906,7 @@ const LeadsSettings = () => {
                                       <div className="h-1.5 w-full bg-[var(--sf-bg-page)] rounded overflow-hidden">
                                         <div className={`h-full transition-all duration-300 ${barColor}`} style={{ width: `${pct}%` }} />
                                       </div>
-                                      {aiBatchProgress.interrupted && (
-                                        <div className="text-[10px] text-amber-700 mt-0.5">Already-classified rows are saved. Click "Classify all" again to resume the rest.</div>
-                                      )}
-                                      {!aiBatchProgress.running && !aiBatchProgress.interrupted && (aiBatchProgress.errors || 0) > 0 && (
+                                      {!aiBatchProgress.running && (aiBatchProgress.errors || 0) > 0 && (
                                         <div className="text-[10px] text-amber-700 mt-0.5">{aiBatchProgress.errors} error{aiBatchProgress.errors === 1 ? '' : 's'}</div>
                                       )}
                                     </div>
