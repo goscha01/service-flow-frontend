@@ -14,6 +14,25 @@ const EVENT_DEFS = [
 ]
 
 const PROV_SHORT = { openphone: 'OP', leadbridge: 'LB', customer: 'CR' }
+
+// Client-side CSV export for the unidentified-leads lists. Escapes quotes and
+// wraps any value that contains comma/quote/newline.
+function downloadCsv(filename, columns, rows) {
+  const esc = v => {
+    if (v == null) return ''
+    const s = String(v)
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+  }
+  const header = columns.map(c => esc(c.label)).join(',')
+  const body = (rows || []).map(r => columns.map(c => esc(typeof c.get === 'function' ? c.get(r) : r[c.key])).join(',')).join('\n')
+  const csv = header + '\n' + body
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url; a.download = filename
+  document.body.appendChild(a); a.click()
+  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url) }, 100)
+}
 const PROV_COLOR = { openphone: 'bg-blue-50 text-blue-600 border-blue-100', leadbridge: 'bg-amber-50 text-amber-600 border-amber-100', customer: 'bg-violet-50 text-violet-600 border-violet-100' }
 
 const LeadsSettings = () => {
@@ -685,12 +704,27 @@ const LeadsSettings = () => {
                               <strong>{ambigCount}</strong> reconciliation failure{ambigCount === 1 ? '' : 's'} — click to resolve
                             </summary>
                             {idAmbiguities?.items?.length > 0 && (
-                              <div className="mt-2 space-y-1 max-h-64 overflow-y-auto">
-                                {idAmbiguities.items.length < ambigCount && (
-                                  <div className="text-[10px] text-[var(--sf-text-muted)] mb-1">
-                                    Showing {idAmbiguities.items.length} of {ambigCount}.
+                              <div className="mt-2">
+                                <div className="flex items-center justify-between mb-1.5 gap-2">
+                                  <div className="text-[10px] text-[var(--sf-text-muted)]">
+                                    {idAmbiguities.items.length < ambigCount ? `Showing ${idAmbiguities.items.length} of ${ambigCount}.` : `Showing all ${ambigCount}.`}
                                   </div>
-                                )}
+                                  <button onClick={() => downloadCsv('reconciliation-failures.csv',
+                                    [
+                                      { key: 'id', label: 'ambiguity_id' },
+                                      { key: 'source', label: 'source' },
+                                      { key: 'attempted_name', label: 'attempted_name' },
+                                      { key: 'attempted_phone', label: 'attempted_phone' },
+                                      { key: 'reason', label: 'reason' },
+                                      { label: 'candidates', get: r => (r.candidate_identity_ids || []).join('; ') },
+                                    ],
+                                    idAmbiguities.items
+                                  )}
+                                    className="text-[10px] px-2 py-0.5 rounded border border-[var(--sf-border-light)] text-[var(--sf-blue-500)] hover:bg-[var(--sf-bg-hover)] flex items-center gap-1">
+                                    ⬇ CSV
+                                  </button>
+                                </div>
+                                <div className="space-y-1 max-h-64 overflow-y-auto">
                                 {idAmbiguities.items.map(row => (
                                   <button key={row.id} onClick={() => openAmbigModal(row)}
                                     className="w-full text-left text-[11px] font-mono px-2 py-1 bg-amber-50 hover:bg-amber-100 rounded cursor-pointer border border-transparent hover:border-amber-300">
@@ -700,6 +734,7 @@ const LeadsSettings = () => {
                                     {' · '}<em className="text-[10px]">{row.reason}</em>
                                   </button>
                                 ))}
+                                </div>
                               </div>
                             )}
                           </details>
@@ -717,11 +752,27 @@ const LeadsSettings = () => {
                                       ? `Showing ${issues.namedContactsMissingCompany.sample.length} of ${opCompanyCount}.`
                                       : `Showing all ${opCompanyCount}.`}
                                   </div>
-                                  <button onClick={handleAiClassifyOpContacts} disabled={aiBatchBusy}
-                                    className="text-[10px] px-2 py-0.5 rounded border border-[var(--sf-border-light)] text-[var(--sf-blue-500)] hover:bg-[var(--sf-bg-hover)] disabled:opacity-50 flex items-center gap-1">
-                                    {aiBatchBusy ? <Loader2 size={10} className="animate-spin" /> : <>🤖</>}
-                                    Classify all with AI
-                                  </button>
+                                  <div className="flex gap-2">
+                                    <button onClick={() => downloadCsv('op-contacts-missing-company.csv',
+                                      [
+                                        { key: 'participant_name', label: 'name' },
+                                        { key: 'participant_phone', label: 'phone' },
+                                        { key: 'ai_category', label: 'ai_category' },
+                                        { key: 'ai_confidence', label: 'ai_confidence' },
+                                        { key: 'ai_summary', label: 'ai_summary' },
+                                        { key: 'participant_identity_id', label: 'identity_id' },
+                                      ],
+                                      issues.namedContactsMissingCompany.sample
+                                    )}
+                                      className="text-[10px] px-2 py-0.5 rounded border border-[var(--sf-border-light)] text-[var(--sf-blue-500)] hover:bg-[var(--sf-bg-hover)] flex items-center gap-1">
+                                      ⬇ CSV
+                                    </button>
+                                    <button onClick={handleAiClassifyOpContacts} disabled={aiBatchBusy}
+                                      className="text-[10px] px-2 py-0.5 rounded border border-[var(--sf-border-light)] text-[var(--sf-blue-500)] hover:bg-[var(--sf-bg-hover)] disabled:opacity-50 flex items-center gap-1">
+                                      {aiBatchBusy ? <Loader2 size={10} className="animate-spin" /> : <>🤖</>}
+                                      Classify all with AI
+                                    </button>
+                                  </div>
                                 </div>
                                 <div className="space-y-1 max-h-64 overflow-y-auto">
                                   {issues.namedContactsMissingCompany.sample.map(c => {
@@ -773,11 +824,28 @@ const LeadsSettings = () => {
                                   <div className="text-[10px] text-[var(--sf-text-muted)]">
                                     {idUnresolved.items.length < floatingCount ? `Showing ${idUnresolved.items.length} of ${floatingCount}.` : `Showing all ${floatingCount}.`}
                                   </div>
-                                  <button onClick={handleAiClassifyBatch} disabled={aiBatchBusy}
-                                    className="text-[10px] px-2 py-0.5 rounded border border-[var(--sf-border-light)] text-[var(--sf-blue-500)] hover:bg-[var(--sf-bg-hover)] disabled:opacity-50 flex items-center gap-1">
-                                    {aiBatchBusy ? <Loader2 size={10} className="animate-spin" /> : <>🤖</>}
-                                    Classify all with AI
-                                  </button>
+                                  <div className="flex gap-2">
+                                    <button onClick={() => downloadCsv('floating-identities.csv',
+                                      [
+                                        { key: 'id', label: 'identity_id' },
+                                        { key: 'display_name', label: 'name' },
+                                        { key: 'normalized_phone', label: 'phone' },
+                                        { key: 'ai_category', label: 'ai_category' },
+                                        { key: 'ai_confidence', label: 'ai_confidence' },
+                                        { key: 'ai_summary', label: 'ai_summary' },
+                                        { key: 'identity_priority_source', label: 'priority_source' },
+                                      ],
+                                      idUnresolved?.items || []
+                                    )}
+                                      className="text-[10px] px-2 py-0.5 rounded border border-[var(--sf-border-light)] text-[var(--sf-blue-500)] hover:bg-[var(--sf-bg-hover)] flex items-center gap-1">
+                                      ⬇ CSV
+                                    </button>
+                                    <button onClick={handleAiClassifyBatch} disabled={aiBatchBusy}
+                                      className="text-[10px] px-2 py-0.5 rounded border border-[var(--sf-border-light)] text-[var(--sf-blue-500)] hover:bg-[var(--sf-bg-hover)] disabled:opacity-50 flex items-center gap-1">
+                                      {aiBatchBusy ? <Loader2 size={10} className="animate-spin" /> : <>🤖</>}
+                                      Classify all with AI
+                                    </button>
+                                  </div>
                                 </div>
                                 {aiBatchProgress && (
                                   <div className="text-[10px] text-[var(--sf-text-muted)] mb-1">
