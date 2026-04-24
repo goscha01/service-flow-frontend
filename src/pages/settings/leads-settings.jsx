@@ -99,8 +99,8 @@ const LeadsSettings = () => {
       const [status, bySource, unresolved, ambiguities, outcomes, integrations] = await Promise.all([
         identitiesAPI.status(),
         identitiesAPI.bySource(),
-        identitiesAPI.unresolved({ limit: 50 }),
-        identitiesAPI.reconciliationFailures({ status: 'open', limit: 50 }),
+        identitiesAPI.unresolved({ limit: 200 }),
+        identitiesAPI.reconciliationFailures({ status: 'open', limit: 200 }),
         identitiesAPI.opLeadOutcomes().catch(() => null),
         integrationsAPI.status().catch(() => null),
       ])
@@ -586,6 +586,11 @@ const LeadsSettings = () => {
                             </summary>
                             {idAmbiguities?.items?.length > 0 && (
                               <div className="mt-2 space-y-1 max-h-64 overflow-y-auto">
+                                {idAmbiguities.items.length < ambigCount && (
+                                  <div className="text-[10px] text-[var(--sf-text-muted)] mb-1">
+                                    Showing {idAmbiguities.items.length} of {ambigCount}.
+                                  </div>
+                                )}
                                 {idAmbiguities.items.map(row => (
                                   <button key={row.id} onClick={() => openAmbigModal(row)}
                                     className="w-full text-left text-[11px] font-mono px-2 py-1 bg-amber-50 hover:bg-amber-100 rounded cursor-pointer border border-transparent hover:border-amber-300">
@@ -607,7 +612,9 @@ const LeadsSettings = () => {
                             {(issues?.namedContactsMissingCompany?.sample || []).length > 0 && (
                               <div className="mt-2 space-y-0.5 max-h-64 overflow-y-auto text-[11px] text-[var(--sf-text-muted)]">
                                 <div className="text-[10px] text-[var(--sf-text-muted)] mb-1">
-                                  Showing {issues.namedContactsMissingCompany.sample.length} of {opCompanyCount} — open each in OpenPhone and add Company.
+                                  {issues.namedContactsMissingCompany.sample.length < opCompanyCount
+                                    ? `Showing ${issues.namedContactsMissingCompany.sample.length} of ${opCompanyCount} — open each in OpenPhone and add Company.`
+                                    : `Open each in OpenPhone and add Company.`}
                                 </div>
                                 {issues.namedContactsMissingCompany.sample.map(c => (
                                   <div key={c.id} className="font-mono py-0.5 px-2 bg-[var(--sf-bg-page)] rounded">
@@ -626,6 +633,11 @@ const LeadsSettings = () => {
                             </summary>
                             {idUnresolved?.items?.length > 0 && (
                               <div className="mt-2 space-y-1 max-h-64 overflow-y-auto">
+                                {idUnresolved.items.length < floatingCount && (
+                                  <div className="text-[10px] text-[var(--sf-text-muted)] mb-1">
+                                    Showing {idUnresolved.items.length} of {floatingCount}.
+                                  </div>
+                                )}
                                 {idUnresolved.items.map(row => (
                                   <div key={row.id} className="text-[11px] font-mono flex gap-2 items-center px-2 py-1 bg-[var(--sf-bg-page)] rounded">
                                     <span className="text-[var(--sf-text-muted)]">#{row.id}</span>
