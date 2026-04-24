@@ -555,146 +555,127 @@ const LeadsSettings = () => {
             </div>
 
             <div className="bg-white rounded-xl border border-[var(--sf-border-light)] p-5 space-y-4">
-              {/* Status buckets */}
+              {/* Simplified three-bucket summary: Connected / Need review / Ignored.
+                  Implementation-level buckets (customer/lead/both/floating/aggregator/noise
+                  + source coverage) live behind a <details> drawer. */}
               {idStatus ? (
-                <>
-                  <div>
-                    <div className="text-[11px] uppercase tracking-wider text-[var(--sf-text-muted)] font-semibold mb-2">
-                      Identity status · {idStatus.total} total
-                    </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                      <div className="bg-green-50 border border-green-100 rounded-lg p-3" title="Identity linked to an SF customer">
-                        <div className="text-[10px] uppercase tracking-wider text-green-700 font-semibold">Customer</div>
-                        <div className="text-lg font-bold text-green-800 mt-0.5">{idStatus.crm_linked?.resolved_customer || 0}</div>
-                      </div>
-                      <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-3" title="Identity linked to an SF lead">
-                        <div className="text-[10px] uppercase tracking-wider text-emerald-700 font-semibold">Lead</div>
-                        <div className="text-lg font-bold text-emerald-800 mt-0.5">{idStatus.crm_linked?.resolved_lead || 0}</div>
-                      </div>
-                      <div className="bg-teal-50 border border-teal-100 rounded-lg p-3" title="Linked to BOTH lead and customer (goal state for converted leads)">
-                        <div className="text-[10px] uppercase tracking-wider text-teal-700 font-semibold">Both</div>
-                        <div className="text-lg font-bold text-teal-800 mt-0.5">{idStatus.crm_linked?.resolved_both || 0}</div>
-                      </div>
-                      <div className="bg-amber-50 border border-amber-100 rounded-lg p-3" title="Multiple candidates — awaiting operator decision">
-                        <div className="text-[10px] uppercase tracking-wider text-amber-700 font-semibold">Ambiguous</div>
-                        <div className="text-lg font-bold text-amber-800 mt-0.5">{idStatus.ambiguous || 0}</div>
-                      </div>
-                    </div>
-                    {/* Floating sub-buckets — named actionable vs aggregator vs noise */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
-                      <div className="bg-violet-50 border border-violet-100 rounded-lg p-3" title="Real people with names — no CRM record yet (actionable)">
-                        <div className="text-[10px] uppercase tracking-wider text-violet-700 font-semibold">Floating (named)</div>
-                        <div className="text-lg font-bold text-violet-800 mt-0.5">{idStatus.unresolved_floating_true || 0}</div>
-                      </div>
-                      <div className="bg-sky-50 border border-sky-100 rounded-lg p-3" title="Platform alias (Thumbtack/Yelp/etc) — intentionally no CRM record">
-                        <div className="text-[10px] uppercase tracking-wider text-sky-700 font-semibold">Aggregator</div>
-                        <div className="text-lg font-bold text-sky-800 mt-0.5">{idStatus.floating_aggregator || 0}</div>
-                      </div>
-                      <div className="bg-gray-100 border border-gray-200 rounded-lg p-3" title="Unsaved phone callers — no name in OpenPhone, not actionable">
-                        <div className="text-[10px] uppercase tracking-wider text-gray-600 font-semibold">Noise</div>
-                        <div className="text-lg font-bold text-gray-700 mt-0.5">{idStatus.floating_noise || 0}</div>
-                      </div>
-                      <div className="bg-gray-50 border border-gray-100 rounded-lg p-3" title="Sync-source (Zenbooker/future BK/Sheets) — not counted as floating">
-                        <div className="text-[10px] uppercase tracking-wider text-gray-600 font-semibold">Sync-only</div>
-                        <div className="text-lg font-bold text-gray-800 mt-0.5">{idStatus.sync_only || 0}</div>
-                      </div>
-                    </div>
-                    {(idStatus.ambiguities_open || 0) > 0 && (
-                      <div className="text-[11px] text-amber-700 mt-2">
-                        <strong>{idStatus.ambiguities_open}</strong> open reconciliation failure{idStatus.ambiguities_open === 1 ? '' : 's'} in the ambiguity queue.
-                      </div>
-                    )}
+                <div>
+                  <div className="text-[11px] uppercase tracking-wider text-[var(--sf-text-muted)] font-semibold mb-2">
+                    Identities · {idStatus.total} total
                   </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                    <div className="bg-green-50 border border-green-100 rounded-lg p-3" title="Identity linked to a customer or lead">
+                      <div className="text-[10px] uppercase tracking-wider text-green-700 font-semibold">Connected</div>
+                      <div className="text-xl font-bold text-green-800 mt-0.5">{idStatus.connected || 0}</div>
+                      <div className="text-[10px] text-green-700/80 mt-0.5">customer or lead</div>
+                    </div>
+                    <div className="bg-amber-50 border border-amber-100 rounded-lg p-3" title="Floating-named identities + open ambiguities">
+                      <div className="text-[10px] uppercase tracking-wider text-amber-700 font-semibold">Need review</div>
+                      <div className="text-xl font-bold text-amber-800 mt-0.5">{idStatus.need_review || 0}</div>
+                      <div className="text-[10px] text-amber-700/80 mt-0.5">floating names + ambiguities</div>
+                    </div>
+                    <div className="bg-gray-50 border border-gray-100 rounded-lg p-3" title="Unnamed numbers and aggregator/platform aliases — auto-excluded">
+                      <div className="text-[10px] uppercase tracking-wider text-gray-600 font-semibold">Ignored</div>
+                      <div className="text-xl font-bold text-gray-700 mt-0.5">{idStatus.ignored || 0}</div>
+                      <div className="text-[10px] text-gray-600/80 mt-0.5">unnamed + aggregators</div>
+                    </div>
+                  </div>
+                  {(idStatus.ambiguities_open || 0) > 0 && (
+                    <div className="text-[11px] text-amber-700 mt-2">
+                      <strong>{idStatus.ambiguities_open}</strong> open reconciliation failure{idStatus.ambiguities_open === 1 ? '' : 's'} in the ambiguity queue.
+                    </div>
+                  )}
 
-                  {/* Source coverage */}
-                  {idBySource && (() => {
-                    const s = idBySource.single_source || {}
-                    const multi = idBySource.multi_source || 0
-                    const sum = multi + (s.leadbridge_only || 0) + (s.openphone_only || 0) + (s.zenbooker_only || 0) + (s.no_source_ids || 0)
-                    const total = idBySource.total || 0
-                    const reconciles = sum === total
-                    return (
-                      <div className="pt-3 border-t border-[var(--sf-border-light)]">
-                        <div className="text-[11px] uppercase tracking-wider text-[var(--sf-text-muted)] font-semibold mb-2">
-                          Source coverage
+                  {/* Drill-down: implementation-level categories and source coverage */}
+                  <details className="mt-3">
+                    <summary className="text-[11px] text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-600)] cursor-pointer">
+                      View details
+                    </summary>
+                    <div className="mt-2 space-y-3">
+                      <div className="grid grid-cols-3 gap-2 text-[11px]">
+                        <div className="bg-white border border-[var(--sf-border-light)] rounded p-2">
+                          <div className="text-[var(--sf-text-muted)]">Customer</div>
+                          <div className="font-semibold">{idStatus.details?.resolved_customer || 0}</div>
                         </div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                          <div className="bg-blue-50 border border-blue-100 rounded-lg p-3" title="Same person converged across 2+ sources (goal state)">
-                            <div className="text-[10px] uppercase tracking-wider text-blue-700 font-semibold">Multi-source</div>
-                            <div className="text-lg font-bold text-blue-800 mt-0.5">{multi}</div>
-                          </div>
-                          <div className="bg-gray-50 border border-gray-100 rounded-lg p-3" title="leadbridge_contact_id, thumbtack_profile_id, or yelp_profile_id only">
-                            <div className="text-[10px] uppercase tracking-wider text-gray-600 font-semibold">LB only</div>
-                            <div className="text-lg font-bold text-gray-800 mt-0.5">{s.leadbridge_only || 0}</div>
-                          </div>
-                          <div className="bg-gray-50 border border-gray-100 rounded-lg p-3" title="openphone_contact_id, sigcore_participant_id, or sigcore_participant_key only">
-                            <div className="text-[10px] uppercase tracking-wider text-gray-600 font-semibold">OP only</div>
-                            <div className="text-lg font-bold text-gray-800 mt-0.5">{s.openphone_only || 0}</div>
-                          </div>
-                          <div className="bg-gray-50 border border-gray-100 rounded-lg p-3" title="zenbooker_customer_id only">
-                            <div className="text-[10px] uppercase tracking-wider text-gray-600 font-semibold">ZB only</div>
-                            <div className="text-lg font-bold text-gray-800 mt-0.5">{s.zenbooker_only || 0}</div>
-                          </div>
+                        <div className="bg-white border border-[var(--sf-border-light)] rounded p-2">
+                          <div className="text-[var(--sf-text-muted)]">Lead</div>
+                          <div className="font-semibold">{idStatus.details?.resolved_lead || 0}</div>
                         </div>
-                        <div className="text-[11px] text-[var(--sf-text-muted)] mt-2 space-y-0.5">
-                          {(s.no_source_ids || 0) > 0 && (
-                            <div>
-                              <strong>{s.no_source_ids}</strong> identities with no external source IDs (legacy / manually seeded).
-                            </div>
-                          )}
-                          <div className={reconciles ? '' : 'text-amber-700'}>
-                            Sum: {sum} / {total} {reconciles ? '✓' : '· mismatch — please report'}
-                          </div>
+                        <div className="bg-white border border-[var(--sf-border-light)] rounded p-2">
+                          <div className="text-[var(--sf-text-muted)]">Both</div>
+                          <div className="font-semibold">{idStatus.details?.resolved_both || 0}</div>
+                        </div>
+                        <div className="bg-white border border-[var(--sf-border-light)] rounded p-2">
+                          <div className="text-[var(--sf-text-muted)]">Floating named</div>
+                          <div className="font-semibold">{idStatus.details?.floating_named || 0}</div>
+                        </div>
+                        <div className="bg-white border border-[var(--sf-border-light)] rounded p-2">
+                          <div className="text-[var(--sf-text-muted)]">Aggregator</div>
+                          <div className="font-semibold">{idStatus.details?.floating_aggregator || 0}</div>
+                        </div>
+                        <div className="bg-white border border-[var(--sf-border-light)] rounded p-2">
+                          <div className="text-[var(--sf-text-muted)]">Noise</div>
+                          <div className="font-semibold">{idStatus.details?.floating_noise || 0}</div>
                         </div>
                       </div>
-                    )
-                  })()}
-                </>
+
+                      {idBySource && (() => {
+                        const s = idBySource.single_source || {}
+                        const multi = idBySource.multi_source || 0
+                        const sum = multi + (s.leadbridge_only || 0) + (s.openphone_only || 0) + (s.zenbooker_only || 0) + (s.no_source_ids || 0)
+                        const total = idBySource.total || 0
+                        const reconciles = sum === total
+                        return (
+                          <div className="text-[11px] text-[var(--sf-text-muted)]">
+                            Sources: <strong className="text-[var(--sf-text-primary)]">OP {s.openphone_only || 0}</strong> ·
+                            {' '}<strong className="text-[var(--sf-text-primary)]">LB {s.leadbridge_only || 0}</strong> ·
+                            {' '}<strong className="text-[var(--sf-text-primary)]">ZB {s.zenbooker_only || 0}</strong> ·
+                            {' '}<strong className="text-[var(--sf-text-primary)]">multi {multi}</strong>
+                            {(s.no_source_ids || 0) > 0 && <> · no-source {s.no_source_ids}</>}
+                            {!reconciles && <span className="text-amber-700"> · sum mismatch {sum}/{total}</span>}
+                          </div>
+                        )
+                      })()}
+                    </div>
+                  </details>
+                </div>
               ) : (
                 <div className="text-xs text-[var(--sf-text-muted)]">Loading identity metrics…</div>
               )}
 
-              {/* OpenPhone lead-creation outcomes — rolling 24h / 7d */}
+              {/* OpenPhone lead creation — one-line summary; per-outcome breakdown on demand. */}
               {opOutcomes && (() => {
-                const OUTCOME_ORDER = [
-                  { key: 'created_lead_openphone_direct', label: 'Created (direct)', color: 'bg-green-50 text-green-800 border-green-100' },
-                  { key: 'created_lead_openphone_lb_recovery', label: 'Created (LB recovery)', color: 'bg-emerald-50 text-emerald-800 border-emerald-100' },
-                  { key: 'linked_existing_customer_by_phone', label: 'Linked customer', color: 'bg-teal-50 text-teal-800 border-teal-100' },
-                  { key: 'linked_existing_lead_by_phone', label: 'Linked lead', color: 'bg-teal-50 text-teal-800 border-teal-100' },
-                  { key: 'skipped_missing_company', label: 'Skip: no company', color: 'bg-gray-50 text-gray-700 border-gray-100' },
-                  { key: 'skipped_out_of_age_window', label: 'Skip: out of window', color: 'bg-gray-50 text-gray-700 border-gray-100' },
-                ]
-                const flagOn = opOutcomes.flagsOn?.OPENPHONE_CONDITIONAL_LEAD_CREATION
-                const maxAge = opOutcomes.flagsOn?.max_age_days
+                const OUTCOME_LABELS = {
+                  created_lead_openphone_direct: 'Created (direct)',
+                  created_lead_openphone_lb_recovery: 'Created (LB recovery)',
+                  linked_existing_customer_by_phone: 'Linked customer',
+                  linked_existing_lead_by_phone: 'Linked lead',
+                  skipped_missing_company: 'Skip: no company',
+                  skipped_out_of_age_window: 'Skip: out of window',
+                }
+                const created24 = (opOutcomes.last24h?.created_lead_openphone_direct || 0)
+                  + (opOutcomes.last24h?.created_lead_openphone_lb_recovery || 0)
                 return (
                   <div className="pt-3 border-t border-[var(--sf-border-light)]">
-                    <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center justify-between">
                       <div className="text-[11px] uppercase tracking-wider text-[var(--sf-text-muted)] font-semibold">
                         OpenPhone lead creation
                       </div>
                       <div className="text-[10px] text-[var(--sf-text-muted)]">
-                        flag: <span className={flagOn ? 'text-green-700 font-semibold' : 'text-gray-500'}>{flagOn ? 'ON' : 'OFF'}</span>
-                        {maxAge != null ? ` · age window: ${maxAge}d` : ' · no age window'}
+                        <strong>{created24}</strong> created · <strong>{opOutcomes.total24h || 0}</strong> decisions / 24h
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
-                      {OUTCOME_ORDER.map(o => {
-                        const n24 = opOutcomes.last24h?.[o.key] || 0
-                        const n7 = opOutcomes.last7d?.[o.key] || 0
-                        return (
-                          <div key={o.key} className={`rounded-lg p-2 border ${o.color}`} title={o.key}>
-                            <div className="text-[9px] uppercase tracking-wider font-semibold truncate">{o.label}</div>
-                            <div className="text-sm font-bold mt-0.5">
-                              {n24}<span className="text-[10px] font-normal"> / 24h</span>
-                            </div>
-                            <div className="text-[10px] opacity-75">{n7} in 7d</div>
+                    <details className="mt-1">
+                      <summary className="text-[11px] text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-600)] cursor-pointer">View details</summary>
+                      <div className="mt-2 grid grid-cols-2 md:grid-cols-3 gap-1.5 text-[11px]">
+                        {Object.entries(OUTCOME_LABELS).map(([k, label]) => (
+                          <div key={k} className="bg-white border border-[var(--sf-border-light)] rounded p-2">
+                            <div className="text-[var(--sf-text-muted)] text-[10px] truncate">{label}</div>
+                            <div className="font-semibold">{opOutcomes.last24h?.[k] || 0}<span className="text-[var(--sf-text-muted)] font-normal text-[10px]"> · {opOutcomes.last7d?.[k] || 0} in 7d</span></div>
                           </div>
-                        )
-                      })}
-                    </div>
-                    <div className="text-[10px] text-[var(--sf-text-muted)] mt-1.5">
-                      Total: <strong>{opOutcomes.total24h || 0}</strong> decisions / 24h · <strong>{opOutcomes.total7d || 0}</strong> / 7d
-                    </div>
+                        ))}
+                      </div>
+                    </details>
                   </div>
                 )
               })()}
@@ -764,7 +745,7 @@ const LeadsSettings = () => {
                 <div className="pt-3 border-t border-[var(--sf-border-light)]">
                   <details>
                     <summary className="text-xs text-[var(--sf-blue-500)] cursor-pointer hover:text-[var(--sf-blue-600)]">
-                      View floating identities ({idStatus?.unresolved_floating_true || 0}) — operator review, not bulk import
+                      View floating identities ({idStatus?.details?.floating_named || 0}) — operator review, not bulk import
                     </summary>
                     <div className="mt-2 space-y-1 max-h-64 overflow-y-auto">
                       {idUnresolved.items.map(row => (
