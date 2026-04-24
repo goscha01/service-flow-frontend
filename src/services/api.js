@@ -2866,7 +2866,8 @@ export const identitiesAPI = {
   backfillProgress: async () => { const r = await api.get('/identities/backfill/progress'); return r.data; },
   opLeadOutcomes: async () => { const r = await api.get('/identities/op-lead-outcomes'); return r.data; },
   classify: async (id) => { const r = await api.post(`/identities/${id}/classify`); return r.data; },
-  classifyBatch: async (ids, max = 50) => { const r = await api.post('/identities/classify-batch', { ids, max }); return r.data; },
+  classifyBatch: async (ids, max = 200) => { const r = await api.post('/identities/classify-batch', { ids, max }); return r.data; },
+  classifyBatchProgress: async () => { const r = await api.get('/identities/classify-batch/progress'); return r.data; },
 };
 
 // Phase J — unified integrations. One Connect & Sync per source.
