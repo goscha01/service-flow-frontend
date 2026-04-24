@@ -448,14 +448,51 @@ const LeadsSettings = () => {
 
   // Sync all sources (OpenPhone + LeadBridge) — pulls fresh company data
   const handleSyncAll = async () => {
-    setSyncing(true); setSyncResult(null); setSyncProgress({ op: 'starting', lb: 'starting', zb: 'starting' })
+    setSyncing(true); setSyncResult(null)
+    setSyncProgress({ op: 'starting', lb: 'starting', zb: 'starting' })
     try {
-      // Run the same two-phase pipeline used by per-source Sync Now buttons,
-      // for all three sources in parallel. Each handleSyncIntegration call:
-      //   Phase 1: actual external pull (OP / LB / ZB endpoint)
-      //   Phase 2: orchestrator post-sync (source-fill + recreate-op-leads + issues)
-      const sources = ['openphone', 'leadbridge', 'zenbooker']
-      const results = await Promise.allSettled(sources.map(s => handleSyncIntegration(s)))
+      // Drive each of the three sources through the two-phase pipeline in
+      // parallel, updating syncProgress per source on each tick so the UI
+      // can render a live status row for each.
+      const sources = [
+        { key: 'openphone', short: 'op', api: openPhoneAPI, getProgress: () => openPhoneAPI.getSyncProgress(), startArg: undefined },
+        { key: 'leadbridge', short: 'lb', api: leadbridgeAPI, getProgress: () => leadbridgeAPI.getSyncProgress(), startArg: null },
+        { key: 'zenbooker',  short: 'zb', api: zenbookerAPI,  getProgress: () => zenbookerAPI.syncProgress(),    startArg: undefined },
+      ]
+      const setStatus = (short, patch) => setSyncProgress(prev => ({ ...prev, ...patch, [short]: patch.status || prev?.[short] }))
+
+      const runOne = async ({ key, short, api, getProgress, startArg }) => {
+        try {
+          // Phase 1: actual external pull.
+          setStatus(short, { status: 'pulling' })
+          await api.sync(startArg).catch(e => { if (e?.response?.status !== 409) throw e })
+          for (let i = 0; i < 300; i++) {
+            await new Promise(r => setTimeout(r, 2000))
+            let p; try { p = await getProgress() } catch { continue }
+            const s = p?.status
+            setStatus(short, {
+              status: s === 'running' ? 'pulling' : s,
+              [`${short}Synced`]: p?.synced, [`${short}Total`]: p?.total,
+            })
+            if (!s || s === 'done' || s === 'error' || s === 'idle' || s === 'completed') break
+          }
+          // Phase 2: orchestrator (source-fill + recreate-op-leads + issues).
+          setStatus(short, { status: 'finalizing' })
+          await integrationsAPI.sync(key).catch(e => { if (e?.response?.status !== 409) throw e })
+          for (let i = 0; i < 300; i++) {
+            await new Promise(r => setTimeout(r, 2000))
+            let p; try { p = await integrationsAPI.syncProgress(key) } catch { continue }
+            const s = p?.status
+            if (!s || s === 'done' || s === 'error' || s === 'idle') break
+          }
+          setStatus(short, { status: 'done' })
+        } catch (e) {
+          setStatus(short, { status: 'error', [`${short}Error`]: e?.response?.data?.error || e.message })
+          throw e
+        }
+      }
+
+      const results = await Promise.allSettled(sources.map(runOne))
       const errors = results.filter(r => r.status === 'rejected').length
       setSyncResult({
         ok: errors === 0,
@@ -625,12 +662,43 @@ const LeadsSettings = () => {
                 {syncing ? (
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 font-medium"><Loader2 size={12} className="animate-spin" /> Syncing sources...</div>
-                    {syncProgress && (
-                      <div className="grid grid-cols-2 gap-3 mt-1.5">
-                        <div>OpenPhone: {syncProgress.opSynced ?? 0}/{syncProgress.opTotal ?? '...'} ({syncProgress.op || 'starting'})</div>
-                        <div>LeadBridge: {syncProgress.lbSynced ?? 0}/{syncProgress.lbTotal ?? '...'} ({syncProgress.lb || 'starting'})</div>
-                      </div>
-                    )}
+                    {syncProgress && (() => {
+                      const sourceRow = (label, short) => {
+                        const status = syncProgress[short] || 'starting'
+                        const synced = syncProgress[`${short}Synced`]
+                        const total = syncProgress[`${short}Total`]
+                        const err = syncProgress[`${short}Error`]
+                        const dotClass = status === 'done' ? 'bg-green-500'
+                          : status === 'error' ? 'bg-red-500'
+                          : status === 'pulling' || status === 'finalizing' ? 'bg-blue-500 animate-pulse'
+                          : 'bg-gray-300'
+                        const pct = (total && total > 0) ? Math.min(100, Math.round((synced || 0) * 100 / total)) : null
+                        return (
+                          <div key={short}>
+                            <div className="flex items-center gap-2 text-[11px]">
+                              <span className={`w-1.5 h-1.5 rounded-full ${dotClass}`} />
+                              <span className="font-medium w-20">{label}</span>
+                              <span className="text-[var(--sf-text-muted)] flex-1">
+                                {status}{pct != null ? ` · ${synced}/${total} (${pct}%)` : (synced != null && total != null ? ` · ${synced}/${total}` : '')}
+                                {err && <span className="text-red-600"> · {err}</span>}
+                              </span>
+                            </div>
+                            {pct != null && (
+                              <div className="h-1 w-full bg-white/50 rounded mt-0.5 overflow-hidden">
+                                <div className={`h-full transition-all ${status === 'error' ? 'bg-red-500' : status === 'done' ? 'bg-green-500' : 'bg-blue-500'}`} style={{ width: `${pct}%` }} />
+                              </div>
+                            )}
+                          </div>
+                        )
+                      }
+                      return (
+                        <div className="space-y-1.5 mt-1.5">
+                          {sourceRow('OpenPhone', 'op')}
+                          {sourceRow('LeadBridge', 'lb')}
+                          {sourceRow('Zenbooker', 'zb')}
+                        </div>
+                      )
+                    })()}
                   </div>
                 ) : syncResult?.error ? (
                   `Error: ${syncResult.error}`
