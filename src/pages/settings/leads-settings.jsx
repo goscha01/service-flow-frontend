@@ -600,9 +600,24 @@ const LeadsSettings = () => {
                           </details>
                         )}
                         {opCompanyCount > 0 && (
-                          <div className="text-xs text-amber-800">
-                            <strong>{opCompanyCount}</strong> OpenPhone contact{opCompanyCount === 1 ? '' : 's'} missing Company tag — fix in OpenPhone to attribute their source.
-                          </div>
+                          <details className="text-xs">
+                            <summary className="cursor-pointer text-amber-800 hover:text-amber-900">
+                              <strong>{opCompanyCount}</strong> OpenPhone contact{opCompanyCount === 1 ? '' : 's'} missing Company tag — fix in OpenPhone to attribute their source
+                            </summary>
+                            {(issues?.namedContactsMissingCompany?.sample || []).length > 0 && (
+                              <div className="mt-2 space-y-0.5 max-h-64 overflow-y-auto text-[11px] text-[var(--sf-text-muted)]">
+                                <div className="text-[10px] text-[var(--sf-text-muted)] mb-1">
+                                  Showing {issues.namedContactsMissingCompany.sample.length} of {opCompanyCount} — open each in OpenPhone and add Company.
+                                </div>
+                                {issues.namedContactsMissingCompany.sample.map(c => (
+                                  <div key={c.id} className="font-mono py-0.5 px-2 bg-[var(--sf-bg-page)] rounded">
+                                    <span className="text-[var(--sf-text-primary)]">{c.participant_name}</span>
+                                    <span className="ml-2">{c.participant_phone}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </details>
                         )}
                         {floatingCount > 0 && (
                           <details className="text-xs">
