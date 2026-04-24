@@ -143,6 +143,41 @@ const LeadsSettings = () => {
     } catch (e) { alert('Classify failed: ' + (e.response?.data?.error || e.message)) }
     finally { setAiBusy(b => ({ ...b, [identityId]: false })) }
   }
+  // Same batch flow, but classifies the identities behind OP-contacts-missing-Company.
+  const handleAiClassifyOpContacts = async () => {
+    const sample = issues?.namedContactsMissingCompany?.sample || []
+    const unclassified = sample.filter(c => c.participant_identity_id && !c.ai_category).map(c => c.participant_identity_id)
+    if (unclassified.length === 0) { alert('Nothing to classify — all OP contacts already have an AI verdict.'); return }
+    if (!window.confirm(`Classify ${unclassified.length} OpenPhone contacts with AI? (~$${(unclassified.length * 0.0003).toFixed(3)} in OpenAI costs)`)) return
+    setAiBatchBusy(true); setAiBatchProgress({ done: 0, total: unclassified.length, cost: 0, running: true })
+    try {
+      await identitiesAPI.classifyBatch(unclassified, unclassified.length)
+      for (let i = 0; i < 600; i++) {
+        await new Promise(r => setTimeout(r, 3000))
+        let p
+        try { p = await identitiesAPI.classifyBatchProgress() } catch { continue }
+        if (!p) break
+        setAiBatchProgress(p)
+        if (!p.running) break
+      }
+      await loadIssues(); await loadIdentityReport()
+    } catch (e) {
+      if (e.response?.status === 409) {
+        for (let i = 0; i < 600; i++) {
+          await new Promise(r => setTimeout(r, 3000))
+          let p
+          try { p = await identitiesAPI.classifyBatchProgress() } catch { continue }
+          if (!p) break
+          setAiBatchProgress(p)
+          if (!p.running) break
+        }
+        await loadIssues(); await loadIdentityReport()
+      } else {
+        alert('Batch failed: ' + (e.response?.data?.error || e.message))
+      }
+    } finally { setAiBatchBusy(false) }
+  }
+
   const handleAiClassifyBatch = async () => {
     const items = idUnresolved?.items || []
     const unclassified = items.filter(r => !r.ai_category).map(r => r.id)
@@ -663,18 +698,54 @@ const LeadsSettings = () => {
                               <strong>{opCompanyCount}</strong> OpenPhone contact{opCompanyCount === 1 ? '' : 's'} missing Company tag — fix in OpenPhone to attribute their source
                             </summary>
                             {(issues?.namedContactsMissingCompany?.sample || []).length > 0 && (
-                              <div className="mt-2 space-y-0.5 max-h-64 overflow-y-auto text-[11px] text-[var(--sf-text-muted)]">
-                                <div className="text-[10px] text-[var(--sf-text-muted)] mb-1">
-                                  {issues.namedContactsMissingCompany.sample.length < opCompanyCount
-                                    ? `Showing ${issues.namedContactsMissingCompany.sample.length} of ${opCompanyCount} — open each in OpenPhone and add Company.`
-                                    : `Open each in OpenPhone and add Company.`}
-                                </div>
-                                {issues.namedContactsMissingCompany.sample.map(c => (
-                                  <div key={c.id} className="font-mono py-0.5 px-2 bg-[var(--sf-bg-page)] rounded">
-                                    <span className="text-[var(--sf-text-primary)]">{c.participant_name}</span>
-                                    <span className="ml-2">{c.participant_phone}</span>
+                              <div className="mt-2">
+                                <div className="flex items-center justify-between mb-1.5 gap-2">
+                                  <div className="text-[10px] text-[var(--sf-text-muted)]">
+                                    {issues.namedContactsMissingCompany.sample.length < opCompanyCount
+                                      ? `Showing ${issues.namedContactsMissingCompany.sample.length} of ${opCompanyCount}.`
+                                      : `Showing all ${opCompanyCount}.`}
                                   </div>
-                                ))}
+                                  <button onClick={handleAiClassifyOpContacts} disabled={aiBatchBusy}
+                                    className="text-[10px] px-2 py-0.5 rounded border border-[var(--sf-border-light)] text-[var(--sf-blue-500)] hover:bg-[var(--sf-bg-hover)] disabled:opacity-50 flex items-center gap-1">
+                                    {aiBatchBusy ? <Loader2 size={10} className="animate-spin" /> : <>🤖</>}
+                                    Classify all with AI
+                                  </button>
+                                </div>
+                                <div className="space-y-1 max-h-64 overflow-y-auto">
+                                  {issues.namedContactsMissingCompany.sample.map(c => {
+                                    const cat = c.ai_category
+                                    const catColor = cat === 'prospect' ? 'bg-emerald-100 text-emerald-800'
+                                      : cat === 'existing_customer' ? 'bg-blue-100 text-blue-800'
+                                      : cat === 'ad' ? 'bg-red-100 text-red-700'
+                                      : cat === 'wrong_number' ? 'bg-gray-200 text-gray-700'
+                                      : cat === 'unclear' ? 'bg-yellow-100 text-yellow-800'
+                                      : ''
+                                    const iid = c.participant_identity_id
+                                    const busy = iid && !!aiBusy[iid]
+                                    return (
+                                      <div key={c.id} className="text-[11px] px-2 py-1 bg-[var(--sf-bg-page)] rounded">
+                                        <div className="flex gap-2 items-center font-mono">
+                                          <span className="text-[var(--sf-text-primary)] truncate flex-1">{c.participant_name}</span>
+                                          <span className="text-[var(--sf-text-muted)] text-[10px]">{c.participant_phone}</span>
+                                          {cat ? (
+                                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${catColor}`} title={`${c.ai_confidence}% confidence`}>
+                                              {cat} {c.ai_confidence ? `· ${c.ai_confidence}%` : ''}
+                                            </span>
+                                          ) : iid ? (
+                                            <button onClick={() => handleAiClassify(iid)} disabled={busy || aiBatchBusy}
+                                              className="text-[10px] text-[var(--sf-blue-500)] hover:text-[var(--sf-blue-600)] disabled:opacity-40 flex items-center gap-0.5">
+                                              {busy ? <Loader2 size={10} className="animate-spin" /> : '🤖'}
+                                              Classify
+                                            </button>
+                                          ) : null}
+                                        </div>
+                                        {c.ai_summary && (
+                                          <div className="text-[10px] text-[var(--sf-text-muted)] mt-0.5 italic truncate">“{c.ai_summary}”</div>
+                                        )}
+                                      </div>
+                                    )
+                                  })}
+                                </div>
                               </div>
                             )}
                           </details>
