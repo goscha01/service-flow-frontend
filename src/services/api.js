@@ -2853,6 +2853,10 @@ export const identitiesAPI = {
     const r = await api.get(`/identities/reconciliation-failures?status=${status}&limit=${limit}&offset=${offset}`);
     return r.data;
   },
+  reconciliationFailuresCsv: async ({ status = 'open' } = {}) => {
+    const r = await api.get(`/identities/reconciliation-failures/export.csv?status=${status}`, { responseType: 'blob' });
+    return r.data;
+  },
   ambiguityCandidates: async (id) => {
     const r = await api.get(`/identities/ambiguities/${id}/candidates`);
     return r.data;
