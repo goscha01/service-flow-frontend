@@ -464,7 +464,7 @@ const LeadsSettings = () => {
                     <div className="text-[11px] uppercase tracking-wider text-[var(--sf-text-muted)] font-semibold mb-2">
                       Identity status · {idStatus.total} total
                     </div>
-                    <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                       <div className="bg-green-50 border border-green-100 rounded-lg p-3" title="Identity linked to an SF customer">
                         <div className="text-[10px] uppercase tracking-wider text-green-700 font-semibold">Customer</div>
                         <div className="text-lg font-bold text-green-800 mt-0.5">{idStatus.crm_linked?.resolved_customer || 0}</div>
@@ -481,9 +481,20 @@ const LeadsSettings = () => {
                         <div className="text-[10px] uppercase tracking-wider text-amber-700 font-semibold">Ambiguous</div>
                         <div className="text-lg font-bold text-amber-800 mt-0.5">{idStatus.ambiguous || 0}</div>
                       </div>
-                      <div className="bg-violet-50 border border-violet-100 rounded-lg p-3" title="Real-person floaters that are NOT sync-only">
-                        <div className="text-[10px] uppercase tracking-wider text-violet-700 font-semibold">Floating</div>
+                    </div>
+                    {/* Floating sub-buckets — named actionable vs aggregator vs noise */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
+                      <div className="bg-violet-50 border border-violet-100 rounded-lg p-3" title="Real people with names — no CRM record yet (actionable)">
+                        <div className="text-[10px] uppercase tracking-wider text-violet-700 font-semibold">Floating (named)</div>
                         <div className="text-lg font-bold text-violet-800 mt-0.5">{idStatus.unresolved_floating_true || 0}</div>
+                      </div>
+                      <div className="bg-sky-50 border border-sky-100 rounded-lg p-3" title="Platform alias (Thumbtack/Yelp/etc) — intentionally no CRM record">
+                        <div className="text-[10px] uppercase tracking-wider text-sky-700 font-semibold">Aggregator</div>
+                        <div className="text-lg font-bold text-sky-800 mt-0.5">{idStatus.floating_aggregator || 0}</div>
+                      </div>
+                      <div className="bg-gray-100 border border-gray-200 rounded-lg p-3" title="Unsaved phone callers — no name in OpenPhone, not actionable">
+                        <div className="text-[10px] uppercase tracking-wider text-gray-600 font-semibold">Noise</div>
+                        <div className="text-lg font-bold text-gray-700 mt-0.5">{idStatus.floating_noise || 0}</div>
                       </div>
                       <div className="bg-gray-50 border border-gray-100 rounded-lg p-3" title="Sync-source (Zenbooker/future BK/Sheets) — not counted as floating">
                         <div className="text-[10px] uppercase tracking-wider text-gray-600 font-semibold">Sync-only</div>
