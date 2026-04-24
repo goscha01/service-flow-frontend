@@ -2790,6 +2790,17 @@ export const jobExpensesAPI = {
   delete: async (id) => { const r = await api.delete(`/job-expenses/${id}`); return r.data; },
 };
 
+export const zenbookerAPI = {
+  sync: async (opts = {}) => {
+    const r = await api.post('/zenbooker/sync', opts);
+    return r.data;
+  },
+  syncProgress: async () => {
+    const r = await api.get('/zenbooker/sync/progress');
+    return r.data;
+  },
+};
+
 export const leadbridgeAPI = {
   connect: async (email, password) => { const r = await api.post('/integrations/leadbridge/connect', { email, password }); return r.data; },
   getStatus: async () => { const r = await api.get('/integrations/leadbridge/status'); return r.data; },

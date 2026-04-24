@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from "react"
 import { useNavigate } from "react-router-dom"
-import { leadAutomationAPI, leadSourcesAPI, leadSourceMappingsAPI, openPhoneAPI, leadbridgeAPI, sourceIssuesAPI, participantsAPI, identitiesAPI, integrationsAPI } from "../../services/api"
+import { leadAutomationAPI, leadSourcesAPI, leadSourceMappingsAPI, openPhoneAPI, leadbridgeAPI, zenbookerAPI, sourceIssuesAPI, participantsAPI, identitiesAPI, integrationsAPI } from "../../services/api"
 import { ChevronLeft, Zap, Loader2, Plus, X, Pencil, Check, Trash2, Wand2, GripVertical, ChevronDown, Search, RefreshCw, AlertTriangle, Users, HelpCircle, Database, Link2 } from "lucide-react"
 
 const EVENT_DEFS = [
@@ -156,18 +156,43 @@ const LeadsSettings = () => {
     finally { setIdReportLoading(false) }
   }
 
-  // Phase J — one Sync Now per integration. Polls until done, then refreshes.
+  // Phase J — one Sync Now per integration. Two-phase: (1) actual external pull
+  // via the source-specific endpoint, (2) post-sync orchestrator (source-fill
+  // + lead-recovery + issue counting). Polls each phase until done.
   const handleSyncIntegration = async (source) => {
     setSyncBusy(b => ({ ...b, [source]: true }))
-    try {
-      await integrationsAPI.sync(source)
-      // Poll progress until status is done/error/idle.
-      for (let i = 0; i < 300; i++) {
+    const pollUntilIdle = async (getProgress, max = 300) => {
+      for (let i = 0; i < max; i++) {
         await new Promise(r => setTimeout(r, 2000))
-        const p = await integrationsAPI.syncProgress(source)
-        if (p.status === 'done' || p.status === 'error' || p.status === 'idle') break
+        let p; try { p = await getProgress() } catch { continue }
+        const s = p?.status
+        if (!s || s === 'done' || s === 'error' || s === 'idle' || s === 'completed') return p
       }
-      await loadIdentityReport()
+      return null
+    }
+    try {
+      // Phase 1: actual external pull. Each source has its own established
+      // sync endpoint; we trigger then poll. Tolerant of 409 (already running).
+      try {
+        if (source === 'openphone') {
+          await openPhoneAPI.sync().catch(e => { if (e.response?.status !== 409) throw e })
+          await pollUntilIdle(() => openPhoneAPI.getSyncProgress())
+        } else if (source === 'leadbridge') {
+          await leadbridgeAPI.sync(null).catch(e => { if (e.response?.status !== 409) throw e })
+          await pollUntilIdle(() => leadbridgeAPI.getSyncProgress())
+        } else if (source === 'zenbooker') {
+          await zenbookerAPI.sync().catch(e => { if (e.response?.status !== 409) throw e })
+          await pollUntilIdle(() => zenbookerAPI.syncProgress())
+        }
+      } catch (phase1err) {
+        // Surface the error but still try the orchestrator post-sync — it's
+        // useful to run source-fill and lead-recovery even if the pull failed.
+        console.warn('Phase 1 (actual pull) failed:', phase1err)
+      }
+      // Phase 2: orchestrator (source-fill + recreate-op-leads + issue count).
+      await integrationsAPI.sync(source).catch(e => { if (e.response?.status !== 409) throw e })
+      await pollUntilIdle(() => integrationsAPI.syncProgress(source))
+      await loadIdentityReport(); await loadIssues()
     } catch (e) { alert('Sync failed: ' + (e.response?.data?.error || e.message)) }
     finally { setSyncBusy(b => ({ ...b, [source]: false })) }
   }
