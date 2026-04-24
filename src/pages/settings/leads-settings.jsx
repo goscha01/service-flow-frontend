@@ -448,40 +448,22 @@ const LeadsSettings = () => {
 
   // Sync all sources (OpenPhone + LeadBridge) — pulls fresh company data
   const handleSyncAll = async () => {
-    setSyncing(true); setSyncResult(null); setSyncProgress({ op: 'starting', lb: 'starting' })
+    setSyncing(true); setSyncResult(null); setSyncProgress({ op: 'starting', lb: 'starting', zb: 'starting' })
     try {
-      // Kick off both syncs in parallel
-      const [opStart, lbStart] = await Promise.allSettled([
-        openPhoneAPI.sync().catch(e => ({ error: e?.response?.data?.error || e.message })),
-        leadbridgeAPI.sync(null).catch(e => ({ error: e?.response?.data?.error || e.message })),
-      ])
-
-      // Poll both sync progresses until both are done
-      const poll = async () => {
-        const [opP, lbP] = await Promise.all([
-          openPhoneAPI.getSyncProgress().catch(() => ({ status: 'idle' })),
-          leadbridgeAPI.getSyncProgress().catch(() => ({ status: 'idle' })),
-        ])
-        setSyncProgress({
-          op: opP.status, opSynced: opP.synced, opTotal: opP.total,
-          lb: lbP.status, lbSynced: lbP.synced, lbTotal: lbP.total,
-        })
-        return opP.status !== 'running' && lbP.status !== 'running'
-      }
-
-      // Poll every 2 seconds for up to 5 minutes
-      const maxAttempts = 150
-      for (let i = 0; i < maxAttempts; i++) {
-        await new Promise(r => setTimeout(r, 2000))
-        if (await poll()) break
-      }
-
+      // Run the same two-phase pipeline used by per-source Sync Now buttons,
+      // for all three sources in parallel. Each handleSyncIntegration call:
+      //   Phase 1: actual external pull (OP / LB / ZB endpoint)
+      //   Phase 2: orchestrator post-sync (source-fill + recreate-op-leads + issues)
+      const sources = ['openphone', 'leadbridge', 'zenbooker']
+      const results = await Promise.allSettled(sources.map(s => handleSyncIntegration(s)))
+      const errors = results.filter(r => r.status === 'rejected').length
       setSyncResult({
-        ok: true,
-        message: 'Sync complete. Refresh to see updated sources.'
+        ok: errors === 0,
+        message: errors === 0
+          ? 'All three sources synced. Refresh to see updated sources.'
+          : `Sync finished with ${errors} of 3 sources erroring (likely an expired token — reconnect).`,
       })
-      // Reload mappings + issues (unmapped list + duplicates/missing will update)
-      await Promise.all([loadMappings(), loadIssues()])
+      await Promise.all([loadMappings(), loadIssues(), loadIdentityReport()])
     } catch (e) {
       setSyncResult({ error: e?.response?.data?.error || e.message })
     } finally {
